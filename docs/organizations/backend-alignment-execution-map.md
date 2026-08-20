@@ -24,6 +24,7 @@ Two items the 2026-06-18 audit trail flagged as gaps are confirmed fixed in curr
 | A | Team → Organization flattening | 🟡 A1-A3b done (`d422752`, `c942b12`, `cce51a2`, `2c8c1dc`); A3c/A4/A5/A7 remain — see sub-threads |
 | B | Orphaned endpoint triage (credit overflow) | ✅ Done — committed `c36828b` |
 | C | Doc hygiene | ⬜ Not started |
+| D | Project/Chat/Persona visibility staleness | 🟡 Project fixed (`d15f61a`); Chat/Persona confirmed same pattern, not yet fixed |
 
 ---
 
@@ -85,7 +86,17 @@ The back-end already did this (five migrations, ending in `flatten_teams_into_or
 
 ---
 
-## 6. Out of scope — don't build yet, blocked on the back-end
+## 6. Thread D — Project/Chat/Persona visibility staleness
+
+Found while working Thread A, not part of the original scope: the same rename that hit Team hit **Project** too, and the frontend never caught up. Confirmed directly against `services/projects/schemas.py`/`service.py`: the real backend fields are `organization_id` and `visibility: "private"|"org"` — `Project.team_id` and the `"team"` visibility value don't exist on the backend at all.
+
+- **✅ Fixed — committed `d15f61a`.** `lib/api/projects.ts` was still parsing a `team_id` field and a `"team"` visibility value the backend has never sent since the flattening migration — every project's shared/private status silently normalized to "private" regardless of its real backend value. Worse, the **share flow was completely inert**: the "Share" modal's Team option derived its list from org-context's `teams` (permanently empty per A3b), so it rendered greyed out with "No teams available" and clicking it did nothing — no project could be shared through the UI at all, in any org. Fixed with the same technique as A1 (correct the parsing, keep the output shape) so the ~10 other consumers of `ApiProject`/`ApiProjectSummary` (sidebar filtering, the projects list, Slack channel mapping, chat sharing) didn't need touching — their private/shared boolean is correct immediately. The share modal itself needed a real fix: removed the team-picker (there's only one organization to share with) and wired Save straight to the current org id, relabeled "Team" → "Shared" to match the spec's own vocabulary.
+- **Confirmed same pattern, not yet fixed:** `types/chat.ts` (`Chat.visibility: 'private'|'team'`, `team_id`) and `lib/api/personas.ts` (`visibility: 'private'|'team'`, `team_ids: string[]` — a multi-team deploy list). `SetVisibilityRequest` (the schema `set_project_visibility` uses) is explicitly shared by "the persona/project/chat visibility setters" per its own docstring, so these almost certainly have the identical staleness — likely the identical "share flow is inert" bug too, since chat-sharing UI (`ChatShareOverlay.tsx`) and persona-sharing UI also derive team lists from the same permanently-empty `teams`. Not verified to the same depth as Project yet — do that before fixing, the same way this fix started with reading the real schema first, not assuming the migration-plan doc's claim applied unchanged.
+- **Smaller follow-up, not blocking:** the "team name" lookups that used to matter when there were multiple teams (`orgTeams.find(t => t.id === project.teamId)?.name`) now always miss (teams permanently empty) and show generic fallbacks in ~10 files — LeftSidebar's project grouping, the projects list split view, Slack channel mapping, `ChatShareOverlay`. None of these are broken (they degrade to reasonable fallback text), just no longer meaningful — cosmetic cleanup once A3c's TeamSwitcher teardown happens, not urgent on its own.
+
+---
+
+## 7. Out of scope — don't build yet, blocked on the back-end
 
 These are real spec gaps (Part I of the compliance audit), but they're back-end gaps first — building front-end for them now would mean redoing the work once the back-end catches up:
 
@@ -94,6 +105,6 @@ These are real spec gaps (Part I of the compliance audit), but they're back-end 
 
 ---
 
-## 7. Sequencing recommendation
+## 8. Sequencing recommendation
 
 Threads B and C are small, independent, and don't block on Thread A — start them first while the Thread A endpoint-path question is being confirmed with the backend dev. Thread A's Phase 1 is the gating step for everything after it; Phases 2–4 can't start until the data layer lands.
