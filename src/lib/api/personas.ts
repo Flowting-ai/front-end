@@ -573,7 +573,7 @@ export async function listVersions(repoId: string): Promise<PersonaVersionListIt
   return apiFetchJson<PersonaVersionListItem[]>(PERSONA_VERSIONS_ENDPOINT(repoId));
 }
 
-async function urlToImageFile(url: string): Promise<File | null> {
+export async function urlToImageFile(url: string): Promise<File | null> {
   try {
     // S3 pre-signed URLs fail browser-side fetch due to CORS. Route them through
     // the Next.js proxy which runs server-side without CORS restrictions.
