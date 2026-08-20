@@ -16,7 +16,7 @@ import { MoveToProjectModal } from "@/components/MoveToProjectModal";
 import { addChatToProject } from "@/lib/api/projects";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
-import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
+import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
 import { listAutomations, getAutomation } from "@/lib/api/automations";
 import type { Automation, AutomationRun } from "@/lib/api/automations";
@@ -30,7 +30,6 @@ import type { Project, ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
 import { useOrg } from "@/context/org-context";
 import { getOrgSlackStatus } from "@/lib/api/slack";
-import type { Team as SwitcherTeam } from "@/components/TeamSwitcherDropdown";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
 import { Tooltip } from "@/components/Tooltip";
@@ -46,8 +45,6 @@ import {
   PROJECT_CHAT_NEW_ROUTE,
   PROJECTS_ROUTE,
   PROJECTS_NEW_ROUTE,
-  ORG_TEAM_ROUTE,
-  TEAM_ROUTE,
   ORG_MEMBERS_ROUTE,
   ORG_ACTIVITY_ROUTE,
   ORG_PLANS_ROUTE,
@@ -698,55 +695,6 @@ function ProjectsSection({
 
 // -- Teams sidebar components --------------------------------------------------
 
-// ── Team-switcher shaping helpers — feed the AccountMenu's own team-switcher
-//    block (see accountMenuTeamSwitcher below). The left sidebar no longer
-//    renders a team switcher of its own; switching teams happens there. ─
-
-// Only active (non-archived) teams — mirrors the /settings/teams page filter.
-// Archived teams have archived=true set via PATCH and may still appear in the
-// API response until their deleted_at is set by a subsequent hard-delete.
-function buildSwitcherTeams(teams: Team[], projects: Project[]): SwitcherTeam[] {
-  return teams.filter(t => !t.archived).map(t => ({
-    id:           t.id,
-    name:         t.name,
-    projectCount: projects.filter(p => p.teamId === t.id).length,
-    userRole:     t.myRole as WorkspaceRole,
-  }))
-}
-
-// No selection (or a stale/invalid one) falls back to the first active team —
-// the switcher always shows a real team by default, never a "Personal
-// Projects" state (that's a separate, unrelated nav section).
-function pickTriggerTeam(
-  teams: Team[],
-  projects: Project[],
-  activeTeamId: string | null,
-  role: WorkspaceRole,
-): { id: string; name: string; role: WorkspaceRole; projectCount: number } | null {
-  const activeTeams = teams.filter(t => !t.archived)
-  if (activeTeams.length === 0) return null
-  const activeTeam  = activeTeamId === null ? null : (activeTeams.find(t => t.id === activeTeamId) ?? null)
-  const displayTeam = activeTeam ?? activeTeams[0]!
-  return {
-    id:           displayTeam.id,
-    name:         displayTeam.name,
-    role:         (displayTeam.myRole ?? role) as WorkspaceRole,
-    projectCount: projects.filter(p => p.teamId === displayTeam.id).length,
-  }
-}
-
-function resolveTeamAction(push: (href: string) => void, role: WorkspaceRole, teamId: string, action: string) {
-  const isAdminRole = role === 'admin'
-  switch (action) {
-    case 'manage':     push(isAdminRole ? ORG_TEAM_ROUTE(teamId) : TEAM_ROUTE(teamId)); break
-    case 'projects':   push(`${TEAM_ROUTE(teamId)}?section=projects`); break
-    case 'connectors': push(`${TEAM_ROUTE(teamId)}?section=connectors`); break
-    case 'request':    push(isAdminRole ? ORG_MEMBERS_ROUTE : `${TEAM_ROUTE(teamId)}?section=requests`); break
-    case 'activity':   push(isAdminRole ? ORG_ACTIVITY_ROUTE : `${TEAM_ROUTE(teamId)}?section=activity`); break
-    case 'usage':      push(ORG_PLANS_ROUTE); break
-  }
-}
-
 interface TeamsSidebarContentProps {
   role: 'admin' | 'editor' | 'member'
   teams: Team[]
@@ -961,11 +909,18 @@ function goToAgentsLibrary(pathname: string | null, push: (href: string) => void
   push(AGENTS_ROUTE)
 }
 
+// Team has no backend route left at all, so there's no way to resolve a
+// shared persona's real owner any more — isPersonaOwnedByViewer falls back to
+// the coarse currentUserRole check for every org-shared persona (accepted
+// capability gap). Module-level so its reference stays stable across renders
+// instead of invalidating memoized values that depend on it every time.
+const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
+
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
-  const { orgId, teams, currentUserRole, members } = useOrg()
+  const { currentUserRole, members } = useOrg()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
   // viewer's internal id via the org member list instead (see resolveViewerUserId).
@@ -979,7 +934,11 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const [personaChatsMap, setPersonaChatsMap] = useState<
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
-  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
+  // Real per-persona ownership (not an org-role guess) — needed so the sidebar
+  // never surfaces a team-shared agent this viewer doesn't own. Its "New chat"
+  // button skips the clone-before-chat step the chat chip picker and Team
+  // panel use, so an un-owned team-shared agent here would 404 on first send.
+  const personaOwnerMap = EMPTY_PERSONA_OWNER_MAP
 
   // Shared cache/subscription across every usePersonas() consumer — still backed
   // by fetchPersonas() (same TTL, dedupe, enrichment); filter to team-shared only
@@ -989,17 +948,6 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
     () => personasForTeamContext(allPersonas ?? [], teamId ?? null),
     [allPersonas, teamId],
   )
-
-  // Real per-persona ownership (not an org-role guess) — needed so the sidebar
-  // never surfaces a team-shared agent this viewer doesn't own. Its "New chat"
-  // button skips the clone-before-chat step the chat chip picker and Team
-  // panel use, so an un-owned team-shared agent here would 404 on first send.
-  useEffect(() => {
-    if (!orgId || teams.length === 0) return
-    let cancelled = false
-    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
-    return () => { cancelled = true }
-  }, [orgId, teams])
 
   const personas = useMemo(
     () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
@@ -2406,25 +2354,8 @@ function LeftSidebarImpl({
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
-  const { chats: projectChats, getProject, projects: allTeamProjects } = useProjects();
+  const { chats: projectChats, getProject } = useProjects();
   const { orgId, org, plan, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
-
-  // Same team-switcher data the Sidebar's WorkspaceSwitcher shows, reused for
-  // the AccountMenu's own team-switcher block (see buildSwitcherTeams /
-  // pickTriggerTeam above). undefined when the viewer has no org or no teams.
-  const accountMenuTeamSwitcher = useMemo(() => {
-    if (!orgId) return undefined
-    const trigger = pickTriggerTeam(teams, allTeamProjects, activeTeamId, currentUserRole as WorkspaceRole)
-    if (!trigger) return undefined
-    return {
-      teams:         buildSwitcherTeams(teams, allTeamProjects),
-      activeTeamId:  activeTeamId ?? undefined,
-      triggerTeam:   trigger,
-      onSelectTeam:  (teamId: string) => setActiveTeamId(teamId),
-      onManageTeam:  (teamId: string) => resolveTeamAction(push, currentUserRole as WorkspaceRole, teamId, 'manage'),
-      onCreateTeam:  () => push(ORG_TEAMS_ROUTE),
-    }
-  }, [orgId, teams, allTeamProjects, activeTeamId, currentUserRole, setActiveTeamId, push])
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -2770,7 +2701,6 @@ function LeftSidebarImpl({
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
                 panelWidth={274}
-                teamSwitcher={accountMenuTeamSwitcher}
                 roleBadge={orgId && displayRole ? (
                   <Tooltip content={orgBadgeSublabel} side="top" delayDuration={300}>
                     <span style={{ display: 'inline-flex' }}>
@@ -2892,7 +2822,6 @@ function LeftSidebarImpl({
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
             panelWidth={274}
-            teamSwitcher={accountMenuTeamSwitcher}
             roleBadge={orgId && displayRole ? (
               <Tooltip content={orgBadgeSublabel} side="top" delayDuration={300}>
                 <span style={{ display: 'inline-flex' }}>

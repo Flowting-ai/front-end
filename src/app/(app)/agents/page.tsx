@@ -57,17 +57,23 @@ import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { Sparkline } from '@/components/Sparkline'
 import { ChangeAgentModelModal } from '@/components/ChangeAgentModelModal'
 import { FixAgentModelsModal, type UnavailableModelAgent } from '@/components/FixAgentModelsModal'
-import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
+import { resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'team-agents' | 'super-links'
-const TAB_IDS: TabId[] = ['my-personas', 'team-agents', 'super-links']
+type TabId = 'my-personas' | 'super-links'
+const TAB_IDS: TabId[] = ['my-personas', 'super-links']
+
+// Team has no backend route left at all, so there's no way to resolve a
+// shared persona's real owner any more — isPersonaOwnedByViewer falls back to
+// the coarse currentUserRole check for every org-shared persona (accepted
+// capability gap). Module-level so its reference stays stable across renders
+// instead of invalidating memoized values that depend on it every time.
+const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
 /** Reads `?tab=` — anything missing or unrecognized falls back to "My Agents". */
 function parseTabParam(value: string | null): TabId {
   return (TAB_IDS as string[]).includes(value ?? '') ? (value as TabId) : 'my-personas'
@@ -495,26 +501,14 @@ function PersonasPageInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { close: closePinboard } = usePinboard()
-  const { currentUserRole, orgId, teams, members } = useOrg()
+  const { currentUserRole, members } = useOrg()
   const { user } = useAuth()
   // `user?.id` is never populated (see resolveViewerUserId) — resolve the
   // viewer's internal id via the org member list instead, so ownership checks
   // below actually match against `personaOwnerMap`'s id space.
   const viewerUserId = resolveViewerUserId(members, user?.email)
 
-  // repoId -> the persona's actual creator (from the team-persona-shares
-  // endpoint, which already tracks this for the "Shared by X" org/teams panel).
-  // `currentUserRole` is an ORG-WIDE role, not per-persona ownership — using it
-  // alone would treat every admin as if they owned every admin-created
-  // team-shared agent, not just their own. Falls back to that coarse check only
-  // until this authoritative map has loaded, to avoid a flash for real owners.
-  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (!orgId || teams.length === 0) return
-    let cancelled = false
-    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
-    return () => { cancelled = true }
-  }, [orgId, teams])
+  const personaOwnerMap = EMPTY_PERSONA_OWNER_MAP
 
   function isOwnedByMe(persona: Persona): boolean {
     return isPersonaOwnedByViewer(persona, personaOwnerMap, viewerUserId, currentUserRole === 'admin')
@@ -1124,7 +1118,6 @@ function PersonasPageInner() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
-                <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
               </Tabs.List>
             </Tabs>
@@ -1139,17 +1132,13 @@ function PersonasPageInner() {
                 color: '#1a1916',
                 margin: 0,
               }}>
-                {activeTab === 'super-links'
-                  ? 'Super Links'
-                  : activeTab === 'team-agents'
-                    ? 'Team Agents'
-                    : 'Agents'}
+                {activeTab === 'super-links' ? 'Super Links' : 'Agents'}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* Super Links' own "Generate link" trigger now lives with the
                     links list section below (where it's contextually useful),
                     instead of being duplicated here too. */}
-                {activeTab === 'super-links' || activeTab === 'team-agents' ? null : (
+                {activeTab === 'super-links' ? null : (
                   <>
                     {/* Only appears when something is actually broken — a
                         standing button here would read as a permanent chore. */}
@@ -1568,10 +1557,6 @@ function PersonasPageInner() {
             </div>
           )}
 
-          {/* ── Team Agents tab ── */}
-          {activeTab === 'team-agents' && (
-            <TeamAgentsTab />
-          )}
 
           {/* ── Recommended for you ── (hidden) */}
 

@@ -10,7 +10,6 @@ import {
   ArrowRightOneIcon,
   CourtHouseIcon,
   AlertCircleIcon,
-  FolderAddIcon,
   LoginOneIcon,
   LinkSixIcon,
 } from '@strange-huge/icons'
@@ -18,36 +17,8 @@ import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { Badge } from '@/components/Badge'
-import { TeamSwitcherRow } from '@/components/TeamSwitcherRow'
-import { getGradient } from '@/lib/team-gradients'
-import { Tooltip } from '@/components/Tooltip'
-import type { WorkspaceRole } from '@/components/RoleBadge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-/**
- * Optional team-switcher block rendered near the top of the panel — the same
- * TeamSwitcherRow trigger the Sidebar's WorkspaceSwitcher uses, nested here as
- * a `Dropdown.Submenu` so it opens as a side flyout instead of a page-level
- * float. The flyout itself lists every team as a flat row (avatar + name),
- * with "Create new team" above and per-row manage/open actions surfaced on
- * hover — a simpler variant than the Sidebar's own TeamSwitcherDropdown (no
- * role badges, no "Teams you're part of" header). Omit entirely for viewers
- * with no org (individuals).
- */
-export interface AccountMenuTeamSwitcher {
-  /** Every non-archived team the viewer belongs to. */
-  teams: { id: string; name: string }[]
-  /** Currently selected team id — undefined falls back to the first team. */
-  activeTeamId?: string
-  /** The team shown on the trigger row itself (active team, or the first team as fallback). */
-  triggerTeam: { id: string; name: string; role: WorkspaceRole; projectCount: number }
-  onSelectTeam: (teamId: string) => void
-  /** Fires when the row's settings/gear action is clicked — e.g. navigate to that team's management page. */
-  onManageTeam?: (teamId: string) => void
-  /** Fires when "Create new team" is clicked. */
-  onCreateTeam?: () => void
-}
 
 export interface AccountMenuProps {
   /** Display name shown in both trigger and identity header. */
@@ -79,8 +50,6 @@ export interface AccountMenuProps {
    * click handler that opens/closes the same dropdown the default trigger uses.
    */
   renderTrigger?: (props: { onOpenSettingsClick: () => void }) => React.ReactElement
-  /** Team switcher block — TeamSwitcherRow trigger + TeamSwitcherDropdown flyout. Omit to hide (individuals). */
-  teamSwitcher?: AccountMenuTeamSwitcher
   /** Show the "Upgrade Plan" item. @default true (gate to individuals in the Sidebar). */
   showUpgradePlan?: boolean
   /** Force-show the "Organization" item (owner/admin). Otherwise it shows whenever `onOrganization` is provided. @default false */
@@ -290,146 +259,6 @@ const CreditsRow = ({ credits }: { credits: number }) => (
   </div>
 )
 
-// ── Team switcher flyout row — flat circle avatar + name, gear/open actions on
-// hover or when active. Distinct from the Sidebar's TeamRow: no role badge, no
-// gradient avatar, solid `--neutral-100` highlight instead of the translucent
-// dropdown hover tint. ────────────────────────────────────────────────────────
-
-function TeamFlyoutRow({
-  name,
-  isActive,
-  onSelect,
-  onManage,
-}: {
-  name: string
-  isActive: boolean
-  onSelect: () => void
-  onManage?: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-  const [manageIconHovered, setManageIconHovered] = useState(false)
-  const showActions = hovered || isActive
-
-  return (
-    <div
-      role="menuitem"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'space-between',
-        width:           '100%',
-        boxSizing:       'border-box',
-        gap:             '8px',
-        padding:         '6px',
-        borderRadius:    '10px',
-        cursor:          'pointer',
-        backgroundColor: isActive ? 'var(--neutral-100)' : 'transparent',
-        transition:      'background-color 150ms',
-        userSelect:      'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 0 0' }}>
-        {/* Square gradient avatar with the team's initial — same treatment as
-            the Sidebar's TeamRow tile, so a given team's tile color matches
-            across both switchers (see getGradient in TeamSwitcherDropdown). */}
-        <span
-          aria-hidden
-          style={{
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'center',
-            width:          20,
-            height:         20,
-            flexShrink:     0,
-            borderRadius:   '4px',
-            background:     getGradient(name),
-            fontFamily:     'var(--font-title)',
-            fontWeight:     500,
-            fontSize:       '11px',
-            lineHeight:     1,
-            color:          'var(--neutral-white)',
-            boxShadow:      'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
-          }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </span>
-        <span
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-medium)',
-            fontSize:     'var(--font-size-body)',
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--neutral-700)',
-            whiteSpace:   'nowrap',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {name}
-        </span>
-      </div>
-
-      {showActions && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-          <Tooltip content="Manage team" side="top" delayDuration={300}>
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label="Manage team"
-              onClick={(e) => { e.stopPropagation(); onManage?.() }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onManage?.() } }}
-              onMouseEnter={() => setManageIconHovered(true)}
-              onMouseLeave={() => setManageIconHovered(false)}
-              style={{
-                display: 'inline-flex', cursor: 'pointer', transition: 'color 150ms',
-                color: manageIconHovered ? 'var(--neutral-black)' : 'var(--neutral-500)',
-              }}
-            >
-              <SettingsOneIcon size={16} />
-            </span>
-          </Tooltip>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Team switcher flyout panel — "Create new team" + flat team list ───────────
-
-function TeamSwitcherFlyout({ teamSwitcher }: { teamSwitcher: AccountMenuTeamSwitcher }) {
-  return (
-    <Dropdown maxHeight={false} style={{ width: '300px' }}>
-      <Dropdown.Section fluid>
-        <Dropdown.Item
-          icon={<FolderAddIcon />}
-          label="Create new team"
-          fluid
-          onClick={() => teamSwitcher.onCreateTeam?.()}
-        />
-      </Dropdown.Section>
-
-      <Divider decorative />
-
-      <Dropdown.Section fluid>
-        {teamSwitcher.teams.map((team) => (
-          <TeamFlyoutRow
-            key={team.id}
-            name={team.name}
-            isActive={team.id === (teamSwitcher.activeTeamId ?? teamSwitcher.triggerTeam.id)}
-            onSelect={() => teamSwitcher.onSelectTeam(team.id)}
-            onManage={() => teamSwitcher.onManageTeam?.(team.id)}
-          />
-        ))}
-      </Dropdown.Section>
-    </Dropdown>
-  )
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AccountMenu({
@@ -446,7 +275,6 @@ export function AccountMenu({
   collapsed = false,
   roleBadge,
   renderTrigger,
-  teamSwitcher,
   showUpgradePlan = true,
   showOrganization = false,
   onProfile,
@@ -462,7 +290,6 @@ export function AccountMenu({
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = controlledOpen !== undefined
   const open         = isControlled ? controlledOpen : internalOpen
-  const [teamSwitcherOpen, setTeamSwitcherOpen] = useState(false)
 
   const handleOpenChange = (v: boolean) => {
     if (!isControlled) setInternalOpen(v)
@@ -571,31 +398,6 @@ export function AccountMenu({
               fluid
               onClick={() => { onLogOut?.(); close() }}
             />
-
-            {teamSwitcher && (
-              <Dropdown.Submenu
-                open={teamSwitcherOpen}
-                onOpenChange={setTeamSwitcherOpen}
-                trigger={
-                  <TeamSwitcherRow
-                    teamName={teamSwitcher.triggerTeam.name}
-                    teamId={teamSwitcher.triggerTeam.id}
-                    projectCount={teamSwitcher.triggerTeam.projectCount}
-                    currentUserRole={teamSwitcher.triggerTeam.role}
-                    isOpen={teamSwitcherOpen}
-                  />
-                }
-              >
-                <TeamSwitcherFlyout
-                  teamSwitcher={{
-                    ...teamSwitcher,
-                    onSelectTeam: (teamId) => { teamSwitcher.onSelectTeam(teamId); setTeamSwitcherOpen(false); close() },
-                    onManageTeam: (teamId) => { teamSwitcher.onManageTeam?.(teamId); setTeamSwitcherOpen(false); close() },
-                    onCreateTeam: () => { teamSwitcher.onCreateTeam?.(); setTeamSwitcherOpen(false); close() },
-                  }}
-                />
-              </Dropdown.Submenu>
-            )}
           </Dropdown.Section>
         </Dropdown>
       </Dropdown.Float>
