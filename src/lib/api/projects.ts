@@ -25,8 +25,8 @@ export interface ProjectDocumentResponse {
 export interface ProjectSummary {
   id:             string
   owner_user_id:  string
-  team_id?:       string | null
-  visibility:     'private' | 'team'
+  organization_id?: string | null
+  visibility:     'private' | 'org'
   can_edit:       boolean
   can_manage_visibility: boolean
   title:          string
@@ -44,8 +44,8 @@ export interface ProjectResponse {
   description:        string
   system_instruction: string
   tags:               string[]
-  team_id?:           string | null
-  visibility:         'private' | 'team'
+  organization_id?:   string | null
+  visibility:         'private' | 'org'
   can_edit:           boolean
   can_manage_visibility: boolean
   created_at:         string
@@ -124,8 +124,13 @@ function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
   return {
     id:            p.id,
     ownerUserId:   p.owner_user_id,
-    teamId:        p.team_id ?? null,
-    visibility:    p.visibility,
+    // Backend field is organization_id (Project.team_id was renamed in the
+    // flatten-teams-into-organizations migration) — kept as `teamId` here so
+    // the ~10 consumers of this shape don't all need touching in the same
+    // pass; there's only ever one organization, so this now just means
+    // "shared with the workspace" rather than a specific team.
+    teamId:        p.organization_id ?? null,
+    visibility:    p.visibility === 'org' ? 'team' : 'private',
     canEdit:       p.can_edit,
     canManageVisibility: p.can_manage_visibility,
     title:         p.title,
@@ -145,8 +150,9 @@ function normalizeProject(p: ProjectResponse): ApiProject {
     description:       p.description,
     systemInstruction: p.system_instruction ?? '',
     tags:              p.tags ?? [],
-    teamId:            p.team_id ?? null,
-    visibility:        p.visibility,
+    // See normalizeProjectSummary — organization_id kept as teamId at this boundary.
+    teamId:            p.organization_id ?? null,
+    visibility:        p.visibility === 'org' ? 'team' : 'private',
     canEdit:           p.can_edit,
     canManageVisibility: p.can_manage_visibility,
     createdAt:         p.created_at,
@@ -197,7 +203,7 @@ export async function createProjectApi(params: CreateProjectParams): Promise<Api
   if (params.description)       form.append('description', params.description)
   if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
   if (params.tags)             form.append('tags', JSON.stringify(params.tags))
-  if (params.teamId)           form.append('team_id', params.teamId)
+  if (params.teamId)           form.append('organization_id', params.teamId)
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
@@ -279,8 +285,11 @@ export async function setProjectVisibility(
   visibility: 'private' | 'team',
   teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility }
-  if (visibility === 'team' && teamId) body.teamId = teamId
+  // Wire format is SetVisibilityRequest{visibility: "private"|"org", organizationId?}
+  // — there's only ever one organization now, so `teamId` here is really just
+  // the caller's org id, not a choice among several teams.
+  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'org' : 'private' }
+  if (visibility === 'team' && teamId) body.organizationId = teamId
   const res = await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
     method: 'PATCH',
     body:   JSON.stringify(body),

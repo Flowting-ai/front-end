@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
@@ -90,7 +90,7 @@ export default function ProjectPage() {
   const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
-  const { caps, members, teams: orgTeams } = useOrg()
+  const { orgId, org, caps, members, teams: orgTeams } = useOrg()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
@@ -130,9 +130,7 @@ export default function ProjectPage() {
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
   const [shareOpen,        setShareOpen]        = useState(false)
-  const [shareTeamId,      setShareTeamId]      = useState('')
   const [shareVisibility,  setShareVisibility]  = useState<'private' | 'team'>('private')
-  const [shareTeamsOpen,   setShareTeamsOpen]   = useState(false)
   const [sharingSaving,    setSharingSaving]    = useState(false)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<Chat[]>([])
@@ -350,8 +348,6 @@ export default function ProjectPage() {
 
   function handleOpenShare() {
     setShareVisibility(project?.teamId ? 'team' : 'private')
-    setShareTeamId(project?.teamId ?? '')
-    setShareTeamsOpen(false)
     setShareOpen(true)
   }
 
@@ -365,7 +361,7 @@ export default function ProjectPage() {
   async function handleSaveVisibility() {
     setSharingSaving(true)
     try {
-      await setProjectVisibility(projectId, shareVisibility, shareVisibility === 'team' ? shareTeamId : undefined)
+      await setProjectVisibility(projectId, shareVisibility, shareVisibility === 'team' ? (orgId ?? undefined) : undefined)
       await loadProject(projectId)
       toast.success('Project visibility updated')
       setShareOpen(false)
@@ -1164,139 +1160,43 @@ export default function ProjectPage() {
               {!project.teamId ? (
                 <Badge color="Neutral" label="Private" />
               ) : (
-                <Badge
-                  color="Blue"
-                  label={orgTeams.find(t => t.id === project.teamId)?.name ?? 'Unknown team'}
-                />
+                <Badge color="Blue" label="Shared" />
               )}
             </div>
 
-            {(() => {
-              const shareableTeams = orgTeams.filter(t => !t.archived)
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                  {/* Private / Team — stacked, not side by side, each boxed in
-                      its own matching border so the two options read as equal
-                      peers. Private only shows for the project's actual
-                      creator — anyone else managing a team project can't take
-                      it private (the backend would 403 that PATCH). */}
-                  {isProjectOwner && (
-                    <div style={{ padding: 8, borderRadius: 16, border: '1px solid var(--neutral-200)' }}>
-                      <ModelFeaturedCard
-                        title="Private"
-                        description="Only you can see this project."
-                        selected={shareVisibility === 'private'}
-                        onSelectedChange={next => { if (next) setShareVisibility('private') }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Team card + its team-picker share one bordered box, so the
-                      "pick a team" control reads as belonging to the Team
-                      option rather than as a separate, unrelated control. */}
-                  <div
-                    style={{
-                      display:       'flex',
-                      flexDirection: 'column',
-                      gap:           8,
-                      padding:       8,
-                      borderRadius:  16,
-                      border:        '1px solid var(--neutral-200)',
-                    }}
-                  >
-                    <ModelFeaturedCard
-                      title="Team"
-                      description={shareableTeams.length === 0 ? 'No teams available' : 'Team editors and assigned members can access it.'}
-                      selected={shareVisibility === 'team'}
-                      onSelectedChange={next => { if (next && shareableTeams.length > 0) setShareVisibility('team') }}
-                      style={{
-                        opacity: shareableTeams.length === 0 ? 0.45 : 1,
-                        cursor:  shareableTeams.length === 0 ? 'not-allowed' : 'pointer',
-                      }}
-                    />
-
-                    {shareVisibility === 'team' && shareableTeams.length > 0 && (
-                      <Dropdown.Float
-                        open={shareTeamsOpen}
-                        onOpenChange={setShareTeamsOpen}
-                        placement="right-start"
-                        trigger={
-                          <button
-                            type="button"
-                            style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-                              width: '100%', padding: '10px 12px', borderRadius: 8,
-                              border: '1px solid var(--neutral-200)', cursor: 'pointer',
-                              backgroundColor: 'white',
-                              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px',
-                              color: shareTeamId ? 'var(--neutral-900)' : 'var(--neutral-500)',
-                            }}
-                          >
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {shareTeamId ? (shareableTeams.find(t => t.id === shareTeamId)?.name ?? 'Select team') : 'Select team'}
-                            </span>
-                            <div style={{ flexShrink: 0, lineHeight: 0, transform: shareTeamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
-                              <ArrowDownOneIcon size={14} />
-                            </div>
-                          </button>
-                        }
-                      >
-                        <Dropdown size="md">
-                          <div
-                            className={shareableTeams.length > 5 ? 'kaya-scrollbar' : undefined}
-                            style={{
-                              display: 'flex', flexDirection: 'column', gap: 2, padding: 4,
-                              // Row height (22px line + 16px padding) × 5 + 4 gaps — scrolls beyond that.
-                              maxHeight: shareableTeams.length > 5 ? 198 : undefined,
-                              overflowY: shareableTeams.length > 5 ? 'auto' : undefined,
-                            }}
-                          >
-                            {shareableTeams.map(team => {
-                              const isSelected = team.id === shareTeamId
-                              const select = () => { setShareTeamId(team.id); setShareTeamsOpen(false) }
-                              return (
-                                <div
-                                  key={team.id}
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={select}
-                                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select() } }}
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: 10,
-                                    padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
-                                    backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
-                                  }}
-                                >
-                                  <span style={{
-                                    flex: '1 0 0', minWidth: 0,
-                                    fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 400,
-                                    fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                  }}>
-                                    {team.name}
-                                  </span>
-                                  {isSelected && <TickTwoIcon size={16} color="var(--blue-600, #0a7aff)" />}
-                                </div>
-                              )
-                            })}
-                          </div>
-                          <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                            The selected team&apos;s editors and assigned project members will have access.
-                          </p>
-                        </Dropdown>
-                      </Dropdown.Float>
-                    )}
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+              {/* Private / Shared — stacked, not side by side, each boxed in
+                  its own matching border so the two options read as equal
+                  peers. Private only shows for the project's actual
+                  creator — anyone else managing a shared project can't take
+                  it private (the backend would 403 that PATCH). */}
+              {isProjectOwner && (
+                <div style={{ padding: 8, borderRadius: 16, border: '1px solid var(--neutral-200)' }}>
+                  <ModelFeaturedCard
+                    title="Private"
+                    description="Only you can see this project."
+                    selected={shareVisibility === 'private'}
+                    onSelectedChange={next => { if (next) setShareVisibility('private') }}
+                  />
                 </div>
-              )
-            })()}
+              )}
+
+              <div style={{ padding: 8, borderRadius: 16, border: '1px solid var(--neutral-200)' }}>
+                <ModelFeaturedCard
+                  title="Shared"
+                  description={`Everyone in ${org.name || 'your workspace'} can access it.`}
+                  selected={shareVisibility === 'team'}
+                  onSelectedChange={next => { if (next) setShareVisibility('team') }}
+                />
+              </div>
+            </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
               <Button variant="outline" size="sm" onClick={handleCancelShare}>Cancel</Button>
               <Button
                 variant="default"
                 size="sm"
-                disabled={sharingSaving || (shareVisibility === 'team' && !shareTeamId) || (shareVisibility === 'private' && !isProjectOwner)}
+                disabled={sharingSaving || (shareVisibility === 'team' && !orgId) || (shareVisibility === 'private' && !isProjectOwner)}
                 onClick={() => void handleSaveVisibility()}
               >
                 {sharingSaving ? 'Saving…' : 'Save'}
