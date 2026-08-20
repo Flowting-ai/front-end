@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
-import { Checkbox } from '@/components/Checkbox'
-import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { CancelOneIcon } from '@strange-huge/icons'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
-import { Dropdown } from '@/components/Dropdown'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 import { toast } from 'sonner'
@@ -27,7 +25,7 @@ import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/A
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Visibility = 'private' | 'team' | 'community'
+type Visibility = 'private' | 'team'
 
 export interface SharingTabProps {
   /** persona REPO id — passed as persona_repo_id when creating shares */
@@ -87,46 +85,34 @@ function UsageBar({ percent }: { percent: number }) {
 
 export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
-  const { orgId, teams } = useOrg()
-  const editableTeams = teams.filter(team => !team.archived && team.canEdit)
+  const { orgId, org } = useOrg()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
   const [visibility,        setVisibility]        = useState<Visibility>('private')
-  const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
   const [visibilitySaving,  setVisibilitySaving]  = useState(false)
   const [savedVisibility,   setSavedVisibility]   = useState<Visibility>('private')
-  const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
-  const [teamsOpen,         setTeamsOpen]         = useState(false)
 
   // ── Loading gate — true until both the visibility (repo) and shares fetches settle ──
   const [visibilityLoaded, setVisibilityLoaded] = useState(!repoId)
   const [sharesLoaded,     setSharesLoaded]     = useState(!versionId)
   const isLoading = !visibilityLoaded || !sharesLoaded
 
-  const visibilityChanged =
-    visibility !== savedVisibility ||
-    selectedTeamIds.slice().sort().join(',') !== savedTeamIds.slice().sort().join(',')
+  const visibilityChanged = visibility !== savedVisibility
 
   function handleVisibilitySelect(v: Visibility) {
     if (v === 'team' && panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
     setVisibility(v)
-    setTeamsOpen(v === 'team')
     markFieldTouched('sharing', 'visibility')
   }
 
   async function handleSaveVisibility() {
     if (!repoId) { toast.error('Save the agent first.'); return }
-    if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
+    if (visibility === 'team' && !orgId) { toast.error('Join an organization to share this agent.'); return }
     setVisibilitySaving(true)
     try {
-      await setPersonaVisibility(
-        repoId,
-        visibility === 'private' ? 'private' : 'team',
-        visibility === 'team' ? selectedTeamIds : undefined,
-      )
+      await setPersonaVisibility(repoId, visibility, visibility === 'team' ? orgId ?? undefined : undefined)
       setSavedVisibility(visibility)
-      setSavedTeamIds(selectedTeamIds)
       bustPersonasCache()
       resetTouchedFields('sharing', 'visibility')
       onChanged?.()
@@ -138,7 +124,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     }
   }
 
-  // Team dropdown toggle
   // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
   const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
@@ -155,8 +140,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
 
   const currentLinkShare = linkShare?.persona_id === versionId ? linkShare : null
   const currentEmailShares = emailShares.filter(share => share.persona_id === versionId)
-  const allEditableTeamsSelected =
-    editableTeams.length > 0 && selectedTeamIds.length === editableTeams.length
 
   // Sync share-link existence to shared progress indicator
   useEffect(() => { setHasShareLink(!!currentLinkShare) }, [currentLinkShare, setHasShareLink])
@@ -195,10 +178,9 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     getPersonaRepo(repoId)
       .then(repo => {
         if (cancelled) return
-        setVisibility(repo.visibility)
-        setSelectedTeamIds(repo.team_ids ?? [])
-        setSavedVisibility(repo.visibility)
-        setSavedTeamIds(repo.team_ids ?? [])
+        const v: Visibility = repo.visibility === 'org' ? 'team' : 'private'
+        setVisibility(v)
+        setSavedVisibility(v)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setVisibilityLoaded(true) })
@@ -372,115 +354,17 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               onSelectedChange={next => { if (next) handleVisibilitySelect('private') }}
             />
           </div>
-          <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
             <ModelFeaturedCard
-              title="Team"
-              description={!orgId ? 'Requires a team plan' : editableTeams.length === 0 ? 'No editable teams' : 'Deploy to selected teams'}
+              title="Shared"
+              description={orgId ? `Everyone in ${org?.name || 'your workspace'} can use it` : 'Join an organization to share'}
               selected={visibility === 'team'}
-              onSelectedChange={next => { if (next && orgId && editableTeams.length > 0) handleVisibilitySelect('team') }}
+              onSelectedChange={next => { if (next && orgId) handleVisibilitySelect('team') }}
               style={{
-                opacity: !orgId || editableTeams.length === 0 ? 0.45 : 1,
-                cursor:  !orgId || editableTeams.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: !orgId ? 0.45 : 1,
+                cursor:  !orgId ? 'not-allowed' : 'pointer',
               }}
             />
-
-            {/* Team-picker dropdown — floats over the card; the trigger itself
-               carries the "Shared to N teams" label, the card above keeps "Team". */}
-            {visibility === 'team' && orgId && editableTeams.length > 0 && (
-              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', maxWidth: 'calc(100% - 24px)' }}>
-                <Dropdown.Float
-                  open={teamsOpen}
-                  onOpenChange={setTeamsOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <button
-                      type="button"
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
-                        maxWidth: '100%', padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        backgroundColor: 'rgba(255,255,255,0.12)',
-                        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)',
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
-                        color: 'var(--neutral-50)',
-                      }}
-                    >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {selectedTeamIds.length > 0
-                          ? `Shared to ${selectedTeamIds.length} team${selectedTeamIds.length === 1 ? '' : 's'}`
-                          : 'Select teams'}
-                      </span>
-                      <div style={{ flexShrink: 0, lineHeight: 0, transform: teamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
-                        <ArrowDownOneIcon size={14} />
-                      </div>
-                    </button>
-                  }
-                >
-                  <Dropdown size="md">
-                    <div
-                      className="kaya-scrollbar"
-                      style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4, maxHeight: 400, overflowY: 'auto' }}
-                    >
-                      {editableTeams.map(team => {
-                        const checked = selectedTeamIds.includes(team.id)
-                        const toggle = () => {
-                          setSelectedTeamIds(current =>
-                            checked ? current.filter(id => id !== team.id) : [...current, team.id]
-                          )
-                          markFieldTouched('sharing', 'visibility')
-                        }
-                        return (
-                          <div
-                            key={team.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={toggle}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
-                            }}
-                          >
-                            <span style={{ pointerEvents: 'none', flexShrink: 0 }}>
-                              <Checkbox checked={checked} />
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontWeight: 400,
-                              fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {team.name}
-                            </span>
-                            {allEditableTeamsSelected && editableTeams[editableTeams.length - 1]?.id === team.id && (
-                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-500)', flexShrink: 0 }}>
-                                All teams
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                      Selected members will have access to this agent.
-                    </p>
-                    <div style={{ padding: '0 4px 4px' }}>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        fluid
-                        disabled={visibilitySaving || selectedTeamIds.length === 0}
-                        loading={visibilitySaving}
-                        onClick={async () => {
-                          await handleSaveVisibility()
-                          setTeamsOpen(false)
-                        }}
-                      >
-                        {visibilitySaving ? 'Saving…' : 'Save'}
-                      </Button>
-                    </div>
-                  </Dropdown>
-                </Dropdown.Float>
-              </div>
-            )}
           </div>
         </div>
 
@@ -488,7 +372,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         <Button
           variant="default"
           fluid
-          disabled={visibilitySaving || !repoId || !visibilityChanged || (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))}
+          disabled={visibilitySaving || !repoId || !visibilityChanged || (visibility === 'team' && !orgId)}
           loading={visibilitySaving}
           onClick={handleSaveVisibility}
         >

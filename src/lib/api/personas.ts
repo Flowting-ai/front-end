@@ -98,8 +98,8 @@ export interface PersonaRepoResponse {
   published_version?: PersonaVersionResponse | null;
   published_at: string | null;
   is_published?: boolean;
-  visibility: 'private' | 'team';
-  team_ids: string[];
+  visibility: 'private' | 'org';
+  organization_id?: string | null;
   version_count: number;
   created_at: string;
   updated_at: string;
@@ -201,8 +201,11 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     workingVersionId: repo.active_version_id,
     publishedAt: repo.published_at ?? null,
     versionCount: repo.version_count,
-    visibility: repo.visibility,
-    teamIds: repo.team_ids ?? [],
+    visibility: repo.visibility === 'org' ? 'team' : 'private',
+    // At most one org can ever be shared to now (Team's multi-team deploy
+    // model never had backend support to begin with) — kept as an array so
+    // existing .includes()/.length consumers don't need reshaping.
+    teamIds: repo.organization_id ? [repo.organization_id] : [],
     // If the list endpoint doesn't embed active_version (v is null) but
     // active_version_id exists, we can't inspect the prompt — assume it has
     // instructions. Only mark false when we have the version object and the
@@ -253,16 +256,16 @@ export function fetchPersonas(): Promise<Persona[]> {
   _fetchPersonasInFlight = apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT)
     .then(async list => {
       const normalized = list.map(normalizeRepo)
-      // The list endpoint omits the real deploy set (team_ids is always []) to stay
-      // cheap, so team-context filtering can't trust it. Enrich team-visibility
-      // personas from the (cached) detail endpoint, which is authoritative. An empty
-      // team_ids means "shared to no team" — never "all teams".
+      // The list endpoint omits organization_id to stay cheap, so team-context
+      // filtering can't trust it. Enrich team-visibility personas from the
+      // (cached) detail endpoint, which is authoritative. An empty teamIds
+      // means "not shared to the org" — there's only ever one org to share to.
       const enriched = await Promise.all(
         normalized.map(async p => {
           if (p.visibility !== 'team') return p
           try {
             const repo = await getPersonaRepoWithCache(p.id)
-            return { ...p, teamIds: repo.team_ids ?? [] }
+            return { ...p, teamIds: repo.organization_id ? [repo.organization_id] : [] }
           } catch {
             return p
           }
@@ -557,10 +560,10 @@ export async function publishPersonaVersion(repoId: string, versionId: string): 
 export async function setPersonaVisibility(
   repoId: string,
   visibility: 'private' | 'team',
-  teamIds?: string[],
+  teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility }
-  if (visibility === 'team' && teamIds?.length) body.teamIds = teamIds
+  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'org' : 'private' }
+  if (visibility === 'team' && teamId) body.organizationId = teamId
   await apiFetch(PERSONA_VISIBILITY_ENDPOINT(repoId), {
     method: 'PATCH',
     body: JSON.stringify(body),
