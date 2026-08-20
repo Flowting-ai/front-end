@@ -11,7 +11,6 @@ export {
 } from "@/components/Sidebar";
 export type {
   SidebarProps,
-  SidebarProject,
   SidebarContextValue,
   SidebarProviderProps,
 } from "@/components/Sidebar";

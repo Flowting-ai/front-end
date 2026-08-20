@@ -7,7 +7,6 @@ import {
   SearchOneIcon,
   UserAiIcon,
   NeuralNetworkIcon,
-  FolderAddIcon,
   FolderOneIcon,
   SidebarLeftIcon,
   MoreHorizontalIcon,
@@ -38,9 +37,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { OrgBadge } from '@/components/OrgBadge'
 import { Badge } from '@/components/Badge'
 import { AccountMenu } from '@/components/AccountMenu'
-import { TeamSwitcherRow } from '@/components/TeamSwitcherRow'
-import { TeamSwitcherDropdown } from '@/components/TeamSwitcherDropdown'
-import { Dropdown } from '@/components/Dropdown'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole, RoleBadgeMode } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
@@ -121,12 +117,6 @@ function SouvenirWordmark() {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface SidebarProject {
-  id: string
-  label: string
-  chatItems?: Array<{ id: string; label: string }>
-}
-
 export interface SidebarSchedule {
   id:        string
   label:     string
@@ -134,12 +124,6 @@ export interface SidebarSchedule {
   status:    'active' | 'warning'
   /** Count shown as a "X New" badge on the right */
   newCount?: number
-}
-
-export interface SidebarAgent {
-  id:         string
-  label:      string
-  chatItems?: Array<{ id: string; label: string }>
 }
 
 export interface SidebarAdminItem {
@@ -215,19 +199,6 @@ const ADMIN_ITEM_ICONS: Record<string, React.ReactElement<{ triggered?: boolean 
   'team-activity':    <AuditTwoIcon size={20} animated />,
 }
 
-const DEFAULT_AGENTS: SidebarAgent[] = [
-  { id: 'agent-1', label: 'Folder name', chatItems: [{ id: 'agent-1-chat-0', label: 'Label' }, { id: 'agent-1-chat-1', label: 'Label' }] },
-  { id: 'agent-2', label: 'Folder name', chatItems: [{ id: 'agent-2-chat-0', label: 'Label' }, { id: 'agent-2-chat-1', label: 'Label' }] },
-]
-
-const PROJECT_LIMIT = 2
-
-const DEFAULT_PROJECTS: SidebarProject[] = [
-  { id: 'folder-1', label: 'Folder name', chatItems: [{ id: 'folder-1-chat-0', label: 'Label' }, { id: 'folder-1-chat-1', label: 'Label' }] },
-  { id: 'folder-2', label: 'Folder name', chatItems: [{ id: 'folder-2-chat-0', label: 'Label' }, { id: 'folder-2-chat-1', label: 'Label' }] },
-  { id: 'folder-3', label: 'Folder name', chatItems: [{ id: 'folder-3-chat-0', label: 'Label' }, { id: 'folder-3-chat-1', label: 'Label' }] },
-]
-
 export interface SidebarRecentItem {
   id:    string
   label: string
@@ -258,14 +229,6 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onCollapse?: () => void
   /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
-  /**
-   * Project folders to render in the Projects section.
-   * Max 5 are shown; if more are provided a "Show all" item appears.
-   * Defaults to two demo folders when omitted.
-   */
-  projects?: SidebarProject[]
-  /** Called when the "Show all" projects item is clicked (only rendered when projects.length > 5) */
-  onShowAllProjects?: () => void
   /** Fully custom Projects section content — replaces the entire projects area including header */
   projectItems?: React.ReactNode
   /**
@@ -366,16 +329,10 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onScheduleClick?: (id: string) => void
   /** Called when "New thread" is clicked (Brain tab primary action). */
   onNewBrainThread?: () => void
-  /** Agent folders shown in the Agents tab. Defaults to two demo folders. */
-  agents?: SidebarAgent[]
   /** Fully custom Agents section content — replaces the entire agents area including header. */
   agentItems?: React.ReactNode
   /** Called when "New agent chat" is clicked (Agents tab primary action). */
   onNewAgentChat?: () => void
-  /** Called when "New Agents" (create new agent) is clicked inside the agents list. */
-  onNewAgent?: () => void
-  /** Fires when an agent folder row is clicked. */
-  onAgentClick?: (id: string) => void
   /** Back-compat hook: fires when the org section is entered (via the org badge or the collapsed-rail Organisation icon). */
   onOrganisationClick?: () => void
   /** Called when the Schedules quick-access item in the fixed menu is clicked (Brain tab). */
@@ -416,10 +373,6 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   accountMenu?: (collapsed: boolean) => React.ReactNode
   // ── Teams / Enterprise ───────────────────────────────────────────────────────
-  /** undefined = individual plan (no teams section). Teams = organisation member. */
-  teams?: Array<{ id: string; name: string; projectCount: number; userRole: WorkspaceRole }>
-  /** Id of the currently active team */
-  activeTeamId?: string
   /** Defines this user's role within the org. undefined = individual (no role chip, no teams section). */
   currentUserRole?: WorkspaceRole
   /** Icon mode for all RoleBadge instances in this sidebar instance. @default 'solar' */
@@ -434,8 +387,6 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onUpgradeClick?: () => void
   /** Credits remaining — shown in the account drop-up (identity badge), all roles. */
   credits?: number
-  /** Called when the user selects a different team via TeamSwitcherRow/Dropdown. */
-  onTeamSwitch?: (teamId: string) => void
 }
 
 // ── Section show/hide animation ───────────────────────────────────────────────
@@ -474,291 +425,7 @@ const sectionItemVariants = {
 // ── Default content ────────────────────────────────────────────────────────────
 
 // Persists across mounts — false on first sidebar load, true on every return to that section.
-let projectsAnimatedOnce  = false
 let schedulesAnimatedOnce = false
-let agentsAnimatedOnce    = false
-
-interface DefaultProjectItemsProps {
-  projects: SidebarProject[]
-  activeFolder: string | null
-  expandedFolders: Set<string>
-  selectedItem: string | null
-  activeChatId?: string | null
-  onSelect: (id: string) => void
-  onChatClick: (id: string) => void
-  onFolderOpen: (id: string) => void
-  onFolderExpand: (id: string, expanded: boolean) => void
-  onShowAllProjects?: () => void
-  currentUserRole?: WorkspaceRole
-  roleMode?: RoleBadgeMode
-  teams?: Array<{ id: string; name: string; projectCount: number; userRole: WorkspaceRole }>
-  activeTeamId?: string
-  onTeamSwitch?: (teamId: string) => void
-  onTeamSwitcherClick?: () => void
-}
-
-function DefaultProjectItems({ projects, activeFolder, expandedFolders, selectedItem, activeChatId, onSelect, onChatClick, onFolderOpen, onFolderExpand, onShowAllProjects, currentUserRole, roleMode = 'solar', teams = [], activeTeamId, onTeamSwitch, onTeamSwitcherClick }: DefaultProjectItemsProps) {
-  const [shown, setShown] = useState(true)
-  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
-  const shouldAnimate = projectsAnimatedOnce
-  useEffect(() => { projectsAnimatedOnce = true }, [])
-  const [editingItem,    setEditingItem]    = useState<string | null>(null)
-  const [chatLabels,     setChatLabels]     = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      projects.flatMap(p => (p.chatItems ?? []).map(c => [c.id, c.label]))
-    )
-  )
-  const [projectLabels, setProjectLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(projects.map(p => [p.id, p.label]))
-  )
-
-  const visibleProjects = projects.slice(0, PROJECT_LIMIT)
-  const hasMore = projects.length > PROJECT_LIMIT
-
-  const activeTeam = teams.find(t => t.id === activeTeamId) ?? teams[0]
-  const [teamSwitcherOpen, setTeamSwitcherOpen] = useState(false)
-
-  return (
-    <>
-      {currentUserRole && activeTeam ? (
-        // Team row opens the TeamSwitcherDropdown in place (floating popover,
-        // click-outside/Esc to close) — the dropdown's wiring lives here in the
-        // Sidebar per "Dropdowns Live at the Component Level". The flex-column
-        // width:100% wrapper lets the fluid TeamSwitcherRow fill the width
-        // (Dropdown.Float wraps the trigger in an inline-flex span otherwise).
-        <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-          <Dropdown.Float
-            open={teamSwitcherOpen}
-            onOpenChange={setTeamSwitcherOpen}
-            placement="bottom-start"
-            trigger={
-              <TeamSwitcherRow
-                teamName={activeTeam.name}
-                teamId={activeTeam.id}
-                projectCount={activeTeam.projectCount}
-                currentUserRole={currentUserRole}
-                roleMode={roleMode}
-                isOpen={teamSwitcherOpen}
-                onClick={() => { setTeamSwitcherOpen(o => !o); onTeamSwitcherClick?.() }}
-              />
-            }
-          >
-            <TeamSwitcherDropdown
-              teams={teams}
-              activeTeamId={activeTeamId}
-              currentUserRole={currentUserRole}
-              roleMode={roleMode}
-              onSelectTeam={(id) => { onTeamSwitch?.(id); setTeamSwitcherOpen(false) }}
-              onManageTeams={() => setTeamSwitcherOpen(false)}
-            />
-          </Dropdown.Float>
-        </div>
-      ) : (
-        <SidebarMenuItem
-          fluid
-          variant="header"
-          label="Personal projects"
-          shown={shown}
-          onShowClick={() => setShown(s => !s)}
-          onViewAllClick={onShowAllProjects ? () => onShowAllProjects() : undefined}
-        />
-      )}
-      {/* Persistent wrapper — never unmounts so items are always interactive.
-          initial={false} ensures items start at their animate state on first render. */}
-      <motion.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <motion.div
-          animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
-          variants={sectionStaggerVariants}
-          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
-        >
-          {currentUserRole !== 'member' && (
-            <motion.div variants={sectionItemVariants}>
-              <SidebarMenuItem fluid variant="default" label="New project" icon={<FolderAddIcon size={20} />}
-                selected={selectedItem === 'new-project'}
-                onClick={() => onSelect('new-project')}
-              />
-            </motion.div>
-          )}
-
-          {visibleProjects.map((project) => (
-            <motion.div key={project.id} variants={sectionItemVariants}>
-              <SidebarProjectsSection
-                fluid
-                label={projectLabels[project.id] ?? project.label}
-                active={activeFolder === project.id}
-                expanded={expandedFolders.has(project.id)}
-                onClick={() => onFolderOpen(project.id)}
-                onExpandedChange={(v) => onFolderExpand(project.id, v)}
-                onCommit={(val) => setProjectLabels(prev => ({ ...prev, [project.id]: val || prev[project.id] }))}
-              >
-                {project.chatItems && project.chatItems.length > 0 && [
-                  <SidebarMenuItem key="header" fluid variant="header" label="Recent" />,
-                  ...project.chatItems.map((chat) => {
-                    // Controlled when activeChatId is provided; falls back to
-                    // internal selectedItem otherwise so the Sidebar still
-                    // works standalone (Storybook etc.).
-                    const isSelected = activeChatId != null
-                      ? activeChatId === chat.id
-                      : selectedItem === chat.id
-                    return (
-                    <SidebarMenuItem
-                      key={chat.id}
-                      fluid
-                      variant={editingItem === chat.id ? 'chat-item-edit' : 'chat-item'}
-                      label={chatLabels[chat.id] ?? chat.label}
-                      selected={isSelected}
-                      onClick={() => onChatClick(chat.id)}
-                      onDoubleClick={() => { if (isSelected) setEditingItem(chat.id) }}
-                      onRename={() => setEditingItem(chat.id)}
-                      onCommit={(val) => { setChatLabels(prev => ({ ...prev, [chat.id]: val || prev[chat.id] })); setEditingItem(null) }}
-                      onCancel={() => setEditingItem(null)}
-                    />
-                    )
-                  }),
-                ]}
-              </SidebarProjectsSection>
-            </motion.div>
-          ))}
-
-          {hasMore && (
-            <motion.div variants={sectionItemVariants}>
-              <SidebarMenuItem
-                fluid
-                variant="default"
-                icon={<MoreHorizontalIcon size={20} />}
-                label="See all"
-                onClick={onShowAllProjects}
-              />
-            </motion.div>
-          )}
-        </motion.div>
-      </motion.div>
-    </>
-  )
-}
-
-// ── DefaultAgentItems ─────────────────────────────────────────────────────────
-// Mirrors DefaultProjectItems — agent folders use UserAiIcon instead of FolderOneIcon.
-
-interface DefaultAgentItemsProps {
-  agents: SidebarAgent[]
-  activeFolder: string | null
-  expandedFolders: Set<string>
-  selectedItem: string | null
-  activeChatId?: string | null
-  onSelect: (id: string) => void
-  onChatClick: (id: string) => void
-  onFolderOpen: (id: string) => void
-  onFolderExpand: (id: string, expanded: boolean) => void
-  onAgentClick?: (id: string) => void
-  onNewAgent?: () => void
-}
-
-function DefaultAgentItems({ agents, activeFolder, expandedFolders, selectedItem, activeChatId, onSelect, onChatClick, onFolderOpen, onFolderExpand, onAgentClick, onNewAgent }: DefaultAgentItemsProps) {
-  const [shown, setShown] = useState(true)
-  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
-  const shouldAnimate = agentsAnimatedOnce
-  useEffect(() => { agentsAnimatedOnce = true }, [])
-  const [editingItem,   setEditingItem]   = useState<string | null>(null)
-  const [chatLabels,    setChatLabels]    = useState<Record<string, string>>(() =>
-    Object.fromEntries(agents.flatMap(a => (a.chatItems ?? []).map(c => [c.id, c.label])))
-  )
-  const [agentLabels, setAgentLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(agents.map(a => [a.id, a.label]))
-  )
-
-  const visibleAgents = agents.slice(0, PROJECT_LIMIT)
-  const hasMore = agents.length > PROJECT_LIMIT
-
-  const handleFolderOpen = (id: string) => {
-    onFolderOpen(id)
-    onAgentClick?.(id)
-  }
-
-  return (
-    <>
-      <SidebarMenuItem fluid variant="header" label="Agents" shown={shown} onShowClick={() => setShown(s => !s)} />
-      <motion.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <motion.div
-          animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
-          variants={sectionStaggerVariants}
-          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
-        >
-          <motion.div variants={sectionItemVariants}>
-            <SidebarMenuItem fluid variant="default" label="New agent" icon={<FolderAddIcon size={20} />}
-              selected={selectedItem === 'new-agent'}
-              onClick={() => { onSelect('new-agent'); onNewAgent?.() }}
-            />
-          </motion.div>
-
-          {visibleAgents.map((agent) => (
-            <motion.div key={agent.id} variants={sectionItemVariants}>
-              <SidebarProjectsSection
-                fluid
-                label={agentLabels[agent.id] ?? agent.label}
-                active={activeFolder === agent.id}
-                expanded={expandedFolders.has(agent.id)}
-                icon={<UserAiIcon size={20} />}
-                onClick={() => handleFolderOpen(agent.id)}
-                onExpandedChange={(v) => onFolderExpand(agent.id, v)}
-                onCommit={(val) => setAgentLabels(prev => ({ ...prev, [agent.id]: val || prev[agent.id] }))}
-              >
-                {agent.chatItems && agent.chatItems.length > 0 && [
-                  <SidebarMenuItem key="header" fluid variant="header" label="Recent" />,
-                  ...agent.chatItems.map((chat) => {
-                    const isSelected = activeChatId != null ? activeChatId === chat.id : selectedItem === chat.id
-                    return (
-                      <SidebarMenuItem
-                        key={chat.id}
-                        fluid
-                        variant={editingItem === chat.id ? 'chat-item-edit' : 'chat-item'}
-                        label={chatLabels[chat.id] ?? chat.label}
-                        selected={isSelected}
-                        onClick={() => onChatClick(chat.id)}
-                        onDoubleClick={() => { if (isSelected) setEditingItem(chat.id) }}
-                        onRename={() => setEditingItem(chat.id)}
-                        onCommit={(val) => { setChatLabels(prev => ({ ...prev, [chat.id]: val || prev[chat.id] })); setEditingItem(null) }}
-                        onCancel={() => setEditingItem(null)}
-                      />
-                    )
-                  }),
-                ]}
-              </SidebarProjectsSection>
-            </motion.div>
-          ))}
-
-          {hasMore && (
-            <motion.div variants={sectionItemVariants}>
-              <SidebarMenuItem
-                fluid
-                variant="default"
-                icon={<MoreHorizontalIcon size={20} />}
-                label="See all"
-                onClick={() => onSelect('agents-see-all')}
-              />
-            </motion.div>
-          )}
-        </motion.div>
-      </motion.div>
-    </>
-  )
-}
 
 // ── DefaultBrainScheduleItems ─────────────────────────────────────────────────
 // Same three-layer stagger pattern as DefaultProjectItems.
@@ -1088,8 +755,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onNewChat,
       onSearch,
       onCollapse,
-      projects       = DEFAULT_PROJECTS,
-      onShowAllProjects,
       projectItems,
       recents        = DEFAULT_RECENTS,
       recentItems,
@@ -1113,11 +778,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       schedules        = [],
       onScheduleClick,
       onNewBrainThread,
-      agents           = DEFAULT_AGENTS,
       agentItems,
       onNewAgentChat,
-      onNewAgent,
-      onAgentClick,
       onOrganisationClick,
       orgName,
       orgLogoSrc,
@@ -1139,8 +801,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       activeChatId,
       onSelectChat,
       accountMenu,
-      teams         = [],
-      activeTeamId,
       currentUserRole,
       roleMode      = 'solar',
       onManageOrg,
@@ -1148,7 +808,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       plan,
       onUpgradeClick,
       credits,
-      onTeamSwitch,
       className,
       ...props
     },
@@ -1209,8 +868,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       setAtScrollBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
     }
 
-    const [activeFolder,    setActiveFolder]    = useState<string | null>(null)
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultSelectedItem ?? null)
     // bodySection mirrors the active tab: 'chats' | 'agents' | 'brain' | 'admin'.
     const initialBodySection =
@@ -1223,14 +880,13 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     // Entering Admin also fires onOrganisationClick (back-compat "opened org space" hook).
     const onSelectSection = (section: 'chats' | 'agents' | 'brain' | 'admin') => {
       setBodySection(section)
-      setActiveFolder(null)
       if (section === 'chats') onChatTabClick?.()
       if (section === 'agents') onPersonasClick?.()
       if (section === 'brain') onBrainClick?.()
       if (section === 'admin') onOrganisationClick?.()
     }
     // Select any non-section item (chat items, new-project, etc.) — preserves bodySection
-    const onSelect = (id: string) => { setSelectedItem(id); setActiveFolder(null) }
+    const onSelect = (id: string) => { setSelectedItem(id) }
     // Chat-row click — controlled flow when consumer provides onSelectChat: fire
     // the callback and let the consumer drive `activeChatId` back; otherwise
     // fall back to internal selection so standalone use still highlights.
@@ -1238,34 +894,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       if (onSelectChat) onSelectChat(id)
       else onSelect(id)
     }
-    // Row click — only sets active folder; never affects expansion (icon-only)
-    const handleFolderOpen = (id: string) => {
-      setActiveFolder(id)
-      setSelectedItem(null)
-    }
-    // Icon click — toggle expansion only; never touches active folder selection
-    const handleFolderExpand = (id: string, expanded: boolean) => {
-      setExpandedFolders(prev => {
-        const next = new Set(prev)
-        expanded ? next.add(id) : next.delete(id)
-        return next
-      })
-    }
-
-    // Auto-expand the project that contains `activeChatId` so the user's
-    // current chat is always visible in context. Only adds — never collapses
-    // other folders (per the Multiple-folders-can-be-expanded rule).
-    useEffect(() => {
-      if (!activeChatId) return
-      const parent = projects.find(p => p.chatItems?.some(c => c.id === activeChatId))
-      if (!parent) return
-      setExpandedFolders(prev => {
-        if (prev.has(parent.id)) return prev
-        const next = new Set(prev)
-        next.add(parent.id)
-        return next
-      })
-    }, [activeChatId, projects])
     const handleCollapse = useCallback(() => {
       setIsCollapsed(v => !v)
       onCollapse?.()
@@ -1534,7 +1162,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   selected={newChatButtonSelected ?? selectedItem === 'new-item'}
                   onClick={() => {
                     setSelectedItem('new-item')
-                    setActiveFolder(null)
                     if (bodySection === 'agents') onNewAgentChat?.()
                     else if (bodySection === 'brain') onNewBrainThread?.()
                     else onNewChat?.()
@@ -1644,25 +1271,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   flexShrink:    0,
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {projectItems ?? (
-                      <DefaultProjectItems
-                        projects={projects}
-                        activeFolder={activeFolder}
-                        expandedFolders={expandedFolders}
-                        selectedItem={selectedItem}
-                        activeChatId={activeChatId}
-                        onSelect={onSelect}
-                        onChatClick={handleChatClick}
-                        onFolderOpen={handleFolderOpen}
-                        onFolderExpand={handleFolderExpand}
-                        onShowAllProjects={onShowAllProjects}
-                        currentUserRole={currentUserRole}
-                        roleMode={roleMode}
-                        teams={teams}
-                        activeTeamId={activeTeamId}
-                        onTeamSwitch={onTeamSwitch}
-                      />
-                    )}
+                    {projectItems}
                   </div>
                 </div>
               )}
@@ -1677,21 +1286,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   flexShrink:    0,
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {agentItems ?? (
-                      <DefaultAgentItems
-                        agents={agents}
-                        activeFolder={activeFolder}
-                        expandedFolders={expandedFolders}
-                        selectedItem={selectedItem}
-                        activeChatId={activeChatId}
-                        onSelect={onSelect}
-                        onChatClick={handleChatClick}
-                        onFolderOpen={handleFolderOpen}
-                        onFolderExpand={handleFolderExpand}
-                        onAgentClick={onAgentClick}
-                        onNewAgent={onNewAgent}
-                      />
-                    )}
+                    {agentItems}
                   </div>
                 </div>
               )}
