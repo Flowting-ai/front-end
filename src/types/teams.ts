@@ -67,15 +67,6 @@ export interface Team {
   updatedAt: string
 }
 
-/** A person reference returned by editor/member list endpoints (PersonResponse). */
-export interface TeamEditor {
-  userId: string
-  name: string | null
-  email: string | null
-  /** Admin-grantable: editor may link/share connector accounts to the team. */
-  canLinkAccounts: boolean
-}
-
 /** Returned after creating an org-level invite. */
 export interface Invite {
   id: string

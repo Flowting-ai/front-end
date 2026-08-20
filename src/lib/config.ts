@@ -277,10 +277,6 @@ export const WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT = (
 ) => withBase(`/workflow/${workflowId}/chats/${chatId}/message/${messageId}`);
 
 // ── Organizations & Teams ─────────────────────────────────────────────────────
-export const ORG_TEAM_EDITORS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/editors`)
-export const ORG_TEAM_EDITOR_ENDPOINT = (orgId: string, teamId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/editors/${memberId}`)
 export const ORG_INVITES_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/invites`)
 export const ORG_INVITE_ENDPOINT = (orgId: string, inviteId: string) =>

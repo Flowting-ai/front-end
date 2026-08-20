@@ -3,8 +3,6 @@
 import { apiFetch, apiFetchJson } from './client'
 import { PERSONAS_LIST_UPDATED_EVENT } from './personas'
 import {
-  ORG_TEAM_EDITORS_ENDPOINT,
-  ORG_TEAM_EDITOR_ENDPOINT,
   ORG_INVITES_ENDPOINT,
   ORG_PROJECT_MEMBERS_ENDPOINT,
   ORG_PROJECT_MEMBER_ENDPOINT,
@@ -14,7 +12,6 @@ import {
 } from '@/lib/config'
 import type {
   Team,
-  TeamEditor,
   Invite,
   WorkspaceRole,
   OrgRole,
@@ -71,15 +68,6 @@ function normalizeTeam(t: TeamResponse): Team {
   }
 }
 
-function normalizeEditor(p: PersonResponse): TeamEditor {
-  return {
-    userId: p.user_id,
-    name: p.name ?? null,
-    email: p.email ?? null,
-    canLinkAccounts: p.can_link_accounts ?? false,
-  }
-}
-
 function normalizeInvite(i: InviteResponse): Invite {
   return {
     id: i.id,
@@ -91,25 +79,6 @@ function normalizeInvite(i: InviteResponse): Invite {
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
-
-export async function listTeamEditors(orgId: string, teamId: string): Promise<TeamEditor[]> {
-  const list = await apiFetchJson<PersonResponse[]>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId))
-  return list.map(normalizeEditor)
-}
-
-export async function addTeamEditor(
-  orgId: string, teamId: string, userId: string, canLinkAccounts = false,
-): Promise<TeamEditor> {
-  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId), {
-    method: 'POST',
-    body: JSON.stringify({ userId, canLinkAccounts }),
-  })
-  return normalizeEditor(data)
-}
-
-export async function removeTeamEditor(orgId: string, teamId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_EDITOR_ENDPOINT(orgId, teamId, memberId), { method: 'DELETE' })
-}
 
 // ── Project members ───────────────────────────────────────────────────────────
 
