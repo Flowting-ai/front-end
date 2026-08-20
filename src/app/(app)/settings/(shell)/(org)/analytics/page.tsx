@@ -21,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { UsageBarChart } from '@/components/UsageBarChart'
 import { useOrg } from '@/context/org-context'
 import { getOrgPlanUsage } from '@/lib/api/organization'
-import type { OrgMember, OrgRole, TeamBurn } from '@/types/teams'
+import type { OrgMember, OrgRole, MemberBurn } from '@/types/teams'
 
 type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
 
@@ -676,12 +676,12 @@ function AnalyticsPageSkeleton() {
 export default function OrgUsageAnalyticsPage() {
   const { orgId, members, membersLoading, plan, currentUserRole, orgReady } = useOrg()
   const [dateRange,  setDateRange]  = useState<DateRange>('7d')
-  const [teamUsage,  setTeamUsage]  = useState<TeamBurn[]>([])
+  const [memberUsage, setMemberUsage] = useState<MemberBurn[]>([])
 
   useEffect(() => {
     if (!orgId) return
     getOrgPlanUsage(orgId)
-      .then(u => setTeamUsage(u.byTeam))
+      .then(u => setMemberUsage(u.byMember))
       .catch(console.error)
   }, [orgId])
 
@@ -718,13 +718,13 @@ export default function OrgUsageAnalyticsPage() {
       share:   totalCredits > 0 ? `${Math.round((m.creditUsed / totalCredits) * 100)}%` : '0%',
     }))
 
-  // Team usage ranked — from the /plan/usage API; share is % of the total credit pool.
-  const teamRanked = [...teamUsage]
+  // Member usage ranked — from the /plan/usage API; share is % of the total credit pool.
+  const memberUsageRanked = [...memberUsage]
     .sort((a, b) => b.creditsUsed - a.creditsUsed)
-    .map(t => ({
-      name:    t.teamName,
-      credits: `${t.creditsUsed.toLocaleString()} credits`,
-      share:   totalCredits > 0 ? `${Math.round((t.creditsUsed / totalCredits) * 100)}% of pool` : '0%',
+    .map(m => ({
+      name:    m.name || m.email || 'Unknown',
+      credits: `${m.creditsUsed.toLocaleString()} credits`,
+      share:   totalCredits > 0 ? `${Math.round((m.creditsUsed / totalCredits) * 100)}% of pool` : '0%',
     }))
 
   return (
@@ -824,7 +824,7 @@ export default function OrgUsageAnalyticsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <RankedList title="Top users by credit usage" items={topUsers} />
-          <RankedList title="Usage by team this cycle" items={teamRanked} />
+          <RankedList title="Usage by member this cycle" items={memberUsageRanked} />
         </div>
       </div>
     </div>

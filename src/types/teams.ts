@@ -218,9 +218,10 @@ export interface OrgSettings {
   adminBillingPerms: AdminBillingPerms
 }
 
-export interface TeamBurn {
-  teamId: string
-  teamName: string
+export interface MemberBurn {
+  userId: string
+  name: string | null
+  email: string | null
   creditsUsed: number
 }
 
@@ -252,7 +253,7 @@ export interface OrgPlan {
 
 export interface OrgPlanUsage {
   organizationId: string
-  byTeam: TeamBurn[]
+  byMember: MemberBurn[]
 }
 
 export interface AuditLogEntry {

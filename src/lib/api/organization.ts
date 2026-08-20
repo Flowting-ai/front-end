@@ -61,13 +61,9 @@ const memberResponseSchema = z.object({
   name:             z.string().nullable().default(null),
   email:            z.string().nullable().default(null),
   role:             z.enum(['owner', 'admin', 'member']),
-  credit_cap:       z.number().nullable().default(null),
-  credit_used:      z.number().default(0),
   usage_total:      z.number().default(0),
   invite_status:    z.enum(['active', 'pending']),
   invite_id:        z.string().nullable().default(null),
-  team_id:          z.string().nullable().default(null),
-  team_name:        z.string().nullable().default(null),
   is_pending_invite: z.boolean().default(false),
 })
 
@@ -100,15 +96,16 @@ const planResponseSchema = z.object({
 type MemberResponse = z.infer<typeof memberResponseSchema>
 type PlanResponse = z.infer<typeof planResponseSchema>
 
-interface TeamBurnResponse {
-  team_id: string
-  team_name: string
+interface MemberBurnResponse {
+  user_id: string
+  name: string | null
+  email: string | null
   credits_used: number
 }
 
 interface PlanUsageResponse {
   organization_id: string
-  by_team: TeamBurnResponse[]
+  by_member: MemberBurnResponse[]
 }
 
 interface AuditEntryResponse {
@@ -146,11 +143,11 @@ const toDisplayCredits = (value: number | null | undefined): number =>
   Math.round((value ?? 0) * 1000)
 
 function normalizeMember(m: MemberResponse): OrgMember {
-  const role = (m.role === 'owner' || m.role === 'admin')
-    ? 'admin'
-    : m.invite_status === 'pending' && m.team_id
-      ? 'editor'
-      : 'member'
+  // Backend's MemberResponse no longer carries team_id/credit_cap/credit_used
+  // (Team and per-member caps are gone) — 'editor' and a real allocation/cap
+  // were only ever reachable through those fields, so they're hardcoded to
+  // their empty state below rather than parsed from data that doesn't exist.
+  const role = (m.role === 'owner' || m.role === 'admin') ? 'admin' : 'member'
   const inviteStatus = m.invite_status === 'pending' ? 'invite_sent' : 'signed_up'
   return {
     id:              m.user_id,
@@ -159,18 +156,14 @@ function normalizeMember(m: MemberResponse): OrgMember {
     role,
     orgRole:         m.role,
     inviteStatus,
-    teamMemberships: m.team_id ? [{
-      teamId:      m.team_id,
-      teamName:    m.team_name ?? 'Team',
-      isTeamOwner: false,
-    }] : [],
+    teamMemberships: [],
     creditUsed:      inviteStatus === 'invite_sent'
       ? 0
       : toDisplayCredits(m.usage_total),
-    allocationUsed:  inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
-    creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
+    allocationUsed:  0,
+    creditCap:       undefined,
     inviteId:        m.invite_id ?? null,
-    inviteTeamId:    m.team_id   ?? null,
+    inviteTeamId:    null,
   }
 }
 
@@ -211,10 +204,11 @@ function normalizePlan(p: PlanResponse): OrgPlan {
 function normalizePlanUsage(u: PlanUsageResponse): OrgPlanUsage {
   return {
     organizationId: u.organization_id,
-    byTeam: u.by_team.map(t => ({
-      teamId:      t.team_id,
-      teamName:    t.team_name,
-      creditsUsed: toDisplayCredits(t.credits_used),
+    byMember: u.by_member.map(m => ({
+      userId:      m.user_id,
+      name:        m.name,
+      email:       m.email,
+      creditsUsed: toDisplayCredits(m.credits_used),
     })),
   }
 }
