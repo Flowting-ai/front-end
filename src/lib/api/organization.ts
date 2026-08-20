@@ -14,7 +14,7 @@ import {
   ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
-  ORG_TEAM_INVITE_ENDPOINT,
+  ORG_INVITE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
@@ -160,7 +160,6 @@ function normalizeMember(m: MemberResponse): OrgMember {
       ? 0
       : toDisplayCredits(m.usage_total),
     inviteId:        m.invite_id ?? null,
-    inviteTeamId:    null,
   }
 }
 
@@ -389,8 +388,8 @@ export async function removeMember(orgId: string, memberId: string): Promise<voi
   await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
 }
 
-export async function revokeTeamInvite(orgId: string, teamId: string, inviteId: string): Promise<void> {
-  const res = await apiFetch(ORG_TEAM_INVITE_ENDPOINT(orgId, teamId, inviteId), { method: 'DELETE' })
+export async function revokeInvite(orgId: string, inviteId: string): Promise<void> {
+  const res = await apiFetch(ORG_INVITE_ENDPOINT(orgId, inviteId), { method: 'DELETE' })
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to revoke invite: ${res.status}`)
   }

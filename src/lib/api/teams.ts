@@ -7,9 +7,9 @@ import {
   ORG_TEAM_ENDPOINT,
   ORG_TEAM_EDITORS_ENDPOINT,
   ORG_TEAM_EDITOR_ENDPOINT,
-  ORG_TEAM_INVITES_ENDPOINT,
-  ORG_TEAM_PROJECT_MEMBERS_ENDPOINT,
-  ORG_TEAM_PROJECT_MEMBER_ENDPOINT,
+  ORG_INVITES_ENDPOINT,
+  ORG_PROJECT_MEMBERS_ENDPOINT,
+  ORG_PROJECT_MEMBER_ENDPOINT,
   ORG_TEAM_CONNECTORS_ENDPOINT,
   ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT,
   ORG_TEAM_CONNECTOR_ENDPOINT,
@@ -22,7 +22,7 @@ import {
 import type {
   Team,
   TeamEditor,
-  TeamInvite,
+  Invite,
   WorkspaceRole,
   OrgRole,
   InvitedMember,
@@ -61,7 +61,7 @@ interface PersonResponse {
 
 interface InviteResponse {
   id: string
-  team_id: string
+  organization_id: string
   recipient_emails?: string[] | null
   expires_at: string
   invite_url: string
@@ -93,10 +93,10 @@ function normalizeEditor(p: PersonResponse): TeamEditor {
   }
 }
 
-function normalizeInvite(i: InviteResponse): TeamInvite {
+function normalizeInvite(i: InviteResponse): Invite {
   return {
     id: i.id,
-    teamId: i.team_id,
+    organizationId: i.organization_id,
     recipientEmails: i.recipient_emails ?? [],
     expiresAt: i.expires_at,
     inviteUrl: i.invite_url,
@@ -189,48 +189,42 @@ export interface ProjectMember {
   email: string | null
 }
 
-export async function listProjectMembers(orgId: string, teamId: string, projectId: string): Promise<ProjectMember[]> {
-  const list = await apiFetchJson<PersonResponse[]>(ORG_TEAM_PROJECT_MEMBERS_ENDPOINT(orgId, teamId, projectId))
+export async function listProjectMembers(orgId: string, projectId: string): Promise<ProjectMember[]> {
+  const list = await apiFetchJson<PersonResponse[]>(ORG_PROJECT_MEMBERS_ENDPOINT(orgId, projectId))
   return list.map(p => ({ userId: p.user_id, name: p.name ?? null, email: p.email ?? null }))
 }
 
-export async function addProjectMember(orgId: string, teamId: string, projectId: string, userId: string): Promise<ProjectMember> {
-  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_PROJECT_MEMBERS_ENDPOINT(orgId, teamId, projectId), {
+export async function addProjectMember(orgId: string, projectId: string, userId: string): Promise<ProjectMember> {
+  const data = await apiFetchJson<PersonResponse>(ORG_PROJECT_MEMBERS_ENDPOINT(orgId, projectId), {
     method: 'POST',
     body: JSON.stringify({ userId }),
   })
   return { userId: data.user_id, name: data.name ?? null, email: data.email ?? null }
 }
 
-export async function removeProjectMember(orgId: string, teamId: string, projectId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_PROJECT_MEMBER_ENDPOINT(orgId, teamId, projectId, memberId), { method: 'DELETE' })
+export async function removeProjectMember(orgId: string, projectId: string, memberId: string): Promise<void> {
+  await apiFetch(ORG_PROJECT_MEMBER_ENDPOINT(orgId, projectId, memberId), { method: 'DELETE' })
 }
 
-export async function inviteTeamMembers(
+/**
+ * Flat org-level invite — the backend's InviteRequest is
+ * {emails, role: owner|admin|member, project_id}, no team-grant concept at
+ * all anymore. An 'editor' selection folds to 'member' here: TeamEditor
+ * grants have no live route to apply on accept regardless of what's
+ * requested at invite time.
+ */
+export async function inviteMembers(
   orgId: string,
-  teamId: string,
   emails: string[],
   role?: WorkspaceRole,
-  creditCap?: number,
   projectId?: string,
-): Promise<TeamInvite> {
-  // Role mapping → org role + team grant flags:
-  //   admin  → orgRole: admin,  no team grant (admins have org-wide access)
-  //   editor → orgRole: member, grantTeamEditor: true   (TeamEditor row on accept)
-  //   member → orgRole: member, no viewer/editor grant. Optional projectId
-  //            is the backend-supported way to attach a plain member to work
-  //            under this team without elevating them to Viewer or Editor.
+): Promise<Invite> {
   const orgRole = role === 'admin' ? 'admin' : 'member'
-  const grantTeamEditor = role === 'editor'
-  const grantTeamViewer = false
-  const data = await apiFetchJson<InviteResponse>(ORG_TEAM_INVITES_ENDPOINT(orgId, teamId), {
+  const data = await apiFetchJson<InviteResponse>(ORG_INVITES_ENDPOINT(orgId), {
     method: 'POST',
     body: JSON.stringify({
       emails,
       role: orgRole,
-      grantTeamEditor,
-      grantTeamViewer,
-      ...(creditCap && creditCap > 0 ? { creditCap } : {}),
       ...(projectId ? { projectId } : {}),
     }),
   })

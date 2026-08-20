@@ -24,8 +24,8 @@ import {
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
-import { setMemberRole, removeMember, revokeTeamInvite, getOrgSettings } from '@/lib/api/organization'
-import { inviteTeamMembers, addTeamEditor, removeTeamEditor, addProjectMember, removeProjectMember } from '@/lib/api/teams'
+import { setMemberRole, removeMember, revokeInvite, getOrgSettings } from '@/lib/api/organization'
+import { inviteMembers, addTeamEditor, removeTeamEditor, addProjectMember, removeProjectMember } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
 import { getGradient } from '@/lib/team-gradients'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
@@ -1922,7 +1922,7 @@ export default function OrgMembersPage() {
             failures.push(`${teamName} (no visible project to grant membership through)`)
             continue
           }
-          const granted = await Promise.allSettled(teamProjects.map(p => addProjectMember(orgId, teamId, p.id, memberId)))
+          const granted = await Promise.allSettled(teamProjects.map(p => addProjectMember(orgId, p.id, memberId)))
           if (!granted.some(g => g.status === 'fulfilled')) {
             failures.push(`${teamName} (couldn't grant project membership)`)
             continue
@@ -1931,7 +1931,7 @@ export default function OrgMembersPage() {
         } else {
           if (current === 'editor') await removeTeamEditor(orgId, teamId, memberId)
           let projectCleanupFailed = false
-          await Promise.all(teamProjects.map(p => removeProjectMember(orgId, teamId, p.id, memberId).catch(err => {
+          await Promise.all(teamProjects.map(p => removeProjectMember(orgId, p.id, memberId).catch(err => {
             console.error('Failed to clean up stale project membership', err)
             projectCleanupFailed = true
           })))
@@ -1973,11 +1973,11 @@ export default function OrgMembersPage() {
     const invited = prev.find(m => m.id === id)
     bumpMembers(ms => ms.filter(m => m.id !== id))
     try {
-      // Pending invites live in the team invite table, not the member table.
-      // Use the invite-specific DELETE endpoint; fall back to removeMember only
+      // Pending invites live in the invite table, not the member table. Use
+      // the invite-specific DELETE endpoint; fall back to removeMember only
       // if invite metadata is missing (e.g. optimistic row before BE refresh).
-      if (invited?.inviteId && invited.inviteTeamId) {
-        await revokeTeamInvite(orgId, invited.inviteTeamId, invited.inviteId)
+      if (invited?.inviteId) {
+        await revokeInvite(orgId, invited.inviteId)
       } else {
         await removeMember(orgId, id)
       }
@@ -1995,17 +1995,11 @@ export default function OrgMembersPage() {
   const handleInvite = async (
     emails: string[],
     role: WorkspaceRole,
-    selectedTeamId?: string,
+    _selectedTeamId?: string,
     projectId?: string,
   ): Promise<InviteResult> => {
     if (!orgId) {
       return { succeeded: [], failed: emails.map(email => ({ email, reason: 'No organization selected' })) }
-    }
-
-    const teamId = selectedTeamId ?? teams.find(t => !t.archived)?.id
-    if (!teamId) {
-      toast.error('Create a team first before inviting members')
-      return { succeeded: [], failed: emails.map(email => ({ email, reason: 'No team available' })) }
     }
 
     // Local checks first (no round trip needed): already-a-member and
@@ -2034,19 +2028,9 @@ export default function OrgMembersPage() {
 
     setInviteLoading(true)
     try {
-      // The backend now grants TeamEditor (for editor invites) on accept — no
-      // fragile post-invite second calls needed.
-      await inviteTeamMembers(
-        orgId,
-        teamId,
-        toSend,
-        role,
-        undefined,
-        projectId,
-      )
+      await inviteMembers(orgId, toSend, role, projectId)
 
-      // Optimistic pending rows. The team-editor grant only takes effect once
-      // each invite is accepted, so it's not shown here.
+      // Optimistic pending rows.
       bumpMembers(prev => [
         ...prev,
         ...toSend.map(email => ({
@@ -2056,11 +2040,7 @@ export default function OrgMembersPage() {
           role,
           orgRole:         (role === 'admin' ? 'admin' : 'member') as OrgMember['orgRole'],
           inviteStatus:    'invite_sent' as const,
-          teamMemberships: [{
-            teamId,
-            teamName: teams.find(t => t.id === teamId)?.name ?? 'Team',
-            isTeamOwner: role === 'editor',
-          }],
+          teamMemberships: [],
           creditUsed:      0,
         })),
       ])

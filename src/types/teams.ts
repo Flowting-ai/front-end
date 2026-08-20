@@ -44,8 +44,6 @@ export interface OrgMember {
   joinedAt?: string
   /** Backend invite ID for pending members — used to call the revoke endpoint. */
   inviteId?: string | null
-  /** Team ID associated with the pending invite, needed for the revoke endpoint. */
-  inviteTeamId?: string | null
 }
 
 export interface TeamMembership {
@@ -78,10 +76,10 @@ export interface TeamEditor {
   canLinkAccounts: boolean
 }
 
-/** Returned after creating a team invite. */
-export interface TeamInvite {
+/** Returned after creating an org-level invite. */
+export interface Invite {
   id: string
-  teamId: string
+  organizationId: string
   recipientEmails: string[]
   expiresAt: string
   inviteUrl: string

@@ -36,7 +36,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     if (!orgId) return
     let cancelled = false
     Promise.all([
-      listProjectMembers(orgId, teamId, projectId),
+      listProjectMembers(orgId, projectId),
       listMembers(orgId),
       listTeamEditors(orgId, teamId),
     ])
@@ -85,7 +85,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     if (!orgId || !selected) return
     setSaving(true)
     try {
-      const added = await addProjectMember(orgId, teamId, projectId, selected)
+      const added = await addProjectMember(orgId, projectId, selected)
       setMembers(prev => [...prev, added])
       setSelected('')
       setAddOpen(false)
@@ -100,7 +100,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
   const handleRemove = async (userId: string) => {
     if (!orgId) return
     try {
-      await removeProjectMember(orgId, teamId, projectId, userId)
+      await removeProjectMember(orgId, projectId, userId)
       setMembers(prev => prev.filter(m => m.userId !== userId))
       toast.success('Member removed from project')
     } catch (err) {

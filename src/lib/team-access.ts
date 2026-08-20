@@ -146,7 +146,7 @@ export async function fetchTeamAccessSnapshot(
       }
       return {
         teamId,
-        members: await listProjectMembers(orgId, teamId, project.id).catch(() => []),
+        members: await listProjectMembers(orgId, project.id).catch(() => []),
       }
     }),
   )

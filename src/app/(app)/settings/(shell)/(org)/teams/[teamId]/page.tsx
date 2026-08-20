@@ -35,7 +35,7 @@ import {
   deleteTeam,
   addTeamEditor,
   removeTeamEditor,
-  inviteTeamMembers,
+  inviteMembers,
   listTeamConnectorCatalog,
   listTeamConnectors,
   requestTeamConnector,
@@ -958,7 +958,7 @@ export default function TeamSettingsPage() {
       }
     }
 
-    await inviteTeamMembers(orgId, team.id, emails, role, undefined, projectId)
+    await inviteMembers(orgId, emails, role, projectId)
     // Analytics: does usage spread past one champion? role granted + how many.
     trackBrowserEvent('team_member_invited', { role, count: emails.length })
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)

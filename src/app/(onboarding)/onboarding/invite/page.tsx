@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
-import { fetchTeams, inviteTeamMembers, createTeam } from "@/lib/api/teams";
+import { inviteMembers } from "@/lib/api/teams";
 import { listOrganizations } from "@/lib/api/organization";
 import type { WorkspaceRole } from "@/types/teams";
 import { apiFetch } from "@/lib/api/client";
@@ -57,13 +57,8 @@ export default function OnboardingInvitePage() {
         resolvedOrgId = orgs[0]?.id ?? null;
       }
       if (resolvedOrgId) {
-        let teams = await fetchTeams(resolvedOrgId);
-        if (teams.length === 0) {
-          const newTeam = await createTeam(resolvedOrgId, 'General');
-          teams = [newTeam];
-        }
         const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member';
-        await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole);
+        await inviteMembers(resolvedOrgId, parsedEmails, mappedRole);
         toast.success(
           parsedEmails.length === 1
             ? "Invite sent"

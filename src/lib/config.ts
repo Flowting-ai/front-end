@@ -285,14 +285,14 @@ export const ORG_TEAM_EDITORS_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/editors`)
 export const ORG_TEAM_EDITOR_ENDPOINT = (orgId: string, teamId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/editors/${memberId}`)
-export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
-export const ORG_TEAM_INVITE_ENDPOINT = (orgId: string, teamId: string, inviteId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/invites/${inviteId}`)
-export const ORG_TEAM_PROJECT_MEMBERS_ENDPOINT = (orgId: string, teamId: string, projectId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members`)
-export const ORG_TEAM_PROJECT_MEMBER_ENDPOINT = (orgId: string, teamId: string, projectId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members/${memberId}`)
+export const ORG_INVITES_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/invites`)
+export const ORG_INVITE_ENDPOINT = (orgId: string, inviteId: string) =>
+  withBase(`/organizations/${orgId}/invites/${inviteId}`)
+export const ORG_PROJECT_MEMBERS_ENDPOINT = (orgId: string, projectId: string) =>
+  withBase(`/organizations/${orgId}/projects/${projectId}/members`)
+export const ORG_PROJECT_MEMBER_ENDPOINT = (orgId: string, projectId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/projects/${projectId}/members/${memberId}`)
 export const ORG_TEAM_CONNECTORS_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/connectors`)
 export const ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT = (orgId: string, teamId: string) =>
