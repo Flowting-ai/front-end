@@ -76,11 +76,10 @@ function hasPersonalAccount(entry: ConnectorCatalogEntry): boolean {
 }
 
 /** A connector is usable by this agent when the viewer has any working account
- *  for it (personal or shared) or the org has enabled it. */
+ *  for it (personal or shared). */
 function isAvailable(entry: ConnectorCatalogEntry): boolean {
   return (
     entry.linked ||
-    entry.org_enabled === true ||
     (entry.account_options ?? []).some(o => o.connected && o.status === 'active') ||
     entry.workspace_linked
   )

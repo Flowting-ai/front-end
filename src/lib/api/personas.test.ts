@@ -49,8 +49,8 @@ function makeRepo(overrides: Record<string, unknown> = {}) {
     published_version: null,
     published_at: '2026-06-18T00:00:00Z',
     is_published: true,
-    visibility: 'team',
-    team_ids: ['team-1', 'team-2'],
+    visibility: 'org',
+    organization_id: 'org-1',
     version_count: 1,
     created_at: '2026-06-18T00:00:00Z',
     updated_at: '2026-06-18T00:00:00Z',
@@ -64,7 +64,7 @@ describe('fetchPersonas', () => {
     bustPersonasCache()
   })
 
-  it('preserves repo visibility and deployed team ids', async () => {
+  it('preserves repo visibility and the org it is deployed to', async () => {
     const repo = makeRepo()
     apiFetchJson
       .mockResolvedValueOnce([repo])
@@ -73,7 +73,7 @@ describe('fetchPersonas', () => {
     await expect(fetchPersonas()).resolves.toMatchObject([{
       id: 'repo-1',
       visibility: 'team',
-      teamIds: ['team-1', 'team-2'],
+      teamIds: ['org-1'],
     }])
   })
 
@@ -104,7 +104,7 @@ describe('fetchPersonas', () => {
   })
 
   it('keeps a team-visibility persona in the list even when its detail enrichment call fails', async () => {
-    const repo = makeRepo({ visibility: 'team', team_ids: [] })
+    const repo = makeRepo({ visibility: 'org', organization_id: null })
     apiFetchJson
       .mockResolvedValueOnce([repo])
       .mockRejectedValueOnce(new Error('detail fetch failed'))

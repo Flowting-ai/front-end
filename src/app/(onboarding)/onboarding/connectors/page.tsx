@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { listOrgCatalog, updateOrgCatalog } from "@/lib/api/connectors";
+import { listOrgCatalog } from "@/lib/api/connectors";
+import { requestOrgConnector } from "@/lib/api/org-connectors";
 import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { Button } from "@/components/Button";
@@ -167,7 +168,9 @@ export default function OnboardingConnectorsPage() {
             validSlugs = [...selected];
           }
           if (validSlugs.length > 0) {
-            await updateOrgCatalog(resolvedOrgId, validSlugs);
+            // The org's creator is its owner, so each request auto-approves
+            // immediately (request_org_connector) — no separate "enable" step.
+            await Promise.all(validSlugs.map(slug => requestOrgConnector(resolvedOrgId, slug)));
             toast.success("Connectors enabled for your organization");
           }
         }

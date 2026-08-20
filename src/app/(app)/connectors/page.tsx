@@ -12,12 +12,9 @@ import {
   ArrowUpDownIcon,
   CancelOneIcon,
   FilterMailIcon,
-  InformationCircleIcon,
   PlusSignIcon,
   SearchOneIcon,
   TickTwoIcon,
-  UserIcon,
-  WorkflowSquareTenIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
@@ -47,134 +44,28 @@ import {
   isSecretField,
   listConnectors,
   listOrgCatalog,
-  updateOrgCatalog,
 } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorAccount, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorAccount, ConnectorCatalogEntry } from '@/lib/api/connectors'
 import {
   createOrgConnectorAccount,
-  createPersonalRequest,
   deleteOrgConnectorAccount,
   listOrgConnectorAccounts,
-  listPersonalRequests,
+  listOrgConnectorRequests,
   pollOrgConnectorAccountUntilConnected,
-  reviewPersonalRequest,
+  removeOrgConnectorRequest,
+  requestOrgConnector,
+  setOrgConnectorRequestStatus,
   updateOrgConnectorAccount,
 } from '@/lib/api/org-connectors'
-import type { AccountStatus, OrgConnectorAccount, PersonalConnectorRequest } from '@/lib/api/org-connectors'
-import {
-  attachSharedAccount,
-  createTeamConnectionAccount,
-  listTeamConnections,
-  listTeamConnectors,
-  requestTeamConnector,
-  setTeamConnectorStatus,
-  unlinkTeamConnection,
-} from '@/lib/api/teams'
-import type { ConnectorRequestStatus, TeamConnectionEntry, TeamConnectorRequest } from '@/lib/api/teams'
+import type { AccountStatus, OrgConnectorAccount, OrgConnectorRequest, OrgConnectorRequestStatus } from '@/lib/api/org-connectors'
 import { toConnector } from '@/lib/connector'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
-import type { Team } from '@/types/teams'
-import { getGradient } from '@/lib/team-gradients'
 
-type MainTab = 'org-access' | 'team-access' | 'requests' | 'shared-accounts'
+type MainTab = 'org-access' | 'shared-accounts'
 type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
-
-type TeamRequestIndex = Record<string, Record<string, TeamConnectorRequest>>
-
-// Turn a raw tool slug (e.g. "GOOGLECALENDAR_CREATE_EVENT") into a readable
-// action name, dropping the redundant connector prefix when present.
-function humanizeAction(toolSlug: string, connectorSlug: string): string {
-  let s = toolSlug
-  const prefix = `${connectorSlug.replace(/[\s-]/g, '_').toUpperCase()}_`
-  if (s.toUpperCase().startsWith(prefix)) s = s.slice(prefix.length)
-  s = s.replace(/_/g, ' ').trim().toLowerCase()
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
-}
-
-// The actions a team's shared connection exposes, searchable. Per-tool
-// permissions were removed: a connected account is what grants access.
-function TeamActionsTable({
-  team,
-  connection,
-  tools,
-  connectorSlug,
-}: {
-  team:          Team
-  connection:    TeamConnectionEntry | undefined
-  tools:         ConnectorTool[]
-  connectorSlug: string
-}) {
-  const [search, setSearch] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return tools.filter(tool => (
-      !q || humanizeAction(tool.slug, connectorSlug).toLowerCase().includes(q)
-    ))
-  }, [tools, search, connectorSlug])
-
-  return (
-    <SettingsTable columns={PERMISSION_COLUMNS} columnGap={0}>
-      <SettingsTableToolbar title={team.name} style={{ flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 0 0', minWidth: 0 }}>
-          {connection ? statusBadge(connection.status) : <Badge label="Unavailable" color="Neutral" />}
-          <div style={{ width: 180, maxWidth: '100%' }}>
-            <InputField
-              label="Search actions"
-              showLabel={false}
-              showSubtitle={false}
-              size="small"
-              fluid
-              leftIcon={<SearchOneIcon size={16} />}
-              placeholder="Search actions"
-              value={search}
-              onChange={setSearch}
-            />
-          </div>
-        </div>
-      </SettingsTableToolbar>
-
-      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label={`${team.name} permissions`} style={{ minWidth: 420 }}>
-          <SettingsTableHeader>
-            <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
-          </SettingsTableHeader>
-          {tools.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                This connector has no actions yet.
-              </p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                No actions match your filters.
-              </p>
-            </div>
-          ) : filtered.map(tool => (
-            <SettingsTableRow key={tool.slug} minHeight={56}>
-              <SettingsTableCell>
-                <BodyText size={14} weight={500} color="var(--neutral-900)" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {humanizeAction(tool.slug, connectorSlug)}
-                </BodyText>
-              </SettingsTableCell>
-            </SettingsTableRow>
-          ))}
-          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
-            <BodyText size={12} color="var(--neutral-500)">
-              {filtered.length} of {tools.length} action{tools.length === 1 ? '' : 's'}
-            </BodyText>
-          </SettingsTableFooter>
-        </div>
-      </div>
-    </SettingsTable>
-  )
-}
 
 const ADMIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: 'org-access', label: 'Org access' },
-  { id: 'team-access', label: 'Team access' },
-  { id: 'requests', label: 'Requests' },
   { id: 'shared-accounts', label: 'Shared accounts' },
 ]
 
@@ -458,7 +349,7 @@ function ConnectorsSkeleton() {
   )
 }
 
-function statusBadge(status: ConnectorRequestStatus) {
+function statusBadge(status: OrgConnectorRequestStatus) {
   if (status === 'approved') return <Badge label="Approved" color="Green" />
   if (status === 'denied') return <Badge label="Denied" color="Red" />
   return <Badge label="Pending" color="Yellow" />
@@ -594,21 +485,22 @@ function sortConnectors(
   connectors: ConnectorCatalogEntry[],
   direction: ConnectorSortDirection,
   status: ConnectorStatusFilter,
+  approvedSlugs: Set<string>,
 ): ConnectorCatalogEntry[] {
   const byName = (a: ConnectorCatalogEntry, b: ConnectorCatalogEntry) => a.display_name.localeCompare(b.display_name)
   const dir = direction === 'za' ? -1 : 1
 
   const scoped = status === 'on'
-    ? connectors.filter(c => c.org_enabled === true)
+    ? connectors.filter(c => approvedSlugs.has(c.slug))
     : status === 'off'
-    ? connectors.filter(c => c.org_enabled !== true)
+    ? connectors.filter(c => !approvedSlugs.has(c.slug))
     : connectors
 
   if (status !== 'all') return [...scoped].sort((a, b) => byName(a, b) * dir)
 
   return [...scoped].sort((a, b) => {
-    const aActive = a.org_enabled === true
-    const bActive = b.org_enabled === true
+    const aActive = approvedSlugs.has(a.slug)
+    const bActive = approvedSlugs.has(b.slug)
     if (aActive !== bActive) return aActive ? -1 : 1
     return byName(a, b) * dir
   })
@@ -708,86 +600,40 @@ function ConnectorStatusFilterButton({
   )
 }
 
-async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamRequestIndex> {
-  const entries = await Promise.all(
-    teams.map(async team => {
-      const requests = await listTeamConnectors(orgId, team.id)
-      return [team.id, Object.fromEntries(requests.map(request => [request.connectorSlug, request]))] as const
-    }),
-  )
-  return Object.fromEntries(entries)
-}
-
 const CONNECTOR_COLUMNS = 'minmax(240px, 1.4fr) 150px 140px 150px'
-
-// Deterministic gradient palette — shared via src/lib/team-gradients.ts so a
-// team keeps the same color/icon everywhere.
-const getConnectorTeamGradient = getGradient
-
-function ConnectorTeamAvatar({ teamId, name, size = 36 }: { teamId: string; name: string; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        position:     'relative',
-        display:      'inline-flex',
-        width:        size,
-        height:       size,
-        borderRadius: 8,
-        background:   getConnectorTeamGradient(teamId),
-        flexShrink:   0,
-        overflow:     'hidden',
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          borderRadius:  8,
-          pointerEvents: 'none',
-          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
-        }}
-      />
-      <span
-        style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          fontFamily:     'var(--font-title)',
-          fontWeight:     500,
-          fontSize:       Math.round(size * 0.55),
-          lineHeight:     1,
-          color:          'var(--neutral-white)',
-          userSelect:     'none',
-        }}
-      >
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </span>
-  )
-}
 
 function OrgAccessTab({
   orgId,
   connectors,
+  requests,
   initialSearch,
-  onCatalogUpdated,
+  onRequestsChanged,
 }: {
   orgId: string
   connectors: ConnectorCatalogEntry[]
+  requests: OrgConnectorRequest[]
   initialSearch: string
-  onCatalogUpdated: (connectors: ConnectorCatalogEntry[]) => void
+  onRequestsChanged: (requests: OrgConnectorRequest[]) => void
 }) {
+  const requestBySlug = useMemo(
+    () => Object.fromEntries(requests.map(r => [r.connectorSlug, r])),
+    [requests],
+  )
+  const approvedSlugs = useMemo(
+    () => requests.reduce((slugs, r) => {
+      if (r.status === 'approved') slugs.add(r.connectorSlug)
+      return slugs
+    }, new Set<string>()),
+    [requests],
+  )
+
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const [sortDirection, setSortDirection] = useState<ConnectorSortDirection>('az')
   const [statusFilter, setStatusFilter] = useState<ConnectorStatusFilter>('all')
   const [viewMode, setViewMode] = useState<ConnectorViewMode>('list')
   const sorted = useMemo(
-    () => sortConnectors(filtered, sortDirection, statusFilter),
-    [filtered, sortDirection, statusFilter],
+    () => sortConnectors(filtered, sortDirection, statusFilter, approvedSlugs),
+    [filtered, sortDirection, statusFilter, approvedSlugs],
   )
   const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: `${search}::${sortDirection}::${statusFilter}` })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
@@ -800,8 +646,8 @@ function OrgAccessTab({
   // together instead of all of them. Enabled always shows in full; only
   // "available" (disabled) paginates, on its own page counter.
   const [availablePage, setAvailablePage] = useState(1)
-  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled === true) : []
-  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled !== true) : []
+  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => approvedSlugs.has(c.slug)) : []
+  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => !approvedSlugs.has(c.slug)) : []
   const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / browse.pageSize))
   const safeAvailablePage = Math.min(availablePage, availablePageCount)
   const availableItems = availableAllItems.slice(
@@ -811,22 +657,52 @@ function OrgAccessTab({
   // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
   useEffect(() => { setAvailablePage(1) }, [browse.category, search, sortDirection, statusFilter])
 
-  const enabledSlugs = useMemo(
-    () => connectors.filter(connector => connector.org_enabled === true).map(connector => connector.slug),
-    [connectors],
-  )
+  function replaceRequest(next: OrgConnectorRequest | null, slug: string) {
+    const withoutSlug = requests.filter(r => r.connectorSlug !== slug)
+    onRequestsChanged(next ? [...withoutSlug, next] : withoutSlug)
+  }
 
+  // Turning a connector on requests it — auto-approved immediately since this
+  // tab is admin-only. Turning it off removes the request/approval entirely.
   async function handleOrgToggle(connector: ConnectorCatalogEntry, checked: boolean) {
     setBusyOrgSlug(connector.slug)
     try {
-      const nextSlugs = checked
-        ? Array.from(new Set([...enabledSlugs, connector.slug]))
-        : enabledSlugs.filter(slug => slug !== connector.slug)
-      const next = await updateOrgCatalog(orgId, nextSlugs)
-      onCatalogUpdated(next)
+      if (checked) {
+        const next = await requestOrgConnector(orgId, connector.slug)
+        replaceRequest(next, connector.slug)
+      } else {
+        await removeOrgConnectorRequest(orgId, connector.slug)
+        replaceRequest(null, connector.slug)
+      }
       toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for the organization`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update catalog')
+      toast.error(error instanceof Error ? error.message : 'Failed to update connector access')
+    } finally {
+      setBusyOrgSlug(null)
+    }
+  }
+
+  async function handleApprove(connector: ConnectorCatalogEntry) {
+    setBusyOrgSlug(connector.slug)
+    try {
+      const next = await setOrgConnectorRequestStatus(orgId, connector.slug, 'approved')
+      replaceRequest(next, connector.slug)
+      toast.success(`${connector.display_name} approved for the organization`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to approve connector')
+    } finally {
+      setBusyOrgSlug(null)
+    }
+  }
+
+  async function handleDeny(connector: ConnectorCatalogEntry) {
+    setBusyOrgSlug(connector.slug)
+    try {
+      const next = await setOrgConnectorRequestStatus(orgId, connector.slug, 'denied')
+      replaceRequest(next, connector.slug)
+      toast.success(`${connector.display_name} denied`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to deny connector')
     } finally {
       setBusyOrgSlug(null)
     }
@@ -854,8 +730,40 @@ function OrgAccessTab({
     return { ...springs.moderate, delay: Math.min(index, 10) * 0.03 }
   }
 
+  // A connector with a pending member request shows an approve/deny pair
+  // instead of the plain toggle — an admin flipping their own switch always
+  // auto-approves, so the pending state only ever comes from someone else.
+  function connectorActions(connector: ConnectorCatalogEntry) {
+    const request = requestBySlug[connector.slug]
+    const busy = busyOrgSlug === connector.slug
+    if (request?.status === 'pending') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BodyText size={11} color="var(--neutral-500)">
+            {request.requestedByName ?? request.requestedByEmail ?? 'A member'} requested
+          </BodyText>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => void handleDeny(connector)}>Deny</Button>
+          <Button variant="default" size="sm" disabled={busy} loading={busy} onClick={() => void handleApprove(connector)}>Approve</Button>
+        </div>
+      )
+    }
+    const approved = approvedSlugs.has(connector.slug)
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {busy && <Spinner />}
+        <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
+          {approved ? 'Org ON' : 'Org OFF'}
+        </BodyText>
+        <Switch
+          checked={approved}
+          disabled={busy}
+          onCheckedChange={checked => handleSwitchChange(connector, checked)}
+        />
+      </div>
+    )
+  }
+
   function renderConnectorRow(connector: ConnectorCatalogEntry, index: number) {
-    const orgEnabled = connector.org_enabled === true
     return (
       <motion.div
         key={`${connector.slug}-${viewMode}`}
@@ -874,17 +782,7 @@ function OrgAccessTab({
             <SharedAccountsCell accounts={connector.accounts ?? []} />
           </SettingsTableCell>
           <SettingsTableCell align="end">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {busyOrgSlug === connector.slug && <Spinner />}
-              <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
-                {orgEnabled ? 'Org ON' : 'Org OFF'}
-              </BodyText>
-              <Switch
-                checked={orgEnabled}
-                disabled={busyOrgSlug === connector.slug}
-                onCheckedChange={checked => handleSwitchChange(connector, checked)}
-              />
-            </div>
+            {connectorActions(connector)}
           </SettingsTableCell>
         </SettingsTableRow>
       </motion.div>
@@ -892,7 +790,6 @@ function OrgAccessTab({
   }
 
   function renderConnectorCard(connector: ConnectorCatalogEntry, index: number) {
-    const orgEnabled = connector.org_enabled === true
     const accountCount = connector.accounts?.length ?? 0
     return (
       <motion.div
@@ -917,13 +814,7 @@ function OrgAccessTab({
           <BodyText size={12} color="var(--neutral-400)">No shared accounts</BodyText>
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          {busyOrgSlug === connector.slug && <Spinner />}
-          <BodyText size={12} color="var(--neutral-700)">{orgEnabled ? 'Org ON' : 'Org OFF'}</BodyText>
-          <Switch
-            checked={orgEnabled}
-            disabled={busyOrgSlug === connector.slug}
-            onCheckedChange={checked => handleSwitchChange(connector, checked)}
-          />
+          {connectorActions(connector)}
         </div>
       </motion.div>
     )
@@ -1058,446 +949,6 @@ function OrgAccessTab({
   )
 }
 
-const TEAM_ACCESS_COLUMNS = 'minmax(240px, 1.6fr) 180px 160px 56px'
-
-function TeamAccessTab({
-  orgId,
-  connectors,
-  teams,
-  initialSearch,
-}: {
-  orgId: string
-  connectors: ConnectorCatalogEntry[]
-  teams: Team[]
-  initialSearch: string
-}) {
-  const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
-  const sorted = useMemo(() => sortConnectors(filtered, 'az', 'all'), [filtered])
-  const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: search })
-  const [expandedSlug, setExpandedSlug] = useState<string | null>(null)
-
-  // team id → connector slug → explicit approve/deny status. Fetched once for
-  // every team (not per connector), so the row badge and the expanded panel
-  // always agree, and expanding a connector needs no fetch of its own.
-  const [statusByTeam, setStatusByTeam] = useState<Record<string, Record<string, ConnectorRequestStatus>>>({})
-  const [loadingStatus, setLoadingStatus] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoadingStatus(true)
-      try {
-        const rows = await Promise.all(teams.map(team => listTeamConnectors(orgId, team.id)))
-        if (cancelled) return
-        const next: Record<string, Record<string, ConnectorRequestStatus>> = {}
-        teams.forEach((team, i) => {
-          next[team.id] = Object.fromEntries(rows[i].map(row => [row.connectorSlug, row.status]))
-        })
-        setStatusByTeam(next)
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load team connector access')
-      } finally {
-        if (!cancelled) setLoadingStatus(false)
-      }
-    }
-    void load()
-    return () => { cancelled = true }
-  }, [orgId, teams])
-
-  // Matches the backend's own union (list_team_connections: approved =
-  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
-  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
-  function isEffectivelyOn(connector: ConnectorCatalogEntry, team: Team): boolean {
-    const status = statusByTeam[team.id]?.[connector.slug]
-    if (status === 'approved') return true
-    if (status === 'denied') return false
-    return connector.org_enabled === true
-  }
-
-  function handleTeamStatusChange(connectorSlug: string, teamId: string, on: boolean) {
-    setStatusByTeam(prev => ({
-      ...prev,
-      [teamId]: { ...prev[teamId], [connectorSlug]: on ? 'approved' : 'denied' },
-    }))
-  }
-
-  function enabledConnectorTeams(connector: ConnectorCatalogEntry): Team[] {
-    return teams.filter(team => isEffectivelyOn(connector, team))
-  }
-
-  function renderConnectorRow(connector: ConnectorCatalogEntry) {
-    const enabledTeams = enabledConnectorTeams(connector)
-    const isExpanded = expandedSlug === connector.slug
-    return (
-      <React.Fragment key={connector.slug}>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setExpandedSlug(isExpanded ? null : connector.slug)}
-          onKeyDown={e => {
-            if (e.key !== 'Enter' && e.key !== ' ') return
-            e.preventDefault()
-            setExpandedSlug(isExpanded ? null : connector.slug)
-          }}
-          aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? 'Hide' : 'Show'} team access for ${connector.display_name}`}
-          className="connector-access-row"
-        >
-          <SettingsTableRow minHeight={72} divider={!isExpanded}>
-            <SettingsTableCell>
-              <ConnectorTitle connector={connector} />
-            </SettingsTableCell>
-            <SettingsTableCell>
-              <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
-            </SettingsTableCell>
-            <SettingsTableCell align="end">
-              {loadingStatus ? (
-                <SkeletonBlock width={72} height={22} radius={8} />
-              ) : (
-                <Badge color={enabledTeams.length > 0 ? 'Blue' : 'Neutral'} label={`${enabledTeams.length} team${enabledTeams.length === 1 ? '' : 's'}`} />
-              )}
-            </SettingsTableCell>
-            <SettingsTableCell align="end">
-              <IconButton
-                variant="ghost"
-                size="sm"
-                aria-label={`${isExpanded ? 'Hide' : 'Show'} team access for ${connector.display_name}`}
-                icon={
-                  <motion.span
-                    animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    style={{ display: 'flex', lineHeight: 0 }}
-                  >
-                    <ArrowDownOneIcon size={16} />
-                  </motion.span>
-                }
-                onClick={e => {
-                  e.stopPropagation()
-                  setExpandedSlug(isExpanded ? null : connector.slug)
-                }}
-              />
-            </SettingsTableCell>
-          </SettingsTableRow>
-        </div>
-        {isExpanded && (
-          <div style={{ padding: '0 24px 16px', borderBottom: '1px solid var(--neutral-100)', backgroundColor: 'var(--neutral-25, #fafaf9)' }}>
-            <ConnectorTeamAccessPanel
-              orgId={orgId}
-              connector={connector}
-              teams={teams}
-              statusByTeam={statusByTeam}
-              loading={loadingStatus}
-              onTeamStatusChange={(teamId, on) => handleTeamStatusChange(connector.slug, teamId, on)}
-            />
-          </div>
-        )}
-      </React.Fragment>
-    )
-  }
-
-  return (
-    <SettingsTable columns={TEAM_ACCESS_COLUMNS} columnGap={24}>
-      <style>{`
-        .connector-access-row { cursor: pointer; outline: none; }
-        .connector-access-row:hover { background-color: var(--neutral-50); }
-        .connector-access-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
-      `}</style>
-      <SettingsTableToolbar title="Team access" style={{ flexWrap: 'wrap' }}>
-        <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
-          <InputField
-            label="Search connectors"
-            showLabel={false}
-            showSubtitle={false}
-            size="small"
-            fluid
-            leftIcon={<SearchOneIcon size={16} />}
-            placeholder="Search connectors"
-            value={search}
-            onChange={setSearch}
-          />
-        </div>
-      </SettingsTableToolbar>
-
-      <div style={{ padding: '0 24px 12px' }}>
-        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
-      </div>
-
-      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Team access" style={{ minWidth: 620 }}>
-          <SettingsTableHeader>
-            <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="end">Team access</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="end">{''}</SettingsTableHeaderCell>
-          </SettingsTableHeader>
-
-          {browse.pageItems.length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'}
-              </p>
-            </div>
-          ) : browse.pageItems.map(renderConnectorRow)}
-
-          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <BodyText size={12} color="var(--neutral-500)">
-              {browse.total} connector{browse.total === 1 ? '' : 's'}
-            </BodyText>
-            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
-          </SettingsTableFooter>
-        </div>
-      </div>
-    </SettingsTable>
-  )
-}
-
-const CONNECTOR_TEAMS_ROW_HEIGHT  = 56
-const CONNECTOR_TEAMS_ROW_GAP     = 8
-const CONNECTOR_TEAMS_VISIBLE_MAX = 5
-const CONNECTOR_TEAMS_LIST_MAX_HEIGHT =
-  CONNECTOR_TEAMS_ROW_HEIGHT * CONNECTOR_TEAMS_VISIBLE_MAX + CONNECTOR_TEAMS_ROW_GAP * (CONNECTOR_TEAMS_VISIBLE_MAX - 1)
-
-function ConnectorTeamAccessPanel({
-  orgId,
-  connector,
-  teams,
-  statusByTeam,
-  loading,
-  onTeamStatusChange,
-}: {
-  orgId: string
-  connector: ConnectorCatalogEntry
-  teams: Team[]
-  statusByTeam: Record<string, Record<string, ConnectorRequestStatus>>
-  loading: boolean
-  onTeamStatusChange?: (teamId: string, on: boolean) => void
-}) {
-  const [busyTeamId, setBusyTeamId] = useState<string | null>(null)
-  const [pendingOffTeam, setPendingOffTeam] = useState<Team | null>(null)
-  // Org-off does NOT restrict teams — admins can still grant a team its own
-  // access independent of the org-wide switch (org/team are separate grants,
-  // unioned at read time on the backend: approved = org_enabled | team_grant).
-  // This flag is display-copy only, never used to disable the switch below.
-  const isOrgDisabled = connector.org_enabled === false
-
-  // Matches the backend's own union (list_team_connections: approved =
-  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
-  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
-  function isEffectivelyOn(team: Team): boolean {
-    const status = statusByTeam[team.id]?.[connector.slug]
-    if (status === 'approved') return true
-    if (status === 'denied') return false
-    return connector.org_enabled === true
-  }
-
-  const sortedTeams = loading
-    ? teams
-    : [...teams].sort((a, b) => {
-        const diff = Number(isEffectivelyOn(b)) - Number(isEffectivelyOn(a))
-        return diff !== 0 ? diff : a.name.localeCompare(b.name)
-      })
-
-  async function handleToggle(team: Team, checked: boolean) {
-    setBusyTeamId(team.id)
-    try {
-      const current = statusByTeam[team.id]?.[connector.slug]
-      if (!current) await requestTeamConnector(orgId, team.id, connector.slug)
-      await setTeamConnectorStatus(orgId, team.id, connector.slug, checked ? 'approved' : 'denied')
-      onTeamStatusChange?.(team.id, checked)
-      toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for ${team.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update team connector access')
-    } finally {
-      setBusyTeamId(null)
-    }
-  }
-
-  function handleSwitchChange(team: Team, checked: boolean) {
-    if (!checked) {
-      setPendingOffTeam(team)
-      return
-    }
-    void handleToggle(team, true)
-  }
-
-  async function confirmTeamOff() {
-    if (!pendingOffTeam) return
-    await handleToggle(pendingOffTeam, false)
-    setPendingOffTeam(null)
-  }
-
-  return (
-    <>
-      <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <BodyText size={12} color="var(--neutral-500)">
-          {isOrgDisabled
-            ? "Org-wide access is off. Turning a team on grants that team individual access without enabling the connector organization-wide."
-            : 'Turn this connector on or off for each team.'}
-        </BodyText>
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: CONNECTOR_TEAMS_ROW_GAP }}>
-            <style>{`@keyframes connSkeletonShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-            {Array.from({ length: Math.min(4, Math.max(teams.length, 1)) }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  display:         'flex',
-                  alignItems:      'center',
-                  gap:             12,
-                  padding:         '10px 12px',
-                  borderRadius:    12,
-                  backgroundColor: 'var(--neutral-white)',
-                  boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-                  minHeight:       CONNECTOR_TEAMS_ROW_HEIGHT,
-                  boxSizing:       'border-box',
-                }}
-              >
-                <SkeletonBlock width={36} height={36} radius={8} />
-                <SkeletonBlock width={140} height={14} radius={5} />
-                <div style={{ flex: 1 }} />
-                <SkeletonBlock width={54} height={12} radius={4} />
-                <SkeletonBlock width={36} height={20} radius={10} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className="kaya-scrollbar"
-            style={{
-              maxHeight: teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? CONNECTOR_TEAMS_LIST_MAX_HEIGHT : undefined,
-              overflowY: teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 'auto' : undefined,
-            }}
-          >
-            {/* Padding lives here, not on the scrolling element above — keeps
-                the scrollbar flush with the list's edge (same convention as
-                PageShell above); the 3px just keeps each row's outline ring
-                from clipping against the scroll container's own edges. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: CONNECTOR_TEAMS_ROW_GAP, padding: 3 }}>
-            {sortedTeams.map((team, index) => {
-              const effectivelyOn = isEffectivelyOn(team)
-              return (
-                <motion.div
-                  key={team.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...springs.moderate, delay: Math.min(index, 8) * 0.035 }}
-                  style={{
-                    display:         'flex',
-                    alignItems:      'center',
-                    gap:             12,
-                    padding:         '10px 12px',
-                    borderRadius:    12,
-                    backgroundColor: 'var(--neutral-white)',
-                    boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-                    minHeight:       CONNECTOR_TEAMS_ROW_HEIGHT,
-                    flexShrink:      0,
-                    boxSizing:       'border-box',
-                  }}
-                >
-                  <ConnectorTeamAvatar teamId={team.id} name={team.name} size={36} />
-                  <p style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize:   16,
-                    lineHeight: '24px',
-                    color:      'var(--neutral-900)',
-                    margin:     0,
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                  }}>
-                    {team.name}
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {busyTeamId === team.id && <Spinner />}
-                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 62, textAlign: 'right' }}>
-                      {effectivelyOn ? 'Team ON' : 'Team OFF'}
-                    </BodyText>
-                    <Switch
-                      checked={effectivelyOn}
-                      disabled={busyTeamId === team.id}
-                      onCheckedChange={checked => handleSwitchChange(team, checked)}
-                    />
-                  </div>
-                </motion.div>
-              )
-            })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {pendingOffTeam && (
-        <TeamConnectorOffConfirmModal
-          connector={connector}
-          team={pendingOffTeam}
-          busy={busyTeamId === pendingOffTeam.id}
-          onCancel={() => setPendingOffTeam(null)}
-          onConfirm={() => void confirmTeamOff()}
-        />
-      )}
-    </>
-  )
-}
-
-function TeamConnectorOffConfirmModal({
-  connector,
-  team,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  connector: ConnectorCatalogEntry
-  team: Team
-  busy: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Close dialog"
-        onClick={onCancel}
-        style={{ position: 'fixed', inset: 0, border: 'none', padding: 0, backgroundColor: 'rgba(18,12,8,0.38)', zIndex: 60, cursor: 'default' }}
-      />
-      <div
-        style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 61,
-          width: 420,
-          maxWidth: 'calc(100vw - 48px)',
-          borderRadius: 20,
-          backgroundColor: '#f7f2ed',
-          boxShadow: '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1), 0px 0px 0px 1px var(--neutral-100)',
-          padding: 20,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <div>
-          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
-            Turn off {connector.display_name} for {team.name}?
-          </h2>
-          <BodyText style={{ marginTop: 8 }}>
-            {team.name} will lose access to this connector until it's turned back on.
-          </BodyText>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>Cancel</Button>
-          <Button variant="danger" size="sm" onClick={onConfirm} loading={busy}>Turn off</Button>
-        </div>
-      </div>
-    </>
-  )
-}
-
 function ConnectorSectionLabel({ label }: { label: string }) {
   return (
     <div style={{ padding: '10px 24px', backgroundColor: 'var(--neutral-25, #fafaf9)', borderBottom: '1px solid var(--neutral-100)' }}>
@@ -1560,7 +1011,6 @@ function DisableConnectorConfirmModal({
   onConfirm: () => void
 }) {
   const accountCount = connector.accounts?.length ?? 0
-  const teamCount = new Set((connector.accounts ?? []).flatMap(account => account.team_ids ?? [])).size
   return (
     <>
       <button
@@ -1592,8 +1042,7 @@ function DisableConnectorConfirmModal({
             Turn off {connector.display_name}?
           </h2>
           <BodyText style={{ marginTop: 8 }}>
-            {accountCount} shared account{accountCount === 1 ? '' : 's'}
-            {teamCount > 0 ? `, used by ${teamCount} team${teamCount === 1 ? '' : 's'},` : ''} will stop working for the organization.
+            {accountCount} shared account{accountCount === 1 ? '' : 's'} will stop working for the organization.
           </BodyText>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -1605,234 +1054,13 @@ function DisableConnectorConfirmModal({
   )
 }
 
-function ApprovalRow({
-  connector,
-  title,
-  subtitle,
-  note,
-  status,
-  onApprove,
-  onDeny,
-}: {
-  connector: ConnectorCatalogEntry | undefined
-  title: string
-  subtitle: string
-  note?: string | null
-  status: ConnectorRequestStatus
-  onApprove: () => Promise<void>
-  onDeny: () => Promise<void>
-}) {
-  const [busy, setBusy] = useState<'approve' | 'deny' | null>(null)
-  const fallbackConnector: ConnectorCatalogEntry = connector ?? {
-    slug: title,
-    display_name: title,
-    auth_mode: 'oauth2',
-    description: '',
-    logo_url: null,
-    categories: [],
-    catalog_metadata: {},
-    tools: [],
-    api_key_fields: [],
-    linked: false,
-    workspace_linked: false,
-    workspace_linked_by: null,
-    shared_account_id: null,
-    account_label: null,
-    account_identifier: null,
-    accounts: [],
-    account_options: [],
-    org_enabled: null,
-    personal_access_status: null,
-  }
-
-  async function run(kind: 'approve' | 'deny', fn: () => Promise<void>) {
-    setBusy(kind)
-    try {
-      await fn()
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  return (
-    <div
-      style={{
-        backgroundColor: 'white',
-        borderRadius: 14,
-        boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)',
-        padding: 16,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-      }}
-    >
-      <ConnectorIcon connector={fallbackConnector} />
-      <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <BodyText weight={500} color="var(--neutral-900)">{title}</BodyText>
-          {statusBadge(status)}
-        </div>
-        <BodyText size={11}>{subtitle}</BodyText>
-        {note && (
-          <BodyText size={11} color="var(--neutral-600)" style={{ marginTop: 3, fontStyle: 'italic' }}>
-            &ldquo;{note}&rdquo;
-          </BodyText>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy != null}
-          loading={busy === 'deny'}
-          onClick={() => void run('deny', onDeny)}
-        >
-          Deny
-        </Button>
-        <Button
-          variant="default"
-          size="sm"
-          disabled={busy != null}
-          loading={busy === 'approve'}
-          onClick={() => void run('approve', onApprove)}
-        >
-          Approve
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function PermissionsTab({
-  orgId,
-  connectors,
-  teams,
-  personalRequests,
-  teamRequests,
-  loading,
-  onReload,
-}: {
-  orgId: string
-  connectors: ConnectorCatalogEntry[]
-  teams: Team[]
-  personalRequests: PersonalConnectorRequest[]
-  teamRequests: TeamRequestIndex
-  loading: boolean
-  onReload: () => Promise<void>
-}) {
-  const connectorBySlug = useMemo(
-    () => Object.fromEntries(connectors.map(connector => [connector.slug, connector])),
-    [connectors],
-  )
-  const teamById = useMemo(
-    () => Object.fromEntries(teams.map(team => [team.id, team])),
-    [teams],
-  )
-  const pendingTeamRequests = useMemo(
-    () => Object.values(teamRequests).flatMap(bySlug => Object.values(bySlug)).filter(request => request.status === 'pending'),
-    [teamRequests],
-  )
-  const pendingPersonal = personalRequests.filter(request => request.status === 'pending')
-
-  if (loading) {
-    return (
-      <PageCard>
-        <EmptyState title="Loading requests…" />
-      </PageCard>
-    )
-  }
-
-  async function approveTeam(request: TeamConnectorRequest) {
-    await setTeamConnectorStatus(orgId, request.teamId, request.connectorSlug, 'approved')
-    toast.success('Team connector approved')
-    await onReload()
-  }
-
-  async function denyTeam(request: TeamConnectorRequest) {
-    await setTeamConnectorStatus(orgId, request.teamId, request.connectorSlug, 'denied')
-    toast.success('Team connector denied')
-    await onReload()
-  }
-
-  async function reviewPersonal(request: PersonalConnectorRequest, status: 'approved' | 'denied') {
-    await reviewPersonalRequest(orgId, request.id, status)
-    toast.success(status === 'approved' ? 'Personal request approved' : 'Personal request denied')
-    await onReload()
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <PageCard>
-        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <WorkflowSquareTenIcon size={22} />
-          <div>
-            <BodyText size={16} weight={500} color="var(--neutral-900)">Team connector requests</BodyText>
-            <BodyText size={12}>Approve connector access requested for a specific team.</BodyText>
-          </div>
-        </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pendingTeamRequests.length === 0 ? (
-            <EmptyState title="No pending team requests" />
-          ) : (
-            pendingTeamRequests.map(request => {
-              const connector = connectorBySlug[request.connectorSlug]
-              const team = teamById[request.teamId]
-              return (
-                <ApprovalRow
-                  key={`${request.teamId}:${request.connectorSlug}`}
-                  connector={connector}
-                  title={connector?.display_name ?? request.connectorSlug}
-                  subtitle={`${team?.name ?? 'Unknown team'} requested by ${request.requestedByName ?? request.requestedByEmail ?? 'a member'}`}
-                  note={request.note}
-                  status={request.status}
-                  onApprove={() => approveTeam(request)}
-                  onDeny={() => denyTeam(request)}
-                />
-              )
-            })
-          )}
-        </div>
-      </PageCard>
-
-      <PageCard>
-        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <UserIcon size={22} />
-          <div>
-            <BodyText size={16} weight={500} color="var(--neutral-900)">Personal connector requests</BodyText>
-            <BodyText size={12}>Approve one user&apos;s personal connector exception.</BodyText>
-          </div>
-        </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pendingPersonal.length === 0 ? (
-            <EmptyState title="No pending personal requests" />
-          ) : (
-            pendingPersonal.map(request => {
-              const connector = connectorBySlug[request.connectorSlug]
-              return (
-                <ApprovalRow
-                  key={request.id}
-                  connector={connector}
-                  title={connector?.display_name ?? request.connectorSlug}
-                  subtitle={`Requested by ${request.userName ?? request.userEmail ?? 'a member'}`}
-                  note={request.note}
-                  status={request.status}
-                  onApprove={() => reviewPersonal(request, 'approved')}
-                  onDeny={() => reviewPersonal(request, 'denied')}
-                />
-              )
-            })
-          )}
-        </div>
-      </PageCard>
-    </div>
-  )
-}
-
 function ConnectorCard({
   connector,
+  approved,
   onManage,
 }: {
   connector: ConnectorCatalogEntry
+  approved: boolean
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
   const accounts = connector.accounts ?? []
@@ -1868,7 +1096,7 @@ function ConnectorCard({
       </BodyText>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Badge label={connector.org_enabled === true ? 'Org on' : 'Org off'} color={connector.org_enabled === true ? 'Green' : 'Neutral'} />
+          <Badge label={approved ? 'Org on' : 'Org off'} color={approved ? 'Green' : 'Neutral'} />
           <Badge label={`${accounts.length} account${accounts.length === 1 ? '' : 's'}`} color="Purple" />
           <Badge label={`${activeAccounts.length} active`} color={activeAccounts.length ? 'Green' : 'Neutral'} />
         </div>
@@ -1882,14 +1110,23 @@ function ConnectorCard({
 
 function ManageConnectorsTab({
   connectors,
+  requests,
   initialSearch,
   onManage,
 }: {
   connectors: ConnectorCatalogEntry[]
+  requests: OrgConnectorRequest[]
   initialSearch: string
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
-  const orgEnabled = useMemo(() => connectors.filter(connector => connector.org_enabled === true), [connectors])
+  const approvedSlugs = useMemo(
+    () => requests.reduce((slugs, r) => {
+      if (r.status === 'approved') slugs.add(r.connectorSlug)
+      return slugs
+    }, new Set<string>()),
+    [requests],
+  )
+  const orgEnabled = useMemo(() => connectors.filter(connector => approvedSlugs.has(connector.slug)), [connectors, approvedSlugs])
   const { search, setSearch, filtered } = useConnectorSearch(orgEnabled, initialSearch)
   const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
 
@@ -1916,7 +1153,7 @@ function ManageConnectorsTab({
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
               {browse.pageItems.map(connector => (
-                <ConnectorCard key={connector.slug} connector={connector} onManage={onManage} />
+                <ConnectorCard key={connector.slug} connector={connector} approved={approvedSlugs.has(connector.slug)} onManage={onManage} />
               ))}
             </div>
             <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
@@ -2001,13 +1238,11 @@ function credentialFields(connector: ConnectorCatalogEntry): ApiKeyField[] {
 function AddSharedAccountModal({
   connector,
   orgId,
-  teams,
   onClose,
   onCreated,
 }: {
   connector: ConnectorCatalogEntry
   orgId: string
-  teams: Team[]
   onClose: () => void
   onCreated: () => Promise<void>
 }) {
@@ -2015,35 +1250,13 @@ function AddSharedAccountModal({
   const [label, setLabel] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
-  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [polling, setPolling] = useState(false)
   const canSubmit = label.trim().length > 0 && fields.every(field => !field.required || values[field.name]?.trim())
 
-  function toggleSelectedTeam(teamId: string, checked: boolean) {
-    setSelectedTeamIds(prev => checked
-      ? Array.from(new Set([...prev, teamId]))
-      : prev.filter(id => id !== teamId))
-  }
-
-  async function shareAccountWithTeams(accountId: string): Promise<string[]> {
-    const selectedTeams = teams.filter(team => selectedTeamIds.includes(team.id))
-    const failed: string[] = []
-    for (const team of selectedTeams) {
-      try {
-        await requestTeamConnector(orgId, team.id, connector.slug)
-        await attachSharedAccount(orgId, team.id, connector.slug, accountId)
-      } catch {
-        failed.push(team.name)
-      }
-    }
-    return failed
-  }
-
   async function handleSubmit() {
     if (!canSubmit) return
     setBusy(true)
-    let connected = connector.auth_mode !== 'oauth2'
     try {
       const fieldPayload = Object.fromEntries(Object.entries(values).filter(([, value]) => value.trim()))
       const res = await createOrgConnectorAccount(orgId, connector.slug, {
@@ -2059,7 +1272,6 @@ function AddSharedAccountModal({
           credentials: fieldPayload,
           expectedVersion: created?.version,
         })
-        connected = true
       }
 
       if (res.redirectUrl) {
@@ -2077,10 +1289,8 @@ function AddSharedAccountModal({
         setPolling(true)
         try {
           await pollOrgConnectorAccountUntilConnected(orgId, connector.slug, res.sharedAccountId)
-          connected = true
           popup?.close()
         } catch {
-          connected = false
           popup?.close()
           toast.warning('OAuth flow timed out. The account was created; refresh the account list after finishing auth.')
           return
@@ -2089,16 +1299,7 @@ function AddSharedAccountModal({
         }
       }
 
-      if (connected && selectedTeamIds.length > 0) {
-        const failedTeams = await shareAccountWithTeams(res.sharedAccountId)
-        if (failedTeams.length > 0) {
-          toast.warning(`Shared account created, but could not share with ${failedTeams.join(', ')}`)
-        } else {
-          toast.success('Shared account created and shared with selected teams')
-        }
-      } else {
-        toast.success('Shared account created')
-      }
+      toast.success('Shared account created')
       await onCreated()
       onClose()
     } catch (error) {
@@ -2112,7 +1313,7 @@ function AddSharedAccountModal({
   return (
     <ModalShell
       title={`Add ${connector.display_name} account`}
-      subtitle="Create an org-owned account, then choose which teams can use it."
+      subtitle="Create an org-owned account, visible to the whole organization."
       onClose={onClose}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -2151,42 +1352,6 @@ function AddSharedAccountModal({
           </PageCard>
         )}
 
-        <PageCard>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <InformationCircleIcon size={18} style={{ marginTop: 2 }} />
-            <div>
-              <BodyText weight={500} color="var(--neutral-900)">Share with teams</BodyText>
-              <BodyText size={12}>
-                Members only see this workspace connector after the shared account is attached to one of their teams.
-              </BodyText>
-            </div>
-          </div>
-          {teams.length === 0 ? (
-            <EmptyState title="No teams yet" subtitle="Create a team before sharing this account with members." />
-          ) : (
-            teams.map((team, index) => {
-              const checked = selectedTeamIds.includes(team.id)
-              return (
-                <div key={team.id}>
-                  {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
-                  <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <BodyText weight={500} color="var(--neutral-900)">{team.name}</BodyText>
-                      <BodyText size={11}>{checked ? 'Will be visible to this team' : 'Not visible to this team yet'}</BodyText>
-                    </div>
-                    <Switch checked={checked} disabled={busy} onCheckedChange={next => toggleSelectedTeam(team.id, next)} />
-                  </div>
-                </div>
-              )
-            })
-          )}
-          {teams.length > 0 && selectedTeamIds.length === 0 && (
-            <div style={{ padding: '0 20px 16px' }}>
-              <BodyText size={12}>No teams selected. This account will stay in the admin pool until you share it.</BodyText>
-            </div>
-          )}
-        </PageCard>
-
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
           <Button
@@ -2204,74 +1369,24 @@ function AddSharedAccountModal({
   )
 }
 
-const PERMISSION_COLUMNS = 'minmax(220px, 1fr)'
-
 function AccountDetailView({
   account,
   connector,
   orgId,
-  teams,
   onBack,
   onChanged,
 }: {
   account: OrgConnectorAccount
   connector: ConnectorCatalogEntry
   orgId: string
-  teams: Team[]
   onBack: () => void
   onChanged: () => Promise<void>
 }) {
   const [label, setLabel] = useState(account.accountLabel)
   const [version, setVersion] = useState(account.version)
   const [status, setStatus] = useState(account.status)
-  const [teamIds, setTeamIds] = useState(account.teamIds)
   const [confirmText, setConfirmText] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
-  const [teamConnections, setTeamConnections] = useState<Record<string, TeamConnectionEntry>>({})
-  const [permissionsLoading, setPermissionsLoading] = useState(false)
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
-
-  const attachedTeams = useMemo(
-    () => teams.filter(team => teamIds.includes(team.id)),
-    [teams, teamIds],
-  )
-
-  const selectedTeam = attachedTeams.find(team => team.id === selectedTeamId) ?? attachedTeams[0] ?? null
-  const selectedConnection = selectedTeam ? teamConnections[selectedTeam.id] : undefined
-  const selectedTools = selectedConnection?.tools.length ? selectedConnection.tools : (connector.tools ?? [])
-
-  const loadTeamPermissions = useCallback(async () => {
-    if (teamIds.length === 0) {
-      setTeamConnections({})
-      return
-    }
-
-    setPermissionsLoading(true)
-    try {
-      const entries = await Promise.all(teamIds.map(async teamId => {
-        const connections = await listTeamConnections(orgId, teamId)
-        const connection = connections.find(item => item.slug === connector.slug && item.sharedAccountId === account.id)
-          ?? connections.find(item => item.slug === connector.slug)
-          ?? null
-        return [teamId, connection] as const
-      }))
-
-      const next: Record<string, TeamConnectionEntry> = {}
-      entries.forEach(([teamId, connection]) => {
-        if (connection) next[teamId] = connection
-      })
-      setTeamConnections(next)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load team permissions')
-    } finally {
-      setPermissionsLoading(false)
-    }
-  }, [account.id, connector.slug, orgId, teamIds])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadTeamPermissions() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [loadTeamPermissions])
 
   async function saveLabel() {
     setSaving('label')
@@ -2310,32 +1425,6 @@ function AccountDetailView({
     }
   }
 
-  async function toggleTeam(team: Team, checked: boolean) {
-    setSaving(team.id)
-    try {
-      if (checked) {
-        await requestTeamConnector(orgId, team.id, connector.slug)
-        await attachSharedAccount(orgId, team.id, connector.slug, account.id)
-        setTeamIds(prev => Array.from(new Set([...prev, team.id])))
-        toast.success(`${account.accountLabel} shared with ${team.name}`)
-      } else {
-        await unlinkTeamConnection(orgId, team.id, connector.slug)
-        setTeamIds(prev => prev.filter(id => id !== team.id))
-        setTeamConnections(prev => {
-          const next = { ...prev }
-          delete next[team.id]
-          return next
-        })
-        toast.success(`${account.accountLabel} removed from ${team.name}`)
-      }
-      await onChanged()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update team sharing')
-    } finally {
-      setSaving(null)
-    }
-  }
-
   async function handleDelete() {
     if (confirmText !== account.accountLabel) return
     setSaving('delete')
@@ -2350,8 +1439,6 @@ function AccountDetailView({
       setSaving(null)
     }
   }
-
-  const canShare = account.connected && status === 'active'
 
   return (
     <PageShell>
@@ -2376,7 +1463,7 @@ function AccountDetailView({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18 }}>
             <div>
               <BodyText weight={500} color="var(--neutral-900)">Account status</BodyText>
-              <BodyText size={12}>Disabled or expired accounts cannot run for teams.</BodyText>
+              <BodyText size={12}>Disabled or expired accounts stop working for the organization.</BodyText>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {accountBadge({ ...account, status })}
@@ -2395,75 +1482,6 @@ function AccountDetailView({
             </Button>
           </div>
         </PageCard>
-
-        <PageCard>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <InformationCircleIcon size={18} style={{ marginTop: 2 }} />
-            <div>
-              <BodyText weight={500} color="var(--neutral-900)">Shared with teams</BodyText>
-              <BodyText size={12}>
-                Attaching this account approves the connector for that team if needed, then links this shared account.
-              </BodyText>
-            </div>
-          </div>
-          {teams.length === 0 ? (
-            <EmptyState title="No teams yet" />
-          ) : (
-            teams.map((team, index) => {
-              const checked = teamIds.includes(team.id)
-              const disabled = saving === team.id || (!checked && !canShare)
-              return (
-                <div key={team.id}>
-                  {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
-                  <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <BodyText weight={500} color="var(--neutral-900)">{team.name}</BodyText>
-                      <BodyText size={11}>{checked ? 'Using this shared account' : canShare ? 'Not attached' : 'Account must be active and connected first'}</BodyText>
-                    </div>
-                    <Switch checked={checked} disabled={disabled} onCheckedChange={next => void toggleTeam(team, next)} />
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </PageCard>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <WorkflowSquareTenIcon size={18} style={{ marginTop: 2 }} />
-            <div>
-              <BodyText weight={500} color="var(--neutral-900)">Team permissions</BodyText>
-              <BodyText size={12}>
-                Control which connector actions this shared account can run for each attached team.
-              </BodyText>
-            </div>
-          </div>
-
-          {attachedTeams.length === 0 ? (
-            <PageCard><EmptyState title="Attach to a team first" subtitle="Permissions appear after this account is shared with a team." /></PageCard>
-          ) : permissionsLoading ? (
-            <PageCard><EmptyState title="Loading permissions..." /></PageCard>
-          ) : selectedTeam ? (
-            <>
-              {attachedTeams.length > 1 && (
-                <Tabs value={selectedTeam.id} onValueChange={setSelectedTeamId}>
-                  <Tabs.List>
-                    {attachedTeams.map(team => (
-                      <Tabs.Trigger key={team.id} value={team.id}>{team.name}</Tabs.Trigger>
-                    ))}
-                  </Tabs.List>
-                </Tabs>
-              )}
-              <TeamActionsTable
-                key={selectedTeam.id}
-                team={selectedTeam}
-                connection={selectedConnection}
-                tools={selectedTools}
-                connectorSlug={connector.slug}
-              />
-            </>
-          ) : null}
-        </div>
 
         <PageCard style={{ padding: 16, borderColor: 'var(--red-300, #fca5a5)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
@@ -2495,13 +1513,11 @@ function AccountDetailView({
 function ConnectorDetailView({
   connector,
   orgId,
-  teams,
   onBack,
   onChanged,
 }: {
   connector: ConnectorCatalogEntry
   orgId: string
-  teams: Team[]
   onBack: () => void
   onChanged: () => Promise<void>
 }) {
@@ -2545,7 +1561,6 @@ function ConnectorDetailView({
         account={activeAccount}
         connector={connector}
         orgId={orgId}
-        teams={teams}
         onBack={() => setActiveAccount(null)}
         onChanged={async () => {
           await refreshAll()
@@ -2613,7 +1628,7 @@ function ConnectorDetailView({
           {loading ? (
             <EmptyState title="Loading accounts..." />
           ) : visibleAccounts.length === 0 ? (
-            <EmptyState title="No shared accounts" subtitle="Create an org shared account, then attach it to teams." />
+            <EmptyState title="No shared accounts" subtitle="Create an org shared account for members to use." />
           ) : (
             visibleAccounts.map((account, index) => (
               <div key={account.id}>
@@ -2623,7 +1638,6 @@ function ConnectorDetailView({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <BodyText weight={500} color="var(--neutral-900)">{account.accountLabel}</BodyText>
                       {accountBadge(account)}
-                      <Badge label={`${account.teamIds.length} team${account.teamIds.length === 1 ? '' : 's'}`} color="Purple" />
                     </div>
                     <BodyText size={11}>
                       {account.accountIdentifier || 'No provider identity yet'}
@@ -2643,7 +1657,6 @@ function ConnectorDetailView({
         <AddSharedAccountModal
           connector={connector}
           orgId={orgId}
-          teams={teams}
           onClose={() => setAddOpen(false)}
           onCreated={refreshAll}
         />
@@ -2652,213 +1665,35 @@ function ConnectorDetailView({
   )
 }
 
-function TeamScopedAccountModal({
-  connector,
-  orgId,
-  team,
-  onClose,
-  onCreated,
-}: {
-  connector: ConnectorCatalogEntry
-  orgId: string
-  team: Team
-  onClose: () => void
-  onCreated: () => Promise<void>
-}) {
-  const fields = credentialFields(connector)
-  const [label, setLabel] = useState(`${team.name} ${connector.display_name}`)
-  const [identifier, setIdentifier] = useState('')
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
-  const [polling, setPolling] = useState(false)
-  const canSubmit = label.trim().length > 0 && fields.every(field => !field.required || values[field.name]?.trim())
-
-  async function handleSubmit() {
-    if (!canSubmit) return
-    setBusy(true)
-    try {
-      const fieldPayload = Object.fromEntries(Object.entries(values).filter(([, value]) => value.trim()))
-      const res = await createTeamConnectionAccount(orgId, team.id, connector.slug, {
-        accountLabel: label.trim(),
-        accountIdentifier: identifier.trim() || undefined,
-        initData: fieldPayload,
-      })
-
-      if (res.redirectUrl && res.sharedAccountId) {
-        // Native MCP connectors: the backend's OAuth callback redirects back
-        // to our own app domain on success/failure, so this must navigate
-        // the current tab rather than a popup.
-        if (isMcpProviderConnector(connector.slug)) {
-          window.location.href = res.redirectUrl
-          return
-        }
-        const popup = window.open('', '_blank', 'width=900,height=700')
-        if (popup && !popup.closed) popup.location.href = res.redirectUrl
-        else window.open(res.redirectUrl, '_blank', 'noopener')
-        setPolling(true)
-        try {
-          await pollOrgConnectorAccountUntilConnected(orgId, connector.slug, res.sharedAccountId)
-          await attachSharedAccount(orgId, team.id, connector.slug, res.sharedAccountId)
-          popup?.close()
-        } catch {
-          popup?.close()
-          toast.warning('OAuth flow timed out. The account was created; retry after finishing auth.')
-          return
-        } finally {
-          setPolling(false)
-        }
-      }
-
-      toast.success(`${connector.display_name} connected for ${team.name}`)
-      await onCreated()
-      onClose()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to connect team account')
-    } finally {
-      setBusy(false)
-      setPolling(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title={`Connect ${connector.display_name}`}
-      subtitle={`This shared account will be scoped to ${team.name}.`}
-      onClose={onClose}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <PageCard style={{ padding: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <InputField fluid label="Account label" value={label} onChange={setLabel} />
-            <InputField fluid label="Account identifier" placeholder="support@example.com" value={identifier} onChange={setIdentifier} />
-          </div>
-        </PageCard>
-
-        <PageCard style={{ padding: 16 }}>
-          <BodyText weight={500} color="var(--neutral-900)">Team permission</BodyText>
-          <BodyText size={12}>
-            This connector must already be enabled and approved for {team.name}. The account will not be shared with other teams.
-          </BodyText>
-        </PageCard>
-
-        {fields.length > 0 && (
-          <PageCard style={{ padding: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <BodyText weight={500} color="var(--neutral-900)">
-                  {connector.auth_mode === 'oauth2' ? 'OAuth setup fields' : 'Credentials'}
-                </BodyText>
-                <BodyText size={12}>
-                  {connector.auth_mode === 'oauth2'
-                    ? 'These values are sent to the hosted OAuth flow.'
-                    : 'Credentials are saved on this team shared account.'}
-                </BodyText>
-              </div>
-              {fields.map(field => (
-                <InputField
-                  key={field.name}
-                  fluid
-                  type={field.secret || isSecretField(field.name) ? 'password' : 'text'}
-                  label={field.label || fieldLabel(field.name)}
-                  placeholder={field.help || fieldPlaceholder(field.name)}
-                  value={values[field.name] ?? ''}
-                  onChange={value => setValues(prev => ({ ...prev, [field.name]: value }))}
-                />
-              ))}
-            </div>
-          </PageCard>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button
-            variant="default"
-            disabled={!canSubmit || busy}
-            loading={busy}
-            rightIcon={!busy ? <ArrowRightOneIcon size={16} /> : undefined}
-            onClick={() => void handleSubmit()}
-          >
-            {polling ? 'Waiting for auth...' : connector.auth_mode === 'oauth2' ? 'Start team OAuth' : 'Connect for team'}
-          </Button>
-        </div>
-      </div>
-    </ModalShell>
-  )
-}
-
 function MemberBrowseView({
   orgId,
   connectors,
-  teams,
+  requests,
   initialSearch,
   onRequested,
 }: {
   orgId: string
   connectors: ConnectorCatalogEntry[]
-  teams: Team[]
+  requests: OrgConnectorRequest[]
   initialSearch: string
   onRequested: () => void
 }) {
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
-  const [selectedTeamId, setSelectedTeamId] = useState('')
-  const [teamTargetOpen, setTeamTargetOpen] = useState(false)
   const [busySlug, setBusySlug] = useState<string | null>(null)
-  const [teamConnections, setTeamConnections] = useState<TeamConnectionEntry[]>([])
-  const [loadingTeamConnections, setLoadingTeamConnections] = useState(false)
-  const [connectModal, setConnectModal] = useState<{ connector: ConnectorCatalogEntry; team: Team } | null>(null)
-
-  const resolvedTeamId = selectedTeamId || teams[0]?.id || ''
-  const selectedTeam = teams.find(team => team.id === resolvedTeamId) ?? null
-  const connectionBySlug = useMemo(
-    () => new Map(teamConnections.map(connection => [connection.slug, connection])),
-    [teamConnections],
+  const requestBySlug = useMemo(
+    () => Object.fromEntries(requests.map(r => [r.connectorSlug, r])),
+    [requests],
   )
 
-  const loadSelectedTeamConnections = useCallback(async () => {
-    if (!resolvedTeamId) {
-      setTeamConnections([])
-      return
-    }
-    setLoadingTeamConnections(true)
-    try {
-      const list = await listTeamConnections(orgId, resolvedTeamId)
-      setTeamConnections(list)
-    } catch {
-      setTeamConnections([])
-    } finally {
-      setLoadingTeamConnections(false)
-    }
-  }, [orgId, resolvedTeamId])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadSelectedTeamConnections() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [loadSelectedTeamConnections])
-
-  async function requestForMe(connector: ConnectorCatalogEntry) {
+  async function requestAccess(connector: ConnectorCatalogEntry) {
     setBusySlug(connector.slug)
     try {
-      await createPersonalRequest(orgId, connector.slug, `Personal access requested from org connector page.`)
-      toast.success('Personal request sent')
+      await requestOrgConnector(orgId, connector.slug, 'Requested from the connectors page.')
+      toast.success('Request sent to your organization admin')
       onRequested()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send request')
-    } finally {
-      setBusySlug(null)
-    }
-  }
-
-  async function requestForTeam(connector: ConnectorCatalogEntry) {
-    if (!resolvedTeamId) return
-    setBusySlug(connector.slug)
-    try {
-      await requestTeamConnector(orgId, resolvedTeamId, connector.slug, `Team access requested from org connector page.`)
-      toast.success('Team request sent')
-      onRequested()
-      await loadSelectedTeamConnections()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to send team request')
     } finally {
       setBusySlug(null)
     }
@@ -2869,47 +1704,10 @@ function MemberBrowseView({
       <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <BodyText size={16} weight={500} color="var(--neutral-900)">Browse and request connectors</BodyText>
-          <BodyText size={12}>Team editors can connect a shared account after an admin approves that connector for the team.</BodyText>
+          <BodyText size={12}>Request a connector — an admin approves it for the organization.</BodyText>
         </div>
         <SearchBar value={search} onChange={setSearch} />
       </div>
-
-      {teams.length > 0 && (
-        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <BodyText weight={500} color="var(--neutral-900)">Team request target</BodyText>
-          <Dropdown.Float
-            open={teamTargetOpen}
-            onOpenChange={setTeamTargetOpen}
-            placement="bottom-end"
-            offset={4}
-            trigger={
-              <Button
-                variant="secondary"
-                size="sm"
-                rightIcon={<ArrowDownOneIcon size={12} />}
-                aria-label="Team request target"
-              >
-                {selectedTeam?.name ?? 'Select team'}
-              </Button>
-            }
-          >
-            <Dropdown>
-              <Dropdown.Section fluid>
-                {teams.map(team => (
-                  <Dropdown.Item
-                    key={team.id}
-                    fluid
-                    label={team.name}
-                    selected={team.id === resolvedTeamId}
-                    icon={team.id === resolvedTeamId ? <TickTwoIcon size={14} /> : undefined}
-                    onClick={() => { setSelectedTeamId(team.id); setTeamTargetOpen(false) }}
-                  />
-                ))}
-              </Dropdown.Section>
-            </Dropdown>
-          </Dropdown.Float>
-        </div>
-      )}
 
       <div style={{ padding: '14px 24px 0' }}>
         <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
@@ -2921,37 +1719,22 @@ function MemberBrowseView({
             <EmptyState title="No connectors found" subtitle="Try a different search or category." />
           </div>
         ) : browse.pageItems.map(connector => {
-          const teamConnection = connectionBySlug.get(connector.slug)
-          const approvedForTeam = Boolean(teamConnection)
-          const connectedForTeam = Boolean(teamConnection?.workspaceLinked)
+          const request = requestBySlug[connector.slug]
           return (
             <div key={connector.slug} style={{ backgroundColor: 'white', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <ConnectorTitle connector={connector} />
               <BodyText size={11} style={{ minHeight: 34 }}>{connector.description || 'No description available.'}</BodyText>
-              {approvedForTeam && (
-                <Badge
-                  label={connectedForTeam ? `Connected for ${selectedTeam?.name ?? 'team'}` : `Approved for ${selectedTeam?.name ?? 'team'}`}
-                  color={connectedForTeam ? 'Green' : 'Blue'}
-                />
-              )}
+              {request && statusBadge(request.status)}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <Button variant="outline" size="sm" disabled={busySlug === connector.slug} onClick={() => void requestForMe(connector)}>
-                  Request for me
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={busySlug === connector.slug || request?.status === 'approved' || request?.status === 'pending'}
+                  loading={busySlug === connector.slug}
+                  onClick={() => void requestAccess(connector)}
+                >
+                  {request?.status === 'approved' ? 'Approved' : request?.status === 'pending' ? 'Pending' : 'Request access'}
                 </Button>
-                {approvedForTeam && selectedTeam ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    disabled={loadingTeamConnections || busySlug === connector.slug || connectedForTeam}
-                    onClick={() => setConnectModal({ connector, team: selectedTeam })}
-                  >
-                    {connectedForTeam ? 'Connected' : 'Connect for team'}
-                  </Button>
-                ) : (
-                  <Button variant="default" size="sm" disabled={!resolvedTeamId || busySlug === connector.slug} onClick={() => void requestForTeam(connector)}>
-                    Request for team
-                  </Button>
-                )}
               </div>
             </div>
           )
@@ -2961,32 +1744,18 @@ function MemberBrowseView({
       <div style={{ padding: '0 24px 20px' }}>
         <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
       </div>
-
-      {connectModal && (
-        <TeamScopedAccountModal
-          connector={connectModal.connector}
-          orgId={orgId}
-          team={connectModal.team}
-          onClose={() => setConnectModal(null)}
-          onCreated={async () => {
-            await loadSelectedTeamConnections()
-            onRequested()
-          }}
-        />
-      )}
     </PageCard>
   )
 }
 
 
 function OrgConnectorsPageContent() {
-  const { org, orgReady, currentUserRole, teams, teamsLoading } = useOrg()
-  const activeTeams = teams.filter(t => !t.archived)
+  const { org, orgReady, currentUserRole } = useOrg()
   const router = useRouter()
   const params = useSearchParams()
   const initialSearch = params.get('q') ?? ''
   const isAdminView = currentUserRole === 'admin'
-  const VALID_TABS: MainTab[] = ['org-access', 'team-access', 'requests', 'shared-accounts']
+  const VALID_TABS: MainTab[] = ['org-access', 'shared-accounts']
   const tabParam = params.get('tab') as MainTab | null
   const [tab, setTab] = useState<MainTab>(tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'org-access')
 
@@ -2997,29 +1766,25 @@ function OrgConnectorsPageContent() {
     router.replace(`?${sp.toString()}`)
   }
   const [connectors, setConnectors] = useState<ConnectorCatalogEntry[]>([])
-  const [personalRequests, setPersonalRequests] = useState<PersonalConnectorRequest[]>([])
-  const [teamRequests, setTeamRequests] = useState<TeamRequestIndex>({})
+  const [requests, setRequests] = useState<OrgConnectorRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [permissionsLoaded, setPermissionsLoaded] = useState(false)
-  const [permissionsLoading, setPermissionsLoading] = useState(false)
   const [detailConnector, setDetailConnector] = useState<ConnectorCatalogEntry | null>(null)
 
-  const pendingCount = useMemo(() => {
-    const pendingTeam = Object.values(teamRequests).flatMap(bySlug => Object.values(bySlug)).filter(request => request.status === 'pending').length
-    const pendingPersonal = personalRequests.filter(request => request.status === 'pending').length
-    return pendingTeam + pendingPersonal
-  }, [teamRequests, personalRequests])
+  const pendingCount = useMemo(
+    () => requests.filter(request => request.status === 'pending').length,
+    [requests],
+  )
 
-  // Mount load: only the catalog, which is all the Org access/Team access/
-  // Shared accounts tabs need. The Requests tab's data (per-team + personal
-  // requests) is loaded lazily when that tab is first opened — the per-team
-  // fan-out is the slow part.
   const loadPageData = useCallback(async () => {
     if (!org.id) return
     setLoading(true)
     try {
-      const catalog = isAdminView ? await listOrgCatalog(org.id) : await listConnectors()
+      const [catalog, requestList] = await Promise.all([
+        isAdminView ? listOrgCatalog(org.id) : listConnectors(),
+        listOrgConnectorRequests(org.id),
+      ])
       setConnectors(catalog)
+      setRequests(requestList)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load connector page')
     } finally {
@@ -3027,38 +1792,13 @@ function OrgConnectorsPageContent() {
     }
   }, [org.id, isAdminView])
 
-  const loadPermissionsData = useCallback(async () => {
-    if (!org.id || !isAdminView) return
-    setPermissionsLoading(true)
-    try {
-      const [personal, teamIndex] = await Promise.all([
-        listPersonalRequests(org.id),
-        activeTeams.length > 0 ? loadTeamRequestIndex(org.id, activeTeams) : Promise.resolve<TeamRequestIndex>({}),
-      ])
-      setPersonalRequests(personal)
-      setTeamRequests(teamIndex)
-      setPermissionsLoaded(true)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load permissions')
-    } finally {
-      setPermissionsLoading(false)
-    }
-  }, [org.id, isAdminView, teams])
-
   useEffect(() => {
-    if (!orgReady || teamsLoading || !org.id) return
+    if (!orgReady || !org.id) return
     const timer = window.setTimeout(() => { void loadPageData() }, 0)
     return () => window.clearTimeout(timer)
-  }, [orgReady, teamsLoading, org.id, loadPageData])
+  }, [orgReady, org.id, loadPageData])
 
-  useEffect(() => {
-    if (!orgReady || teamsLoading || !org.id || !isAdminView) return
-    if (tab !== 'requests' || permissionsLoaded || permissionsLoading) return
-    const timer = window.setTimeout(() => { void loadPermissionsData() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [tab, permissionsLoaded, permissionsLoading, orgReady, teamsLoading, org.id, isAdminView, loadPermissionsData])
-
-  if (!orgReady || teamsLoading || loading) {
+  if (!orgReady || loading) {
     return (
       <PageShell>
         <ConnectorsSkeleton />
@@ -3079,7 +1819,6 @@ function OrgConnectorsPageContent() {
       <ConnectorDetailView
         connector={detailConnector}
         orgId={org.id}
-        teams={activeTeams}
         onBack={() => setDetailConnector(null)}
         onChanged={loadPageData}
       />
@@ -3101,7 +1840,7 @@ function OrgConnectorsPageContent() {
           <MemberBrowseView
             orgId={org.id}
             connectors={connectors}
-            teams={activeTeams}
+            requests={requests}
             initialSearch={initialSearch}
             onRequested={loadPageData}
           />
@@ -3123,13 +1862,13 @@ function OrgConnectorsPageContent() {
               Connectors
             </h1>
             <BodyText style={{ padding: '5px 6px' }}>
-              Manage organization connector availability, per-team access, approvals, and shared accounts.
+              Manage organization connector access, approvals, and shared accounts.
             </BodyText>
           </div>
           <Tabs.List>
             {ADMIN_TABS.map(item => (
               <Tabs.Trigger key={item.id} value={item.id}>
-                {item.id === 'requests' && pendingCount > 0 ? (
+                {item.id === 'org-access' && pendingCount > 0 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {item.label}
                     <Badge label={`${pendingCount}`} color="Red" />
@@ -3145,32 +1884,15 @@ function OrgConnectorsPageContent() {
           <OrgAccessTab
             orgId={org.id}
             connectors={connectors}
+            requests={requests}
             initialSearch={initialSearch}
-            onCatalogUpdated={setConnectors}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="team-access">
-          <TeamAccessTab
-            orgId={org.id}
-            connectors={connectors}
-            teams={activeTeams}
-            initialSearch={initialSearch}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="requests">
-          <PermissionsTab
-            orgId={org.id}
-            connectors={connectors}
-            teams={activeTeams}
-            personalRequests={personalRequests}
-            teamRequests={teamRequests}
-            loading={permissionsLoading && !permissionsLoaded}
-            onReload={loadPermissionsData}
+            onRequestsChanged={setRequests}
           />
         </Tabs.Content>
         <Tabs.Content value="shared-accounts">
           <ManageConnectorsTab
             connectors={connectors}
+            requests={requests}
             initialSearch={initialSearch}
             onManage={setDetailConnector}
           />

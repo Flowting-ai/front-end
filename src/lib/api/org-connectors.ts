@@ -5,9 +5,8 @@ import {
   ORG_CONNECTOR_ACCOUNTS_ENDPOINT,
   ORG_CONNECTOR_ACCOUNT_ENDPOINT,
   ORG_CONNECTOR_USED_BY_ENDPOINT,
-  ORG_PERSONAL_REQUEST_ENDPOINT,
-  ORG_PERSONAL_REQUESTS_ENDPOINT,
-  ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT,
+  ORG_CONNECTORS_ENDPOINT,
+  ORG_CONNECTOR_ENDPOINT,
 } from '@/lib/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -23,7 +22,6 @@ export interface OrgConnectorAccount {
   connected:        boolean
   status:           AccountStatus
   version:          number
-  teamIds:          string[]
   linkedByUserId:   string
   createdAt:        string
   updatedAt:        string
@@ -38,7 +36,6 @@ interface OrgConnectorAccountResponse {
   connected:            boolean
   status:               AccountStatus
   version:              number
-  team_ids:             string[]
   linked_by_user_id:    string
   created_at:           string
   updated_at:           string
@@ -60,7 +57,6 @@ function normalizeAccount(r: OrgConnectorAccountResponse): OrgConnectorAccount {
     connected:        r.connected,
     status:           r.status,
     version:          r.version,
-    teamIds:          r.team_ids ?? [],
     linkedByUserId:   r.linked_by_user_id,
     createdAt:        r.created_at,
     updatedAt:        r.updated_at,
@@ -148,85 +144,87 @@ export async function pollOrgConnectorAccountUntilConnected(
   throw new Error(`Shared account ${targetId} did not connect within ${timeoutMs}ms`)
 }
 
-// ── Personal connector access requests ────────────────────────────────────────
+// ── Organization connector access requests ────────────────────────────────────
+// Whether a connector is usable for the org at all. A member's request lands
+// pending and emails the owner; an admin's own request auto-approves. This is
+// the org's only enable/disable gate now — the old bulk PUT /connectors/catalog
+// allowlist was removed from the backend entirely (org_enabled was removed
+// from ConnectorCatalogEntry along with it), and there is no per-team version
+// of this any more since Team has no backend route left at all.
 
-export type PersonalRequestStatus = 'pending' | 'approved' | 'denied'
+export type OrgConnectorRequestStatus = 'pending' | 'approved' | 'denied'
 
-export interface PersonalConnectorRequest {
-  id:                  string
-  organizationId:      string
-  userId:              string
-  userName:            string | null
-  userEmail:           string | null
-  connectorSlug:       string
-  status:              PersonalRequestStatus
-  note:                string | null
-  requestedByUserId:   string
-  reviewedByUserId:    string | null
-  createdAt:           string
-  updatedAt:           string
+export interface OrgConnectorRequest {
+  organizationId:    string
+  connectorSlug:     string
+  status:            OrgConnectorRequestStatus
+  requestedByUserId: string
+  requestedByName:   string | null
+  requestedByEmail:  string | null
+  note:              string
+  createdAt:         string
+  updatedAt:         string
 }
 
-interface PersonalRequestResponse {
-  id:                   string
+interface OrgConnectorRequestResponse {
   organization_id:      string
-  user_id:              string
-  user_name:            string | null
-  user_email:           string | null
   connector_slug:       string
-  status:               PersonalRequestStatus
-  note:                 string | null
+  status:               OrgConnectorRequestStatus
   requested_by_user_id: string
-  reviewed_by_user_id:  string | null
+  requested_by_name:    string | null
+  requested_by_email:   string | null
+  note:                 string
   created_at:           string
   updated_at:           string
 }
 
-function normalizePersonalRequest(r: PersonalRequestResponse): PersonalConnectorRequest {
+function normalizeOrgConnectorRequest(r: OrgConnectorRequestResponse): OrgConnectorRequest {
   return {
-    id:                r.id,
     organizationId:    r.organization_id,
-    userId:            r.user_id,
-    userName:          r.user_name ?? null,
-    userEmail:         r.user_email ?? null,
     connectorSlug:     r.connector_slug,
     status:            r.status,
-    note:              r.note ?? null,
     requestedByUserId: r.requested_by_user_id,
-    reviewedByUserId:  r.reviewed_by_user_id ?? null,
+    requestedByName:   r.requested_by_name ?? null,
+    requestedByEmail:  r.requested_by_email ?? null,
+    note:              r.note ?? '',
     createdAt:         r.created_at,
     updatedAt:         r.updated_at,
   }
 }
 
-/** POST /organizations/{id}/connectors/{slug}/personal-request */
-export async function createPersonalRequest(
+/** GET /organizations/{id}/connectors */
+export async function listOrgConnectorRequests(orgId: string): Promise<OrgConnectorRequest[]> {
+  const list = await apiFetchJson<OrgConnectorRequestResponse[]>(ORG_CONNECTORS_ENDPOINT(orgId))
+  return list.map(normalizeOrgConnectorRequest)
+}
+
+/** POST /organizations/{id}/connectors — auto-approved for an admin requester, pending otherwise. */
+export async function requestOrgConnector(
   orgId: string,
   slug: string,
   note?: string,
-): Promise<PersonalConnectorRequest> {
-  const data = await apiFetchJson<PersonalRequestResponse>(
-    ORG_PERSONAL_REQUEST_ENDPOINT(orgId, slug),
-    { method: 'POST', ...(note ? { body: JSON.stringify({ note }) } : {}) },
-  )
-  return normalizePersonalRequest(data)
+): Promise<OrgConnectorRequest> {
+  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTORS_ENDPOINT(orgId), {
+    method: 'POST',
+    body: JSON.stringify({ slug, ...(note ? { note } : {}) }),
+  })
+  return normalizeOrgConnectorRequest(data)
 }
 
-/** GET /organizations/{id}/connectors/personal-requests — admin-only. */
-export async function listPersonalRequests(orgId: string): Promise<PersonalConnectorRequest[]> {
-  const list = await apiFetchJson<PersonalRequestResponse[]>(ORG_PERSONAL_REQUESTS_ENDPOINT(orgId))
-  return list.map(normalizePersonalRequest)
-}
-
-/** PATCH /organizations/{id}/connectors/personal-requests/{requestId} — admin-only. */
-export async function reviewPersonalRequest(
+/** PATCH /organizations/{id}/connectors/{slug} — admin-only. */
+export async function setOrgConnectorRequestStatus(
   orgId: string,
-  requestId: string,
-  status: PersonalRequestStatus,
-): Promise<PersonalConnectorRequest> {
-  const data = await apiFetchJson<PersonalRequestResponse>(
-    ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT(orgId, requestId),
-    { method: 'PATCH', body: JSON.stringify({ status }) },
-  )
-  return normalizePersonalRequest(data)
+  slug: string,
+  status: OrgConnectorRequestStatus,
+): Promise<OrgConnectorRequest> {
+  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTOR_ENDPOINT(orgId, slug), {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+  return normalizeOrgConnectorRequest(data)
+}
+
+/** DELETE /organizations/{id}/connectors/{slug} — admin-only. Removes the request/approval entirely. */
+export async function removeOrgConnectorRequest(orgId: string, slug: string): Promise<void> {
+  await apiFetch(ORG_CONNECTOR_ENDPOINT(orgId, slug), { method: 'DELETE' })
 }

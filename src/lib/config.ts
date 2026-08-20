@@ -289,18 +289,8 @@ export const ORG_PROJECT_MEMBERS_ENDPOINT = (orgId: string, projectId: string) =
   withBase(`/organizations/${orgId}/projects/${projectId}/members`)
 export const ORG_PROJECT_MEMBER_ENDPOINT = (orgId: string, projectId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/projects/${projectId}/members/${memberId}`)
-export const ORG_TEAM_CONNECTORS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors`)
-export const ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/catalog`)
-export const ORG_TEAM_CONNECTOR_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/${encodeURIComponent(slug)}`)
-export const ORG_TEAM_CONNECTIONS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connections`)
 export const ORG_TEAM_PERSONA_SHARES_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/persona-shares`)
-export const ORG_TEAM_CONNECTION_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connections/${encodeURIComponent(slug)}`)
 export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
@@ -334,12 +324,10 @@ export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
 export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/connectors/catalog`)
-export const ORG_PERSONAL_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/personal-request`)
-export const ORG_PERSONAL_REQUESTS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests`)
-export const ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT = (orgId: string, requestId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests/${requestId}`)
+export const ORG_CONNECTORS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/connectors`)
+export const ORG_CONNECTOR_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>

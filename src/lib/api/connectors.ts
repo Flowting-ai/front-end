@@ -18,7 +18,6 @@ import {
 
 const accountScopeSchema  = z.enum(['personal', 'shared_team'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
-const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
 
 const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
 
@@ -62,7 +61,6 @@ const orgConnectorAccountSchema = z.object({
   scope:              accountScopeSchema.default('shared_team'),
   status:             accountStatusSchema.default('active'),
   version:            z.number().int().default(1),
-  team_ids:           z.array(z.string()).default([]),
   linked_by_user_id:  z.string().nullable().default(null),
   created_at:         z.string(),
   updated_at:         z.string(),
@@ -133,10 +131,6 @@ const connectorCatalogEntrySchema = z.object({
   accounts:            z.array(orgConnectorAccountSchema).default([]),
   /** Selectable account options the current user can execute under. */
   account_options:     z.array(connectorAccountOptionSchema).default([]),
-  /** Whether the slug is enabled in the org catalog. null outside org context. */
-  org_enabled:            z.boolean().nullable().default(null),
-  /** Current user's personal access request status, or null. */
-  personal_access_status: accessStatusSchema.nullable().default(null),
   /** Not in the backend schema — some FE code sets it locally for the avatar. */
   icon_url:            z.string().optional(),
 })
@@ -185,7 +179,6 @@ export type ConnectorAccountOption = z.infer<typeof connectorAccountOptionSchema
 export type ConnectorCatalogEntry  = z.infer<typeof connectorCatalogEntrySchema>
 export type ConnectorListResponse  = z.infer<typeof connectorListResponseSchema>
 export type LinkResponse           = z.infer<typeof linkResponseSchema>
-export type PersonalAccessStatus   = z.infer<typeof accessStatusSchema>
 
 /** Fallback field used when the catalog entry omits api_key_fields entirely. */
 export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
@@ -264,24 +257,13 @@ export async function unlinkConnector(slug: string): Promise<void> {
 
 // ── Org connector catalog (admin) ─────────────────────────────────────────────
 
-/** GET /organizations/{id}/connectors/catalog — admin-only. */
+/** GET /organizations/{id}/connectors/catalog. Every active connector is
+ *  available to every org now — there's no separate org allowlist to fetch or
+ *  write (the PUT this used to pair with was removed from the backend
+ *  entirely; connector availability is gated by the request/approve workflow
+ *  in lib/api/org-connectors.ts instead). */
 export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
   const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId))
-  return z.array(connectorCatalogEntrySchema).parse(raw)
-}
-
-/**
- * PUT /organizations/{id}/connectors/catalog — admin-only.
- * Replaces the org allowlist with the provided slug list.
- */
-export async function updateOrgCatalog(
-  orgId: string,
-  connectorSlugs: string[],
-): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId), {
-    method: 'PUT',
-    body: JSON.stringify({ connectorSlugs }),
-  })
   return z.array(connectorCatalogEntrySchema).parse(raw)
 }
 
