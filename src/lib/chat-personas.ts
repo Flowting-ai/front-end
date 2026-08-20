@@ -6,7 +6,6 @@ import {
   type Persona,
   type PersonaRepoResponse,
 } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 
 export interface SelectedPersonaInfo {
   id:              string
@@ -87,10 +86,9 @@ export async function resolveSelectableChatPersonas(
 
 // 30-second TTL cache + in-flight dedup — the Agents floating panel calls
 // fetchSelectableChatPersonas() fresh on every open, which previously re-ran
-// fetchPersonas() + fetchPersonaOwnerMap() + the copy-resolution pass every
-// single time. Busted whenever the personas list itself is busted (create/
-// edit/publish/delete/share), so a real mutation is never masked by a stale
-// cache hit.
+// fetchPersonas() + the copy-resolution pass every single time. Busted
+// whenever the personas list itself is busted (create/edit/publish/delete/
+// share), so a real mutation is never masked by a stale cache hit.
 const _selectableCache = new Map<string, { data: SelectedPersonaInfo[]; time: number }>()
 const _selectableInFlight = new Map<string, Promise<SelectedPersonaInfo[]>>()
 const SELECTABLE_CACHE_TTL = 30_000
@@ -120,14 +118,12 @@ export function fetchSelectableChatPersonas(
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
     const personas = allPersonas.filter(persona => persona.status !== 'draft')
-    const teamIds = [...new Set(
-      personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
-    )]
-    const ownerMap = orgId && teamIds.length > 0
-      ? await fetchPersonaOwnerMap(orgId, teamIds)
-      : {}
-
-    const resolved = await resolveSelectableChatPersonas(personas, ownerMap, viewerUserId, fallbackOwned)
+    // Team was removed entirely (no backend route left for a team-persona-shares
+    // owner map), so there's no way to resolve a shared persona's real owner
+    // here anymore — resolveSelectableChatPersonas falls back to fallbackOwned
+    // for every org-shared persona, same as it already does for any persona
+    // missing from the map.
+    const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved
   })().finally(() => { _selectableInFlight.delete(key) })
