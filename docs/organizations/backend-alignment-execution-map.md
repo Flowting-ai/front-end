@@ -74,9 +74,9 @@ The back-end already did this (five migrations, ending in `flatten_teams_into_or
 
 ---
 
-## 4. Thread B — Orphaned endpoint triage — ✅ confirmed dead, ready to execute
+## 4. Thread B — Orphaned endpoint triage — ✅ Done, committed `c36828b`
 
-- `approveOverflow()` (`src/lib/api/organization.ts:458`, `POST /organizations/{id}/overflow/{requestId}/approve`) and its `OverflowResponseRaw.team_id` field are still live in the API layer, but **the backend route is confirmed gone** — there is no `overflow` path anywhere in `services/organizations/router.py`, and migration `a2f7d9c4e618_drop_dead_credit_layers` states outright that `OrganizationMember.credit_extra` was dropped because it "existed only to keep an older overflow response shape alive." No backend-dev confirmation needed anymore. **Action: remove `approveOverflow()` and every UI call site** (the "Approve credit overflow" action referenced in `role-guardrails.md` §6) rather than leave a control pointed at a route that 404s.
+- `approveOverflow()` (`src/lib/api/organization.ts:458`, `POST /organizations/{id}/overflow/{requestId}/approve`) and its `OverflowResponseRaw.team_id` field pointed at a route confirmed gone from the backend — no `overflow` path anywhere in `services/organizations/router.py`, and migration `a2f7d9c4e618_drop_dead_credit_layers` states outright that `OrganizationMember.credit_extra` was dropped because it "existed only to keep an older overflow response shape alive." Removed `approveOverflow()` and every UI call site (the "Approve credit overflow" action `role-guardrails.md` §6 referenced). Confirmed zero remaining references in `src/`.
 
 ---
 
