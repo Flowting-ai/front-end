@@ -6,8 +6,6 @@ import { toast } from 'sonner'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, type Persona } from '@/lib/api/personas'
-import { fetchTeamSharedRepoIds } from '@/lib/api/teams'
-import { useOrg } from '@/context/org-context'
 import { AGENT_CHAT_ROUTE } from '@/lib/routes'
 import { SectionHeader, EmptyRow } from '@/components/shared/ProjectPanelSection'
 
@@ -19,7 +17,6 @@ export interface ProjectAgentsPanelProps {
 
 export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
   const { push } = useRouter()
-  const { orgId } = useOrg()
   const [agents, setAgents] = useState<Persona[]>([])
   const [agentsLoading, setAgentsLoading] = useState(true)
   const [usingId, setUsingId] = useState<string | null>(null)
@@ -48,20 +45,15 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
   useEffect(() => {
     let cancelled = false
     setAgentsLoading(true)
-    Promise.all([
-      fetchPersonas(),
-      // The team's deploy set — the only place it exists. Skipped entirely for a
-      // personal project, which lists the viewer's own private agents instead.
-      teamId && orgId ? fetchTeamSharedRepoIds(orgId, teamId) : Promise.resolve(null),
-    ])
-      .then(([list, sharedRepoIds]) => {
+    fetchPersonas()
+      .then(list => {
         if (cancelled) return
         // Draft agents aren't ready for use yet — only surface published ones here.
-        // Outside a team, personasForTeamContext returns the list unchanged, so
-        // filter to the viewer's own private agents explicitly — otherwise
-        // team-shared agents from the viewer's other teams would leak in here.
+        // Outside an org-shared project, personasForTeamContext returns the list
+        // unchanged, so filter to the viewer's own private agents explicitly —
+        // otherwise every org-shared agent would leak in here.
         const scoped = teamId
-          ? personasForTeamContext(list, teamId, sharedRepoIds)
+          ? personasForTeamContext(list, teamId)
           : list.filter(p => p.visibility === 'private')
         setAgents(scoped.filter(p => p.status !== 'draft'))
       })
@@ -72,7 +64,7 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
       })
       .finally(() => { if (!cancelled) setAgentsLoading(false) })
     return () => { cancelled = true }
-  }, [teamId, orgId])
+  }, [teamId])
 
   return (
     <div style={{ backgroundColor: 'var(--neutral-50)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--neutral-200)' }}>

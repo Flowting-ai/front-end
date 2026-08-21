@@ -1852,7 +1852,7 @@ function OrgConnectorsPageContent() {
           <MemberBrowseView
             orgId={org.id}
             connectors={connectors}
-            requests={requests}
+            requests={orgRequests}
             initialSearch={initialSearch}
             onRequested={loadPageData}
           />
