@@ -256,7 +256,7 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
 // ── Policy helpers ────────────────────────────────────────────────────────────
 function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
   const options = (entry.account_options ?? [])
-    .filter(account => account.scope === 'shared_team' && account.connected && account.status === 'active')
+    .filter(account => account.scope === 'shared_org' && account.connected && account.status === 'active')
   if (options.length > 0) return options
   return (entry.accounts ?? [])
     .filter(account => account.connected && account.status === 'active')

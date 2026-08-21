@@ -47,20 +47,19 @@ import {
   isSecretField,
   listConnectors,
   listOrgCatalog,
-  updateOrgCatalog,
 } from '@/lib/api/connectors'
 import type { ApiKeyField, ConnectorAccount, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import {
   createOrgConnectorAccount,
-  createPersonalRequest,
   deleteOrgConnectorAccount,
   listOrgConnectorAccounts,
-  listPersonalRequests,
+  listOrgConnectorRequests,
   pollOrgConnectorAccountUntilConnected,
-  reviewPersonalRequest,
+  requestOrgConnector,
+  setOrgConnectorStatus,
   updateOrgConnectorAccount,
 } from '@/lib/api/org-connectors'
-import type { AccountStatus, OrgConnectorAccount, PersonalConnectorRequest } from '@/lib/api/org-connectors'
+import type { AccountStatus, OrgConnectorAccount, OrgConnectorRequest } from '@/lib/api/org-connectors'
 import {
   attachSharedAccount,
   createTeamConnectionAccount,
@@ -80,6 +79,23 @@ type MainTab = 'org-access' | 'team-access' | 'requests' | 'shared-accounts'
 type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
 
 type TeamRequestIndex = Record<string, Record<string, TeamConnectorRequest>>
+
+// The catalog no longer carries an `org_enabled` flag: the backend hands every
+// member every active connector and keeps the org's own position on a connector
+// in a separate OrganizationConnector row (GET/POST/PATCH
+// /organizations/{id}/connectors). "Org ON" here means that row exists and is
+// approved; loading it once at the page root keeps every tab reading one map.
+type OrgConnectorStatusIndex = Record<string, ConnectorRequestStatus>
+
+const OrgConnectorStatusContext = React.createContext<OrgConnectorStatusIndex>({})
+
+function useOrgConnectorStatus(): OrgConnectorStatusIndex {
+  return React.useContext(OrgConnectorStatusContext)
+}
+
+function isOrgApproved(statuses: OrgConnectorStatusIndex, slug: string): boolean {
+  return statuses[slug] === 'approved'
+}
 
 // Turn a raw tool slug (e.g. "GOOGLECALENDAR_CREATE_EVENT") into a readable
 // action name, dropping the redundant connector prefix when present.
@@ -594,21 +610,23 @@ function sortConnectors(
   connectors: ConnectorCatalogEntry[],
   direction: ConnectorSortDirection,
   status: ConnectorStatusFilter,
+  orgStatuses: OrgConnectorStatusIndex,
 ): ConnectorCatalogEntry[] {
   const byName = (a: ConnectorCatalogEntry, b: ConnectorCatalogEntry) => a.display_name.localeCompare(b.display_name)
   const dir = direction === 'za' ? -1 : 1
+  const approved = (c: ConnectorCatalogEntry) => isOrgApproved(orgStatuses, c.slug)
 
   const scoped = status === 'on'
-    ? connectors.filter(c => c.org_enabled === true)
+    ? connectors.filter(approved)
     : status === 'off'
-    ? connectors.filter(c => c.org_enabled !== true)
+    ? connectors.filter(c => !approved(c))
     : connectors
 
   if (status !== 'all') return [...scoped].sort((a, b) => byName(a, b) * dir)
 
   return [...scoped].sort((a, b) => {
-    const aActive = a.org_enabled === true
-    const bActive = b.org_enabled === true
+    const aActive = approved(a)
+    const bActive = approved(b)
     if (aActive !== bActive) return aActive ? -1 : 1
     return byName(a, b) * dir
   })
@@ -774,20 +792,21 @@ function OrgAccessTab({
   orgId,
   connectors,
   initialSearch,
-  onCatalogUpdated,
+  onOrgStatusChanged,
 }: {
   orgId: string
   connectors: ConnectorCatalogEntry[]
   initialSearch: string
-  onCatalogUpdated: (connectors: ConnectorCatalogEntry[]) => void
+  onOrgStatusChanged: () => Promise<void> | void
 }) {
+  const orgStatuses = useOrgConnectorStatus()
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const [sortDirection, setSortDirection] = useState<ConnectorSortDirection>('az')
   const [statusFilter, setStatusFilter] = useState<ConnectorStatusFilter>('all')
   const [viewMode, setViewMode] = useState<ConnectorViewMode>('list')
   const sorted = useMemo(
-    () => sortConnectors(filtered, sortDirection, statusFilter),
-    [filtered, sortDirection, statusFilter],
+    () => sortConnectors(filtered, sortDirection, statusFilter, orgStatuses),
+    [filtered, sortDirection, statusFilter, orgStatuses],
   )
   const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: `${search}::${sortDirection}::${statusFilter}` })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
@@ -800,8 +819,8 @@ function OrgAccessTab({
   // together instead of all of them. Enabled always shows in full; only
   // "available" (disabled) paginates, on its own page counter.
   const [availablePage, setAvailablePage] = useState(1)
-  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled === true) : []
-  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled !== true) : []
+  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => isOrgApproved(orgStatuses, c.slug)) : []
+  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => !isOrgApproved(orgStatuses, c.slug)) : []
   const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / browse.pageSize))
   const safeAvailablePage = Math.min(availablePage, availablePageCount)
   const availableItems = availableAllItems.slice(
@@ -811,22 +830,18 @@ function OrgAccessTab({
   // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
   useEffect(() => { setAvailablePage(1) }, [browse.category, search, sortDirection, statusFilter])
 
-  const enabledSlugs = useMemo(
-    () => connectors.filter(connector => connector.org_enabled === true).map(connector => connector.slug),
-    [connectors],
-  )
-
   async function handleOrgToggle(connector: ConnectorCatalogEntry, checked: boolean) {
     setBusyOrgSlug(connector.slug)
     try {
-      const nextSlugs = checked
-        ? Array.from(new Set([...enabledSlugs, connector.slug]))
-        : enabledSlugs.filter(slug => slug !== connector.slug)
-      const next = await updateOrgCatalog(orgId, nextSlugs)
-      onCatalogUpdated(next)
+      // POST files (or re-files) the org's request — an admin's own request is
+      // approved on the spot, so it is the "turn on" write. Turning off is a
+      // deny, which also clears the org's shared connection for the slug.
+      if (checked) await requestOrgConnector(orgId, connector.slug)
+      else         await setOrgConnectorStatus(orgId, connector.slug, 'denied')
+      await onOrgStatusChanged()
       toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for the organization`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update catalog')
+      toast.error(error instanceof Error ? error.message : 'Failed to update org access')
     } finally {
       setBusyOrgSlug(null)
     }
@@ -855,7 +870,7 @@ function OrgAccessTab({
   }
 
   function renderConnectorRow(connector: ConnectorCatalogEntry, index: number) {
-    const orgEnabled = connector.org_enabled === true
+    const orgEnabled = isOrgApproved(orgStatuses, connector.slug)
     return (
       <motion.div
         key={`${connector.slug}-${viewMode}`}
@@ -892,7 +907,7 @@ function OrgAccessTab({
   }
 
   function renderConnectorCard(connector: ConnectorCatalogEntry, index: number) {
-    const orgEnabled = connector.org_enabled === true
+    const orgEnabled = isOrgApproved(orgStatuses, connector.slug)
     const accountCount = connector.accounts?.length ?? 0
     return (
       <motion.div
@@ -1071,8 +1086,9 @@ function TeamAccessTab({
   teams: Team[]
   initialSearch: string
 }) {
+  const orgStatuses = useOrgConnectorStatus()
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
-  const sorted = useMemo(() => sortConnectors(filtered, 'az', 'all'), [filtered])
+  const sorted = useMemo(() => sortConnectors(filtered, 'az', 'all', orgStatuses), [filtered, orgStatuses])
   const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: search })
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null)
 
@@ -1104,14 +1120,13 @@ function TeamAccessTab({
     return () => { cancelled = true }
   }, [orgId, teams])
 
-  // Matches the backend's own union (list_team_connections: approved =
-  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
-  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
+  // An explicit team approve/deny wins; otherwise the connector inherits the
+  // org-wide switch. Kept identical to /org/team/[teamId].
   function isEffectivelyOn(connector: ConnectorCatalogEntry, team: Team): boolean {
     const status = statusByTeam[team.id]?.[connector.slug]
     if (status === 'approved') return true
     if (status === 'denied') return false
-    return connector.org_enabled === true
+    return isOrgApproved(orgStatuses, connector.slug)
   }
 
   function handleTeamStatusChange(connectorSlug: string, teamId: string, on: boolean) {
@@ -1275,19 +1290,18 @@ function ConnectorTeamAccessPanel({
   const [busyTeamId, setBusyTeamId] = useState<string | null>(null)
   const [pendingOffTeam, setPendingOffTeam] = useState<Team | null>(null)
   // Org-off does NOT restrict teams — admins can still grant a team its own
-  // access independent of the org-wide switch (org/team are separate grants,
-  // unioned at read time on the backend: approved = org_enabled | team_grant).
+  // access independent of the org-wide switch (org/team are separate grants).
   // This flag is display-copy only, never used to disable the switch below.
-  const isOrgDisabled = connector.org_enabled === false
+  const orgStatuses = useOrgConnectorStatus()
+  const isOrgDisabled = orgStatuses[connector.slug] === 'denied'
 
-  // Matches the backend's own union (list_team_connections: approved =
-  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
-  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
+  // An explicit team approve/deny wins; otherwise the connector inherits the
+  // org-wide switch. Kept identical to /org/team/[teamId].
   function isEffectivelyOn(team: Team): boolean {
     const status = statusByTeam[team.id]?.[connector.slug]
     if (status === 'approved') return true
     if (status === 'denied') return false
-    return connector.org_enabled === true
+    return isOrgApproved(orgStatuses, connector.slug)
   }
 
   const sortedTeams = loading
@@ -1560,7 +1574,9 @@ function DisableConnectorConfirmModal({
   onConfirm: () => void
 }) {
   const accountCount = connector.accounts?.length ?? 0
-  const teamCount = new Set((connector.accounts ?? []).flatMap(account => account.team_ids ?? [])).size
+  // One shared account can be attached to several connectors; turning this one
+  // off only affects the accounts listed under it.
+  const attachedCount = new Set((connector.accounts ?? []).flatMap(account => account.attached_slugs ?? [])).size
   return (
     <>
       <button
@@ -1593,7 +1609,7 @@ function DisableConnectorConfirmModal({
           </h2>
           <BodyText style={{ marginTop: 8 }}>
             {accountCount} shared account{accountCount === 1 ? '' : 's'}
-            {teamCount > 0 ? `, used by ${teamCount} team${teamCount === 1 ? '' : 's'},` : ''} will stop working for the organization.
+            {attachedCount > 1 ? `, attached to ${attachedCount} connectors,` : ''} will stop working for the organization.
           </BodyText>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -1641,8 +1657,6 @@ function ApprovalRow({
     account_identifier: null,
     accounts: [],
     account_options: [],
-    org_enabled: null,
-    personal_access_status: null,
   }
 
   async function run(kind: 'approve' | 'deny', fn: () => Promise<void>) {
@@ -1707,7 +1721,7 @@ function PermissionsTab({
   orgId,
   connectors,
   teams,
-  personalRequests,
+  orgRequests,
   teamRequests,
   loading,
   onReload,
@@ -1715,7 +1729,7 @@ function PermissionsTab({
   orgId: string
   connectors: ConnectorCatalogEntry[]
   teams: Team[]
-  personalRequests: PersonalConnectorRequest[]
+  orgRequests: OrgConnectorRequest[]
   teamRequests: TeamRequestIndex
   loading: boolean
   onReload: () => Promise<void>
@@ -1732,7 +1746,7 @@ function PermissionsTab({
     () => Object.values(teamRequests).flatMap(bySlug => Object.values(bySlug)).filter(request => request.status === 'pending'),
     [teamRequests],
   )
-  const pendingPersonal = personalRequests.filter(request => request.status === 'pending')
+  const pendingOrg = orgRequests.filter(request => request.status === 'pending')
 
   if (loading) {
     return (
@@ -1754,9 +1768,9 @@ function PermissionsTab({
     await onReload()
   }
 
-  async function reviewPersonal(request: PersonalConnectorRequest, status: 'approved' | 'denied') {
-    await reviewPersonalRequest(orgId, request.id, status)
-    toast.success(status === 'approved' ? 'Personal request approved' : 'Personal request denied')
+  async function reviewOrgRequest(request: OrgConnectorRequest, status: 'approved' | 'denied') {
+    await setOrgConnectorStatus(orgId, request.connectorSlug, status)
+    toast.success(status === 'approved' ? 'Connector approved for the organization' : 'Connector request denied')
     await onReload()
   }
 
@@ -1798,26 +1812,26 @@ function PermissionsTab({
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <UserIcon size={22} />
           <div>
-            <BodyText size={16} weight={500} color="var(--neutral-900)">Personal connector requests</BodyText>
-            <BodyText size={12}>Approve one user&apos;s personal connector exception.</BodyText>
+            <BodyText size={16} weight={500} color="var(--neutral-900)">Organization connector requests</BodyText>
+            <BodyText size={12}>Approve a connector a member asked the organization to adopt.</BodyText>
           </div>
         </div>
         <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pendingPersonal.length === 0 ? (
-            <EmptyState title="No pending personal requests" />
+          {pendingOrg.length === 0 ? (
+            <EmptyState title="No pending organization requests" />
           ) : (
-            pendingPersonal.map(request => {
+            pendingOrg.map(request => {
               const connector = connectorBySlug[request.connectorSlug]
               return (
                 <ApprovalRow
-                  key={request.id}
+                  key={request.connectorSlug}
                   connector={connector}
                   title={connector?.display_name ?? request.connectorSlug}
-                  subtitle={`Requested by ${request.userName ?? request.userEmail ?? 'a member'}`}
+                  subtitle={`Requested by ${request.requestedByName ?? request.requestedByEmail ?? 'a member'}`}
                   note={request.note}
                   status={request.status}
-                  onApprove={() => reviewPersonal(request, 'approved')}
-                  onDeny={() => reviewPersonal(request, 'denied')}
+                  onApprove={() => reviewOrgRequest(request, 'approved')}
+                  onDeny={() => reviewOrgRequest(request, 'denied')}
                 />
               )
             })
@@ -1835,6 +1849,8 @@ function ConnectorCard({
   connector: ConnectorCatalogEntry
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
+  const orgStatuses = useOrgConnectorStatus()
+  const orgApproved = isOrgApproved(orgStatuses, connector.slug)
   const accounts = connector.accounts ?? []
   const activeAccounts = accounts.filter(account => account.connected && account.status === 'active')
 
@@ -1868,7 +1884,7 @@ function ConnectorCard({
       </BodyText>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Badge label={connector.org_enabled === true ? 'Org on' : 'Org off'} color={connector.org_enabled === true ? 'Green' : 'Neutral'} />
+          <Badge label={orgApproved ? 'Org on' : 'Org off'} color={orgApproved ? 'Green' : 'Neutral'} />
           <Badge label={`${accounts.length} account${accounts.length === 1 ? '' : 's'}`} color="Purple" />
           <Badge label={`${activeAccounts.length} active`} color={activeAccounts.length ? 'Green' : 'Neutral'} />
         </div>
@@ -1889,7 +1905,11 @@ function ManageConnectorsTab({
   initialSearch: string
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
-  const orgEnabled = useMemo(() => connectors.filter(connector => connector.org_enabled === true), [connectors])
+  const orgStatuses = useOrgConnectorStatus()
+  const orgEnabled = useMemo(
+    () => connectors.filter(connector => isOrgApproved(orgStatuses, connector.slug)),
+    [connectors, orgStatuses],
+  )
   const { search, setSearch, filtered } = useConnectorSearch(orgEnabled, initialSearch)
   const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
 
@@ -2224,7 +2244,9 @@ function AccountDetailView({
   const [label, setLabel] = useState(account.accountLabel)
   const [version, setVersion] = useState(account.version)
   const [status, setStatus] = useState(account.status)
-  const [teamIds, setTeamIds] = useState(account.teamIds)
+  // The backend dropped team-scoped connector grants, so a shared account no
+  // longer reports which teams hold it; this panel starts from an empty set.
+  const [teamIds, setTeamIds] = useState<string[]>([])
   const [confirmText, setConfirmText] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
   const [teamConnections, setTeamConnections] = useState<Record<string, TeamConnectionEntry>>({})
@@ -2623,7 +2645,7 @@ function ConnectorDetailView({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <BodyText weight={500} color="var(--neutral-900)">{account.accountLabel}</BodyText>
                       {accountBadge(account)}
-                      <Badge label={`${account.teamIds.length} team${account.teamIds.length === 1 ? '' : 's'}`} color="Purple" />
+                      <Badge label={`${account.attachedSlugs.length} connector${account.attachedSlugs.length === 1 ? '' : 's'}`} color="Purple" />
                     </div>
                     <BodyText size={11}>
                       {account.accountIdentifier || 'No provider identity yet'}
@@ -2839,8 +2861,10 @@ function MemberBrowseView({
   async function requestForMe(connector: ConnectorCatalogEntry) {
     setBusySlug(connector.slug)
     try {
-      await createPersonalRequest(orgId, connector.slug, `Personal access requested from org connector page.`)
-      toast.success('Personal request sent')
+      // Personal linking needs no approval any more; what a member can still
+      // ask for is that the organization adopt the connector.
+      await requestOrgConnector(orgId, connector.slug, 'Requested from the connectors page.')
+      toast.success('Request sent to your admin')
       onRequested()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send request')
@@ -2997,7 +3021,7 @@ function OrgConnectorsPageContent() {
     router.replace(`?${sp.toString()}`)
   }
   const [connectors, setConnectors] = useState<ConnectorCatalogEntry[]>([])
-  const [personalRequests, setPersonalRequests] = useState<PersonalConnectorRequest[]>([])
+  const [orgRequests, setOrgRequests] = useState<OrgConnectorRequest[]>([])
   const [teamRequests, setTeamRequests] = useState<TeamRequestIndex>({})
   const [loading, setLoading] = useState(true)
   const [permissionsLoaded, setPermissionsLoaded] = useState(false)
@@ -3006,20 +3030,31 @@ function OrgConnectorsPageContent() {
 
   const pendingCount = useMemo(() => {
     const pendingTeam = Object.values(teamRequests).flatMap(bySlug => Object.values(bySlug)).filter(request => request.status === 'pending').length
-    const pendingPersonal = personalRequests.filter(request => request.status === 'pending').length
-    return pendingTeam + pendingPersonal
-  }, [teamRequests, personalRequests])
+    const pendingOrg = orgRequests.filter(request => request.status === 'pending').length
+    return pendingTeam + pendingOrg
+  }, [teamRequests, orgRequests])
 
-  // Mount load: only the catalog, which is all the Org access/Team access/
-  // Shared accounts tabs need. The Requests tab's data (per-team + personal
-  // requests) is loaded lazily when that tab is first opened — the per-team
+  // Slug -> the organization's standing position on that connector. Every tab
+  // reads it through OrgConnectorStatusContext instead of a per-entry flag.
+  const orgStatuses = useMemo<OrgConnectorStatusIndex>(
+    () => Object.fromEntries(orgRequests.map(request => [request.connectorSlug, request.status])),
+    [orgRequests],
+  )
+
+  // Mount load: the catalog plus the organization's connector requests — the
+  // pair the Org access/Team access/Shared accounts tabs need. The per-team
+  // request index is loaded lazily when the Requests tab is first opened; that
   // fan-out is the slow part.
   const loadPageData = useCallback(async () => {
     if (!org.id) return
     setLoading(true)
     try {
-      const catalog = isAdminView ? await listOrgCatalog(org.id) : await listConnectors()
+      const [catalog, requests] = await Promise.all([
+        isAdminView ? listOrgCatalog(org.id) : listConnectors(),
+        listOrgConnectorRequests(org.id),
+      ])
       setConnectors(catalog)
+      setOrgRequests(requests)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load connector page')
     } finally {
@@ -3031,11 +3066,11 @@ function OrgConnectorsPageContent() {
     if (!org.id || !isAdminView) return
     setPermissionsLoading(true)
     try {
-      const [personal, teamIndex] = await Promise.all([
-        listPersonalRequests(org.id),
+      const [requests, teamIndex] = await Promise.all([
+        listOrgConnectorRequests(org.id),
         activeTeams.length > 0 ? loadTeamRequestIndex(org.id, activeTeams) : Promise.resolve<TeamRequestIndex>({}),
       ])
-      setPersonalRequests(personal)
+      setOrgRequests(requests)
       setTeamRequests(teamIndex)
       setPermissionsLoaded(true)
     } catch (error) {
@@ -3111,6 +3146,7 @@ function OrgConnectorsPageContent() {
   }
 
   return (
+    <OrgConnectorStatusContext.Provider value={orgStatuses}>
     <PageShell>
       <Tabs
         value={tab}
@@ -3146,7 +3182,7 @@ function OrgConnectorsPageContent() {
             orgId={org.id}
             connectors={connectors}
             initialSearch={initialSearch}
-            onCatalogUpdated={setConnectors}
+            onOrgStatusChanged={loadPageData}
           />
         </Tabs.Content>
         <Tabs.Content value="team-access">
@@ -3162,7 +3198,7 @@ function OrgConnectorsPageContent() {
             orgId={org.id}
             connectors={connectors}
             teams={activeTeams}
-            personalRequests={personalRequests}
+            orgRequests={orgRequests}
             teamRequests={teamRequests}
             loading={permissionsLoading && !permissionsLoaded}
             onReload={loadPermissionsData}
@@ -3177,6 +3213,7 @@ function OrgConnectorsPageContent() {
         </Tabs.Content>
       </Tabs>
     </PageShell>
+    </OrgConnectorStatusContext.Provider>
   )
 }
 

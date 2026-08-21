@@ -330,6 +330,10 @@ export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
 export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/transfer-owner`)
+export const ORG_CONNECTORS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/connectors`)
+export const ORG_CONNECTOR_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
 export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>
@@ -338,12 +342,6 @@ export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
 export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/connectors/catalog`)
-export const ORG_PERSONAL_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/personal-request`)
-export const ORG_PERSONAL_REQUESTS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests`)
-export const ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT = (orgId: string, requestId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests/${requestId}`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>

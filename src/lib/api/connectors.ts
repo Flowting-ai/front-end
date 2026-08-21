@@ -17,9 +17,8 @@ import {
 // deterministically from the endpoint's real shape — no guessed defaults, no
 // fabricated fields. See the billing precedent in src/lib/api/organization.ts.
 
-const accountScopeSchema  = z.enum(['personal', 'shared_team'])
+const accountScopeSchema  = z.enum(['personal', 'shared_org'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
-const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
 
 const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
 
@@ -60,27 +59,35 @@ const orgConnectorAccountSchema = z.object({
   account_label:      z.string(),
   account_identifier: z.string().nullable().default(null),
   connected:          z.boolean(),
-  scope:              accountScopeSchema.default('shared_team'),
+  scope:              accountScopeSchema.default('shared_org'),
   status:             accountStatusSchema.default('active'),
   version:            z.number().int().default(1),
-  team_ids:           z.array(z.string()).default([]),
+  /** Every connector slug this one org account is attached to — one account fans
+   *  out to many OrganizationConnector rows. Empty until an admin attaches it. */
+  attached_slugs:     z.array(z.string()).default([]),
   linked_by_user_id:  z.string().nullable().default(null),
   created_at:         z.string(),
   updated_at:         z.string(),
 })
 
 /** A connected account the current user acts through for one connector — personal
- *  (UserConnection) or shared (OrganizationConnectorAccount, surfaced via teams).
- *  Informational: the server picks personal-first, else the team's shared one. */
+ *  (UserConnection) or shared (OrganizationConnectorAccount, surfaced through the
+ *  viewer's organization). Informational: the server picks personal-first, else
+ *  the organization's shared account. */
 const connectorAccountOptionSchema = z.object({
   connector_slug:     z.string(),
   scope:              accountScopeSchema,
   account_label:      z.string(),
   account_identifier: z.string().nullable().default(null),
+  /** Provider-side account reference (e.g. Pipedream's apn_…) used server-side to
+   *  pin execution. An identifier, not a credential. */
+  provider_account_id: z.string().nullable().default(null),
   connected:          z.boolean().default(true),
   status:             accountStatusSchema.default('active'),
-  team_ids:           z.array(z.string()).default([]),
-  team_names:         z.array(z.string()).default([]),
+  /** OAuth scopes the account holds, as the provider reports them. */
+  authorized_scopes:  z.array(z.string()).default([]),
+  organization_id:    z.string().nullable().default(null),
+  organization_name:  z.string().nullable().default(null),
   shared_account_id:  z.string().nullable().default(null),
   linked_by_user_id:  z.string().nullable().default(null),
   can_manage:         z.boolean().default(false),
@@ -120,26 +127,20 @@ const connectorCatalogEntrySchema = z.object({
   api_key_fields:      z.array(apiKeyFieldSchema).default([]),
   /** True when the current user's personal connector is linked. */
   linked:              z.boolean(),
-  /** True when a shared team account is attached and connected. */
+  /** True when a shared organization account is attached and connected. */
   workspace_linked:    z.boolean().default(false),
-  /** User ID that linked the team/shared workspace account. */
+  /** User ID that linked the shared organization account. */
   workspace_linked_by: z.string().nullable().default(null),
-  /** ID of the org shared account currently attached to the team connector. */
+  /** ID of the org shared account currently attached to this connector. */
   shared_account_id:   z.string().nullable().default(null),
   /** Admin-friendly label of the attached org shared account. */
   account_label:       z.string().nullable().default(null),
   /** Provider identity (e.g. email/login) of the attached shared account. */
   account_identifier:  z.string().nullable().default(null),
-  /** Org shared accounts for this connector. Populated for admins/editors. */
+  /** Org shared accounts for this connector. Populated for admins only. */
   accounts:            z.array(orgConnectorAccountSchema).default([]),
   /** Selectable account options the current user can execute under. */
   account_options:     z.array(connectorAccountOptionSchema).default([]),
-  /** Whether the slug is enabled in the org catalog. null outside org context. */
-  org_enabled:            z.boolean().nullable().default(null),
-  /** Current user's personal access request status, or null. */
-  personal_access_status: accessStatusSchema.nullable().default(null),
-  /** Not in the backend schema — some FE code sets it locally for the avatar. */
-  icon_url:            z.string().optional(),
 })
 
 const connectorListResponseSchema = z.object({
@@ -186,7 +187,7 @@ export type ConnectorAccountOption = z.infer<typeof connectorAccountOptionSchema
 export type ConnectorCatalogEntry  = z.infer<typeof connectorCatalogEntrySchema>
 export type ConnectorListResponse  = z.infer<typeof connectorListResponseSchema>
 export type LinkResponse           = z.infer<typeof linkResponseSchema>
-export type PersonalAccessStatus   = z.infer<typeof accessStatusSchema>
+export type ConnectorAccountScope  = z.infer<typeof accountScopeSchema>
 
 /** Fallback field used when the catalog entry omits api_key_fields entirely. */
 export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
@@ -301,27 +302,17 @@ export async function unlinkConnector(slug: string): Promise<void> {
   bustConnectorCatalogCache()
 }
 
-// ── Org connector catalog (admin) ─────────────────────────────────────────────
-
-/** GET /organizations/{id}/connectors/catalog — admin-only. */
-export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId))
-  return z.array(connectorCatalogEntrySchema).parse(raw)
-}
+// ── Org connector catalog ─────────────────────────────────────────────────────
 
 /**
- * PUT /organizations/{id}/connectors/catalog — admin-only.
- * Replaces the org allowlist with the provided slug list.
+ * GET /organizations/{id}/connectors/catalog — every active connector, with the
+ * org's shared accounts filled in for admins. Read-only: the catalog is no
+ * longer an allowlist the org edits, so there is no write counterpart. An org
+ * that wants a connector files a request against
+ * POST /organizations/{id}/connectors instead.
  */
-export async function updateOrgCatalog(
-  orgId: string,
-  connectorSlugs: string[],
-): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId), {
-    method: 'PUT',
-    body: JSON.stringify({ connectorSlugs }),
-  })
-  bustConnectorCatalogCache()
+export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
+  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId))
   return z.array(connectorCatalogEntrySchema).parse(raw)
 }
 

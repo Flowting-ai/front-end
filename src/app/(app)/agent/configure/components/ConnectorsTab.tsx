@@ -34,7 +34,7 @@ function XIcon() {
 }
 
 // ── Account-grouping helpers ───────────────────────────────────────────────────
-// Workspace connectors are org-owned shared accounts (scope: 'shared_team'); a
+// Workspace connectors are org-owned shared accounts (scope: 'shared_org'); a
 // single connector can expose several. Personal connectors are the viewer's own
 // linked account (scope: 'personal'). Both are surfaced through account_options;
 // we fall back to the entry's scalar fields for older catalog responses.
@@ -43,26 +43,28 @@ function logoFor(entry: ConnectorCatalogEntry): string | undefined {
   return toConnector(entry).logo ?? undefined
 }
 
-/** Connected, active shared-team accounts for this connector. */
+/** Connected, active shared organization accounts for this connector. */
 function workspaceAccountsOf(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
   const opts = (entry.account_options ?? []).filter(
-    o => o.scope === 'shared_team' && o.connected && o.status === 'active',
+    o => o.scope === 'shared_org' && o.connected && o.status === 'active',
   )
   if (opts.length > 0) return opts
   // Fallback: the single workspace summary on the entry.
   if (entry.workspace_linked) {
     return [{
-      connector_slug:     entry.slug,
-      scope:              'shared_team',
-      account_label:      entry.account_label ?? 'Shared',
-      account_identifier: entry.account_identifier,
-      connected:          true,
-      status:             'active',
-      team_ids:           [],
-      team_names:         [],
-      shared_account_id:  entry.shared_account_id,
-      linked_by_user_id:  entry.workspace_linked_by,
-      can_manage:         false,
+      connector_slug:      entry.slug,
+      scope:               'shared_org',
+      account_label:       entry.account_label ?? 'Shared',
+      account_identifier:  entry.account_identifier,
+      provider_account_id: null,
+      connected:           true,
+      status:              'active',
+      authorized_scopes:   [],
+      organization_id:     null,
+      organization_name:   null,
+      shared_account_id:   entry.shared_account_id,
+      linked_by_user_id:   entry.workspace_linked_by,
+      can_manage:          false,
     }]
   }
   return []
@@ -75,12 +77,12 @@ function hasPersonalAccount(entry: ConnectorCatalogEntry): boolean {
   return entry.linked
 }
 
-/** A connector is usable by this agent when the viewer has any working account
- *  for it (personal or shared) or the org has enabled it. */
+/** A connector is usable by this agent when the viewer has a working account for
+ *  it — personal or shared. There is no org allowlist any more: the backend
+ *  hands every member the full catalog and gates execution on the account. */
 function isAvailable(entry: ConnectorCatalogEntry): boolean {
   return (
     entry.linked ||
-    entry.org_enabled === true ||
     (entry.account_options ?? []).some(o => o.connected && o.status === 'active') ||
     entry.workspace_linked
   )

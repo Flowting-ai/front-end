@@ -44,6 +44,7 @@ import {
 } from '@/lib/api/teams'
 import type { ConnectorRequestStatus, TeamPersonaShare } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { listOrgConnectorRequests } from '@/lib/api/org-connectors'
 import { toConnector } from '@/lib/connector'
 import type { ApiProjectSummary } from '@/lib/api/projects'
 import { listMembers, getOrgSettings } from '@/lib/api/organization'
@@ -507,6 +508,7 @@ function AddEditorPanel({ rosterMembers, onAdd, onClose }: {
 function TeamConnectorRow({
   entry,
   teamStatus,
+  orgStatus,
   isAdmin,
   busy,
   divider,
@@ -514,6 +516,9 @@ function TeamConnectorRow({
 }: {
   entry: ConnectorCatalogEntry
   teamStatus: ConnectorRequestStatus | undefined
+  /** The organization's own position on this connector, from its
+   *  OrganizationConnector row. The catalog entry no longer carries a flag. */
+  orgStatus: ConnectorRequestStatus | undefined
   isAdmin: boolean
   busy: boolean
   divider: boolean
@@ -522,22 +527,23 @@ function TeamConnectorRow({
   const src = toConnector(entry).logo
   const initials = entry.display_name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
 
-  // org_enabled=false means the org admin disabled this connector globally; teams cannot override.
-  const isOrgLocked = entry.org_enabled === false
+  // A denied org row means the org admin turned this connector off org-wide.
+  const isOrgLocked = orgStatus === 'denied'
+  const orgApproved = orgStatus === 'approved'
 
   // Effective state: explicit team override → org default → off.
   const effectivelyOn = teamStatus === 'approved'
     ? true
     : teamStatus === 'denied'
     ? false
-    : entry.org_enabled === true
+    : orgApproved
 
   const cat = connectorCategory(entry.slug)
   const sublabel = isOrgLocked
     ? `${cat} · Disabled by org`
-    : entry.org_enabled && teamStatus === 'denied'
+    : orgApproved && teamStatus === 'denied'
     ? `${cat} · Org-wide · Off for team`
-    : entry.org_enabled
+    : orgApproved
     ? `${cat} · Org-wide`
     : cat
 
@@ -588,6 +594,7 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 
   const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
   const [statusBySlug, setStatusBySlug] = useState<Record<string, ConnectorRequestStatus>>({})
+  const [orgStatusBySlug, setOrgStatusBySlug] = useState<Record<string, ConnectorRequestStatus>>({})
   const [loading, setLoading] = useState(true)
   const [busySlug, setBusySlug] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -609,13 +616,15 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
     async function load() {
       setLoading(true)
       try {
-        const [catalog, rows] = await Promise.all([
+        const [catalog, rows, orgRequests] = await Promise.all([
           listTeamConnectorCatalog(orgId, teamId),
           listTeamConnectors(orgId, teamId),
+          listOrgConnectorRequests(orgId),
         ])
         if (cancelled) return
         setEntries(catalog)
         setStatusBySlug(Object.fromEntries(rows.map(row => [row.connectorSlug, row.status])))
+        setOrgStatusBySlug(Object.fromEntries(orgRequests.map(r => [r.connectorSlug, r.status])))
       } catch (err) {
         if (!cancelled) console.error(err)
       } finally {
@@ -696,6 +705,7 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
               key={entry.slug}
               entry={entry}
               teamStatus={statusBySlug[entry.slug] as ConnectorRequestStatus | undefined}
+              orgStatus={orgStatusBySlug[entry.slug]}
               isAdmin={isAdmin}
               busy={busySlug === entry.slug}
               divider={index < browse.pageItems.length - 1}

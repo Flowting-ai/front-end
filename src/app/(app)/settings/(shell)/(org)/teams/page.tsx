@@ -20,6 +20,7 @@ import { useOrg } from '@/context/org-context'
 import { createTeam, listTeamConnectors } from '@/lib/api/teams'
 import { getGradient } from '@/lib/team-gradients'
 import { listOrgCatalog } from '@/lib/api/connectors'
+import { listOrgConnectorRequests } from '@/lib/api/org-connectors'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import type { Team } from '@/types/teams'
 import { ORG_TEAM_ROUTE } from '@/lib/routes'
@@ -337,11 +338,16 @@ export default function OrgTeamsPage() {
       }
       setConnectorCountsLoading(true)
       try {
-        const [catalog, statusRows] = await Promise.all([
+        const [catalog, orgRequests, statusRows] = await Promise.all([
           listOrgCatalog(orgId),
+          listOrgConnectorRequests(orgId),
           Promise.all(activeTeams.map(team => listTeamConnectors(orgId, team.id))),
         ])
-        const orgEnabledSlugs = new Set(catalog.filter(c => c.org_enabled === true).map(c => c.slug))
+        // The catalog no longer carries an org flag — the org's position on a
+        // connector lives in its OrganizationConnector request row.
+        const orgEnabledSlugs = new Set(
+          orgRequests.filter(r => r.status === 'approved').map(r => r.connectorSlug),
+        )
         const counts: Record<string, number> = {}
         activeTeams.forEach((team, i) => {
           const statusBySlug = new Map(statusRows[i].map(row => [row.connectorSlug, row.status]))

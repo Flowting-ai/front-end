@@ -469,8 +469,8 @@ interface TeamConnectionResponse {
     connected:         boolean
     status:            'active' | 'disabled' | 'expired'
     version:           number
-    team_ids:          string[]
-    linked_by_user_id: string
+    attached_slugs:    string[]
+    linked_by_user_id: string | null
     created_at:        string
     updated_at:        string
   }>
@@ -498,8 +498,8 @@ function normalizeConnection(r: TeamConnectionResponse): TeamConnectionEntry {
       connected:        a.connected,
       status:           a.status,
       version:          a.version,
-      teamIds:          a.team_ids ?? [],
-      linkedByUserId:   a.linked_by_user_id,
+      attachedSlugs:    a.attached_slugs ?? [],
+      linkedByUserId:   a.linked_by_user_id ?? null,
       createdAt:        a.created_at,
       updatedAt:        a.updated_at,
     })),

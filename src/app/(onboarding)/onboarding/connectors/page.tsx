@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { listOrgCatalog, updateOrgCatalog } from "@/lib/api/connectors";
+import { listOrgCatalog } from "@/lib/api/connectors";
+import { requestOrgConnector } from "@/lib/api/org-connectors";
 import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { Button } from "@/components/Button";
@@ -154,10 +155,11 @@ export default function OnboardingConnectorsPage() {
           resolvedOrgId = orgs[0]?.id ?? null;
         }
         if (resolvedOrgId) {
+          const orgId = resolvedOrgId;
           // Use the org catalog (not GET /connectors which is personal-only and
           // returns empty for new accounts) to determine which slugs the backend
-          // actually knows about — prevents 400s for inactive/unknown connectors.
-          const orgCatalog = await listOrgCatalog(resolvedOrgId);
+          // actually knows about — prevents 404s for inactive/unknown connectors.
+          const orgCatalog = await listOrgCatalog(orgId);
           let validSlugs: string[];
           if (orgCatalog.length > 0) {
             const knownSlugs = new Set(orgCatalog.map(c => c.slug));
@@ -167,8 +169,15 @@ export default function OnboardingConnectorsPage() {
             validSlugs = [...selected];
           }
           if (validSlugs.length > 0) {
-            await updateOrgCatalog(resolvedOrgId, validSlugs);
-            toast.success("Connectors enabled for your organization");
+            // The catalog is no longer an allowlist the org writes back. Each
+            // slug is filed as an org connector request instead; the person
+            // running onboarding owns the org, so each lands approved.
+            await Promise.all(
+              validSlugs.map(slug =>
+                requestOrgConnector(orgId, slug, "Selected during onboarding."),
+              ),
+            );
+            toast.success("Connectors queued for your organization");
           }
         }
       } catch {
