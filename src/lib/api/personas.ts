@@ -2,6 +2,24 @@
 
 import { apiFetch, apiFetchJson } from "./client";
 import {
+  enhancePromptSchema,
+  personaChatsSchema,
+  personaMessagesSchema,
+  personaRepoSchema,
+  personaStarterSchema,
+  personaVersionListItemSchema,
+  personaVersionSchema,
+  type EnhancePromptResponse,
+  type PersonaDocumentResponse,
+  type PersonaFileAttachment,
+  type PersonaRepoResponse,
+  type PersonaStarterResponse,
+  type PersonaVersionListItem,
+  type PersonaVersionResponse,
+} from "./persona-schemas";
+import { resolveConnectors } from "./connectors";
+import type { Connector } from "@/lib/connector";
+import {
   parseChatPrompt,
   parsePermissionPrompt,
   type ChatPrompt,
@@ -30,7 +48,6 @@ import {
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
   PERSONA_VERSION_FILES_ENDPOINT,
   PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT,
-  PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT,
   PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT,
   PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
@@ -44,100 +61,22 @@ import {
   directUpload,
 } from "@/lib/config";
 
-// ── Backend types (match OpenAPI schema) ──────────────────────────────────────
-
-export interface PersonaDocumentResponse {
-  id: string;
-  document_filename: string;
-  source_url?: string | null;
-  created_at: string;
-  size_bytes?: number | null;
-  content_type?: string | null;
-  download_url?: string | null;
-}
-
-export interface EnhanceQuestion {
-  question: string;
-  options: string[];
-  multi_select: boolean;
-}
-
-export interface PersonaVersionResponse {
-  id: string;
-  persona_repo_id: string;
-  name: string;
-  handler: string;
-  prompt: string;
-  description: string | null;
-  is_active: boolean;
-  model_id: string | null;
-  image_url: string | null;
-  image_s3_key: string | null;
-  temperature: number | null;
-  documents: PersonaDocumentResponse[];
-  links: PersonaDocumentResponse[];
-  total_usage: number;
-  /** Slugs of connectors that are BLOCKED (disabled) for this version. */
-  blocked_connectors: string[];
-  /** Soft hints: connectors this version benefits from when relevant (not enforced). */
-  connector_hints: string[];
-  source_share_id: string | null;
-  version_tags: string[];
-  persona_tags: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PersonaRepoResponse {
-  id: string;
-  name: string;
-  is_active: boolean;
-  active_version_id: string | null;
-  active_version: PersonaVersionResponse | null;
-  published_version_id: string | null;
-  published_version?: PersonaVersionResponse | null;
-  published_at: string | null;
-  is_published?: boolean;
-  visibility: 'private' | 'team';
-  team_ids: string[];
-  version_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PersonaVersionListItem {
-  id: string;
-  name: string;
-  handler: string;
-  model_id: string | null;
-  is_active: boolean;
-  version_tags: string[];
-  persona_tags: string[];
-  connector_hints: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface EnhancePromptResponse {
-  enhanced_prompt: string;
-  questions: EnhanceQuestion[];
-}
+export type {
+  PersonaDocumentResponse,
+  PersonaVersionResponse,
+  PersonaRepoResponse,
+  PersonaVersionListItem,
+  PersonaSound,
+  PersonaStarterResponse,
+  EnhanceOption,
+  EnhanceQuestion,
+  EnhancePromptResponse,
+} from "./persona-schemas";
 
 export interface PersonaStarterRequest {
   name: string;
   description: string;
   tone?: string;
-}
-
-export interface PersonaStarterSound {
-  name: string;
-  description: string;
-}
-
-export interface PersonaStarterResponse {
-  system_instruction: string;
-  sounds: PersonaStarterSound[];
-  persona_tags: string[];
 }
 
 // ── Normalised frontend type ──────────────────────────────────────────────────
@@ -163,7 +102,10 @@ export interface Persona {
   publishedAt: string | null;
   versionCount: number;
   visibility: 'private' | 'team';
-  teamIds: string[];
+  /** Connector slugs assigned to the live version — the reference, not a copy.
+   *  Use `personaConnectors()` to turn them into renderable Connector objects. */
+  connectorSlugs: string[];
+  blockedConnectorSlugs: string[];
   /** True when the active version has a non-empty system prompt. */
   hasSystemInstructions: boolean;
   /** Non-null when this persona was accepted from a Super Link shared by another user. */
@@ -202,7 +144,8 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     publishedAt: repo.published_at ?? null,
     versionCount: repo.version_count,
     visibility: repo.visibility,
-    teamIds: repo.team_ids ?? [],
+    connectorSlugs: v?.connectors ?? [],
+    blockedConnectorSlugs: v?.blocked_connectors ?? [],
     // If the list endpoint doesn't embed active_version (v is null) but
     // active_version_id exists, we can't inspect the prompt — assume it has
     // instructions. Only mark false when we have the version object and the
@@ -212,6 +155,16 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
   };
+}
+
+/** The persona's connectors as renderable identities. Resolved on read against
+ *  the cached connector catalog, so a name/logo change lands in one place. */
+export function personaConnectors(persona: Pick<Persona, 'connectorSlugs'>): Connector[] {
+  return resolveConnectors(persona.connectorSlugs);
+}
+
+export function personaBlockedConnectors(persona: Pick<Persona, 'blockedConnectorSlugs'>): Connector[] {
+  return resolveConnectors(persona.blockedConnectorSlugs);
 }
 
 // ── Repo CRUD ─────────────────────────────────────────────────────────────────
@@ -250,27 +203,12 @@ export function fetchPersonas(): Promise<Persona[]> {
     return Promise.resolve(_personasCache)
   }
   if (_fetchPersonasInFlight) return _fetchPersonasInFlight
-  _fetchPersonasInFlight = apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT)
-    .then(async list => {
-      const normalized = list.map(normalizeRepo)
-      // The list endpoint omits the real deploy set (team_ids is always []) to stay
-      // cheap, so team-context filtering can't trust it. Enrich team-visibility
-      // personas from the (cached) detail endpoint, which is authoritative. An empty
-      // team_ids means "shared to no team" — never "all teams".
-      const enriched = await Promise.all(
-        normalized.map(async p => {
-          if (p.visibility !== 'team') return p
-          try {
-            const repo = await getPersonaRepoWithCache(p.id)
-            return { ...p, teamIds: repo.team_ids ?? [] }
-          } catch {
-            return p
-          }
-        }),
-      )
-      _personasCache = enriched
+  _fetchPersonasInFlight = apiFetchJson<unknown>(PERSONAS_ENDPOINT)
+    .then(raw => {
+      const normalized = personaRepoSchema.array().parse(raw).map(normalizeRepo)
+      _personasCache = normalized
       _personasCacheTime = Date.now()
-      return enriched
+      return normalized
     })
     .finally(() => { _fetchPersonasInFlight = null })
   return _fetchPersonasInFlight
@@ -280,18 +218,21 @@ export function fetchPersonas(): Promise<Persona[]> {
  * Agents selectable inside a team context. In a team project, only agents shared
  * to that team are offered — never private/individual ones. Outside a team
  * (`teamId` null/undefined) the list is returned unchanged.
+ *
+ * `sharedRepoIds` is the team's deploy set from fetchTeamSharedRepoIds() — the
+ * only authoritative source, since neither the persona list nor its detail
+ * response carries a team field. Pass `null` while it's still loading: an
+ * unassigned agent must NOT leak into every team, so an unknown deploy set
+ * scopes to nothing rather than to everything.
  */
 export function personasForTeamContext(
   personas: Persona[],
   teamId: string | null | undefined,
+  sharedRepoIds: Set<string> | null | undefined,
 ): Persona[] {
   if (!teamId) return personas
-  // An agent belongs to a team only if it was explicitly deployed there. teamIds
-  // is authoritative here (fetchPersonas enriches team-visibility personas from the
-  // detail endpoint), so an unassigned agent must NOT leak into every team.
-  return personas.filter(p =>
-    p.visibility === 'team' && p.teamIds.includes(teamId)
-  )
+  if (!sharedRepoIds) return []
+  return personas.filter(p => p.visibility === 'team' && sharedRepoIds.has(p.id))
 }
 
 /**
@@ -315,8 +256,8 @@ export function isPersonaOwnedByViewer(
 }
 
 export async function getPersona(repoId: string): Promise<Persona> {
-  const repo = await apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId));
-  return normalizeRepo(repo);
+  const raw = await apiFetchJson<unknown>(PERSONA_DETAIL_ENDPOINT(repoId));
+  return normalizeRepo(personaRepoSchema.parse(raw));
 }
 
 export async function getPersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
@@ -334,8 +275,9 @@ export function getPersonaRepoWithCache(repoId: string): Promise<PersonaRepoResp
   if (cached && now - cached.time < PERSONAS_CACHE_TTL) return Promise.resolve(cached.data)
   const inFlight = _personaDetailInFlight.get(repoId)
   if (inFlight) return inFlight
-  const p = apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId))
-    .then(data => {
+  const p = apiFetchJson<unknown>(PERSONA_DETAIL_ENDPOINT(repoId))
+    .then(raw => {
+      const data = personaRepoSchema.parse(raw)
       _personaDetailCache.set(repoId, { data, time: Date.now() })
       return data
     })
@@ -360,10 +302,10 @@ export async function createPersonaRepo(params: {
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
   // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
-  const repo = await apiFetchJson<PersonaRepoResponse>(directUpload(PERSONAS_ENDPOINT), {
+  const repo = personaRepoSchema.parse(await apiFetchJson<unknown>(directUpload(PERSONAS_ENDPOINT), {
     method: "POST",
     body: form,
-  });
+  }));
   _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
   _personasCache = null;
   _personasCacheTime = 0;
@@ -376,9 +318,9 @@ export async function createPersonaRepo(params: {
  * the copy shows up immediately.
  */
 export async function usePersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
-  const repo = await apiFetchJson<PersonaRepoResponse>(PERSONA_USE_ENDPOINT(repoId), {
+  const repo = personaRepoSchema.parse(await apiFetchJson<unknown>(PERSONA_USE_ENDPOINT(repoId), {
     method: "POST",
-  });
+  }));
   _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
   _personasCache = null;
   _personasCacheTime = 0;
@@ -537,17 +479,17 @@ export async function togglePause(repoId: string): Promise<void> {
 }
 
 export async function setActiveVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {
-  return apiFetchJson<PersonaRepoResponse>(PERSONA_ACTIVE_ENDPOINT(repoId), {
+  return personaRepoSchema.parse(await apiFetchJson<unknown>(PERSONA_ACTIVE_ENDPOINT(repoId), {
     method: "PATCH",
     body: JSON.stringify({ persona_id: versionId }),
-  });
+  }));
 }
 
 export async function publishPersonaVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {
-  const result = await apiFetchJson<PersonaRepoResponse>(PERSONA_PUBLISH_ENDPOINT(repoId), {
+  const result = personaRepoSchema.parse(await apiFetchJson<unknown>(PERSONA_PUBLISH_ENDPOINT(repoId), {
     method: "POST",
     body: JSON.stringify({ persona_id: versionId }),
-  });
+  }));
   // Analytics: do agents spread beyond their creator? (choke point for all publish flows)
   trackBrowserEvent("agent_published");
   return result;
@@ -570,7 +512,8 @@ export async function setPersonaVisibility(
 // ── Version CRUD ──────────────────────────────────────────────────────────────
 
 export async function listVersions(repoId: string): Promise<PersonaVersionListItem[]> {
-  return apiFetchJson<PersonaVersionListItem[]>(PERSONA_VERSIONS_ENDPOINT(repoId));
+  const raw = await apiFetchJson<unknown>(PERSONA_VERSIONS_ENDPOINT(repoId));
+  return personaVersionListItemSchema.array().parse(raw);
 }
 
 export async function urlToImageFile(url: string): Promise<File | null> {
@@ -611,14 +554,14 @@ export async function createVersion(params: {
   if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
   if (image) form.append("image", image);
   // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
-  return apiFetchJson<PersonaVersionResponse>(directUpload(PERSONA_VERSIONS_ENDPOINT(params.repoId)), {
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(directUpload(PERSONA_VERSIONS_ENDPOINT(params.repoId)), {
     method: "POST",
     body: form,
-  });
+  }));
 }
 
 export async function getVersion(repoId: string, versionId: string): Promise<PersonaVersionResponse> {
-  return apiFetchJson<PersonaVersionResponse>(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId));
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId)));
 }
 
 /** Download a stored knowledge document back into a File so it can be re-attached
@@ -735,10 +678,10 @@ export async function updateVersion(params: {
   if (params.temperature != null)  patchBody.temperature  = params.temperature;
   if (params.persona_tags != null) patchBody.persona_tags = params.persona_tags;
 
-  let result = await apiFetchJson<PersonaVersionResponse>(
+  let result = personaVersionSchema.parse(await apiFetchJson<unknown>(
     PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
     { method: "PATCH", body: JSON.stringify(patchBody) },
-  );
+  ));
 
   // Files, image, and removeDocumentIds go through PUT /files (separate endpoint).
   let image: File | null = params.image ?? null;
@@ -752,10 +695,10 @@ export async function updateVersion(params: {
       form.append("remove_document_ids", params.removeDocumentIds.join(","));
     }
     // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
-    result = await apiFetchJson<PersonaVersionResponse>(
+    result = personaVersionSchema.parse(await apiFetchJson<unknown>(
       directUpload(PERSONA_VERSION_FILES_ENDPOINT(params.repoId, params.versionId)),
       { method: "PUT", body: form },
-    );
+    ));
   }
 
   // Analytics: agent config edited (choke point for all configure-tab saves).
@@ -774,10 +717,10 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
   const form = new FormData();
   form.append("file", file);
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
-  return apiFetchJson<PersonaVersionResponse>(
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(
     directUpload(PERSONA_VERSION_DOCUMENT_ENDPOINT(repoId, versionId)),
     { method: "POST", body: form },
-  );
+  ));
 }
 
 /**
@@ -792,14 +735,14 @@ export async function addKnowledgeUrl(
 ): Promise<PersonaVersionResponse> {
   const params = new URLSearchParams()
   params.append('url', url)
-  return apiFetchJson<PersonaVersionResponse>(
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(
     PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT(repoId, versionId),
     {
       method:  'POST',
       body:    params.toString(),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     },
-  )
+  ))
 }
 
 export async function deleteDocument(
@@ -809,33 +752,13 @@ export async function deleteDocument(
 ): Promise<PersonaVersionResponse> {
   // DELETE returns the updated PersonaVersionResponse (200) — callers can use
   // this directly to refresh the document list without a second getVersion call.
-  return apiFetchJson<PersonaVersionResponse>(
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(
     PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT(repoId, versionId, documentId),
     { method: "DELETE" },
-  );
+  ));
 }
 
 // ── Version connectors ────────────────────────────────────────────────────────
-
-/**
- * PATCH /persona/{repo_id}/versions/{persona_id}/connector-hints
- * Replace the set of soft connector hints for this version. Hints are surfaced
- * to the model as connectors that help when relevant — they are not enforced.
- * Pass an empty array to clear all hints.
- */
-export async function setVersionConnectorHints(
-  repoId: string,
-  versionId: string,
-  hintSlugs: string[],
-): Promise<PersonaVersionResponse> {
-  return apiFetchJson<PersonaVersionResponse>(
-    PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT(repoId, versionId),
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ slugs: hintSlugs }),
-    },
-  );
-}
 
 /**
  * PATCH /persona/{repo_id}/versions/{persona_id}/blocked-connectors
@@ -848,13 +771,13 @@ export async function setVersionBlockedConnectors(
   versionId: string,
   blockedSlugs: string[],
 ): Promise<PersonaVersionResponse> {
-  return apiFetchJson<PersonaVersionResponse>(
+  return personaVersionSchema.parse(await apiFetchJson<unknown>(
     PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT(repoId, versionId),
     {
       method: 'PATCH',
       body: JSON.stringify({ slugs: blockedSlugs }),
     },
-  );
+  ));
 }
 
 /**
@@ -882,47 +805,28 @@ export async function unblockVersionConnector(
 export async function personaStarter(
   params: PersonaStarterRequest,
 ): Promise<PersonaStarterResponse> {
-  return apiFetchJson<PersonaStarterResponse>(PERSONA_STARTER_ENDPOINT, {
+  return personaStarterSchema.parse(await apiFetchJson<unknown>(PERSONA_STARTER_ENDPOINT, {
     method: "POST",
     body: JSON.stringify(params),
-  });
+  }));
 }
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
 
 export async function enhancePrompt(prompt: string, answers: string[] = []): Promise<EnhancePromptResponse> {
-  return apiFetchJson<EnhancePromptResponse>(PERSONA_ENHANCE_ENDPOINT, {
+  return enhancePromptSchema.parse(await apiFetchJson<unknown>(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ prompt, answers }),
-  });
+  }));
 }
 
 // ── Persona chat history ──────────────────────────────────────────────────────
 
-/** Row returned by GET /persona/{repo_id}/chats — one per persona chat. */
-export interface PersonaChatsResponse {
-  id:            string;
-  chat_title:    string;
-  message_count: number;
-  persona_id?:   string | null;
-}
-
-/** Row returned by GET /persona/{repo_id}/chats/{chat_id}/messages — one per turn. */
-export interface PersonaFileAttachment {
-  file_link: string;
-  mime_type: string;
-  origin:    string;
-  file_name?: string;
-  name?: string;
-}
-
-export interface GetPersonaMessages {
-  id:                string;
-  input:             string;
-  output:            string;
-  reasoning?:        string | null;
-  file_attachments?: PersonaFileAttachment[];
-}
+export type {
+  PersonaChatsResponse,
+  PersonaFileAttachment,
+  GetPersonaMessages,
+} from "./persona-schemas";
 
 /** Caller-friendly shape: each backend turn is split into a user message + assistant message. */
 export interface PersonaChat {
@@ -943,10 +847,55 @@ export interface PersonaMessage {
   file_attachments?: PersonaFileAttachment[];
 }
 
+// Chats are only listable per repo (GET /persona/{repo_id}/chats — there is no
+// cross-agent equivalent), so "all my agent chats" is structurally one request
+// per agent, and three separate call sites want it: the sidebar's recent-chats
+// section, global search, and the highlight index. In-flight dedupe + a short
+// TTL so those sites share one request per agent instead of each firing its own
+// fan-out. The TTL is deliberately shorter than the personas list's: a chat's
+// title is generated by the backend moments after the chat is created, and
+// nothing client-side knows when that lands.
+const PERSONA_CHATS_CACHE_TTL = 10_000
+const _personaChatsCache = new Map<string, { data: PersonaChat[]; time: number }>()
+const _personaChatsInFlight = new Map<string, Promise<PersonaChat[]>>()
+
+/** Drops the cached chat list for one agent (or all of them). Every chat
+ *  mutation below calls this, so a create/rename/delete is never masked by a
+ *  cache hit — only changes made outside this tab can be up to 30s stale. */
+export function bustPersonaChatsCache(repoId?: string): void {
+  if (repoId) {
+    _personaChatsCache.delete(repoId);
+    _personaChatsInFlight.delete(repoId);
+    return;
+  }
+  _personaChatsCache.clear();
+  _personaChatsInFlight.clear();
+}
+
+if (typeof window !== 'undefined') {
+  // A deleted/republished agent can change its chat list too.
+  window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, () => bustPersonaChatsCache());
+}
+
 /** GET /persona/{repo_id}/chats */
-export async function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
-  const list = await apiFetchJson<PersonaChatsResponse[]>(PERSONA_CHATS_ENDPOINT(repoId));
-  return list.map(c => ({ id: c.id, title: c.chat_title, versionId: c.persona_id ?? null }));
+export function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
+  const cached = _personaChatsCache.get(repoId);
+  if (cached && Date.now() - cached.time < PERSONA_CHATS_CACHE_TTL) return Promise.resolve(cached.data);
+
+  const inFlight = _personaChatsInFlight.get(repoId);
+  if (inFlight) return inFlight;
+
+  const promise = apiFetchJson<unknown>(PERSONA_CHATS_ENDPOINT(repoId))
+    .then(raw => {
+      const chats = personaChatsSchema.array().parse(raw)
+        .map(c => ({ id: c.id, title: c.chat_title, versionId: c.persona_id }));
+      _personaChatsCache.set(repoId, { data: chats, time: Date.now() });
+      return chats;
+    })
+    .finally(() => { _personaChatsInFlight.delete(repoId); });
+
+  _personaChatsInFlight.set(repoId, promise);
+  return promise;
 }
 
 /** GET /persona/{repo_id}/chats/{chat_id}/messages — each turn → user + assistant pair. */
@@ -954,9 +903,9 @@ export async function fetchPersonaChatMessages(
   repoId: string,
   chatId: string,
 ): Promise<PersonaMessage[]> {
-  const turns = await apiFetchJson<GetPersonaMessages[]>(
+  const turns = personaMessagesSchema.array().parse(await apiFetchJson<unknown>(
     PERSONA_CHAT_MESSAGES_ENDPOINT(repoId, chatId),
-  );
+  ));
   const out: PersonaMessage[] = [];
   for (const t of turns) {
     if (t.input)  out.push({
@@ -985,6 +934,7 @@ export async function renamePersonaChat(
     method: "PATCH",
     body:   JSON.stringify({ chat_id: chatId, chat_title: title }),
   });
+  bustPersonaChatsCache(repoId);
 }
 
 /** DELETE /persona/{repo_id}/chats — body: { chat_id }. */
@@ -993,6 +943,7 @@ export async function deletePersonaChat(repoId: string, chatId: string): Promise
     method: "DELETE",
     body:   JSON.stringify({ chat_id: chatId }),
   });
+  bustPersonaChatsCache(repoId);
 }
 
 /** POST /persona/{repo_id}/chats/{chat_id}/stop — cancel an in-flight stream. */
@@ -1453,6 +1404,8 @@ export async function createAndStreamPersonaChat(
     callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
     return () => controller.abort();
   }
+  // A new chat now exists for this agent — any cached list of its chats is stale.
+  bustPersonaChatsCache(repoId);
   const chatId = response.headers.get("X-Chat-Id");
   if (chatId) callbacks.onChatId?.(chatId);
   const reader = response.body?.getReader();

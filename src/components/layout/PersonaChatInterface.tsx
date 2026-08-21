@@ -426,9 +426,9 @@ export function PersonaChatInterface({
           attachments: m.role === "user" && m.file_attachments && m.file_attachments.length > 0
             ? m.file_attachments.map((a, i) => ({
                 id: `hist-att-${m.id}-${i}`,
-                file_name: a.file_name || a.name || safeFilenameFromUrl(a.file_link),
+                file_name: safeFilenameFromUrl(a.file_link),
                 file_type: a.mime_type || "application/octet-stream",
-                file_size: 0,
+                file_size: a.file_size,
                 url: a.file_link,
               }))
             : undefined,
@@ -436,7 +436,7 @@ export function PersonaChatInterface({
           generatedFiles: m.role === "assistant" && m.file_attachments && m.file_attachments.length > 0
             ? m.file_attachments.map(a => ({
                 url: a.file_link,
-                filename: a.file_name || a.name || safeFilenameFromUrl(a.file_link),
+                filename: safeFilenameFromUrl(a.file_link),
                 mimeType: a.mime_type,
               }))
             : undefined,

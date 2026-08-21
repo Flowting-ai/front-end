@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson } from './client'
+import { toConnector, type Connector } from '@/lib/connector'
 import {
   CONNECTORS_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
@@ -219,9 +220,45 @@ export interface UpdateConnectorRequest {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
-export async function listConnectors(): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(CONNECTORS_ENDPOINT)
-  return connectorListResponseSchema.parse(raw).connectors
+const CATALOG_CACHE_TTL = 30_000
+let _catalogCache: { data: ConnectorCatalogEntry[]; time: number } | null = null
+let _catalogInFlight: Promise<ConnectorCatalogEntry[]> | null = null
+let _catalogBySlug = new Map<string, ConnectorCatalogEntry>()
+
+export function bustConnectorCatalogCache(): void {
+  _catalogCache = null
+  _catalogInFlight = null
+  _catalogBySlug = new Map()
+}
+
+export function listConnectors(): Promise<ConnectorCatalogEntry[]> {
+  if (_catalogCache && Date.now() - _catalogCache.time < CATALOG_CACHE_TTL) {
+    return Promise.resolve(_catalogCache.data)
+  }
+  if (_catalogInFlight) return _catalogInFlight
+  _catalogInFlight = apiFetchJson<unknown>(CONNECTORS_ENDPOINT)
+    .then(raw => {
+      const list = connectorListResponseSchema.parse(raw).connectors
+      _catalogCache = { data: list, time: Date.now() }
+      _catalogBySlug = new Map(list.map(entry => [entry.slug, entry]))
+      return list
+    })
+    .finally(() => { _catalogInFlight = null })
+  return _catalogInFlight
+}
+
+/**
+ * Slug -> one Connector identity, resolved through the cached catalog when it's
+ * loaded and through the bundled name/logo maps when it isn't. The single place
+ * a persona's connector slugs (or any other slug) becomes something renderable.
+ */
+export function resolveConnector(slug: string): Connector {
+  const entry = _catalogBySlug.get(slug)
+  return entry ? toConnector(entry) : toConnector(slug)
+}
+
+export function resolveConnectors(slugs: string[]): Connector[] {
+  return slugs.map(resolveConnector)
 }
 
 export async function getConnector(slug: string): Promise<ConnectorCatalogEntry> {
@@ -252,6 +289,7 @@ export async function updateConnector(
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
+  bustConnectorCatalogCache()
   return connectorCatalogEntrySchema.parse(raw)
 }
 
@@ -260,6 +298,7 @@ export async function unlinkConnector(slug: string): Promise<void> {
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to unlink connector: ${res.status}`)
   }
+  bustConnectorCatalogCache()
 }
 
 // ── Org connector catalog (admin) ─────────────────────────────────────────────
@@ -282,6 +321,7 @@ export async function updateOrgCatalog(
     method: 'PUT',
     body: JSON.stringify({ connectorSlugs }),
   })
+  bustConnectorCatalogCache()
   return z.array(connectorCatalogEntrySchema).parse(raw)
 }
 

@@ -41,8 +41,8 @@ describe('resolveSelectableChatPersonas', () => {
 
     const result = await resolveSelectableChatPersonas([
       persona({ id: 'private', name: 'Private agent' }),
-      persona({ id: 'owned-team', name: 'Owned team agent', visibility: 'team', teamIds: ['team-1'] }),
-      persona({ id: 'other-team', name: 'Other team agent', visibility: 'team', teamIds: ['team-2'] }),
+      persona({ id: 'owned-team', name: 'Owned team agent', visibility: 'team' }),
+      persona({ id: 'other-team', name: 'Other team agent', visibility: 'team' }),
     ], {
       'owned-team': 'viewer',
       'other-team': 'another-user',

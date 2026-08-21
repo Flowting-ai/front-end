@@ -61,7 +61,7 @@ import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap, fetchPersonaTeamMap, resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -509,10 +509,15 @@ function PersonasPageInner() {
   // team-shared agent, not just their own. Falls back to that coarse check only
   // until this authoritative map has loaded, to avoid a flash for real owners.
   const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
+  // repoId -> the teams it's deployed to. Same cached share lists as the owner
+  // map above, since personas carry no team field of their own.
+  const [personaTeamMap, setPersonaTeamMap] = useState<Record<string, string[]>>({})
   useEffect(() => {
     if (!orgId || teams.length === 0) return
     let cancelled = false
-    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
+    const teamIds = teams.map(t => t.id)
+    fetchPersonaOwnerMap(orgId, teamIds).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
+    fetchPersonaTeamMap(orgId, teamIds).then(map => { if (!cancelled) setPersonaTeamMap(map) })
     return () => { cancelled = true }
   }, [orgId, teams])
 
@@ -789,10 +794,10 @@ function PersonasPageInner() {
   const teamCountForPersona = useMemo(() => {
     const map: Record<string, number> = {}
     for (const p of personas) {
-      if (p.visibility === 'team') map[p.id] = p.teamIds.length
+      if (p.visibility === 'team') map[p.id] = personaTeamMap[p.id]?.length ?? 0
     }
     return map
-  }, [personas])
+  }, [personas, personaTeamMap])
 
   // "Created by" footer attribution — "You" for agents the viewer owns,
   // otherwise the actual owner's name resolved via personaOwnerMap + org members.

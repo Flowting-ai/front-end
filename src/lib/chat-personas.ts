@@ -106,10 +106,14 @@ if (typeof window !== 'undefined') {
  *  Drafts are excluded — they aren't published/usable yet. */
 export function fetchSelectableChatPersonas(
   orgId: string | null | undefined,
+  /** The viewer's teams (from useOrg) — the ownership map is keyed by team, and
+   *  personas themselves carry no team field, so the teams have to come from
+   *  the caller rather than being read off the persona list. */
+  orgTeamIds: string[],
   viewerUserId: string | number | null | undefined,
   fallbackOwned: boolean,
 ): Promise<SelectedPersonaInfo[]> {
-  const key = `${orgId ?? ''}:${viewerUserId ?? ''}:${fallbackOwned}`
+  const key = `${orgId ?? ''}:${[...orgTeamIds].sort().join(',')}:${viewerUserId ?? ''}:${fallbackOwned}`
   const now = Date.now()
   const cached = _selectableCache.get(key)
   if (cached && now - cached.time < SELECTABLE_CACHE_TTL) return Promise.resolve(cached.data)
@@ -120,11 +124,9 @@ export function fetchSelectableChatPersonas(
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
     const personas = allPersonas.filter(persona => persona.status !== 'draft')
-    const teamIds = [...new Set(
-      personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
-    )]
-    const ownerMap = orgId && teamIds.length > 0
-      ? await fetchPersonaOwnerMap(orgId, teamIds)
+    const hasTeamPersona = personas.some(persona => persona.visibility === 'team')
+    const ownerMap = orgId && orgTeamIds.length > 0 && hasTeamPersona
+      ? await fetchPersonaOwnerMap(orgId, orgTeamIds)
       : {}
 
     const resolved = await resolveSelectableChatPersonas(personas, ownerMap, viewerUserId, fallbackOwned)

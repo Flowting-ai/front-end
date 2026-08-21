@@ -16,7 +16,7 @@ import { MoveToProjectModal } from "@/components/MoveToProjectModal";
 import { addChatToProject } from "@/lib/api/projects";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
-import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
+import { fetchPersonaOwnerMap, fetchTeamSharedRepoIds, resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
 import { listAutomations, getAutomation } from "@/lib/api/automations";
 import type { Automation, AutomationRun } from "@/lib/api/automations";
@@ -980,14 +980,31 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
   const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
+  const [teamShares, setTeamShares] = useState<{ teamId: string; ids: Set<string> } | null>(null)
 
   // Shared cache/subscription across every usePersonas() consumer — still backed
-  // by fetchPersonas() (same TTL, dedupe, enrichment); filter to team-shared only
-  // when teamId is provided, same as the old mount-effect did.
+  // by fetchPersonas() (same TTL, dedupe); filter to team-shared only when
+  // teamId is provided, same as the old mount-effect did.
   const { data: allPersonas, isLoading } = usePersonas()
+
+  // The team's deploy set: personas carry no team field, so scoping to a team
+  // context needs the team-persona-shares endpoint (cached per team).
+  useEffect(() => {
+    if (!orgId || !teamId) return
+    let cancelled = false
+    fetchTeamSharedRepoIds(orgId, teamId)
+      .then(ids => { if (!cancelled) setTeamShares({ teamId, ids }) })
+      .catch(() => { if (!cancelled) setTeamShares({ teamId, ids: new Set() }) })
+    return () => { cancelled = true }
+  }, [orgId, teamId])
+
   const rawPersonas = useMemo(
-    () => personasForTeamContext(allPersonas ?? [], teamId ?? null),
-    [allPersonas, teamId],
+    () => personasForTeamContext(
+      allPersonas ?? [],
+      teamId ?? null,
+      teamShares && teamShares.teamId === teamId ? teamShares.ids : null,
+    ),
+    [allPersonas, teamId, teamShares],
   )
 
   // Real per-persona ownership (not an org-role guess) — needed so the sidebar

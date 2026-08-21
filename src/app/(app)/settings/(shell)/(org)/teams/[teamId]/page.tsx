@@ -831,11 +831,13 @@ export default function TeamSettingsPage() {
       // Authoritative: every agent deployed to the team org-wide, with who shared it.
       listTeamPersonaShares(orgId, teamId).catch(() => [] as TeamPersonaShare[]),
       // Supplementary: status/description for agents visible to the current user.
-      fetchPersonas().then(list => personasForTeamContext(list, teamId)).catch(() => [] as Persona[]),
+      fetchPersonas().catch(() => [] as Persona[]),
     ])
-      .then(([shares, agents]) => {
+      .then(([shares, personas]) => {
         setTeamAgentShares(shares)
-        setTeamAgents(agents)
+        // The shares above are the team's deploy set — scope the persona list
+        // against them rather than re-fetching the same endpoint.
+        setTeamAgents(personasForTeamContext(personas, teamId, new Set(shares.map(s => s.personaRepoId))))
       })
       .finally(() => setAgentsLoading(false))
   }, [orgId, params.teamId])

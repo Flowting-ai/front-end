@@ -7,9 +7,12 @@ import { fetchSelectableChatPersonas, type SelectedPersonaInfo } from '@/lib/cha
 import { resolveViewerUserId } from '@/lib/api/teams'
 
 export function useSelectableChatPersonas(open: boolean) {
-  const { currentUserRole, orgId, members } = useOrg()
+  const { currentUserRole, orgId, members, teams } = useOrg()
   const { user } = useAuth()
   const viewerUserId = resolveViewerUserId(members, user?.email)
+  // Sorted + joined so the effect below doesn't re-run on a new array identity
+  // for the same set of teams.
+  const orgTeamIdsKey = [...teams.map(t => t.id)].sort().join(',')
   const [personas, setPersonas] = useState<SelectedPersonaInfo[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -20,7 +23,12 @@ export function useSelectableChatPersonas(open: boolean) {
     async function load() {
       setLoading(true)
       try {
-        const list = await fetchSelectableChatPersonas(orgId, viewerUserId, currentUserRole === 'admin')
+        const list = await fetchSelectableChatPersonas(
+          orgId,
+          orgTeamIdsKey ? orgTeamIdsKey.split(',') : [],
+          viewerUserId,
+          currentUserRole === 'admin',
+        )
         if (!cancelled) setPersonas(list)
       } catch {
         if (!cancelled) setPersonas([])
@@ -31,7 +39,7 @@ export function useSelectableChatPersonas(open: boolean) {
 
     void load()
     return () => { cancelled = true }
-  }, [open, currentUserRole, orgId, viewerUserId])
+  }, [open, currentUserRole, orgId, orgTeamIdsKey, viewerUserId])
 
   return { personas, loading }
 }

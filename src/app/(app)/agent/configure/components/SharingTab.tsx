@@ -17,6 +17,7 @@ import {
   type PersonaShare,
 } from '@/lib/api/persona-shares'
 import { getPersonaRepo, setPersonaVisibility, bustPersonasCache } from '@/lib/api/personas'
+import { fetchPersonaTeamMap } from '@/lib/api/teams'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -192,18 +193,25 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   useEffect(() => {
     if (!repoId) return
     let cancelled = false
-    getPersonaRepo(repoId)
-      .then(repo => {
+    const teamIds = teams.map(team => team.id)
+    Promise.all([
+      getPersonaRepo(repoId),
+      orgId && teamIds.length > 0
+        ? fetchPersonaTeamMap(orgId, teamIds).catch(() => ({} as Record<string, string[]>))
+        : Promise.resolve({} as Record<string, string[]>),
+    ])
+      .then(([repo, teamMap]) => {
         if (cancelled) return
+        const deployedTeamIds = teamMap[repoId] ?? []
         setVisibility(repo.visibility)
-        setSelectedTeamIds(repo.team_ids ?? [])
+        setSelectedTeamIds(deployedTeamIds)
         setSavedVisibility(repo.visibility)
-        setSavedTeamIds(repo.team_ids ?? [])
+        setSavedTeamIds(deployedTeamIds)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setVisibilityLoaded(true) })
     return () => { cancelled = true }
-  }, [repoId])
+  }, [repoId, orgId, teams])
 
   // ── Link share handlers ────────────────────────────────────────────────────
 
