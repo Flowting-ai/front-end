@@ -15,7 +15,7 @@ import type {
   UserUpcomingInvoice,
   UserUsage,
 } from "@/lib/api/user";
-import { fetchCurrentUser } from "@/lib/api/user";
+import { currentUser } from "@/lib/api/current-user";
 import { formatCredits } from "@/lib/plan-config";
 import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
@@ -241,17 +241,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setJwtTokenState(null);
     clearInMemoryAccessToken();
+    currentUser.clear();
   };
 
   // Stable reference across renders — setUser (from useState) and the module-level
-  // fetchCurrentUser/mapProfileToUser never change, so empty deps are correct.
+  // currentUser/mapProfileToUser never change, so empty deps are correct.
   // Without useCallback every AuthProvider render creates a new function reference,
   // which destabilises any useCallback/useEffect that lists refreshUser as a dep
   // (e.g. billing page's `reload`), causing those effects to re-run on every render
   // and creating an infinite API-call loop when the Stripe return timers are active.
   const refreshUser = useCallback(async () => {
     try {
-      const profile = await fetchCurrentUser();
+      const profile = await currentUser.refresh();
       if (profile) setUser(mapProfileToUser(profile));
     } catch (error) {
       console.error("Failed to refresh user profile", error);
@@ -299,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isHydrated || !jwtToken) return;
     let mounted = true;
 
-    fetchCurrentUser()
+    currentUser.load()
       .then((profile) => {
         if (mounted && profile) setUser(mapProfileToUser(profile));
       })
