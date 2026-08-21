@@ -77,9 +77,7 @@ export async function removeProjectMember(orgId: string, projectId: string, memb
 /**
  * Flat org-level invite — the backend's InviteRequest is
  * {emails, role: owner|admin|member, project_id}, no team-grant concept at
- * all anymore. An 'editor' selection folds to 'member' here: TeamEditor
- * grants have no live route to apply on accept regardless of what's
- * requested at invite time.
+ * all any more.
  */
 export async function inviteMembers(
   orgId: string,

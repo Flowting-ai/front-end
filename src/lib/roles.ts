@@ -2,22 +2,18 @@
 // Frontend mirror of the backend permission ladder in
 // SouvenirAI/services/organizations/roles.py.
 //
-//   Member → Editor → Admin → Owner
+//   Member → Admin → Owner
 //
 // Each capability is introduced exactly once, at the level that grants it —
 // there are no `false` stubs on lower classes. All-or-nothing capabilities are
 // gated by the class itself (Admin for org management, Owner for billing);
-// methods that depend on a specific team/project carry the grant sets they need.
-//
-// `editor` is NOT a stored role: a plain `member` who holds at least one live
-// TeamEditor grant resolves to Editor. This matches resolve_role() on the
-// backend, so the two stay in lockstep.
+// methods that depend on a specific project carry the grant sets they need.
 
 /** A user's stored org-wide standing — mirrors OrganizationRole. */
 export type OrgRole = 'owner' | 'admin' | 'member'
 
-/** The resolved role including the derived `editor` rung. */
-export type EffectiveRole = 'owner' | 'admin' | 'editor' | 'member'
+/** The resolved role. */
+export type EffectiveRole = 'owner' | 'admin' | 'member'
 
 export interface RoleGrants {
   userId: string
@@ -25,8 +21,6 @@ export interface RoleGrants {
   projectIds?: Iterable<string>
   /** Parent teams of those member projects — affiliation, not content access. */
   projectTeamIds?: Iterable<string>
-  /** Teams the user holds a live TeamEditor grant on. */
-  editorTeamIds?: Iterable<string>
 }
 
 /**
@@ -86,12 +80,12 @@ export class Member {
     return this.projectIds.has(projectId)
   }
 
-  /** Publish a chat to the team — editor+ only. */
+  /** Publish a chat to the team — admin+ only. */
   canPublishToTeam(_teamId: string): boolean {
     return false
   }
 
-  /** Edit project details / instructions / files, archive, delete — editor+. */
+  /** Edit project details / instructions / files, archive, delete — admin+. */
   canEditProject(_teamId: string): boolean {
     return false
   }
@@ -107,43 +101,17 @@ export class Member {
   }
 }
 
-/** Adds full rights inside granted teams. Publishing IS can_edit_team. */
-export class Editor extends Member {
-  protected readonly editorTeamIds: ReadonlySet<string>
-
-  constructor(grants: RoleGrants) {
-    super(grants)
-    this.editorTeamIds = new Set(grants.editorTeamIds ?? [])
-  }
-
-  override get label(): EffectiveRole {
-    return 'editor'
-  }
-
-  canEditTeam(teamId: string): boolean {
-    return this.editorTeamIds.has(teamId)
-  }
-
-  override canPublishToTeam(teamId: string): boolean {
-    return this.canEditTeam(teamId)
-  }
-
-  override canEditProject(teamId: string): boolean {
-    return this.canEditTeam(teamId)
-  }
-
-  override canActInTeam(teamId: string): boolean {
-    return this.editorTeamIds.has(teamId) || super.canActInTeam(teamId)
-  }
-}
-
 /** Adds the whole org: every team and project, team CRUD, member management. */
-export class Admin extends Editor {
+export class Admin extends Member {
   override get label(): EffectiveRole {
     return 'admin'
   }
 
-  override canEditTeam(_teamId: string): boolean {
+  override canPublishToTeam(_teamId: string): boolean {
+    return true
+  }
+
+  override canEditProject(_teamId: string): boolean {
     return true
   }
 
@@ -169,12 +137,9 @@ export class Owner extends Admin {
 
 // ── Resolution ───────────────────────────────────────────────────────────────
 
-/** Concrete role for one org. Editor iff a plain member holds at least one live
- *  TeamEditor grant. Owner/Admin skip the grant check. Mirrors resolve_role(). */
+/** Concrete role for one org. Mirrors resolve_role() on the backend. */
 export function resolveRole(orgRole: OrgRole, grants: RoleGrants): Member {
   if (orgRole === 'owner') return new Owner(grants)
   if (orgRole === 'admin') return new Admin(grants)
-  const hasEditorGrant = grants.editorTeamIds != null && [...grants.editorTeamIds].length > 0
-  if (hasEditorGrant) return new Editor(grants)
   return new Member(grants)
 }

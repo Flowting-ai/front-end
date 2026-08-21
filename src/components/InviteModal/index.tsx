@@ -11,7 +11,6 @@ import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
-import { getGradient } from '@/lib/team-gradients'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_MODAL   = '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
@@ -38,7 +37,6 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   workspaceName?: string
   loading?: boolean
   disabled?: boolean
-  teams?: InviteTeamOption[]
   projects?: InviteProjectOption[]
   /** Emails already in the workspace (members + pending invites). Compared
    *  case-insensitively so a chip is flagged the instant it's typed, instead
@@ -50,15 +48,9 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   onInvite?: (params: {
     emails: string[]
     role: WorkspaceRole
-    teamId?: string
     projectId?: string
   }) => Promise<InviteResult> | InviteResult
   asChild?: boolean
-}
-
-export interface InviteTeamOption {
-  id: string
-  name: string
 }
 
 export interface InviteProjectOption {
@@ -67,68 +59,16 @@ export interface InviteProjectOption {
   teamId: string
 }
 
-const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'editor', 'admin']
+const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'admin']
 
 const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
   member: 'Can chat, use agents, access team projects',
-  editor: 'Everything a Member can do, plus publish to their team',
   admin:  'Full access excluding billing',
 }
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   admin:  'Admin',
-  editor: 'Editor',
   member: 'Member',
-}
-
-// Team gradient icons — shared via src/lib/team-gradients.ts so a team keeps
-// the same color everywhere it shows up.
-const getTeamGradient = getGradient
-
-function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        position:     'relative',
-        display:      'inline-flex',
-        width:        size,
-        height:       size,
-        borderRadius: 4,
-        background:   getTeamGradient(teamId),
-        flexShrink:   0,
-        overflow:     'hidden',
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          borderRadius:  4,
-          pointerEvents: 'none',
-          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
-        }}
-      />
-      <span
-        style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          fontFamily:     'var(--font-title)',
-          fontWeight:     500,
-          fontSize:       Math.round(size * 0.58),
-          lineHeight:     1,
-          color:          'var(--neutral-white)',
-          userSelect:     'none',
-        }}
-      >
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </span>
-  )
 }
 
 // ── Info note — boxed hint text, matching ManageRoleModal's InfoNote ────────
@@ -434,7 +374,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       workspaceName,
       loading = false,
       disabled = false,
-      teams = [],
       projects = [],
       existingEmails,
       allowedDomains,
@@ -453,12 +392,10 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [emailChips, setEmailChips] = useState<EmailChip[]>([])
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
-    const [teamId,     setTeamId]     = useState('')
     const [projectId,  setProjectId]  = useState('')
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => { inputRef.current?.focus() }, [])
-    const effectiveTeamId = teamId || teams[0]?.id || ''
 
     // Classifies one raw token as it's committed to a chip: format, then
     // already-a-member/invited, then domain restriction. Surfacing all three
@@ -518,7 +455,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const handleSubmit = useCallback(async () => {
       const pending = emailChips.filter(c => c.status === 'pending').map(c => c.value)
       if (pending.length === 0 || loading || submitting) return
-      if (role === 'editor' && !effectiveTeamId) return
 
       const project = role === 'member'
         ? projects.find(option => option.id === projectId)
@@ -529,7 +465,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
         const result = await onInvite?.({
           emails: pending,
           role,
-          teamId: role === 'editor' ? effectiveTeamId : project?.teamId,
           projectId: project?.id,
         })
         if (!result) return
@@ -552,7 +487,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       } finally {
         setSubmitting(false)
       }
-    }, [effectiveTeamId, emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
+    }, [emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -703,24 +638,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           )}
         </div>
 
-        {role === 'editor' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={SECTION_LABEL_STYLE}>Team</span>
-            <SimpleSelect
-              ariaLabel="Team"
-              value={effectiveTeamId}
-              onChange={setTeamId}
-              disabled={teams.length === 0}
-              placeholder="No teams available"
-              options={teams.map(team => ({
-                value:  team.id,
-                label:  team.name,
-                avatar: <TeamAvatar teamId={team.id} name={team.name} size={24} />,
-              }))}
-            />
-          </div>
-        )}
-
         {role === 'member' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={SECTION_LABEL_STYLE}>Project access (optional)</span>
@@ -731,15 +648,10 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
               placeholder="No project access"
               options={[
                 { value: '', label: 'No project access' },
-                ...projects.map(project => {
-                  const team = teams.find(t => t.id === project.teamId)
-                  return {
-                    value:    project.id,
-                    label:    project.title,
-                    subLabel: team?.name,
-                    avatar:   team && <TeamAvatar teamId={team.id} name={team.name} size={24} />,
-                  }
-                }),
+                ...projects.map(project => ({
+                  value: project.id,
+                  label: project.title,
+                })),
               ]}
             />
           </div>
@@ -754,7 +666,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             variant="default"
             size="sm"
             loading={loading || submitting}
-            disabled={pendingCount === 0 || (role === 'editor' && !effectiveTeamId)}
+            disabled={pendingCount === 0}
             onClick={() => void handleSubmit()}
           >
             {pendingCount > 1 ? `Send ${pendingCount} invites` : 'Send invite'}
@@ -767,8 +679,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
 
 InviteModal.displayName = 'InviteModal'
 
-// ── AppInviteModal — Dialog wrapper for backward compatibility ─────────────────
-// Used in settings/org/teams/[teamId]/page.tsx with onInvite(email, role) API.
+// ── AppInviteModal — Dialog wrapper, used by members/page.tsx ─────────────────
 
 export interface AppInviteModalProps {
   isOpen:         boolean
@@ -776,12 +687,10 @@ export interface AppInviteModalProps {
   onInvite:       (
     emails: string[],
     role: WorkspaceRole,
-    teamId?: string,
     projectId?: string,
   ) => Promise<InviteResult> | InviteResult
   workspaceName?: string
   loading?:       boolean
-  teams?:         InviteTeamOption[]
   projects?:      InviteProjectOption[]
   existingEmails?: string[]
   allowedDomains?: string[]
@@ -793,7 +702,6 @@ export function AppInviteModal({
   onInvite,
   workspaceName,
   loading,
-  teams,
   projects,
   existingEmails,
   allowedDomains,
@@ -826,13 +734,12 @@ export function AppInviteModal({
           <InviteModal
             workspaceName={workspaceName}
             loading={loading}
-            teams={teams}
             projects={projects}
             existingEmails={existingEmails}
             allowedDomains={allowedDomains}
             onClose={onClose}
-            onInvite={({ emails, role, teamId, projectId }) => (
-              onInvite(emails, role, teamId, projectId)
+            onInvite={({ emails, role, projectId }) => (
+              onInvite(emails, role, projectId)
             )}
           />
         </Dialog.Content>

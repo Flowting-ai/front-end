@@ -1,4 +1,4 @@
-export type WorkspaceRole = 'admin' | 'editor' | 'member'
+export type WorkspaceRole = 'admin' | 'member'
 export type OrgRole = 'owner' | 'admin' | 'member'
 export type InviteStatus = 'not_invited' | 'invite_sent' | 'signed_up'
 export type TokenStatus = 'normal' | 'warning_80' | 'warning_95' | 'grace' | 'locked'

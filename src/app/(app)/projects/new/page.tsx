@@ -1,53 +1,27 @@
 'use client'
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { Suspense, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowDownOneIcon, ArrowLeftOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
-import { Dropdown } from '@/components/Dropdown'
-import { useOrg } from '@/context/org-context'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 function NewProjectPageInner() {
-  const { push }                           = useRouter()
-  const searchParams                      = useSearchParams()
-  const { projects, createProject }       = useProjects()
-  const { orgId, teams, teamsLoading } = useOrg()
-  const [name,         setName]           = useState('')
-  const [description,  setDescription]   = useState('')
-  const [loading,      setLoading]        = useState(false)
-  // Defaults to Private. Only pre-set to a team below when this page was
-  // reached via a team-scoped "New project" entry point (?teamId=...) — the
-  // generic /projects and Personal-projects "New project" buttons never pass
-  // that param, so they always land here on Private.
-  const [teamId,       setTeamId]         = useState('')
-  const [teamMenuOpen, setTeamMenuOpen]   = useState(false)
-  const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
-  const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
-  const requestedTeamId = searchParams.get('teamId') ?? ''
-  const requestedTeamWarnedRef = useRef(false)
-
-  useEffect(() => {
-    // Wait for teams to finish loading before judging the requested id —
-    // otherwise a still-empty `teams` list would look like a rejection.
-    if (!requestedTeamId || teamsLoading) return
-    if (editableTeams.some(team => team.id === requestedTeamId)) {
-      setTeamId(requestedTeamId)
-    } else if (!requestedTeamWarnedRef.current) {
-      requestedTeamWarnedRef.current = true
-      toast.warning("Couldn't preselect that team", { description: 'The requested team is unavailable or not editable, so this project will default to Private.' })
-    }
-  }, [editableTeams, requestedTeamId, teamsLoading])
+  const { push }                     = useRouter()
+  const { projects, createProject } = useProjects()
+  const [name,        setName]       = useState('')
+  const [description, setDescription] = useState('')
+  const [loading,     setLoading]    = useState(false)
 
   async function handleCreate() {
     if (!name.trim()) return
     setLoading(true)
     try {
-      const project = await createProject(name.trim(), description.trim(), teamId || undefined)
+      const project = await createProject(name.trim(), description.trim())
       push(PROJECT_ROUTE(project.id))
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
@@ -149,44 +123,6 @@ function NewProjectPageInner() {
               autoFocus
             />
           </div>
-
-          {canCreateTeamProject && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label htmlFor="new-project-team" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47' }}>
-                Access
-              </label>
-              <Dropdown.Float
-                open={teamMenuOpen}
-                onOpenChange={setTeamMenuOpen}
-                placement="bottom-start"
-                trigger={
-                  <Button id="new-project-team" variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
-                    {teamId ? `Team: ${editableTeams.find(team => team.id === teamId)?.name ?? ''}` : 'Private project'}
-                  </Button>
-                }
-              >
-                <Dropdown>
-                  <Dropdown.Section>
-                    <Dropdown.Item
-                      label="Private project"
-                      selected={teamId === ''}
-                      onClick={() => { setTeamId(''); setTeamMenuOpen(false) }}
-                      fluid
-                    />
-                    {editableTeams.map(team => (
-                      <Dropdown.Item
-                        key={team.id}
-                        label={`Team: ${team.name}`}
-                        selected={teamId === team.id}
-                        onClick={() => { setTeamId(team.id); setTeamMenuOpen(false) }}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
-                </Dropdown>
-              </Dropdown.Float>
-            </div>
-          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label

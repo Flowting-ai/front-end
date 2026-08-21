@@ -1265,7 +1265,7 @@ function displayRoleFor(member: OrgMember): WorkspaceRole {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
-  const { orgId, org, members: orgMembers, membersLoading, currentUserRole, teams, refreshMembers } = useOrg()
+  const { orgId, org, members: orgMembers, membersLoading, currentUserRole, refreshMembers } = useOrg()
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
   const currentUserIsOwner = orgMembers.find(m => m.email === user?.email)?.orgRole === 'owner'
@@ -1431,7 +1431,6 @@ export default function OrgMembersPage() {
   const handleInvite = async (
     emails: string[],
     role: WorkspaceRole,
-    _selectedTeamId?: string,
     projectId?: string,
   ): Promise<InviteResult> => {
     if (!orgId) {
@@ -1594,7 +1593,6 @@ export default function OrgMembersPage() {
         onInvite={handleInvite}
         workspaceName={org.name}
         loading={inviteLoading}
-        teams={teams.filter(t => !t.archived).map(team => ({ id: team.id, name: team.name }))}
         projects={projects.flatMap(project => (
           project.teamId
             ? [{ id: project.id, title: project.title, teamId: project.teamId }]

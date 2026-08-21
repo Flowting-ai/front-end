@@ -1,13 +1,12 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
 import { resolveRole, type Member } from '@/lib/roles'
 import type {
   WorkspaceOrg,
   OrgMember,
-  Team,
   OrgPlan,
   OrgRole,
 } from '@/types/teams'
@@ -21,7 +20,7 @@ interface OrgContextValue {
   /** Raw API role: 'owner' | 'admin' | 'member'. Use this for billing/ownership gates. */
   orgRole: OrgRole
   /** Legacy UI role: 'admin' (covers owner+admin) | 'member'. Use for general access checks. */
-  currentUserRole: 'admin' | 'editor' | 'member'
+  currentUserRole: 'admin' | 'member'
   /**
    * Resolved capability ladder for the current user (mirrors the backend's
    * services/organizations/roles.py). Prefer `caps.canPublishToTeam(teamId)` /
@@ -31,13 +30,7 @@ interface OrgContextValue {
    * remain authoritative for project-scoped checks.
    */
   caps: Member
-  teams: Team[]
-  teamsLoading: boolean
-  refreshTeams: () => void
-  removeTeam: (teamId: string) => void
   refreshMembers: () => void
-  activeTeamId: string | null
-  setActiveTeamId: (id: string | null) => void
   activeProjectId: string | null
   setActiveProjectId: (id: string | null) => void
   /**
@@ -124,51 +117,14 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [orgPlanType,      setOrgPlanType]      = useState<'teams' | 'enterprise'>('teams')
   const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
   const [orgRoleResolved,  setOrgRoleResolved]  = useState(false)
-  const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'editor' | 'member'>('member')
+  const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'member'>('member')
   const [plan,             setPlan]             = useState<OrgPlan | null>(null)
   const [orgPlanSettled,   setOrgPlanSettled]   = useState(false)
   const [members,          setMembers]          = useState<OrgMember[]>([])
   const [membersLoading,   setMembersLoading]   = useState(false)
   const [planRefreshToken, setPlanRefreshToken] = useState(0)
 
-  const [teams, setTeams] = useState<Team[]>([])
-  // Teams no longer exist on the backend at all — this never transitions to
-  // true, since there's nothing left to fetch.
-  const teamsLoading = false
-  // activeTeamId persists across reloads (per org) so the chosen team — and the
-  // team-scoped views that key off it, like /agents — survive a refresh instead
-  // of silently resetting to "all".
-  const [activeTeamId, _setActiveTeamId] = useState<string | null>(null)
-  const restoredOrgRef = useRef<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-
-  const activeTeamStorageKey = (oid: string) => `flowting:activeTeam:${oid}`
-
-  const setActiveTeamId = useCallback((id: string | null) => {
-    _setActiveTeamId(id)
-    if (typeof window === 'undefined' || !orgId) return
-    try {
-      if (id) localStorage.setItem(activeTeamStorageKey(orgId), id)
-      else localStorage.removeItem(activeTeamStorageKey(orgId))
-    } catch { /* ignore quota / disabled storage */ }
-  }, [orgId])
-
-  // Restore the persisted team once per org. Runs before teams finish loading so
-  // team-scoped pages render their correct content immediately on a fresh load.
-  useEffect(() => {
-    if (!orgId || typeof window === 'undefined') return
-    if (restoredOrgRef.current === orgId) return
-    restoredOrgRef.current = orgId
-    try {
-      const saved = localStorage.getItem(activeTeamStorageKey(orgId))
-      // 'personal' is a stale sentinel from a since-removed Team Switcher
-      // option — no UI sets it anymore, so a persisted value from before
-      // that removal should fall back to the default (first team) instead
-      // of getting stuck showing "Personal Projects" forever.
-      if (saved && saved !== 'personal') _setActiveTeamId(saved)
-      else if (saved === 'personal') localStorage.removeItem(activeTeamStorageKey(orgId))
-    } catch { /* ignore */ }
-  }, [orgId])
 
   // Fetch org name + current user role
   const [roleResolved, setRoleResolved] = useState(false)
@@ -251,24 +207,6 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     Promise.all([planP, membersP]).finally(() => setMembersLoading(false))
   }, [orgId, planRefreshToken])
 
-  // Teams no longer exist on the backend at all (the Team table was dropped
-  // in the flatten-teams-into-organizations migration) — `teams` stays at its
-  // empty initial value forever; there is nothing to fetch.
-
-  // Drop a persisted team that no longer exists (always true now), or a
-  // stale 'personal' sentinel from the since-removed Team Switcher option —
-  // both fall back to the default (null) rather than getting stuck.
-  useEffect(() => {
-    if (teamsLoading || !activeTeamId) return
-    if (activeTeamId === 'personal' || !teams.some(t => t.id === activeTeamId)) setActiveTeamId(null)
-  }, [teams, teamsLoading, activeTeamId, setActiveTeamId])
-
-  function refreshTeams() {}
-
-  function removeTeam(teamId: string) {
-    setTeams(prev => prev.filter(t => t.id !== teamId))
-  }
-
   function refreshMembers() {
     setPlanRefreshToken(t => t + 1)
   }
@@ -308,13 +246,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       orgRole,
       currentUserRole,
       caps,
-      teams,
-      teamsLoading,
-      refreshTeams,
-      removeTeam,
       refreshMembers,
-      activeTeamId,
-      setActiveTeamId,
       activeProjectId,
       setActiveProjectId,
       orgReady: orgIdResolved && roleResolved,

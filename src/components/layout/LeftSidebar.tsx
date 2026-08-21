@@ -33,10 +33,8 @@ import { getOrgSlackStatus } from "@/lib/api/slack";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
 import { Tooltip } from "@/components/Tooltip";
-import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
-import type { SidebarAdminGroup } from "@/components/Sidebar";
 import type { ChipColor } from "@/components/Chip";
 import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
 import {
@@ -125,12 +123,6 @@ const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
 // Default admin groups without the "Company Data" section.
 const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS.filter(g => g.id !== 'company-data');
 
-const TEAM_SETTINGS_SECTIONS = new Set([
-  'team-projects',
-  'team-connectors',
-  'team-requests',
-  'team-activity',
-])
 
 // -- Section show/hide animation - matches Sidebar design system ---------------
 
@@ -694,40 +686,30 @@ function ProjectsSection({
 }
 
 // -- Teams sidebar components --------------------------------------------------
+// Team no longer exists as a backend entity — "team projects" here just means
+// every project shared with the organization (project.teamId !== null).
 
 interface TeamsSidebarContentProps {
-  role: 'admin' | 'editor' | 'member'
-  teams: Team[]
-  activeTeamId: string | null
-  setActiveTeamId: (id: string | null) => void  // teamId | null (falls back to the first team)
+  role: 'admin' | 'member'
 }
 
-function TeamsSidebarContent({ role, teams, activeTeamId }: TeamsSidebarContentProps) {
-  const nonArchivedTeams = teams.filter(t => !t.archived)
-  // No selection (or a stale one) falls back to the first active team — team
-  // switching now happens via the AccountMenu's own team-switcher block.
-  const activeTeam = nonArchivedTeams.find(team => team.id === activeTeamId) ?? nonArchivedTeams[0] ?? null
-  const effectiveActiveTeamId = activeTeam?.id ?? null
-  // Design rule (DefaultProjectItems): "New project" shows for non-members.
-  // Org admins/owners (role !== 'member') always can; a plain org member who
-  // is an editor on a team can create within a team they can edit.
+// Stable references so they don't defeat memoization in ProjectsSection/
+// FlatProjectItemsList, which key their own useMemo off these functions.
+const isOrgSharedProject = (project: Project) => project.teamId !== null
+// FlatTeamsSidebarContent merges the viewer's personal and org-shared
+// projects into one list — no team layer left to filter by.
+const includeAllProjects = () => true
+
+function TeamsSidebarContent({ role }: TeamsSidebarContentProps) {
   const isAdmin = role !== 'member'
-  const showNewTeamProject = isAdmin || Boolean(activeTeam?.canEdit)
-  const teamProjectsLabel = activeTeam ? `${activeTeam.name} team projects` : 'Workspace projects'
-  const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'
-  const teamProjectFilter = useCallback(
-    (project: Project) => project.teamId !== null && (effectiveActiveTeamId ? project.teamId === effectiveActiveTeamId : true),
-    [effectiveActiveTeamId],
-  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
       <ProjectsSection
-        key={effectiveActiveTeamId ?? 'team'}
-        label={teamProjectsLabel}
-        showNewProject={showNewTeamProject}
-        projectsFilter={teamProjectFilter}
-        newProjectHref={teamNewProjectHref}
-        emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
+        label="Workspace projects"
+        showNewProject={isAdmin}
+        projectsFilter={isOrgSharedProject}
+        newProjectHref="/projects/new"
+        emptyLabel="No team projects yet"
       />
     </div>
   )
@@ -2215,19 +2197,9 @@ function FlatProjectsSection({
 // which team's projects are merged in (key= remounts the list, resetting
 // its expand state). --
 
-function FlatTeamsSidebarContent({ role, teams, activeTeamId }: TeamsSidebarContentProps) {
+function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
   const { push } = useGuardedRouter()
-  const nonArchivedTeams = teams.filter(t => !t.archived)
-  const activeTeam = nonArchivedTeams.find(team => team.id === activeTeamId) ?? nonArchivedTeams[0] ?? null
-  const effectiveActiveTeamId = activeTeam?.id ?? null
   const isAdmin = role !== 'member'
-  const showNewTeamProject = isAdmin || Boolean(activeTeam?.canEdit)
-  const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'
-
-  const combinedProjectsFilter = useCallback(
-    (project: Project) => project.teamId === null || (effectiveActiveTeamId ? project.teamId === effectiveActiveTeamId : project.teamId !== null),
-    [effectiveActiveTeamId],
-  )
 
   const [shown, setShown] = useState(true)
   const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
@@ -2236,7 +2208,7 @@ function FlatTeamsSidebarContent({ role, teams, activeTeamId }: TeamsSidebarCont
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <FlatSidebarRow
         variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)}
-        onAddClick={showNewTeamProject ? (e) => { e.stopPropagation(); push(teamNewProjectHref) } : undefined} addLabel="New Project"
+        onAddClick={isAdmin ? (e) => { e.stopPropagation(); push('/projects/new') } : undefined} addLabel="New Project"
         headerIcon={<FolderOneIcon size={14} variant="static" />}
         onHeaderIconClick={() => push(PROJECTS_ROUTE)}
         headerIconLabel="All Projects"
@@ -2256,8 +2228,7 @@ function FlatTeamsSidebarContent({ role, teams, activeTeamId }: TeamsSidebarCont
           style={{ display: "flex", flexDirection: "column", gap: 4 }}
         >
           <FlatProjectItemsList
-            key={effectiveActiveTeamId ?? 'team'}
-            projectsFilter={combinedProjectsFilter}
+            projectsFilter={includeAllProjects}
             limit={PROJECT_LIMIT}
             emptyLabel="No projects yet"
           />
@@ -2355,7 +2326,7 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats, getProject } = useProjects();
-  const { orgId, org, plan, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
+  const { orgId, org, plan, orgRole, currentUserRole } = useOrg();
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -2377,7 +2348,6 @@ function LeftSidebarImpl({
   const currentProject     = currentProjectId ? getProject(currentProjectId) : undefined
   const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
-  const isTeamSettingsPage = pathname?.startsWith("/teams/") ?? false;
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
   // Flat sidebar's "New" row highlights for either flavor of "blank slate" —
   // a new chat or an idle (no thread loaded) Brain page — same condition the
@@ -2386,30 +2356,13 @@ function LeftSidebarImpl({
   // also matches /brain/schedules and /brain/threads, which lit up "New"
   // alongside "Schedules" incorrectly.
   const isNewChatOrBrainThreadPage = isNewChatPage || (pathname === BRAIN_ROUTE && !chatSearchParams.get('id'));
-  const routeTeamId = isTeamSettingsPage ? pathname?.split('/')[2] : undefined
-  const routeTeam = teams.find(team => team.id === routeTeamId)
-  const requestedTeamSection = `team-${chatSearchParams.get('section') ?? 'projects'}`
-  const teamSectionId = TEAM_SETTINGS_SECTIONS.has(requestedTeamSection)
-    ? requestedTeamSection
-    : 'team-projects'
-  const teamSettingsGroups: SidebarAdminGroup[] = [{
-    id: 'team-settings',
-    label: routeTeam?.name ?? 'Team settings',
-    items: [
-      { id: 'team-projects', label: 'Projects' },
-      { id: 'team-connectors', label: 'Connectors' },
-      { id: 'team-requests', label: 'Requests' },
-      { id: 'team-activity', label: 'Activity' },
-    ],
-  }]
 
   // Map the current /org/* path to its admin-section item id so the sidebar
   // can highlight the correct row on initial mount / page refresh. Connectors
   // and Souvenir-in-Slack moved to their own top-level routes (no longer under
   // /org/*), so everything actually left here is a transient redirect stub —
   // this id only needs a harmless fallback while that stub briefly renders.
-  const adminItemId = isTeamSettingsPage ? teamSectionId
-    : !isAdminPage ? undefined
+  const adminItemId = !isAdminPage ? undefined
     : 'general'
 
   // Determines which Sidebar key to use (triggers remount on section change).
@@ -2418,7 +2371,6 @@ function LeftSidebarImpl({
   const sidebarSectionKey = isPersonaPage ? 'persona'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
-    : isTeamSettingsPage ? `team-settings-${teamSectionId}`
     : isAdminPage   ? `admin-${adminItemId}`
     : isNewChatPage ? 'new-chat'
     : 'chat-board';
@@ -2427,7 +2379,7 @@ function LeftSidebarImpl({
     isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
-    : isAdminPage || isTeamSettingsPage ? 'admin'
+    : isAdminPage ? 'admin'
     : isNewChatPage ? 'new-chat'
     : 'chats'
   ) as 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects';
@@ -2566,27 +2518,18 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Role chip next to the wordmark.
-  // admin/owner show their single org-level role — team roles don't add to it.
-  // Members show their highest team role (editor beats member).
-  // Hierarchy: owner > admin > editor > member.
-  const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
+  // Role chip next to the wordmark. admin/owner show their single org-level
+  // role; anyone else in an org shows 'member' — there's no team-level role
+  // to add to it any more.
   const displayRole = (orgRole === 'owner' || orgRole === 'admin')
     ? orgRole
-    : teams
-        .map(t => t.myRole)
-        .filter(Boolean)
-        .reduce<string | undefined>(
-          (best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best ?? ''] ?? 0) ? r : best),
-          undefined,
-        ) ?? (orgId ? 'member' : undefined)
+    : (orgId ? 'member' : undefined)
   const orgBadgeSublabel = orgId && displayRole
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
   const orgBadgeChipColor: ChipColor =
     displayRole === 'owner'  ? 'Purple' :
     displayRole === 'admin'  ? 'Blue'   :
-    displayRole === 'editor' ? 'Green'  :
     'Neutral'
 
   // Fall back to roleFit + billing snapshot to detect team accounts when orgId
@@ -2628,14 +2571,14 @@ function LeftSidebarImpl({
     chatHistory: filteredChatHistory,
   };
 
-  // Souvenir V1.5: Admin/team-settings pages keep the old tabbed Sidebar
-  // completely unchanged (see docs/features/sidebar-current-state-audit.md and
-  // the migration plan for why); Brain now also gets the flat shell — its
+  // Souvenir V1.5: Admin pages keep the old tabbed Sidebar completely
+  // unchanged (see docs/features/sidebar-current-state-audit.md and the
+  // migration plan for why); Brain now also gets the flat shell — its
   // Recents section falls back to the same personal/team chat recents every
   // other page shows (no inline Brain-thread list or per-schedule run-status
   // icons in the sidebar anymore; "Schedules" is still reachable as a plain
   // Destinations nav link to /brain/schedules).
-  const useFlatSidebar = !isAdminPage && !isTeamSettingsPage;
+  const useFlatSidebar = !isAdminPage;
 
   if (useFlatSidebar) {
     return (
@@ -2647,12 +2590,7 @@ function LeftSidebarImpl({
           defaultCollapsed={collapsedRef.current}
           destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} isTeamUser={isTeamUser} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
-            <FlatTeamsSidebarContent
-              role={currentUserRole}
-              teams={teams}
-              activeTeamId={activeTeamId}
-              setActiveTeamId={setActiveTeamId}
-            />
+            <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
             <FlatProjectsSection label="Personal Projects" headerIcon={<FolderOneIcon size={14} variant="static" />} />
           )}
@@ -2781,12 +2719,8 @@ function LeftSidebarImpl({
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
-      adminGroups={isTeamSettingsPage ? teamSettingsGroups : isAdminPage ? ORG_ADMIN_GROUPS : undefined}
+      adminGroups={isAdminPage ? ORG_ADMIN_GROUPS : undefined}
       onAdminSectionClick={(id) => {
-        if (isTeamSettingsPage && TEAM_SETTINGS_SECTIONS.has(id)) {
-          push(`${pathname}?section=${id.replace('team-', '')}`)
-          return
-        }
         const href = ADMIN_SECTION_ROUTES[id]
         if (href) { push(href); return }
         const label = ADMIN_SECTION_COMING_SOON[id] ?? id
@@ -2844,12 +2778,7 @@ function LeftSidebarImpl({
       }}
       onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push(BRAIN_SCHEDULES_ROUTE) }}
       projectItems={orgId ? (
-        <TeamsSidebarContent
-          role={currentUserRole}
-          teams={teams}
-          activeTeamId={activeTeamId}
-          setActiveTeamId={setActiveTeamId}
-        />
+        <TeamsSidebarContent role={currentUserRole} />
       ) : (
         <ProjectsSection label="Personal Projects" />
       )}

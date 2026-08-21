@@ -130,7 +130,6 @@ function IconActionButton({
 
 function ProjectSlackRow({
   project,
-  teamName,
   channel,
   creating,
   nameDraft,
@@ -150,7 +149,6 @@ function ProjectSlackRow({
   onDelete,
 }: {
   project: SlackProject
-  teamName: string
   channel: SlackChannel | null | undefined
   creating: boolean
   nameDraft: string
@@ -178,7 +176,7 @@ function ProjectSlackRow({
             {project.title}
           </p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '2px 0 0' }}>
-            {teamName} / {project.documentCount} files / {project.chatCount} chats
+            Shared / {project.documentCount} files / {project.chatCount} chats
           </p>
         </div>
       </SettingsTableCell>
@@ -289,7 +287,7 @@ function ProjectSlackRow({
 }
 
 export default function SouvenirSlackPage() {
-  const { orgId, orgReady, orgRole, teams } = useOrg()
+  const { orgId, orgReady, orgRole } = useOrg()
 
   const [statusLoading, setStatusLoading] = useState(true)
   const [status,        setStatus]        = useState<SlackStatus | null>(null)
@@ -534,16 +532,13 @@ export default function SouvenirSlackPage() {
               ) : projects.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center' }}>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                    {teams.length > 0
-                      ? 'Your teams are available, but no projects are published to a team yet.'
-                      : 'No teams are available yet. Create a team before adding Slack project channels.'}
+                    No shared projects yet. Share a project with your organization to add its Slack channel here.
                   </p>
                 </div>
               ) : projects.map((project, index) => (
                 <ProjectSlackRow
                   key={project.id}
                   project={project}
-                  teamName={teams.find(team => team.id === project.teamId)?.name ?? 'Team project'}
                   channel={channelsByProject[project.id]}
                   creating={creatingId === project.id}
                   nameDraft={nameDrafts[project.id] ?? defaultChannelName(project.title)}

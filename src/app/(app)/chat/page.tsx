@@ -242,7 +242,7 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { push, replace } = useRouter();
-  const { org, teams: orgTeams, activeTeamId } = useOrg();
+  const { org } = useOrg();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
@@ -251,23 +251,15 @@ function ChatPageInner() {
   // "Share" chat-menu item, which navigates here instead of opening the
   // modal directly since ChatShareOverlay lives on this page, not the sidebar.
   const shouldAutoOpenShare = searchParams.get("share") != null;
-  // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
+  // First-time landing after finishing the invite flow (/chat?joined=<name>).
   // Swaps the greeting + template cards for the "You just joined" welcome.
   //
   // The `joined` value is only a TRIGGER — never rendered verbatim, since the URL
   // is user-editable and could otherwise spoof an arbitrary name on the landing.
-  // We resolve the display name from trusted org context: honour the param only
-  // when it matches a team/org the user actually belongs to, otherwise fall back
-  // to their real active team (or org) name.
+  // We resolve the display name from trusted org context (the real org name),
+  // not the URL param itself.
   const justJoined    = searchParams.get("joined") != null;
-  const joinedTeam    = (() => {
-    if (!justJoined) return null;
-    const requested = searchParams.get("joined")?.trim().toLowerCase() || "";
-    const knownNames = [org.name, ...orgTeams.map((t) => t.name)].filter(Boolean);
-    const matched = knownNames.find((n) => n.toLowerCase() === requested);
-    const activeTeamName = orgTeams.find((t) => t.id === activeTeamId)?.name;
-    return matched ?? activeTeamName ?? org.name ?? null;
-  })();
+  const joinedTeam    = justJoined ? (org.name || null) : null;
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);

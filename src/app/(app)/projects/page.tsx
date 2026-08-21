@@ -293,7 +293,7 @@ function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
-  const { orgId, teams, members }                                             = useOrg()
+  const { orgId, members }                                                    = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
   // Always plain — this page's own "New Project" button should default to
@@ -638,7 +638,6 @@ function ProjectsPageInner() {
               <ProjectListRow
                 key={project.id}
                 project={project}
-                teamName={project.teamId ? teams.find(t => t.id === project.teamId)?.name : undefined}
                 ownerName={members.find(m => m.id === project.ownerUserId)?.name}
                 memberCount={projectMemberCount(project, members)}
                 updatedAt={formatUpdated(project.updatedAt)}
@@ -663,7 +662,6 @@ function ProjectsPageInner() {
                 title={project.name}
                 description={project.description}
                 tags={project.tags}
-                teamName={project.teamId ? teams.find(t => t.id === project.teamId)?.name : undefined}
                 ownerName={members.find(m => m.id === project.ownerUserId)?.name}
                 memberCount={projectMemberCount(project, members)}
                 updatedAt={formatUpdated(project.updatedAt)}
