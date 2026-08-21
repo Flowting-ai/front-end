@@ -37,7 +37,7 @@ function makeRepo(overrides: Record<string, unknown> = {}) {
       temperature: null,
       documents: [],
       links: [],
-      total_usage: 0,
+      connectors: [],
       blocked_connectors: [],
       source_share_id: null,
       version_tags: [],
@@ -64,16 +64,15 @@ describe('fetchPersonas', () => {
     bustPersonasCache()
   })
 
-  it('preserves repo visibility and the org it is deployed to', async () => {
+  it('preserves repo visibility and the live version connector slugs', async () => {
     const repo = makeRepo()
-    apiFetchJson
-      .mockResolvedValueOnce([repo])
-      .mockResolvedValueOnce(repo)
+    repo.active_version.connectors = ['slack', 'gmail']
+    apiFetchJson.mockResolvedValueOnce([repo])
 
     await expect(fetchPersonas()).resolves.toMatchObject([{
       id: 'repo-1',
       visibility: 'team',
-      teamIds: ['org-1'],
+      connectorSlugs: ['slack', 'gmail'],
     }])
   })
 
@@ -103,23 +102,17 @@ describe('fetchPersonas', () => {
     expect(apiFetchJson).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps a team-visibility persona in the list even when its detail enrichment call fails', async () => {
-    const repo = makeRepo({ visibility: 'org', organization_id: null })
-    apiFetchJson
-      .mockResolvedValueOnce([repo])
-      .mockRejectedValueOnce(new Error('detail fetch failed'))
+  it('fetches the list and nothing else — no per-persona detail requests', async () => {
+    apiFetchJson.mockResolvedValueOnce([makeRepo({ visibility: 'org' }), makeRepo({ id: 'repo-2' })])
 
     const result = await fetchPersonas()
-    expect(result).toHaveLength(1)
-    expect(result[0]).toMatchObject({ id: 'repo-1', teamIds: [] })
+    expect(result).toHaveLength(2)
+    expect(apiFetchJson).toHaveBeenCalledTimes(1)
   })
 
-  it('does not issue a detail-enrichment request for non-team-visibility personas', async () => {
-    const repo = makeRepo({ visibility: 'private' })
-    apiFetchJson.mockResolvedValueOnce([repo])
-
-    await fetchPersonas()
-    expect(apiFetchJson).toHaveBeenCalledTimes(1)
+  it('rejects a response that does not match the backend schema', async () => {
+    apiFetchJson.mockResolvedValueOnce([{ id: 'repo-1', name: 'Sales Agent' }])
+    await expect(fetchPersonas()).rejects.toThrow()
   })
 
   it('bustPersonasCache forces the next fetchPersonas call back to the network', async () => {

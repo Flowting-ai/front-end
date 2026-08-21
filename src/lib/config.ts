@@ -183,8 +183,6 @@ export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
 export const PERSONA_VERSION_FILES_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/files`);
-export const PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT = (repoId: string, versionId: string) =>
-  withBase(`/persona/${repoId}/versions/${versionId}/connector-hints`);
 export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
 export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>
@@ -310,6 +308,10 @@ export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
 export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/transfer-owner`)
+export const ORG_CONNECTORS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/connectors`)
+export const ORG_CONNECTOR_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
 export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>
@@ -318,10 +320,6 @@ export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
 export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/connectors/catalog`)
-export const ORG_CONNECTORS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors`)
-export const ORG_CONNECTOR_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>

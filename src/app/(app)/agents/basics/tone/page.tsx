@@ -7,7 +7,7 @@ import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
-import { personaStarter, createPersonaRepo } from '@/lib/api/personas'
+import { personaStarter, createPersonaRepo, urlToImageFile } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
@@ -295,12 +295,18 @@ function TonePageContent() {
       // user must choose explicitly — the seeded value is overwritten on first save.
       const chosenModelId = stableKey(firstModel) ?? ''
 
+      // Every agent starts with one of the template avatars. It is uploaded as a
+      // real file so the backend stores it on the persona — Slack, email and the
+      // API all read the avatar from there, not from the FE's static assets.
+      const avatarPath = pickTemplateAvatar()
+
       // Create the repo + initial version
       const repo         = await createPersonaRepo({
         name:        effectiveName,
         modelId:     chosenModelId,
         prompt:      initialPrompt,
         description: wizardPurpose,
+        image:       await urlToImageFile(avatarPath),
       })
       const newRepoId    = repo.id
       const newVersionId = repo.active_version?.id ?? ''
@@ -326,10 +332,9 @@ function TonePageContent() {
       }
 
       // Seed profile draft (avatar + wizard data) so profile tab shows correct data immediately
-      const avatarPath = pickTemplateAvatar()
       try {
         sessionStorage.setItem(personaProfileKey(newRepoId), JSON.stringify({
-          avatarUrl:          avatarPath,
+          avatarUrl:          repo.active_version?.image_url ?? avatarPath,
           personaName:        effectiveName || undefined,
           personaDescription: wizardPurpose || undefined,
           personaTags:        starterPersonaTags.length > 0 ? starterPersonaTags : undefined,

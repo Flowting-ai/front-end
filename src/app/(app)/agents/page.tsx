@@ -779,15 +779,6 @@ function PersonasPageInner() {
     return map
   }, [personas])
 
-  // Team count for the card's visibility footer badge ("N teams").
-  const teamCountForPersona = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const p of personas) {
-      if (p.visibility === 'team') map[p.id] = p.teamIds.length
-    }
-    return map
-  }, [personas])
-
   // "Created by" footer attribution — "You" for agents the viewer owns,
   // otherwise the actual owner's name resolved via personaOwnerMap + org members.
   const createdByForPersona = useMemo(() => {
@@ -1524,7 +1515,6 @@ function PersonasPageInner() {
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
-                          teamCount={teamCountForPersona[persona.id]}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the

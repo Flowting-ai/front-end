@@ -9,7 +9,7 @@ import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
-import { getPersonaRepo } from '@/lib/api/personas'
+import { fetchPersonaRepo } from '@/lib/api/persona-repo'
 import { ApiError } from '@/lib/api/client'
 import {
   createShare,
@@ -228,9 +228,9 @@ function PersonaPublishedContent() {
   // Fetch the persona's avatar and authoritative name from the API.
   useEffect(() => {
     if (!repoId) return
-    getPersonaRepo(repoId)
+    fetchPersonaRepo(repoId)
       .then(repo => {
-        setPersonaImageUrl(repo.active_version?.image_url ?? null)
+        setPersonaImageUrl(repo.workingVersion?.imageUrl ?? null)
         if (repo.name) setPersonaName(repo.name)
       })
       .catch(() => {})

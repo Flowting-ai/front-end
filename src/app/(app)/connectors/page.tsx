@@ -52,17 +52,34 @@ import {
   listOrgConnectorAccounts,
   listOrgConnectorRequests,
   pollOrgConnectorAccountUntilConnected,
-  removeOrgConnectorRequest,
+  removeOrgConnector,
   requestOrgConnector,
-  setOrgConnectorRequestStatus,
+  setOrgConnectorStatus,
   updateOrgConnectorAccount,
 } from '@/lib/api/org-connectors'
-import type { AccountStatus, OrgConnectorAccount, OrgConnectorRequest, OrgConnectorRequestStatus } from '@/lib/api/org-connectors'
+import type { AccountStatus, OrgConnectorAccount, OrgConnectorRequest, ConnectorRequestStatus } from '@/lib/api/org-connectors'
 import { toConnector } from '@/lib/connector'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
 
 type MainTab = 'org-access' | 'shared-accounts'
 type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
+
+// The catalog no longer carries an `org_enabled` flag: the backend hands every
+// member every active connector and keeps the org's own position on a connector
+// in a separate OrganizationConnector row (GET/POST/PATCH
+// /organizations/{id}/connectors). "Org ON" here means that row exists and is
+// approved; loading it once at the page root keeps every tab reading one map.
+type OrgConnectorStatusIndex = Record<string, ConnectorRequestStatus>
+
+const OrgConnectorStatusContext = React.createContext<OrgConnectorStatusIndex>({})
+
+function useOrgConnectorStatus(): OrgConnectorStatusIndex {
+  return React.useContext(OrgConnectorStatusContext)
+}
+
+function isOrgApproved(statuses: OrgConnectorStatusIndex, slug: string): boolean {
+  return statuses[slug] === 'approved'
+}
 
 const ADMIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: 'org-access', label: 'Org access' },
@@ -349,7 +366,7 @@ function ConnectorsSkeleton() {
   )
 }
 
-function statusBadge(status: OrgConnectorRequestStatus) {
+function statusBadge(status: ConnectorRequestStatus) {
   if (status === 'approved') return <Badge label="Approved" color="Green" />
   if (status === 'denied') return <Badge label="Denied" color="Red" />
   return <Badge label="Pending" color="Yellow" />
@@ -485,22 +502,23 @@ function sortConnectors(
   connectors: ConnectorCatalogEntry[],
   direction: ConnectorSortDirection,
   status: ConnectorStatusFilter,
-  approvedSlugs: Set<string>,
+  orgStatuses: OrgConnectorStatusIndex,
 ): ConnectorCatalogEntry[] {
   const byName = (a: ConnectorCatalogEntry, b: ConnectorCatalogEntry) => a.display_name.localeCompare(b.display_name)
   const dir = direction === 'za' ? -1 : 1
+  const approved = (c: ConnectorCatalogEntry) => isOrgApproved(orgStatuses, c.slug)
 
   const scoped = status === 'on'
-    ? connectors.filter(c => approvedSlugs.has(c.slug))
+    ? connectors.filter(approved)
     : status === 'off'
-    ? connectors.filter(c => !approvedSlugs.has(c.slug))
+    ? connectors.filter(c => !approved(c))
     : connectors
 
   if (status !== 'all') return [...scoped].sort((a, b) => byName(a, b) * dir)
 
   return [...scoped].sort((a, b) => {
-    const aActive = approvedSlugs.has(a.slug)
-    const bActive = approvedSlugs.has(b.slug)
+    const aActive = approved(a)
+    const bActive = approved(b)
     if (aActive !== bActive) return aActive ? -1 : 1
     return byName(a, b) * dir
   })
@@ -607,33 +625,26 @@ function OrgAccessTab({
   connectors,
   requests,
   initialSearch,
-  onRequestsChanged,
+  onOrgStatusChanged,
 }: {
   orgId: string
   connectors: ConnectorCatalogEntry[]
   requests: OrgConnectorRequest[]
   initialSearch: string
-  onRequestsChanged: (requests: OrgConnectorRequest[]) => void
+  onOrgStatusChanged: () => Promise<void> | void
 }) {
+  const orgStatuses = useOrgConnectorStatus()
   const requestBySlug = useMemo(
     () => Object.fromEntries(requests.map(r => [r.connectorSlug, r])),
     [requests],
   )
-  const approvedSlugs = useMemo(
-    () => requests.reduce((slugs, r) => {
-      if (r.status === 'approved') slugs.add(r.connectorSlug)
-      return slugs
-    }, new Set<string>()),
-    [requests],
-  )
-
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const [sortDirection, setSortDirection] = useState<ConnectorSortDirection>('az')
   const [statusFilter, setStatusFilter] = useState<ConnectorStatusFilter>('all')
   const [viewMode, setViewMode] = useState<ConnectorViewMode>('list')
   const sorted = useMemo(
-    () => sortConnectors(filtered, sortDirection, statusFilter, approvedSlugs),
-    [filtered, sortDirection, statusFilter, approvedSlugs],
+    () => sortConnectors(filtered, sortDirection, statusFilter, orgStatuses),
+    [filtered, sortDirection, statusFilter, orgStatuses],
   )
   const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: `${search}::${sortDirection}::${statusFilter}` })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
@@ -646,8 +657,8 @@ function OrgAccessTab({
   // together instead of all of them. Enabled always shows in full; only
   // "available" (disabled) paginates, on its own page counter.
   const [availablePage, setAvailablePage] = useState(1)
-  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => approvedSlugs.has(c.slug)) : []
-  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => !approvedSlugs.has(c.slug)) : []
+  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => isOrgApproved(orgStatuses, c.slug)) : []
+  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => !isOrgApproved(orgStatuses, c.slug)) : []
   const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / browse.pageSize))
   const safeAvailablePage = Math.min(availablePage, availablePageCount)
   const availableItems = availableAllItems.slice(
@@ -657,26 +668,18 @@ function OrgAccessTab({
   // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
   useEffect(() => { setAvailablePage(1) }, [browse.category, search, sortDirection, statusFilter])
 
-  function replaceRequest(next: OrgConnectorRequest | null, slug: string) {
-    const withoutSlug = requests.filter(r => r.connectorSlug !== slug)
-    onRequestsChanged(next ? [...withoutSlug, next] : withoutSlug)
-  }
-
-  // Turning a connector on requests it — auto-approved immediately since this
-  // tab is admin-only. Turning it off removes the request/approval entirely.
+  // POST files (or re-files) the org's request — an admin's own request is
+  // approved on the spot, so it is the "turn on" write. Turning off is a
+  // deny, which also clears the org's shared connection for the slug.
   async function handleOrgToggle(connector: ConnectorCatalogEntry, checked: boolean) {
     setBusyOrgSlug(connector.slug)
     try {
-      if (checked) {
-        const next = await requestOrgConnector(orgId, connector.slug)
-        replaceRequest(next, connector.slug)
-      } else {
-        await removeOrgConnectorRequest(orgId, connector.slug)
-        replaceRequest(null, connector.slug)
-      }
+      if (checked) await requestOrgConnector(orgId, connector.slug)
+      else         await setOrgConnectorStatus(orgId, connector.slug, 'denied')
+      await onOrgStatusChanged()
       toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for the organization`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update connector access')
+      toast.error(error instanceof Error ? error.message : 'Failed to update org access')
     } finally {
       setBusyOrgSlug(null)
     }
@@ -685,8 +688,8 @@ function OrgAccessTab({
   async function handleApprove(connector: ConnectorCatalogEntry) {
     setBusyOrgSlug(connector.slug)
     try {
-      const next = await setOrgConnectorRequestStatus(orgId, connector.slug, 'approved')
-      replaceRequest(next, connector.slug)
+      await setOrgConnectorStatus(orgId, connector.slug, 'approved')
+      await onOrgStatusChanged()
       toast.success(`${connector.display_name} approved for the organization`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve connector')
@@ -698,8 +701,8 @@ function OrgAccessTab({
   async function handleDeny(connector: ConnectorCatalogEntry) {
     setBusyOrgSlug(connector.slug)
     try {
-      const next = await setOrgConnectorRequestStatus(orgId, connector.slug, 'denied')
-      replaceRequest(next, connector.slug)
+      await setOrgConnectorStatus(orgId, connector.slug, 'denied')
+      await onOrgStatusChanged()
       toast.success(`${connector.display_name} denied`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to deny connector')
@@ -747,7 +750,7 @@ function OrgAccessTab({
         </div>
       )
     }
-    const approved = approvedSlugs.has(connector.slug)
+    const approved = isOrgApproved(orgStatuses, connector.slug)
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {busy && <Spinner />}
@@ -1011,6 +1014,9 @@ function DisableConnectorConfirmModal({
   onConfirm: () => void
 }) {
   const accountCount = connector.accounts?.length ?? 0
+  // One shared account can be attached to several connectors; turning this one
+  // off only affects the accounts listed under it.
+  const attachedCount = new Set((connector.accounts ?? []).flatMap(account => account.attached_slugs ?? [])).size
   return (
     <>
       <button
@@ -1042,7 +1048,8 @@ function DisableConnectorConfirmModal({
             Turn off {connector.display_name}?
           </h2>
           <BodyText style={{ marginTop: 8 }}>
-            {accountCount} shared account{accountCount === 1 ? '' : 's'} will stop working for the organization.
+            {accountCount} shared account{accountCount === 1 ? '' : 's'}
+            {attachedCount > 1 ? `, attached to ${attachedCount} connectors,` : ''} will stop working for the organization.
           </BodyText>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -1056,13 +1063,13 @@ function DisableConnectorConfirmModal({
 
 function ConnectorCard({
   connector,
-  approved,
   onManage,
 }: {
   connector: ConnectorCatalogEntry
-  approved: boolean
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
+  const orgStatuses = useOrgConnectorStatus()
+  const orgApproved = isOrgApproved(orgStatuses, connector.slug)
   const accounts = connector.accounts ?? []
   const activeAccounts = accounts.filter(account => account.connected && account.status === 'active')
 
@@ -1096,7 +1103,7 @@ function ConnectorCard({
       </BodyText>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Badge label={approved ? 'Org on' : 'Org off'} color={approved ? 'Green' : 'Neutral'} />
+          <Badge label={orgApproved ? 'Org on' : 'Org off'} color={orgApproved ? 'Green' : 'Neutral'} />
           <Badge label={`${accounts.length} account${accounts.length === 1 ? '' : 's'}`} color="Purple" />
           <Badge label={`${activeAccounts.length} active`} color={activeAccounts.length ? 'Green' : 'Neutral'} />
         </div>
@@ -1110,23 +1117,18 @@ function ConnectorCard({
 
 function ManageConnectorsTab({
   connectors,
-  requests,
   initialSearch,
   onManage,
 }: {
   connectors: ConnectorCatalogEntry[]
-  requests: OrgConnectorRequest[]
   initialSearch: string
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
-  const approvedSlugs = useMemo(
-    () => requests.reduce((slugs, r) => {
-      if (r.status === 'approved') slugs.add(r.connectorSlug)
-      return slugs
-    }, new Set<string>()),
-    [requests],
+  const orgStatuses = useOrgConnectorStatus()
+  const orgEnabled = useMemo(
+    () => connectors.filter(connector => isOrgApproved(orgStatuses, connector.slug)),
+    [connectors, orgStatuses],
   )
-  const orgEnabled = useMemo(() => connectors.filter(connector => approvedSlugs.has(connector.slug)), [connectors, approvedSlugs])
   const { search, setSearch, filtered } = useConnectorSearch(orgEnabled, initialSearch)
   const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
 
@@ -1135,7 +1137,7 @@ function ManageConnectorsTab({
       <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <BodyText size={16} weight={500} color="var(--neutral-900)">Manage shared connector accounts</BodyText>
-          <BodyText size={12}>Create org-owned accounts and share them with teams.</BodyText>
+          <BodyText size={12}>Create org-owned accounts and share them with your organization.</BodyText>
         </div>
         <SearchBar value={search} onChange={setSearch} />
       </div>
@@ -1153,7 +1155,7 @@ function ManageConnectorsTab({
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
               {browse.pageItems.map(connector => (
-                <ConnectorCard key={connector.slug} connector={connector} approved={approvedSlugs.has(connector.slug)} onManage={onManage} />
+                <ConnectorCard key={connector.slug} connector={connector} onManage={onManage} />
               ))}
             </div>
             <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
@@ -1638,6 +1640,7 @@ function ConnectorDetailView({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <BodyText weight={500} color="var(--neutral-900)">{account.accountLabel}</BodyText>
                       {accountBadge(account)}
+                      <Badge label={`${account.attachedSlugs.length} connector${account.attachedSlugs.length === 1 ? '' : 's'}`} color="Purple" />
                     </div>
                     <BodyText size={11}>
                       {account.accountIdentifier || 'No provider identity yet'}
@@ -1689,8 +1692,10 @@ function MemberBrowseView({
   async function requestAccess(connector: ConnectorCatalogEntry) {
     setBusySlug(connector.slug)
     try {
+      // Personal linking needs no approval any more; what a member can still
+      // ask for is that the organization adopt the connector.
       await requestOrgConnector(orgId, connector.slug, 'Requested from the connectors page.')
-      toast.success('Request sent to your organization admin')
+      toast.success('Request sent to your admin')
       onRequested()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send request')
@@ -1766,25 +1771,32 @@ function OrgConnectorsPageContent() {
     router.replace(`?${sp.toString()}`)
   }
   const [connectors, setConnectors] = useState<ConnectorCatalogEntry[]>([])
-  const [requests, setRequests] = useState<OrgConnectorRequest[]>([])
+  const [orgRequests, setOrgRequests] = useState<OrgConnectorRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [detailConnector, setDetailConnector] = useState<ConnectorCatalogEntry | null>(null)
 
   const pendingCount = useMemo(
-    () => requests.filter(request => request.status === 'pending').length,
-    [requests],
+    () => orgRequests.filter(request => request.status === 'pending').length,
+    [orgRequests],
+  )
+
+  // Slug -> the organization's standing position on that connector. Every tab
+  // reads it through OrgConnectorStatusContext instead of a per-entry flag.
+  const orgStatuses = useMemo<OrgConnectorStatusIndex>(
+    () => Object.fromEntries(orgRequests.map(request => [request.connectorSlug, request.status])),
+    [orgRequests],
   )
 
   const loadPageData = useCallback(async () => {
     if (!org.id) return
     setLoading(true)
     try {
-      const [catalog, requestList] = await Promise.all([
+      const [catalog, requests] = await Promise.all([
         isAdminView ? listOrgCatalog(org.id) : listConnectors(),
         listOrgConnectorRequests(org.id),
       ])
       setConnectors(catalog)
-      setRequests(requestList)
+      setOrgRequests(requests)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load connector page')
     } finally {
@@ -1850,6 +1862,7 @@ function OrgConnectorsPageContent() {
   }
 
   return (
+    <OrgConnectorStatusContext.Provider value={orgStatuses}>
     <PageShell>
       <Tabs
         value={tab}
@@ -1884,21 +1897,21 @@ function OrgConnectorsPageContent() {
           <OrgAccessTab
             orgId={org.id}
             connectors={connectors}
-            requests={requests}
+            requests={orgRequests}
             initialSearch={initialSearch}
-            onRequestsChanged={setRequests}
+            onOrgStatusChanged={loadPageData}
           />
         </Tabs.Content>
         <Tabs.Content value="shared-accounts">
           <ManageConnectorsTab
             connectors={connectors}
-            requests={requests}
             initialSearch={initialSearch}
             onManage={setDetailConnector}
           />
         </Tabs.Content>
       </Tabs>
     </PageShell>
+    </OrgConnectorStatusContext.Provider>
   )
 }
 

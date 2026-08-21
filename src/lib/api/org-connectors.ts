@@ -2,11 +2,11 @@
 
 import { apiFetch, apiFetchJson } from './client'
 import {
+  ORG_CONNECTORS_ENDPOINT,
+  ORG_CONNECTOR_REQUEST_ENDPOINT,
   ORG_CONNECTOR_ACCOUNTS_ENDPOINT,
   ORG_CONNECTOR_ACCOUNT_ENDPOINT,
   ORG_CONNECTOR_USED_BY_ENDPOINT,
-  ORG_CONNECTORS_ENDPOINT,
-  ORG_CONNECTOR_ENDPOINT,
 } from '@/lib/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -22,7 +22,9 @@ export interface OrgConnectorAccount {
   connected:        boolean
   status:           AccountStatus
   version:          number
-  linkedByUserId:   string
+  /** Connector slugs this one account is attached to (it can fan out to many). */
+  attachedSlugs:    string[]
+  linkedByUserId:   string | null
   createdAt:        string
   updatedAt:        string
 }
@@ -36,9 +38,53 @@ interface OrgConnectorAccountResponse {
   connected:            boolean
   status:               AccountStatus
   version:              number
-  linked_by_user_id:    string
+  attached_slugs:       string[]
+  linked_by_user_id:    string | null
   created_at:           string
   updated_at:           string
+}
+
+/** An organization's standing request for a connector — the only org-level
+ *  gate left. Members file one as `pending`; an owner/admin's own request is
+ *  approved on the spot. It never gates personal linking. */
+export type ConnectorRequestStatus = 'pending' | 'approved' | 'denied'
+
+export interface OrgConnectorRequest {
+  organizationId:    string
+  connectorSlug:     string
+  status:            ConnectorRequestStatus
+  requestedByUserId: string
+  requestedByName:   string | null
+  requestedByEmail:  string | null
+  note:              string
+  createdAt:         string
+  updatedAt:         string
+}
+
+interface OrgConnectorRequestResponse {
+  organization_id:      string
+  connector_slug:       string
+  status:               ConnectorRequestStatus
+  requested_by_user_id: string
+  requested_by_name:    string | null
+  requested_by_email:   string | null
+  note:                 string
+  created_at:           string
+  updated_at:           string
+}
+
+function normalizeRequest(r: OrgConnectorRequestResponse): OrgConnectorRequest {
+  return {
+    organizationId:    r.organization_id,
+    connectorSlug:     r.connector_slug,
+    status:            r.status,
+    requestedByUserId: r.requested_by_user_id,
+    requestedByName:   r.requested_by_name ?? null,
+    requestedByEmail:  r.requested_by_email ?? null,
+    note:              r.note ?? '',
+    createdAt:         r.created_at,
+    updatedAt:         r.updated_at,
+  }
 }
 
 export interface ConnectorUsedByEntry {
@@ -57,13 +103,52 @@ function normalizeAccount(r: OrgConnectorAccountResponse): OrgConnectorAccount {
     connected:        r.connected,
     status:           r.status,
     version:          r.version,
-    linkedByUserId:   r.linked_by_user_id,
+    attachedSlugs:    r.attached_slugs ?? [],
+    linkedByUserId:   r.linked_by_user_id ?? null,
     createdAt:        r.created_at,
     updatedAt:        r.updated_at,
   }
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
+
+/** GET /organizations/{id}/connectors — the org's connector requests. */
+export async function listOrgConnectorRequests(orgId: string): Promise<OrgConnectorRequest[]> {
+  const list = await apiFetchJson<OrgConnectorRequestResponse[]>(ORG_CONNECTORS_ENDPOINT(orgId))
+  return list.map(normalizeRequest)
+}
+
+/** POST /organizations/{id}/connectors — file (or re-file) a connector request.
+ *  Lands as `approved` when the caller is an owner/admin, else `pending`. */
+export async function requestOrgConnector(
+  orgId: string,
+  slug: string,
+  note = '',
+): Promise<OrgConnectorRequest> {
+  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTORS_ENDPOINT(orgId), {
+    method: 'POST',
+    body:   JSON.stringify({ slug, note }),
+  })
+  return normalizeRequest(data)
+}
+
+/** PATCH /organizations/{id}/connectors/{slug} — admin-only approve/deny. */
+export async function setOrgConnectorStatus(
+  orgId: string,
+  slug: string,
+  status: ConnectorRequestStatus,
+): Promise<OrgConnectorRequest> {
+  const data = await apiFetchJson<OrgConnectorRequestResponse>(
+    ORG_CONNECTOR_REQUEST_ENDPOINT(orgId, slug),
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+  )
+  return normalizeRequest(data)
+}
+
+/** DELETE /organizations/{id}/connectors/{slug} — admin-only. */
+export async function removeOrgConnector(orgId: string, slug: string): Promise<void> {
+  await apiFetch(ORG_CONNECTOR_REQUEST_ENDPOINT(orgId, slug), { method: 'DELETE' })
+}
 
 /** GET /organizations/{id}/connectors/{slug}/accounts */
 export async function listOrgConnectorAccounts(orgId: string, slug: string): Promise<OrgConnectorAccount[]> {
@@ -142,89 +227,4 @@ export async function pollOrgConnectorAccountUntilConnected(
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }
   throw new Error(`Shared account ${targetId} did not connect within ${timeoutMs}ms`)
-}
-
-// ── Organization connector access requests ────────────────────────────────────
-// Whether a connector is usable for the org at all. A member's request lands
-// pending and emails the owner; an admin's own request auto-approves. This is
-// the org's only enable/disable gate now — the old bulk PUT /connectors/catalog
-// allowlist was removed from the backend entirely (org_enabled was removed
-// from ConnectorCatalogEntry along with it), and there is no per-team version
-// of this any more since Team has no backend route left at all.
-
-export type OrgConnectorRequestStatus = 'pending' | 'approved' | 'denied'
-
-export interface OrgConnectorRequest {
-  organizationId:    string
-  connectorSlug:     string
-  status:            OrgConnectorRequestStatus
-  requestedByUserId: string
-  requestedByName:   string | null
-  requestedByEmail:  string | null
-  note:              string
-  createdAt:         string
-  updatedAt:         string
-}
-
-interface OrgConnectorRequestResponse {
-  organization_id:      string
-  connector_slug:       string
-  status:               OrgConnectorRequestStatus
-  requested_by_user_id: string
-  requested_by_name:    string | null
-  requested_by_email:   string | null
-  note:                 string
-  created_at:           string
-  updated_at:           string
-}
-
-function normalizeOrgConnectorRequest(r: OrgConnectorRequestResponse): OrgConnectorRequest {
-  return {
-    organizationId:    r.organization_id,
-    connectorSlug:     r.connector_slug,
-    status:            r.status,
-    requestedByUserId: r.requested_by_user_id,
-    requestedByName:   r.requested_by_name ?? null,
-    requestedByEmail:  r.requested_by_email ?? null,
-    note:              r.note ?? '',
-    createdAt:         r.created_at,
-    updatedAt:         r.updated_at,
-  }
-}
-
-/** GET /organizations/{id}/connectors */
-export async function listOrgConnectorRequests(orgId: string): Promise<OrgConnectorRequest[]> {
-  const list = await apiFetchJson<OrgConnectorRequestResponse[]>(ORG_CONNECTORS_ENDPOINT(orgId))
-  return list.map(normalizeOrgConnectorRequest)
-}
-
-/** POST /organizations/{id}/connectors — auto-approved for an admin requester, pending otherwise. */
-export async function requestOrgConnector(
-  orgId: string,
-  slug: string,
-  note?: string,
-): Promise<OrgConnectorRequest> {
-  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTORS_ENDPOINT(orgId), {
-    method: 'POST',
-    body: JSON.stringify({ slug, ...(note ? { note } : {}) }),
-  })
-  return normalizeOrgConnectorRequest(data)
-}
-
-/** PATCH /organizations/{id}/connectors/{slug} — admin-only. */
-export async function setOrgConnectorRequestStatus(
-  orgId: string,
-  slug: string,
-  status: OrgConnectorRequestStatus,
-): Promise<OrgConnectorRequest> {
-  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTOR_ENDPOINT(orgId, slug), {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  })
-  return normalizeOrgConnectorRequest(data)
-}
-
-/** DELETE /organizations/{id}/connectors/{slug} — admin-only. Removes the request/approval entirely. */
-export async function removeOrgConnectorRequest(orgId: string, slug: string): Promise<void> {
-  await apiFetch(ORG_CONNECTOR_ENDPOINT(orgId, slug), { method: 'DELETE' })
 }

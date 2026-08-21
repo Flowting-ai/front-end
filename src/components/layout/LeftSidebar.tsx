@@ -923,9 +923,10 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const personaOwnerMap = EMPTY_PERSONA_OWNER_MAP
 
   // Shared cache/subscription across every usePersonas() consumer — still backed
-  // by fetchPersonas() (same TTL, dedupe, enrichment); filter to team-shared only
-  // when teamId is provided, same as the old mount-effect did.
+  // by fetchPersonas() (same TTL, dedupe); filter to team-shared only when
+  // teamId is provided, same as the old mount-effect did.
   const { data: allPersonas, isLoading } = usePersonas()
+
   const rawPersonas = useMemo(
     () => personasForTeamContext(allPersonas ?? [], teamId ?? null),
     [allPersonas, teamId],

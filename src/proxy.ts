@@ -29,6 +29,43 @@ let hasLoggedOnboardingFetchFailure = false;
 const ONBOARDING_ENDPOINT_PATH = "/users/me";
 
 /**
+ * Positive onboarding-gate cache, keyed by Auth0 `sub`.
+ *
+ * Without it, `fetchOnboardingState()` issued one uncached GET /users/me for
+ * *every* request the matcher accepts — including every RSC payload request, so
+ * each `<Link>` Next.js prefetches on hover/viewport cost a backend round-trip.
+ * Hovering a sidebar full of links produced dozens of identical calls.
+ *
+ * Only `allowsMainApp === true` is cached, deliberately: "onboarded" is
+ * monotonic (an account never un-onboards), so a hit can never wrongly let
+ * someone through or wrongly bounce them. The un-onboarded state is *not*
+ * cached, because it changes mid-flow — a user who just submitted the import
+ * step navigates immediately and must be re-read, or they would be bounced back
+ * into onboarding. Un-onboarded users therefore still pay one call per request,
+ * but that is a handful of pages, not the steady-state app.
+ */
+const ONBOARDED_TTL = 60_000;
+const onboardedCache = new Map<string, number>();
+
+function isOnboardedCached(sub: string | null): boolean {
+  if (!sub) return false;
+  const at = onboardedCache.get(sub);
+  if (at === undefined) return false;
+  if (Date.now() - at >= ONBOARDED_TTL) {
+    onboardedCache.delete(sub);
+    return false;
+  }
+  return true;
+}
+
+function rememberOnboarded(sub: string | null): void {
+  if (!sub) return;
+  // Bound the map so a long-lived server process cannot grow it without limit.
+  if (onboardedCache.size > 500) onboardedCache.clear();
+  onboardedCache.set(sub, Date.now());
+}
+
+/**
  * True when the account already holds an active team subscription. The team
  * onboarding flow takes payment (at /onboarding/plans → Stripe) *before* it
  * persists `role_fit` (only written when the workspace form is submitted), so a
@@ -186,7 +223,19 @@ export default async function proxy(request: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  const onboardingResult = await fetchOnboardingState();
+  const sub = typeof session.user?.sub === "string" ? session.user.sub : null;
+
+  // Already known to be onboarded — substitute the cached gate instead of
+  // re-fetching /users/me. `nextPath` is only read when !hasOnboarded, so the
+  // placeholder is never consulted on this path, and every decision below runs
+  // exactly as it would have with a live fetch.
+  const onboardedFromCache = isOnboardedCached(sub);
+  const onboardingResult: OnboardingStateResult = onboardedFromCache
+    ? { data: { allowsMainApp: true, nextPath: ROOT_ROUTE }, requiresReauth: false }
+    : await fetchOnboardingState();
+  if (!onboardedFromCache && onboardingResult.data?.allowsMainApp === true) {
+    rememberOnboarded(sub);
+  }
 
   const onboarding = onboardingResult.data;
   const hasOnboarded = onboarding?.allowsMainApp === true;
