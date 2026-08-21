@@ -52,7 +52,13 @@ export interface TeamMembership {
   isTeamOwner: boolean
 }
 
-/** Matches the API TeamResponse — fields come directly from the backend. */
+/**
+ * Matches the API TeamResponse — fields come directly from the backend.
+ * `org-context.tsx`'s `teams` can never be non-empty any more (the Team
+ * table is dropped), so every consumer of this type is provably dead code
+ * still to be cleaned up — tracked as A5 in backend-alignment-execution-map.md,
+ * not touched here.
+ */
 export interface Team {
   id: string
   organizationId: string
@@ -78,8 +84,10 @@ export interface Invite {
 
 // ── Team-invite onboarding ─────────────────────────────────────────────────────
 // The rich payload the backend returns for an invitee landing in the dedicated
-// team-invite onboarding flow (distinct from the individual onboarding). It
-// describes the org / team / projects and the people the invitee is joining.
+// team-invite onboarding flow (distinct from the individual onboarding). Despite
+// the name (kept for route/flow continuity — `onboarding/team/[inviteId]/*`),
+// there is no Team entity any more: this describes the organization/projects and
+// the people the invitee is joining, straight off the real `InvitePreview` shape.
 
 /** A person reference inside the invite onboarding payload. */
 export interface InvitedMember {
@@ -91,8 +99,6 @@ export interface InvitedMember {
   /** Avatar URL; null when the member has no image. */
   image: string | null
   role: OrgRole
-  /** Per-member monthly credit cap; 0 means uncapped / not set. */
-  creditCap: number
 }
 
 /** A project the invitee will (or may) be a member of. */
@@ -107,11 +113,7 @@ export interface InvitedProject {
 /** Full context for the team-invite onboarding flow. */
 export interface TeamInviteOnboarding {
   inviteId: string
-  // ── Team being joined ─────────────────────────────────────────────────────
-  teamId: string
-  teamName: string
-  teamDescription: string
-  // ── Parent organization ───────────────────────────────────────────────────
+  // ── Organization being joined ─────────────────────────────────────────────
   organizationId: string
   organizationName: string
   organizationDescription: string
@@ -122,21 +124,10 @@ export interface TeamInviteOnboarding {
   invitedByImage: string | null
   // ── What the invite grants ────────────────────────────────────────────────
   role: OrgRole
-  grantTeamEditor: boolean
-  grantTeamViewer: boolean
-  /**
-   * Monthly credit cap applied to the invitee, in display credits.
-   * `null` means no cap was set for this invite (don't surface it at all);
-   * a number is the assigned cap.
-   */
-  creditCap: number | null
   // ── Default project the invite points at (optional) ───────────────────────
   projectId: string | null
   projectName: string | null
-  // ── Team roster ───────────────────────────────────────────────────────────
-  memberCount: number
-  members: InvitedMember[]
-  // ── Team projects ─────────────────────────────────────────────────────────
+  // ── Org's projects (a capped preview; projectCount is the true total) ────
   projectCount: number
   projects: InvitedProject[]
   // ── Organization roster ───────────────────────────────────────────────────

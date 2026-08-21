@@ -208,26 +208,6 @@ export function MemberStack({
   );
 }
 
-/** "Team name" heading with the member stack on the right. */
-export function TeamRow({ invite }: { invite: TeamInviteOnboarding }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-      <span
-        style={{
-          fontFamily: "var(--font-body)",
-          fontWeight: 600,
-          fontSize: 15,
-          lineHeight: "22px",
-          color: "var(--neutral-900,#26211e)",
-        }}
-      >
-        {invite.teamName || "Team"}
-      </span>
-      <MemberStack members={invite.members} count={invite.memberCount} />
-    </div>
-  );
-}
-
 /** "Organization name" heading with the org-wide member stack on the right. */
 export function OrgRow({ invite }: { invite: TeamInviteOnboarding }) {
   return (
@@ -446,48 +426,33 @@ export function InviteStateScreen({
   );
 }
 
-/**
- * The role the invite grants, as a display word.
- * 'editor'/'viewer' are team-level grants layered on an org member; admin/owner
- * come straight from the org role.
- */
+/** The role the invite grants, as a display word — straight off the org role. */
 export function inviteRoleLabel(invite: TeamInviteOnboarding): string {
-  if (invite.role === "owner") return "owner";
-  if (invite.role === "admin") return "admin";
-  if (invite.grantTeamEditor) return "editor";
-  if (invite.grantTeamViewer) return "viewer";
-  return "member";
+  return invite.role;
 }
 
 /**
- * What the invite is joining, scoped to the backend-provided role. Used as the
- * "{target}" name across all invite screens so they stay in sync:
- *  • admin / owner   → the organization workspace
- *  • editor          → the team
- *  • member / viewer → the project (the surface they actually work in)
+ * What the invite is joining, used as the "{target}" name across all invite
+ * screens so they stay in sync:
+ *  • admin / owner → the organization workspace
+ *  • member        → the project (the surface they actually work in)
  */
 export function inviteTargetName(invite: TeamInviteOnboarding): string {
-  const role = inviteRoleLabel(invite);
-  if (role === "owner" || role === "admin")
-    return invite.organizationName || invite.teamName || "the organization";
-  if (role === "editor")
-    return invite.teamName || invite.organizationName || "the team";
-  return invite.projectName || invite.teamName || invite.organizationName || "the project";
+  if (invite.role === "owner" || invite.role === "admin")
+    return invite.organizationName || "the organization";
+  return invite.projectName || invite.organizationName || "the project";
 }
 
 /**
  * Role-scoped roster/detail block, shared across screens:
- *  • admin / owner   → org-wide roster
- *  • editor          → team roster
- *  • member / viewer → team roster + the projects they'll work in
+ *  • admin / owner → org-wide roster
+ *  • member        → org-wide roster + the projects they'll work in
  */
 export function InviteScope({ invite }: { invite: TeamInviteOnboarding }) {
-  const role = inviteRoleLabel(invite);
-  if (role === "owner" || role === "admin") return <OrgRow invite={invite} />;
-  if (role === "editor") return <TeamRow invite={invite} />;
+  if (invite.role === "owner" || invite.role === "admin") return <OrgRow invite={invite} />;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <TeamRow invite={invite} />
+      <OrgRow invite={invite} />
       <ProjectList projects={invite.projects} />
     </div>
   );

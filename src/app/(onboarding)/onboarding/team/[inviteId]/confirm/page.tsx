@@ -74,7 +74,7 @@ export default function TeamInviteConfirmPage() {
   const adminName = invite.invitedByName || invite.invitedByEmail || "your admin";
 
   // What the invitee is joining + the roster shown are scoped to the backend
-  // role (admin → org, editor → team, member → project), shared across screens.
+  // role (admin/owner → org, member → project), shared across screens.
   const target = inviteTargetName(invite);
 
   const handleEnter = () => {
@@ -93,17 +93,11 @@ export default function TeamInviteConfirmPage() {
           <CardSubtitle>{target} welcomes you - know these before you dive in.</CardSubtitle>
         </div>
 
-        {/* Role-scoped context: org roster for admins, team roster for editors,
-            team + project list for members/viewers. */}
+        {/* Role-scoped context: org roster for admins/owners, org roster +
+            project list for members. */}
         <InviteScope invite={invite} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {invite.creditCap != null && (
-            <InfoSection
-              title={`Credits assigned to you${invite.creditCap > 0 ? ` — ${invite.creditCap.toLocaleString()}` : ""}`}
-              body="These credits are assigned to you. You can always request more credits when you run out of them."
-            />
-          )}
           <InfoSection
             title={`Admin: ${adminName}`}
             body="You can request credits, connectors, or any project-level changes from your admin."
@@ -113,8 +107,8 @@ export default function TeamInviteConfirmPage() {
             body="These surfaces are shared and you'll have your personal space too."
           />
           <InfoSection
-            title={`As ${roleLabel === "admin" || roleLabel === "owner" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own team and agents`}
-            body="You can share useful content with the team. Reusable resources with the team."
+            title={`As ${roleLabel === "admin" || roleLabel === "owner" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own agents`}
+            body="You can share useful content with your organization. Reusable resources everyone benefits from."
           />
         </div>
 

@@ -9,7 +9,6 @@ import {
   TEAM_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
 import type {
-  Team,
   Invite,
   WorkspaceRole,
   OrgRole,
@@ -20,19 +19,6 @@ import type {
 } from '@/types/teams'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
-
-interface TeamResponse {
-  id: string
-  organization_id: string
-  name: string
-  description: string
-  tags: string[]
-  archived: boolean
-  can_edit: boolean
-  my_role?: 'owner' | 'admin' | 'editor' | 'member'
-  created_at: string
-  updated_at: string
-}
 
 interface PersonResponse {
   user_id: string
@@ -50,21 +36,6 @@ interface InviteResponse {
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
-
-function normalizeTeam(t: TeamResponse): Team {
-  return {
-    id: t.id,
-    organizationId: t.organization_id,
-    name: t.name,
-    description: t.description,
-    tags: t.tags ?? [],
-    archived: t.archived,
-    canEdit: t.can_edit ?? false,
-    myRole: t.my_role ?? 'member',
-    createdAt: t.created_at,
-    updatedAt: t.updated_at,
-  }
-}
 
 function normalizeInvite(i: InviteResponse): Invite {
   return {
@@ -137,7 +108,6 @@ interface InvitedMemberResponse {
   email?: string | null
   image?: string | null
   role?: OrgRole | null
-  credit_cap?: number | null
 }
 
 interface InvitedProjectResponse {
@@ -150,9 +120,6 @@ interface InvitedProjectResponse {
 
 interface InviteOnboardingResponse {
   invite_id: string
-  team_id: string
-  team_name?: string | null
-  team_description?: string | null
   organization_id: string
   organization_name?: string | null
   organization_description?: string | null
@@ -161,13 +128,8 @@ interface InviteOnboardingResponse {
   invited_by_email?: string | null
   invited_by_image?: string | null
   role?: OrgRole | null
-  grant_team_editor?: boolean | null
-  grant_team_viewer?: boolean | null
-  credit_cap?: number | null
   project_id?: string | null
   project_name?: string | null
-  member_count?: number | null
-  members?: InvitedMemberResponse[] | null
   project_count?: number | null
   projects?: InvitedProjectResponse[] | null
   organization_member_count?: number | null
@@ -177,13 +139,12 @@ interface InviteOnboardingResponse {
 
 function normalizeInvitedMember(m: InvitedMemberResponse): InvitedMember {
   return {
-    userId:    m.user_id,
-    name:      m.name ?? '',
-    initials:  m.initials ?? '',
-    email:     m.email ?? '',
-    image:     m.image ?? null,
-    role:      m.role ?? 'member',
-    creditCap: m.credit_cap ?? 0,
+    userId:   m.user_id,
+    name:     m.name ?? '',
+    initials: m.initials ?? '',
+    email:    m.email ?? '',
+    image:    m.image ?? null,
+    role:     m.role ?? 'member',
   }
 }
 
@@ -203,9 +164,6 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
   const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
   return {
     inviteId:                data.invite_id,
-    teamId:                  data.team_id,
-    teamName:                data.team_name ?? '',
-    teamDescription:         data.team_description ?? '',
     organizationId:          data.organization_id,
     organizationName:        data.organization_name ?? '',
     organizationDescription: data.organization_description ?? '',
@@ -214,17 +172,8 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
     invitedByEmail:          data.invited_by_email ?? '',
     invitedByImage:          data.invited_by_image ?? null,
     role:                    data.role ?? 'member',
-    grantTeamEditor:         data.grant_team_editor ?? false,
-    grantTeamViewer:         data.grant_team_viewer ?? false,
-    // The backend stores credit caps in thousands (the org members page sends
-    // creditCap / 1000 on invite). Scale back to display credits so e.g. an
-    // assigned 10,000 reads as 10,000 here instead of the raw 10. `null` means
-    // no cap was set — keep it null so the UI can hide the line entirely.
-    creditCap:               data.credit_cap == null ? null : Math.round(data.credit_cap * 1000),
     projectId:               data.project_id ?? null,
     projectName:             data.project_name ?? null,
-    memberCount:             data.member_count ?? (data.members?.length ?? 0),
-    members:                 (data.members ?? []).map(normalizeInvitedMember),
     projectCount:            data.project_count ?? (data.projects?.length ?? 0),
     projects:                (data.projects ?? []).map(normalizeInvitedProject),
     organizationMemberCount: data.organization_member_count ?? (data.organization_members?.length ?? 0),
@@ -233,11 +182,10 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
   }
 }
 
-export async function acceptTeamInvite(inviteId: string): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(TEAM_INVITE_ACCEPT_ENDPOINT(inviteId), {
-    method: 'POST',
-  })
-  return normalizeTeam(data)
+export async function acceptTeamInvite(inviteId: string): Promise<void> {
+  // Real response is OrganizationResponse, but no caller reads it — accepting
+  // just commits membership; the caller re-fetches org state separately.
+  await apiFetchJson<unknown>(TEAM_INVITE_ACCEPT_ENDPOINT(inviteId), { method: 'POST' })
 }
 
 /**
