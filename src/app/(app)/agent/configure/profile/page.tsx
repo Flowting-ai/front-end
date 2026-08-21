@@ -12,8 +12,9 @@ import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { toast } from 'sonner'
 import ProfileTab from '@/app/(app)/agent/configure/components/ProfileTab'
+import { fetchPersonaRepo } from '@/lib/api/persona-repo'
 import {
-  getPersonaRepo, updateVersion, publishPersonaVersion,
+  updateVersion, publishPersonaVersion,
   bustPersonasCache,
 } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
@@ -137,27 +138,27 @@ function PersonaConfigureProfileContent() {
     const localTagsAtMount = personaTags.slice()
     let shouldMarkDirtyForTags = false
 
-    getPersonaRepo(repoId)
+    fetchPersonaRepo(repoId)
       .then(repo => {
-        const v = repo.active_version
+        const v = repo.workingVersion
         // Always refresh avatar — draft may have been set from text fields only, leaving avatar null
-        if (v?.image_url && !avatarUrl) setAvatarUrl(v.image_url)
+        if (v?.imageUrl && !avatarUrl) setAvatarUrl(v.imageUrl)
         // Always set handle from API when not already in the draft — even when hasMeaningfulDraft
         // is true (wizard data exists), the handle is generated server-side and won't be in the draft.
-        if (v?.handler && !personaHandle) setPersonaHandle(`@${v.handler}`)
+        if (v?.handle && !personaHandle) setPersonaHandle(v.handle)
         // Always load tags from API when the local state is empty (edit flow / no wizard draft).
-        if (v?.persona_tags?.length && !personaTags.length) setPersonaTags(v.persona_tags)
+        if (v?.tags.length && !personaTags.length) setPersonaTags(v.tags)
         if (!hasMeaningfulDraft) {
           // No meaningful draft — overwrite all fields with real API data
           setPersonaName(repo.name || 'Agent Name')
-          if (v?.image_url) setAvatarUrl(v.image_url)
-          if (v?.description != null) setPersonaDescription(v.description)
+          if (v?.imageUrl) setAvatarUrl(v.imageUrl)
+          setPersonaDescription(v?.description ?? '')
         }
         // Clear one-shot wizard key so stale data doesn't bleed into the next wizard run.
         try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
         // If local has tags (from wizard starter / sessionStorage) but backend has none,
         // flag for dirty-marking after init so auto-save will PATCH them on next navigation.
-        const apiTags = v?.persona_tags ?? []
+        const apiTags = v?.tags ?? []
         if (localTagsAtMount.length > 0 && apiTags.length === 0) {
           shouldMarkDirtyForTags = true
         }

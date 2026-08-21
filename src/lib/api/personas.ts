@@ -18,6 +18,13 @@ import {
   type PersonaVersionResponse,
 } from "./persona-schemas";
 import { resolveConnectors } from "./connectors";
+import { fetchPersonaRepo, fetchPersonaRepos } from "./persona-repo";
+import {
+  PERSONAS_CACHE_TTL,
+  PERSONAS_LIST_UPDATED_EVENT,
+  bustPersonasCache,
+  onPersonasInvalidated,
+} from "./persona-cache";
 import type { Connector } from "@/lib/connector";
 import {
   parseChatPrompt,
@@ -114,49 +121,6 @@ export interface Persona {
   updatedAt: string;
 }
 
-function normalizeRepo(repo: PersonaRepoResponse): Persona {
-  const liveVersionId = repo.published_version_id ?? null;
-  const v = repo.published_version ?? repo.active_version;
-  const handle = v?.handler
-    ? `@${v.handler}`
-    : `@${repo.name.toLowerCase().replace(/\s+/g, "_")}`;
-  return {
-    id: repo.id,
-    name: repo.name,
-    handle,
-    description: v?.description ?? "",
-    imageUrl: v?.image_url ?? null,
-    modelId:  v?.model_id  ?? null,
-    tags: v?.persona_tags ?? [],
-    temperature: v?.temperature ?? null,
-    isActive: repo.is_active,
-    // The backend has no dedicated pause flag — pausing simply sets
-    // is_active=false, independently of whether the agent was ever published.
-    // So "paused" == !is_active and takes precedence over draft/live.
-    isPaused: !repo.is_active,
-    status: !repo.is_active
-      ? "paused"
-      : liveVersionId
-      ? "active"
-      : "draft",
-    activeVersionId: liveVersionId,
-    workingVersionId: repo.active_version_id,
-    publishedAt: repo.published_at ?? null,
-    versionCount: repo.version_count,
-    visibility: repo.visibility,
-    connectorSlugs: v?.connectors ?? [],
-    blockedConnectorSlugs: v?.blocked_connectors ?? [],
-    // If the list endpoint doesn't embed active_version (v is null) but
-    // active_version_id exists, we can't inspect the prompt — assume it has
-    // instructions. Only mark false when we have the version object and the
-    // prompt is genuinely blank, or when there's no active version at all.
-    hasSystemInstructions: v !== null ? !!(v.prompt?.trim()) : liveVersionId !== null,
-    sourceShareId: v?.source_share_id ?? null,
-    createdAt: repo.created_at,
-    updatedAt: repo.updated_at,
-  };
-}
-
 /** The persona's connectors as renderable identities. Resolved on read against
  *  the cached connector catalog, so a name/logo change lands in one place. */
 export function personaConnectors(persona: Pick<Persona, 'connectorSlugs'>): Connector[] {
@@ -173,7 +137,6 @@ export function personaBlockedConnectors(persona: Pick<Persona, 'blockedConnecto
 // Mutating operations (create, delete, save) must call bustPersonasCache().
 let _personasCache: Persona[] | null = null
 let _personasCacheTime = 0
-const PERSONAS_CACHE_TTL = 30_000
 
 // Per-persona detail cache keyed by repoId.
 // Busted alongside the list cache on every publish / delete / update so cards
@@ -181,17 +144,14 @@ const PERSONAS_CACHE_TTL = 30_000
 const _personaDetailCache = new Map<string, { data: PersonaRepoResponse; time: number }>()
 const _personaDetailInFlight = new Map<string, Promise<PersonaRepoResponse>>()
 
-export const PERSONAS_LIST_UPDATED_EVENT = 'persona:list-updated'
-
-export function bustPersonasCache(): void {
+onPersonasInvalidated(() => {
   _personasCache = null
   _personasCacheTime = 0
   _personaDetailCache.clear()
   _personaDetailInFlight.clear()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event(PERSONAS_LIST_UPDATED_EVENT))
-  }
-}
+})
+
+export { PERSONAS_LIST_UPDATED_EVENT, bustPersonasCache } from "./persona-cache";
 
 // Deduplicates concurrent calls: all callers that arrive while a request is
 // already in-flight receive the same Promise, so only one HTTP request is made.
@@ -203,9 +163,9 @@ export function fetchPersonas(): Promise<Persona[]> {
     return Promise.resolve(_personasCache)
   }
   if (_fetchPersonasInFlight) return _fetchPersonasInFlight
-  _fetchPersonasInFlight = apiFetchJson<unknown>(PERSONAS_ENDPOINT)
-    .then(raw => {
-      const normalized = personaRepoSchema.array().parse(raw).map(normalizeRepo)
+  _fetchPersonasInFlight = fetchPersonaRepos()
+    .then(collection => {
+      const normalized = collection.toPersonas()
       _personasCache = normalized
       _personasCacheTime = Date.now()
       return normalized
@@ -256,8 +216,7 @@ export function isPersonaOwnedByViewer(
 }
 
 export async function getPersona(repoId: string): Promise<Persona> {
-  const raw = await apiFetchJson<unknown>(PERSONA_DETAIL_ENDPOINT(repoId));
-  return normalizeRepo(personaRepoSchema.parse(raw));
+  return (await fetchPersonaRepo(repoId)).toPersona();
 }
 
 export async function getPersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
