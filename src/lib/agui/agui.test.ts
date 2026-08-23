@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import { parseAguiEvent } from "./schemas"
-import { aguiToInternal } from "./to-legacy"
+import { aguiToAppEvent } from "./to-app-event"
 
 const decode = (data: unknown) => {
   const event = parseAguiEvent(data)
-  return event ? aguiToInternal(event) : null
+  return event ? aguiToAppEvent(event) : null
 }
 
 describe("parseAguiEvent", () => {
@@ -28,17 +28,17 @@ describe("parseAguiEvent", () => {
   })
 })
 
-describe("aguiToInternal", () => {
-  it("maps text deltas to chunk events", () => {
+describe("aguiToAppEvent", () => {
+  it("maps text deltas to content events", () => {
     expect(
       decode({ type: "TEXT_MESSAGE_CONTENT", messageId: "m1", delta: "Hello " }),
-    ).toEqual({ eventName: "chunk", parsed: { delta: "Hello " } })
+    ).toEqual({ eventName: "content", parsed: { content: "Hello " } })
   })
 
-  it("maps thinking deltas to reasoning events", () => {
+  it("does not flatten protocol reasoning into the two Souvenir reasoning events", () => {
     expect(
       decode({ type: "THINKING_TEXT_MESSAGE_CONTENT", delta: "hmm" }),
-    ).toEqual({ eventName: "reasoning", parsed: { delta: "hmm" } })
+    ).toBeNull()
   })
 
   it("maps tool call start to the preliminary activity event with the real id", () => {
@@ -48,12 +48,12 @@ describe("aguiToInternal", () => {
       eventName: "tool_calls_streaming",
       parsed: {
         content: "web_search",
-        tool_call: { name: "web_search", tool_call_id: "call-1" },
+        tool_call: { id: "call-1", name: "web_search", tool_call_id: "call-1" },
       },
     })
   })
 
-  it("dispatches CUSTOM events to their legacy handlers by name", () => {
+  it("dispatches CUSTOM events to UI handlers by name", () => {
     const payload = {
       type: "tool_executing",
       content: "send_email",

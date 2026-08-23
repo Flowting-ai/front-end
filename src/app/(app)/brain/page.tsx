@@ -28,13 +28,13 @@ import {
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
   type ActiveSchedule,
-  type BrainTimelineItem,
   type DigestItem,
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
-import { ReasoningContent } from '@/components/chat/ReasoningBlock'
+import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
+import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { shouldCompleteStreamOnClose } from '@/templates/Brain/lib/phase'
@@ -104,10 +104,13 @@ import {
   type ReasoningTimelineItem,
 } from '@/lib/reasoning'
 import {
+  brainActivityItem,
   enqueuePrompt,
   executionPhaseTitle,
   agentTimelineItems,
+  formatToolSlug,
   retirePrompt,
+  type BrainActivityFeedItem,
 } from '@/lib/brain-presentation'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
 
@@ -123,26 +126,6 @@ export default function BrainPage() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Converts a raw tool slug to a human-readable display name.
- * Handles both SCREAMING_SNAKE_CASE connector slugs (GMAIL_SEND_EMAIL)
- * and lowercase snake_case tool names (gmail_send_email).
- *   GMAIL_SEND_EMAIL → Gmail: Send Email
- *   run_connector_tool → run connector tool
- */
-function formatToolSlug(slug: string): string {
-  if (!slug) return 'Tool'
-  // SCREAMING_SNAKE → treat first segment as service, rest as action
-  if (/^[A-Z][A-Z0-9_]+$/.test(slug)) {
-    const parts = slug.split('_')
-    const service = parts[0].charAt(0) + parts[0].slice(1).toLowerCase()
-    const action  = parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
-    return action ? `${service}: ${action}` : service
-  }
-  // lowercase_snake → space-separated
-  return slug.replace(/_/g, ' ')
-}
-
 // Map the backend approval verb (past-tense: "Sent"/"Posted"/"Deleted"/…) to the
 // ApprovalCard's three action types, which drive its badge colour.
 function approvalActionType(verb: string): 'delete' | 'send' | 'publish' {
@@ -150,12 +133,6 @@ function approvalActionType(verb: string): 'delete' | 'send' | 'publish' {
   if (v.includes('delet') || v.includes('remov') || v.includes('archiv')) return 'delete'
   if (v.includes('post') || v.includes('publish') || v.includes('shar') || v.includes('creat') || v.includes('updat')) return 'publish'
   return 'send' // Sent / replied / emailed / messaged
-}
-
-function isFinalInlineDone(data: unknown): boolean {
-  if (!data || typeof data !== 'object') return false
-  const d = data as Record<string, unknown>
-  return d.type === 'done' && d.finish_reason !== 'tool_calls'
 }
 
 function isTerminalBrainEvent(name: string): boolean {
@@ -574,12 +551,16 @@ function BrainReasoningStack({
   reasoningTimeline?: ReasoningTimelineItem[]
   isStreaming?: boolean
 }) {
+  // ReasoningBlock, not the bare ReasoningContent it wraps: Brain gets the same
+  // "Thinking" disclosure as Chat — open while the model is still reasoning,
+  // collapsed afterwards to a pill carrying the newest step heading.
   return (
-    <ReasoningContent
+    <ReasoningBlock
       thinkingContent={thinkingContent}
+      isNewMessage={false}
+      isThinkingInProgress={isStreaming}
       reasoningSections={reasoningSections}
       reasoningTimeline={reasoningTimeline}
-      isStreaming={isStreaming}
     />
   )
 }
@@ -817,56 +798,10 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   )
 }
 
-// ── Tool / search / file activity feed ────────────────────────────────────────
-// Lightweight chronological feed of mid-stream side effects: web searches,
-// generated images/files, live tool calls, tool progress updates. Each item
-// is its own row; the whole feed sits between the activity block and the
-// streaming bubble in the active turn.
-
-type ActivityFeedItem =
-  | { kind: 'web_search'; data: WebSearchEvent;     id: string }
-  | { kind: 'image';      data: ImageEvent;         id: string }
-  | { kind: 'file';       data: GeneratedFileEvent; id: string }
-  | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' | 'failed' }
-  | { kind: 'progress';   data: ToolProgressEvent;  id: string }
-
-function activityTimelineItems(items: ActivityFeedItem[]): BrainTimelineItem[] {
-  return items.flatMap<BrainTimelineItem>((item) => {
-    if (item.kind === 'web_search') {
-      const count = item.data.links?.length ?? 0
-      return [{
-        id: item.id,
-        label: item.data.query ? `Searched “${item.data.query}”` : 'Searched the web',
-        result: count > 0
-          ? { label: `${count} result${count === 1 ? '' : 's'}`, variant: 'success' as const }
-          : undefined,
-      }]
-    }
-    if (item.kind === 'tool') {
-      const failed = item.status === 'failed'
-      return [{
-        id: item.id,
-        label: formatToolSlug(item.data.name ?? 'Tool action'),
-        variant: failed ? 'error' as const : undefined,
-        result: {
-          label: failed ? 'Failed' : item.status === 'complete' ? 'Completed' : 'Running',
-          details: item.data.result,
-          variant: failed ? 'error' as const : item.status === 'complete' ? 'success' as const : 'default' as const,
-        },
-      }]
-    }
-    if (item.kind === 'progress') {
-      return [{
-        id: item.id,
-        label: item.data.label ?? item.data.message ?? item.data.tool,
-        result: item.data.percent != null
-          ? { label: `${Math.round(item.data.percent)}%`, variant: 'default' as const }
-          : undefined,
-      }]
-    }
-    return []
-  })
-}
+// ── Tool / search activity feed ───────────────────────────────────────────────
+// Chronological feed of mid-stream side effects: web searches, live tool calls,
+// tool progress updates. Rows sit between the activity block and the streaming
+// bubble in the active turn.
 
 // ── Turn timeline ─────────────────────────────────────────────────────────────
 // Ordered log of everything that streams into the active turn, so the thread
@@ -893,16 +828,18 @@ type TimelineItem =
 // instead of a `toolKey` lookup; ephemeral kinds (progress/permission/approval/
 // connect) are already resolved or meaningless after the fact, so they're
 // dropped rather than frozen.
+type ToolLifecycleStatus = 'streaming' | 'executing' | 'complete' | 'failed'
+
 type FrozenTimelineItem =
   | { kind: 'text';       id: string; text: string }
-  | { kind: 'tool';       id: string; data: ToolCallPreview; status: 'streaming' | 'executing' | 'complete' }
+  | { kind: 'tool';       id: string; data: ToolCallPreview; status: ToolLifecycleStatus }
   | { kind: 'web_search'; id: string; data: WebSearchEvent }
   | { kind: 'file';       id: string; data: GeneratedFileEvent }
   | { kind: 'image';      id: string; url: string }
 
 function freezeTimeline(
   items: TimelineItem[],
-  liveToolCalls: Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>,
+  liveToolCalls: Record<string, { status: ToolLifecycleStatus; tool_call: ToolCallPreview }>,
 ): FrozenTimelineItem[] {
   return items.flatMap<FrozenTimelineItem>((item) => {
     switch (item.kind) {
@@ -944,95 +881,14 @@ function renderFrozenTimelineItem(item: FrozenTimelineItem) {
   }
 }
 
-function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
+// Chat's ActivityRow, not a Brain-local row: one per-tool icon set, verb list,
+// spinner→checkmark transition and auto-expanding web-search result list for
+// both surfaces. Brain keeps its own arrival-ordered transcript, so these rows
+// stay in the transcript rather than being folded into the reasoning panel the
+// way chat interleaves them.
+function ActivityFeed({ items }: { items: BrainActivityFeedItem[] }) {
   if (items.length === 0) return null
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {items.map((item) => {
-        switch (item.kind) {
-          case 'web_search': return (
-            <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>Searched</span>
-              <span style={feedValueStyle}>“{item.data.query}”</span>
-              {item.data.links?.length > 0 && (
-                <span style={feedMetaStyle}>{item.data.links.length} result{item.data.links.length === 1 ? '' : 's'}</span>
-              )}
-            </div>
-          )
-          case 'image': return (
-            <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>Image</span>
-              <a href={item.data.url} target="_blank" rel="noopener noreferrer" style={feedLinkStyle}>{item.data.s3_key}</a>
-            </div>
-          )
-          case 'file': return (
-            <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>File</span>
-              <a href={item.data.url} target="_blank" rel="noopener noreferrer" style={feedLinkStyle}>{item.data.filename}</a>
-              <span style={feedMetaStyle}>{item.data.mime_type}</span>
-            </div>
-          )
-          case 'tool': return (
-            <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>Tool</span>
-              <span style={feedValueStyle}>{item.data.name ?? 'unknown'}</span>
-              <span style={{
-                ...feedMetaStyle,
-                ...(item.status === 'failed' ? { color: 'var(--red-500, #DC3545)' } : {}),
-              }}>
-                {item.status === 'failed' ? 'failed' : item.status === 'complete' ? 'done' : item.status}
-              </span>
-            </div>
-          )
-          case 'progress': return (
-            <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>{item.data.tool}</span>
-              <span style={feedValueStyle}>{item.data.label ?? item.data.message ?? item.data.status}</span>
-              {item.data.percent != null && <span style={feedMetaStyle}>{Math.round(item.data.percent)}%</span>}
-            </div>
-          )
-        }
-      })}
-    </div>
-  )
-}
-
-const feedRowStyle: CSSProperties = {
-  display:         'flex',
-  alignItems:      'center',
-  gap:             8,
-  padding:         '6px 12px',
-  borderRadius:    8,
-  border:          '1px solid var(--neutral-100)',
-  backgroundColor: 'var(--neutral-50)',
-}
-const feedLabelStyle: CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontSize:   'var(--font-size-caption)',
-  fontWeight: 'var(--font-weight-medium)',
-  color:      'var(--neutral-500)',
-  flexShrink: 0,
-}
-const feedValueStyle: CSSProperties = {
-  flex:         '1 1 0',
-  minWidth:     0,
-  fontFamily:   'var(--font-body)',
-  fontSize:     'var(--font-size-caption)',
-  color:        'var(--neutral-800)',
-  overflow:     'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace:   'nowrap',
-}
-const feedMetaStyle: CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontSize:   'var(--font-size-caption)',
-  color:      'var(--neutral-400)',
-  flexShrink: 0,
-}
-const feedLinkStyle: CSSProperties = {
-  ...feedValueStyle,
-  color:          'var(--neutral-700)',
-  textDecoration: 'underline',
+  return <ActivitiesSection activities={items.map(brainActivityItem)} />
 }
 
 // ── Generated-image grid ──────────────────────────────────────────────────────
@@ -1420,8 +1276,8 @@ function BrainPageInner() {
   // event (see liveContext), so the old page-load connectors/bootstrap fetches
   // that used to seed it have been removed.
 
-  // ── Per-turn SSE event state ────────────────────────────────────────────────
-  // Slots for the named/inline events that the new YAML adds. Cleared at the
+  // ── Per-turn AG-UI event state ──────────────────────────────────────────────
+  // Slots for Souvenir CUSTOM events. Cleared at the
   // start of each turn and on chat reset. Rendered between the ActivityBlock
   // and the StreamingMessageBubble in the active turn body.
 
@@ -1469,7 +1325,7 @@ function BrainPageInner() {
     connectors: Map<string, Connector>
   }>({ pins: new Map(), files: new Map(), connectors: new Map() })
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
-  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
+  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: ToolLifecycleStatus; tool_call: ToolCallPreview }>>({})
 
   // ── Ordered turn timeline ────────────────────────────────────────────────────
   // The chronological render model for the active turn (see TimelineItem). Reset
@@ -1859,7 +1715,7 @@ function BrainPageInner() {
 
   // ── SSE named-event handler ───────────────────────────────────────────────────
 
-  const handleNamedEvent = useCallback((name: string, data: unknown) => {
+  const handleCustomEvent = useCallback((name: string, data: unknown) => {
     const d = data as Record<string, unknown>
 
     switch (name) {
@@ -2063,19 +1919,6 @@ function BrainPageInner() {
         break
       }
 
-      // Server confirmation that a pending prompt was answered (possibly from
-      // another tab) or expired — retire the card and remember the id so a
-      // replayed permission_prompt can't resurrect it.
-      case 'prompt_resolved':
-      case 'prompt_timeout': {
-        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
-        if (!promptId) break
-        resolvedPromptIdsRef.current.add(promptId)
-        setPermissionPrompts((queue) => retirePrompt(queue, promptId))
-        setActiveApprovalPrompt((prev) => (prev && prev.promptId === promptId ? null : prev))
-        break
-      }
-
       // Write-approval gate (HITL): Brain paused before a real-world side effect.
       // Render an inline ApprovalCard; resolve by POSTing approve / reject.
       case 'approval_prompt': {
@@ -2097,12 +1940,6 @@ function BrainPageInner() {
         break
       }
 
-      case 'souvenir_started': {
-        setPhase('souvenir')
-        break
-      }
-
-      case 'reasoning':
       case 'reasoning_heading':
       case 'reasoning_body': {
         handleReasoningEvent(name, d)
@@ -2160,8 +1997,9 @@ function BrainPageInner() {
       case 'web_search': {
         const query = typeof d.query === 'string' ? d.query : ''
         const links = Array.isArray(d.links) ? d.links : []
+        const results = Array.isArray(d.results) ? d.results : []
         if (query) {
-          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links } }])
+          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links, results } }])
         }
         break
       }
@@ -2198,6 +2036,15 @@ function BrainPageInner() {
         const status   = typeof d.status   === 'string' ? d.status   : ''
         const filename = typeof d.filename === 'string' ? d.filename : ''
         if (tool) {
+          if (status === 'error' || status === 'failed' || status === 'failure') {
+            setLiveToolCalls((prev) => Object.fromEntries(
+              Object.entries(prev).map(([id, entry]) =>
+                entry.tool_call.name === tool
+                  ? [id, { ...entry, status: 'failed' as const }]
+                  : [id, entry],
+              ),
+            ))
+          }
           setToolProgress({
             tool,
             status,
@@ -2224,8 +2071,8 @@ function BrainPageInner() {
         const slug         = typeof d.connector_slug === 'string' ? d.connector_slug : ''
         const display_name = typeof d.display_name   === 'string' ? d.display_name   : slug
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
-        const tool_name    = typeof d.tool_name      === 'string' ? d.tool_name      : ''
-        const request_id   = typeof d.request_id     === 'string' ? d.request_id     : ''
+        const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
+        const request_id   = typeof d.prompt_id      === 'string' ? d.prompt_id      : ''
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can
         // render the credential form inline instead of a bare OAuth popup.
         const api_key_fields = Array.isArray(d.api_key_fields) ? (d.api_key_fields as ApiKeyField[]) : undefined
@@ -2329,7 +2176,7 @@ function BrainPageInner() {
 
   // ── SSE inline-event handler ──────────────────────────────────────────────────
 
-  const handleInlineEvent = useCallback((data: unknown) => {
+  const handleStandardEvent = useCallback((data: unknown) => {
     const d = data as Record<string, unknown>
     const t = d.type
 
@@ -2361,13 +2208,13 @@ function BrainPageInner() {
       return
     }
 
-    // Extended-thinking and legacy reasoning deltas. The model can spend
+    // Reasoning heading/body events can arrive before the first answer token.
     // tens of seconds emitting these before the first content token, so we
     // must move off 'thinking' once they start — otherwise the user sees a
     // frozen loading state even though tokens are flowing. We don't render
     // the reasoning text yet (separate UI), but the phase transition alone
     // is enough to surface progress and stop the spinner.
-    if (t === 'reasoning_body' || t === 'reasoning_heading' || t === 'reasoning') {
+    if (t === 'reasoning_body' || t === 'reasoning_heading') {
       handleReasoningEvent(t, d)
       return
     }
@@ -2388,12 +2235,16 @@ function BrainPageInner() {
     if (t === 'tool_calls_streaming' || t === 'tool_executing' || t === 'tool_complete') {
       const tc = d.tool_call as ToolCallPreview | null | undefined
       if (!tc) return
-      const id = tc.id ?? tc.name ?? `tool-${Date.now()}`
-      const status: 'streaming' | 'executing' | 'complete' =
+      const id = tc.id ?? tc.tool_call_id ?? tc.name ?? `tool-${Date.now()}`
+      const status: ToolLifecycleStatus =
         t === 'tool_calls_streaming' ? 'streaming'
       : t === 'tool_executing'        ? 'executing'
       :                                 'complete'
-      setLiveToolCalls((prev) => ({ ...prev, [id]: { status, tool_call: tc } }))
+      setLiveToolCalls((prev) => {
+        const previous = prev[id]
+        const nextStatus = previous?.status === 'failed' ? 'failed' : status
+        return { ...prev, [id]: { status: nextStatus, tool_call: tc } }
+      })
       // First time we see this tool id → add a row to the timeline at its
       // arrival position. Later status updates flow through liveToolCalls.
       if (!seenToolIdsRef.current.has(id)) {
@@ -2613,18 +2464,20 @@ function BrainPageInner() {
       let terminalEventReceived = false
       let streamErrored = false
       await consumeBrainStream(response, {
-        onNamed:  (name, data) => {
-          if (isTerminalBrainEvent(name)) terminalEventReceived = true
+        onEvent: (name, data, custom) => {
+          const isFinalDone = name === 'done' && data.finish_reason !== 'tool_calls'
+          if (isTerminalBrainEvent(name) || isFinalDone) {
+            terminalEventReceived = true
+          }
           // Navigated to a different thread — let the background run keep
           // going (it's still persisting to the backend), but stop applying
           // its events to whatever thread is now on screen.
           if (!isForActiveThread()) return
-          handleNamedEvent(name, data)
-        },
-        onInline: (data) => {
-          if (isFinalInlineDone(data)) terminalEventReceived = true
-          if (!isForActiveThread()) return
-          handleInlineEvent(data)
+          if (custom) {
+            handleCustomEvent(name, data)
+          } else {
+            handleStandardEvent({ ...data, type: name })
+          }
         },
         onClose:  () => {
           if (abortRef.current === controller) abortRef.current = null
@@ -2673,7 +2526,7 @@ function BrainPageInner() {
       setStreamError(msg)
       setPhase('failed')
     }
-  }, [handleNamedEvent, handleInlineEvent, scheduleCompletion, replace, resetReasoning])
+  }, [handleCustomEvent, handleStandardEvent, scheduleCompletion, replace, resetReasoning])
 
   // ── Remap local schedule id → backend task id after stream completes ──────────
   // When a schedule is created via the modal, a local temp id is used until Brain
@@ -3441,22 +3294,20 @@ function BrainPageInner() {
       msg.reasoning ?? '',
     )
 
-    // Map persisted tool_calls into ActivityFeedItem[] for the history view.
+    // Map persisted tool_calls into BrainActivityFeedItem[] for the history view.
+    // `data.name` stays the raw slug so the row picks the right icon; `label`
+    // carries the display text the slug alone can't convey.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
-    const historyToolItems: ActivityFeedItem[] = rawToolCalls
-      .map((tc, idx): ActivityFeedItem | null => {
+    const historyToolItems: BrainActivityFeedItem[] = rawToolCalls
+      .map((tc, idx): BrainActivityFeedItem | null => {
         const tool = typeof tc.tool === 'string' ? tc.tool : ''
         const args = (tc.args && typeof tc.args === 'object' ? tc.args : {}) as Record<string, unknown>
 
-        if (tool === 'web_search') {
-          const query = typeof args.query === 'string' ? args.query : ''
-          return { kind: 'web_search', data: { query, links: [] }, id: `${msg.id}-tc-${idx}` }
-        }
         if (tool === 'web_read') {
           const url = typeof args.url === 'string' ? args.url : ''
           let hostname = url
           try { hostname = new URL(url).hostname } catch { /* use raw url */ }
-          return { kind: 'tool', data: { name: `Read: ${hostname}` }, id: `${msg.id}-tc-${idx}`, status: 'complete' }
+          return { kind: 'tool', data: { name: tool }, label: hostname, id: `${msg.id}-tc-${idx}`, status: 'complete' }
         }
         // run_connector_tool / gmail_send_email / list_connector_tools etc
         if (tool === 'list_connectors' || tool === 'list_connector_tools') return null // internal, don't show
@@ -3464,7 +3315,6 @@ function BrainPageInner() {
         // Display name: prefer args.tool_slug (e.g. GMAIL_SEND_EMAIL → Gmail: Send Email),
         // otherwise humanise the tool function name (gmail_send_email → gmail send email).
         const rawSlug = typeof args.tool_slug === 'string' ? args.tool_slug : tool
-        const toolName = formatToolSlug(rawSlug)
 
         // Detect success/failure from the tool output JSON.
         // `successful === false` or a top-level `error` field means the call failed.
@@ -3477,9 +3327,25 @@ function BrainPageInner() {
             }
           } catch { /* not JSON, keep as complete */ }
         }
-        return { kind: 'tool', data: { name: toolName }, id: `${msg.id}-tc-${idx}`, status: toolStatus }
+        return {
+          kind:   'tool',
+          data:   { name: rawSlug },
+          label:  formatToolSlug(rawSlug),
+          id:     `${msg.id}-tc-${idx}`,
+          status: toolStatus,
+        }
       })
-      .filter((x): x is ActivityFeedItem => x !== null)
+      .filter((x): x is BrainActivityFeedItem => x !== null)
+
+    // Searches are no longer a tool call of their own — they happen inside
+    // `run_connected_code` — so history restores them from the persisted
+    // `web_searches` rows, which carry the links and their titles.
+    const historySearchItems: BrainActivityFeedItem[] = (msg.web_searches ?? [])
+      .map((search, idx): BrainActivityFeedItem => ({
+        kind: 'web_search',
+        data: { query: search.query ?? '', links: search.links ?? [], results: search.results ?? [] },
+        id:   `${msg.id}-ws-${idx}`,
+      }))
 
     return (
       <m.div key={msg.id} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
@@ -3493,9 +3359,12 @@ function BrainPageInner() {
             reasoningSections={msgReasoningSections}
           />
         )}
+        {historySearchItems.length > 0 && (
+          <ActivityFeed items={historySearchItems} />
+        )}
         {historyToolItems.length > 0 && (
           <BrainPhaseGroup title="Tool activity" defaultCollapsed>
-            <BrainTimeline items={activityTimelineItems(historyToolItems)} />
+            <ActivityFeed items={historyToolItems} />
           </BrainPhaseGroup>
         )}
         {msg.output && (

@@ -33,8 +33,10 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
-import type { ActivityItem } from '@/hooks/use-chat-state'
+import type { ActivityItem, ExternalOutputAction, GeneratedFile, GeneratedImage } from '@/hooks/use-chat-state'
 import type { ChatPrompt } from '@/lib/api/prompts'
+import { createReasoningAccumulator, type ReasoningSection } from '@/lib/reasoning'
+import { webSearchResults } from '@/lib/activity'
 import { AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from '@/lib/routes'
 import { useNavGuard } from '@/context/nav-guard-context'
 
@@ -47,6 +49,9 @@ export type GuideMsg = {
   role: 'user' | 'assistant'
   text: string
   isStreaming?: boolean
+  thinking?: string
+  reasoningSections?: ReasoningSection[]
+  activities?: ActivityItem[]
 }
 
 export type ChatMsg = {
@@ -58,6 +63,11 @@ export type ChatMsg = {
   permissionPrompts?: PersonaPermissionPrompt[]
   chatPrompts?: ChatPrompt[]
   activities?: ActivityItem[]
+  thinking?: string
+  reasoningSections?: ReasoningSection[]
+  images?: GeneratedImage[]
+  generatedFiles?: GeneratedFile[]
+  externalOutputActions?: ExternalOutputAction[]
   attachments?: Array<{ file_name: string; mime_type: string; file_size?: number }>
 }
 
@@ -497,6 +507,15 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setGuideIsStreaming(true)
 
     let accumulated = ''
+    const reasoning = createReasoningAccumulator()
+    const updateReasoning = () => {
+      const snapshot = reasoning.snapshot()
+      setGuideMessages(prev => prev.map(m => m.id === asstMsgId ? {
+        ...m,
+        thinking: snapshot.text,
+        reasoningSections: snapshot.sections,
+      } : m))
+    }
     const callbacks: PersonaChatStreamCallbacks = {
       onChunk: (delta) => {
         accumulated += delta
@@ -521,6 +540,29 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         guideStreamingRef.current = false
         setGuideIsStreaming(false)
       },
+      onReasoningHeading: (heading) => { reasoning.event('reasoning_heading', heading); updateReasoning() },
+      onReasoningBody: (delta) => { reasoning.event('reasoning_body', delta); updateReasoning() },
+      onToolActivity: (item) => setGuideMessages(prev => prev.map(m => {
+        if (m.id !== asstMsgId) return m
+        const activities = m.activities ?? []
+        const index = activities.findIndex(activity => activity.id === item.id)
+        if (index < 0) return { ...m, activities: [...activities, item as ActivityItem] }
+        const next = [...activities]
+        next[index] = { ...next[index], ...item } as ActivityItem
+        return { ...m, activities: next }
+      })),
+      onWebSearch: (event) => setGuideMessages(prev => prev.map(m => {
+        if (m.id !== asstMsgId) return m
+        const activities = [...(m.activities ?? [])]
+        const index = activities.findLastIndex(activity => activity.type === 'web-search')
+        const results = webSearchResults(event.links, event.results)
+        if (index >= 0) {
+          activities[index] = { ...activities[index], detail: event.query, status: 'done', results }
+        } else {
+          activities.push({ id: `guide-web-search-${activities.length}`, type: 'web-search', detail: event.query, status: 'done', results })
+        }
+        return { ...m, activities }
+      })),
     }
 
     try {
@@ -622,6 +664,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     chatStreamingRef.current = true
     setIsStreaming(true)
 
+    const reasoning = createReasoningAccumulator()
     const callbacks: PersonaChatStreamCallbacks = {
       onChunk: (delta) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)),
       onDone:  ()      => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)); chatStreamingRef.current = false; setIsStreaming(false) },
@@ -633,12 +676,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         if (m.id !== asstMsgId || m.chatPrompts?.some(item => item.request_id === prompt.request_id)) return m
         return { ...m, chatPrompts: [...(m.chatPrompts ?? []), prompt] }
       })),
-      onPromptDecision:   (promptId, decision) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? {
-        ...m,
-        connectPrompts: m.connectPrompts?.filter(prompt => prompt.request_id !== promptId),
-        permissionPrompts: m.permissionPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
-        chatPrompts: m.chatPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
-      } : m)),
       onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev => prev.map(m => {
         if (m.id !== asstMsgId) return m
         const acts = m.activities ?? []
@@ -646,6 +683,38 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         if (idx >= 0) { const u = [...acts]; u[idx] = { ...acts[idx], ...item } as ActivityItem; return { ...m, activities: u } }
         return { ...m, activities: [...acts, item as ActivityItem] }
       })),
+      onReasoningHeading: (heading) => {
+        reasoning.event('reasoning_heading', heading)
+        const snapshot = reasoning.snapshot()
+        setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, thinking: snapshot.text, reasoningSections: snapshot.sections } : m))
+      },
+      onReasoningBody: (delta) => {
+        reasoning.event('reasoning_body', delta)
+        const snapshot = reasoning.snapshot()
+        setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, thinking: snapshot.text, reasoningSections: snapshot.sections } : m))
+      },
+      onWebSearch: (event) => setChatMessages(prev => prev.map(m => {
+        if (m.id !== asstMsgId) return m
+        const activities = [...(m.activities ?? [])]
+        const index = activities.findLastIndex(activity => activity.type === 'web-search')
+        const results = webSearchResults(event.links, event.results)
+        if (index >= 0) {
+          activities[index] = { ...activities[index], detail: event.query, status: 'done', results }
+        } else {
+          activities.push({ id: `web-search-${activities.length}`, type: 'web-search', detail: event.query, status: 'done', results })
+        }
+        return { ...m, activities }
+      })),
+      onImage: (event) => setChatMessages(prev => prev.map(m => m.id === asstMsgId
+        ? { ...m, images: [...(m.images ?? []), { url: event.url, s3Key: event.s3_key }] }
+        : m)),
+      onGeneratedFile: (file) => setChatMessages(prev => prev.map(m => m.id === asstMsgId
+        ? { ...m, generatedFiles: [...(m.generatedFiles ?? []), file] }
+        : m)),
+      onExternalOutput: (actions) => setChatMessages(prev => prev.map(m => m.id === asstMsgId
+        ? { ...m, externalOutputActions: actions }
+        : m)),
+      onMemoryUpdated: (event) => window.dispatchEvent(new CustomEvent('souvenir:memory-updated', { detail: event })),
     }
 
     try {

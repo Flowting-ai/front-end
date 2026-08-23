@@ -7,9 +7,11 @@ import {
   type ChatPrompt,
   type ConnectorPermissionPrompt,
 } from "./prompts";
-import { HybridSSEDecoder, internalToInline } from "@/lib/sse-decoder";
+import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
+import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
+import type { ExternalOutputAction, GeneratedFile } from "@/hooks/use-chat-state";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
   PERSONAS_ENDPOINT,
@@ -1029,6 +1031,7 @@ export interface PersonaDoneEventPayload {
 export interface PersonaWebSearchEvent {
   query: string;
   links: unknown[];
+  results: unknown[];
 }
 
 export interface PersonaImageEvent {
@@ -1037,7 +1040,7 @@ export interface PersonaImageEvent {
 }
 
 export type PersonaActivityType =
-  | 'web-search' | 'read-pages' | 'csv-execute' | 'fetch-resource'
+  | 'web-search' | 'browser' | 'read-pages' | 'csv-execute' | 'fetch-resource'
   | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
 
 export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
@@ -1053,6 +1056,7 @@ export interface PersonaActivityItem {
   progressMessage?: string
   codePreview?:     string
   filename?:        string
+  results?:         { title: string; url?: string; domain?: string }[]
 }
 
 export interface PersonaConnectPrompt {
@@ -1070,27 +1074,28 @@ export interface PersonaConnectPrompt {
 export type PersonaPermissionPrompt = ConnectorPermissionPrompt
 
 export interface PersonaChatStreamCallbacks {
-  /** Receives every named application event, including ones without a
-   * surface-specific convenience callback below. */
-  onNamedEvent?: (name: string, data: Record<string, unknown>) => void;
   /** Called with the chatId extracted from the X-Chat-Id response header. */
   onChatId?: (chatId: string) => void;
   /** Called for each streamed assistant text token. */
   onChunk?: (delta: string) => void;
-  /** Called with the persisted assistant message id (named `message_saved` event). */
+  /** Called with the persisted assistant message id. */
   onMessageSaved?: (messageId: string) => void;
-  /** Called when the backend auto-titles a new chat (named `title` event). */
+  /** Called when the backend auto-titles a new chat. */
   onTitle?: (title: string) => void;
   /** Called with each delta of a reasoning section's body. */
   onReasoningBody?: (delta: string) => void;
   /** Called when a new reasoning section opens. */
   onReasoningHeading?: (heading: string) => void;
-  /** Called for legacy raw reasoning deltas (back-compat). */
-  onReasoning?: (delta: string) => void;
   /** Called when a web search tool runs. */
   onWebSearch?: (event: PersonaWebSearchEvent) => void;
   /** Called when an image is generated. */
   onImage?: (event: PersonaImageEvent) => void;
+  /** Called when a tool produces a downloadable file. */
+  onGeneratedFile?: (event: GeneratedFile) => void;
+  /** Called with confirmed external side effects performed by connector tools. */
+  onExternalOutput?: (actions: ExternalOutputAction[]) => void;
+  /** Called after user or project memory is updated. */
+  onMemoryUpdated?: (event: Record<string, unknown>) => void;
   /** Called when a tool starts executing, progresses, or completes. Upsert by id. */
   onToolActivity?: (item: PersonaActivityItem) => void;
   /** Called when the backend requests the user link a connector. */
@@ -1099,8 +1104,6 @@ export interface PersonaChatStreamCallbacks {
   onPermissionPrompt?: (prompt: PersonaPermissionPrompt) => void;
   /** Called for generic questions, choices, and non-connector approvals. */
   onChatPrompt?: (prompt: ChatPrompt) => void;
-  /** Called when the server resolves or expires any prompt gate. */
-  onPromptDecision?: (promptId: string, decision: 'resolved' | 'timeout') => void;
   /** Called when the stream finishes successfully. Receives the `done` payload. */
   onDone?: (payload?: PersonaDoneEventPayload) => void;
   /** Called on error (network or stream-level). */
@@ -1153,28 +1156,17 @@ function buildStreamBody(
   };
 }
 
-function toolNameToActivityType(name: string): PersonaActivityType {
-  const l = name.toLowerCase()
-  if (l === 'web_search' || l.includes('search'))                        return 'web-search'
-  if (l === 'read_pages' || l.includes('read_pdf'))                      return 'read-pages'
-  if (l === 'csv_execute' || l.includes('csv'))                          return 'csv-execute'
-  if (l === 'fetch_resource' || l.includes('fetch'))                     return 'fetch-resource'
-  if (l === 'doc_execute')                                               return 'doc-execute'
-  if (l === 'docx_execute' || l.includes('docx') || l.includes('document')) return 'docx-progress'
-  if (l === 'skills')                                                    return 'skills'
-  return 'tool-call'
-}
-
 /** Shared SSE reader used by both create-chat and stream-message. */
 async function readPersonaSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   callbacks: PersonaChatStreamCallbacks,
 ): Promise<void> {
   const decoder = new TextDecoder();
-  const sseDecoder = new HybridSSEDecoder();
+  const sseDecoder = new AguiSSEDecoder();
   let doneSeen = false;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const toolCallIdByName = new Map<string, string>();
+  const erroredToolNames = new Set<string>();
   // After `done`, give the server a brief window to flush trailing events
   // (`message_saved`, `title`) and then cancel the reader so the fetch is
   // released even if the server keeps the SSE connection idle-open.
@@ -1194,19 +1186,8 @@ async function readPersonaSSEStream(
         decodedEvents.push(...sseDecoder.push(decoder.decode()), ...sseDecoder.flush());
       }
       for (const decodedEvent of decodedEvents) {
-          if (decodedEvent.kind === "named") {
-            callbacks.onNamedEvent?.(decodedEvent.name, decodedEvent.data);
-          }
-          let eventName: string;
-          let parsed: Record<string, unknown>;
-          if (decodedEvent.kind === "agui") {
-            if (!decodedEvent.internal) continue;
-            parsed = internalToInline(decodedEvent.internal);
-            eventName = String(parsed.type ?? "message");
-          } else {
-            eventName = decodedEvent.name;
-            parsed = decodedEvent.data;
-          }
+          if (!decodedEvent.appEvent) continue;
+          const { eventName, parsed } = decodedEvent.appEvent;
           switch (eventName) {
             case "content":
               callbacks.onChunk?.(str(parsed.content));
@@ -1216,9 +1197,6 @@ async function readPersonaSSEStream(
               break;
             case "reasoning_body":
               callbacks.onReasoningBody?.(str(parsed.content));
-              break;
-            case "reasoning":
-              callbacks.onReasoning?.(str(parsed.content));
               break;
             case "message_saved":
               if (typeof parsed.message_id === "string") {
@@ -1234,12 +1212,31 @@ async function readPersonaSSEStream(
               callbacks.onWebSearch?.({
                 query: str(parsed.query),
                 links: Array.isArray(parsed.links) ? parsed.links : [],
+                results: Array.isArray(parsed.results) ? parsed.results : [],
               });
               break;
             case "image":
               if (typeof parsed.url === "string" && typeof parsed.s3_key === "string") {
                 callbacks.onImage?.({ url: parsed.url, s3_key: parsed.s3_key });
               }
+              break;
+            case "generated_file":
+              if (typeof parsed.url === "string" && typeof parsed.filename === "string") {
+                callbacks.onGeneratedFile?.({
+                  url: parsed.url,
+                  filename: parsed.filename,
+                  s3Key: str(parsed.s3_key) || undefined,
+                  mimeType: str(parsed.mime_type) || undefined,
+                });
+              }
+              break;
+            case "external_output":
+              if (Array.isArray(parsed.actions)) {
+                callbacks.onExternalOutput?.(parsed.actions as ExternalOutputAction[]);
+              }
+              break;
+            case "memory_updated":
+              callbacks.onMemoryUpdated?.(parsed);
               break;
             case "done": {
               const finishReason =
@@ -1273,7 +1270,7 @@ async function readPersonaSSEStream(
               const callId   = str(toolCall?.tool_call_id) || `te-${toolName}-${Date.now()}`
               toolCallIdByName.set(toolName, callId)
               callbacks.onToolActivity?.({
-                id: callId, type: toolNameToActivityType(toolName), toolName,
+                id: callId, type: toolNameToType(toolName), toolName,
                 label, detail: label ?? toolName.replace(/_/g, " "), status: "executing",
               })
               break
@@ -1282,10 +1279,11 @@ async function readPersonaSSEStream(
             case "tool_progress": {
               const toolName = str(parsed.tool) || (eventName === "docx_progress" ? "docx_execute" : "unknown")
               const label    = str(parsed.label) || undefined
-              const status   = (str(parsed.status) || "executing") as PersonaActivityStatus
+              const status   = normalizeActivityStatus(str(parsed.status))
               const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${str(parsed.filename) || "x"}`
+              if (status === "error") erroredToolNames.add(toolName)
               callbacks.onToolActivity?.({
-                id: activityId, type: toolNameToActivityType(toolName), toolName,
+                id: activityId, type: toolNameToType(toolName), toolName,
                 label, detail: label ?? toolName, status,
                 filename:        str(parsed.filename)      || undefined,
                 progressMessage: str(parsed.message)       || undefined,
@@ -1299,11 +1297,13 @@ async function readPersonaSSEStream(
               const callId     = str(toolCall?.tool_call_id) || (toolName ? toolCallIdByName.get(toolName) : undefined)
               const label      = str(parsed.label) || undefined
               const durationS  = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
+              const status = toolName && erroredToolNames.has(toolName) ? "error" : "done"
               if (toolName) toolCallIdByName.delete(toolName)
+              if (toolName) erroredToolNames.delete(toolName)
               if (callId) {
                 callbacks.onToolActivity?.({
-                  id: callId, type: toolName ? toolNameToActivityType(toolName) : "tool-call",
-                  toolName, label, detail: label ?? toolName, status: "done", durationS,
+                  id: callId, type: toolName ? toolNameToType(toolName) : "tool-call",
+                  toolName, label, detail: label ?? toolName, status, durationS,
                 })
               }
               break
@@ -1319,44 +1319,33 @@ async function readPersonaSSEStream(
                   )
                 : undefined
               callbacks.onConnectPrompt?.({
-                request_id:     typeof parsed.request_id === 'string' ? parsed.request_id : `ccp-${Date.now()}`,
+                request_id:     typeof parsed.prompt_id === 'string' ? parsed.prompt_id : `ccp-${Date.now()}`,
                 connector_slug: str(parsed.connector_slug),
                 display_name:   str(parsed.display_name) || str(parsed.connector_slug),
                 auth_mode:      (str(parsed.auth_mode) || 'oauth2') as 'oauth2' | 'api_key',
-                tool_name:      str(parsed.tool_name),
+                tool_name:      str(parsed.tool_slug),
                 api_key_fields: apiKeyFields,
                 icon_url:       str(parsed.icon_url) || undefined,
               })
               break
             }
-            case "permission_prompt":
-            case "tool_permission_prompt": {
+            case "permission_prompt": {
               const permPrompt = parsePermissionPrompt(parsed)
               if (permPrompt) callbacks.onPermissionPrompt?.(permPrompt)
               break
             }
             case "user_prompt":
-            case "questions":
             case "question_prompt":
             case "approval_prompt": {
               const prompt = parseChatPrompt(eventName, parsed)
               if (prompt) callbacks.onChatPrompt?.(prompt)
               break
             }
-            case "prompt_resolved":
-            case "prompt_timeout": {
-              const promptId = str(parsed.prompt_id)
-              if (promptId) {
-                callbacks.onPromptDecision?.(
-                  promptId,
-                  eventName === "prompt_resolved" ? "resolved" : "timeout",
-                )
-              }
-              break
-            }
             case "error":
               callbacks.onError?.(friendlyModelError(str(parsed.error)));
               return;
+            case "stream_heartbeat":
+              break;
           }
       }
       if (done) break;

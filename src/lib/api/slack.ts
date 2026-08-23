@@ -146,8 +146,9 @@ export async function setSlackChannelMapping(
 // ── Identity link / unlink (the /connect + /disconnect flow) ──────────────────
 
 interface SlackLinkResponseRaw {
-  ok:      boolean
-  team_id: string
+  ok:                boolean
+  team_id:           string
+  authorization_url: string
 }
 
 interface SlackDisconnectResponseRaw {
@@ -156,13 +157,21 @@ interface SlackDisconnectResponseRaw {
 }
 
 /** POST /slack/link — complete a `/connect` deep link, binding the Slack
- * identity carried in `state` to the logged-in account. */
-export async function linkSlackIdentity(state: string): Promise<{ teamId: string }> {
+ * identity carried in `state` to the logged-in account.
+ *
+ * Linking is only half the flow. `authorizationUrl` is Slack's per-person
+ * consent screen, and the user token it mints is the only way Souvenir can read
+ * Slack as the member rather than as the bot — searching their own messages
+ * included. Dropping it leaves every identity linked but tokenless, so the
+ * caller must send them there. */
+export async function linkSlackIdentity(
+  state: string,
+): Promise<{ teamId: string; authorizationUrl: string }> {
   const data = await apiFetchJson<SlackLinkResponseRaw>(SLACK_LINK_ENDPOINT, {
     method: 'POST',
     body:   JSON.stringify({ state }),
   })
-  return { teamId: data.team_id }
+  return { teamId: data.team_id, authorizationUrl: data.authorization_url }
 }
 
 /** DELETE /slack/link — unlink the user's Slack identity from every workspace. */

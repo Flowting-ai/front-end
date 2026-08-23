@@ -35,11 +35,14 @@ import { ConnectPromptCard } from '@/components/chat/ConnectorPrompts'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { ChatPromptCard } from '@/components/chat/ChatPromptCard'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
+import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
+import { ArtifactCard } from '@/templates/Brain/ArtifactCard'
+import { ExternalOutputCard } from '@/templates/Brain/ExternalOutputCard'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
 import { getAllVersionTags } from '@/lib/version-tags'
 import { formatServerDateTime } from '@/lib/utils/format-utils'
@@ -601,11 +604,46 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
             <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
               {msg.role === 'assistant' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                  {(msg.thinking || msg.reasoningSections?.length) && (
+                    <ReasoningBlock
+                      thinkingContent={msg.thinking ?? ''}
+                      reasoningSections={msg.reasoningSections}
+                      isThinkingInProgress={Boolean(msg.isStreaming && !msg.text)}
+                      isNewMessage
+                    />
+                  )}
                   {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
                   {msg.isStreaming && !msg.text && (
                     <BreathingDot size="md" style={{ marginLeft: 4, backgroundColor: 'var(--neutral-400)' }} />
                   )}
                   {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
+                  {msg.images && msg.images.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {msg.images.map((image, index) => (
+                        <a key={`${image.url}-${index}`} href={image.url} target="_blank" rel="noopener noreferrer">
+                          <Image src={image.url} alt="Generated image" width={240} height={160} unoptimized style={{ display: 'block', maxWidth: '100%', height: 'auto', borderRadius: 10 }} />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {msg.generatedFiles?.map((file) => (
+                    <ArtifactCard
+                      key={`${file.url}-${file.filename}`}
+                      title={file.filename}
+                      meta={file.mimeType}
+                      onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}
+                    />
+                  ))}
+                  {msg.externalOutputActions && msg.externalOutputActions.length > 0 && (
+                    <ExternalOutputCard actions={msg.externalOutputActions.map((action) => ({
+                      verb: action.verb,
+                      target: action.target,
+                      connector: action.connector,
+                      logoSrc: action.logo_url ?? undefined,
+                      detail: action.detail ?? undefined,
+                      onView: action.view_url ? () => window.open(action.view_url!, '_blank', 'noopener,noreferrer') : undefined,
+                    }))} />
+                  )}
                   {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
                   {msg.permissionPrompts?.map(p => (
                     <PermissionPromptCard
@@ -733,7 +771,18 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
             guideMessages.map(msg => (
               <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                 {msg.role === 'assistant' ? (
-                  <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                    {(msg.thinking || msg.reasoningSections?.length) && (
+                      <ReasoningBlock
+                        thinkingContent={msg.thinking ?? ''}
+                        reasoningSections={msg.reasoningSections}
+                        isThinkingInProgress={Boolean(msg.isStreaming && !msg.text)}
+                        isNewMessage
+                      />
+                    )}
+                    {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
+                    <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
+                  </div>
                 ) : (
                   <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
                     {msg.text}

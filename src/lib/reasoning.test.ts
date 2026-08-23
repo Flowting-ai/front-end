@@ -6,8 +6,10 @@ import {
   createReasoningAccumulator,
   deriveReasoningSections,
   eventRoundIndex,
+  groupReasoningTimeline,
   normalizeReasoningSections,
   reasoningEventText,
+  splitHeading,
   splitReasoningText,
 } from '@/lib/reasoning'
 
@@ -36,25 +38,15 @@ describe('ordered reasoning timeline', () => {
 })
 
 describe('reasoning stream accumulation', () => {
-  it('reads both current content payloads and legacy delta payloads', () => {
+  it('reads the CUSTOM reasoning payload content field only', () => {
     expect(reasoningEventText({ content: 'content value' })).toBe('content value')
-    expect(reasoningEventText({ delta: 'delta value' })).toBe('delta value')
+    expect(reasoningEventText({ delta: 'delta value' })).toBe('')
   })
 
   it('reads the round index only from a numeric round_index', () => {
     expect(eventRoundIndex({ round_index: 2 })).toBe(2)
     expect(eventRoundIndex({ round_index: '2' })).toBeUndefined()
     expect(eventRoundIndex({})).toBeUndefined()
-  })
-
-  it('merges legacy delta and snapshot events without duplication', () => {
-    const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning', 'Clarifying')
-    reasoning.event('reasoning', ' user intent')
-    reasoning.event('reasoning', 'Clarifying user intent')
-    reasoning.event('reasoning', 'Clarifying user intent')
-
-    expect(reasoning.text()).toBe('Clarifying user intent')
   })
 
   it('builds multiple structured sections and merges body snapshots', () => {
@@ -108,9 +100,9 @@ describe('reasoning stream accumulation', () => {
 
   it('interleaves tool activities with reasoning segments', () => {
     const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning', 'Before the tool.', 0)
+    reasoning.event('reasoning_body', 'Before the tool.', 0)
     reasoning.activity('tool-0', 0)
-    reasoning.event('reasoning', 'After the tool.', 1)
+    reasoning.event('reasoning_body', 'After the tool.', 1)
 
     expect(reasoning.timeline()).toEqual([
       { kind: 'reasoning', id: 'reasoning-0', content: 'Before the tool.', roundIndex: 0 },
@@ -131,24 +123,12 @@ describe('reasoning stream accumulation', () => {
     const reasoning = createReasoningAccumulator()
     reasoning.event('reasoning_heading', 'Superseded')
     reasoning.step({ heading: 'Second', body: '' }, 1)
-    reasoning.step({ heading: 'First', body: '', detail: 'now' }, 0)
+    reasoning.step({ heading: 'First', body: '' }, 0)
 
     expect(reasoning.sections()).toEqual([
-      { heading: 'First', body: '', detail: 'now' },
+      { heading: 'First', body: '' },
       { heading: 'Second', body: '' },
     ])
-  })
-
-  it('keeps the sections reference stable across plain reasoning deltas', () => {
-    const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning_heading', 'Checking context')
-    const before = reasoning.sections()
-    reasoning.event('reasoning', 'more raw thinking')
-
-    expect(reasoning.sections()).toBe(before)
-
-    reasoning.event('reasoning_body', 'now the section changed')
-    expect(reasoning.sections()).not.toBe(before)
   })
 
   it('appends preview steps in arrival order when no index is given', () => {
@@ -177,7 +157,7 @@ describe('reasoning normalization', () => {
   })
 })
 
-describe('reasoning inline-title splitting (stale prod backend)', () => {
+describe('reasoning markdown-title rendering', () => {
   it('splits bold-only title lines into sections, mirroring the backend', () => {
     const text = [
       '**Creating a CSV file**',
@@ -276,5 +256,51 @@ describe('reasoning inline-title splitting (stale prod backend)', () => {
     // No derivable heading anywhere → fall back to the passed sections as-is.
     const plain = [{ heading: '', body: 'plain' }]
     expect(deriveReasoningSections(plain, '')).toBe(plain)
+  })
+})
+
+describe('splitHeading', () => {
+  it('splits a heading phrase into a leading verb and the remainder', () => {
+    expect(splitHeading('Clarifying user intent')).toEqual({ verb: 'Clarifying', rest: 'user intent' })
+  })
+
+  it('leaves a single-word heading with an empty remainder', () => {
+    expect(splitHeading('Summarizing')).toEqual({ verb: 'Summarizing', rest: '' })
+  })
+
+  it('strips markdown markers before splitting', () => {
+    expect(splitHeading('**Analyzing Shopify data**')).toEqual({ verb: 'Analyzing', rest: 'Shopify data' })
+  })
+})
+
+describe('groupReasoningTimeline', () => {
+  it('merges consecutive activities into one group', () => {
+    expect(groupReasoningTimeline([
+      { kind: 'reasoning', id: 'r-1', content: 'A' },
+      { kind: 'activity', id: 't-1', activityId: 'a-1' },
+      { kind: 'activity', id: 't-2', activityId: 'a-2' },
+      { kind: 'reasoning', id: 'r-2', content: 'B' },
+      { kind: 'activity', id: 't-3', activityId: 'a-3' },
+    ])).toEqual([
+      { kind: 'reasoning', id: 'r-1', contents: ['A'] },
+      { kind: 'activities', id: 't-1', activityIds: ['a-1', 'a-2'] },
+      { kind: 'reasoning', id: 'r-2', contents: ['B'] },
+      { kind: 'activities', id: 't-3', activityIds: ['a-3'] },
+    ])
+  })
+
+  it('merges adjacent reasoning segments so the connector runs unbroken', () => {
+    expect(groupReasoningTimeline([
+      { kind: 'reasoning', id: 'r-1', content: 'A' },
+      { kind: 'reasoning', id: 'r-2', content: 'B' },
+      { kind: 'activity', id: 't-1', activityId: 'a-1' },
+    ])).toEqual([
+      { kind: 'reasoning', id: 'r-1', contents: ['A', 'B'] },
+      { kind: 'activities', id: 't-1', activityIds: ['a-1'] },
+    ])
+  })
+
+  it('returns an empty list for an empty timeline', () => {
+    expect(groupReasoningTimeline([])).toEqual([])
   })
 })

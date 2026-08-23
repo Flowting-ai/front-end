@@ -16,8 +16,8 @@ import {
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
-import { HybridSSEDecoder } from "@/lib/sse-decoder"
-import { isResponseBlock, responseBlockFromEventPayload } from "@/lib/response-blocks"
+import { AguiSSEDecoder } from "@/lib/sse-decoder"
+import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import {
@@ -25,6 +25,7 @@ import {
   eventRoundIndex,
   reasoningEventText,
 } from "@/lib/reasoning"
+import { normalizeActivityStatus, toolNameToType, webSearchResults } from "@/lib/activity"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -77,9 +78,6 @@ export interface UseStreamingChatParams {
   /** Ref to the chatId currently displayed in the UI. When provided, setStreamState calls are
    *  suppressed for background streams whose chatId no longer matches what is displayed. */
   currentChatIdRef?: React.RefObject<string | undefined>
-  /** When true, model_selected SSE events are ignored. Use in persona chat where the model is
-   *  pre-seeded from the agent's configured version and must not be overwritten by the backend. */
-  skipModelSelected?: boolean
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -99,7 +97,6 @@ export function useStreamingChat({
   directEndpoints,
   onStopBackend,
   currentChatIdRef,
-  skipModelSelected,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -275,7 +272,7 @@ export function useStreamingChat({
       // Direct-to-backend requests must opt into the AG-UI stream themselves;
       // proxied requests get the parameter added by the proxy route.
       const resolvedEndpoint = useDirectBackend
-        ? `${directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)}?protocol=agui`
+        ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
         : endpoint
 
       const fd = new FormData()
@@ -313,7 +310,7 @@ export function useStreamingChat({
       }
       options?.files?.forEach((f) => fd.append("files", f))
 
-      const sseDecoder = new HybridSSEDecoder()
+      const sseDecoder = new AguiSSEDecoder()
 
       // ── SSE processor ─────────────────────────────────────────────────────
       // Called with each new text slice arriving from the XHR response stream.
@@ -323,25 +320,20 @@ export function useStreamingChat({
         if (flush) decodedEvents.push(...sseDecoder.flush())
 
         for (const decoded of decodedEvents) {
-          if (decoded.kind === "agui" && decoded.event.type === "RUN_STARTED") {
+          if (decoded.event.type === "RUN_STARTED") {
             // threadId is the chat id. This is the primary id source for new
             // chats on direct streams: the X-Chat-Id response header is not
             // CORS-exposed, so cross-origin JS can't read it.
             adoptChatId(decoded.event.threadId)
             if (isActiveStream()) setStreamState?.("streaming")
           }
-          // The reasoning phase is over (tool round or answer starting) —
-          // clear the thinking indicator, as the legacy intermediate `done`
-          // frames used to.
-          if (decoded.kind === "agui" && decoded.event.type === "THINKING_END") {
+          // The reasoning phase is over when AG-UI closes its thinking span.
+          if (decoded.event.type === "THINKING_END") {
             queueUpdate({ isThinkingInProgress: false }, true)
           }
 
-          const internal = decoded.kind === "agui"
-            ? decoded.internal
-            : { eventName: decoded.name, parsed: decoded.data }
-          if (!internal) continue
-          const { eventName, parsed } = internal
+          if (!decoded.appEvent) continue
+          const { eventName, parsed } = decoded.appEvent
 
           // ── Universal file_attachments extractor ──────────────────────────
           // Run before any specific handler so file links are captured
@@ -427,29 +419,7 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "research_title") {
-            const researchTitle = asString(parsed.text ?? parsed.title ?? parsed.content)
-            if (researchTitle) queueUpdate({ researchTitle }, true)
-            continue
-          }
-
-          if (eventName === "reasoning_step") {
-            const index = typeof parsed.index === "number" ? parsed.index : undefined
-            const heading = asString(parsed.verb ?? parsed.heading)
-            const detail = asString(parsed.detail)
-            const body = asString(parsed.summary ?? parsed.body)
-            if (heading) {
-              reasoning.step({ heading, body: body ?? "", ...(detail ? { detail } : {}) }, index)
-              queueUpdate({
-                reasoning_sections: reasoning.sections(),
-                isThinkingInProgress: true,
-                isLoading: true,
-              }, true)
-            }
-            continue
-          }
-
-          if (eventName === "reasoning" || eventName === "reasoning_heading" || eventName === "reasoning_body") {
+          if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
             const wasEmpty = reasoning.isEmpty()
             reasoning.event(eventName, reasoningEventText(parsed), eventRoundIndex(parsed))
             const sections = reasoning.sections()
@@ -463,15 +433,8 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "chunk" || eventName === "content") {
-            // AG-UI's TEXT_MESSAGE_CONTENT is normalized to eventName "chunk"
-            // with the text in `delta` (see agui/to-legacy.ts). The legacy
-            // inline event (still sent by backends not yet on AG-UI — see
-            // production's raw `{"type":"content",...}` frames) keeps its raw
-            // `type` as the eventName ("content") and carries the text in
-            // `content` instead — accept both the name and the field.
-            const delta = typeof parsed.delta === "string" ? parsed.delta
-              : typeof parsed.content === "string" ? parsed.content : ""
+          if (eventName === "content") {
+            const delta = typeof parsed.content === "string" ? parsed.content : ""
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, delta)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
@@ -489,18 +452,10 @@ export function useStreamingChat({
 
           if (eventName === "message_saved") {
             // Backend confirmed the message was persisted.
-            // The payload IS the saved message object (top-level fields) or may
-            // wrap it under parsed.message / parsed.data.
             const evtChatId = extractChatId(parsed)
             if (evtChatId) adoptChatId(evtChatId)
 
-            // The backend sends the full persisted message at top-level in this event.
-            // Also support legacy nesting under parsed.message / parsed.data.
-            const savedMsg = (
-              typeof (parsed.message ?? parsed.data) === "object" && (parsed.message ?? parsed.data) !== null
-                ? (parsed.message ?? parsed.data)
-                : parsed
-            ) as Record<string, unknown>
+            const savedMsg = parsed
 
             const msgId = loadingMessageIdRef.current
 
@@ -509,7 +464,7 @@ export function useStreamingChat({
             // temp "loading-assistant-…" ID is never replaced and features
             // like pinning will fail because the backend doesn't know that ID.
             const realMessageId =
-              asString(savedMsg.message_id ?? savedMsg.id ?? parsed.message_id ?? parsed.messageId)
+              asString(savedMsg.message_id)
             if (realMessageId && msgId && realMessageId !== msgId) {
               loadingMessageIdRef.current = realMessageId
               setMessages((prev) =>
@@ -647,92 +602,13 @@ export function useStreamingChat({
               }
             }
 
-            // ── response_blocks (structured content including tags) ────────────
-            // The backend includes response_blocks in the message_saved payload
-            // for any structured content generated during streaming. Merge them
-            // into the message so that tags are available when the user pins.
-            const rawResponseBlocks = Array.isArray(savedMsg.response_blocks)
-              ? (savedMsg.response_blocks as Array<Record<string, unknown>>)
-              : null
-            if (rawResponseBlocks && rawResponseBlocks.length > 0 && currentMsgId) {
-              const validBlocks = rawResponseBlocks.filter(isResponseBlock)
-              if (validBlocks.length > 0) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== currentMsgId) return msg
-                    const existing = msg.responseBlocks ?? []
-                    // Only add blocks not already delivered by live block events.
-                    const toAdd = validBlocks.filter((b) => !existing.some((e) => e.kind === b.kind))
-                    return toAdd.length > 0
-                      ? { ...msg, responseBlocks: [...existing, ...toAdd] }
-                      : msg
-                  }),
-                )
-              }
-            }
-
-            continue
-          }
-
-          if (eventName === "model_selected") {
-            // In persona chat the model is pre-seeded from the agent's configured
-            // version; ignore the backend event to avoid overwriting the correct info.
-            if (skipModelSelected) continue
-            // Backend selected a model - update the loading message with model info.
-            // Muse-routed responses now omit model_name entirely (the whole point
-            // of the tier rebrand is to never reveal the underlying provider
-            // model) and send only `complexity` — so this can't require
-            // modelName to be present, or every Muse event gets silently
-            // dropped and modelMeta/complexity never reaches the message at all.
-            const modelName = asString(parsed.model_name) ?? asString(parsed.modelName)
-            const complexity = asString(parsed.complexity)
-            if (modelName || complexity) {
-              queueUpdate({
-                // Only include modelName when we actually have one — queueUpdate/
-                // applyUpdate shallow-merge onto the existing message, so an
-                // explicit `modelName: undefined` here would clobber a value
-                // set by an earlier partial update instead of just leaving it.
-                ...(modelName ? { modelName } : null),
-                modelMeta: {
-                  modelId: asString(parsed.model_id) ?? "",
-                  modelName: modelName ?? "",
-                  deploymentName: asString(parsed.deployment_name),
-                  company: asString(parsed.company),
-                  complexity,
-                  thinkingEnabled: parsed.thinking_enabled === true,
-                  effort: asString(parsed.effort),
-                },
-              }, true)
-            }
             continue
           }
 
           if (eventName === "web_search") {
-            // Web search activity - schema: {query, links[]}
+            // Web search activity - schema: {query, links[], results[]}
             const query = asString(parsed.query) ?? ""
-            const rawLinks = Array.isArray(parsed.links) ? parsed.links : []
-            const results = rawLinks
-              .slice(0, 6)
-              .flatMap((link: unknown): { title: string; url?: string; domain?: string }[] => {
-                if (typeof link === "string") {
-                  try {
-                    const url = new URL(link)
-                    return [{ title: url.hostname + url.pathname.slice(0, 40), url: link, domain: url.hostname }]
-                  } catch { return [{ title: link, url: link, domain: "" }] }
-                }
-                if (typeof link === "object" && link !== null) {
-                  const obj = link as Record<string, unknown>
-                  const url = asString(obj.url) ?? ""
-                  let domain = ""
-                  try { domain = new URL(url).hostname } catch { /* ignore */ }
-                  return [{
-                    title: asString(obj.title) ?? url,
-                    url,
-                    domain: asString(obj.domain) ?? domain,
-                  }]
-                }
-                return []
-              })
+            const results = webSearchResults(parsed.links, parsed.results)
 
             const activity: import("@/hooks/use-chat-state").ActivityItem = {
               id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -791,12 +667,13 @@ export function useStreamingChat({
             // Tool progress - schema: {tool, label, status, filename, step?, message?, code_preview?}
             const toolName = asString(parsed.tool) ?? "unknown"
             const label = asString(parsed.label)
-            const status = asString(parsed.status) ?? "start"
+            const status = normalizeActivityStatus(asString(parsed.status))
             const filename = asString(parsed.filename)
             const progressMessage = asString(parsed.message)
             const codePreview = asString(parsed.code_preview)
             // Prefer the activityId linked from tool_executing; fall back to constructed key
             const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${filename ?? "default"}`
+            if (status === "error") erroredToolNames.add(toolName)
 
             const activityType = toolNameToType(toolName)
             reasoning.activity(activityId, eventRoundIndex(parsed))
@@ -814,7 +691,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === activityId
-                          ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
+                          ? { ...a, status, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
                           : a,
                       ),
                       reasoningTimeline: reasoning.timeline(),
@@ -827,7 +704,7 @@ export function useStreamingChat({
                     toolName,
                     label,
                     detail: label || progressMessage || filename || toolName,
-                    status: status as import("@/hooks/use-chat-state").ActivityStatus,
+                    status,
                     filename,
                     progressMessage,
                     codePreview,
@@ -955,7 +832,7 @@ export function useStreamingChat({
 
           if (eventName === "tool_connect_prompt") {
             // Backend requests the user to link a connector before the tool can run.
-            // Schema: { connector_slug, display_name, auth_mode, tool_name, request_id, api_key_fields?, icon_url? }
+            // Schema: { connector_slug, display_name, auth_mode, tool_slug, prompt_id, api_key_fields?, icon_url? }
             // api_key_fields is an array of ApiKeyField objects: { name, label, help?, secret, required }
             type ApiKeyField = import("@/lib/api/connectors").ApiKeyField
             const rawFields = parsed.api_key_fields
@@ -967,11 +844,11 @@ export function useStreamingChat({
                 )
               : undefined
             const prompt: import("@/hooks/use-chat-state").ConnectorConnectPrompt = {
-              request_id:      asString(parsed.request_id) ?? `ccp-${Date.now()}`,
+              request_id:      asString(parsed.prompt_id) ?? `ccp-${Date.now()}`,
               connector_slug:  asString(parsed.connector_slug) ?? "",
               display_name:    asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
               auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
-              tool_name:       asString(parsed.tool_name) ?? "",
+              tool_name:       asString(parsed.tool_slug) ?? "",
               api_key_fields:  apiKeyFields,
               icon_url:        asString(parsed.icon_url),
             }
@@ -990,7 +867,7 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "user_prompt" || eventName === "questions" || eventName === "question_prompt" || eventName === "approval_prompt") {
+          if (eventName === "user_prompt" || eventName === "question_prompt" || eventName === "approval_prompt") {
             const prompt = parseChatPrompt(eventName, parsed)
             if (!prompt) continue
             const promptId = prompt.request_id
@@ -1007,11 +884,11 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "permission_prompt" || eventName === "tool_permission_prompt") {
+          if (eventName === "permission_prompt") {
             // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
             // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
             // to unblock the stream. parsePermissionPrompt zod-validates the payload and
-            // folds legacy `request_id`/`tool_name` streams into the canonical shape.
+            // returns the canonical permission-prompt shape.
             const prompt = parsePermissionPrompt(parsed)
             if (!prompt) continue
             const msgId = loadingMessageIdRef.current
@@ -1025,33 +902,6 @@ export function useStreamingChat({
                 }),
               )
             }
-            continue
-          }
-
-          if (eventName === "prompt_timeout" || eventName === "prompt_resolved") {
-            // The backend stopped waiting on a prompt (answered — maybe from
-            // another tab — or expired). Retire the card; a late POST would 404.
-            const promptId = asString(parsed.prompt_id)
-            if (!promptId) continue
-            setMessages((prev) =>
-              prev.map((msg) => {
-                const perms = msg.connectorPermissionPrompts
-                const connects = msg.connectorConnectPrompts
-                const prompts = msg.chatPrompts
-                if (!perms?.some((p) => p.request_id === promptId) &&
-                    !connects?.some((p) => p.request_id === promptId) &&
-                    !prompts?.some((p) => p.request_id === promptId)) return msg
-                const decision = eventName === "prompt_resolved" ? "resolved" : "timeout"
-                return {
-                  ...msg,
-                  connectorPermissionPrompts: perms?.map((p) =>
-                    p.request_id === promptId ? { ...p, decision } : p),
-                  connectorConnectPrompts: connects?.filter((p) => p.request_id !== promptId),
-                  chatPrompts: prompts?.map((p) =>
-                    p.request_id === promptId ? { ...p, decision } : p),
-                }
-              }),
-            )
             continue
           }
 
@@ -1700,17 +1550,4 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : undefined
-}
-
-/** Maps backend tool names to our ActivityType for display purposes. */
-function toolNameToType(toolName: string): import("@/hooks/use-chat-state").ActivityType {
-  const lower = toolName.toLowerCase()
-  if (lower === "web_search" || lower.includes("search")) return "web-search"
-  if (lower === "read_pages" || lower.includes("read_pdf")) return "read-pages"
-  if (lower === "csv_execute" || lower.includes("csv")) return "csv-execute"
-  if (lower === "fetch_resource" || lower.includes("fetch")) return "fetch-resource"
-  if (lower === "doc_execute") return "doc-execute"
-  if (lower === "docx_execute" || lower.includes("docx") || lower.includes("document")) return "docx-progress"
-  if (lower === "skills") return "skills"
-  return "tool-call"
 }

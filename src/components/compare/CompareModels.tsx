@@ -18,7 +18,7 @@ import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
-import { HybridSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
+import { AguiSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
@@ -31,6 +31,8 @@ import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { BreathingDot } from "@/components/BreathingDot";
+import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
+import { createReasoningAccumulator, type ReasoningSection } from "@/lib/reasoning";
 
 // â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -719,6 +721,24 @@ export interface CompareModelsProps {
   onClose?: () => void;
 }
 
+type CompareReasoning = { text: string; sections: ReasoningSection[] };
+
+function ModelReasoning({ reasoning, streaming, hasAnswer }: {
+  reasoning?: CompareReasoning;
+  streaming: boolean;
+  hasAnswer: boolean;
+}) {
+  if (!reasoning?.text && !reasoning?.sections.length) return null;
+  return (
+    <ReasoningBlock
+      thinkingContent={reasoning.text}
+      reasoningSections={reasoning.sections}
+      isThinkingInProgress={streaming && !hasAnswer}
+      isNewMessage
+    />
+  );
+}
+
 export default function CompareModels({ selectedModel, onModelSelect, onClose }: CompareModelsProps = {}) {
   void selectedModel;
 
@@ -728,6 +748,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [models,               setModels]                = useState<CompareModel[]>([]);
   const [isLoading,            setIsLoading]             = useState(true);
   const [testResponses,        setTestResponses]         = useState<Record<string, string>>({});
+  const [testReasoning,        setTestReasoning]         = useState<Record<string, CompareReasoning>>({});
   const [isTesting,            setIsTesting]             = useState(false);
   const [streamingModels,      setStreamingModels]       = useState<Set<string>>(new Set());
   const [fullModels,           setFullModels]            = useState<AIModel[]>([]);
@@ -953,6 +974,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setPrompt("");
     setIsTesting(true);
     setTestResponses({});
+    setTestReasoning({});
     setTestCredits({});
     setTestMessageIds({});
     setStreamingModels(new Set());
@@ -983,6 +1005,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       const trimmedPrompt = prompt.trim();
 
       const streamingResponses: Record<string, string> = {};
+      const reasoningByModel = new Map(selectedModels.map((id) => [id, createReasoningAccumulator()]));
       const selectedModelSet = new Set(selectedModels);
       selectedModels.forEach((id) => { streamingResponses[id] = ""; });
 
@@ -1007,23 +1030,27 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         }
 
         switch (eventType) {
-          case "metadata":
-          case "start":
-            setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-            break;
-          case "content":
-          case "chunk": {
-            const chunk =
-              typeof payload.content === "string" ? payload.content
-              : typeof payload.delta  === "string" ? payload.delta
-              : "";
+          case "content": {
+            const chunk = typeof payload.content === "string" ? payload.content : "";
             if (!chunk) return;
             streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
             setStreamingModels((prev) => new Set(prev).add(modelIdStr));
             setTestResponses({ ...streamingResponses });
             break;
           }
-          case "reasoning": break;
+          case "reasoning_heading":
+          case "reasoning_body": {
+            const accumulator = reasoningByModel.get(modelIdStr) ?? createReasoningAccumulator();
+            reasoningByModel.set(modelIdStr, accumulator);
+            const content = typeof payload.content === "string" ? payload.content : "";
+            accumulator.event(eventType, content);
+            const snapshot = accumulator.snapshot();
+            setTestReasoning((prev) => ({
+              ...prev,
+              [modelIdStr]: { text: snapshot.text, sections: snapshot.sections },
+            }));
+            break;
+          }
           case "image": {
             const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
             if (!imageUrl) return;
@@ -1031,8 +1058,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             setTestResponses({ ...streamingResponses });
             break;
           }
-          case "done":
-          case "end": {
+          case "done": {
             const final = typeof payload.response === "string" ? payload.response : "";
             if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
             const creditsRaw =
@@ -1058,11 +1084,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           }
           case "tool_connect_prompt": {
             const prompt: ConnectorConnectPrompt = {
-              request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `ccp-${Date.now()}`,
+              request_id:     typeof payload.prompt_id      === "string" ? payload.prompt_id      : `ccp-${Date.now()}`,
               connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
               display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
               auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
-              tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+              tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
               icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
             };
             setConnectPromptsPerModel((prev) => ({
@@ -1071,7 +1097,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             }));
             break;
           }
-          case "tool_permission_prompt": {
+          case "permission_prompt": {
             const prompt = parsePermissionPrompt(payload);
             if (!prompt) break;
             setPermissionPromptsPerModel((prev) => ({
@@ -1084,21 +1110,21 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       };
 
       const processDecodedEvent = (event: DecodedSSEEvent, fallbackModelId?: string) => {
-        if (event.kind === "agui") {
-          if (!event.internal) return;
-          handleEvent(
-            event.internal.eventName,
-            { ...event.raw, ...event.internal.parsed },
-            fallbackModelId,
-          );
-          return;
-        }
-        handleEvent(event.name, event.data, fallbackModelId);
+        if (!event.appEvent) return;
+        const rawEvent = event.raw.rawEvent;
+        const modelTag = rawEvent && typeof rawEvent === "object"
+          ? rawEvent as Record<string, unknown>
+          : {};
+        handleEvent(
+          event.appEvent.eventName,
+          { ...event.raw, ...modelTag, ...event.appEvent.parsed },
+          fallbackModelId,
+        );
       };
 
       // Fire one request per model in parallel so all columns stream simultaneously
       await Promise.all(validModelIds.map(async (modelId) => {
-        const sseDecoder = new HybridSSEDecoder();
+        const sseDecoder = new AguiSSEDecoder();
         const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
           method: "POST",
           body: JSON.stringify({
@@ -1282,6 +1308,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 {expandedModel && (() => {
                   const responseKey      = expandedModel.requestModelId ?? expandedModel.id;
                   const modelResponse    = testResponses[responseKey];
+                  const modelReasoning   = testReasoning[responseKey];
                   const isModelStreaming = streamingModels.has(responseKey);
                   const credits          = testCredits[responseKey];
                   return (
@@ -1295,6 +1322,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     >
                       {/* Response area */}
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
+                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
@@ -1353,6 +1381,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 {modelsToShow.map((model) => {
                   const responseKey      = model.requestModelId ?? model.id;
                   const modelResponse    = testResponses[responseKey];
+                  const modelReasoning   = testReasoning[responseKey];
                   const isModelStreaming = streamingModels.has(responseKey);
                   const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                   const credits          = testCredits[responseKey];
@@ -1401,7 +1430,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         </Button>
                       </div>
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center" }}>
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse || modelReasoning ? "flex-start" : "center", justifyContent: modelResponse || modelReasoning ? "flex-start" : "center" }}>
+                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />

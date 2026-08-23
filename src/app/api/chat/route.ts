@@ -72,11 +72,9 @@ export async function POST(request: NextRequest) {
   // /chats endpoints and pass persona_id as a body field. This lets style, web
   // search, pin folders, reasoning, etc. compose with a selected persona.
   const isExistingChat = Boolean(chatId && !String(chatId).startsWith("temp-"))
-  // ?protocol=agui: stream AG-UI protocol events (the format the FE parses —
-  // see src/lib/agui) instead of the legacy SSE frames.
   const endpoint = isExistingChat && chatId
-    ? `${BACKEND_BASE}/chats/${chatId}/stream?protocol=agui`
-    : `${BACKEND_BASE}/chats/create?protocol=agui`
+    ? `${BACKEND_BASE}/chats/${chatId}/stream`
+    : `${BACKEND_BASE}/chats/create`
 
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()
@@ -133,52 +131,30 @@ export async function POST(request: NextRequest) {
     responseHeaders["X-Chat-Id"] = backendChatId
   }
 
-  const encoder = new TextEncoder()
   const backendReader = backendResponse.body.getReader()
 
-  // Track the keepalive timer outside the ReadableStream so cancel() can clear it
-  let keepAliveId: ReturnType<typeof setInterval> | null = null
-
-  // Reset (or start) the keepalive timer.  Sends an SSE comment every 15 s while
-  // the backend is silent so that load-balancers / intermediate proxies do NOT
-  // close what they perceive as an idle connection (common cause of Claude streams
-  // being cut off during its extended-thinking phase).
-  const resetKeepAlive = (controller: ReadableStreamDefaultController<Uint8Array>) => {
-    if (keepAliveId !== null) clearInterval(keepAliveId)
-    keepAliveId = setInterval(() => {
-      try { controller.enqueue(encoder.encode(": ka\n\n")) } catch { /* stream already closed */ }
-    }, 15_000)
-  }
-
   // Use a ReadableStream with explicit start/cancel so the backend connection is
-  // properly released when the client disconnects, and the keepalive timer is
-  // always cleared on teardown.
+  // properly released when the client disconnects. The backend already emits
+  // complete AG-UI stream_heartbeat frames; injecting comments here can split a
+  // data line when a backend chunk ends mid-frame and corrupt its JSON.
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      resetKeepAlive(controller)
       try {
         while (true) {
-          // eslint-disable-next-line no-await-in-loop -- sequential stream reader; chunks must arrive in order
           const { value, done } = await backendReader.read()
           if (done) {
             try { controller.close() } catch { /* already closed */ }
             break
           }
           controller.enqueue(value)
-          // Each received chunk resets the keepalive timer so it only fires
-          // during genuine idle gaps (e.g. Claude thinking silently).
-          resetKeepAlive(controller)
         }
       } catch {
         // Backend stream error or client disconnect – close cleanly
         try { controller.close() } catch { /* already closed */ }
-      } finally {
-        if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       }
     },
     cancel() {
       // Client disconnected – stop reading from the backend immediately
-      if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       backendReader.cancel().catch(() => {})
     },
   })

@@ -207,12 +207,10 @@ interface BackendMessage {
   // Web search sources attached to the message
   sources?: Array<{ id?: string; url?: string; title?: string; favicon?: string; domain?: string }> | null;
   web_citations?: Array<{ title?: string; url?: string; domain?: string }> | null;
-  // Structured web searches (query + link URLs)
-  web_searches?: Array<{ query: string; links: string[] }> | null;
+  // Structured web searches (query + link URLs + per-result metadata)
+  web_searches?: Array<{ query: string; links: string[]; results?: Array<Record<string, unknown>> }> | null;
   // Structured reasoning steps
   reasoning_sections?: ReasoningSection[] | null;
-  // Structured response blocks persisted by the backend (table, chart, steps, etc.)
-  response_blocks?: Array<{ kind: string; [key: string]: unknown }> | null;
 }
 
 /** Normalize a backend message entry into one or two Message objects. */
@@ -273,10 +271,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         web_searches: raw.web_searches ?? undefined,
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
-        response_blocks: Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
-          ? raw.response_blocks.filter((b): b is { kind: string; [key: string]: unknown } =>
-              b !== null && typeof b === "object" && typeof (b as Record<string, unknown>).kind === "string")
-          : undefined,
       });
     }
     return messages;
@@ -292,11 +286,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     ? (raw.image_links.filter((u): u is string => typeof u === "string" && u.length > 0))
     : undefined;
 
-  const singleResponseBlocks = role === "assistant" && Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
-    ? raw.response_blocks.filter((b): b is { kind: string; [key: string]: unknown } =>
-        b !== null && typeof b === "object" && typeof (b as Record<string, unknown>).kind === "string")
-    : undefined;
-
   return [{
     id: baseId,
     role,
@@ -310,7 +299,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     web_searches: raw.web_searches ?? undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
     image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
-    ...(singleResponseBlocks ? { response_blocks: singleResponseBlocks } : {}),
   }];
 }
 
@@ -350,11 +338,23 @@ function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
         title: s.title ?? s.url ?? "",
       }] : []);
   }
-  // web_searches format: [{query, links: string[]}] - links are bare URLs
+  // web_searches format: [{query, links: string[], results: [{url, title, ...}]}].
+  // `results` carries the real page titles; `links` are bare URLs, so a search
+  // saved without metadata falls back to a title derived from the URL itself.
   if (Array.isArray(raw.web_searches) && raw.web_searches.length > 0) {
+    const titleByUrl = new Map<string, string>();
+    for (const ws of raw.web_searches) {
+      for (const result of ws.results ?? []) {
+        const url = typeof result.url === "string" ? result.url : "";
+        const title = typeof result.title === "string" ? result.title.trim() : "";
+        if (url && title) titleByUrl.set(url, title);
+      }
+    }
     const allLinks = raw.web_searches.flatMap((ws) => (ws.links ?? []).filter(Boolean));
     if (allLinks.length > 0) {
       return allLinks.map((url, i) => {
+        const known = titleByUrl.get(url);
+        if (known) return { id: String(i), url, title: known };
         let domain = "";
         let title = url;
         try {

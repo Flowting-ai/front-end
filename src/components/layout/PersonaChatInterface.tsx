@@ -230,9 +230,6 @@ export function PersonaChatInterface({
       stream: (chatId) => PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId),
     },
     onStopBackend: handleStopBackend,
-    // Persona model is pre-seeded from the agent's configured version; ignore
-    // backend model_selected events so the correct name/logo always shows.
-    skipModelSelected: true,
   });
 
   // ── Persona load + model sync ─────────────────────────────────────────────
@@ -640,8 +637,7 @@ export function PersonaChatInterface({
       chat_id: activeChatId ?? "",
       isLoading: true,
       // Seed model info from the resolved persona model so the reasoning block
-      // shows the correct name/logo immediately. model_selected SSE events will
-      // overwrite this if the backend emits them.
+      // shows the correct name/logo immediately.
       // Use selectedModelRef (not selectedModel) — handleSend's closure is stale.
       ...(selectedModelRef.current ? {
         modelName: selectedModelRef.current.modelName,

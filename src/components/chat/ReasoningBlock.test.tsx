@@ -47,21 +47,75 @@ describe('ReasoningContent', () => {
     expect(html).not.toContain('The raw fallback must not replace structured sections.')
   })
 
-  it('shows only backend-supplied detail beside a reasoning heading', () => {
+  it('splits a heading into a bold verb and a muted remainder', () => {
     const html = renderToStaticMarkup(
       <ReasoningContent
         thinkingContent=""
         reasoningSections={[{
-          heading: 'Planned',
-          detail: 'what to search for and in what order',
+          heading: 'Planned what to search for and in what order',
           body: 'This full summary should stay inside the expandable block.',
         }]}
         isStreaming={false}
       />,
     )
 
-    expect(html).toContain('what to search for and in what order')
+    expect(html).toContain('>Planned</strong> what to search for and in what order')
     expect(html).not.toContain('This full summary should stay inside the expandable block.')
+  })
+
+  it('keeps a single-word heading whole with no trailing remainder', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningSections={[{ heading: 'Summarizing', body: 'Body.' }]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(html).toContain('>Summarizing</strong>')
+  })
+
+  it('collapses a settled batch of activities into one summary row', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        activities={[
+          { id: 'a-1', type: 'web-search', label: 'Searching the web', status: 'done' },
+          { id: 'a-2', type: 'web-search', label: 'Searching the web', status: 'done' },
+          { id: 'a-3', type: 'read-pages', label: 'Reading document', status: 'done' },
+        ]}
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: '**Planning the search**\nBody.' },
+          { kind: 'activity', id: 't-1', activityId: 'a-1' },
+          { kind: 'activity', id: 't-2', activityId: 'a-2' },
+          { kind: 'activity', id: 't-3', activityId: 'a-3' },
+        ]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(html).toContain('Ran 3 actions')
+    expect(html).toContain('Searching the web, Reading document')
+  })
+
+  it('leaves a batch expanded while one of its activities is still running', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        activities={[
+          { id: 'a-1', type: 'web-search', label: 'Searching the web', status: 'done' },
+          { id: 'a-2', type: 'web-search', label: 'Searching the web', status: 'executing' },
+        ]}
+        reasoningTimeline={[
+          { kind: 'activity', id: 't-1', activityId: 'a-1' },
+          { kind: 'activity', id: 't-2', activityId: 'a-2' },
+        ]}
+        isStreaming
+      />,
+    )
+
+    expect(html).not.toContain('Ran 2 actions')
+    expect(html).toContain('Working…')
   })
 
   it('uses the last reasoning heading as the compact Thinking summary', () => {
@@ -94,28 +148,30 @@ describe('ReasoningContent', () => {
 
     expect(html).toContain('aria-expanded="true"')
     // The heading is the step row's; copying it up would put identical text on
-    // two nested disclosures.
-    expect(html.match(/Identifying execution issues/g)).toHaveLength(1)
+    // two nested disclosures. It renders split, so count the remainder.
+    expect(html).toContain('>Identifying…</strong> execution issues')
+    expect(html.match(/execution issues/g)).toHaveLength(1)
   })
 
-  it('keeps an explicit research title in the trigger even while open', () => {
+  it('shows the running tool label in the trigger even while open', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
         thinkingContent="**Identifying execution issues**\nThe reasoning body."
         reasoningSections={[
           { heading: 'Identifying execution issues', body: 'The reasoning body.' },
         ]}
+        activities={[
+          { id: 'a-1', type: 'web-search', label: 'Searching the web', status: 'executing' },
+        ]}
         isNewMessage
         isThinkingInProgress
-        researchTitle="Mapped multi-model execution failure modes"
       />,
     )
 
     expect(html).toContain('aria-expanded="true"')
     // ResearchTitle wraps each word in its own span, so assert word by word.
-    expect(html).toContain('Mapped')
-    expect(html).toContain('failure')
-    expect(html).toContain('modes')
+    expect(html).toContain('Searching')
+    expect(html).toContain('web')
   })
 
   it('uses the expanded ThinkingSteps trigger by default', () => {
@@ -124,7 +180,6 @@ describe('ReasoningContent', () => {
         thinkingContent="Checking context"
         isNewMessage
         isThinkingInProgress
-        researchTitle="Synthesised 2026 AI startup GTM strategies"
       />,
     )
 
@@ -132,17 +187,14 @@ describe('ReasoningContent', () => {
     expect(html).toContain('aria-expanded="true"')
     expect(html).toContain('aria-controls=')
     expect(html).toContain('width:100%')
-    expect(html).toContain('Synthesised')
-    expect(html).toContain('strategies')
   })
 
-  it('collapses to the compact research title when reasoning completes', () => {
+  it('collapses to the last heading when reasoning completes', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
-        thinkingContent="Finished reasoning"
+        thinkingContent="**Synthesised the final answer**\nFinished reasoning."
         isNewMessage={false}
         isThinkingInProgress={false}
-        researchTitle="Synthesised the final answer"
       />,
     )
 

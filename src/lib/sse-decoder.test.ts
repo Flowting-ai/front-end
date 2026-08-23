@@ -1,84 +1,62 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
-import { HybridSSEDecoder, internalToInline } from "@/lib/sse-decoder"
+import { AguiSSEDecoder } from "@/lib/sse-decoder"
 
-describe("HybridSSEDecoder", () => {
-  it("decodes named application events and AG-UI events on the same stream", () => {
-    const decoder = new HybridSSEDecoder()
+describe("AguiSSEDecoder", () => {
+  it("decodes standard and CUSTOM AG-UI events on one stream", () => {
+    const decoder = new AguiSSEDecoder()
     const events = decoder.push(
-      'event: message_saved\r\ndata: {"message_id":"m1"}\r\n\r\n' +
-      'data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"hi"}\n\n',
+      'data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"hi"}\n\n' +
+      'data: {"type":"CUSTOM","name":"message_saved","value":{"message_id":"m1"}}\n\n',
     )
 
-    expect(events[0]).toEqual({
-      kind: "named",
-      name: "message_saved",
-      data: { message_id: "m1" },
+    expect(events[0]?.appEvent).toEqual({
+      eventName: "content",
+      parsed: { content: "hi" },
     })
-    expect(events[1]?.kind).toBe("agui")
-    if (events[1]?.kind === "agui") {
-      expect(events[1].internal).toEqual({ eventName: "chunk", parsed: { delta: "hi" } })
-    }
+    expect(events[1]?.appEvent).toEqual({
+      eventName: "message_saved",
+      parsed: { message_id: "m1" },
+    })
   })
 
-  it("decodes the legacy inline wire (backends not yet on AG-UI) as 'inline', not 'agui'", () => {
-    // Reproduces a real production payload: named title/model_selected
-    // events, unnamed legacy `data:` frames carrying `{"type":"content",...}`
-    // and `{"type":"done",...}` — the exact shape a backend sends when it
-    // hasn't been upgraded to the AG-UI protocol yet.
-    const decoder = new HybridSSEDecoder()
+  it("does not accept named or inline legacy frames", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const decoder = new AguiSSEDecoder()
     const events = decoder.push(
-      'event: title\r\ndata: {"title":"Why Question"}\r\n\r\n' +
-      'event: model_selected\r\ndata: {"model_id":"m1","model_name":"Claude"}\r\n\r\n' +
-      'data: {"type": "content", "content": "I\'m"}\r\n\r\n' +
-      'data: {"type": "content", "content": " here"}\r\n\r\n' +
-      'data: {"type": "done", "finish_reason": "stop"}\r\n\r\n' +
-      'event: message_saved\r\ndata: {"message_id":"m2"}\r\n\r\n',
+      'event: title\ndata: {"title":"Old"}\n\n' +
+      'data: {"type":"content","content":"Old"}\n\n',
     )
-
-    expect(events[0]).toEqual({ kind: "named", name: "title", data: { title: "Why Question" } })
-    expect(events[1]?.kind).toBe("named")
-    expect(events[1]).toMatchObject({ kind: "named", name: "model_selected" })
-
-    expect(events[2]).toEqual({
-      kind: "inline",
-      name: "content",
-      data: { type: "content", content: "I'm" },
-    })
-    expect(events[3]).toEqual({
-      kind: "inline",
-      name: "content",
-      data: { type: "content", content: " here" },
-    })
-    expect(events[4]).toEqual({
-      kind: "inline",
-      name: "done",
-      data: expect.objectContaining({ type: "done", finish_reason: "stop" }),
-    })
-    expect(events[5]).toEqual({ kind: "named", name: "message_saved", data: { message_id: "m2" } })
+    expect(events).toEqual([])
+    expect(warning).toHaveBeenCalledOnce()
+    warning.mockRestore()
   })
 
-  it("preserves reasoning round metadata on the legacy SSE wire", () => {
-    const decoder = new HybridSSEDecoder()
-    const [event] = decoder.push(
-      'data: {"type":"reasoning","content":"Checking","round_index":2}\n\n',
+  it("keeps reasoning headings and bodies as two distinct CUSTOM events", () => {
+    const decoder = new AguiSSEDecoder()
+    const events = decoder.push(
+      'data: {"type":"CUSTOM","name":"reasoning_heading","value":{"content":"Plan","round_index":2}}\n\n' +
+      'data: {"type":"CUSTOM","name":"reasoning_body","value":{"content":"Checking","round_index":2}}\n\n',
     )
-
-    expect(event).toEqual({
-      kind: "inline",
-      name: "reasoning",
-      data: { type: "reasoning", content: "Checking", round_index: 2 },
-    })
+    expect(events.map((event) => event.appEvent)).toEqual([
+      {
+        eventName: "reasoning_heading",
+        parsed: { content: "Plan", round_index: 2 },
+      },
+      {
+        eventName: "reasoning_body",
+        parsed: { content: "Checking", round_index: 2 },
+      },
+    ])
   })
 
   it("retains partial frames and flushes an unterminated final frame", () => {
-    const decoder = new HybridSSEDecoder()
-    expect(decoder.push('event: questions\ndata: {"prompt_id":"p1",')).toEqual([])
-    expect(decoder.push('"respond_url":"/p","questions":[]}')).toEqual([])
-    expect(decoder.flush()).toEqual([{
-      kind: "named",
-      name: "questions",
-      data: {
+    const decoder = new AguiSSEDecoder()
+    expect(decoder.push('data: {"type":"CUSTOM","name":"question_prompt","value":{"prompt_id":"p1",')).toEqual([])
+    expect(decoder.push('"respond_url":"/p","questions":[]}}')).toEqual([])
+    expect(decoder.flush()[0]?.appEvent).toEqual({
+      eventName: "question_prompt",
+      parsed: {
         prompt_id: "p1",
         respond_url: "/p",
         expires_at: "",
@@ -86,42 +64,33 @@ describe("HybridSSEDecoder", () => {
         description: "",
         questions: [],
       },
-    }])
+    })
   })
 
   it("correlates the native AG-UI tool lifecycle by tool call id", () => {
-    const decoder = new HybridSSEDecoder()
+    const decoder = new AguiSSEDecoder()
     const events = decoder.push(
       'data: {"type":"TOOL_CALL_START","toolCallId":"c1","toolCallName":"web_search"}\n\n' +
+      'data: {"type":"TOOL_CALL_ARGS","toolCallId":"c1","delta":"{\\"query\\":"}\n\n' +
+      'data: {"type":"TOOL_CALL_ARGS","toolCallId":"c1","delta":"\\"news\\"}"}\n\n' +
       'data: {"type":"TOOL_CALL_END","toolCallId":"c1"}\n\n' +
       'data: {"type":"TOOL_CALL_RESULT","messageId":"m1","toolCallId":"c1","content":"ok"}\n\n',
     )
-    const normalized = events.flatMap((event) =>
-      event.kind === "agui" && event.internal ? [internalToInline(event.internal)] : [],
-    )
 
-    expect(normalized).toEqual([
-      {
-        type: "tool_calls_streaming",
-        content: "web_search",
-        tool_call: { name: "web_search", tool_call_id: "c1" },
-      },
-      {
-        type: "tool_executing",
-        content: "web_search",
-        tool_call: { id: "c1", name: "web_search", tool_call_id: "c1" },
-      },
-      {
-        type: "tool_complete",
-        content: "web_search",
-        tool_call: {
-          id: "c1",
-          name: "web_search",
-          tool_call_id: "c1",
-          result: "ok",
-        },
-      },
+    expect(events.map((event) => event.appEvent?.eventName)).toEqual([
+      "tool_calls_streaming",
+      "tool_calls_streaming",
+      "tool_calls_streaming",
+      "tool_executing",
+      "tool_complete",
     ])
+    expect(events[4]?.appEvent?.parsed.tool_call).toEqual({
+      id: "c1",
+      name: "web_search",
+      tool_call_id: "c1",
+      arguments: '{"query":"news"}',
+      result: "ok",
+    })
   })
 
   it("accepts the complete backend AG-UI vocabulary", () => {
@@ -139,9 +108,9 @@ describe("HybridSSEDecoder", () => {
     ]
 
     for (const fixture of fixtures) {
-      const decoder = new HybridSSEDecoder()
+      const decoder = new AguiSSEDecoder()
       const [event] = decoder.push(`data: ${JSON.stringify(fixture)}\n\n`)
-      expect(event?.kind, fixture.type).toBe("agui")
+      expect(event?.event.type, fixture.type).toBe(fixture.type)
     }
   })
 })

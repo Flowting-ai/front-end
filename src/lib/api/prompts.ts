@@ -2,11 +2,8 @@
 
 import { z } from 'zod'
 
-// ── Connector permission prompt (SSE) ─────────────────────────────────────────
+// ── Connector permission prompt (AG-UI CUSTOM) ────────────────────────────────
 // Wire schema for the backend's PermissionPromptEvent (core/sse_schemas.py).
-// Older streams named the fields request_id/tool_name; the transform folds both
-// eras into one canonical shape so every surface (chat, persona, agent
-// configure, compare, brain) parses permission prompts identically.
 
 const promptOptionSchema = z.object({
   value: z.string(),
@@ -15,13 +12,11 @@ const promptOptionSchema = z.object({
 })
 
 export const connectorPermissionPromptSchema = z.looseObject({
-  prompt_id:      z.string().optional(),
-  request_id:     z.string().optional(),
+  prompt_id:      z.string(),
   respond_url:    z.string().optional(),
   connector_slug: z.string().default(''),
   display_name:   z.string().optional(),
-  tool_slug:      z.string().optional(),
-  tool_name:      z.string().optional(),
+  tool_slug:      z.string(),
   suggested_args: z.record(z.string(), z.unknown()).optional(),
   icon_url:       z.string().nullish(),
   /** Human-readable description of the exact call ("Raw GET https://…") —
@@ -36,10 +31,10 @@ export const connectorPermissionPromptSchema = z.looseObject({
    *  on message_saved). */
   decision:       z.string().optional(),
 }).transform((raw) => ({
-  request_id:     raw.prompt_id ?? raw.request_id ?? `cpp-${Date.now()}`,
+  request_id:     raw.prompt_id,
   connector_slug: raw.connector_slug,
   display_name:   raw.display_name ?? raw.connector_slug,
-  tool_name:      raw.tool_slug ?? raw.tool_name ?? '',
+  tool_name:      raw.tool_slug,
   suggested_args: raw.suggested_args,
   icon_url:       raw.icon_url ?? undefined,
   summary:        raw.summary ?? '',

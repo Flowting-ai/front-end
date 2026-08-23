@@ -1,10 +1,9 @@
 import { z } from "zod"
 
 // ── AG-UI wire events ─────────────────────────────────────────────────────────
-// The backend streams AG-UI protocol events (ag-ui.com) when the request opts
-// in via ?protocol=agui. Field names are camelCase on the wire (the ag_ui
-// encoder serialises by alias). Schemas are loose: unknown fields pass through
-// so protocol additions never break parsing.
+// The backend streams AG-UI protocol events (ag-ui.com). Field names are
+// camelCase on the wire (the ag_ui encoder serialises by alias). Schemas are
+// loose so protocol additions never break parsing.
 
 export const aguiEventSchema = z.discriminatedUnion("type", [
   z.looseObject({

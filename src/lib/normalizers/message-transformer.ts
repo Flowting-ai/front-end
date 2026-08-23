@@ -1,6 +1,5 @@
 import type { Message } from "@/types/chat"
 import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/hooks/use-chat-state"
-import { isResponseBlock } from "@/lib/response-blocks"
 
 /** Infer company from a model name string for icon/logo display. */
 function inferCompany(modelName: string): string | undefined {
@@ -164,15 +163,6 @@ export function toUIMessage(raw: Message): UIMessage {
   }
   const restoredImages = mergedImages.length > 0 ? mergedImages : undefined;
 
-  // ── response_blocks → responseBlocks ─────────────────────────────────────
-  // Restore structured response blocks (tables, charts, steps, etc.) that were
-  // produced during streaming via structured block SSE events and persisted by
-  // the backend in response_blocks. Without this, structured content disappears
-  // on page refresh.
-  const restoredResponseBlocks = Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
-    ? raw.response_blocks.filter(isResponseBlock)
-    : undefined;
-
   return {
     ...raw,
     isLoading: false,
@@ -184,7 +174,6 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
     ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),
     ...(restoredImages ? { images: restoredImages } : {}),
-    ...(restoredResponseBlocks ? { responseBlocks: restoredResponseBlocks } : {}),
   }
 }
 

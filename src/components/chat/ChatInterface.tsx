@@ -194,12 +194,6 @@ interface ChatInterfaceProps {
    * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
    */
   chatOwnershipConfirmed?: boolean;
-  /**
-   * When true, model_selected SSE events are ignored so the agent's pre-seeded
-   * model is not overwritten by the backend during streaming. Pass when a persona
-   * is active so the model name/logo in the reasoning section stays correct.
-   */
-  skipModelSelected?: boolean;
 }
 
 export function ChatInterface({
@@ -236,7 +230,6 @@ export function ChatInterface({
   hidePinActions = false,
   readOnly = false,
   chatOwnershipConfirmed,
-  skipModelSelected,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -371,8 +364,7 @@ export function ChatInterface({
   const messages = rawMessages ?? [];
 
   // Seed model logo + name on assistant messages that have thinking content but no
-  // model identity. Covers project chat where model_selected may not fire or the
-  // history API doesn't return model_name — same pattern as PersonaChatInterface.
+  // model identity when the history API does not return model_name.
   // When Muse is active, contextModel is null (it is not an AIModel), so we derive
   // the identity from museActive/museAdvanced instead.
   useEffect(() => {
@@ -507,7 +499,6 @@ export function ChatInterface({
     currentChatIdRef,
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
-    ...(skipModelSelected ? { skipModelSelected } : {}),
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";

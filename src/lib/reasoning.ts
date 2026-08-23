@@ -3,7 +3,6 @@ import { mergeStreamingText } from '@/lib/streaming'
 export type ReasoningSection = {
   heading: string
   body: string
-  detail?: string
 }
 
 export type ReasoningTimelineItem =
@@ -21,7 +20,6 @@ export type ReasoningTimelineItem =
     }
 
 export type ReasoningEventType =
-  | 'reasoning'
   | 'reasoning_heading'
   | 'reasoning_body'
 
@@ -70,9 +68,7 @@ export function replaceTimelineActivityId(
 }
 
 export function reasoningEventText(data: Record<string, unknown>): string {
-  return typeof data.content === 'string' ? data.content
-    : typeof data.delta === 'string' ? data.delta
-    : ''
+  return typeof data.content === 'string' ? data.content : ''
 }
 
 export function cleanReasoningHeading(heading: string): string {
@@ -85,11 +81,7 @@ export function cleanReasoningHeading(heading: string): string {
     .trim()
 }
 
-// Prod backend hotfix: older builds don't emit reasoning_heading/reasoning_body
-// events (or persist reasoning_sections), so titled summary blocks arrive inline
-// in the raw reasoning text as bold-only or ATX-heading lines. Mirror the
-// backend's split_reasoning so the client can reconstruct the collapsible
-// sections instead of rendering raw `**Title**` markers.
+// Parse Markdown title lines when rendering persisted reasoning text.
 export function reasoningSectionTitle(line: string): string | null {
   const s = line.trim()
   if (s.startsWith('#')) {
@@ -181,9 +173,42 @@ export function normalizeReasoningSections(value: unknown): ReasoningSection[] {
     const section = entry as Record<string, unknown>
     const heading = typeof section.heading === 'string' ? section.heading : ''
     const body = typeof section.body === 'string' ? section.body : ''
-    const detail = typeof section.detail === 'string' ? section.detail : undefined
-    return cleanReasoningHeading(heading) ? [{ heading, body, ...(detail ? { detail } : {}) }] : []
+    return cleanReasoningHeading(heading) ? [{ heading, body }] : []
   })
+}
+
+// The step row shows a bold verb followed by muted detail. The backend sends a
+// single heading phrase ("Clarifying user intent"), so the split is
+// presentational: leading word bold, remainder muted.
+export function splitHeading(heading: string): { verb: string; rest: string } {
+  const clean = cleanReasoningHeading(heading)
+  const boundary = clean.indexOf(' ')
+  if (boundary < 0) return { verb: clean, rest: '' }
+  return { verb: clean.slice(0, boundary), rest: clean.slice(boundary + 1) }
+}
+
+export type ReasoningTimelineGroup =
+  | { kind: 'reasoning'; id: string; contents: string[] }
+  | { kind: 'activities'; id: string; activityIds: string[] }
+
+// Collapse each run of same-kind timeline items into one group: a tool batch
+// becomes a single "Ran N actions" row, and adjacent reasoning segments become
+// one step list so the connector line runs unbroken between them.
+export function groupReasoningTimeline(
+  timeline: ReasoningTimelineItem[],
+): ReasoningTimelineGroup[] {
+  const groups: ReasoningTimelineGroup[] = []
+  for (const item of timeline) {
+    const last = groups[groups.length - 1]
+    if (item.kind === 'reasoning') {
+      if (last?.kind === 'reasoning') last.contents.push(item.content)
+      else groups.push({ kind: 'reasoning', id: item.id, contents: [item.content] })
+      continue
+    }
+    if (last?.kind === 'activities') last.activityIds.push(item.activityId)
+    else groups.push({ kind: 'activities', id: item.id, activityIds: [item.activityId] })
+  }
+  return groups
 }
 
 // ── Shared stream accumulator ─────────────────────────────────────────────────
@@ -276,11 +301,6 @@ export function createReasoningAccumulator(): ReasoningAccumulator {
 
     event(type, content, roundIndex) {
       if (!content) return
-
-      if (type === 'reasoning') {
-        appendDelta(content, roundIndex)
-        return
-      }
 
       if (type === 'reasoning_heading') {
         // Re-sent headings are common on reconnect; committing the same one

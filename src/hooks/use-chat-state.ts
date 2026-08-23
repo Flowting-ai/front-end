@@ -63,15 +63,13 @@ export interface UIMessage extends Message {
   isError?: boolean
   /** Model name reported by backend during streaming. */
   modelName?: string
-  /** Model metadata from model_selected event. */
+  /** Model metadata selected for this response. */
   modelMeta?: ModelSelectedMeta
   /** Activities performed during response generation (tool uses, web search, etc.) */
   activities?: ActivityItem[]
   /** Arrival-ordered reasoning/tool trace for the active stream. Persisted
    * messages fall back to reasoning_sections + activities. */
   reasoningTimeline?: ReasoningTimelineItem[]
-  /** Compact live/final summary shown beside the Thinking label. */
-  researchTitle?: string
   /** Generated images (inline from LLM or named event). */
   images?: GeneratedImage[]
   /** Generated files (documents, CSVs, etc.). */
@@ -106,6 +104,7 @@ export interface ModelSelectedMeta {
 /** Activity types matching backend tool names. */
 export type ActivityType =
   | 'web-search'
+  | 'browser'
   | 'read-pages'
   | 'csv-execute'
   | 'fetch-resource'
@@ -136,6 +135,8 @@ export interface ActivityItem {
   durationS?: number
   /** Progress message from tool_progress. */
   progressMessage?: string
+  /** Completion percentage from tool_progress, 0-100. */
+  percent?: number
   /** Code preview from tool_progress (csv_execute, docx). */
   codePreview?: string
   /** Filename associated with the tool (read_pages, csv, docx). */

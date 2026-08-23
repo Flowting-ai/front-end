@@ -20,8 +20,9 @@ import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
 
 // ── Activity type display config ──────────────────────────────────────────────
 
-const ACTIVITY_VERB: Record<ActivityType, string> = {
+export const ACTIVITY_VERB: Record<ActivityType, string> = {
   "web-search": "Searching the web",
+  "browser": "Browsing",
   "read-pages": "Reading document",
   "csv-execute": "Analysing data",
   "fetch-resource": "Fetching resource",
@@ -37,6 +38,7 @@ type IconEntry = { icon: any; isHuge: boolean };
 
 const ACTIVITY_ICON: Record<ActivityType, IconEntry> = {
   "web-search":    { icon: AiWebBrowsingIcon,  isHuge: true  },
+  "browser":       { icon: AiWebBrowsingIcon,  isHuge: true  },
   "read-pages":    { icon: PdfIcon,            isHuge: true  },
   "csv-execute":   { icon: AiSheetsIcon,       isHuge: true  },
   "fetch-resource":{ icon: Link01Icon,         isHuge: true  },
@@ -182,7 +184,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         {/* Result count */}
         {isDone && hasResults && (
           <span style={{ fontSize: 14, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
-            {activity.results!.length} {activity.type === "web-search" ? "results" : "files"}
+            {activity.results!.length} {activity.type === "web-search" ? "result" : "file"}{activity.results!.length === 1 ? "" : "s"}
           </span>
         )}
 
@@ -190,6 +192,13 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         {isDone && activity.durationS !== undefined && (
           <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
             {activity.durationS < 1 ? `${Math.round(activity.durationS * 1000)}ms` : `${activity.durationS.toFixed(1)}s`}
+          </span>
+        )}
+
+        {/* Percentage — only while running; a finished row shows its duration */}
+        {isActive && activity.percent !== undefined && (
+          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+            {Math.round(activity.percent)}%
           </span>
         )}
 

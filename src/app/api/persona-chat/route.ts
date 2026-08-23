@@ -57,11 +57,9 @@ export async function POST(request: NextRequest) {
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────
   const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
-  // ?protocol=agui: stream AG-UI protocol events (the format the FE parses —
-  // see src/lib/agui) instead of the legacy SSE frames.
   const endpoint = isExistingChat
-    ? `${BACKEND_BASE}/persona/${repoId}/chats/${chatId}/stream?protocol=agui`
-    : `${BACKEND_BASE}/persona/${repoId}/chats/create?protocol=agui`
+    ? `${BACKEND_BASE}/persona/${repoId}/chats/${chatId}/stream`
+    : `${BACKEND_BASE}/persona/${repoId}/chats/create`
 
   // ── Build body for backend ───────────────────────────────────────────────────
   // Always use multipart/form-data — the backend endpoint declares File() params
@@ -116,40 +114,24 @@ export async function POST(request: NextRequest) {
     responseHeaders["X-Chat-Id"] = backendChatId
   }
 
-  const encoder = new TextEncoder()
   const backendReader = backendResponse.body.getReader()
-
-  let keepAliveId: ReturnType<typeof setInterval> | null = null
-
-  const resetKeepAlive = (controller: ReadableStreamDefaultController<Uint8Array>) => {
-    if (keepAliveId !== null) clearInterval(keepAliveId)
-    keepAliveId = setInterval(() => {
-      try { controller.enqueue(encoder.encode(": ka\n\n")) } catch { /* stream already closed */ }
-    }, 15_000)
-  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      resetKeepAlive(controller)
       try {
         while (true) {
-          // eslint-disable-next-line no-await-in-loop
           const { value, done } = await backendReader.read()
           if (done) {
             try { controller.close() } catch { /* already closed */ }
             break
           }
           controller.enqueue(value)
-          resetKeepAlive(controller)
         }
       } catch {
         try { controller.close() } catch { /* already closed */ }
-      } finally {
-        if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       }
     },
     cancel() {
-      if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       backendReader.cancel().catch(() => {})
     },
   })
