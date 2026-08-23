@@ -136,7 +136,11 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
 }
 
 export default async function proxy(request: NextRequest) {
-  const { pathname } = new URL(request.url);
+  const { pathname, search } = new URL(request.url);
+  // A deep link's query string is part of where the caller was going: the
+  // Slack /connect link carries its signed state there, so dropping it sends
+  // them back to a page with nothing to act on.
+  const returnTo = `${pathname}${search}`;
 
   // Component verification harnesses render fixtures only and must stay
   // reachable without a session while developing. Never in production.
@@ -182,7 +186,7 @@ export default async function proxy(request: NextRequest) {
   // instead of Auth0.
   if (!session) {
     const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
-    loginUrl.searchParams.set("returnTo", pathname || ROOT_ROUTE);
+    loginUrl.searchParams.set("returnTo", returnTo || ROOT_ROUTE);
     return Response.redirect(loginUrl);
   }
 
@@ -199,7 +203,7 @@ export default async function proxy(request: NextRequest) {
 
   if (onboardingResult.requiresReauth) {
     const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
-    loginUrl.searchParams.set("returnTo", pathname);
+    loginUrl.searchParams.set("returnTo", returnTo);
     return Response.redirect(loginUrl);
   }
 
