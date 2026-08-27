@@ -61,6 +61,33 @@ const NOTICES: Record<Exclude<LoadResult['state'], 'ok'>, { heading: string; bod
   },
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
+}
+
+/**
+ * The stored title is the raw inner text of the document's own `<title>` —
+ * the backend extracts it with a regex and does not unescape it, so a page
+ * named "Revenue & funnel" arrives as "Revenue &amp; funnel". Decoding is
+ * safe here because React escapes whatever this returns on render.
+ */
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body: string) => {
+    if (body.startsWith('#')) {
+      const code = body[1] === 'x' || body[1] === 'X'
+        ? Number.parseInt(body.slice(2), 16)
+        : Number.parseInt(body.slice(1), 10)
+      return Number.isNaN(code) ? whole : String.fromCodePoint(code)
+    }
+    return ENTITIES[body.toLowerCase()] ?? whole
+  })
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
@@ -145,6 +172,7 @@ export default async function TemplatePage({
   }
 
   const { template } = result
+  const title = decodeEntities(template.title)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -169,7 +197,7 @@ export default async function TemplatePage({
             margin: 0,
           }}
         >
-          {template.title}
+          {title}
         </h1>
         <span
           style={{
@@ -192,7 +220,7 @@ export default async function TemplatePage({
       */}
       <iframe
         src={`/api/template/${uuid}`}
-        title={template.title}
+        title={title}
         sandbox="allow-scripts allow-popups allow-forms"
         style={{ flex: 1, width: '100%', border: 'none', minHeight: 0, display: 'block' }}
       />

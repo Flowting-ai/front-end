@@ -16,6 +16,7 @@ export const AGENTS_BASICS_TONE_ROUTE = "/agents/basics/tone";
 export const BRAIN_ROUTE = "/brain";
 export const BRAIN_THREADS_ROUTE = "/brain/threads";
 export const BRAIN_SCHEDULES_ROUTE = "/brain/schedules";
+export const TEMPLATE_BASE_ROUTE = "/template";
 export const WELCOME_ROUTE = "/welcome";
 export const PROJECTS_ROUTE = "/projects";
 export const PROJECTS_NEW_ROUTE = "/projects/new";
