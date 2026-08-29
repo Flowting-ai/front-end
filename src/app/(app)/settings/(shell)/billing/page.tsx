@@ -569,7 +569,7 @@ export default function BillingPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 9 }}>
                   {[0, 1, 2].map(i => (
-                    <div key={i} style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
+                    <div key={i} style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
                       <Skel w={100} h={14} /><Skel w={80} h={26} /><Skel w={120} h={12} />
                     </div>
                   ))}

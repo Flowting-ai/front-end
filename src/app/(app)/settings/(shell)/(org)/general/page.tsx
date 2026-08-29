@@ -71,10 +71,10 @@ function CopyIcon() {
 
 // ── Card shell ────────────────────────────────────────────────────────────────
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({ children, danger }: { children: React.ReactNode; danger?: boolean }) {
   return (
     <div style={{
-      border:       '1px solid var(--neutral-200)',
+      border:       `1px solid ${danger ? 'var(--red-400)' : 'var(--neutral-200)'}`,
       borderRadius: 16,
       boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
       overflow:     'hidden',
@@ -375,14 +375,14 @@ function GeneralPageSkeleton() {
           </div>
         </div>
         {/* Save */}
-        <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end' }}>
           <SkeletonBlock width={108} height={32} radius={8} />
         </div>
       </SkeletonCard>
 
       {/* AI Instructions */}
       <SkeletonCard>
-        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '24px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <SkeletonBlock width={260} height={16} radius={5} />
             <SkeletonBlock height={14} radius={4} />
@@ -437,7 +437,7 @@ function GeneralPageSkeleton() {
 
       {/* Danger Zone */}
       <SkeletonCard danger>
-        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <SkeletonBlock width={110} height={16} radius={5} />
           <SkeletonBlock width={310} height={13} radius={4} />
         </div>
@@ -448,7 +448,7 @@ function GeneralPageSkeleton() {
           </div>
           <SkeletonBlock width={80} height={32} radius={8} />
         </SkeletonRow>
-        <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 8, borderBottom: undefined }}>
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8, borderBottom: undefined }}>
           <SkeletonBlock width={160} height={14} radius={5} />
           <SkeletonBlock width={250} height={13} radius={4} />
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
@@ -483,6 +483,10 @@ export default function OrgGeneralPage() {
   // Danger zone
   const [deleteOrgInput, setDeleteOrgInput] = useState('')
   const [deletingOrg,    setDeletingOrg]    = useState(false)
+  // No archive endpoint exists in lib/api/organization.ts yet — the button is
+  // real and enabled (matching Figma 18:23880), but until there's a backend
+  // contract it can only tell the admin that, not actually archive anything.
+  const [archivingOrg,   setArchivingOrg]   = useState(false)
   const [transferOpen,   setTransferOpen]   = useState(false)
   const [orgMembers,     setOrgMembers]     = useState<OrgMember[]>([])
   const [transferTarget, setTransferTarget] = useState('')
@@ -583,6 +587,13 @@ export default function OrgGeneralPage() {
     } finally {
       setSlackSaving(false)
     }
+  }
+
+  const handleArchiveOrg = () => {
+    if (!canDeleteOrg) { toast.error('Only an admin or owner can archive this organization.'); return }
+    setArchivingOrg(true)
+    toast.info('Archiving workspaces isn’t available yet — check back soon.')
+    setArchivingOrg(false)
   }
 
   const handleDeleteOrg = async () => {
@@ -876,8 +887,7 @@ export default function OrgGeneralPage() {
                 gap:          16,
                 opacity:      identityLoading ? 0.6 : 1,
               }}>
-                {/* commenting out worksspace slug to make it dynamic with url in the future. */}
-                {/* <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                <div style={{ flex: '1 0 0', minWidth: 0 }}>
                   <FieldRow
                     label="Workspace URL slug"
                     helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
@@ -887,7 +897,7 @@ export default function OrgGeneralPage() {
                       onChange={setSlugValue}
                     />
                   </FieldRow>
-                </div> */}
+                </div>
                 <div style={{ flex: '1 0 0', minWidth: 0 }}>
                   <FieldRow label="Workspace ID" helper="Read-only identifier">
                     <div style={{ position: 'relative' }}>
@@ -1298,6 +1308,76 @@ export default function OrgGeneralPage() {
           </Card>
         )}
 
+        {/* ── Danger Zone card — node 18:23867 ── */}
+        <Card danger>
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--red-400)', margin: '0 0 2px' }}>
+              Danger Zone
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              Actions here are permanent and cannot be undone.
+            </p>
+          </div>
+
+          {/* Archive workspace */}
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                Archive workspace
+              </p>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                Temporarily disable the workspace. Members will lose access until restored.
+              </p>
+            </div>
+            <button
+              onClick={handleArchiveOrg}
+              disabled={archivingOrg || !canDeleteOrg}
+              style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: canDeleteOrg ? 'pointer' : 'not-allowed',
+                opacity: canDeleteOrg ? 1 : 0.5,
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)',
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-500)', whiteSpace: 'nowrap',
+              }}
+            >
+              Archive
+            </button>
+          </div>
+
+          {/* Delete workspace */}
+          <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                Delete workspace
+              </p>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                Permanently delete this workspace, all teams, projects, and data. This cannot be undone.
+              </p>
+            </div>
+            <TextInput
+              value={deleteOrgInput}
+              onChange={setDeleteOrgInput}
+              placeholder={`Type "${workspaceName}" to confirm`}
+              style={{ width: 327, flexShrink: 0 }}
+            />
+            <button
+              onClick={() => void handleDeleteOrg()}
+              disabled={deletingOrg || deleteOrgInput !== workspaceName || !canDeleteOrg}
+              style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 10px 8px', borderRadius: 10, border: 'none',
+                cursor: (deleteOrgInput === workspaceName && canDeleteOrg) ? 'pointer' : 'not-allowed',
+                opacity: (deleteOrgInput === workspaceName && canDeleteOrg) ? 1 : 0.5,
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)',
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-500)', whiteSpace: 'nowrap',
+              }}
+            >
+              {deletingOrg ? 'Deleting…' : 'Delete workspace'}
+            </button>
+          </div>
+        </Card>
 
       </div>
     </div>

@@ -43,11 +43,11 @@ describe('listConnectors', () => {
     bustConnectorCatalogCache()
   })
 
-  // GET /connectors as services/connectors/schemas.py serializes it for an org
-  // member holding both a personal and a shared account. The shared scope is
-  // `shared_org`; parsing used to reject it, which failed the whole catalog and
-  // left the connectors page empty for exactly those users.
-  it('parses a member catalog carrying a shared organization account', async () => {
+  // GET /connectors as services/connectors/schemas.py actually serializes it
+  // for an org member holding both a personal and a shared account.
+  // AccountScope is Literal["personal", "shared"] (Workspace Model v2 — Team
+  // removed, connections are workspace-wide with no smaller scope).
+  it('parses a member catalog carrying a shared account', async () => {
     apiFetchJson.mockResolvedValue({
       connectors: [{
         slug:               'gmail',
@@ -72,10 +72,9 @@ describe('listConnectors', () => {
           account_label:      'Marketing Gmail',
           account_identifier: 'marketing@example.com',
           connected:          true,
-          scope:              'shared_org',
+          scope:              'shared',
           status:             'active',
           version:            1,
-          attached_slugs:     ['gmail'],
           linked_by_user_id:  'auth0|editor',
           created_at:         '2026-06-18T00:00:00Z',
           updated_at:         '2026-06-18T00:00:00Z',
@@ -94,15 +93,13 @@ describe('listConnectors', () => {
           },
           {
             connector_slug:      'gmail',
-            scope:               'shared_org',
+            scope:               'shared',
             account_label:       'Marketing Gmail',
             account_identifier:  'marketing@example.com',
             provider_account_id: 'ca_shared',
             connected:           true,
             status:              'active',
             authorized_scopes:   ['https://www.googleapis.com/auth/gmail.modify'],
-            organization_id:     '2b0b8f8e-0000-4000-8000-0000000000ff',
-            organization_name:   'Marketing',
             shared_account_id:   '2b0b8f8e-0000-4000-8000-000000000001',
             linked_by_user_id:   'auth0|editor',
             can_manage:          false,
@@ -115,12 +112,9 @@ describe('listConnectors', () => {
 
     expect(entry.slug).toBe('gmail')
     expect(entry.tools[0].permission).toBe('allowed')
-    expect(entry.accounts[0].attached_slugs).toEqual(['gmail'])
-    expect(entry.account_options.map(option => option.scope)).toEqual(['personal', 'shared_org'])
-    expect(entry.account_options[1].organization_name).toBe('Marketing')
+    expect(entry.account_options.map(option => option.scope)).toEqual(['personal', 'shared'])
     expect(entry.account_options[1].provider_account_id).toBe('ca_shared')
     // Absent on the personal option; the schema fills the backend's own defaults.
-    expect(entry.account_options[0].organization_id).toBeNull()
     expect(entry.account_options[0].shared_account_id).toBeNull()
   })
 

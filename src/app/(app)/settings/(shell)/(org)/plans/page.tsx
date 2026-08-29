@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, PenOneIcon } from '@strange-huge/icons'
-import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { Button } from '@/components/Button'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { useOrg } from '@/context/org-context'
@@ -19,7 +18,7 @@ import {
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
 import { resolveOrgBillingRole } from '@/lib/roles'
 import type { AdminBillingPerms } from '@/types/teams'
-import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE, SETTINGS_BILLING_ROUTE } from '@/lib/routes'
+import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -163,13 +162,17 @@ function SectionCard({
   children,
   bodyPadding = '12px 24px',
   bodyGap,
+  headerDivider = true,
 }: {
-  title:        string
-  subtitle?:    string
-  action?:      React.ReactNode
-  children:     React.ReactNode
-  bodyPadding?: string
-  bodyGap?:     number
+  title:          string
+  subtitle?:      string
+  action?:        React.ReactNode
+  children:       React.ReactNode
+  bodyPadding?:   string
+  bodyGap?:       number
+  /** Figma 18:24922/18:25080 (Plan / Credits Remaining) have no rule between
+   *  title and body — unlike Payment/Invoice history, which do. */
+  headerDivider?: boolean
 }) {
   return (
     <div style={{
@@ -185,8 +188,8 @@ function SectionCard({
       width:         '100%',
     }}>
       <div style={{
-        borderBottom: '1px solid var(--neutral-100)',
-        padding:      '0 24px 24px',
+        borderBottom: headerDivider ? '1px solid var(--neutral-100)' : undefined,
+        padding:      headerDivider ? '0 24px 24px' : '0 24px',
         display:      'flex',
         alignItems:   'center',
         gap:          12,
@@ -331,7 +334,6 @@ export default function OrgBillingPage() {
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
-  const [contactSalesOpen,  setContactSalesOpen]  = useState(false)
   const [showCancelDialog,  setShowCancelDialog]  = useState(false)
   const [isCanceling,       setIsCanceling]       = useState(false)
   const [isResuming,        setIsResuming]        = useState(false)
@@ -402,22 +404,22 @@ export default function OrgBillingPage() {
     : (effectivePlan?.remaining ?? 0)
   const usedCredits    = isEnterprise ? toCredits(providerUsage) : (effectivePlan?.used ?? 0)
 
-  const currentTierIdx = useMemo(() => {
-    const i = TIERS.findIndex(t => t.credits === totalCredits)
-    return i >= 0 ? i : 0
-  }, [totalCredits])
-
-  const [tierIdx,  setTierIdx]  = useState(currentTierIdx)
-  const [annual,   setAnnual]   = useState(org.billingCycle === 'annual')
-  // Resync the slider when the backend plan tier resolves (render-phase reset).
-  const [seenTierIdx, setSeenTierIdx] = useState(currentTierIdx)
-  if (seenTierIdx !== currentTierIdx) {
-    setSeenTierIdx(currentTierIdx)
-    setTierIdx(currentTierIdx)
-  }
-
-  const tier        = TIERS[tierIdx] ?? TIERS[0]
-  const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
+  // The interactive tier slider/annual toggle used to live inline here — moved
+  // entirely to ORG_CHANGE_PLAN_ROUTE, so this page just displays the current
+  // plan's real price rather than previewing a hypothetical one.
+  //
+  // A brand-new org has never had any credits granted at all — plan_credits,
+  // topup_credits, and used are all 0, so totalCredits is 0 — until its owner
+  // actually completes a Stripe checkout (there's no backend signal to check
+  // instead: GET /organizations/{id}/plan's plan_type defaults to "teams"
+  // unconditionally for any non-enterprise org, whether or not one was ever
+  // purchased). Previously `TIERS.findIndex` returning -1 for "no match"
+  // silently fell back to TIERS[0] ($125/mo), presenting the cheapest paid
+  // tier as the org's "Active" plan for anyone who hadn't chosen one yet.
+  const hasPlan = isEnterprise || totalCredits > 0
+  const currentTierIdx = useMemo(() => TIERS.findIndex(t => t.credits === totalCredits), [totalCredits])
+  const tier        = TIERS[currentTierIdx] ?? TIERS[0]
+  const tierMonthly  = org.billingCycle === 'annual' ? Math.round(tier.price * 0.75) : tier.price
 
   // Fetch admin billing permissions from org settings (needed by both roles).
   useEffect(() => {
@@ -573,7 +575,7 @@ export default function OrgBillingPage() {
   const canSeePayment  = isOwner || adminBillingPerms.canManagePayment
   const canSeeInvoices = isOwner || adminBillingPerms.canViewInvoices
 
-  // ── Hero ──────────────────────────────────────────────────────────────────────
+  // ── Hero (Enterprise only — see the Teams-case rewrite below) ────────────────
   const hero = isEnterprise ? (
     <EnterpriseHero
       nextBilling={nextBilling}
@@ -588,27 +590,8 @@ export default function OrgBillingPage() {
       baseFeeUsd={baseFeeUsd}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
     />
-  ) : (
-    <TeamsHero
-      isOwner={isOwner}
-      nextBilling={nextBilling}
-      monthlyPrice={tierMonthly}
-      tierIdx={tierIdx}
-      currentTierIdx={currentTierIdx}
-      onTierChange={setTierIdx}
-      annual={annual}
-      onAnnualChange={setAnnual}
-      onContactSales={() => setContactSalesOpen(true)}
-      onUpgrade={() => router.push(ORG_CHANGE_PLAN_ROUTE)}
-      onManagePlan={() => router.push(SETTINGS_BILLING_ROUTE)}
-      onRequestPlanChange={handleRequestPlanChange}
-      cancelAtPeriodEnd={billing?.cancel_at_period_end ?? false}
-      cancelsOnLabel={nextBilling}
-      isResuming={isResuming}
-      onCancelPlan={() => setShowCancelDialog(true)}
-      onResumePlan={() => { void handleResumeSubscription() }}
-    />
-  )
+  ) : null
+  const cancelAtPeriodEnd = billing?.cancel_at_period_end ?? false
 
   return (
     <div
@@ -629,19 +612,21 @@ export default function OrgBillingPage() {
         {/* Page header */}
         <div style={{ paddingLeft: 4 }}>
           <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-            Billing
+            Plan &amp; Billing
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
             {isEnterprise
               ? '$250 monthly platform fee with $125 of provider usage included.'
-              : 'Shared prepaid usage for your organization.'}
+              // Figma 18:24652's exact text — same subtitle the Members page
+              // uses (a copy-paste there), kept verbatim per "match 1:1,
+              // all text".
+              : 'Manage who has access to your workspace and what they can do.'}
           </p>
         </div>
 
-        {hero}
-
         {isEnterprise ? (
           <>
+            {hero}
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
               <StatTile
@@ -688,33 +673,104 @@ export default function OrgBillingPage() {
             />
           </>
         ) : (
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
-            <StatTile label="Credits Remaining" value={remainingCreds.toLocaleString()} sub={`${usedCredits.toLocaleString()} used this month`} />
-            <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
-            {/* Need more credits */}
-            <div style={{
-              background:    'var(--neutral-white, #fff)',
-              borderRadius:  8,
-              padding:       12,
-              boxShadow:     SHADOW_TILE,
-              display:       'flex',
-              flexDirection: 'column',
-              gap:           6,
-              flex:          '1 1 220px',
-              minWidth:      200,
-            }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Need more credits ?
-              </p>
-              <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                Top-up packs. Unused credits roll 1 billing cycle.
-              </p>
-              {canSeeCredits && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button variant="secondary" onClick={() => setBuyCreditsOpen(true)}>Buy more Credits</Button>
+          /* Figma 18:25119: two compact cards side by side — Plan, and Credits
+             Remaining. The old inline tier slider/annual toggle moved entirely
+             to ORG_CHANGE_PLAN_ROUTE (what "Upgrade Plan" already opens) rather
+             than living here too. */
+          <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 0 0', minWidth: 280 }}>
+            <SectionCard
+              title="Plan"
+              action={
+                hasPlan
+                  ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : 'Active'} tone={cancelAtPeriodEnd ? 'red' : 'green'} />
+                  : <Badge label="No plan selected" tone="neutral" />
+              }
+              headerDivider={false}
+            >
+              {hasPlan ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                      {org.name} · ${tierMonthly}/mo
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                      {cancelAtPeriodEnd ? `Access ends ${nextBilling}` : `Next billing date: ${nextBilling}`}
+                    </p>
+                  </div>
+                  {isOwner ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                      {/* Not in Figma's static frame, but cancel/resume needs to stay
+                          reachable now that it no longer lives in a hero footer. */}
+                      {cancelAtPeriodEnd ? (
+                        <button
+                          type="button"
+                          onClick={() => { void handleResumeSubscription() }}
+                          disabled={isResuming}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: isResuming ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--blue-700)', textDecoration: 'underline', opacity: isResuming ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                        >
+                          {isResuming ? 'Resuming…' : 'Resume plan'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelDialog(true)}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-700)', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                        >
+                          Cancel plan
+                        </button>
+                      )}
+                      <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Upgrade Plan</Button>
+                    </div>
+                  ) : (
+                    <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                      {org.name}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                      Choose a plan to start using paid credits.
+                    </p>
+                  </div>
+                  {isOwner ? (
+                    <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
+                  ) : (
+                    <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                  )}
                 </div>
               )}
+            </SectionCard>
+            </div>
+
+            <div style={{ flex: '1 0 0', minWidth: 280 }}>
+            <SectionCard title="Credits Remaining" headerDivider={false}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
+                    {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                    credits consumed
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                  {canSeeCredits && (
+                    <button
+                      type="button"
+                      onClick={() => setBuyCreditsOpen(true)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                    >
+                      Buy credits
+                    </button>
+                  )}
+                  <Button variant="secondary" onClick={() => router.push(ORG_ANALYTICS_ROUTE)}>View usage</Button>
+                </div>
+              </div>
+            </SectionCard>
             </div>
           </div>
         )}
@@ -762,9 +818,6 @@ export default function OrgBillingPage() {
       {/* Modals */}
       {canSeeCredits && !isEnterprise && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
-      )}
-      {contactSalesOpen && (
-        <ContactSalesModal onClose={() => setContactSalesOpen(false)} />
       )}
       {showCancelDialog && (
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
@@ -937,181 +990,6 @@ function AdminPermissionsPanel({
   )
 }
 
-// ── Teams hero ──────────────────────────────────────────────────────────────────
-
-function TeamsHero({
-  isOwner,
-  nextBilling,
-  monthlyPrice,
-  tierIdx,
-  currentTierIdx,
-  onTierChange,
-  annual,
-  onAnnualChange,
-  onContactSales,
-  onUpgrade,
-  onManagePlan,
-  onRequestPlanChange,
-  cancelAtPeriodEnd,
-  cancelsOnLabel,
-  isResuming,
-  onCancelPlan,
-  onResumePlan,
-}: {
-  isOwner:             boolean
-  nextBilling:         string
-  monthlyPrice:        number
-  tierIdx:             number
-  currentTierIdx:      number
-  onTierChange:        (i: number) => void
-  annual:              boolean
-  onAnnualChange:      (v: boolean) => void
-  onContactSales:      () => void
-  onUpgrade:           () => void
-  onManagePlan:        () => void
-  onRequestPlanChange: () => void
-  cancelAtPeriodEnd:   boolean
-  cancelsOnLabel:      string
-  isResuming:          boolean
-  onCancelPlan:        () => void
-  onResumePlan:        () => void
-}) {
-  const tier = TIERS[tierIdx] ?? TIERS[0]
-  return (
-    <HeroShell>
-      {/* Header block */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          Team Plan
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-            Next billing: {nextBilling}
-          </p>
-          <Badge label={`${monthlyPrice}$/month`} tone="blue" />
-        </div>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          Shared credits · Unlimited seats · Admin controls · Audit trail
-        </p>
-      </div>
-
-      {/* Owner: cycle toggle */}
-      {isOwner && (
-        <div style={{
-          display:      'inline-flex',
-          alignSelf:    'flex-start',
-          alignItems:   'center',
-          gap:          4,
-          padding:      4,
-          borderRadius: 10,
-          background:   'rgba(247,242,237,0.5)',
-          boxShadow:    'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
-        }}>
-          <CycleTab active={!annual} onClick={() => onAnnualChange(false)}>Monthly</CycleTab>
-          <CycleTab active={annual}  onClick={() => onAnnualChange(true)}>Yearly</CycleTab>
-          <Badge label="Save 25%" tone="yellow" />
-        </div>
-      )}
-
-      {/* Price */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          ${monthlyPrice}/month
-        </p>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          {tier.credits.toLocaleString()} credits/month
-        </p>
-      </div>
-
-      {isOwner ? (
-        <>
-          <TierSlider tierIdx={tierIdx} currentTierIdx={currentTierIdx} onChange={onTierChange} />
-          {/* Footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-            <p style={{ fontFamily: 'var(--font-code)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-              Need an extra discount to join the Enterprise plan.{' '}
-              <button
-                type="button"
-                onClick={onContactSales}
-                style={{ fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-black, #000)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Contact us →
-              </button>
-            </p>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {cancelAtPeriodEnd ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
-                    Cancels on {cancelsOnLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={onResumePlan}
-                    disabled={isResuming}
-                    style={{
-                      background: 'none', border: 'none', padding: 0,
-                      cursor: isResuming ? 'not-allowed' : 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                      color: 'var(--blue-700)', textDecoration: 'underline', opacity: isResuming ? 0.6 : 1,
-                    }}
-                  >
-                    {isResuming ? 'Resuming…' : 'Resume'}
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onCancelPlan}
-                  style={{
-                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                    color: 'var(--red-700)', textDecoration: 'underline', whiteSpace: 'nowrap',
-                  }}
-                >
-                  Cancel plan
-                </button>
-              )}
-              {/* <Button variant="secondary" onClick={onContactSales}>Contact Sales Team</Button> */}
-              <Button variant="secondary" onClick={onManagePlan}>Manage plan</Button>
-              <Button variant="default" onClick={onUpgrade}>Upgrade plan</Button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div style={{ display: 'flex' }}>
-          <Button variant="secondary" onClick={onRequestPlanChange}>Request plan change</Button>
-        </div>
-      )}
-    </HeroShell>
-  )
-}
-
-function CycleTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  if (active) {
-    return <Button variant="default" onClick={onClick}>{children}</Button>
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        fontFamily:   'var(--font-body)',
-        fontWeight:   500,
-        fontSize:     14,
-        lineHeight:   '22px',
-        color:        'var(--neutral-500)',
-        background:   'none',
-        border:       'none',
-        cursor:       'pointer',
-        padding:      '7px 10px',
-        borderRadius: 10,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
 // ── Enterprise hero ───────────────────────────────────────────────────────────
 
 function EnterpriseHero({
@@ -1215,46 +1093,6 @@ function ProgressBar({ pct }: { pct: number }) {
     <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-900)', width: `${pct}%`, transition: 'width 0.3s ease' }} />
       <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-900)', boxShadow: '0 0 0 2px white' }} />
-    </div>
-  )
-}
-
-// ── Tier slider (interactive) ─────────────────────────────────────────────────
-
-function TierSlider({ tierIdx, currentTierIdx, onChange }: { tierIdx: number; currentTierIdx: number; onChange: (i: number) => void }) {
-  const n   = TIERS.length
-  const pct = n > 1 ? (currentTierIdx / (n - 1)) * 100 : 0
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, pointerEvents: 'none', userSelect: 'none', opacity: 0.5 }}>
-      <div
-        role="slider"
-        aria-valuemin={0}
-        aria-valuemax={n - 1}
-        aria-valuenow={currentTierIdx}
-        aria-disabled="true"
-        tabIndex={-1}
-        style={{ position: 'relative', height: 14, display: 'flex', alignItems: 'center', cursor: 'not-allowed', outline: 'none' }}
-      >
-        <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-500)', width: `${pct}%` }} />
-          <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-500)', boxShadow: '0 0 0 2px white' }} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        {TIERS.map((t, i) => (
-          <div
-            key={t.price}
-            style={{ padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
-          >
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: i === currentTierIdx ? 600 : 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-900)' }}>
-              ${t.price}/mo
-            </span>
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
-              {(t.credits / 1000).toFixed(0)}k
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

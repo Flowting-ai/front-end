@@ -34,10 +34,11 @@ function XIcon() {
 }
 
 // ── Account-grouping helpers ───────────────────────────────────────────────────
-// Workspace connectors are org-owned shared accounts (scope: 'shared_org'); a
-// single connector can expose several. Personal connectors are the viewer's own
-// linked account (scope: 'personal'). Both are surfaced through account_options;
-// we fall back to the entry's scalar fields for older catalog responses.
+// Workspace connectors are org-owned shared accounts — workspace-wide
+// (scope: 'shared', no team involved). A single connector can expose several.
+// Personal connectors are the viewer's own linked account (scope: 'personal').
+// Both are surfaced through account_options; we fall back to the entry's
+// scalar fields for older catalog responses.
 
 function logoFor(entry: ConnectorCatalogEntry): string | undefined {
   return toConnector(entry).logo ?? undefined
@@ -46,22 +47,20 @@ function logoFor(entry: ConnectorCatalogEntry): string | undefined {
 /** Connected, active shared organization accounts for this connector. */
 function workspaceAccountsOf(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
   const opts = (entry.account_options ?? []).filter(
-    o => o.scope === 'shared_org' && o.connected && o.status === 'active',
+    o => o.scope === 'shared' && o.connected && o.status === 'active',
   )
   if (opts.length > 0) return opts
   // Fallback: the single workspace summary on the entry.
   if (entry.workspace_linked) {
     return [{
       connector_slug:      entry.slug,
-      scope:               'shared_org',
+      scope:               'shared',
       account_label:       entry.account_label ?? 'Shared',
       account_identifier:  entry.account_identifier,
       provider_account_id: null,
       connected:           true,
       status:              'active',
       authorized_scopes:   [],
-      organization_id:     null,
-      organization_name:   null,
       shared_account_id:   entry.shared_account_id,
       linked_by_user_id:   entry.workspace_linked_by,
       can_manage:          false,

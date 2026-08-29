@@ -9,6 +9,7 @@ import {
   ONBOARDING_TEAM_BASE_ROUTE,
   SETTINGS_BILLING_CONFIRMATION_ROUTE,
   TEAM_INVITE_BASE_ROUTE,
+  INVITE_LANDING_BASE_ROUTE,
   ROOT_ROUTE,
 } from "@/lib/routes";
 
@@ -65,26 +66,6 @@ function rememberOnboarded(sub: string | null): void {
   onboardedCache.set(sub, Date.now());
 }
 
-/**
- * True when the account already holds an active team subscription. The team
- * onboarding flow takes payment (at /onboarding/plans → Stripe) *before* it
- * persists `role_fit` (only written when the workspace form is submitted), so a
- * paid-but-unfinished team user has an active "teams"/"enterprise" subscription
- * with no `role_fit` yet. Mirrors the backend's own "already subscribed" guard
- * (services/stripe/service.py), which keys off plan_type + active status.
- */
-function hasActiveTeamSubscription(root: Record<string, unknown>): boolean {
-  const plan =
-    root.plan && typeof root.plan === "object"
-      ? (root.plan as Record<string, unknown>)
-      : root;
-  const planType =
-    typeof plan.plan_type === "string" ? plan.plan_type : null;
-  const status =
-    typeof plan.subscription_status === "string" ? plan.subscription_status : null;
-  return (planType === "teams" || planType === "enterprise") && status === "active";
-}
-
 function determineNextOnboardingPath(root: Record<string, unknown>): string {
   const onboarding =
     root.onboarding && typeof root.onboarding === "object"
@@ -101,25 +82,31 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
     return false;
   };
 
-  // Onboarding flow:
-  //   hello (name + role)            → saves user_role
-  //   account-type (just me / team)  → saves role_fit (just_me for individuals)
-  //     ├─ individual → import       (tone is skipped)
-  //     └─ team       → workspace     → saves role_fit (small_team / large_team) → import
-  //   import (bring context)         → marks onboarding complete
-  // Resume keys off the backend fields each step writes; both branches finish
-  // on the import step.
-  if (!filled("user_role", "userRole")) return "/onboarding/hello";
-  if (!filled("role_fit", "roleFit")) {
-    // A team account that has already paid but not yet submitted the workspace
-    // form has no `role_fit` persisted. Sending it back to account-type pushes it
-    // into the plans page again, where re-running checkout hits the backend's
-    // "already subscribed" guard — a dead end. Resume at the workspace step,
-    // which persists `role_fit` and finishes team setup, instead.
-    if (hasActiveTeamSubscription(root)) return "/onboarding/workspace";
-    return "/onboarding/account-type";
-  }
-  return "/onboarding/import";
+  // v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md), case
+  // A1's 5 web-app steps:
+  //   setup (no data written)              → choice screen only
+  //   workspace (name + size)               → saves role_fit
+  //   profile (first/last name + role)      → saves first_name/last_name via
+  //                                            /users/me; user_role only if
+  //                                            the optional role field is set
+  //   invite (emails, optional)             → marks onboarding_completed
+  // There is no account-type/plans/Stripe/tone/import step in this flow —
+  // those belonged to the previous team-onboarding implementation.
+  //
+  // PENDING CONFIRMATION: `user_role` is optional at the profile step now, so
+  // it can't gate "has this person finished profile" the way it used to.
+  // first_name/last_name (top-level /users/me fields, not the onboarding
+  // sub-object) are used instead. That's a real signal, but Auth0 can
+  // auto-populate first_name to the account's email on some signups (see
+  // auth-context.tsx's mapProfileToUser) — this function can't tell a real
+  // name from that placeholder, so a user whose Auth0 profile happens to look
+  // "filled" could be skipped past /onboarding/profile without ever seeing
+  // it. Flagged, not silently assumed correct.
+  if (!filled("role_fit", "roleFit")) return "/onboarding/setup";
+  const firstName = typeof root.first_name === "string" ? root.first_name : "";
+  const lastName = typeof root.last_name === "string" ? root.last_name : "";
+  if (!(firstName.trim().length > 0 && lastName.trim().length > 0)) return "/onboarding/profile";
+  return "/onboarding/invite";
 }
 
 async function fetchOnboardingState(): Promise<OnboardingStateResult> {
@@ -205,6 +192,14 @@ export default async function proxy(request: NextRequest) {
   // API routes must never be blocked by the onboarding guard
   if (pathname.startsWith("/api/")) {
     return await auth0.middleware(request);
+  }
+
+  // B1/B2 pre-login invite landing (/invite/<id>) is deliberately public — it
+  // IS the "decide sign in vs sign up" screen for a logged-out invitee, so it
+  // must be reachable before any session check runs. Its own Sign in/Sign up
+  // buttons are what send the visitor into /auth/login.
+  if (pathname.startsWith(`${INVITE_LANDING_BASE_ROUTE}/`)) {
+    return NextResponse.next();
   }
 
   // Pass the request explicitly so the SDK reads cookies from the incoming

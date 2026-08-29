@@ -84,7 +84,17 @@ function FloatingPanelImpl() {
     }
     closePinboard()
     closeHighlight()
-    setSidePanel({ title: AGENTS_PANEL_TITLE, content: <AgentsPanelContent />, onClose: () => setSidePanel(null) })
+    // Tighter side padding than the shell's default — AgentsPanelContent is
+    // modeled directly on Pinboard's own flush 8px-side layout, not the
+    // wider card-style margin the Instructions/Files/Team panels use. Drives
+    // both the header title's and the content's left edge, so they stay
+    // aligned with each other.
+    setSidePanel({
+      title:   AGENTS_PANEL_TITLE,
+      content: <AgentsPanelContent />,
+      onClose: () => setSidePanel(null),
+      sidePadding: 8,
+    })
   }
 
   const handleJump = (id: string) => {

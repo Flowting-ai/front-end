@@ -46,7 +46,6 @@ import {
   ORG_MEMBERS_ROUTE,
   ORG_ACTIVITY_ROUTE,
   ORG_PLANS_ROUTE,
-  ORG_TEAMS_ROUTE,
   ORG_GENERAL_ROUTE,
   ORG_ANALYTICS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
@@ -109,7 +108,6 @@ function personaAvatarUrl(persona: Persona): string | null {
 const ADMIN_SECTION_ROUTES: Record<string, string> = {
   general:           ORG_GENERAL_ROUTE,
   members:           ORG_MEMBERS_ROUTE,
-  teams:             ORG_TEAMS_ROUTE,
   "plans-usage":     ORG_PLANS_ROUTE,
   analytics:         ORG_ANALYTICS_ROUTE,
   connectors:        ORG_CONNECTORS_ROUTE,
@@ -120,8 +118,13 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
 // Items with no page yet — surfaced as "coming soon" (id ? toast label).
 const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
 
-// Default admin groups without the "Company Data" section.
-const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS.filter(g => g.id !== 'company-data');
+// Default admin groups without the "Company Data" section, and without the
+// "Teams" item — Team is fully removed from the product model (Workspace
+// Model v2: Teams entity gone, Projects are the org unit), and its page was
+// already deleted (commit 2c8c1dcb) leaving this nav row a 404.
+const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS
+  .filter(g => g.id !== 'company-data')
+  .map(g => g.id === 'organization' ? { ...g, items: g.items.filter(i => i.id !== 'teams') } : g);
 
 
 // -- Section show/hide animation - matches Sidebar design system ---------------

@@ -1,12 +1,10 @@
 'use client'
 
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetchJson } from './client'
 import {
   ORG_INVITES_ENDPOINT,
-  ORG_PROJECT_MEMBERS_ENDPOINT,
-  ORG_PROJECT_MEMBER_ENDPOINT,
-  TEAM_INVITE_PREVIEW_ENDPOINT,
-  TEAM_INVITE_ACCEPT_ENDPOINT,
+  ORG_INVITE_PREVIEW_ENDPOINT,
+  ORG_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
 import type {
   Invite,
@@ -19,13 +17,6 @@ import type {
 } from '@/types/teams'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
-
-interface PersonResponse {
-  user_id: string
-  name?: string | null
-  email?: string | null
-  can_link_accounts?: boolean
-}
 
 interface InviteResponse {
   id: string
@@ -48,31 +39,6 @@ function normalizeInvite(i: InviteResponse): Invite {
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
-
-// ── Project members ───────────────────────────────────────────────────────────
-
-export interface ProjectMember {
-  userId: string
-  name: string | null
-  email: string | null
-}
-
-export async function listProjectMembers(orgId: string, projectId: string): Promise<ProjectMember[]> {
-  const list = await apiFetchJson<PersonResponse[]>(ORG_PROJECT_MEMBERS_ENDPOINT(orgId, projectId))
-  return list.map(p => ({ userId: p.user_id, name: p.name ?? null, email: p.email ?? null }))
-}
-
-export async function addProjectMember(orgId: string, projectId: string, userId: string): Promise<ProjectMember> {
-  const data = await apiFetchJson<PersonResponse>(ORG_PROJECT_MEMBERS_ENDPOINT(orgId, projectId), {
-    method: 'POST',
-    body: JSON.stringify({ userId }),
-  })
-  return { userId: data.user_id, name: data.name ?? null, email: data.email ?? null }
-}
-
-export async function removeProjectMember(orgId: string, projectId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_PROJECT_MEMBER_ENDPOINT(orgId, projectId, memberId), { method: 'DELETE' })
-}
 
 /**
  * Flat org-level invite — the backend's InviteRequest is
@@ -158,8 +124,9 @@ function normalizeInvitedProject(p: InvitedProjectResponse): InvitedProject {
 
 export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInviteOnboarding> {
   // The backend returns the full invite payload from the preview path itself
-  // (GET /team-invite/{id}) — there is no separate /onboarding endpoint.
-  const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
+  // (GET /org-invite/{id}, renamed from /team-invite/{id}) — there is no
+  // separate /onboarding endpoint.
+  const data = await apiFetchJson<InviteOnboardingResponse>(ORG_INVITE_PREVIEW_ENDPOINT(inviteId))
   return {
     inviteId:                data.invite_id,
     organizationId:          data.organization_id,
@@ -181,9 +148,9 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
 }
 
 export async function acceptTeamInvite(inviteId: string): Promise<void> {
-  // Real response is OrganizationResponse, but no caller reads it — accepting
+  // Response is OrganizationResponse, but no caller reads it — accepting
   // just commits membership; the caller re-fetches org state separately.
-  await apiFetchJson<unknown>(TEAM_INVITE_ACCEPT_ENDPOINT(inviteId), { method: 'POST' })
+  await apiFetchJson<unknown>(ORG_INVITE_ACCEPT_ENDPOINT(inviteId), { method: 'POST' })
 }
 
 /**

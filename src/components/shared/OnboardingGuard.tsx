@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { hasActivePaidSubscription } from "@/lib/onboarding-access";
-import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_HELLO_ROUTE } from "@/lib/routes";
+import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_SETUP_ROUTE } from "@/lib/routes";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const { isHydrated, isAuthenticated, user } = useAuth();
@@ -36,7 +36,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
       hasActivePaidSubscription(user.planType ?? null, user.subscriptionStatus ?? null);
 
     if (!allowsMainApp) {
-      replace(ONBOARDING_HELLO_ROUTE);
+      replace(ONBOARDING_SETUP_ROUTE);
     }
   }, [isHydrated, isAuthenticated, user, replace, pathname]);
 

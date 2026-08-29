@@ -17,7 +17,10 @@ import {
 // deterministically from the endpoint's real shape — no guessed defaults, no
 // fabricated fields. See the billing precedent in src/lib/api/organization.ts.
 
-const accountScopeSchema  = z.enum(['personal', 'shared_org'])
+// services/connectors/schemas.py's AccountScope is Literal["personal", "shared"]
+// (Workspace Model v2 — Team removed, connections are workspace-wide with no
+// smaller scope to distinguish "shared" from).
+const accountScopeSchema  = z.enum(['personal', 'shared'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
 
 const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
@@ -59,12 +62,9 @@ const orgConnectorAccountSchema = z.object({
   account_label:      z.string(),
   account_identifier: z.string().nullable().default(null),
   connected:          z.boolean(),
-  scope:              accountScopeSchema.default('shared_org'),
+  scope:              accountScopeSchema.default('shared'),
   status:             accountStatusSchema.default('active'),
   version:            z.number().int().default(1),
-  /** Every connector slug this one org account is attached to — one account fans
-   *  out to many OrganizationConnector rows. Empty until an admin attaches it. */
-  attached_slugs:     z.array(z.string()).default([]),
   linked_by_user_id:  z.string().nullable().default(null),
   created_at:         z.string(),
   updated_at:         z.string(),
@@ -86,8 +86,6 @@ const connectorAccountOptionSchema = z.object({
   status:             accountStatusSchema.default('active'),
   /** OAuth scopes the account holds, as the provider reports them. */
   authorized_scopes:  z.array(z.string()).default([]),
-  organization_id:    z.string().nullable().default(null),
-  organization_name:  z.string().nullable().default(null),
   shared_account_id:  z.string().nullable().default(null),
   linked_by_user_id:  z.string().nullable().default(null),
   can_manage:         z.boolean().default(false),
@@ -141,6 +139,13 @@ const connectorCatalogEntrySchema = z.object({
   accounts:            z.array(orgConnectorAccountSchema).default([]),
   /** Selectable account options the current user can execute under. */
   account_options:     z.array(connectorAccountOptionSchema).default([]),
+  /** Whether this slug is in the org's enabled catalog. Nullable — null for a
+   *  solo user with no org context. */
+  org_enabled:         z.boolean().nullable().default(null),
+  /** Status of the current user's own request to use this connector
+   *  personally, when the org gates personal (private) links. Null when no
+   *  such gate/request applies. */
+  personal_access_status: z.enum(['pending', 'approved', 'denied']).nullable().default(null),
   /** Not in the backend schema — some FE code sets it locally for the avatar. */
   icon_url:            z.string().optional(),
 })

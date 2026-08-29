@@ -274,19 +274,15 @@ export const WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT = (
   messageId: string,
 ) => withBase(`/workflow/${workflowId}/chats/${chatId}/message/${messageId}`);
 
-// ── Organizations & Teams ─────────────────────────────────────────────────────
+// ── Organizations (Workspace) ──────────────────────────────────────────────────
 export const ORG_INVITES_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/invites`)
 export const ORG_INVITE_ENDPOINT = (orgId: string, inviteId: string) =>
   withBase(`/organizations/${orgId}/invites/${inviteId}`)
-export const ORG_PROJECT_MEMBERS_ENDPOINT = (orgId: string, projectId: string) =>
-  withBase(`/organizations/${orgId}/projects/${projectId}/members`)
-export const ORG_PROJECT_MEMBER_ENDPOINT = (orgId: string, projectId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/projects/${projectId}/members/${memberId}`)
-export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
-  withBase(`/team-invite/${inviteId}`)
-export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
-  withBase(`/team-invite/${inviteId}/accept`)
+export const ORG_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
+  withBase(`/org-invite/${inviteId}`)
+export const ORG_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
+  withBase(`/org-invite/${inviteId}/accept`)
 
 // ── Organization ──────────────────────────────────────────────────────────────
 export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
@@ -308,10 +304,9 @@ export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
 export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/transfer-owner`)
-export const ORG_CONNECTORS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors`)
-export const ORG_CONNECTOR_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}`)
+// Connections are workspace-wide (Workspace Model v2) — a shared account is
+// created directly against the organization, with no Team indirection and no
+// personal-access approval gate (both removed entirely from the backend).
 export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
 export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>

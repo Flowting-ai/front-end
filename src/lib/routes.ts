@@ -32,7 +32,6 @@ export const ORG_BASE_ROUTE = "/org";
 export const ORG_GENERAL_ROUTE = "/settings/general";
 export const ORG_ACTIVITY_ROUTE = "/settings/activity";
 export const ORG_PLANS_ROUTE = "/settings/plans";
-export const ORG_TEAMS_ROUTE = "/settings/teams";
 export const ORG_MEMBERS_ROUTE = "/settings/members";
 export const ORG_ANALYTICS_ROUTE = "/settings/analytics";
 export const ORG_CHANGE_PLAN_ROUTE = "/org/change-plan";
@@ -45,9 +44,21 @@ export const SETTINGS_HELP_ROUTE = "/settings/help";
 export const SETTINGS_CONNECTORS_ROUTE = "/settings/connectors";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
 export const SETTINGS_BILLING_ROUTE = "/settings/billing";
+// Settings v1.5 — PERSONAL > Usage (node 17-22980), split out of the old
+// combined "Usage & Billing" page. Plans/payment/invoices stay on
+// SETTINGS_BILLING_ROUTE; this page is personal credit-consumption only.
+export const SETTINGS_USAGE_ROUTE = "/settings/usage";
 export const SETTINGS_BILLING_CHANGE_PLAN_ROUTE = "/settings/billing/change-plan";
 export const SETTINGS_BILLING_CONFIRMATION_ROUTE = "/settings/billing/confirmation";
 export const TEAM_INVITE_BASE_ROUTE = "/team-invite";
+
+// B1/B2 (pre-login invite landing, "You're on the list! You've been invited
+// to join X's workspace" — Sign in vs Sign up depending on whether the
+// invited email already has an account). Genuinely public: proxy.ts must
+// exempt this route from its logged-out → /auth/login redirect, since this
+// page IS the "decide sign in vs sign up" screen for a logged-out invitee.
+export const INVITE_LANDING_BASE_ROUTE = "/invite";
+export const INVITE_LANDING_ROUTE = (inviteId: string) => `${INVITE_LANDING_BASE_ROUTE}/${inviteId}`;
 
 export const ONBOARDING_HELLO_ROUTE = "/onboarding/hello";
 export const ONBOARDING_ACCOUNT_TYPE_ROUTE = "/onboarding/account-type";
@@ -60,6 +71,15 @@ export const ONBOARDING_PRICING_ROUTE = "/onboarding/pricing";
 export const ONBOARDING_BASE_ROUTE = "/onboarding";
 export const ONBOARDING_TEAM_BASE_ROUTE = "/onboarding/team";
 export const ONBOARDING_TONE_ROUTE = "/onboarding/tone";
+
+// ── v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md) ───────
+// ONBOARDING_WORKSPACE_ROUTE above is reused for this flow's step 2 (same URL,
+// new content) — only these two are new routes.
+export const ONBOARDING_SETUP_ROUTE = "/onboarding/setup";
+export const ONBOARDING_PROFILE_ROUTE = "/onboarding/profile";
+// A2 (join an existing workspace) — screen 1 only; screens 2/3 reuse the
+// ONBOARDING_PROFILE_ROUTE page and the add-to-slack-modal above verbatim.
+export const ONBOARDING_JOIN_ROUTE = "/onboarding/join";
 
 export const AUTH_LOGIN_ROUTE = "/auth/login";
 
@@ -76,8 +96,6 @@ export const PROJECT_ROUTE = (projectId: string) => `/project/${projectId}`;
 export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
-export const ORG_TEAM_ROUTE = (teamId: string) => `/settings/teams/${teamId}`;
-export const TEAM_ROUTE = (teamId: string) => `/teams/${teamId}`;
 export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 

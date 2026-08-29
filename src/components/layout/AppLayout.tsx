@@ -302,6 +302,7 @@ export function AppLayout({
 // side panels read as one consistent system.
 function ProjectPanelSidebar() {
   const { panel, isOpen } = useProjectPanel();
+  const sidePadding = panel?.sidePadding ?? 24;
 
   return (
     <m.div
@@ -335,7 +336,7 @@ function ProjectPanelSidebar() {
             justifyContent: "space-between",
             gap:            8,
             minHeight:      58,
-            padding:        "22px 16px 0 24px",
+            padding:        `22px 16px 0 ${sidePadding}px`,
             flexShrink:     0,
           }}
         >
@@ -370,7 +371,7 @@ function ProjectPanelSidebar() {
           className="kaya-scrollbar"
           style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
         >
-          <div style={{ padding: "14px 24px 24px", boxSizing: "border-box", height: "100%" }}>
+          <div style={{ padding: `14px ${sidePadding}px ${sidePadding}px`, boxSizing: "border-box", height: "100%" }}>
             {panel?.content}
           </div>
         </div>

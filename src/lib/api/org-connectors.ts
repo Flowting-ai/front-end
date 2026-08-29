@@ -1,9 +1,16 @@
 'use client'
 
+// Connector sharing is workspace-wide (Workspace Model v2): a shared account
+// is created directly against the organization via
+// POST .../connectors/{slug}/accounts — no Team involved, and no separate
+// "make it workspace-wide" flip afterward (there's no smaller scope to
+// distinguish "shared" from any more). There's also no personal-access
+// approval gate left on the backend — every member can link their own
+// private account without requesting access first.
+
 import { apiFetch, apiFetchJson } from './client'
+import { bustConnectorCatalogCache } from './connectors'
 import {
-  ORG_CONNECTORS_ENDPOINT,
-  ORG_CONNECTOR_REQUEST_ENDPOINT,
   ORG_CONNECTOR_ACCOUNTS_ENDPOINT,
   ORG_CONNECTOR_ACCOUNT_ENDPOINT,
   ORG_CONNECTOR_USED_BY_ENDPOINT,
@@ -22,8 +29,6 @@ export interface OrgConnectorAccount {
   connected:        boolean
   status:           AccountStatus
   version:          number
-  /** Connector slugs this one account is attached to (it can fan out to many). */
-  attachedSlugs:    string[]
   linkedByUserId:   string | null
   createdAt:        string
   updatedAt:        string
@@ -38,59 +43,9 @@ interface OrgConnectorAccountResponse {
   connected:            boolean
   status:               AccountStatus
   version:              number
-  attached_slugs:       string[]
   linked_by_user_id:    string | null
   created_at:           string
   updated_at:           string
-}
-
-/** An organization's standing request for a connector — the only org-level
- *  gate left. Members file one as `pending`; an owner/admin's own request is
- *  approved on the spot. It never gates personal linking. */
-export type ConnectorRequestStatus = 'pending' | 'approved' | 'denied'
-
-export interface OrgConnectorRequest {
-  organizationId:    string
-  connectorSlug:     string
-  status:            ConnectorRequestStatus
-  requestedByUserId: string
-  requestedByName:   string | null
-  requestedByEmail:  string | null
-  note:              string
-  createdAt:         string
-  updatedAt:         string
-}
-
-interface OrgConnectorRequestResponse {
-  organization_id:      string
-  connector_slug:       string
-  status:               ConnectorRequestStatus
-  requested_by_user_id: string
-  requested_by_name:    string | null
-  requested_by_email:   string | null
-  note:                 string
-  created_at:           string
-  updated_at:           string
-}
-
-function normalizeRequest(r: OrgConnectorRequestResponse): OrgConnectorRequest {
-  return {
-    organizationId:    r.organization_id,
-    connectorSlug:     r.connector_slug,
-    status:            r.status,
-    requestedByUserId: r.requested_by_user_id,
-    requestedByName:   r.requested_by_name ?? null,
-    requestedByEmail:  r.requested_by_email ?? null,
-    note:              r.note ?? '',
-    createdAt:         r.created_at,
-    updatedAt:         r.updated_at,
-  }
-}
-
-export interface ConnectorUsedByEntry {
-  surface: string
-  id:      string
-  name:    string
 }
 
 function normalizeAccount(r: OrgConnectorAccountResponse): OrgConnectorAccount {
@@ -103,52 +58,19 @@ function normalizeAccount(r: OrgConnectorAccountResponse): OrgConnectorAccount {
     connected:        r.connected,
     status:           r.status,
     version:          r.version,
-    attachedSlugs:    r.attached_slugs ?? [],
     linkedByUserId:   r.linked_by_user_id ?? null,
     createdAt:        r.created_at,
     updatedAt:        r.updated_at,
   }
 }
 
+export interface ConnectorUsedByEntry {
+  surface: string
+  id:      string
+  name:    string
+}
+
 // ── API functions ─────────────────────────────────────────────────────────────
-
-/** GET /organizations/{id}/connectors — the org's connector requests. */
-export async function listOrgConnectorRequests(orgId: string): Promise<OrgConnectorRequest[]> {
-  const list = await apiFetchJson<OrgConnectorRequestResponse[]>(ORG_CONNECTORS_ENDPOINT(orgId))
-  return list.map(normalizeRequest)
-}
-
-/** POST /organizations/{id}/connectors — file (or re-file) a connector request.
- *  Lands as `approved` when the caller is an owner/admin, else `pending`. */
-export async function requestOrgConnector(
-  orgId: string,
-  slug: string,
-  note = '',
-): Promise<OrgConnectorRequest> {
-  const data = await apiFetchJson<OrgConnectorRequestResponse>(ORG_CONNECTORS_ENDPOINT(orgId), {
-    method: 'POST',
-    body:   JSON.stringify({ slug, note }),
-  })
-  return normalizeRequest(data)
-}
-
-/** PATCH /organizations/{id}/connectors/{slug} — admin-only approve/deny. */
-export async function setOrgConnectorStatus(
-  orgId: string,
-  slug: string,
-  status: ConnectorRequestStatus,
-): Promise<OrgConnectorRequest> {
-  const data = await apiFetchJson<OrgConnectorRequestResponse>(
-    ORG_CONNECTOR_REQUEST_ENDPOINT(orgId, slug),
-    { method: 'PATCH', body: JSON.stringify({ status }) },
-  )
-  return normalizeRequest(data)
-}
-
-/** DELETE /organizations/{id}/connectors/{slug} — admin-only. */
-export async function removeOrgConnector(orgId: string, slug: string): Promise<void> {
-  await apiFetch(ORG_CONNECTOR_REQUEST_ENDPOINT(orgId, slug), { method: 'DELETE' })
-}
 
 /** GET /organizations/{id}/connectors/{slug}/accounts */
 export async function listOrgConnectorAccounts(orgId: string, slug: string): Promise<OrgConnectorAccount[]> {
@@ -169,6 +91,7 @@ export async function createOrgConnectorAccount(
     ORG_CONNECTOR_ACCOUNTS_ENDPOINT(orgId, slug),
     { method: 'POST', body: JSON.stringify(body) },
   )
+  bustConnectorCatalogCache()
   return { connectorSlug: data.connector_slug, redirectUrl: data.redirect_url, sharedAccountId: data.shared_account_id }
 }
 
@@ -188,12 +111,14 @@ export async function updateOrgConnectorAccount(
     ORG_CONNECTOR_ACCOUNT_ENDPOINT(orgId, accountId),
     { method: 'PATCH', body: JSON.stringify(params) },
   )
+  bustConnectorCatalogCache()
   return normalizeAccount(data)
 }
 
 /** DELETE /organizations/{id}/connectors/accounts/{accountId} */
 export async function deleteOrgConnectorAccount(orgId: string, accountId: string): Promise<void> {
   await apiFetch(ORG_CONNECTOR_ACCOUNT_ENDPOINT(orgId, accountId), { method: 'DELETE' })
+  bustConnectorCatalogCache()
 }
 
 /** GET /organizations/{id}/connectors/{slug}/used-by */

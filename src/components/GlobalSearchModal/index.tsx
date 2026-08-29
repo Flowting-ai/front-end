@@ -15,6 +15,7 @@ import {
 } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { TabItem }    from '@/components/TabItem'
+import { highlightMatch } from '@/lib/highlightMatch'
 import { cn } from '@/lib/utils'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -100,29 +101,6 @@ const TYPE_LABEL: Record<SearchResultType, string> = {
   persona:       'Agents',
   pin:           'Pins',
   page:          'Pages',
-}
-
-// ── highlightMatch ────────────────────────────────────────────────────────────
-// Splits `text` on the first case-insensitive occurrence of `query` and
-// returns a React node with the matched segment bolded in neutral-900.
-// Returns plain text when query is empty or has no match.
-
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query.trim()) return text
-  const lower      = text.toLowerCase()
-  const lowerQuery = query.toLowerCase().trim()
-  const idx        = lower.indexOf(lowerQuery)
-  if (idx === -1) return text
-
-  return (
-    <>
-      {text.slice(0, idx)}
-      <strong style={{ fontWeight: 600, color: 'var(--neutral-900)' }}>
-        {text.slice(idx, idx + lowerQuery.length)}
-      </strong>
-      {text.slice(idx + lowerQuery.length)}
-    </>
-  )
 }
 
 // ── SectionHeader ─────────────────────────────────────────────────────────────

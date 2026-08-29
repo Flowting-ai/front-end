@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { SlackConnectModal } from "@/components/SlackConnectModal";
+import { AddSouvenirToSlackModal } from "@/app/(onboarding)/onboarding/_components/add-to-slack-modal";
 import { toast } from "sonner";
 import { CHAT_ROUTE, ORG_MEMBERS_ROUTE, PROJECTS_NEW_ROUTE, ORG_CONNECTORS_ROUTE, ORG_SOUVENIR_SLACK_ROUTE } from "@/lib/routes";
 
@@ -193,6 +194,9 @@ function TeamWelcomeContent() {
   const { user } = useAuth();
   const params = useSearchParams();
   const [slackModalOpen, setSlackModalOpen] = useState(false);
+  // A1/A2 onboarding screen 5 (Figma 55:2475 / 182:10127) — a modal shown once,
+  // right after the v1.5 workspace-onboarding flow completes and lands here.
+  const [postOnboardingSlackOpen, setPostOnboardingSlackOpen] = useState(() => params.get("slack") === "1");
 
   // Prefer the name captured during onboarding (passed via URL), falling back to
   // the authenticated profile so the greeting is always populated.
@@ -298,6 +302,11 @@ function TeamWelcomeContent() {
         isOpen={slackModalOpen}
         onClose={() => setSlackModalOpen(false)}
         onConnected={() => { router.push(ORG_SOUVENIR_SLACK_ROUTE) }}
+      />
+
+      <AddSouvenirToSlackModal
+        isOpen={postOnboardingSlackOpen}
+        onClose={() => setPostOnboardingSlackOpen(false)}
       />
     </>
   );

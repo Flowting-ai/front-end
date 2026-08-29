@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils'
 // Figma 3118:32829 - chip input minimum width.
 const MIN_WIDTH = 64
 
-// Hard cap on tag length. Matches the in-Pin "Add tag" affordance - pin tags
-// are short, identifying labels, not freeform notes. Past this, the input
-// rejects the keystroke (restoring the previous value) and triggers the same
-// shake animation `PinCommentField` uses when the 2-line cap is hit.
-const MAX_LENGTH = 30
+// Default hard cap on entry length. Matches the in-Pin "Add tag" affordance -
+// pin tags are short, identifying labels, not freeform notes. Past this, the
+// input rejects the keystroke (restoring the previous value) and triggers the
+// same shake animation `PinCommentField` uses when the 2-line cap is hit.
+// Overridable via the `maxLength` prop for consumers entering longer values
+// (e.g. email addresses in onboarding/invite/page.tsx).
+const DEFAULT_MAX_LENGTH = 30
 
 // ── Shadow tokens (mirrors PinCommentField) ───────────────────────────────────
 
@@ -24,11 +26,15 @@ const SHADOW_FOCUS   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px v
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ChipInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size' | 'maxLength'> {
   /** Visible placeholder shown via the animated overlay. Defaults to "Add tag…". */
   placeholder?: string
   /** Accessible label - required when no visible <label> is paired with the input. */
   'aria-label'?: string
+  /** Hard cap on entry length before the shake-and-reject behavior kicks in.
+   *  Defaults to 30 (the short-tag case); pass a larger value for consumers
+   *  entering longer strings (e.g. email addresses). */
+  maxLength?: number
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -48,6 +54,7 @@ export function ChipInput(
     placeholder      = 'Add tag…',
     defaultValue,
     value:            controlledValue,
+    maxLength        = DEFAULT_MAX_LENGTH,
     className,
     style,
     onChange:         externalChange,
@@ -84,7 +91,7 @@ export function ChipInput(
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = e.target.value
-      if (next.length > MAX_LENGTH) {
+      if (next.length > maxLength) {
         // Reject - restore previous valid value and shake. Same x-keyframes /
         // duration / easing as PinCommentField so the gesture is consistent
         // across "you've hit a limit" feedback in the system.

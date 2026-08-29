@@ -3,8 +3,8 @@
 import React from 'react'
 
 // Shared header/empty-row primitives for the project "who has access" panels
-// (ProjectTeamPanel, ProjectAgentsPanel, ProjectMembersPanel) — each rendered
-// their own copy of this exact pattern before.
+// (ProjectAgentsPanel today) — each rendered their own copy of this exact
+// pattern before.
 
 export interface SectionHeaderProps {
   title:      string

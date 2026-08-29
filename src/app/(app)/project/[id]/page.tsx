@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
@@ -26,7 +26,6 @@ import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow
 import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
-import { ProjectTeamPanel } from '@/components/ProjectTeamPanel'
 import { ProjectAgentsPanel } from '@/components/ProjectAgentsPanel'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
@@ -116,7 +115,6 @@ export default function ProjectPage() {
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
-  const [teamPanelOpen,    setTeamPanelOpen]    = useState(false)
   const [agentsPanelOpen,  setAgentsPanelOpen]  = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
@@ -200,7 +198,7 @@ export default function ProjectPage() {
   // this page's own rounded content border. Cleared on close and on unmount
   // so it never lingers after navigating away.
   useEffect(() => {
-    if (!project || (!panelOpen && !teamPanelOpen && !agentsPanelOpen)) {
+    if (!project || (!panelOpen && !agentsPanelOpen)) {
       setProjectPanel(null)
       return
     }
@@ -251,34 +249,6 @@ export default function ProjectPage() {
       })
       return
     }
-    if (teamPanelOpen && project.teamId) {
-      setProjectPanel({
-        title:   'Members',
-        onClose: () => setTeamPanelOpen(false),
-        content: (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   12,
-                lineHeight: '16px',
-                color:      'var(--neutral-500)',
-                margin:     '-6px 0 0',
-              }}
-            >
-              Everyone in your organization can already see a shared project — give someone direct access here if they should be able to edit it too.
-            </p>
-            <ProjectTeamPanel
-              projectId={project.id}
-              ownerUserId={project.ownerUserId}
-              canEdit={project.canEdit}
-            />
-          </div>
-        ),
-      })
-      return
-    }
     if (agentsPanelOpen) {
       setProjectPanel({
         title:   'Agents',
@@ -302,7 +272,7 @@ export default function ProjectPage() {
         ),
       })
     }
-  }, [project, panelOpen, teamPanelOpen, agentsPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
+  }, [project, panelOpen, agentsPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
 
   useEffect(() => () => setProjectPanel(null), [setProjectPanel])
 
@@ -1020,7 +990,6 @@ export default function ProjectPage() {
             onClick={() => {
               if (!panelOpen) {
                 closePinboard()
-                setTeamPanelOpen(false)
                 setAgentsPanelOpen(false)
               }
               setPanelOpen(v => !v)
@@ -1033,27 +1002,11 @@ export default function ProjectPage() {
             onClick={() => {
               if (!pinboardOpen) {
                 setPanelOpen(false)
-                setTeamPanelOpen(false)
                 setAgentsPanelOpen(false)
               }
               togglePinboard()
             }}
           />
-          {project.teamId && (
-            <FloatingMenuItem
-              icon={<MentoringIcon size={20} animated />}
-              label="Team"
-              active={teamPanelOpen}
-              onClick={() => {
-                if (!teamPanelOpen) {
-                  closePinboard()
-                  setPanelOpen(false)
-                  setAgentsPanelOpen(false)
-                }
-                setTeamPanelOpen(v => !v)
-              }}
-            />
-          )}
           <FloatingMenuItem
             icon={<UserAiIcon size={20} animated />}
             label="Agents"
@@ -1062,7 +1015,6 @@ export default function ProjectPage() {
               if (!agentsPanelOpen) {
                 closePinboard()
                 setPanelOpen(false)
-                setTeamPanelOpen(false)
               }
               setAgentsPanelOpen(v => !v)
             }}
@@ -1159,9 +1111,12 @@ export default function ProjectPage() {
               {/* Private / Shared — stacked, not side by side, each boxed in
                   its own matching border so the two options read as equal
                   peers. Private only shows for the project's actual
-                  creator — anyone else managing a shared project can't take
-                  it private (the backend would 403 that PATCH). */}
-              {isProjectOwner && (
+                  creator, and only while the project is still private —
+                  Workspace Model v2 makes Shared one-way (no path back to
+                  Private; restrict access by removing members instead), so
+                  once shared this option is never offered to anyone,
+                  independent of the backend's own 403 for non-owners. */}
+              {isProjectOwner && !project.teamId && (
                 <div style={{ padding: 8, borderRadius: 16, border: '1px solid var(--neutral-200)' }}>
                   <ModelFeaturedCard
                     title="Private"

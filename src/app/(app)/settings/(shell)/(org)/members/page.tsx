@@ -2,14 +2,15 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { SearchOneIcon, CancelCircleIcon, ExchangeOneIcon, InformationCircleIcon, TickTwoIcon, UserAddOneIcon, UserIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, InformationCircleIcon, TickTwoIcon, UserAddOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { RoleBadge, RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
+import { RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
 import { Button }           from '@/components/Button'
 import { IconButton }       from '@/components/IconButton'
 import { Avatar }           from '@/components/Avatar'
 import { InputField }       from '@/components/InputField'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Tooltip }          from '@/components/Tooltip'
 import { AppInviteModal, type InviteResult } from '@/components/InviteModal'
 import {
@@ -26,12 +27,12 @@ import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, revokeInvite, getOrgSettings } from '@/lib/api/organization'
 import { inviteMembers } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
-import { getGradient } from '@/lib/team-gradients'
 import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_CARD      = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
+const SHADOW_STAT_CARD = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_REMOVE    = '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)'
 const SHADOW_REMOVE_INNER = 'inset 0px -2.182px 0.364px 0px var(--red-100)'
 
@@ -72,7 +73,7 @@ function RemoveButton({
           animate={{ opacity: 1, filter: 'blur(0px)', transition: REVEAL }}
           exit={{    opacity: 0, filter: 'blur(4px)', transition: REVEAL }}
           style={{
-            display:         'inline-flex', alignItems: 'center', gap: 4,
+            display:         'inline-flex', alignItems: 'center', gap: 2,
             padding:         '5px 8px', borderRadius: 8, border: 'none',
             cursor:          'pointer', position: 'relative', overflow: 'hidden',
             backgroundColor: hov ? 'var(--red-50)' : 'var(--neutral-white)',
@@ -83,7 +84,7 @@ function RemoveButton({
           }}
         >
           {icon ?? (
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path d="M7 7.875a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM1.75 12.25c0-2.071 2.351-3.5 5.25-3.5M10.5 10.5l1.75 1.75M12.25 10.5L10.5 12.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )}
@@ -115,197 +116,112 @@ function RemoveButton({
   )
 }
 
-// ── Role / Teams columns ──────────────────────────────────────────────────────
-// Styled to match the TeamSwitcher dropdown (src/components/TeamSwitcher):
-// same deterministic gradient team-avatar tile + the same RoleBadge component.
-// Role and Teams are separate columns, but each is built from the same ordered
-// `memberRoleTeamRows` list, one entry per team membership, and both columns
-// render that list with identical row height/gap — so row i in the Role
-// column always lines up horizontally with row i in the Teams column.
+// ── Role column — inline dropdown (Figma 23:29029/23:29056: "Member ▾" per
+// row, not a modal) ───────────────────────────────────────────────────────────
+// Team has no backend route left at all, so a member's role is just the
+// org-level owner/admin/member value.
 
-// Deterministic gradient palette, one row per team — shared via
-// src/lib/team-gradients.ts so a team keeps the same color everywhere.
-const getTeamGradient = getGradient
-
-function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
+function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: boolean }) {
   return (
-    <span
-      aria-hidden
+    <button
+      type="button"
+      disabled={disabled}
       style={{
-        position:     'relative',
-        display:      'inline-flex',
-        width:        size,
-        height:       size,
-        borderRadius: 4,
-        background:   getTeamGradient(teamId),
-        flexShrink:   0,
-        overflow:     'hidden',
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'space-between',
+        gap:             8,
+        padding:         '5px 8px',
+        borderRadius:    8,
+        border:          'none',
+        backgroundColor: 'var(--neutral-white)',
+        boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
+        cursor:          disabled ? 'default' : 'pointer',
+        opacity:         disabled ? 0.6 : 1,
+        fontFamily:      'var(--font-body)',
+        fontWeight:      500,
+        fontSize:        14,
+        lineHeight:      '22px',
+        color:           'var(--neutral-700)',
+        whiteSpace:      'nowrap',
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          borderRadius:  4,
-          pointerEvents: 'none',
-          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
-        }}
-      />
-      <span
-        style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          fontFamily:     'var(--font-title)',
-          fontWeight:     500,
-          fontSize:       Math.round(size * 0.58),
-          lineHeight:     1,
-          color:          'var(--neutral-white)',
-          userSelect:     'none',
-        }}
-      >
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </span>
+      {label}
+      {!disabled && <ArrowDownOneIcon size={12} color="var(--neutral-400)" />}
+    </button>
   )
 }
 
-// Row role spans the full RoleBadge role set (owner/admin/editor/member),
-// which is wider than the org-editable `WorkspaceRole` (admin/editor/member).
-type RoleTeamRoleValue = 'owner' | 'admin' | 'editor' | 'member'
+// Editable dropdown for a manageable row — selecting "Member" on an Admin
+// routes through the same downgrade confirmation the old modal had.
+function RoleDropdown({
+  member,
+  canPromoteToAdmin,
+  onManageRole,
+}: {
+  member:            OrgMember
+  canPromoteToAdmin: boolean
+  onManageRole:      (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
+}) {
+  const [open, setOpen] = useState(false)
+  const [confirmDowngrade, setConfirmDowngrade] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const currentRole: 'admin' | 'member' = member.orgRole === 'admin' ? 'admin' : 'member'
+  const memberName = member.name || member.email
 
-interface RoleTeamRow {
-  key:      string
-  role:     RoleTeamRoleValue
-  teamId:   string | null
-  teamName: string
-}
-
-// Team has no backend route left at all — a plain member can never actually
-// hold a team grant, so this always resolves to exactly one row.
-function memberRoleTeamRows(member: OrgMember): RoleTeamRow[] {
-  if (member.orgRole === 'owner') {
-    return [{ key: 'owner', role: 'owner', teamId: null, teamName: 'All teams' }]
+  const commit = async (next: 'admin' | 'member') => {
+    if (next === currentRole || saving) return
+    setSaving(true)
+    await onManageRole(member.id, next)
+    setSaving(false)
   }
-  if (member.orgRole === 'admin') {
-    return [{ key: 'admin', role: 'admin', teamId: null, teamName: 'All teams' }]
-  }
-  return [{ key: 'none', role: 'member', teamId: null, teamName: 'No team assigned' }]
-}
 
-// Role and Team are shown together in one column: each team+role pair gets its
-// own line, with a hairline divider between consecutive teams so a member on
-// several teams reads as clearly separated entries. No card/background — just
-// consistent row height and generous spacing, so it stays clean rather than
-// looking like a boxed-in nested table.
-//
-// Each row is a 2-column grid (not flex) with a fixed-width role track, so
-// every role badge starts flush left and every team entry starts flush left
-// at the same x — regardless of how much shorter "Member" is than "Editor".
-const ROLE_TEAM_DIVIDER     = '1px solid var(--neutral-100)'
-const ROLE_TEAM_ROW_HEIGHT  = 36
-const ROLE_TEAM_ROLE_COLUMN = 112
+  // A plain Admin managing a Member can only leave them as Member or (if
+  // canPromoteToAdmin) raise them to Admin — never grant Admin without owner sign-off.
+  const options: { value: 'admin' | 'member'; label: string }[] = canPromoteToAdmin
+    ? [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }]
+    : [{ value: 'member', label: 'Member' }]
 
-function roleTeamRowStyle(index: number, total: number): React.CSSProperties {
-  const isLast = index === total - 1
-  return {
-    display:             'grid',
-    gridTemplateColumns: `${ROLE_TEAM_ROLE_COLUMN}px 1fr`,
-    alignItems:          'center',
-    columnGap:           10,
-    width:               '100%',
-    minWidth:            0,
-    height:              ROLE_TEAM_ROW_HEIGHT,
-    boxSizing:           'border-box',
-    borderBottom:        isLast ? 'none' : ROLE_TEAM_DIVIDER,
-  }
-}
-
-// Pure display — role management now lives entirely in the "Manage role"
-// modal (opened from the Actions column), not in these badges.
-function RoleTeamCells({ rows }: { rows: RoleTeamRow[] }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
-      {rows.map((r, i) => (
-        <div key={r.key} style={roleTeamRowStyle(i, rows.length)}>
-          <RoleBadge role={r.role} showLabel mode="solar" style={{ justifySelf: 'start' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            {r.teamId ? (
-              <>
-                <TeamAvatar teamId={r.teamId} name={r.teamName} size={20} />
-                <span
-                  style={{
-                    fontFamily:   'var(--font-body)',
-                    fontWeight:   'var(--font-weight-medium)',
-                    fontSize:     'var(--font-size-body)',
-                    lineHeight:   'var(--line-height-body)',
-                    color:        'var(--neutral-900)',
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                  }}
-                >
-                  {r.teamName}
-                </span>
-              </>
-            ) : (
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  fontSize:   'var(--font-size-body)',
-                  lineHeight: 'var(--line-height-body)',
-                  color:      'var(--neutral-500)',
-                }}
-              >
-                {r.teamName}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
+    <>
+      <DropdownFloat open={open} onOpenChange={setOpen} placement="bottom-start" offset={4} trigger={
+        <RoleDropdownTrigger label={ROLE_LABEL[currentRole]} disabled={saving} />
+      }>
+        <Dropdown style={{ width: 140 }}>
+          {options.map(o => (
+            <DropdownMenuItem
+              key={o.value}
+              fluid
+              label={o.label}
+              selected={o.value === currentRole}
+              icon={o.value === currentRole ? <TickTwoIcon size={14} /> : undefined}
+              onClick={() => {
+                setOpen(false)
+                if (currentRole === 'admin' && o.value === 'member') { setConfirmDowngrade(true); return }
+                void commit(o.value)
+              }}
+            />
+          ))}
+        </Dropdown>
+      </DropdownFloat>
+
+      {confirmDowngrade && (
+        <ConfirmModal
+          title="Remove Admin access?"
+          description={
+            <>This will demote <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong> from Admin to Member, removing their organization-wide access.</>
+          }
+          confirmLabel="Demote to Member"
+          onCancel={() => setConfirmDowngrade(false)}
+          onConfirm={() => { setConfirmDowngrade(false); void commit('member') }}
+        />
+      )}
+    </>
   )
 }
 
-// ── Manage-role modal ─────────────────────────────────────────────────────────
-// Covers the org-level Admin/Member choice — used to also cover a per-team
-// None/Member/Editor choice for a plain Member, but Team has no backend
-// route left at all, so that's gone with no replacement. Permission is
-// enforced by the caller (only Owners/Admins ever get a "Manage role"
-// button; only Owners can reach the Admin option here).
-
-function InfoNote({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      display:         'flex',
-      alignItems:      'flex-start',
-      gap:             8,
-      padding:         '10px 12px',
-      backgroundColor: 'var(--neutral-100)',
-      borderRadius:    10,
-    }}>
-      <InformationCircleIcon size={16} color="var(--neutral-500)" style={{ flexShrink: 0, marginTop: 1 }} />
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   13,
-        lineHeight: '20px',
-        color:      'var(--neutral-700)',
-        margin:     0,
-      }}>
-        {children}
-      </p>
-    </div>
-  )
-}
-
-// Small confirmation dialog stacked above ManageRoleModal (higher z-index) —
-// used for both destructive removal actions inside it: removing the member
-// from the workspace entirely, and removing them from a single team.
+// Small confirmation dialog — used by RoleDropdown's admin→member downgrade
+// and by the Actions column's remove/withdraw confirmations.
 function ConfirmModal({
   title,
   description,
@@ -372,236 +288,6 @@ function ConfirmModal({
   )
 }
 
-// Team has no backend route left at all, so there's no more per-team
-// editor/member grant to manage here — just the org-level Admin/Member choice
-// and workspace removal. (Used to also cover a per-team None/Member/Editor
-// picker; that concept has no backend equivalent any more.)
-function ManageRoleModal({
-  member,
-  canPromoteToAdmin,
-  workspaceName,
-  onCancel,
-  onSave,
-  onRemove,
-}: {
-  member:            OrgMember
-  /** Only Owners can hand out Admin — a plain Admin can only move editor <-> member. */
-  canPromoteToAdmin: boolean
-  workspaceName:     string
-  onCancel:          () => void
-  /** Resolves true only once the save fully succeeded — the modal stays open
-   *  (so nothing has to be redone) on a partial or total failure. */
-  onSave:            (desiredOrgRole: 'admin' | 'member') => Promise<boolean>
-  /** Removes the member from the workspace entirely. */
-  onRemove:          () => void
-}) {
-  const memberName = member.name || member.email
-  const effectiveRole: 'owner' | 'admin' | 'member' =
-    member.orgRole === 'owner' ? 'owner'
-    : member.orgRole === 'admin' ? 'admin'
-    : 'member'
-  const initialRoleMode = member.orgRole === 'admin' || member.orgRole === 'owner' ? 'admin' : 'member'
-  const [roleMode, setRoleMode] = useState<'admin' | 'member'>(initialRoleMode)
-  const hasChanges = roleMode !== initialRoleMode
-  const [confirmRemoveMember, setConfirmRemoveMember] = useState(false)
-  // True while the Save API calls are in flight — blocks double-submit and
-  // premature dismissal (Cancel / backdrop / Escape) mid-save.
-  const [saving, setSaving] = useState(false)
-  // Demoting an Admin to Member is asked to be confirmed separately, since
-  // it's a meaningful permission change with no other safety net today.
-  const [confirmDowngrade, setConfirmDowngrade] = useState(false)
-  // Any close attempt (Cancel, backdrop, Escape) while hasChanges is true
-  // routes through this instead of closing immediately — it holds what to
-  // actually do once the user confirms discarding.
-  const [pendingCloseAction, setPendingCloseAction] = useState<(() => void) | null>(null)
-
-  const backdropMouseDown = useRef(false)
-
-  // Funnels every "leave the modal" gesture through the same unsaved-changes
-  // guard: run `action` now if nothing would be lost, otherwise stash it and
-  // let the confirm dialog below run it once the user confirms discarding.
-  const requestClose = (action: () => void) => {
-    if (saving) return
-    if (hasChanges) { setPendingCloseAction(() => action); return }
-    action()
-  }
-
-  // Actually submits. Only closes the modal once `onSave` reports the save
-  // fully succeeded — on failure the modal stays open with the selection intact.
-  const doSave = async () => {
-    if (saving) return
-    setSaving(true)
-    try {
-      const ok = await onSave(roleMode)
-      if (ok) onCancel()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Escape mirrors Cancel/backdrop — but only for this modal's own layer.
-  // A nested confirm dialog (remove-member, discard, downgrade) should absorb
-  // the Escape itself via its own backdrop instead of this handler skipping past it.
-  useEffect(() => {
-    if (confirmRemoveMember || confirmDowngrade || pendingCloseAction) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') requestClose(onCancel)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [confirmRemoveMember, confirmDowngrade, pendingCloseAction, saving, hasChanges, onCancel])
-
-  return (
-    <>
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Manage User"
-      style={{
-        position:        'fixed',
-        inset:           0,
-        zIndex:          300,
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
-      }}
-      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
-      onClick={(e) => {
-        if (backdropMouseDown.current && e.target === e.currentTarget) requestClose(onCancel)
-        backdropMouseDown.current = false
-      }}
-    >
-      <div
-        style={{
-          width:           480,
-          maxWidth:        'calc(100vw - 32px)',
-          borderRadius:    20,
-          backgroundColor: 'var(--neutral-50)',
-          border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
-          overflow:        'hidden',
-          display:         'flex',
-          flexDirection:   'column',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ padding: '24px 24px 16px' }}>
-          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
-            Manage User : <span style={{ color: 'var(--neutral-600)' }}>{memberName}</span>
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '18px', color: 'var(--neutral-500)' }}>
-              {member.email}
-            </span>
-            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
-            <RoleBadge role={effectiveRole} showLabel mode="solar" />
-          </div>
-        </div>
-
-        <div style={{ padding: '0 27px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {canPromoteToAdmin && (
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--neutral-600)' }}>
-                Choose access
-              </span>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              {canPromoteToAdmin ? (
-                <Tabs value={roleMode} onValueChange={(value) => setRoleMode(value as 'admin' | 'member')}>
-                  <TabsList size="medium">
-                    <TabsTrigger value="admin">Admin</TabsTrigger>
-                    <TabsTrigger value="member">Member</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              ) : (
-                <div />
-              )}
-              <Button variant="danger" size="sm" leftIcon={<UserIcon animated size={16} />} onClick={() => setConfirmRemoveMember(true)}>
-                Remove from {workspaceName}
-              </Button>
-            </div>
-            {canPromoteToAdmin && (
-              <InfoNote>
-                {roleMode === 'admin'
-                  ? 'They will get access to everything in the organization when assigned as Admin.'
-                  : 'They will have standard member access to the organization.'}
-              </InfoNote>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '20px 24px 24px' }}>
-          <Button variant="ghost" size="sm" disabled={saving} onClick={() => requestClose(onCancel)}>Cancel</Button>
-          <Button
-            variant="default"
-            size="sm"
-            loading={saving}
-            disabled={!hasChanges || saving}
-            onClick={() => {
-              // A demotion from Admin gets its own confirmation — a bigger
-              // permission change than the rest, with no other safety net.
-              if (initialRoleMode === 'admin' && roleMode === 'member') { setConfirmDowngrade(true); return }
-              void doSave()
-            }}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    {pendingCloseAction && (
-      <ConfirmModal
-        title="Discard changes?"
-        description={
-          <>You have unsaved changes for <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong>. They&rsquo;ll be lost if you continue.</>
-        }
-        confirmLabel="Discard changes"
-        onCancel={() => setPendingCloseAction(null)}
-        onConfirm={() => {
-          const action = pendingCloseAction
-          setPendingCloseAction(null)
-          action?.()
-        }}
-      />
-    )}
-
-    {confirmDowngrade && (
-      <ConfirmModal
-        title="Remove Admin access?"
-        description={
-          <>This will demote <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong> from Admin to Member, removing their organization-wide access.</>
-        }
-        confirmLabel="Demote to Member"
-        onCancel={() => setConfirmDowngrade(false)}
-        onConfirm={() => {
-          setConfirmDowngrade(false)
-          void doSave()
-        }}
-      />
-    )}
-
-    {confirmRemoveMember && (
-      <ConfirmModal
-        title="Remove member?"
-        description={
-          <>This will remove <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong> from the workspace entirely.</>
-        }
-        confirmLabel="Remove member"
-        onCancel={() => setConfirmRemoveMember(false)}
-        onConfirm={() => {
-          setConfirmRemoveMember(false)
-          onRemove()
-        }}
-      />
-    )}
-    </>
-  )
-}
-
 // ── Members table ─────────────────────────────────────────────────────────────
 
 const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) minmax(320px, 1.5fr) 150px'
@@ -612,32 +298,26 @@ function MembersTable({
   isAdmin,
   isCurrentUserOwner = false,
   loading,
-  workspaceName,
   onManageRole,
   onRemove,
   onRevokeInvite,
   onInviteClick,
-  onRefresh,
 }: {
   members:              OrgMember[]
   ownerMemberId:        string
   isAdmin:              boolean
   isCurrentUserOwner?:  boolean
   loading?:             boolean
-  workspaceName:        string
   onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
-  onRefresh:            () => void
 }) {
   const [searchQuery,   setSearchQuery]   = useState('')
   // Search starts collapsed to an icon button — matches the Pinboard panel's
   // search affordance (PinboardHeader): click to expand, an embedded icon
   // inside the field clears the query and collapses it back in one action.
   const [searchOpen,    setSearchOpen]    = useState(false)
-  // Which member's "Manage role" modal is open, if any.
-  const [manageRoleTarget, setManageRoleTarget] = useState<OrgMember | null>(null)
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredMembers = normalizedQuery
@@ -653,20 +333,7 @@ function MembersTable({
   return (
     <SettingsTable columns={WORKSPACE_MEMBER_COLUMNS} columnGap={0}>
       <SettingsTableToolbar
-        title={
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            Workspace Members
-            <Tooltip content="Sync member list">
-              <IconButton
-                variant="ghost"
-                size="sm"
-                icon={<ExchangeOneIcon animated size={20} />}
-                aria-label="Sync member list"
-                onClick={onRefresh}
-              />
-            </Tooltip>
-          </span>
-        }
+        title="Team Members"
         style={{ flexWrap: 'wrap' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
@@ -748,25 +415,9 @@ function MembersTable({
       <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Workspace members" style={{ minWidth: 900 }}>
           <SettingsTableHeader>
-            <SettingsTableHeaderCell>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                Member
-                <Badge
-                  label={normalizedQuery ? `${filteredMembers.length} of ${members.length} members` : `${members.length} member${members.length === 1 ? '' : 's'}`}
-                  color="Neutral"
-                />
-              </span>
-            </SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>
-              {/* Split into two labels on the same grid template as roleTeamRowStyle,
-                  so "Role" sits directly above the role badges and "Team" sits
-                  directly above the team avatar/name below it. */}
-              <span style={{ display: 'grid', gridTemplateColumns: `${ROLE_TEAM_ROLE_COLUMN}px 1fr`, columnGap: 10, width: '100%' }}>
-                <span>Role</span>
-                <span>Team</span>
-              </span>
-            </SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Role</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Actions</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
           {loading ? (
@@ -787,7 +438,7 @@ function MembersTable({
             // manage members whose orgRole is already 'member' (covers both the
             // "Editor" and "Member" UI labels) — never another admin.
             const canManageRole = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent' && (isCurrentUserOwner || member.orgRole === 'member')
-            const roleTeamRows = memberRoleTeamRows(member)
+            const canRemove = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
 
             return (
               <SettingsTableRow
@@ -813,50 +464,35 @@ function MembersTable({
                   </div>
                 </SettingsTableCell>
 
-                <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <RoleTeamCells rows={roleTeamRows} />
+                <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
+                  {canManageRole ? (
+                    <RoleDropdown member={member} canPromoteToAdmin={isCurrentUserOwner} onManageRole={onManageRole} />
+                  ) : (
+                    <Badge label={ROLE_LABEL[isOwner ? 'owner' : member.orgRole === 'admin' ? 'admin' : 'member']} color="Neutral" />
+                  )}
                 </SettingsTableCell>
 
-                <SettingsTableCell align="end" style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                    {canManageRole && (
-                      <Button variant="secondary" size="sm" leftIcon={<UserIcon animated size={16} />} onClick={() => setManageRoleTarget(member)}>
-                        Manage User
-                      </Button>
-                    )}
-                    {isAdmin && !isOwner && member.inviteStatus === 'invite_sent' && (
-                      <RemoveButton
-                        memberName={member.name || member.email}
-                        label="Revoke"
-                        confirmLabel="Revoke invite"
-                        icon={<CancelCircleIcon size={14} />}
-                        onConfirm={() => onRevokeInvite(member.id)}
-                      />
-                    )}
-                  </div>
+                <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
+                  {canRemove && (
+                    <RemoveButton
+                      memberName={member.name || member.email}
+                      onConfirm={() => onRemove(member.id)}
+                    />
+                  )}
+                  {isAdmin && !isOwner && member.inviteStatus === 'invite_sent' && (
+                    <RemoveButton
+                      memberName={member.name || member.email}
+                      label="Withdraw"
+                      confirmLabel="Withdraw invite"
+                      onConfirm={() => onRevokeInvite(member.id)}
+                    />
+                  )}
                 </SettingsTableCell>
               </SettingsTableRow>
             )
           })}
         </div>
       </div>
-
-      {manageRoleTarget && (
-        <ManageRoleModal
-          member={manageRoleTarget}
-          canPromoteToAdmin={isCurrentUserOwner}
-          workspaceName={workspaceName}
-          onCancel={() => setManageRoleTarget(null)}
-          // ManageRoleModal itself closes (via onCancel above) once this
-          // resolves true — see its doSave. Nothing to do here but relay
-          // the real result so a partial/total failure leaves it open.
-          onSave={(desiredOrgRole) => onManageRole(manageRoleTarget.id, desiredOrgRole)}
-          onRemove={() => {
-            onRemove(manageRoleTarget.id)
-            setManageRoleTarget(null)
-          }}
-        />
-      )}
     </SettingsTable>
   )
 }
@@ -1197,7 +833,7 @@ function MembersPageSkeleton() {
         {/* Stats row */}
         <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, padding: 12, display: 'flex', gap: 9 }}>
           {[0, 1, 2].map(i => (
-            <div key={i} style={{ flex: '1 0 0', minWidth: 0, backgroundColor: i === 0 ? 'var(--neutral-50)' : 'var(--neutral-white)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: i === 0 ? 'none' : '0px 1px 2px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)' }}>
+            <div key={i} style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
               <SkeletonBlock width={90} height={13} radius={4} />
               <SkeletonBlock width={40} height={28} radius={6} />
               <SkeletonBlock width={100} height={12} radius={4} />
@@ -1216,7 +852,7 @@ function MembersPageSkeleton() {
             <SkeletonBlock width={110} height={32} radius={8} />
           </div>
           {/* Column headers */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '2px 24px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px' }}>
             <div style={{ flex: '1 0 0', minWidth: 200 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
             <div style={{ width: 110 }}><SkeletonBlock width={40} height={13} radius={4} /></div>
             <div style={{ width: 200 }}><SkeletonBlock width={50} height={13} radius={4} /></div>
@@ -1523,7 +1159,9 @@ export default function OrgMembersPage() {
         {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
+            {/* 24/32 matches the header treatment on every other v1.5 settings
+                page (Account, Usage, General) and Figma node 18:24255. */}
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
               Members
             </h1>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
@@ -1549,17 +1187,17 @@ export default function OrgMembersPage() {
           display:      'flex',
           gap:          9,
         }}>
-          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>Total members</p>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>{totalMembers}</p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>unlimited seats</p>
           </div>
-          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 2, boxShadow: '0px 1px 2px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)' }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>Admins</p>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>{adminCount}</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>in this workspace</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>workspace admins</p>
           </div>
-          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 2, boxShadow: '0px 1px 2px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)' }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>Pending invites</p>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>{pendingInvites}</p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>awaiting acceptance</p>
@@ -1573,12 +1211,10 @@ export default function OrgMembersPage() {
           isAdmin={isAdmin}
           isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
-          workspaceName={org.name}
           onManageRole={(id, desiredOrgRole) => handleManageRole(id, desiredOrgRole)}
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
-          onRefresh={refreshMembers}
         />
 
       </div>
