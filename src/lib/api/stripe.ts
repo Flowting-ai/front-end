@@ -7,7 +7,6 @@ import {
   chargeTopUp as chargeTopUpAmount,
   createCheckoutSession,
   createTopUpSession,
-  type BillingPlan,
   type CheckoutPlan,
   type CheckoutSessionResponse,
   type TopUpChargeResponse,
@@ -21,19 +20,20 @@ export {
   openBillingPortal,
   resumeSubscription,
   startTrial,
+  updatePlan,
   type BillingInfo,
   type BillingInvoice as InvoiceInfo,
   type BillingPaymentMethod as PaymentMethodInfo,
   type BillingPlan,
   type BillingUpcomingInvoice as UpcomingInvoiceInfo,
   type CheckoutPlan,
+  type PlanInfo,
   type SubscriptionActionResponse,
   type UserPlanType as PlanType,
 } from "./user";
 
 export interface CreateCheckoutSessionRequest {
-  plan: CheckoutPlan;
-  billing?: BillingPlan;
+  planId: CheckoutPlan;
 }
 
 export interface CreateTopUpSessionRequest {
@@ -43,7 +43,7 @@ export interface CreateTopUpSessionRequest {
 export async function createCheckout(
   body: CreateCheckoutSessionRequest,
 ): Promise<CheckoutSessionResponse> {
-  return createCheckoutSession(body.plan, body.billing ?? "monthly");
+  return createCheckoutSession(body.planId);
 }
 
 export async function createTopUp(

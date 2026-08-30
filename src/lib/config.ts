@@ -110,6 +110,7 @@ export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 // ── Stripe ────────────────────────────────────────────────────────────────────
 /** All Stripe operations go through the backend API proxy. */
 export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
+export const STRIPE_PLAN_ENDPOINT = withBase("/stripe/plan");
 export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
 export const STRIPE_SUBSCRIPTION_RESUME_ENDPOINT = withBase("/stripe/subscription/resume");
 export const STRIPE_TOPUP_ENDPOINT = withBase("/stripe/topup");
