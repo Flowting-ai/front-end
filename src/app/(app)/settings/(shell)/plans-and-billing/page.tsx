@@ -277,7 +277,7 @@ function SectionCard({
         </div>
         {action}
       </div>
-      <div style={{ padding: bodyPadding, display: 'flex', flexDirection: 'column', gap: bodyGap }}>
+      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: bodyGap }}>
         {children}
       </div>
     </div>
@@ -719,7 +719,7 @@ function OrgBillingView() {
              to ORG_CHANGE_PLAN_ROUTE (what "Upgrade Plan" already opens) rather
              than living here too. */
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 0 0', minWidth: 280 }}>
+            <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
             <SectionCard
               title="Plan"
               action={
@@ -787,7 +787,7 @@ function OrgBillingView() {
             </SectionCard>
             </div>
 
-            <div style={{ flex: '1 0 0', minWidth: 280 }}>
+            <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
             <SectionCard title="Credits Remaining" headerDivider={false}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
