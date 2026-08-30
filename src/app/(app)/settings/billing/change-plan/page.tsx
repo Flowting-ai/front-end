@@ -413,7 +413,7 @@ export default function ChangePlanPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                       cursor: isOnTeamPlan || isCurrent || changingTo ? 'default' : 'pointer',
-                      opacity: changingTo && changingTo !== selectedIndividual.id ? 0.5 : 1,
+                      opacity: changingTo ? 0.5 : 1,
                       backgroundColor: 'white',
                       boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
@@ -421,9 +421,9 @@ export default function ChangePlanPage() {
                   >
                     {isCurrent
                       ? 'Current plan'
-                      : changingTo === selectedIndividual.id
-                        ? 'Redirecting…'
-                        : 'Change plan'}
+                      : isOnTeamPlan
+                        ? 'On a Teams plan'
+                        : 'Unavailable'}
                   </button>
                 </div>
               </div>
