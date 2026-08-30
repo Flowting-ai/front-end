@@ -320,8 +320,6 @@ export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string)
   withBase(`/organizations/${orgId}/connectors/accounts/${accountId}`)
 export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
   withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
-export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors/catalog`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>

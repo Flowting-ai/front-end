@@ -132,50 +132,6 @@ export function summarizeCatalog(entries: ConnectorCatalogEntry[]): UnifiedConne
   return entries.map(summarizeConnector)
 }
 
-/**
- * Merge the personal catalog (GET /connectors) with the full admin catalog
- * (GET /organizations/{id}/connectors/catalog) so an admin can browse every
- * connector the backend knows about, not just the ones already "visible" to
- * them personally.
- *
- * These are deliberately different views, not a bug to route around: for an
- * org member, `list_user_connectors` (back-end/services/connectors/service.py)
- * filters to `org_enabled | team_approved | personal_approved |
- * personally_linked` — so a member who hasn't been granted access to
- * anything sees only what they've already connected. `list_connector_catalog`
- * (admin-only) returns the unfiltered full list instead, with `org_enabled`
- * per entry but no personal link/account_options data (it hardcodes
- * `linked=False` and omits account_options entirely).
- *
- * The merge takes the full catalog's slug universe as the base, and overlays
- * each entry's OWN personal link/account_options from the personal catalog
- * when the admin already has one — so an admin sees literally every
- * connector, with accurate personal-connection status wherever they have one.
- */
-export function mergeCatalogs(
-  personal: ConnectorCatalogEntry[],
-  full: ConnectorCatalogEntry[] | null,
-): ConnectorCatalogEntry[] {
-  if (!full) return personal
-  const personalBySlug = new Map(personal.map(entry => [entry.slug, entry]))
-  return full.map(entry => {
-    const mine = personalBySlug.get(entry.slug)
-    if (!mine) return entry
-    return {
-      ...entry,
-      linked: mine.linked,
-      workspace_linked: mine.workspace_linked,
-      workspace_linked_by: mine.workspace_linked_by,
-      shared_account_id: mine.shared_account_id,
-      account_label: mine.account_label,
-      account_identifier: mine.account_identifier,
-      account_options: mine.account_options,
-      tools: mine.tools,
-      personal_access_status: mine.personal_access_status,
-    }
-  })
-}
-
 /** True when this connector has at least one account that needs reconnecting —
  *  drives the S14 "N accounts need attention" banner. */
 export function needsAttention(summary: UnifiedConnectorSummary): boolean {

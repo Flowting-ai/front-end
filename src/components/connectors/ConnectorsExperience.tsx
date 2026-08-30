@@ -8,9 +8,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import { listConnectors, listOrgCatalog, unlinkConnector, type ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { listConnectors, unlinkConnector, type ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
-import { mergeCatalogs, summarizeCatalog, type UnifiedAccount, type UnifiedConnectorSummary } from '@/lib/connectorsUnified'
+import { summarizeCatalog, type UnifiedAccount, type UnifiedConnectorSummary } from '@/lib/connectorsUnified'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
@@ -41,20 +41,13 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const personal = await listConnectors()
-      // Admins additionally fetch the full, unfiltered org catalog so they can
-      // browse/enable every connector the backend knows about — the personal
-      // endpoint is intentionally gated to org-enabled/team-approved/
-      // already-connected slugs only (see connectorsUnified.ts's
-      // mergeCatalogs doc comment).
-      const full = orgId && currentUserRole === 'admin' ? await listOrgCatalog(orgId) : null
-      setEntries(mergeCatalogs(personal, full))
+      setEntries(await listConnectors())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
     } finally {
       setLoading(false)
     }
-  }, [orgId, currentUserRole])
+  }, [])
 
   useEffect(() => { void fetchAll() }, [fetchAll])
 

@@ -7,7 +7,6 @@ import {
   CONNECTORS_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
-  ORG_CATALOG_ENDPOINT,
 } from '@/lib/config'
 
 // ── Backend response schemas ──────────────────────────────────────────────────
@@ -307,20 +306,6 @@ export async function unlinkConnector(slug: string): Promise<void> {
     throw new Error(`Failed to unlink connector: ${res.status}`)
   }
   bustConnectorCatalogCache()
-}
-
-// ── Org connector catalog ─────────────────────────────────────────────────────
-
-/**
- * GET /organizations/{id}/connectors/catalog — every active connector, with the
- * org's shared accounts filled in for admins. Read-only: the catalog is no
- * longer an allowlist the org edits, so there is no write counterpart. An org
- * that wants a connector files a request against
- * POST /organizations/{id}/connectors instead.
- */
-export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId))
-  return z.array(connectorCatalogEntrySchema).parse(raw)
 }
 
 // ── Credential-field metadata ─────────────────────────────────────────────────
