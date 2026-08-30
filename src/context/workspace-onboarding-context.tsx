@@ -44,7 +44,10 @@ export interface WorkspaceOnboardingData {
   lastName: string;
   role: WorkspaceOnboardingRole | null;
   tone: WorkspaceOnboardingTone | null;
-  inviteEmails: string;
+  /** Committed email chips on the invite step. */
+  inviteEmailList: string[];
+  /** Not-yet-committed text sitting in the invite step's input field. */
+  inviteEmailDraft: string;
   entryFlow: WorkspaceOnboardingEntryFlow | null;
 }
 
@@ -56,7 +59,8 @@ interface WorkspaceOnboardingContextValue {
   setLastName: (v: string) => void;
   setRole: (v: WorkspaceOnboardingRole) => void;
   setTone: (v: WorkspaceOnboardingTone) => void;
-  setInviteEmails: (v: string) => void;
+  setInviteEmailList: (v: string[]) => void;
+  setInviteEmailDraft: (v: string) => void;
   setEntryFlow: (v: WorkspaceOnboardingEntryFlow) => void;
 }
 
@@ -70,7 +74,8 @@ export function WorkspaceOnboardingProvider({ children }: { children: ReactNode 
     lastName: "",
     role: null,
     tone: null,
-    inviteEmails: "",
+    inviteEmailList: [],
+    inviteEmailDraft: "",
     entryFlow: null,
   });
 
@@ -87,7 +92,8 @@ export function WorkspaceOnboardingProvider({ children }: { children: ReactNode 
         setLastName: (v) => update("lastName", v),
         setRole: (v) => update("role", v),
         setTone: (v) => update("tone", v),
-        setInviteEmails: (v) => update("inviteEmails", v),
+        setInviteEmailList: (v) => update("inviteEmailList", v),
+        setInviteEmailDraft: (v) => update("inviteEmailDraft", v),
         setEntryFlow: (v) => update("entryFlow", v),
       }}
     >

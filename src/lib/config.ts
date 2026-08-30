@@ -233,6 +233,14 @@ export const PROJECT_FILES_ENDPOINT  = (projectId: string) =>
   withBase(`/projects/${projectId}/files`)
 export const PROJECT_FILE_ENDPOINT   = (projectId: string, documentId: string) =>
   withBase(`/projects/${projectId}/files/${documentId}`)
+export const PROJECT_INVITE_ENDPOINT  = (projectId: string) =>
+  withBase(`/projects/${projectId}/invite`)
+export const PROJECT_INVITES_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/invites`)
+export const PROJECT_MEMBERS_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/members`)
+export const PROJECT_MEMBER_ENDPOINT  = (projectId: string, auth0Id: string) =>
+  withBase(`/projects/${projectId}/members/${auth0Id}`)
 
 // ── Persona Shares ─────────────────────────────────────────────────────────
 export const PERSONA_SHARES_ENDPOINT           = withBase('/persona-shares')

@@ -9,6 +9,10 @@ import {
   PROJECT_CHAT_LINK_ENDPOINT,
   PROJECT_FILES_ENDPOINT,
   PROJECT_FILE_ENDPOINT,
+  PROJECT_INVITE_ENDPOINT,
+  PROJECT_INVITES_ENDPOINT,
+  PROJECT_MEMBERS_ENDPOINT,
+  PROJECT_MEMBER_ENDPOINT,
   directUpload,
 } from '@/lib/config'
 
@@ -55,6 +59,15 @@ export interface ProjectResponse {
   createdAt:          string
   updatedAt:          string
   documents:          ProjectDocumentResponse[]
+}
+
+/** GET /projects/{id}/members — unlike every other response in this file,
+ *  this schema has no camelCase alias declared on the backend, so it's the
+ *  one place in this API that's genuinely snake_case on the wire. */
+export interface ProjectMemberResponse {
+  user_id: string
+  name:    string | null
+  email:   string | null
 }
 
 export interface ProjectChatSummary {
@@ -118,6 +131,12 @@ export interface ApiProjectChat {
   messageCount: number
 }
 
+export interface ApiProjectMember {
+  userId: string
+  name:   string | null
+  email:  string | null
+}
+
 // ── Normalizers ───────────────────────────────────────────────────────────────
 // `canEdit` has no server-supplied signal any more (see the backend-shape note
 // above), so every normalizer takes the caller's own id and derives it as
@@ -178,6 +197,10 @@ function normalizeProjectChat(c: ProjectChatSummary, currentUserId: string): Api
     updatedAt:    c.updatedAt,
     messageCount: c.messageCount,
   }
+}
+
+function normalizeProjectMember(m: ProjectMemberResponse): ApiProjectMember {
+  return { userId: m.user_id, name: m.name, email: m.email }
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
@@ -286,6 +309,39 @@ export async function addChatToProject(projectId: string, chatId: string): Promi
 /** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+}
+
+/** GET /projects/{project_id}/members */
+export async function fetchProjectMembers(projectId: string): Promise<ApiProjectMember[]> {
+  const list = await apiFetchJson<ProjectMemberResponse[]>(PROJECT_MEMBERS_ENDPOINT(projectId))
+  return list.map(normalizeProjectMember)
+}
+
+/** POST /projects/{project_id}/invite */
+export async function inviteProjectMember(projectId: string, auth0Id: string): Promise<void> {
+  const res = await apiFetch(PROJECT_INVITE_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify({ auth0Id }),
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'invite_failed', `Failed to invite member (${res.status})`)
+  }
+}
+
+/** POST /projects/{project_id}/invites */
+export async function inviteProjectMembers(projectId: string, auth0Ids: string[]): Promise<void> {
+  const res = await apiFetch(PROJECT_INVITES_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify({ auth0Ids }),
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'invite_failed', `Failed to invite members (${res.status})`)
+  }
+}
+
+/** DELETE /projects/{project_id}/members/{auth0_id} */
+export async function removeProjectMemberFromProject(projectId: string, auth0Id: string): Promise<void> {
+  await apiFetch(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
 }
 
 /**

@@ -9,6 +9,7 @@ import { useWorkspaceOnboarding } from "@/context/workspace-onboarding-context";
 import { updateOnboarding } from "@/lib/api/user";
 import { inviteMembers } from "@/lib/api/teams";
 import { listOrganizations } from "@/lib/api/organization";
+import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/Badge";
 import { ChipInput } from "@/components/ChipInput";
@@ -36,9 +37,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function OnboardingInvitePage() {
   const { push } = useRouter();
   const { user } = useAuth();
-  const { data } = useWorkspaceOnboarding();
-  const [emailInput, setEmailInput] = useState("");
-  const [emailList, setEmailList] = useState<string[]>([]);
+  const { data, setInviteEmailList, setInviteEmailDraft } = useWorkspaceOnboarding();
+  // Held in WorkspaceOnboardingContext (not local state) so typed-in emails —
+  // committed chips and whatever's still sitting in the input — survive
+  // clicking Back to profile/workspace and then Next again; a plain
+  // useState here was wiped on remount, silently dropping anything typed.
+  const emailInput = data.inviteEmailDraft;
+  const emailList = data.inviteEmailList;
+  const setEmailInput = setInviteEmailDraft;
+  const setEmailList = setInviteEmailList;
   const [submitting, setSubmitting] = useState(false);
 
   // Splits raw comma/newline-separated text against the already-committed
@@ -83,13 +90,13 @@ export default function OnboardingInvitePage() {
   // list — same trim/dedupe/clear-input shape as EditProjectModal's tag chips.
   function commitEmails(raw: string) {
     const { additions, invalid, duplicates } = partitionEmailInput(raw, emailList);
-    if (additions.length > 0) setEmailList((prev) => [...prev, ...additions]);
+    if (additions.length > 0) setEmailList([...emailList, ...additions]);
     notifyInvalidAndDuplicates(invalid, duplicates);
     setEmailInput("");
   }
 
   function removeEmail(email: string) {
-    setEmailList((prev) => prev.filter((e) => e !== email));
+    setEmailList(emailList.filter((e) => e !== email));
   }
 
   // Pasting "a@b.com, c@d.com" (or newline-separated) commits immediately —
@@ -158,11 +165,26 @@ export default function OnboardingInvitePage() {
             const orgs = await listOrganizations();
             orgId = orgs[0]?.id ?? null;
           }
-          if (orgId) await inviteMembers(orgId, finalEmails);
+          if (orgId) {
+            await inviteMembers(orgId, finalEmails);
+          } else {
+            // No org found at all — the workspace step's createOrganization()
+            // call likely failed silently. Surface it instead of the previous
+            // behavior of just dropping the invite with no feedback at all.
+            console.error("Team invite skipped — no organization id resolved");
+            toast.error("Couldn't send invites — no workspace was found for your account. You can add members later in Settings → Members.");
+          }
         } catch (inviteErr) {
           // Non-fatal — don't block completion over a failed invite send.
+          // Surface the real reason (e.g. "X is already a member" / "Invite
+          // already sent to X") instead of a generic message that hides why
+          // it failed — ApiError.message is already backend-provided and
+          // safe to show verbatim (see friendlyApiError in lib/api/client.ts).
           console.error("Team invite failed", inviteErr);
-          toast.error("Couldn't send invites — you can add members later in Settings → Members.");
+          const detail = inviteErr instanceof ApiError ? inviteErr.message : null;
+          toast.error(
+            detail ? `Couldn't send invites: ${detail}` : "Couldn't send invites — you can add members later in Settings → Members.",
+          );
         }
       }
       if (await finish()) window.location.href = `${WELCOME_ROUTE}?slack=1`;

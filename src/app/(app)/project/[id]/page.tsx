@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
@@ -27,6 +27,7 @@ import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { ProjectAgentsPanel } from '@/components/ProjectAgentsPanel'
+import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
@@ -116,6 +117,7 @@ export default function ProjectPage() {
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
   const [agentsPanelOpen,  setAgentsPanelOpen]  = useState(false)
+  const [membersPanelOpen, setMembersPanelOpen] = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
@@ -198,7 +200,7 @@ export default function ProjectPage() {
   // this page's own rounded content border. Cleared on close and on unmount
   // so it never lingers after navigating away.
   useEffect(() => {
-    if (!project || (!panelOpen && !agentsPanelOpen)) {
+    if (!project || (!panelOpen && !agentsPanelOpen && !membersPanelOpen)) {
       setProjectPanel(null)
       return
     }
@@ -271,8 +273,16 @@ export default function ProjectPage() {
           </div>
         ),
       })
+      return
     }
-  }, [project, panelOpen, agentsPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
+    if (membersPanelOpen) {
+      setProjectPanel({
+        title:   'Members',
+        onClose: () => setMembersPanelOpen(false),
+        content: <ProjectMembersPanel projectId={project.id} ownerUserId={project.ownerUserId} canManage={project.canEdit} />,
+      })
+    }
+  }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
 
   useEffect(() => () => setProjectPanel(null), [setProjectPanel])
 
@@ -996,6 +1006,7 @@ export default function ProjectPage() {
               if (!panelOpen) {
                 closePinboard()
                 setAgentsPanelOpen(false)
+                setMembersPanelOpen(false)
               }
               setPanelOpen(v => !v)
             }}
@@ -1008,6 +1019,7 @@ export default function ProjectPage() {
               if (!pinboardOpen) {
                 setPanelOpen(false)
                 setAgentsPanelOpen(false)
+                setMembersPanelOpen(false)
               }
               togglePinboard()
             }}
@@ -1020,10 +1032,26 @@ export default function ProjectPage() {
               if (!agentsPanelOpen) {
                 closePinboard()
                 setPanelOpen(false)
+                setMembersPanelOpen(false)
               }
               setAgentsPanelOpen(v => !v)
             }}
           />
+          {project.teamId && (
+            <FloatingMenuItem
+              icon={<UserIcon size={20} animated />}
+              label="Members"
+              active={membersPanelOpen}
+              onClick={() => {
+                if (!membersPanelOpen) {
+                  closePinboard()
+                  setPanelOpen(false)
+                  setAgentsPanelOpen(false)
+                }
+                setMembersPanelOpen(v => !v)
+              }}
+            />
+          )}
         </FloatingMenu>
       </div>
 
