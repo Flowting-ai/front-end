@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CancelOneIcon, CheckmarkCircleTwoIcon, DeleteTwoIcon, PlusSignIcon, QuillWriteOneIcon } from '@strange-huge/icons'
+import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
@@ -288,6 +289,8 @@ function ProjectSlackRow({
 
 export default function SouvenirSlackPage() {
   const { orgId, orgReady, orgRole } = useOrg()
+  const { user } = useAuth()
+  const currentUserId = user?.auth0Id ?? ''
 
   const [statusLoading, setStatusLoading] = useState(true)
   const [status,        setStatus]        = useState<SlackStatus | null>(null)
@@ -348,7 +351,7 @@ export default function SouvenirSlackPage() {
     async function loadProjectsAndChannels() {
       setProjectsLoading(true)
       try {
-        const summaries = await fetchProjects()
+        const summaries = await fetchProjects(currentUserId)
         const rows = summaries.flatMap(summary => {
           return summary.teamId ? [{ ...summary, teamId: summary.teamId }] : []
         })
@@ -375,7 +378,7 @@ export default function SouvenirSlackPage() {
 
     void loadProjectsAndChannels()
     return () => { cancelled = true }
-  }, [orgId, connected, isAdmin])
+  }, [orgId, connected, isAdmin, currentUserId])
 
   const mappedCount = useMemo(
     () => Object.values(channelsByProject).filter(Boolean).length,

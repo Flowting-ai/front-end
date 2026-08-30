@@ -12,55 +12,59 @@ import {
   directUpload,
 } from '@/lib/config'
 
-// ── Backend shapes (snake_case from FastAPI, matches OpenAPI components) ──────
+// ── Backend shapes ──────────────────────────────────────────────────────────
+// The `services/projects` rewrite (back-end-test2 / the live `test` branch at
+// devapi.getsouvenir.com) replaced the old snake_case, visibility-toggle shape
+// with a class-based `Project` actor whose Pydantic response models serialize
+// by field NAME (camelCase), not the snake_case `validation_alias` they parse
+// from the DB row. There is no `visibility`/`can_edit`/`can_manage_visibility`
+// on the wire anymore — sharing is now real `ProjectMember` rows (GET/DELETE
+// `/projects/{id}/members`, `POST /projects/{id}/invite(s)`), not an org-wide
+// toggle. Those endpoints aren't wired up on the frontend yet — see
+// `canEdit`'s derivation in the normalizers below for how we make do without
+// a server-supplied signal in the meantime.
 
 export interface ProjectDocumentResponse {
-  id:                string
-  document_filename: string
-  file_link:         string
-  created_at:        string
-  size_bytes?:       number | null
+  id:        string
+  filename:  string
+  fileLink:  string
+  createdAt: string
 }
 
 export interface ProjectSummary {
   id:             string
-  owner_user_id:  string
-  organization_id?: string | null
-  visibility:     'private' | 'org'
-  can_edit:       boolean
-  can_manage_visibility: boolean
+  ownerUserId:    string
+  organizationId?: string | null
   title:          string
   description:    string
   tags:           string[]
-  updated_at:     string
-  chat_count:     number
-  document_count: number
+  createdAt:      string
+  updatedAt:      string
+  chatCount:      number
+  documentCount:  number
 }
 
 export interface ProjectResponse {
   id:                 string
-  owner_user_id:      string
+  ownerUserId:        string
+  organizationId?:    string | null
   title:              string
   description:        string
-  system_instruction: string
+  systemInstruction:  string
   tags:               string[]
-  organization_id?:   string | null
-  visibility:         'private' | 'org'
-  can_edit:           boolean
-  can_manage_visibility: boolean
-  created_at:         string
-  updated_at:         string
+  createdAt:          string
+  updatedAt:          string
   documents:          ProjectDocumentResponse[]
 }
 
 export interface ProjectChatSummary {
   id:            string
-  owner_user_id: string
-  can_edit:      boolean
-  chat_title:    string
+  ownerUserId:   string
+  chatTitle:     string
   starred:       boolean
-  updated_at:    string
-  message_count: number
+  createdAt:     string
+  updatedAt:     string
+  messageCount:  number
 }
 
 // ── Normalized types (camelCase, used by frontend code) ───────────────────────
@@ -115,76 +119,79 @@ export interface ApiProjectChat {
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
+// `canEdit` has no server-supplied signal any more (see the backend-shape note
+// above), so every normalizer takes the caller's own id and derives it as
+// straight ownership — the one part of the old `can_edit` contract ("can this
+// user change this resource") that's still knowable without calling the new
+// `/members` endpoint. `visibility`/`canManageVisibility` have no honest
+// equivalent left (the backend now sets `organizationId` on every project an
+// org member creates, shared or not, so it can't be used as a "this is shared"
+// signal without over-claiming) — they're fixed at 'private'/false so the
+// now-dead visibility-toggle UI stays hidden instead of lying about state.
 
 function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
-  return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at, sizeBytes: d.size_bytes ?? null }
+  return { id: d.id, filename: d.filename, fileLink: d.fileLink, createdAt: d.createdAt, sizeBytes: null }
 }
 
-function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
+function normalizeProjectSummary(p: ProjectSummary, currentUserId: string): ApiProjectSummary {
   return {
     id:            p.id,
-    ownerUserId:   p.owner_user_id,
-    // Backend field is organization_id (Project.team_id was renamed in the
-    // flatten-teams-into-organizations migration) — kept as `teamId` here so
-    // the ~10 consumers of this shape don't all need touching in the same
-    // pass; there's only ever one organization, so this now just means
-    // "shared with the workspace" rather than a specific team.
-    teamId:        p.organization_id ?? null,
-    visibility:    p.visibility === 'org' ? 'team' : 'private',
-    canEdit:       p.can_edit,
-    canManageVisibility: p.can_manage_visibility,
+    ownerUserId:   p.ownerUserId,
+    teamId:        p.organizationId ?? null,
+    visibility:    'private',
+    canEdit:       p.ownerUserId === currentUserId,
+    canManageVisibility: false,
     title:         p.title,
     description:   p.description,
     tags:          p.tags ?? [],
-    updatedAt:     p.updated_at,
-    chatCount:     p.chat_count,
-    documentCount: p.document_count,
+    updatedAt:     p.updatedAt,
+    chatCount:     p.chatCount,
+    documentCount: p.documentCount,
   }
 }
 
-function normalizeProject(p: ProjectResponse): ApiProject {
+function normalizeProject(p: ProjectResponse, currentUserId: string): ApiProject {
   return {
     id:                p.id,
-    ownerUserId:       p.owner_user_id,
+    ownerUserId:       p.ownerUserId,
     title:             p.title,
     description:       p.description,
-    systemInstruction: p.system_instruction ?? '',
+    systemInstruction: p.systemInstruction ?? '',
     tags:              p.tags ?? [],
-    // See normalizeProjectSummary — organization_id kept as teamId at this boundary.
-    teamId:            p.organization_id ?? null,
-    visibility:        p.visibility === 'org' ? 'team' : 'private',
-    canEdit:           p.can_edit,
-    canManageVisibility: p.can_manage_visibility,
-    createdAt:         p.created_at,
-    updatedAt:         p.updated_at,
+    teamId:            p.organizationId ?? null,
+    visibility:        'private',
+    canEdit:           p.ownerUserId === currentUserId,
+    canManageVisibility: false,
+    createdAt:         p.createdAt,
+    updatedAt:         p.updatedAt,
     documents:         (p.documents ?? []).map(normalizeDocument),
   }
 }
 
-function normalizeProjectChat(c: ProjectChatSummary): ApiProjectChat {
+function normalizeProjectChat(c: ProjectChatSummary, currentUserId: string): ApiProjectChat {
   return {
     id:           c.id,
-    ownerUserId:  c.owner_user_id,
-    canEdit:      c.can_edit,
-    chatTitle:    c.chat_title,
+    ownerUserId:  c.ownerUserId,
+    canEdit:      c.ownerUserId === currentUserId,
+    chatTitle:    c.chatTitle,
     starred:      c.starred,
-    updatedAt:    c.updated_at,
-    messageCount: c.message_count,
+    updatedAt:    c.updatedAt,
+    messageCount: c.messageCount,
   }
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /** GET /projects */
-export async function fetchProjects(): Promise<ApiProjectSummary[]> {
+export async function fetchProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
   const list = await apiFetchJson<ProjectSummary[]>(PROJECTS_ENDPOINT)
-  return list.map(normalizeProjectSummary)
+  return list.map(p => normalizeProjectSummary(p, currentUserId))
 }
 
 /** GET /projects/{project_id} */
-export async function fetchProject(projectId: string): Promise<ApiProject> {
+export async function fetchProject(projectId: string, currentUserId: string): Promise<ApiProject> {
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 export interface CreateProjectParams {
@@ -196,43 +203,45 @@ export interface CreateProjectParams {
   teamId?:            string
 }
 
-/** POST /projects (multipart/form-data) */
-export async function createProjectApi(params: CreateProjectParams): Promise<ApiProject> {
+/**
+ * POST /projects (multipart/form-data). `teamId` is no longer sent — the
+ * backend derives `organizationId` itself from the caller's own org
+ * membership (`Project.create()`), it doesn't accept one from the client.
+ */
+export async function createProjectApi(params: CreateProjectParams, currentUserId: string): Promise<ApiProject> {
   const form = new FormData()
   form.append('title', params.title)
   if (params.description)       form.append('description', params.description)
-  if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
+  if (params.systemInstruction) form.append('systemInstruction', params.systemInstruction)
   if (params.tags)             form.append('tags', JSON.stringify(params.tags))
-  if (params.teamId)           form.append('organization_id', params.teamId)
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
   const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECTS_ENDPOINT), { method: 'POST', body: form })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 export interface UpdateProjectParams {
   title?:             string
   description?:       string
   systemInstruction?: string
-  /** Full replacement tag list — backend expects a JSON-encoded string array. Pass `[]` to clear. */
+  /** Full replacement tag list. */
   tags?:              string[]
 }
 
-/** PATCH /projects/{project_id} (application/x-www-form-urlencoded) */
-export async function updateProjectApi(projectId: string, params: UpdateProjectParams): Promise<ApiProject> {
-  const form = new URLSearchParams()
-  if (params.title !== undefined)             form.append('title', params.title)
-  if (params.description !== undefined)       form.append('description', params.description)
-  if (params.systemInstruction !== undefined) form.append('system_instruction', params.systemInstruction)
-  if (params.tags !== undefined)               form.append('tags', JSON.stringify(params.tags))
+/** PATCH /projects/{project_id} — JSON body (`UpdateProjectFields`), not form-encoded. */
+export async function updateProjectApi(projectId: string, params: UpdateProjectParams, currentUserId: string): Promise<ApiProject> {
+  const body: Record<string, unknown> = {}
+  if (params.title !== undefined)             body.title = params.title
+  if (params.description !== undefined)       body.description = params.description
+  if (params.systemInstruction !== undefined) body.systemInstruction = params.systemInstruction
+  if (params.tags !== undefined)               body.tags = params.tags
 
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
-    method:  'PATCH',
-    body:    form,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: 'PATCH',
+    body:   JSON.stringify(body),
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** DELETE /projects/{project_id} */
@@ -241,7 +250,7 @@ export async function deleteProjectApi(projectId: string): Promise<void> {
 }
 
 /** PUT /projects/{project_id}/files (multipart/form-data) — uploads files. */
-export async function addProjectFilesApi(projectId: string, files: File[]): Promise<ApiProject> {
+export async function addProjectFilesApi(projectId: string, files: File[], currentUserId: string): Promise<ApiProject> {
   const form = new FormData()
   files.forEach(f => form.append('files', f))
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
@@ -249,21 +258,21 @@ export async function addProjectFilesApi(projectId: string, files: File[]): Prom
     method: 'PUT',
     body:   form,
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** DELETE /projects/{project_id}/files/{document_id} */
-export async function removeProjectDocumentApi(projectId: string, documentId: string): Promise<ApiProject> {
+export async function removeProjectDocumentApi(projectId: string, documentId: string, currentUserId: string): Promise<ApiProject> {
   const project = await apiFetchJson<ProjectResponse>(PROJECT_FILE_ENDPOINT(projectId, documentId), {
     method: 'DELETE',
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** GET /projects/{project_id}/chats */
-export async function fetchProjectChats(projectId: string): Promise<ApiProjectChat[]> {
+export async function fetchProjectChats(projectId: string, currentUserId: string): Promise<ApiProjectChat[]> {
   const list = await apiFetchJson<ProjectChatSummary[]>(PROJECT_CHATS_ENDPOINT(projectId))
-  return list.map(normalizeProjectChat)
+  return list.map(c => normalizeProjectChat(c, currentUserId))
 }
 
 /** POST /projects/{project_id}/chats/{chat_id} */
@@ -279,7 +288,16 @@ export async function removeChatFromProject(projectId: string, chatId: string): 
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
 }
 
-/** PATCH /projects/{project_id}/visibility */
+/**
+ * PATCH /projects/{project_id}/visibility — this route no longer exists on
+ * the backend (dropped along with the visibility column; see the backend-shape
+ * note up top). Nothing calls this any more: `canManageVisibility` is now
+ * fixed at `false` in the normalizers above, so the UI button that used to
+ * trigger this is never rendered. Kept only as a reference for whatever
+ * replaces it once project sharing is rebuilt on top of the new
+ * `/projects/{id}/members` + `/invite(s)` endpoints — delete it once that
+ * lands, or sooner if nothing ends up needing the old wire format.
+ */
 export async function setProjectVisibility(
   projectId: string,
   visibility: 'private' | 'team',

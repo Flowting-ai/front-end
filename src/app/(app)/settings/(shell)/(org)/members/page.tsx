@@ -945,7 +945,7 @@ export default function OrgMembersPage() {
   useEffect(() => {
     if (!inviteOpen) return
     let cancelled = false
-    fetchProjects()
+    fetchProjects(user?.auth0Id ?? '')
       .then(items => {
         if (!cancelled) setProjects(items.filter(project => project.teamId))
       })
@@ -953,7 +953,7 @@ export default function OrgMembersPage() {
         if (!cancelled) setProjects([])
       })
     return () => { cancelled = true }
-  }, [inviteOpen])
+  }, [inviteOpen, user?.auth0Id])
 
   // Sync the current user's name to the backend when it appears stale
   // ("Someone" or empty) — mirrors how the individual plan syncs via

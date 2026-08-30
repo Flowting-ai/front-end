@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, use, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { BadgeColor } from '@/components/Badge'
+import { useAuth } from '@/context/auth-context'
 import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 import type { PinProps, PinLabel } from '@/components/Pin'
 import {
@@ -222,6 +223,14 @@ interface ProjectsContextValue {
 const ProjectsContext = createContext<ProjectsContextValue | null>(null)
 
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  // Auth0 `sub` — matches the backend's `ownerUserId` on every project shape.
+  // `canEdit` has no server-supplied signal any more (see lib/api/projects.ts),
+  // so every normalizer derives it as `ownerUserId === currentUserId` — this
+  // must be the real id, not a placeholder, or every project looks read-only
+  // until the profile loads.
+  const currentUserId = user?.auth0Id ?? ''
+
   const [projects,        setProjects]        = useState<Project[]>([])
   const [chats,           setChats]           = useState<ProjectChat[]>([])
   const [loading,         setLoading]         = useState(true)
@@ -232,7 +241,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
-    fetchProjects()
+    if (!user) return // wait for the authenticated profile so canEdit resolves correctly
+    fetchProjects(currentUserId)
       .then(summaries => {
         // Use a functional updater so we never clobber full project data that
         // loadProject() may have already fetched (race: loadProject resolves
@@ -262,18 +272,21 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(err => toast.error('Failed to load projects', { description: err instanceof Error ? err.message : undefined }))
       .finally(() => setLoading(false))
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the user's
+  // identity actually changes (mirrors org-context's rationale), not on every
+  // refreshUser() call that returns a new object reference with the same id.
+  }, [user?.auth0Id])
 
   // â”€â”€ CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const createProject = useCallback(async (name: string, description: string, teamId?: string): Promise<Project> => {
-    const api = await createProjectApi({ title: name, description, teamId })
+    const api = await createProjectApi({ title: name, description, teamId }, currentUserId)
     const project = apiToProject(api)
     setProjects(prev => [project, ...prev])
     // Analytics: shared-context adoption — team-shared vs personal project.
     trackBrowserEvent('project_created', { team_shared: !!teamId })
     return project
-  }, [])
+  }, [currentUserId])
 
   const updateProject = useCallback(async (
     id: string,
@@ -294,7 +307,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
     if (Object.keys(apiPatch).length > 0) {
       try {
-        const updated = await updateProjectApi(id, apiPatch)
+        const updated = await updateProjectApi(id, apiPatch, currentUserId)
         setProjects(prev => prev.map(p => p.id === id ? apiToProject(updated, p, undefined) : p))
         // Analytics: do people give projects instructions, or just make empty folders?
         if (patch.instructions !== undefined) {
@@ -306,7 +319,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         throw err
       }
     }
-  }, [])
+  }, [currentUserId])
 
   const deleteProject = useCallback(async (id: string) => {
     const snapshot = projectsRef.current.find(p => p.id === id)
@@ -335,7 +348,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const loadProject = useCallback(async (id: string) => {
     try {
-      const api = await fetchProject(id)
+      const api = await fetchProject(id, currentUserId)
       const storedSizes = loadStoredSizes(id)
 
       // Persist any sizes the server already knows about into localStorage.
@@ -391,7 +404,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       toast.error('Failed to load project', { description: err instanceof Error ? err.message : undefined })
     }
-  }, [])
+  }, [currentUserId])
 
   // â”€â”€ File management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -399,7 +412,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     if (!files.length) return
     const uploadedSizes = new Map<string, number>(files.map(f => [f.name, f.size]))
     try {
-      const updated = await addProjectFilesApi(projectId, files)
+      const updated = await addProjectFilesApi(projectId, files, currentUserId)
       const merged = new Map([...loadStoredSizes(projectId), ...uploadedSizes])
       saveStoredSizes(projectId, merged)
       setProjects(prev => prev.map(p =>
@@ -409,7 +422,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to upload files', { description: err instanceof Error ? err.message : undefined })
       throw err
     }
-  }, [])
+  }, [currentUserId])
 
   const removeFile = useCallback(async (projectId: string, fileId: string) => {
     const snapshot = projectsRef.current.find(p => p.id === projectId)
@@ -422,7 +435,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // DELETE /projects/{project_id}/files/{document_id} returns the updated ProjectResponse directly.
-      const updated = await removeProjectDocumentApi(projectId, fileId)
+      const updated = await removeProjectDocumentApi(projectId, fileId, currentUserId)
       // Guard: if the backend returned 200 but the file is still in the response, treat it as failure.
       if (updated.documents.some(d => d.id === fileId)) {
         throw new Error('File could not be removed')
@@ -438,7 +451,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
       toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })
     }
-  }, [])
+  }, [currentUserId])
 
   // â”€â”€ Chat management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -473,7 +486,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const loadProjectChats = useCallback(async (projectId: string) => {
     try {
-      const apiChats = await fetchProjectChats(projectId)
+      const apiChats = await fetchProjectChats(projectId, currentUserId)
       const mapped   = apiChats.map(c => apiChatToProjectChat(c, projectId))
       setChats(prev => {
         const apiIds   = new Set(mapped.map(c => c.id))
@@ -492,7 +505,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       toast.error('Failed to load project chats', { description: err instanceof Error ? err.message : undefined })
     }
-  }, [])
+  }, [currentUserId])
 
   // â”€â”€ Lookups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

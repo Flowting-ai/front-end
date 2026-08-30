@@ -204,7 +204,21 @@ function normalizeUserProfile(raw: unknown): UserProfile {
   const planObj = (root.plan && typeof root.plan === "object"
     ? (root.plan as Record<string, unknown>)
     : {}) as Record<string, unknown>;
-  const planType = parsePlanTierFromApi(planObj.plan_type ?? root.plan_type);
+  // Mirror the server proxy's onboarding-access check (userMeRootAllowsMainApp
+  // in onboarding-access.ts): it also treats an active plan/subscription found
+  // under `onboarding.subscription` as proof of a paid account, so this must
+  // fall back to the same nested path — otherwise a user whose plan data only
+  // lives there looks onboarded to the proxy but not to the client's
+  // OnboardingGuard, which produces the exact infinite /chat ⇄ /onboarding ⇄ /
+  // reload loop the `completed`/`metadata.status` mirroring below already
+  // guards against for the other half of this same check.
+  const onboardingSub =
+    root.onboarding && typeof root.onboarding === "object" &&
+    (root.onboarding as Record<string, unknown>).subscription &&
+    typeof (root.onboarding as Record<string, unknown>).subscription === "object"
+      ? ((root.onboarding as Record<string, unknown>).subscription as Record<string, unknown>)
+      : null;
+  const planType = parsePlanTierFromApi(planObj.plan_type ?? root.plan_type ?? onboardingSub?.plan_type);
 
   return {
     auth0_id: String(root.auth0_id ?? ""),
@@ -221,7 +235,9 @@ function normalizeUserProfile(raw: unknown): UserProfile {
         ? planObj.subscription_status
         : typeof root.subscription_status === "string"
           ? root.subscription_status
-          : null,
+          : typeof onboardingSub?.subscription_status === "string"
+            ? onboardingSub.subscription_status
+            : null,
     current_period_end:
       typeof planObj.current_period_end === "string"
         ? planObj.current_period_end
