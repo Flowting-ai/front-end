@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence, animate } from 'framer-motion'
-import { useOnboarding } from '@/context/onboarding-context'
 import { useAuth } from '@/context/auth-context'
 import { createCheckout } from '@/lib/api/stripe'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
@@ -16,7 +15,7 @@ const CANVAS_GRADIENT =
   'linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)'
 
 type Billing = 'monthly' | 'annual'
-type TeamPlanType = 'team_125' | 'team_250' | 'team_500' | 'team_1000' | 'team_1500' | 'team_2000'
+type TeamPlanId = '50' | '100' | '250' | '500' | '1000' | '2000'
 
 // ── Team tiers ────────────────────────────────────────────────────────────────
 
@@ -26,16 +25,16 @@ interface TeamTier {
   annualPrice:  string
   annualBilled: string
   creditsLabel: string
-  planType:     TeamPlanType
+  planId:       TeamPlanId
 }
 
 const TEAM_TIERS: TeamTier[] = [
-  { sliderLabel: '$125',  monthlyPrice: '$125',  annualPrice: '$94',   annualBilled: '$1,125/yr',  creditsLabel: '60,000',    planType: 'team_125'  },
-  { sliderLabel: '$250',  monthlyPrice: '$250',  annualPrice: '$188',  annualBilled: '$2,250/yr',  creditsLabel: '125,000',   planType: 'team_250'  },
-  { sliderLabel: '$500',  monthlyPrice: '$500',  annualPrice: '$375',  annualBilled: '$4,500/yr',  creditsLabel: '250,000',   planType: 'team_500'  },
-  { sliderLabel: '$1k',   monthlyPrice: '$1k',   annualPrice: '$750',  annualBilled: '$9,000/yr',  creditsLabel: '500,000',   planType: 'team_1000' },
-  { sliderLabel: '$1.5k', monthlyPrice: '$1.5k', annualPrice: '$1.1k', annualBilled: '$13,500/yr', creditsLabel: '750,000',   planType: 'team_1500' },
-  { sliderLabel: '$2k',   monthlyPrice: '$2k',   annualPrice: '$1.5k', annualBilled: '$18,000/yr', creditsLabel: '1,000,000', planType: 'team_2000' },
+  { sliderLabel: '$50',  monthlyPrice: '$50',  annualPrice: '$50',  annualBilled: '$600/yr',   creditsLabel: '40',   planId: '50'   },
+  { sliderLabel: '$100', monthlyPrice: '$100', annualPrice: '$100', annualBilled: '$1,200/yr', creditsLabel: '80',   planId: '100'  },
+  { sliderLabel: '$250', monthlyPrice: '$250', annualPrice: '$250', annualBilled: '$3,000/yr', creditsLabel: '200',  planId: '250'  },
+  { sliderLabel: '$500', monthlyPrice: '$500', annualPrice: '$500', annualBilled: '$6,000/yr', creditsLabel: '400',  planId: '500'  },
+  { sliderLabel: '$1k',  monthlyPrice: '$1k',  annualPrice: '$1k',  annualBilled: '$12,000/yr', creditsLabel: '800',  planId: '1000' },
+  { sliderLabel: '$2k',  monthlyPrice: '$2k',  annualPrice: '$2k',  annualBilled: '$24,000/yr', creditsLabel: '1,600', planId: '2000' },
 ]
 
 // ── Individual tiers ──────────────────────────────────────────────────────────
@@ -289,7 +288,6 @@ export default function OnboardingPlansPage() {
 function OnboardingPlansContent() {
   const { push, replace } = useRouter()
   const searchParams       = useSearchParams()
-  const { data }           = useOnboarding()
   const { logout }         = useAuth()
 
   // Extract URL params first so lazy state initializers can read them.
@@ -299,8 +297,7 @@ function OnboardingPlansContent() {
   const planParam    = searchParams.get('plan')
   const billingParam = searchParams.get('billing')
 
-  // Context is the source of truth; fall back to ?type= for Stripe cancel returns
-  const isTeam = data.accountType != null ? data.accountType === 'team' : typeParam === 'team'
+  const isTeam = true
 
   // Billing — lazy init restores from Stripe cancel URL if present
   const [billing, setBilling] = useState<Billing>(() =>
@@ -311,7 +308,7 @@ function OnboardingPlansContent() {
   // Team plan state — tier restored from Stripe cancel URL if present
   const [teamTierIndex, setTeamTierIndex] = useState(() => {
     if (planParam) {
-      const idx = TEAM_TIERS.findIndex(t => t.planType === planParam)
+      const idx = TEAM_TIERS.findIndex(t => t.planId === planParam)
       if (idx >= 0) return idx
     }
     return 0
@@ -367,7 +364,7 @@ function OnboardingPlansContent() {
     setTeamLoading(true)
     setTeamError(null)
     try {
-      const { checkout_url } = await createCheckout({ plan: teamTier.planType, billing })
+      const { checkout_url } = await createCheckout({ planId: teamTier.planId })
       window.location.href = checkout_url
     } catch (err) {
       setTeamError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')

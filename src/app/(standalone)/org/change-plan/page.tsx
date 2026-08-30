@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
-import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
+import { createCheckout, updatePlan, type CheckoutPlan } from '@/lib/api/stripe'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
@@ -22,13 +22,13 @@ const INDIVIDUAL_PLANS: { id: UserPlanType; price: number; credits: number }[] =
   { id: 'power',   price: 100, credits: 45000 },
 ]
 
-const TEAM_PLANS: { price: number; credits: number; label: string; planType: CheckoutPlan }[] = [
-  { price: 125,  credits: 60000,   label: '$125',  planType: 'team_125'  },
-  { price: 250,  credits: 125000,  label: '$250',  planType: 'team_250'  },
-  { price: 500,  credits: 250000,  label: '$500',  planType: 'team_500'  },
-  { price: 1000, credits: 500000,  label: '$1k',   planType: 'team_1000' },
-  { price: 1500, credits: 750000,  label: '$1.5k', planType: 'team_1500' },
-  { price: 2000, credits: 1000000, label: '$2k',   planType: 'team_2000' },
+const TEAM_PLANS: { price: number; credits: number; label: string; planId: CheckoutPlan }[] = [
+  { price: 50,   credits: 40,   label: '$50',  planId: '50'   },
+  { price: 100,  credits: 80,   label: '$100', planId: '100'  },
+  { price: 250,  credits: 200,  label: '$250', planId: '250'  },
+  { price: 500,  credits: 400,  label: '$500', planId: '500'  },
+  { price: 1000, credits: 800,  label: '$1k',  planId: '1000' },
+  { price: 2000, credits: 1600, label: '$2k',  planId: '2000' },
 ]
 
 function fmtNum(n: number): string {
@@ -113,29 +113,22 @@ export default function OrgChangePlanPage() {
   }, [orgReady, orgRole, router])
 
   const handleSelectIndividual = async () => {
-    if (changingTo) return
-    const plan = selectedIndividual.id
-    if (plan === currentPlan) return
-    setChangingTo(plan)
-    try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
-      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
-      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
-      try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
-      window.location.href = checkout.checkout_url
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update plan')
-      setChangingTo(null)
-    }
+    toast.error('Individual plans are gone. Buy a Teams plan instead.')
   }
 
   const handleSelectTeam = async () => {
     if (teamButtonDisabled) return
-    const plan = selectedTeam.planType
-    setChangingTo(plan)
+    const planId = selectedTeam.planId
+    setChangingTo(planId)
     try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
-      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
+      if (isOnTeamPlan && currentTeamTierIdx >= 0) {
+        await updatePlan(planId)
+        trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
+        router.replace(ORG_PLANS_ROUTE)
+        return
+      }
+      const checkout = await createCheckout({ planId })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
@@ -153,7 +146,7 @@ export default function OrgChangePlanPage() {
   const teamButtonLabel = (() => {
     if (teamIsCurrent)                          return 'Current plan'
     if (teamIsDowngrade)                        return "Can't downgrade"
-    if (changingTo === selectedTeam.planType)   return 'Redirecting…'
+    if (changingTo === selectedTeam.planId)     return 'Redirecting…'
     if (isOnTeamPlan)                           return 'Upgrade team plan'
     return 'Start a Team Workspace'
   })()
@@ -420,7 +413,7 @@ export default function OrgChangePlanPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                       cursor: isOnTeamPlan || isCurrent || changingTo ? 'default' : 'pointer',
-                      opacity: changingTo && changingTo !== selectedIndividual.id ? 0.5 : 1,
+                      opacity: changingTo ? 0.5 : 1,
                       backgroundColor: 'white',
                       boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
@@ -428,9 +421,9 @@ export default function OrgChangePlanPage() {
                   >
                     {isCurrent
                       ? 'Current plan'
-                      : changingTo === selectedIndividual.id
-                        ? 'Redirecting…'
-                        : 'Change plan'}
+                      : isOnTeamPlan
+                        ? 'On a Teams plan'
+                        : 'Unavailable'}
                   </button>
                 </div>
               </div>

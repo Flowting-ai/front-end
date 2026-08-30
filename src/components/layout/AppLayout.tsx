@@ -28,6 +28,7 @@ import {
   ORG_SOUVENIR_SLACK_ROUTE,
   CHAT_ROUTE,
   CHATS_ROUTE,
+  TEMPLATE_BASE_ROUTE,
 } from "@/lib/routes";
 
 interface AppLayoutProps {
@@ -80,6 +81,11 @@ export function AppLayout({
   // surface — strip the TopBar/model-selector and floating chat tools like /org.
   const isTeamPage     = pathname.startsWith(TEAMS_BASE_ROUTE)
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
+  // A stored template is a full-bleed document viewer: its own header, then an
+  // iframe that must own the rest of the height. The default branch below lays
+  // the TopBar over the top of the content, which would sit on the document's
+  // title, and the model selector means nothing here — there is no chat.
+  const isTemplatePage = pathname.startsWith(TEMPLATE_BASE_ROUTE)
   const isBrainPage = pathname.startsWith(BRAIN_ROUTE)
   // Connectors / Souvenir-in-Slack are settings-style pages too (moved off
   // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
@@ -113,6 +119,34 @@ export function AppLayout({
         }}
       >
         {children}
+        <AppDialogs />
+      </div>
+    )
+  }
+
+  // Same shape as the Brain branch: the shared LeftSidebar, then the page
+  // itself full-height, with no TopBar or floating chat tools.
+  if (isTemplatePage) {
+    return (
+      <div
+        style={{
+          display:         'flex',
+          alignItems:      'stretch',
+          width:           '100%',
+          height:          '100svh',
+          backgroundColor: 'var(--neutral-white)',
+        }}
+      >
+        <Suspense fallback={null}>
+          <LeftSidebar
+            activeChatId={activeChatId}
+            onSelectChat={onSelectChat}
+            onNewChat={onNewChat}
+          />
+        </Suspense>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </div>
         <AppDialogs />
       </div>
     )

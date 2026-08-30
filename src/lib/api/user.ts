@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   STRIPE_BILLING_ENDPOINT,
   STRIPE_CHECKOUT_ENDPOINT,
+  STRIPE_PLAN_ENDPOINT,
   STRIPE_PORTAL_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
   STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
@@ -18,15 +19,19 @@ import { parsePlanTierFromApi } from "@/lib/plan-tier";
 import { apiFetch } from "./client";
 
 export type UserPlanType = "starter" | "pro" | "power";
-/**
- * Every plan key accepted by `POST /stripe/checkout` — individual tiers plus the
- * six Team volume tiers. The backend maps this key to the correct Stripe price
- * (the FE must NOT send price ids / tier / interval separately).
- */
-export type CheckoutPlan =
-  | "starter" | "pro" | "power"
-  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000";
+/** Teams monthly price in USD. `POST /stripe/checkout` and `POST /stripe/plan` take this as `planId`. */
+export type CheckoutPlan = "50" | "100" | "250" | "500" | "1000" | "2000";
 export type BillingPlan = "monthly" | "annual";
+
+export interface PlanInfo {
+  plan_id: string | null;
+  plan_type: string | null;
+  usage_credits: number;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  billing_interval: string | null;
+}
 
 export interface UserPaymentMethod {
   id: string;
@@ -635,24 +640,15 @@ export async function deleteUser(): Promise<void> {
 }
 
 /**
- * POST /stripe/checkout — start a Stripe Checkout session for `plan`.
- *
- * Identity comes from the JWT (auto-attached by apiFetch); the backend owns the
- * Stripe price ids. The body is exactly `{ plan, billing }` — we deliberately do
- * NOT send user/auth0 ids, a tier, or a price_id (sending price ids previously
- * caused the test/live "No such price" failures). Used for both initial signup
- * and switching plans.
- *
- * Errors: 422 — plan/billing not in the allowed enum; 400 — already subscribed
- * this period, or no price configured for the plan.
+ * POST /stripe/checkout — first Teams purchase. Body is `{ planId }`.
+ * Plan changes go through `updatePlan`.
  */
 export async function createCheckoutSession(
-  plan: CheckoutPlan,
-  billing: BillingPlan = "monthly",
+  planId: CheckoutPlan,
 ): Promise<CheckoutSessionResponse> {
   const response = await apiFetch(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ plan, billing }),
+    body: JSON.stringify({ planId }),
   });
 
   const data = (await response.json().catch(() => ({}))) as
@@ -666,6 +662,23 @@ export async function createCheckoutSession(
   }
 
   return data;
+}
+
+/** POST /stripe/plan — change an existing Teams subscription in place. */
+export async function updatePlan(planId: CheckoutPlan): Promise<PlanInfo> {
+  const response = await apiFetch(STRIPE_PLAN_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ planId }),
+  });
+  const data = (await response.json().catch(() => ({}))) as
+    | PlanInfo
+    | { detail?: string; error?: string };
+  if (!response.ok) {
+    const detail = "detail" in data ? data.detail : undefined;
+    const error = "error" in data ? data.error : undefined;
+    throw new Error(detail || error || "Failed to update plan.");
+  }
+  return data as PlanInfo;
 }
 
 export async function createTopUpSession(amount_usd: number): Promise<TopUpSessionResponse> {

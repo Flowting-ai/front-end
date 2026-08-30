@@ -58,6 +58,18 @@ const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 function formatScheduleJson(json: Record<string, unknown>): string {
   if (!json || typeof json !== 'object') return 'Scheduled'
 
+  // A one-off: one instant, and then the automation pauses itself. It has no
+  // cadence to describe, so neither shape below can say anything true about it.
+  if (json.kind === 'once' && typeof json.run_at === 'string') {
+    const at = new Date(json.run_at)
+    if (!Number.isNaN(at.getTime())) {
+      return `Once · ${at.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      })}`
+    }
+    return 'Once'
+  }
+
   const timeOfDay = typeof json.time_of_day === 'string' ? json.time_of_day : null
   let time: string | null = null
   if (timeOfDay && /^\d{1,2}:\d{2}/.test(timeOfDay)) {

@@ -8,7 +8,13 @@ import { ApiError } from '@/lib/api/client'
 import { linkSlackIdentity, disconnectSlackIdentity } from '@/lib/api/slack'
 import { ROOT_ROUTE } from '@/lib/routes'
 
-type PageState = 'linking' | 'linked' | 'missing' | 'error' | 'disconnected'
+type PageState =
+  | 'linking'
+  | 'authorizing'
+  | 'linked'
+  | 'missing'
+  | 'error'
+  | 'disconnected'
 
 const cardStyle: React.CSSProperties = {
   display:         'flex',
@@ -49,10 +55,16 @@ function SlackLinkContent() {
   const search        = useSearchParams()
   const { push }      = useRouter()
   const state         = search.get('state')
+  // Slack's user-token consent bounces back here as ?authorized=1 (the backend
+  // /oauth/callback sends it), and that leg carries no `state`.
+  const authorized    = search.get('authorized') === '1'
 
-  // 'missing' is decided at first render (no state param) so the effect never
-  // has to setState synchronously.
-  const [pageState,  setPageState]  = useState<PageState>(() => (state ? 'linking' : 'missing'))
+  // Decided at first render so the effect never has to setState synchronously:
+  // a fresh /connect deep link is 'linking', the return leg is already done,
+  // and anything else reached this page without a link.
+  const [pageState,  setPageState]  = useState<PageState>(
+    () => (state ? 'linking' : authorized ? 'linked' : 'missing'),
+  )
   const [errorMsg,   setErrorMsg]   = useState('')
   const [busy,       setBusy]       = useState(false)
   // The link POST runs once; React 18 StrictMode double-invokes effects in dev.
@@ -63,7 +75,19 @@ function SlackLinkContent() {
     linkedOnce.current = true
 
     linkSlackIdentity(state)
-      .then(() => setPageState('linked'))
+      .then(({ authorizationUrl }) => {
+        // Binding the identity is only half of it. Slack mints the member's own
+        // token on a second consent screen, and without that token Souvenir can
+        // only ever read Slack as the bot — it cannot search their messages or
+        // post as them. So this is not a success page yet: hand them straight
+        // on, and let the ?authorized=1 return leg above declare success.
+        if (authorizationUrl) {
+          setPageState('authorizing')
+          window.location.assign(authorizationUrl)
+          return
+        }
+        setPageState('linked')
+      })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 400) {
           setErrorMsg('This link is invalid or has expired. Run `/connect` in Slack to get a fresh one.')
@@ -93,6 +117,17 @@ function SlackLinkContent() {
       <div style={cardStyle}>
         <h1 style={titleStyle}>Linking your Slack…</h1>
         <p style={bodyStyle}>One moment while we connect this Slack identity to your account.</p>
+      </div>
+    )
+  }
+
+  if (pageState === 'authorizing') {
+    return (
+      <div style={cardStyle}>
+        <h1 style={titleStyle}>One more step…</h1>
+        <p style={bodyStyle}>
+          Taking you to Slack to approve Souvenir reading and posting as you.
+        </p>
       </div>
     )
   }

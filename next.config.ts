@@ -132,6 +132,33 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // The stored-template HTML is the one response in this app that is
+      // *meant* to be framed — /template/<uuid> renders it in a sandboxed
+      // <iframe>. The app-wide rule above sends X-Frame-Options: DENY and
+      // frame-ancestors 'none', and a browser enforces every CSP it is sent,
+      // so without this override the frame is refused before the request is
+      // even made. A later rule setting the same key wins, so this replaces
+      // both framing headers for this path only.
+      //
+      // What replaces them is stricter about the document itself: `sandbox`
+      // with no allow-same-origin puts the model-written HTML on an opaque
+      // origin, so its own scripts still run — charts, filters, drill-downs —
+      // but it cannot reach this app's session or storage. frame-ancestors
+      // 'self' keeps other sites from embedding it. Both hold on a direct
+      // open, not just inside the frame.
+      {
+        source: "/api/template/:uuid*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "sandbox allow-scripts allow-popups allow-forms",
+              "frame-ancestors 'self'",
+            ].join("; "),
+          },
+        ],
+      },
     ];
   },
 };
