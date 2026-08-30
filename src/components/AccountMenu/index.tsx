@@ -5,13 +5,11 @@ import {
   UserIcon,
   ArrowUpRightOneIcon,
   SettingsOneIcon,
-  LogoIcon,
   InformationCircleIcon,
   ArrowRightOneIcon,
   CourtHouseIcon,
   AlertCircleIcon,
   LoginOneIcon,
-  LinkSixIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
@@ -57,11 +55,9 @@ export interface AccountMenuProps {
   onProfile?:      () => void
   onUpgradePlan?:  () => void
   onSettings?:     () => void
-  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and What's new. */
+  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and Help. */
   onOrganization?:     () => void
-  onWhatsNew?:         () => void
   onHelp?:             () => void
-  onManageConnectors?: () => void
   onReportBug?:        () => void
   onLogOut?:           () => void
 }
@@ -281,9 +277,7 @@ export function AccountMenu({
   onUpgradePlan,
   onSettings,
   onOrganization,
-  onWhatsNew,
   onHelp,
-  onManageConnectors,
   onReportBug,
   onLogOut,
 }: AccountMenuProps & { ref?: React.Ref<HTMLDivElement> }) {
@@ -364,18 +358,6 @@ export function AccountMenu({
                 onClick={() => { onOrganization?.(); close() }}
               />
             )}
-            <Dropdown.Item
-              icon={<LinkSixIcon animated />}
-              label="Manage connectors"
-              fluid
-              onClick={() => { onManageConnectors?.(); close() }}
-            />
-            <Dropdown.Item
-              icon={<LogoIcon />}
-              label="What's new"
-              fluid
-              onClick={() => { onWhatsNew?.(); close() }}
-            />
             <Dropdown.Item
               icon={<InformationCircleIcon />}
               label="Help"

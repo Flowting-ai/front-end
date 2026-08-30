@@ -2664,9 +2664,7 @@ function LeftSidebarImpl({
                 onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
                 onSettings={() => push(SETTINGS_ROUTE)}
                 onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
-                onWhatsNew={() => toast.info("What's new — coming soon!")}
                 onHelp={() => push(SETTINGS_HELP_ROUTE)}
-                onManageConnectors={() => push(isTeamUser ? ORG_CONNECTORS_ROUTE : SETTINGS_CONNECTORS_ROUTE)}
                 onReportBug={() => setReportBugOpen(true)}
                 onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
               />
@@ -2771,9 +2769,7 @@ function LeftSidebarImpl({
             onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
             onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
-            onWhatsNew={() => toast.info("What's new — coming soon!")}
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
-            onManageConnectors={() => push(SETTINGS_CONNECTORS_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
           />
