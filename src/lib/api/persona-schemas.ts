@@ -51,9 +51,12 @@ export const personaRepoSchema = z.object({
   published_at:         nullableString,
   is_published:         z.boolean().default(false),
   version_count:        z.number().default(0),
-  // Backend value is "private" | "org" (flatten-teams-into-organizations
-  // migration renamed "team" to "org") — not "team".
-  visibility:           z.enum(['private', 'org']).default('private'),
+  // Backend's real enum (services/organizations/schemas.py VISIBILITY_VALUES)
+  // is "private" | "shared" — not "org". The old "org" value here would throw
+  // a ZodError on every fetch that includes so much as one shared persona,
+  // breaking the whole personas list (sidebar, /agents, search, project panel)
+  // for that entire org.
+  visibility:           z.enum(['private', 'shared']).default('private'),
   organization_id:      nullableString,
   created_at:           z.string(),
   updated_at:           z.string(),

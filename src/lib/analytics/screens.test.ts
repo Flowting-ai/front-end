@@ -46,6 +46,7 @@ describe("routeToScreen", () => {
     expect(routeToScreen("/settings/teams")).toBe("org_manage");
     expect(routeToScreen("/settings/teams/team-1")).toBe("org_manage");
     expect(routeToScreen("/settings/plans")).toBe("org_manage");
+    expect(routeToScreen("/settings/plans-and-billing")).toBe("org_manage");
     expect(routeToScreen("/settings/analytics")).toBe("org_manage");
     expect(routeToScreen("/settings/activity")).toBe("org_manage");
   });

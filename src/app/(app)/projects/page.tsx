@@ -293,7 +293,7 @@ function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
-  const { orgId, members }                                                    = useOrg()
+  const { orgId, members, currentUserRole }                                   = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
   // Always plain — this page's own "New Project" button should default to
@@ -343,6 +343,13 @@ function ProjectsPageInner() {
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [isDeleting,     setIsDeleting]     = useState(false)
+
+  // Org owners/admins can delete a colleague's shared project even though
+  // they don't own it — see the matching note in projects-context.tsx's
+  // deleteProject guardrail, which is the actual enforcement point.
+  function canDeleteProject(project: Project): boolean {
+    return project.canEdit || (currentUserRole === 'admin' && !!orgId && project.teamId === orgId)
+  }
 
   async function handleDelete(project: Project) {
     if (project.chatCount > 0) {
@@ -643,7 +650,7 @@ function ProjectsPageInner() {
                 updatedAt={formatUpdated(project.updatedAt)}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
-                onDelete={project.canEdit ? () => handleDelete(project) : undefined}
+                onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
               />
             ))}
           </div>
@@ -668,7 +675,7 @@ function ProjectsPageInner() {
                 chatCount={project.chatCount}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
-                onDelete={project.canEdit ? () => handleDelete(project) : undefined}
+                onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
               />
             ))}
           </div>

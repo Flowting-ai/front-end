@@ -32,7 +32,11 @@ export const PROJECTS_NEW_ROUTE = "/projects/new";
 export const ORG_BASE_ROUTE = "/org";
 export const ORG_GENERAL_ROUTE = "/settings/general";
 export const ORG_ACTIVITY_ROUTE = "/settings/activity";
-export const ORG_PLANS_ROUTE = "/settings/plans";
+// Merged with the individual "Usage & Billing" page (SETTINGS_BILLING_ROUTE
+// below) so every account type — individual, org member, org owner/admin —
+// lands on one page. Constant name kept per this file's own precedent (see
+// the note above): only the string value changed.
+export const ORG_PLANS_ROUTE = "/settings/plans-and-billing";
 export const ORG_MEMBERS_ROUTE = "/settings/members";
 export const ORG_ANALYTICS_ROUTE = "/settings/analytics";
 export const ORG_CHANGE_PLAN_ROUTE = "/org/change-plan";
@@ -44,10 +48,14 @@ export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
 export const SETTINGS_HELP_ROUTE = "/settings/help";
 export const SETTINGS_CONNECTORS_ROUTE = "/settings/connectors";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
+// Retired — plans/payment/invoices for every account type now live on
+// ORG_PLANS_ROUTE (/settings/plans-and-billing). This route is now just a
+// redirect stub (src/app/(app)/settings/(shell)/billing/page.tsx) kept for old
+// bookmarks/links; its sub-routes (change-plan, confirmation) are still real
+// pages, just no longer linked from here.
 export const SETTINGS_BILLING_ROUTE = "/settings/billing";
 // Settings v1.5 — PERSONAL > Usage (node 17-22980), split out of the old
-// combined "Usage & Billing" page. Plans/payment/invoices stay on
-// SETTINGS_BILLING_ROUTE; this page is personal credit-consumption only.
+// combined "Usage & Billing" page. This page is personal credit-consumption only.
 export const SETTINGS_USAGE_ROUTE = "/settings/usage";
 export const SETTINGS_BILLING_CHANGE_PLAN_ROUTE = "/settings/billing/change-plan";
 export const SETTINGS_BILLING_CONFIRMATION_ROUTE = "/settings/billing/confirmation";

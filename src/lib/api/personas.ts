@@ -457,7 +457,10 @@ export async function setPersonaVisibility(
   visibility: 'private' | 'team',
   teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'org' : 'private' }
+  // Backend's real enum is ("private", "shared") — VISIBILITY_VALUES in
+  // services/organizations/schemas.py. "org" isn't a valid value there at
+  // all: every call with it 400s, so sharing an agent has never worked.
+  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' }
   if (visibility === 'team' && teamId) body.organizationId = teamId
   await apiFetch(PERSONA_VISIBILITY_ENDPOINT(repoId), {
     method: 'PATCH',

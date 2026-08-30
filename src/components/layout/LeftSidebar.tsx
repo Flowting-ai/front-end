@@ -60,7 +60,6 @@ import {
   CHATS_ROUTE,
   SETTINGS_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
-  SETTINGS_BILLING_ROUTE,
   SETTINGS_HELP_ROUTE,
   SETTINGS_CONNECTORS_ROUTE,
   ORG_CONNECTORS_ROUTE,
@@ -2662,7 +2661,7 @@ function LeftSidebarImpl({
                   />
                 )}
                 onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
-                onUpgradePlan={() => push(SETTINGS_BILLING_ROUTE)}
+                onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
                 onSettings={() => push(SETTINGS_ROUTE)}
                 onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
                 onWhatsNew={() => toast.info("What's new — coming soon!")}
@@ -2769,7 +2768,7 @@ function LeftSidebarImpl({
             ) : undefined}
             placement="top-start"
             onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
-            onUpgradePlan={() => push(SETTINGS_BILLING_ROUTE)}
+            onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
             onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}

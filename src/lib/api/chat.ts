@@ -29,7 +29,8 @@ interface BackendChat {
   id: string;
   owner_user_id?: string;
   can_edit?: boolean;
-  visibility?: "private" | "org";
+  // Backend's real value is "shared", not "org" — see setChatVisibility's comment.
+  visibility?: "private" | "shared";
   organization_id?: string | null;
   starred?: boolean;
   is_starred?: boolean;
@@ -53,7 +54,7 @@ function normalizeChat(raw: BackendChat): Chat {
     id: raw.id,
     owner_user_id: raw.owner_user_id,
     can_edit: raw.can_edit ?? false,
-    visibility: raw.visibility === "org" ? "team" : "private",
+    visibility: raw.visibility === "shared" ? "team" : "private",
     team_id: raw.organization_id ?? null,
     title: raw.chat_title ?? raw.title ?? raw.name ?? "Untitled",
     created_at: raw.created_at ?? new Date().toISOString(),
@@ -492,7 +493,11 @@ export async function setChatVisibility(
   visibility: "private" | "team",
   teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility: visibility === "team" ? "org" : "private" };
+  // Backend's real enum (services/organizations/schemas.py VISIBILITY_VALUES,
+  // shared_visibility_arm) is "private" | "shared" — not "org". Same wire-format
+  // bug as personas (lib/api/personas.ts) — every call with "org" 400s, so
+  // publishing/sharing a chat to the team has never worked against this backend.
+  const body: Record<string, unknown> = { visibility: visibility === "team" ? "shared" : "private" };
   if (visibility === "team" && teamId) body.organizationId = teamId;
   await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
     method: "PATCH",

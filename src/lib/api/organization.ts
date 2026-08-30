@@ -18,57 +18,64 @@ import {
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
-// ── Backend shapes (snake_case) ───────────────────────────────────────────────
+// ── Backend shapes ────────────────────────────────────────────────────────────
+// Unlike MemberBurn/AuditEntry/InvitePreview elsewhere in this file (still
+// genuinely snake_case — no alias declared on those models), OrganizationResponse
+// and OrganizationSettingsResponse in services/organizations/schemas.py both
+// declare a `serialization_alias` on every multi-word field, so — same as
+// MemberResponse above — the actual wire format is camelCase.
 
 interface OrganizationResponse {
   id: string
   name: string
   slug: string
   description: string
-  logo_url: string | null
+  logoUrl: string | null
   archived: boolean
-  my_role: OrgRole | null
-  plan_type: 'teams' | 'enterprise' | null
-  owner_user_id?: string | null
-  owner_email?: string | null
-}
-
-interface AdminBillingPermsResponse {
-  can_top_up: boolean
-  can_manage_payment: boolean
-  can_view_invoices: boolean
+  myRole: OrgRole | null
+  planType: 'teams' | 'enterprise' | null
+  ownerUserId?: string | null
+  ownerEmail?: string | null
 }
 
 interface OrganizationSettingsResponse {
-  organization_id: string
-  org_instructions: string | null
-  allowed_email_domains: string[] | null
-  default_chat_visibility: string | null
-  default_persona_visibility: string | null
-  admin_billing_perms?: AdminBillingPermsResponse | null
+  organizationId: string
+  orgInstructions: string | null
+  allowedEmailDomains: string[] | null
+  defaultChatVisibility: string | null
+  defaultPersonaVisibility: string | null
 }
 
 // ── Plan endpoint schema ──────────────────────────────────────────────────────
-// Mirrors services/organizations/schemas.py exactly (MemberResponse / PlanResponse).
+// Mirrors services/organizations/schemas.py's PlanResponse/MemberResponse — but
+// NOT their snake_case field names. Both models declare a `serialization_alias`
+// on every multi-word field (e.g. `user_id: str = Field(serialization_alias=
+// "userId")`), and FastAPI's `response_model_by_alias` defaults to `True`, so
+// the actual wire format for `members[]` is camelCase even though `PlanResponse`
+// itself has no aliases and stays snake_case at the top level (its own fields
+// were never given one). Verified against a live ZodError: `members[0].user_id`
+// came back `undefined` and `members[0].invite_status` failed its enum check —
+// both are actually named `userId`/`inviteStatus` on the wire. `plan_type` is
+// also genuinely nullable server-side (`str | None = None`), not just absent.
 // The response is validated at the boundary so the UI renders deterministically
 // from the endpoint's real shape — no guessed defaults, no fabricated fields.
 // Server-side every field is always present (Pydantic bakes the defaults in), so
 // the only `.default()`s here are the ones the backend itself declares.
 
 const memberResponseSchema = z.object({
-  user_id:          z.string(),
+  userId:           z.string(),
   name:             z.string().nullable().default(null),
   email:            z.string().nullable().default(null),
   role:             z.enum(['owner', 'admin', 'member']),
-  usage_total:      z.number().default(0),
-  invite_status:    z.enum(['active', 'pending']),
-  invite_id:        z.string().nullable().default(null),
-  is_pending_invite: z.boolean().default(false),
+  usageTotal:       z.number().nullable().transform(v => v ?? 0),
+  inviteStatus:     z.enum(['active', 'pending']),
+  inviteId:         z.string().nullable().default(null),
+  isPendingInvite:  z.boolean().default(false),
 })
 
 const planResponseSchema = z.object({
   organization_id:  z.string(),
-  plan_type:        z.string(),               // backend: str ("teams" | "enterprise")
+  plan_type:        z.string().nullable(),    // backend: str | None ("teams" | "enterprise" | null)
   billing_model:    z.string(),               // backend: str ("prepaid" | "postpaid")
   plan_credits:     z.number(),
   topup_credits:    z.number(),
@@ -86,8 +93,11 @@ const planResponseSchema = z.object({
   projected_invoice_usd:        z.number().default(0),
   input_tokens:     z.number().int().default(0),
   output_tokens:    z.number().int().default(0),
-  reasoning_tokens: z.number().int().default(0),
-  cached_tokens:    z.number().int().default(0),
+  // Backend's real field names (services/organizations/schemas.py PlanResponse)
+  // — the old reasoning_tokens/cached_tokens names here don't exist on the
+  // wire at all, so those stats always silently read 0 via zod's .default(0).
+  cache_read_tokens:  z.number().int().default(0),
+  cache_write_tokens: z.number().int().default(0),
   total_tokens:     z.number().int().default(0),
   usage_event_count: z.number().int().default(0),
 })
@@ -123,18 +133,12 @@ interface AuditEntryResponse {
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
-  const p = s.admin_billing_perms
   return {
-    organizationId:           s.organization_id,
-    orgInstructions:          s.org_instructions,
-    allowedEmailDomains:      s.allowed_email_domains,
-    defaultChatVisibility:    s.default_chat_visibility,
-    defaultPersonaVisibility: s.default_persona_visibility,
-    adminBillingPerms: {
-      canTopUp:         p?.can_top_up         ?? true,
-      canManagePayment: p?.can_manage_payment  ?? true,
-      canViewInvoices:  p?.can_view_invoices   ?? true,
-    },
+    organizationId:           s.organizationId,
+    orgInstructions:          s.orgInstructions,
+    allowedEmailDomains:      s.allowedEmailDomains,
+    defaultChatVisibility:    s.defaultChatVisibility,
+    defaultPersonaVisibility: s.defaultPersonaVisibility,
   }
 }
 
@@ -147,9 +151,9 @@ function normalizeMember(m: MemberResponse): OrgMember {
   // were only ever reachable through those fields, so they're hardcoded to
   // their empty state below rather than parsed from data that doesn't exist.
   const role = (m.role === 'owner' || m.role === 'admin') ? 'admin' : 'member'
-  const inviteStatus = m.invite_status === 'pending' ? 'invite_sent' : 'signed_up'
+  const inviteStatus = m.inviteStatus === 'pending' ? 'invite_sent' : 'signed_up'
   return {
-    id:              m.user_id,
+    id:              m.userId,
     name:            m.name ?? '',
     email:           m.email ?? '',
     role,
@@ -158,8 +162,8 @@ function normalizeMember(m: MemberResponse): OrgMember {
     teamMemberships: [],
     creditUsed:      inviteStatus === 'invite_sent'
       ? 0
-      : toDisplayCredits(m.usage_total),
-    inviteId:        m.invite_id ?? null,
+      : toDisplayCredits(m.usageTotal),
+    inviteId:        m.inviteId ?? null,
   }
 }
 
@@ -190,8 +194,8 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     projectedInvoiceUsd: p.projected_invoice_usd,
     inputTokens: p.input_tokens,
     outputTokens: p.output_tokens,
-    reasoningTokens: p.reasoning_tokens,
-    cachedTokens: p.cached_tokens,
+    cacheReadTokens: p.cache_read_tokens,
+    cacheWriteTokens: p.cache_write_tokens,
     totalTokens: p.total_tokens,
     usageEventCount: p.usage_event_count,
   }
@@ -245,7 +249,7 @@ export async function createOrganization(params: {
     method: 'POST',
     body:   JSON.stringify(body),
   })
-  return { id: data.id, name: data.name, slug: data.slug, role: data.my_role ?? 'admin' }
+  return { id: data.id, name: data.name, slug: data.slug, role: data.myRole ?? 'admin' }
 }
 
 /**
@@ -259,7 +263,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
     id:   o.id,
     name: o.name,
     slug: o.slug,
-    role: o.my_role ?? 'member',
+    role: o.myRole ?? 'member',
   }))
 }
 
@@ -270,11 +274,11 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     name:        data.name,
     slug:        data.slug,
     description: data.description,
-    logoUrl:     data.logo_url,
-    role:        data.my_role,
-    planType:    data.plan_type === 'enterprise' ? 'enterprise' : 'teams',
-    ownerEmail:  data.owner_email ?? null,
-    ownerUserId: data.owner_user_id ?? null,
+    logoUrl:     data.logoUrl,
+    role:        data.myRole,
+    planType:    data.planType === 'enterprise' ? 'enterprise' : 'teams',
+    ownerEmail:  data.ownerEmail ?? null,
+    ownerUserId: data.ownerUserId ?? null,
   }
 }
 
@@ -293,7 +297,7 @@ export async function updateOrg(
     method: 'PATCH',
     body:   form,
   })
-  return { id: data.id, name: data.name, slug: data.slug, logoUrl: data.logo_url }
+  return { id: data.id, name: data.name, slug: data.slug, logoUrl: data.logoUrl }
 }
 
 export async function deleteOrg(orgId: string, confirmName: string): Promise<void> {
@@ -322,11 +326,6 @@ export async function updateOrgSettings(
     allowedEmailDomains?:      string[] | null
     defaultChatVisibility?:    string | null
     defaultPersonaVisibility?: string | null
-    adminBillingPerms?: {
-      canTopUp?:         boolean
-      canManagePayment?: boolean
-      canViewInvoices?:  boolean
-    }
   },
 ): Promise<OrgSettings> {
   const data = await apiFetchJson<OrganizationSettingsResponse>(ORG_SETTINGS_ENDPOINT(orgId), {
@@ -355,8 +354,15 @@ export async function setOrgPoolCap(orgId: string, poolCapUsd: number): Promise<
  * render roles on the Members and Activity pages.
  */
 export async function listMembers(orgId: string): Promise<OrgMember[]> {
-  const data = await apiFetchJson<MemberResponse[]>(ORG_MEMBERS_ENDPOINT(orgId))
-  return (data ?? []).map(normalizeMember)
+  // Validate like getOrgPlan/setOrgPoolCap do — this was previously just cast via
+  // the generic (`apiFetchJson<MemberResponse[]>`) with no runtime check, so it
+  // silently read the pre-alias-fix field names (user_id, invite_status, ...)
+  // against a response that's actually camelCase (userId, inviteStatus, ...),
+  // producing members with undefined ids/emails and an always-wrong invite
+  // status instead of throwing — the same drift getOrgPlan's ZodError caught.
+  const raw = await apiFetchJson<unknown>(ORG_MEMBERS_ENDPOINT(orgId))
+  const data = z.array(memberResponseSchema).parse(raw)
+  return data.map(normalizeMember)
 }
 
 export async function getOrgPlanUsage(orgId: string): Promise<OrgPlanUsage> {

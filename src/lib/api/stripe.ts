@@ -4,13 +4,9 @@
 // single implementation, two historical import paths.
 
 import {
-  chargeTopUp as chargeTopUpAmount,
   createCheckoutSession,
-  createTopUpSession,
   type CheckoutPlan,
   type CheckoutSessionResponse,
-  type TopUpChargeResponse,
-  type TopUpSessionResponse,
 } from "./user";
 
 export {
@@ -36,24 +32,8 @@ export interface CreateCheckoutSessionRequest {
   planId: CheckoutPlan;
 }
 
-export interface CreateTopUpSessionRequest {
-  amount_usd: number;
-}
-
 export async function createCheckout(
   body: CreateCheckoutSessionRequest,
 ): Promise<CheckoutSessionResponse> {
   return createCheckoutSession(body.planId);
-}
-
-export async function createTopUp(
-  body: CreateTopUpSessionRequest,
-): Promise<TopUpSessionResponse> {
-  return createTopUpSession(body.amount_usd);
-}
-
-export async function chargeTopUp(
-  body: CreateTopUpSessionRequest,
-): Promise<TopUpChargeResponse> {
-  return chargeTopUpAmount(body.amount_usd);
 }

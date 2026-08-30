@@ -178,7 +178,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     getPersonaRepo(repoId)
       .then(repo => {
         if (cancelled) return
-        const v: Visibility = repo.visibility === 'org' ? 'team' : 'private'
+        const v: Visibility = repo.visibility === 'shared' ? 'team' : 'private'
         setVisibility(v)
         setSavedVisibility(v)
       })

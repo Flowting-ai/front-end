@@ -49,7 +49,7 @@ function makeRepo(overrides: Record<string, unknown> = {}) {
     published_version: null,
     published_at: '2026-06-18T00:00:00Z',
     is_published: true,
-    visibility: 'org',
+    visibility: 'shared',
     organization_id: 'org-1',
     version_count: 1,
     created_at: '2026-06-18T00:00:00Z',
@@ -103,7 +103,7 @@ describe('fetchPersonas', () => {
   })
 
   it('fetches the list and nothing else — no per-persona detail requests', async () => {
-    apiFetchJson.mockResolvedValueOnce([makeRepo({ visibility: 'org' }), makeRepo({ id: 'repo-2' })])
+    apiFetchJson.mockResolvedValueOnce([makeRepo({ visibility: 'shared' }), makeRepo({ id: 'repo-2' })])
 
     const result = await fetchPersonas()
     expect(result).toHaveLength(2)

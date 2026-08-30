@@ -116,7 +116,7 @@ function RoleSelect({ value, onChange }: { value: OnboardingRole | null; onChang
 export default function TeamInviteProfilePage() {
   const { push } = useRouter();
   const params = useParams<{ inviteId: string }>();
-  const { isHydrated, isAuthenticated, user } = useAuth();
+  const { isHydrated, isAuthenticated, user, refreshUser } = useAuth();
   const { status, invite, errorMsg, refetch } = useTeamInviteOnboarding();
 
   const [firstName, setFirstName] = useState<string | null>(null);
@@ -181,6 +181,12 @@ export default function TeamInviteProfilePage() {
         updateUser({ first_name: firstValue.trim(), last_name: lastValue.trim() }),
         updateOnboarding({ user_role: role }),
       ]);
+      // Without this, hasCompleteProfile above (and the sibling
+      // team/[inviteId]/page.tsx, which already does this) would see the
+      // stale pre-save name/role if this screen is ever revisited (Back
+      // button, re-opened invite link) before something else happens to
+      // refresh the cached user.
+      await refreshUser();
       push(isStandalone ? CHAT_ROUTE : ONBOARDING_TEAM_CONFIRM_ROUTE(params.inviteId));
     } catch (err) {
       console.error("Onboarding submission failed", err);

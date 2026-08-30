@@ -76,7 +76,7 @@ function SizePill({
 
 export default function OnboardingWorkspacePage() {
   const { push } = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { data, setWorkspaceName, setWorkspaceSize, setEntryFlow } = useWorkspaceOnboarding();
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -123,6 +123,13 @@ export default function OnboardingWorkspacePage() {
     } finally {
       setSubmitting(false);
     }
+    // See the matching comment in onboarding/profile/page.tsx: the backend
+    // silently flips onboarding_completed=true once user_role + ai_tone +
+    // role_fit are all set, which this role_fit PATCH can complete for a user
+    // returning here after already visiting profile (e.g. Back then Next).
+    // Refresh before navigating so OnboardingGuard/the proxy never disagree
+    // on a stale cached value.
+    await refreshUser();
     push(ONBOARDING_PROFILE_ROUTE);
   };
 

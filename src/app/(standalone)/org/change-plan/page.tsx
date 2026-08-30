@@ -76,7 +76,7 @@ function Hairline() {
 export default function OrgChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { org, orgId, orgRole, orgReady } = useOrg()
+  const { org, orgId, orgRole, orgReady, refreshMembers } = useOrg()
   const [individualIdx,    setIndividualIdx]    = useState(1)
   const [teamIdx,          setTeamIdx]          = useState(1)
   const [changingTo,       setChangingTo]       = useState<CheckoutPlan | null>(null)
@@ -124,6 +124,10 @@ export default function OrgChangePlanPage() {
       if (isOnTeamPlan && currentTeamTierIdx >= 0) {
         await updatePlan(planId)
         trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
+        // See the matching comment in settings/billing/change-plan/page.tsx —
+        // without this the plans-and-billing page would show the OLD tier/price
+        // right after an upgrade, until some unrelated remount refetched it.
+        refreshMembers()
         router.replace(ORG_PLANS_ROUTE)
         return
       }

@@ -97,7 +97,7 @@ describe('PersonaRepo.toPersona', () => {
 describe('PersonaRepoCollection', () => {
   const published = repo({ id: 'published', published_version_id: 'v', published_version: version() })
   const draft = repo({ id: 'draft', active_version: version() })
-  const teamAgent = repo({ id: 'team-agent', visibility: 'org', published_version_id: 'v', published_version: version() })
+  const teamAgent = repo({ id: 'team-agent', visibility: 'shared', published_version_id: 'v', published_version: version() })
   const collection = new PersonaRepoCollection([published, draft, teamAgent])
 
   it('looks agents up by id', () => {

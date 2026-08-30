@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
-import { updateUser, updateOnboarding } from "@/lib/api/user";
+import { useAuth } from "@/context/auth-context";
+import { updateUser } from "@/lib/api/user";
 import {
   useWorkspaceOnboarding,
   type WorkspaceOnboardingRole,
@@ -32,8 +33,10 @@ const ROLES: WorkspaceOnboardingRole[] = [
 // the v1.5 spec's screen list, then explicitly added back here per product
 // request 2026-08-29) — same 3 values and copy, just a dropdown instead of a
 // full illustrated-card step so it fits alongside Role rather than being its
-// own screen. updateOnboarding() already maps these labels to the backend's
-// real tone enum (see TONE_API_MAP in lib/api/user.ts).
+// own screen. Chosen value is held here and sent later by the invite step's
+// updateOnboarding() call, which maps these labels to the backend's real
+// tone enum (see TONE_API_MAP in lib/api/user.ts) — not sent from this page,
+// see the comment in handleNext below.
 const TONES: { value: WorkspaceOnboardingTone; subtitle: string }[] = [
   { value: "Direct", subtitle: "Skip the preamble. Just the answer." },
   { value: "Balanced", subtitle: "Friendly but efficient. The default." },
@@ -254,6 +257,7 @@ function ToneSelect({
 
 export default function OnboardingProfilePage() {
   const { push } = useRouter();
+  const { refreshUser } = useAuth();
   const { data, setFirstName, setLastName, setRole, setTone } = useWorkspaceOnboarding();
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -268,16 +272,17 @@ export default function OnboardingProfilePage() {
     if (trimmedFirst.length === 0 || trimmedLast.length === 0 || submitting) return;
     setSubmitting(true);
     try {
-      const tasks: Promise<unknown>[] = [
-        updateUser({ first_name: trimmedFirst, last_name: trimmedLast }),
-      ];
-      if (data.role || data.tone) {
-        tasks.push(updateOnboarding({
-          ...(data.role ? { user_role: data.role } : {}),
-          ...(data.tone ? { ai_tone: data.tone } : {}),
-        }));
-      }
-      await Promise.all(tasks);
+      await updateUser({ first_name: trimmedFirst, last_name: trimmedLast });
+      // Role/tone are deliberately NOT sent here even though they're already
+      // typed in on this screen. The backend silently flips
+      // onboarding_completed=true the moment user_role + ai_tone + role_fit
+      // are all set (services/users/repository.py's update_onboarding) — and
+      // role_fit is already set from the workspace step, so sending both role
+      // and tone from this PATCH would complete onboarding right here,
+      // skipping the invite step entirely (a real bug this once caused).
+      // `data.role`/`data.tone` stay in WorkspaceOnboardingContext and are
+      // sent together with `onboarding_completed: true` from the invite
+      // step's own finish() instead, so completion only ever happens there.
     } catch (err) {
       // Non-fatal, same tolerance as the workspace step — profile details can
       // be edited later in settings.
@@ -286,6 +291,11 @@ export default function OnboardingProfilePage() {
     } finally {
       setSubmitting(false);
     }
+    // Defensive: covers a returning user whose user_role/ai_tone were already
+    // set by some other path (e.g. the old hello/tone/import flow) before
+    // role_fit landed on this account — refreshes the cached auth user so
+    // OnboardingGuard never disagrees with the proxy's live check.
+    await refreshUser();
     push(ONBOARDING_INVITE_ROUTE);
   };
 

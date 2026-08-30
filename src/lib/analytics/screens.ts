@@ -36,7 +36,8 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
     case "general":
     case "members":
     case "teams":
-    case "plans":
+    case "plans": // old /settings/plans redirect stub
+    case "plans-and-billing": // merged with the individual billing page — every account type
     case "analytics":
     case "activity":
       return "org_manage";

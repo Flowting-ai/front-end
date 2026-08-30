@@ -113,8 +113,6 @@ export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
 export const STRIPE_PLAN_ENDPOINT = withBase("/stripe/plan");
 export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
 export const STRIPE_SUBSCRIPTION_RESUME_ENDPOINT = withBase("/stripe/subscription/resume");
-export const STRIPE_TOPUP_ENDPOINT = withBase("/stripe/topup");
-export const STRIPE_TOPUP_CHARGE_ENDPOINT = withBase("/stripe/topup/charge");
 export const STRIPE_BILLING_ENDPOINT = withBase("/stripe/billing");
 export const STRIPE_PORTAL_ENDPOINT = withBase("/stripe/portal");
 /** Start a free trial (grants 1000 credits). */

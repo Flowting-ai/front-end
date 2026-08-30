@@ -102,7 +102,19 @@ export default function OnboardingInvitePage() {
   const finish = async () => {
     // Persisting completion is the only call that gates entry to the app (see
     // the previous flow's equivalent step) — must succeed before navigating.
-    const result = await updateOnboarding({ onboarding_completed: true });
+    // Role/tone (typed in on the profile step, held in
+    // WorkspaceOnboardingContext since then) are sent here rather than from
+    // the profile page itself: role_fit is already set by that point, so
+    // sending user_role+ai_tone from the profile step would satisfy the
+    // backend's "all three set → auto-complete" rule (update_onboarding)
+    // before the invite step ever ran, skipping it entirely. Sending them
+    // together with onboarding_completed here means completion only ever
+    // happens on this explicit call.
+    const result = await updateOnboarding({
+      ...(data.role ? { user_role: data.role } : {}),
+      ...(data.tone ? { ai_tone: data.tone } : {}),
+      onboarding_completed: true,
+    });
     if (!result?.completed) {
       toast.error("Couldn't finish setup. Please try again.");
       return false;

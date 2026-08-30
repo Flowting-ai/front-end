@@ -8,7 +8,7 @@ import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, updatePlan, type CheckoutPlan } from '@/lib/api/stripe'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
-import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
+import { ORG_PLANS_ROUTE } from '@/lib/routes'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
 
 const TITLE = 'var(--font-title)'
@@ -76,7 +76,7 @@ function Hairline() {
 export default function ChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { org, orgId, orgRole, orgReady } = useOrg()
+  const { org, orgId, orgRole, orgReady, refreshMembers } = useOrg()
   const [individualIdx, setIndividualIdx] = useState(1)
   const [teamIdx,       setTeamIdx]       = useState(1)
   const [changingTo,    setChangingTo]    = useState<CheckoutPlan | null>(null)
@@ -108,7 +108,7 @@ export default function ChangePlanPage() {
 
   useEffect(() => {
     if (orgReady && orgId && orgRole !== 'owner') {
-      router.replace(SETTINGS_BILLING_ROUTE)
+      router.replace(ORG_PLANS_ROUTE)
     }
   }, [orgId, orgReady, orgRole, router])
 
@@ -124,7 +124,12 @@ export default function ChangePlanPage() {
       if (isOnTeamPlan && currentTeamTierIdx >= 0) {
         await updatePlan(planId)
         trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
-        router.replace(SETTINGS_BILLING_ROUTE)
+        // Without this, the plans-and-billing page renders straight from
+        // useOrg()'s `plan`, which only refetches when refreshMembers() bumps
+        // its refresh token — landing there right after an upgrade would show
+        // the OLD tier/price until some unrelated remount refetched it.
+        refreshMembers()
+        router.replace(ORG_PLANS_ROUTE)
         return
       }
       const checkout = await createCheckout({ planId })
@@ -210,7 +215,7 @@ export default function ChangePlanPage() {
         }}>
           <button
             type="button"
-            onClick={() => router.push(SETTINGS_BILLING_ROUTE)}
+            onClick={() => router.push(ORG_PLANS_ROUTE)}
             style={{
               display:         'inline-flex',
               alignItems:      'center',

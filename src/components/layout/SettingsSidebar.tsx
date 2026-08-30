@@ -20,7 +20,7 @@ import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -407,7 +407,7 @@ export function SettingsSidebar() {
             roleBadge={roleBadge}
             placement="top-start"
             onProfile={() => safeNavigate(SETTINGS_ACCOUNT_ROUTE)}
-            onUpgradePlan={() => safeNavigate(SETTINGS_BILLING_ROUTE)}
+            onUpgradePlan={() => safeNavigate(ORG_PLANS_ROUTE)}
             onSettings={() => safeNavigate(SETTINGS_ROUTE)}
             onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}

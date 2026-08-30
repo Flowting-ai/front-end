@@ -8,8 +8,6 @@ import {
   STRIPE_PORTAL_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
   STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
-  STRIPE_TOPUP_ENDPOINT,
-  STRIPE_TOPUP_CHARGE_ENDPOINT,
   STRIPE_TRIAL_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
@@ -457,8 +455,11 @@ export const billingInfoSchema = z.object({
   projected_invoice_usd: z.number().default(0),
   input_tokens: z.number().default(0),
   output_tokens: z.number().default(0),
-  reasoning_tokens: z.number().default(0),
-  cached_tokens: z.number().default(0),
+  // Backend's real field names (services/stripe/schemas.py BillingInfo) — the
+  // old reasoning_tokens/cached_tokens names here don't exist on the wire at
+  // all, so those stats always silently read 0 via zod's .default(0).
+  cache_read_tokens: z.number().default(0),
+  cache_write_tokens: z.number().default(0),
   total_tokens: z.number().default(0),
   usage_event_count: z.number().default(0),
 });
@@ -471,10 +472,6 @@ export type BillingUpcomingInvoice = z.infer<typeof upcomingInvoiceInfoSchema>;
 export interface CheckoutSessionResponse {
   checkout_url: string;
   session_id: string;
-}
-
-export interface TopUpSessionResponse {
-  checkout_url: string;
 }
 
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
@@ -681,21 +678,6 @@ export async function updatePlan(planId: CheckoutPlan): Promise<PlanInfo> {
   return data as PlanInfo;
 }
 
-export async function createTopUpSession(amount_usd: number): Promise<TopUpSessionResponse> {
-  const response = await apiFetch(STRIPE_TOPUP_ENDPOINT, {
-    method: "POST",
-    body: JSON.stringify({ amount_usd }),
-  });
-
-  const data = (await response.json()) as TopUpSessionResponse | { error?: string };
-
-  if (!response.ok || !("checkout_url" in data)) {
-    throw new Error(("error" in data && data.error) || "Failed to create top-up session.");
-  }
-
-  return data as TopUpSessionResponse;
-}
-
 /**
  * Billing snapshot — payment method, invoices, upcoming invoice, and cancel
  * state. Lives on the backend (proxied), separate from `/users/me`.
@@ -758,27 +740,6 @@ export async function resumeSubscription(): Promise<SubscriptionActionResponse> 
   }
 
   return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
-}
-
-export interface TopUpChargeResponse {
-  status: string;
-  client_secret?: string | null;
-}
-
-/** Charge a top-up immediately using the saved payment method. */
-export async function chargeTopUp(amount_usd: number): Promise<TopUpChargeResponse> {
-  const response = await apiFetch(STRIPE_TOPUP_CHARGE_ENDPOINT, {
-    method: "POST",
-    body: JSON.stringify({ amount_usd }),
-  });
-
-  const data = (await response.json()) as TopUpChargeResponse & { error?: string };
-
-  if (!response.ok || !data.status) {
-    throw new Error(data.error || "Failed to charge top-up.");
-  }
-
-  return data;
 }
 
 export interface TrialResponse {

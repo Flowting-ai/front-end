@@ -291,6 +291,11 @@ export default function ProjectPage() {
     )
   }
 
+  // Org owners/admins can delete a colleague's shared project even though
+  // they don't own it — see the matching note in projects-context.tsx's
+  // deleteProject guardrail, which is the actual enforcement point.
+  const canDeleteProject = project.canEdit || (isOrgAdmin && !!orgId && project.teamId === orgId)
+
   const projectId = project.id
 
   function handleModelClick(e: React.MouseEvent<HTMLButtonElement>) {
@@ -598,7 +603,7 @@ export default function ProjectPage() {
                   onClick={handleOpenShare}
                 />}
 
-                {project.canEdit && <Dropdown.Float
+                {canDeleteProject && <Dropdown.Float
                   open={menuOpen}
                   onOpenChange={setMenuOpen}
                   placement="bottom-end"
@@ -612,13 +617,13 @@ export default function ProjectPage() {
                   }
                 >
                   <Dropdown size="md">
-                    <Dropdown.Section fluid>
+                    {project.canEdit && <Dropdown.Section fluid>
                       <Dropdown.Item
                         label="Edit"
                         onClick={() => { setMenuOpen(false); setEditOpen(true) }}
                         fluid
                       />
-                    </Dropdown.Section>
+                    </Dropdown.Section>}
                     <Dropdown.Section divider fluid>
                       <Dropdown.Item
                         label="Delete"

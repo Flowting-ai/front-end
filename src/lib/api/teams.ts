@@ -16,14 +16,19 @@ import type {
   OrgMember,
 } from '@/types/teams'
 
-// ── Backend shapes (snake_case) ───────────────────────────────────────────────
+// ── Backend shapes ──────────────────────────────────────────────────────────
+// InviteResponse (services/organizations/schemas.py) declares a
+// `serialization_alias` on every multi-word field, so POST /organizations/{id}/
+// invites actually replies in camelCase — unlike InvitePreview below, which has
+// no aliases at all and stays genuinely snake_case. See lib/api/organization.ts's
+// equivalent note for the same drift on OrganizationResponse/MemberResponse.
 
 interface InviteResponse {
   id: string
-  organization_id: string
-  recipient_emails?: string[] | null
-  expires_at: string
-  invite_url: string
+  organizationId: string
+  recipientEmails?: string[] | null
+  expiresAt: string
+  inviteUrl: string
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
@@ -31,10 +36,10 @@ interface InviteResponse {
 function normalizeInvite(i: InviteResponse): Invite {
   return {
     id: i.id,
-    organizationId: i.organization_id,
-    recipientEmails: i.recipient_emails ?? [],
-    expiresAt: i.expires_at,
-    inviteUrl: i.invite_url,
+    organizationId: i.organizationId,
+    recipientEmails: i.recipientEmails ?? [],
+    expiresAt: i.expiresAt,
+    inviteUrl: i.inviteUrl,
   }
 }
 
@@ -96,8 +101,12 @@ interface InviteOnboardingResponse {
   project_name?: string | null
   project_count?: number | null
   projects?: InvitedProjectResponse[] | null
-  organization_member_count?: number | null
-  organization_members?: InvitedMemberResponse[] | null
+  // Backend's real field names (services/organizations/schemas.py InvitePreview)
+  // are member_count/members — there's no "organization_" prefix on the wire.
+  // The old names here were never populated, so "who's already in this
+  // workspace" always rendered as 0 members / no avatars.
+  member_count?: number | null
+  members?: InvitedMemberResponse[] | null
   expires_at: string
 }
 
@@ -141,8 +150,8 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
     projectName:             data.project_name ?? null,
     projectCount:            data.project_count ?? (data.projects?.length ?? 0),
     projects:                (data.projects ?? []).map(normalizeInvitedProject),
-    organizationMemberCount: data.organization_member_count ?? (data.organization_members?.length ?? 0),
-    organizationMembers:     (data.organization_members ?? []).map(normalizeInvitedMember),
+    organizationMemberCount: data.member_count ?? (data.members?.length ?? 0),
+    organizationMembers:     (data.members ?? []).map(normalizeInvitedMember),
     expiresAt:               data.expires_at,
   }
 }

@@ -118,9 +118,9 @@ export class PersonaRepo {
   constructor(wire: PersonaRepoResponse) {
     this.id = wire.id;
     this.name = wire.name;
-    // Backend value is "private" | "org" — kept as "team" here so existing
+    // Backend value is "private" | "shared" — kept as "team" here so existing
     // .visibility === 'team' consumers don't need reshaping.
-    this.visibility = wire.visibility === 'org' ? 'team' : 'private';
+    this.visibility = wire.visibility === 'shared' ? 'team' : 'private';
     this.organizationId = wire.organization_id;
     this.isActive = wire.is_active;
     this.liveVersion = wire.published_version ? new PersonaVersion(wire.published_version) : null;
@@ -208,7 +208,9 @@ export class PersonaRepo {
   }
 
   async setVisibility(visibility: 'private' | 'team', organizationId?: string): Promise<void> {
-    const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'org' : 'private' };
+    // Backend's real enum is ("private", "shared") — "org" isn't valid and
+    // 400s every time (see the matching fix in lib/api/personas.ts).
+    const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' };
     if (visibility === 'team' && organizationId) body.organizationId = organizationId;
     await apiFetch(PERSONA_VISIBILITY_ENDPOINT(this.id), { method: 'PATCH', body: JSON.stringify(body) });
     bustPersonasCache();

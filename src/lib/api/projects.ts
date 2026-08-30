@@ -303,10 +303,12 @@ export async function setProjectVisibility(
   visibility: 'private' | 'team',
   teamId?: string,
 ): Promise<void> {
-  // Wire format is SetVisibilityRequest{visibility: "private"|"org", organizationId?}
+  // Wire format is SetVisibilityRequest{visibility: "private"|"shared", organizationId?}
   // — there's only ever one organization now, so `teamId` here is really just
-  // the caller's org id, not a choice among several teams.
-  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'org' : 'private' }
+  // the caller's org id, not a choice among several teams. (This "org" vs.
+  // "shared" value was wrong here for a long time and got copy-pasted into
+  // the still-live personas/chat visibility setters — fixed there too.)
+  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' }
   if (visibility === 'team' && teamId) body.organizationId = teamId
   const res = await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
     method: 'PATCH',
