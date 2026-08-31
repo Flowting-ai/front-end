@@ -2643,7 +2643,7 @@ function LeftSidebarImpl({
       onChatTabClick={isPersonaPage ? () => push(CHAT_ROUTE) : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
-      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
+      onManageAllThreadsClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
       // Use a URL command so this works even when the current thread is an
       // unsaved session already at bare `/brain`. The page consumes `?new=1`,
       // performs its complete imperative reset, then cleans the URL.
@@ -2657,7 +2657,7 @@ function LeftSidebarImpl({
         :                      <PersonasSectionIndividual />
       }
       onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
-      onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push(BRAIN_ROUTE) }}
+      onBrainClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_ROUTE) }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
       onOrganisationClick={() => push(ORG_GENERAL_ROUTE)}

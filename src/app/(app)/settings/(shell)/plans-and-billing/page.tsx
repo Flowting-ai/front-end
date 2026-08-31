@@ -37,9 +37,9 @@ const PLAN_PRICES: Record<string, number> = {
 }
 
 const PLAN_FEATURE_LIST: Record<string, string[]> = {
-  starter: ['Basic routing', 'AI Assistants', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
-  pro:     ['Advanced routing', 'Model compare', 'Unlimited agents', 'Cost savings report', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
-  power:   ['Advanced routing', 'Model compare', 'Unlimited agents', 'Advanced analytics', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
+  starter: ['Basic routing', 'AI Assistants', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
+  pro:     ['Advanced routing', 'Model compare', 'Unlimited agents', 'Cost savings report', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
+  power:   ['Advanced routing', 'Model compare', 'Unlimited agents', 'Advanced analytics', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
 }
 
 // sessionStorage keys — last-known snapshot so returning from Stripe paints
@@ -1197,7 +1197,7 @@ function PersonalBillingView() {
         <SectionCard title="This month's usage" subtitle={cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`} bodyGap={16}>
           <PersonalUsageRow label="Chat"      used={chatCredits}    total={creditsTotal} />
           <PersonalUsageRow label="AI Agents" used={personaCredits} total={creditsTotal} />
-          <PersonalUsageRow label="Brain"     used={brainCredits}   total={creditsTotal} />
+          <PersonalUsageRow label="Tasks"     used={brainCredits}   total={creditsTotal} />
         </SectionCard>
 
         <SectionCard title="Payment" subtitle="Manage your billing details.">

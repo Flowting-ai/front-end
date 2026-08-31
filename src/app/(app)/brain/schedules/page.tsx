@@ -404,7 +404,7 @@ function BrainSchedulesPageInner() {
     const id = selectedId
     runAutomationNow(id)
       .then(() => {
-        toast.success('Schedule triggered', { description: 'Brain will start this task shortly.' })
+        toast.success('Schedule triggered', { description: 'This task will start shortly.' })
         // Refresh detail so run_count and run history reflect the new run.
         return getAutomation(id)
       })

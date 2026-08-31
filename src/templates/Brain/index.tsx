@@ -157,7 +157,7 @@ export interface BrainShellProps {
  */
 export function BrainShell({
   children,
-  disclaimer        = 'Brain can make mistakes. Review important outputs.',
+  disclaimer        = 'Task can make mistakes. Review important outputs.',
   defaultPhase      = 'idle',
   chatInputProps,
   clarificationProps,
@@ -406,8 +406,8 @@ export function BrainShell({
                     </AnimatePresence>
                     <ExhaustionBanner>
                       <ChatInput
-                        placeholder="Tell Brain what to do"
-                        textareaLabel="Brain instruction"
+                        placeholder="Tell Task what to do"
+                        textareaLabel="Task instruction"
                         value={inputValue}
                         onChange={setInputValue}
                         onSend={handleSend}

@@ -60,7 +60,7 @@ export function JoinedGreeting({ teamName }: { teamName: string }) {
         }}
       >
         Use the whole product as your own personal operating system. Chat across models in the unified
-        chatspace, spin up personal projects, and build a Brain that remembers everything, entirely your own.
+        chatspace, spin up personal projects, and run Tasks that remember everything, entirely your own.
       </p>
     </div>
   );
@@ -77,8 +77,8 @@ function buildCards(teamName: string): TodoCard[] {
   return [
     {
       title: "Your personal workspace",
-      body: "Use the whole product as your own personal operating system — unified chatspace, personal projects, and a Brain that remembers everything. Entirely yours.",
-      tags: ["Unified chatspace", "Personal projects", "Your Brain"],
+      body: "Use the whole product as your own personal operating system — unified chatspace, personal projects, and Tasks that remember everything. Entirely yours.",
+      tags: ["Unified chatspace", "Personal projects", "Your Tasks"],
       icon: <BrainTwoIcon size={22} color="var(--blue-700,#135487)" animated />,
     },
     {

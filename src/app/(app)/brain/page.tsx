@@ -744,7 +744,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         lineHeight: 'var(--line-height-caption)',
         color:      'var(--neutral-500)',
       }}>
-        Brain needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name}.
+        Task needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name}.
       </span>
 
       {error && (
@@ -1494,7 +1494,7 @@ function BrainPageInner() {
     fetchPersonas()
       // Only surface personally-owned agents in this context — team-shared personas
       // are scoped to project chat where the copy flow handles them correctly.
-      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, handle: p.handle, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null, visibility: p.visibility, ownedByViewer: true }))))
+      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, handle: p.handle, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null, visibility: p.visibility, ownedByViewer: true, description: p.description, tags: p.tags, paused: p.isPaused, shared: p.sourceShareId !== null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])
@@ -1985,7 +1985,7 @@ function BrainPageInner() {
       case 'title': {
         const title = typeof d.title === 'string' ? d.title : ''
         if (title && typeof document !== 'undefined') {
-          document.title = `${title} — Brain`
+          document.title = `${title} — Task`
         }
         // Reflect the resolved title in the sidebar thread list live.
         if (title && chatIdRef.current) {
@@ -2503,7 +2503,7 @@ function BrainPageInner() {
           // else is settled or parked on a card waiting for the user.
           if (controller.signal.aborted) return
           if (!IN_FLIGHT_PHASES.has(phaseRef.current)) return
-          setStreamError('Brain stopped responding before the turn finished. Please try again.')
+          setStreamError('Task stopped responding before the turn finished. Please try again.')
           setPhase('failed')
         },
         onError:  (e) => {
@@ -2891,6 +2891,12 @@ function BrainPageInner() {
         temperature:     null,
         visibility:      'private',
         ownedByViewer:   true,
+        // Not available from the clarification option — only the rail's
+        // avatar/name/id are known here.
+        description:     '',
+        tags:            [],
+        paused:          false,
+        shared:          false,
       })
     }
 
@@ -3574,7 +3580,7 @@ function BrainPageInner() {
               actionType={approvalActionType(activeApprovalPrompt.verb)}
               connectorName={activeApprovalPrompt.displayName}
               targetName={activeApprovalPrompt.target || formatToolSlug(activeApprovalPrompt.toolSlug) || 'this action'}
-              description={`Brain is about to perform this action in the real world via ${activeApprovalPrompt.displayName}. Review before it runs.`}
+              description={`Task is about to perform this action in the real world via ${activeApprovalPrompt.displayName}. Review before it runs.`}
               reversible={false}
               onAccept={() => handleApprovalDecision('approve')}
               onDeny={() => handleApprovalDecision('reject')}

@@ -71,7 +71,7 @@ function BrainThreadsPageInner() {
     setIsLoading(true)
     listBrainChats()
       .then(setThreads)
-      .catch(() => toast.error('Failed to load brain threads'))
+      .catch(() => toast.error('Failed to load tasks'))
       .finally(() => setIsLoading(false))
   }, [])
 
@@ -131,7 +131,7 @@ function BrainThreadsPageInner() {
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
         emitBrainThreadDeleted({ chatId: id })
-        toast.success('Brain chat deleted')
+        toast.success('Task deleted')
       },
     })
   }, [])
@@ -199,14 +199,14 @@ function BrainThreadsPageInner() {
               color:      'var(--neutral-900)',
               flexShrink: 0,
             }}>
-              Brain Threads
+              Tasks
             </h1>
             <Button
               variant="default"
               leftIcon={<PlusSignIcon animated />}
               onClick={() => push(BRAIN_ROUTE)}
             >
-              New brain thread
+              New task
             </Button>
           </div>
 
@@ -214,7 +214,7 @@ function BrainThreadsPageInner() {
           <div style={{ marginBottom: 16, marginTop: 4, padding: '4px' }}>
             <InputField
               fluid
-              placeholder="Search brain threads…"
+              placeholder="Search tasks…"
               leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
               value={searchQuery}
               onChange={setSearchQuery}
@@ -241,7 +241,7 @@ function BrainThreadsPageInner() {
 
           {/* ── Thread list ── */}
           {(!isLoading || threads.length > 0) && (
-            <div role="list" aria-label="Brain threads">
+            <div role="list" aria-label="Tasks">
 
               {filteredThreads.length === 0 && searchQuery && (
                 <p style={{
@@ -251,7 +251,7 @@ function BrainThreadsPageInner() {
                   fontSize:   'var(--font-size-body)',
                   color:      'var(--neutral-400)',
                 }}>
-                  No brain threads match &ldquo;{searchQuery}&rdquo;
+                  No tasks match &ldquo;{searchQuery}&rdquo;
                 </p>
               )}
 

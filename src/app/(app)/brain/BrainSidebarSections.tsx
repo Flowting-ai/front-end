@@ -291,7 +291,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
         emitBrainThreadDeleted({ chatId: id })
-        toast.success('Brain chat deleted')
+        toast.success('Task deleted')
         if (id === activeChatId) push(BRAIN_ROUTE)
       },
     })
@@ -588,7 +588,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
         emitBrainThreadDeleted({ chatId: id })
-        toast.success('Brain chat deleted')
+        toast.success('Task deleted')
         if (id === activeChatId) push(BRAIN_ROUTE)
       },
     })
@@ -603,7 +603,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
       fontSize:   'var(--font-size-caption)',
       color:      'var(--neutral-400)',
     }}>
-      No brain threads yet
+      No tasks yet
     </div>
   )
 
@@ -626,7 +626,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
         </>
       )}
 
-      <FlatSidebarRow variant="header" label="Recent Brain Threads" shown={shownAll} onShowClick={() => setShownAll(s => !s)} />
+      <FlatSidebarRow variant="header" label="Recent Tasks" shown={shownAll} onShowClick={() => setShownAll(s => !s)} />
       {shownAll && (
         isLoading ? (
           <>

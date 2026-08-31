@@ -107,7 +107,7 @@ export default function TeamInviteConfirmPage() {
             body="These surfaces are shared and you'll have your personal space too."
           />
           <InfoSection
-            title={`As ${roleLabel === "admin" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own agents`}
+            title={`As ${roleLabel === "admin" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Tasks, create your own agents`}
             body="You can share useful content with your organization. Reusable resources everyone benefits from."
           />
         </div>

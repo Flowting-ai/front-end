@@ -96,7 +96,7 @@ const TYPE_ICON: Record<SearchResultType, React.ComponentType<{ size: number; co
 const TYPE_LABEL: Record<SearchResultType, string> = {
   chat:          'Chats',
   'agent-chat':  'Agent Chats',
-  'brain-thread':'Brain Threads',
+  'brain-thread':'Tasks',
   project:       'Projects',
   persona:       'Agents',
   pin:           'Pins',
@@ -327,7 +327,7 @@ const FILTER_TABS: { value: FilterValue; label: string }[] = [
   { value: 'all',          label: 'All' },
   { value: 'chat',         label: 'Chats' },
   { value: 'agent-chat',   label: 'Agent Chats' },
-  { value: 'brain-thread', label: 'Brain Threads' },
+  { value: 'brain-thread', label: 'Tasks' },
   { value: 'project',      label: 'Projects' },
   { value: 'persona',      label: 'Agents' },
   { value: 'pin',          label: 'Pins' },
@@ -547,7 +547,7 @@ export function GlobalSearchModal({
                 <InputField
                   ref={inputRef}
                   fluid
-                  placeholder="Search chats, agent chats, brain threads, projects, pins…"
+                  placeholder="Search chats, agent chats, tasks, projects, pins…"
                   leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
                   value={query}
                   onChange={handleQueryChange}

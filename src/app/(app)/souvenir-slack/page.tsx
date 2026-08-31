@@ -472,7 +472,7 @@ export default function SouvenirSlackPage() {
   return (
     <SettingsPageShell
       title="Slack project channels"
-      description="Create one Slack channel per project so Brain can use that project context automatically."
+      description="Create one Slack channel per project so Tasks can use that project context automatically."
     >
       {connected && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>

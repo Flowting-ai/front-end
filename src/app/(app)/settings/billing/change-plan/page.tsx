@@ -267,7 +267,7 @@ export default function ChangePlanPage() {
 
             {/* Subtitle */}
             <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
-              Pick a plan to keep your Brain, agents, and automations running.
+              Pick a plan to keep your Tasks, agents, and automations running.
             </p>
           </div>
 
@@ -403,7 +403,7 @@ export default function ChangePlanPage() {
                   <Hairline />
                   <FeatureGroup
                     title="Your AI workforce"
-                    items={['Unlimited AI Assistants', 'Unlimited Brain & Automation', 'Scheduled tasks & triggers']}
+                    items={['Unlimited AI Assistants', 'Unlimited Tasks & Automation', 'Scheduled tasks & triggers']}
                   />
                   <Hairline />
                   <FeatureGroup

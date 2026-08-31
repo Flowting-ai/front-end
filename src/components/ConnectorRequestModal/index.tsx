@@ -177,7 +177,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="What data should the brain read? What actions should it take? Which team needs it?"
+              placeholder="What data should the task read? What actions should it take? Which team needs it?"
               rows={3}
               style={{
                 fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)',

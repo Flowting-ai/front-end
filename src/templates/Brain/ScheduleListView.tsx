@@ -54,7 +54,7 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
           lineHeight: 'var(--line-height-caption)',
           color:      'var(--neutral-400)',
         }}>
-          Create a schedule to run Brain automatically on a cadence.
+          Create a schedule to run Task automatically on a cadence.
         </span>
       </div>
       <Button

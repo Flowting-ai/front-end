@@ -477,7 +477,7 @@ export async function consumeBrainStream(
   } finally {
     if (watchdog) clearTimeout(watchdog)
     if (timedOut) {
-      callbacks.onError?.(new Error('Brain went quiet for too long — the connection may have stalled. Please try again.'))
+      callbacks.onError?.(new Error('Task went quiet for too long — the connection may have stalled. Please try again.'))
     }
     callbacks.onClose?.()
   }
@@ -568,7 +568,7 @@ export async function startBrainChat(
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
     console.error('[Brain] create failed', response.status, detail)
-    throw new ApiError(response.status, 'brain_create_failed', 'Failed to start Brain chat')
+    throw new ApiError(response.status, 'brain_create_failed', 'Failed to start task')
   }
 
   let chatId = response.headers.get('X-Chat-Id') ?? ''
@@ -622,7 +622,7 @@ export async function continueBrainChat(
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
     console.error('[Brain] stream failed', response.status, detail)
-    throw new ApiError(response.status, 'brain_stream_failed', 'Failed to stream Brain message')
+    throw new ApiError(response.status, 'brain_stream_failed', 'Failed to stream task message')
   }
 
   return response

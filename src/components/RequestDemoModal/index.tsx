@@ -196,7 +196,7 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
           {/* Subtitle */}
           <div style={{ padding: '0 12px 24px' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              A 30-minute walkthrough of the centralized brain, agents, and the Slack bot.
+              A 30-minute walkthrough of Tasks, agents, and the Slack bot.
             </p>
           </div>
 

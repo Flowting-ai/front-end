@@ -263,7 +263,7 @@ export function ScheduleEditModal({
                   lineHeight: 'var(--line-height-caption)',
                   color:      'var(--neutral-500)',
                 }}>
-                  Schedules are always created via brain threads — enter details here to go create the schedule via a brain thread.
+                  Schedules are always created via tasks — enter details here to go create the schedule via a task.
                 </span>
               </div>
             ) : (
@@ -298,7 +298,7 @@ export function ScheduleEditModal({
                 id="schedule-instructions"
                 value={instructions}
                 onChange={e => setInstructions(e.target.value)}
-                placeholder="Describe what Brain should do on each run…"
+                placeholder="Describe what Task should do on each run…"
                 rows={3}
                 style={{
                   ...inputStyle,
@@ -505,7 +505,7 @@ export function ScheduleEditModal({
                 disabled={!canSave}
                 onClick={handleSave}
               >
-                {isCreate ? 'Start brain thread' : 'Update in Brain'}
+                {isCreate ? 'Start task' : 'Update in Tasks'}
               </Button>
             </div>
 

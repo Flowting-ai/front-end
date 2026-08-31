@@ -136,7 +136,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
               {/* Subtitle */}
               <div style={{ padding: '0 12px 24px' }}>
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  Deploy the Autonomous Company Brain to your team. We&apos;ll scope seats, governance, and rollout.
+                  Deploy Autonomous Tasks to your team. We&apos;ll scope seats, governance, and rollout.
                 </p>
               </div>
 

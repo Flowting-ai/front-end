@@ -715,7 +715,7 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
           >
             {recents.length === 0 ? (
               <div style={{ padding: '8px 6px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-400)' }}>
-                {sectionKey === 'brain' ? 'No brain threads yet' : sectionKey === 'agents' ? 'No agent chats yet' : 'No recent chats'}
+                {sectionKey === 'brain' ? 'No tasks yet' : sectionKey === 'agents' ? 'No agent chats yet' : 'No recent chats'}
               </div>
             ) : recents.map(({ id }) => {
               const isSelected = activeChatId != null
@@ -1041,7 +1041,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   <TabsList fluid>
                     <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />}>Chats</TabsTrigger>
                     <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />}>Agents</TabsTrigger>
-                    <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Brain</TabsTrigger>
+                    <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Tasks</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 {showAdmin && (
@@ -1098,13 +1098,13 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   />
                 </div>
               </Tooltip>
-              <Tooltip content="Brain" side="right" delayDuration={300}>
+              <Tooltip content="Tasks" side="right" delayDuration={300}>
                 <div>
                   <SidebarMenuItem
                     collapsed
                     variant="default"
                     icon={<NeuralNetworkIcon size={20} />}
-                    label="Brain"
+                    label="Tasks"
                     selected={bodySection === 'brain'}
                     onClick={() => onSelectSection('brain')}
                   />
@@ -1146,7 +1146,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               <CollapsedTooltip
                 isCollapsed={isCollapsed}
                 content={
-                  bodySection === 'brain' ? 'New Brain Thread'
+                  bodySection === 'brain' ? 'New Task'
                   : bodySection === 'agents' ? 'New Agent Chat'
                   : 'New Chat'
                 }
@@ -1206,14 +1206,14 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 />
               </CollapsedTooltip>
             )}
-            {/* All Brain Threads — Brain tab, both individual and teams. */}
+            {/* All Tasks — Brain tab, both individual and teams. */}
             {bodySection === 'brain' && onManageAllThreadsClick && (
-              <CollapsedTooltip isCollapsed={isCollapsed} content="All Brain Threads">
+              <CollapsedTooltip isCollapsed={isCollapsed} content="All Tasks">
                 <SidebarMenuItem
                   {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                   variant="default"
                   icon={<BubbleChatIcon size={20} />}
-                  label="All Brain Threads"
+                  label="All Tasks"
                   onClick={onManageAllThreadsClick}
                 />
               </CollapsedTooltip>
@@ -1356,7 +1356,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   {recentItems ?? (
                     bodySection === 'brain' && brainRecentItems != null
                       ? brainRecentItems
-                      : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'brain' ? 'Recent brain threads' : bodySection === 'agents' ? 'Recent agent chats' : 'Recent chats'} />
+                      : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'brain' ? 'Recent tasks' : bodySection === 'agents' ? 'Recent agent chats' : 'Recent chats'} />
                   )}
                 </div>
               </div>

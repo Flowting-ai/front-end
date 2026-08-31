@@ -746,7 +746,7 @@ function OnboardingPlansContent() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <SectionLabel>Your AI workforce</SectionLabel>
                   <IndFeatureItem label="Unlimited AI Assistants" />
-                  <IndFeatureItem label="Unlimited Brain &amp; Automation" />
+                  <IndFeatureItem label="Unlimited Tasks &amp; Automation" />
                   <IndFeatureItem label="Scheduled tasks &amp; triggers" />
                 </div>
 

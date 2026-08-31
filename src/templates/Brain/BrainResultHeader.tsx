@@ -56,7 +56,7 @@ export function BrainResultHeader({
         lineHeight: 'var(--line-height-caption)',
         color:      labelColor,
       }}>
-        Brain
+        Task
       </span>
       <span aria-hidden style={{
         color:      'var(--neutral-300)',
