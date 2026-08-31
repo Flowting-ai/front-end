@@ -100,12 +100,18 @@ function groupTools(tools: ConnectorTool[]) {
 }
 
 function PermissionControl({ value, label, change, disabled }: { value: PermissionMode; label: string; change: (value: PermissionMode) => void; disabled?: boolean }) {
+  const modes = Object.keys(PERMISSION_LABELS) as PermissionMode[]
   const control = (
     <TabsRoot value={value} onValueChange={mode => !disabled && change(mode as PermissionMode)}>
       <TabsList size="small" aria-label={label}>
-        {(Object.keys(PERMISSION_LABELS) as PermissionMode[]).map(mode => (
-          <TabsTrigger key={mode} value={mode} icon={PERMISSION_ICONS[mode]} aria-label={PERMISSION_LABELS[mode]} disabled={disabled} />
-        ))}
+        {modes.map(mode => {
+          const trigger = <TabsTrigger value={mode} icon={PERMISSION_ICONS[mode]} aria-label={PERMISSION_LABELS[mode]} disabled={disabled} />
+          // Skip per-icon tooltips when the whole control is already wrapped in
+          // one explaining why it's disabled — nesting tooltips here is redundant.
+          return disabled
+            ? <React.Fragment key={mode}>{trigger}</React.Fragment>
+            : <Tooltip key={mode} content={PERMISSION_LABELS[mode]} side="top">{trigger}</Tooltip>
+        })}
       </TabsList>
     </TabsRoot>
   )
@@ -144,10 +150,34 @@ function GroupPermissionDropdown({ value, label, change, disabled }: { value?: P
   )
 }
 
+function PermissionsTabSkeleton() {
+  return (
+    <div aria-hidden style={{ display: 'flex', flexDirection: 'column', gap: SPACE.lg }}>
+      {[3, 2].map((rowCount, gi) => (
+        <div key={gi} style={panel}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.xl, padding: SPACE.xl, background: 'var(--neutral-50)', borderRadius: '12px 12px 0 0' }}>
+            <span className="kaya-skeleton" style={{ display: 'block', width: 110, height: 14, borderRadius: 4 }} />
+            <span className="kaya-skeleton" style={{ display: 'block', width: 96, height: 28, borderRadius: 8 }} />
+          </div>
+          {Array.from({ length: rowCount }).map((_, ri) => (
+            <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xl, padding: SPACE.xl, borderTop: ri === 0 ? undefined : '1px solid var(--neutral-100)' }}>
+              <span className="kaya-skeleton" style={{ display: 'block', flex: '1 1 300px', width: 160, height: 14, borderRadius: 4 }} />
+              <span className="kaya-skeleton" style={{ display: 'block', width: 96, height: 28, borderRadius: 8 }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary: UnifiedConnectorSummary }) {
   const isShared = account.visibility === 'shared'
   const [tools, setTools] = useState<ConnectorTool[]>(summary.tools)
   const [saving, setSaving] = useState<string | null>(null)
+  // Only the initial backfill fetch counts as "loading" — an empty result
+  // after it resolves is a real "no tools" state, not a loading one.
+  const [loadingTools, setLoadingTools] = useState(!isShared && summary.tools.length === 0)
   const baselineRef = useRef<ConnectorTool[]>(summary.tools)
   const abortedRef = useRef(false)
 
@@ -169,6 +199,9 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
         setTools(detail.tools)
       })
       .catch(() => { /* keep the empty list */ })
+      .finally(() => {
+        if (!cancelled && !abortedRef.current) setLoadingTools(false)
+      })
     return () => { cancelled = true }
   }, [isShared, summary.slug, tools.length])
 
@@ -227,7 +260,9 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
           <BodyTextInline>Tool permissions for shared accounts aren&apos;t supported yet — the controls below are shown for reference only. (See Gap #11.)</BodyTextInline>
         </div>
       )}
-      {groups.length === 0 ? (
+      {loadingTools ? (
+        <PermissionsTabSkeleton />
+      ) : groups.length === 0 ? (
         <p style={muted}>No tools available for this connector.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.lg }}>
