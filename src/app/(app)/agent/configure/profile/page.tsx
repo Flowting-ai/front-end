@@ -239,7 +239,7 @@ function PersonaConfigureProfileContent() {
       if (avatarUrl?.startsWith('data:')) {
         imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
       }
-      await updateVersion({
+      const version = await updateVersion({
         repoId,
         versionId,
         name:         personaName,
@@ -248,6 +248,9 @@ function PersonaConfigureProfileContent() {
         image:        imageFile,
         imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
       })
+      // Swap the local data: URL for the persisted remote URL — otherwise the
+      // next save would re-upload the same image again (still starts with 'data:').
+      if (version.image_url) setAvatarUrl(version.image_url)
       isDirtyRef.current = false
       setIsDirty(false)
       resetTouchedFields('profile')
@@ -278,7 +281,7 @@ function PersonaConfigureProfileContent() {
         if (avatarUrl?.startsWith('data:')) {
           imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
         }
-        await updateVersion({
+        const version = await updateVersion({
           repoId,
           versionId,
           name:         personaName,
@@ -287,6 +290,7 @@ function PersonaConfigureProfileContent() {
           image:        imageFile,
           imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
         })
+        if (version.image_url) setAvatarUrl(version.image_url)
         isDirtyRef.current = false
         setIsDirty(false)
         resetTouchedFields('profile')
