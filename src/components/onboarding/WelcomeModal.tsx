@@ -288,7 +288,7 @@ function SouvenirWordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "11.5px" }}>
       <img
-        src="/icons/logo/souvenir-logo.svg"
+        src="/icons/souvenir-logo.svg"
         alt="Souvenir"
         width={40}
         height={40}
