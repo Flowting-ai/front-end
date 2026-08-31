@@ -308,7 +308,11 @@ export function ConnectionsView({
     return (
       <ConnectorsShell>
         <Header title="Connectors" subtitle="Tools your workspace can use across chat" />
-        <p style={muted}>Loading connectors…</p>
+        <div aria-hidden style={CATALOG_GRID}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
+          ))}
+        </div>
       </ConnectorsShell>
     )
   }

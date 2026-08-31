@@ -150,7 +150,7 @@ export function ConnectorCatalogCard({
           }}
         >
           {isLoading ? (
-            <span style={{ display: 'block', width: '100%', height: '100%', borderRadius: 6, background: SKELETON_BG }} />
+            <span className="kaya-skeleton" style={{ display: 'block', width: '100%', height: '100%', borderRadius: 6, background: SKELETON_BG }} />
           ) : iconUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- provider-hosted or bundled brand asset
             <img
@@ -188,8 +188,8 @@ export function ConnectorCatalogCard({
       >
         {isLoading ? (
           <>
-            <span style={{ display: 'block', width: 120, height: 14, borderRadius: 4, background: SKELETON_BG }} />
-            <span style={{ display: 'block', width: 80, height: 10, borderRadius: 4, background: SKELETON_BG }} />
+            <span className="kaya-skeleton" style={{ display: 'block', width: 120, height: 14, borderRadius: 4, background: SKELETON_BG }} />
+            <span className="kaya-skeleton" style={{ display: 'block', width: 80, height: 10, borderRadius: 4, background: SKELETON_BG }} />
           </>
         ) : (
           <>
