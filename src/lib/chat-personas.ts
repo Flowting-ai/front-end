@@ -20,6 +20,11 @@ export interface SelectedPersonaInfo {
   visibility:      'private' | 'team'
   /** True when the viewer owns this persona outright (not a team-shared copy). */
   ownedByViewer:   boolean
+  description:     string
+  tags:            string[]
+  paused:          boolean
+  /** True when this card should show the "shared" badge — mirrors /agents page's logic. */
+  shared:          boolean
 }
 
 type CopyPersona = (repoId: string, sourceVersionId?: string | null) => Promise<PersonaRepoResponse>
@@ -38,6 +43,10 @@ function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPe
     temperature: persona.temperature,
     visibility: persona.visibility,
     ownedByViewer,
+    description: persona.description,
+    tags: persona.tags,
+    paused: persona.isPaused,
+    shared: persona.sourceShareId !== null || (persona.visibility === 'team' && !ownedByViewer),
   }
 }
 
@@ -75,6 +84,11 @@ export async function resolveSelectableChatPersonas(
         temperature: version?.temperature ?? persona.temperature,
         visibility: persona.visibility,
         ownedByViewer: false,
+        description: persona.description,
+        tags: persona.tags,
+        paused: persona.isPaused,
+        // Always true here — this branch only runs for personas the viewer doesn't own.
+        shared: true,
       }
       copiedPersonaCache.set(persona.id, selected)
       return selected

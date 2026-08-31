@@ -742,7 +742,7 @@ function PersonasPageInner() {
     if (!selectedShareId) return null
     const share = shares.find(s => s.id === selectedShareId)
     if (!share) return null
-    const personaInfo = versionToPersona[share.persona_id]
+    const personaInfo = versionToPersona[share.persona_repo_id]
     const name     = share.persona_name ?? personaInfo?.name     ?? 'Agent'
     const imageUrl = personaInfo?.imageUrl ?? null
     const repoId   = personaInfo?.repoId ?? ''
@@ -762,9 +762,9 @@ function PersonasPageInner() {
     const s = new Set<string>()
     for (const share of allSharesForFilter) {
       if (!share.is_active || share.share_type !== 'link') continue
-      const info = versionToPersona[share.persona_id]
+      const info = versionToPersona[share.persona_repo_id]
       if (info?.repoId) s.add(info.repoId)
-      else s.add(share.persona_id)
+      else s.add(share.persona_repo_id)
     }
     return s
   }, [allSharesForFilter, versionToPersona])
@@ -1591,7 +1591,7 @@ function PersonasPageInner() {
             const topShare = shares.length > 0
               ? [...shares].sort((a, b) => (b.recipients?.length ?? 0) - (a.recipients?.length ?? 0))[0]
               : null
-            const topAgentInfo   = topShare ? versionToPersona[topShare.persona_id] : null
+            const topAgentInfo   = topShare ? versionToPersona[topShare.persona_repo_id] : null
             const topAgentName   = topShare ? (topShare.persona_name ?? topAgentInfo?.name ?? 'Agent') : null
             const topAgentConvos = topShare?.recipients?.length ?? 0
 
@@ -1791,7 +1791,7 @@ function PersonasPageInner() {
                           )}
 
                           {!sharesLoading && shares.map(share => {
-                            const personaInfo = versionToPersona[share.persona_id]
+                            const personaInfo = versionToPersona[share.persona_repo_id]
                             const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
                             const imageUrl    = personaInfo?.imageUrl ?? null
                             const repoId      = personaInfo?.repoId ?? ''

@@ -236,18 +236,19 @@ function PersonaPublishedContent() {
       .catch(() => {})
   }, [repoId])
 
-  // Load existing link share on mount
+  // Load existing link share on mount — shares are repo-scoped, not frozen to
+  // a version, so this matches on persona_repo_id (see SharingTab.tsx).
   useEffect(() => {
-    if (!versionId) return
+    if (!repoId) return
     listShares()
       .then(all => {
         const existing = all.find(
-          s => s.persona_id === versionId && s.share_type === 'link' && s.is_active,
+          s => s.persona_repo_id === repoId && s.share_type === 'link' && s.is_active,
         )
         if (existing) setLinkShare(existing)
       })
       .catch(() => {})
-  }, [versionId])
+  }, [repoId])
 
   async function handleGenerateSuperLink() {
     const limit = parseInt(tokenLimit, 10)

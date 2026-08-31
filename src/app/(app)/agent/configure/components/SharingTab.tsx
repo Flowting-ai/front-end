@@ -95,7 +95,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
 
   // ── Loading gate — true until both the visibility (repo) and shares fetches settle ──
   const [visibilityLoaded, setVisibilityLoaded] = useState(!repoId)
-  const [sharesLoaded,     setSharesLoaded]     = useState(!versionId)
+  const [sharesLoaded,     setSharesLoaded]     = useState(!repoId)
   const isLoading = !visibilityLoaded || !sharesLoaded
 
   const visibilityChanged = visibility !== savedVisibility
@@ -138,8 +138,12 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
 
-  const currentLinkShare = linkShare?.persona_id === versionId ? linkShare : null
-  const currentEmailShares = emailShares.filter(share => share.persona_id === versionId)
+  // Shares are scoped to the repo, not a specific version — the backend always
+  // freezes to whichever version is currently published, and a later publish
+  // moves an existing link/invite with it (see persona-shares API). So once
+  // `linkShare`/`emailShares` are fetched for this repo, they're already "current".
+  const currentLinkShare = linkShare
+  const currentEmailShares = emailShares
 
   // Sync share-link existence to shared progress indicator
   useEffect(() => { setHasShareLink(!!currentLinkShare) }, [currentLinkShare, setHasShareLink])
@@ -151,26 +155,28 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     setEmailTokenLimit(Math.floor(maxTokenLimit / 2))
   }, [maxTokenLimit])
 
-  // ── Load existing shares for the current version ──────────────────────────
+  // ── Load existing shares for this repo ─────────────────────────────────────
+  // Shares are repo-scoped (see currentLinkShare/currentEmailShares above), so
+  // this filters by repoId rather than the version currently open in the editor.
   useEffect(() => {
-    if (!versionId) return
+    if (!repoId) return
     let cancelled = false
     listShares().then(all => {
       if (cancelled) return
-      const mine = all.filter(s => s.persona_id === versionId && s.is_active)
+      const mine = all.filter(s => s.persona_repo_id === repoId && s.is_active)
       const existing = mine.find(s => s.share_type === 'link') ?? null
       setLinkShare(existing)
       setSuperLinkEnabled(existing !== null)
       setEmailShares(mine.filter(s => s.share_type === 'email'))
     }).catch(() => {
       if (cancelled) return
-      // Share state is version-scoped; do not keep a previous version's link visible on failures.
+      // Share state is repo-scoped; do not keep a previous repo's link visible on failures.
       setLinkShare(null)
       setSuperLinkEnabled(false)
       setEmailShares([])
     }).finally(() => { if (!cancelled) setSharesLoaded(true) })
     return () => { cancelled = true }
-  }, [versionId])
+  }, [repoId])
 
   useEffect(() => {
     if (!repoId) return
@@ -206,12 +212,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         share_type: 'link',
         credit_limit: tokenLimit,
       })
-      if (share.persona_id !== versionId) {
-        setLinkShare(null)
-        setSuperLinkEnabled(false)
-        toast.error('The active version changed. Reopen Sharing and try again.')
-        return
-      }
       setLinkShare(share)
       resetTouchedFields('sharing', 'superlink')
       onChanged?.()
@@ -272,10 +272,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         recipient_emails: [email],
         credit_limit: emailTokenLimit,
       })
-      if (share.persona_id !== versionId) {
-        toast.error('The active version changed. Reopen Sharing and try again.')
-        return
-      }
       setEmailShares(prev => [...prev, share])
       setEmailInput('')
       resetTouchedFields('sharing', 'email')
