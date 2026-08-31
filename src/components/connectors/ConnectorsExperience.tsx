@@ -6,6 +6,7 @@
 // §0 — this migration consolidates those two old pages into one).
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listConnectors, unlinkConnector, type ConnectorCatalogEntry } from '@/lib/api/connectors'
@@ -23,6 +24,9 @@ type View = 'connections' | 'connector' | 'permissions' | 'access' | 'settings'
 
 export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: string }) {
   const { orgId, orgReady, currentUserRole } = useOrg()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('connections')
@@ -50,6 +54,21 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   useEffect(() => { void fetchAll() }, [fetchAll])
+
+  // Reflect the active account tab in the URL (?tab=permissions|access|settings)
+  // while it's open. Which connector/account is open stays in-memory only —
+  // a refresh always lands back on the connector list — this just makes the
+  // current tab visible/shareable within a session.
+  useEffect(() => {
+    const isTabView = view === 'permissions' || view === 'access' || view === 'settings'
+    const nextTab = isTabView ? view : null
+    if (searchParams.get('tab') === nextTab) return
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextTab) params.set('tab', nextTab)
+    else params.delete('tab')
+    const query = params.toString()
+    router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false })
+  }, [view, pathname, router, searchParams])
 
   const summaries = useMemo(() => summarizeCatalog(entries), [entries])
   const activeSummary = summaries.find(s => s.slug === activeSlug) ?? null
