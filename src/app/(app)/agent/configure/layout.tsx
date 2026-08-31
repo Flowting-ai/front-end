@@ -39,7 +39,6 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
-import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { ArtifactCard } from '@/templates/Brain/ArtifactCard'
 import { ExternalOutputCard } from '@/templates/Brain/ExternalOutputCard'
@@ -545,6 +544,29 @@ function nameInitials(name: string) {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
+// User message bubble shared by the Test persona and AI suggestions panels —
+// same cream (neutral-100) treatment in both, per design.
+function PanelUserBubble({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        maxWidth: '85%',
+        padding: '8px 12px',
+        borderRadius: 12,
+        backgroundColor: 'var(--neutral-100)',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 400,
+        fontSize: 14,
+        lineHeight: '22px',
+        color: 'var(--neutral-900)',
+        wordBreak: 'break-word',
+      }}
+    >
+      {text}
+    </div>
+  )
+}
+
 function TestChatPanelContent({ expanded }: { expanded: boolean }) {
   const {
     personaInfo, setTestChatExpanded, setTestChatOpen,
@@ -676,7 +698,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                       ))}
                     </div>
                   )}
-                  <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />
+                  <PanelUserBubble text={msg.text} />
                 </div>
               )}
             </div>
@@ -784,9 +806,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
                     <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
                   </div>
                 ) : (
-                  <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
-                    {msg.text}
-                  </div>
+                  <PanelUserBubble text={msg.text} />
                 )}
               </div>
             ))
@@ -867,7 +887,7 @@ function VersionsPanel() {
       animate={{ width: 400, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', backgroundColor: 'var(--neutral-white)', borderRadius: 16 }}
+      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 16 }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
