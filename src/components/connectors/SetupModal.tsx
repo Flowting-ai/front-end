@@ -77,7 +77,11 @@ export function SetupModal({
   })
 
   const existingNames = summary.accounts.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
-  const duplicate = mode === 'connect' && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
+  // Personal connections have no account-name field on the backend (a single
+  // unnamed row per user+connector) — the name is only ever saved for shared
+  // accounts, so it's only shown and validated in that case.
+  const showAccountName = mode === 'connect' && visibility === 'shared'
+  const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(summary)
   const needsInitFields = oauthNeedsInitFields(summary.raw)
   const needsForm = summary.authMode === 'api_key' || needsInitFields
@@ -150,7 +154,7 @@ export function SetupModal({
         </div>
       </div>
 
-      {mode === 'connect' && (
+      {showAccountName && (
         <InputField
           label="Account name (optional)"
           subtitle={duplicate ? 'That account name is already used.' : 'Defaults to the connected email. Helps the model choose the right account.'}
