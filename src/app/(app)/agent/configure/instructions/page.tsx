@@ -50,6 +50,7 @@ import { setVersionTags } from '@/lib/version-tags'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { Divider } from '@/components/Divider'
 import { Slider } from '@/components/Slider'
+import { Tooltip } from '@/components/Tooltip'
 import { AttributeTocRail, ATTRIBUTE_HEADER_STYLE, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
@@ -151,36 +152,40 @@ function UndoRedoGroup({
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <button
-        type="button"
-        aria-label="Undo"
-        disabled={!canUndo}
-        onClick={onUndo}
-        style={{
-          ...baseStyle,
-          borderTopLeftRadius:    10,
-          borderBottomLeftRadius: 10,
-          opacity:                canUndo ? 1 : 0.4,
-          cursor:                 canUndo ? 'pointer' : 'not-allowed',
-        }}
-      >
-        <ArrowLeftOneIcon size={20} />
-      </button>
-      <button
-        type="button"
-        aria-label="Redo"
-        disabled={!canRedo}
-        onClick={onRedo}
-        style={{
-          ...baseStyle,
-          borderTopRightRadius:    10,
-          borderBottomRightRadius: 10,
-          opacity:                 canRedo ? 1 : 0.4,
-          cursor:                  canRedo ? 'pointer' : 'not-allowed',
-        }}
-      >
-        <ArrowRightOneIcon size={20} />
-      </button>
+      <Tooltip content="Undo" side="top">
+        <button
+          type="button"
+          aria-label="Undo"
+          disabled={!canUndo}
+          onClick={onUndo}
+          style={{
+            ...baseStyle,
+            borderTopLeftRadius:    10,
+            borderBottomLeftRadius: 10,
+            opacity:                canUndo ? 1 : 0.4,
+            cursor:                 canUndo ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <ArrowLeftOneIcon size={20} />
+        </button>
+      </Tooltip>
+      <Tooltip content="Redo" side="top">
+        <button
+          type="button"
+          aria-label="Redo"
+          disabled={!canRedo}
+          onClick={onRedo}
+          style={{
+            ...baseStyle,
+            borderTopRightRadius:    10,
+            borderBottomRightRadius: 10,
+            opacity:                 canRedo ? 1 : 0.4,
+            cursor:                  canRedo ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <ArrowRightOneIcon size={20} />
+        </button>
+      </Tooltip>
     </div>
   )
 }
