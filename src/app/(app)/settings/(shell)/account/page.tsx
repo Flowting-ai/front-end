@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { InputField } from '@/components/InputField'
-import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from '@/lib/api/user'
@@ -52,7 +52,7 @@ function PillSelect<T extends string>({
 }) {
   const [open, setOpen] = useState(false)
   return (
-    <DropdownFloat open={open} onOpenChange={setOpen} placement="bottom-end" offset={4} trigger={
+    <Dropdown.Float open={open} onOpenChange={setOpen} placement="bottom-end" offset={4} trigger={
       <button
         type="button"
         style={{
@@ -78,18 +78,29 @@ function PillSelect<T extends string>({
         <ChevronDownIcon />
       </button>
     }>
-      <Dropdown style={{ width: 140 }}>
-        {options.map(option => (
-          <Dropdown.Item
-            key={option}
-            fluid
-            label={option}
-            selected={option === value}
-            onClick={() => { onChange(option); setOpen(false) }}
-          />
-        ))}
+      <Dropdown>
+        {/* Not Dropdown.Section — its item wrapper hardcodes width:100% (fluid)
+            or width:217px on every nested div, a percentage/fixed chain that
+            left a few px of slack between the widest item and the popover's
+            own shrink-to-fit edge. Omitting width entirely here (on both this
+            wrapper and each item, via style below) lets the container and
+            items resolve through plain flex `align-items: stretch` (the
+            default) instead — a single, first-pass-then-stretch computation
+            with no percentage-of-indeterminate-ancestor step, so the item's
+            right edge lands exactly on the container's own edge. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
+          {options.map(option => (
+            <Dropdown.Item
+              key={option}
+              label={option}
+              selected={option === value}
+              onClick={() => { onChange(option); setOpen(false) }}
+              style={{ width: 'auto' }}
+            />
+          ))}
+        </div>
       </Dropdown>
-    </DropdownFloat>
+    </Dropdown.Float>
   )
 }
 

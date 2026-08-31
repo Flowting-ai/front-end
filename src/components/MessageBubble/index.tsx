@@ -22,6 +22,7 @@ const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 
 // ── Shadow / focus constants ──────────────────────────────────────────────────
 const SHADOW_OUTER = 'var(--shadow-message-bubble-user)'
+const SHADOW_INNER = 'var(--shadow-message-bubble-user-inner)'
 // #4A83BF - blue focus ring for edit mode (specified by design)
 const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
 
@@ -234,6 +235,18 @@ export function MessageBubble({
               : `width ${WIDTH_MS}ms ease-out, box-shadow 0.15s ease-out`,
           }}
         >
+          {/* White bg overlay - per Figma node structure */}
+          <div
+            aria-hidden
+            style={{
+              position:        'absolute',
+              inset:           0,
+              borderRadius:    'inherit',
+              backgroundColor: 'white',
+              pointerEvents:   'none',
+            }}
+          />
+
           {/* ── Content area - CSS grid trick ──────────────────────────────────── */}
           {/*                                                                        */}
           {/* A hidden mirror <div> always occupies gridArea 1/1 driving the cell   */}
@@ -280,6 +293,19 @@ export function MessageBubble({
             )}
           </div>
 
+          {/* Inner depth shadow - hidden in edit mode */}
+          {!editing && (
+            <div
+              aria-hidden
+              style={{
+                position:      'absolute',
+                inset:         0,
+                borderRadius:  'inherit',
+                boxShadow:     SHADOW_INNER,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
         </div>
 
         {/* ── Edit CTAs - Cancel + Save ── */}

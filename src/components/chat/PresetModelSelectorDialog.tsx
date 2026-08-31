@@ -279,7 +279,7 @@ function PresetModelSelectorContent({
 // MODEL_LIST_MAX_HEIGHT), so it stays safe even though the actual rendered
 // height is usually shorter.
 const DROPDOWN_HEIGHT = 16 /* outer padding */ + 110 /* Muse card */ + 16 /* gap */ + 9 /* divider */ + 16 /* gap */ + MODEL_LIST_MAX_HEIGHT;
-const DROPDOWN_WIDTH = 432;
+const DROPDOWN_WIDTH = 360;
 const GAP = 8;
 
 export function PresetModelSelectorDialog() {

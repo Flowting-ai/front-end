@@ -485,16 +485,27 @@
   --overlay-blur: 2px;                    /* applied via backdrop-filter */
 
   /* ── MessageBubble / User ────────────────────────────────────────────────────
-     Corrosion card from souvenir-chat-preview. Bottom-right radius 4px
-     creates the conversation tail.
+     White card, bottom-right radius 4px creates the conversation tail.
      Action bar fades in on hover: timestamp + Retry + Edit + Copy (ghost-2 IconButtons).
      Figma: 2514:21470 (User Bubble)
      ─────────────────────────────────────────────────────────────────────────── */
-  --message-bubble-user-bg:          #683D1B;
-  --message-bubble-user-text:        var(--neutral-white);
+  --message-bubble-user-bg:          var(--neutral-white);
+  --message-bubble-user-text:        var(--neutral-950);
   --message-bubble-action-timestamp: #B6ACA4;
   --message-bubble-action-icon:      #B6ACA4;
-  --shadow-message-bubble-user:      inset 0px -2px 1.1px rgba(0, 0, 0, 0.25);
+
+  /* Outer: two-layer lift + 1px warm border ring */
+  --shadow-message-bubble-user:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px        var(--neutral-100);
+
+  /* Inner: bottom-only depth shadow — grounds the bubble. Blur bumped up from
+     the source's sub-pixel 0.364px, which was too thin to render reliably on
+     a small/short bubble (it needs enough surface for anti-aliasing to catch
+     it), so the groove was only visible on wider bubbles. */
+  --shadow-message-bubble-user-inner:
+    inset 0px -2px 1.5px 0px var(--neutral-100);
 
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);

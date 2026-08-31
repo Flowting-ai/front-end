@@ -113,7 +113,6 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
 // ── Text style ────────────────────────────────────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
-  flex:          '1 0 0',
   fontFamily:    'var(--font-body)',
   fontWeight:    'var(--font-weight-medium)',
   fontSize:      '14px',
@@ -213,6 +212,7 @@ export function ModelSelectItem({
           position:        'relative',
           display:         'flex',
           alignItems:      'center',
+          justifyContent:  'space-between',
           gap:             '8px',
           padding:         '6px',
           minHeight:       '36px',
@@ -237,8 +237,11 @@ export function ModelSelectItem({
         }}
         {...props}
       >
-        {/* ── Left section: image + label ── */}
-        <div style={{ display: 'flex', flex: '1 0 0', gap: '8px', alignItems: 'center', minWidth: 0 }}>
+        {/* ── Left section: image + label — hugs its own content (no flex-grow)
+             so a short label doesn't stretch into dead space; `justifyContent:
+             'space-between'` on the row pushes the trailing group (below) to
+             the row's right edge instead. */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0 }}>
           {resolvedImage && (
             <div
               aria-hidden
@@ -321,6 +324,14 @@ export function ModelSelectItem({
           <span style={labelStyle}>{label}</span>
         </div>
 
+        {/* ── Trailing group — icons / persistent info button / bookmark,
+             wrapped as one flex unit so they stay clustered together at the
+             row's right edge (via the row's own `justifyContent:
+             'space-between'`) instead of `space-between` spreading each of
+             them apart individually. Renders with zero width when none of
+             the three are present — harmless, `space-between` just leaves
+             the left section flush-left in that case. ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {/* ── Right icons slot ── */}
         {icons && (
           <div
@@ -435,6 +446,7 @@ export function ModelSelectItem({
             </AnimatePresence>
           </div>
         )}
+        </div>
 
         {/* ── Inner depth shadow - active state ── */}
         {isActive && (

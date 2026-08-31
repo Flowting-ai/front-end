@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useEffectEvent, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import {
@@ -14,9 +14,8 @@ import {
 import { ViewIcon } from '@/components/ViewIcon'
 import { Button }          from '@/components/Button'
 import { Badge }           from '@/components/Badge'
-import { Popover }         from '@/components/Popover'
+import { Dropdown }        from '@/components/Dropdown'
 import { Divider }         from '@/components/Divider'
-import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { cn }              from '@/lib/utils'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -90,102 +89,45 @@ export interface ShareModalProps extends React.HTMLAttributes<HTMLDivElement> {
 // ── Permission dropdown ───────────────────────────────────────────────────────
 
 interface PermissionMenuProps {
-  triggerRef: React.RefObject<HTMLButtonElement | null>
   current: SharePermission
   onSelect: (p: SharePermission) => void
   onRemove: () => void
   onClose: () => void
 }
 
-function PermissionMenu({ triggerRef, current, onSelect, onRemove, onClose }: PermissionMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  // Close when clicking outside — use capture so it fires before any bubbling
-  const closeMenu = useEffectEvent(onClose)
-  useEffect(() => {
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        menuRef.current    && !menuRef.current.contains(e.target as Node) &&
-        triggerRef.current && !triggerRef.current.contains(e.target as Node)
-      ) {
-        closeMenu()
-      }
-    }
-    document.addEventListener('pointerdown', handlePointerDown, { capture: true })
-    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true })
-  }, [triggerRef])
-
-  // Focus first item when opened
-  useEffect(() => {
-    const first = menuRef.current?.querySelector<HTMLElement>('[tabindex="0"]')
-    first?.focus()
-  }, [])
-
-  // Arrow key navigation + Escape
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLElement>('[tabindex="0"]') ?? []
-    )
-    const idx = items.indexOf(document.activeElement as HTMLElement)
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      items[Math.min(idx + 1, items.length - 1)]?.focus()
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      items[Math.max(idx - 1, 0)]?.focus()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-      triggerRef.current?.focus()
-    }
-  }, [onClose, triggerRef])
-
+function PermissionMenu({ current, onSelect, onRemove, onClose }: PermissionMenuProps) {
   return (
-    <Popover
-      ref={menuRef}
-      variant="dropdown"
-      maxHeight={false}
-      role="menu"
-      aria-label="Permission options"
-      onKeyDown={handleKeyDown}
-      style={{
-        position: 'absolute',
-        top:      'calc(100% + 4px)',
-        right:    0,
-        zIndex:   21,
-        padding:  4,
-        minWidth: 160,
-      }}
-    >
-      {PERMISSION_OPTIONS.map((opt) => (
-        <DropdownMenuItem
-          key={opt.value}
-          fluid
-          label={opt.label}
-          icon={opt.icon}
-          selected={current === opt.value}
-          rightIcon={current === opt.value ? <TickTwoIcon /> : undefined}
-          onClick={() => { onSelect(opt.value); onClose() }}
+    <Dropdown>
+      <Dropdown.Section fluid>
+        {PERMISSION_OPTIONS.map((opt) => (
+          <Dropdown.Item
+            key={opt.value}
+            fluid
+            label={opt.label}
+            icon={opt.icon}
+            selected={current === opt.value}
+            rightIcon={current === opt.value ? <TickTwoIcon /> : undefined}
+            onClick={() => { onSelect(opt.value); onClose() }}
+          />
+        ))}
+
+        <Divider
+          decorative
+          style={{
+            backgroundColor: 'rgba(59,54,50,0.15)',
+            margin:          '4px 0',
+          }}
         />
-      ))}
 
-      <Divider
-        decorative
-        style={{
-          backgroundColor: 'rgba(59,54,50,0.15)',
-          margin:          '4px 0',
-        }}
-      />
-
-      <DropdownMenuItem
-        fluid
-        variant="danger"
-        label="Remove"
-        icon={<CancelOneIcon />}
-        onClick={() => { onRemove(); onClose() }}
-      />
-    </Popover>
+        <Dropdown.Item
+          fluid
+          variant="danger"
+          label="Remove"
+          icon={<CancelOneIcon />}
+          onClick={() => { onRemove(); onClose() }}
+        />
+      </Dropdown.Section>
+    </Dropdown>
   )
 }
 
@@ -201,7 +143,6 @@ function PersonRow({ person, onPermissionChange, onRemove }: PersonRowProps) {
   const [menuOpen,  setMenuOpen]  = useState(false)
   const [hovered,   setHovered]   = useState(false)
   const [focused,   setFocused]   = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
   const isOwner    = person.permission === 'owner'
 
   // Ring: rest → subtle, hover → slightly stronger, focus → blue outline
@@ -328,53 +269,53 @@ function PersonRow({ person, onPermissionChange, onRemove }: PersonRowProps) {
           Owner
         </span>
       ) : (
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            style={{
-              display:         'flex',
-              alignItems:      'center',
-              gap:             4,
-              padding:         '5px 8px',
-              borderRadius:    8,
-              border:          'none',
-              backgroundColor: hovered ? 'var(--neutral-50)' : 'transparent',
-              cursor:          'pointer',
-              fontFamily:      'var(--font-body)',
-              fontSize:        'var(--font-size-body)',
-              fontWeight:      400,
-              lineHeight:      'var(--line-height-body)',
-              color:           'var(--neutral-700)',
-              boxShadow:       btnShadow,
-              minWidth:        88,
-              justifyContent:  'space-between',
-              whiteSpace:      'nowrap',
-              outline:         'none',
-              transition:      'background-color 120ms, box-shadow 120ms',
-            }}
-          >
-            {permissionLabel(person.permission as SharePermission)}
-            <ArrowDownOneIcon size={11} color="var(--neutral-500)" />
-          </button>
-
-          {menuOpen && (
-            <PermissionMenu
-              triggerRef={triggerRef}
-              current={person.permission as SharePermission}
-              onSelect={(p) => onPermissionChange(person.id, p)}
-              onRemove={() => onRemove(person.id)}
-              onClose={() => setMenuOpen(false)}
-            />
-          )}
-        </div>
+        <Dropdown.Float
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          placement="bottom-end"
+          offset={4}
+          trigger={
+            <button
+              type="button"
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              style={{
+                display:         'flex',
+                alignItems:      'center',
+                gap:             4,
+                padding:         '5px 8px',
+                borderRadius:    8,
+                border:          'none',
+                backgroundColor: hovered ? 'var(--neutral-50)' : 'transparent',
+                cursor:          'pointer',
+                fontFamily:      'var(--font-body)',
+                fontSize:        'var(--font-size-body)',
+                fontWeight:      400,
+                lineHeight:      'var(--line-height-body)',
+                color:           'var(--neutral-700)',
+                boxShadow:       btnShadow,
+                minWidth:        88,
+                justifyContent:  'space-between',
+                whiteSpace:      'nowrap',
+                outline:         'none',
+                flexShrink:      0,
+                transition:      'background-color 120ms, box-shadow 120ms',
+              }}
+            >
+              {permissionLabel(person.permission as SharePermission)}
+              <ArrowDownOneIcon size={11} color="var(--neutral-500)" />
+            </button>
+          }
+        >
+          <PermissionMenu
+            current={person.permission as SharePermission}
+            onSelect={(p) => onPermissionChange(person.id, p)}
+            onRemove={() => onRemove(person.id)}
+            onClose={() => setMenuOpen(false)}
+          />
+        </Dropdown.Float>
       )}
     </li>
   )

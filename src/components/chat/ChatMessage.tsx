@@ -24,6 +24,7 @@ import { toSouvenirModelLabel } from "@/lib/ai-models";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
+import { formatDate } from "@/lib/utils/format-utils";
 import {
   PinIcon,
   CopyOneIcon,
@@ -727,6 +728,7 @@ export function ChatMessage({
           <MessageBubble
             role="user"
             content={message.content}
+            timestamp={formatDate(message.created_at)}
             onRetry={onRegenerate}
             onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
             maxWidth={566}
