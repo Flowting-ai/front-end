@@ -1,5 +1,10 @@
 export type WorkspaceRole = 'admin' | 'member'
-export type OrgRole = 'owner' | 'admin' | 'member'
+/** The current viewer's own org-wide standing — never 'service' (a machine
+ *  principal can't be the one loading this UI). */
+export type OrgRole = 'admin' | 'member'
+/** Raw per-member role as the backend can report it on any OTHER member row —
+ *  includes 'service' (e.g. a Slack bot member that never signed up). */
+export type MemberOrgRole = 'admin' | 'member' | 'service'
 export type InviteStatus = 'not_invited' | 'invite_sent' | 'signed_up'
 export type TokenStatus = 'normal' | 'warning_80' | 'warning_95' | 'grace' | 'locked'
 export type ConnectorAuthority = 'workspace_only' | 'member_required' | 'both_possible'
@@ -32,11 +37,10 @@ export interface OrgMember {
   name: string
   email: string
   avatarUrl?: string
-  /** UI role used by the editable role control: owner+admin collapse to 'admin'. */
+  /** UI role used by the editable role control. */
   role: WorkspaceRole
-  /** Raw backend role ('owner' | 'admin' | 'member') — use for display so the
-   *  workspace owner shows as "Owner" rather than "Admin". */
-  orgRole: OrgRole
+  /** Raw backend role for this member row ('admin' | 'member' | 'service'). */
+  orgRole: MemberOrgRole
   inviteStatus: InviteStatus
   teamMemberships: TeamMembership[]
   /** Total product usage for this member during the current org billing period. */

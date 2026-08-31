@@ -395,7 +395,7 @@ function PlansPageSkeleton() {
 // ── Page ────────────────────────────────────────────────────────────────────────
 
 // ── Page — branches on account type ────────────────────────────────────────────
-// One route for everyone (individual, org member, org owner/admin). `orgReady`
+// One route for everyone (individual, org member, org admin). `orgReady`
 // gates the branch so an org account never flashes the personal view while its
 // org id is still resolving (see org-context.tsx).
 export default function PlansAndBillingPage() {
@@ -432,7 +432,7 @@ function OrgBillingView() {
     activeOrgId: orgId,
     billingOrgId: billing?.entity === 'org' ? billing.org_id : null,
   })
-  const isOwner = billingRole === 'owner'
+  const isAdmin = billingRole === 'admin'
   const effectivePlan = plan
 
   const membersCount = orgMembers.length
@@ -448,7 +448,7 @@ function OrgBillingView() {
   const includedUsage     = effectivePlan?.includedUsageUsd ?? 0
   const projectedInvoice  = effectivePlan?.projectedInvoiceUsd ?? 0
   const poolCapUsd        = effectivePlan?.poolCapUsd ?? null
-  // The backend's own overage_usd is capped at the owner's overage limit (it's
+  // The backend's own overage_usd is capped at the admin-set overage limit (it's
   // used server-side to derive the invoice), so it silently under-reports once
   // usage actually exceeds that limit. Recompute the true, uncapped overage
   // client-side and use that everywhere in this UI instead — the backend field
@@ -488,7 +488,7 @@ function OrgBillingView() {
   // plan's real price rather than previewing a hypothetical one.
   //
   // A brand-new org has never had any credits granted at all — plan_credits,
-  // topup_credits, and used are all 0, so totalCredits is 0 — until its owner
+  // topup_credits, and used are all 0, so totalCredits is 0 — until an admin
   // actually completes a Stripe checkout (there's no backend signal to check
   // instead: GET /organizations/{id}/plan's plan_type defaults to "teams"
   // unconditionally for any non-enterprise org, whether or not one was ever
@@ -500,10 +500,10 @@ function OrgBillingView() {
   const tier        = TIERS[currentTierIdx] ?? TIERS[0]
   const tierMonthly  = org.billingCycle === 'annual' ? Math.round(tier.price * 0.75) : tier.price
 
-  // Fetch billing data. Payment/Invoices below are owner-only (the backend
-  // returns an empty BillingInfo to any non-owner — see ST2/ST3 in the spec
-  // tracker), but the Plan card's cancel/next-billing state is shown to
-  // everyone, so this fetches regardless of role.
+  // Fetch billing data. Payment/Invoices below are admin-only (the backend's
+  // visiblePlan() zeroes billing/usage fields for any non-admin — see ST2/ST3
+  // in the spec tracker), but the Plan card's cancel/next-billing state is
+  // shown to everyone, so this fetches regardless of role.
   useEffect(() => {
     if (!orgId) return
     fetchBilling()
@@ -516,8 +516,8 @@ function OrgBillingView() {
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
   const handleStripePortal = async () => {
-    if (!isOwner) {
-      toast.error('Only the organization owner can manage billing.')
+    if (!isAdmin) {
+      toast.error('Only an organization admin can manage billing.')
       return
     }
     const url = await openBillingPortal()
@@ -541,8 +541,8 @@ function OrgBillingView() {
 
   // Cancel / resume the organization subscription — same flow as Settings → Billing.
   const handleCancelSubscription = async () => {
-    if (!isOwner) {
-      toast.error('Only the organization owner can manage billing.')
+    if (!isAdmin) {
+      toast.error('Only an organization admin can manage billing.')
       return
     }
     setIsCanceling(true)
@@ -559,8 +559,8 @@ function OrgBillingView() {
   }
 
   const handleResumeSubscription = async () => {
-    if (!isOwner) {
-      toast.error('Only the organization owner can manage billing.')
+    if (!isAdmin) {
+      toast.error('Only an organization admin can manage billing.')
       return
     }
     setIsResuming(true)
@@ -576,11 +576,11 @@ function OrgBillingView() {
   }
 
   const handleRequestPlanChange = () => {
-    toast.info('Contact your organization owner to change the plan.')
+    toast.info('Contact an organization admin to change the plan.')
   }
 
   const handleRequestCapChange = () => {
-    toast.info('Contact your organization owner to change the spend limit.')
+    toast.info('Contact an organization admin to change the spend limit.')
   }
 
   // Persist the overage limit. `null` ⇒ unlimited (sent as the INTERMAX sentinel).
@@ -695,7 +695,7 @@ function OrgBillingView() {
                 <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                   Set per-member credit caps for this organization.
                 </p>
-                {isOwner && (
+                {isAdmin && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button variant="secondary" onClick={() => router.push(ORG_MEMBERS_ROUTE)}>Manage caps</Button>
                   </div>
@@ -708,7 +708,7 @@ function OrgBillingView() {
               overage={trueOverageUsd}
               overageUsedPct={overageUsedPct}
               includedUsage={includedUsage}
-              isOwner={isOwner}
+              isAdmin={isAdmin}
               onEdit={() => setCapModalOpen(true)}
               onRequest={handleRequestCapChange}
             />
@@ -739,7 +739,7 @@ function OrgBillingView() {
                       {cancelAtPeriodEnd ? `Access ends ${nextBilling}` : `Next billing date: ${nextBilling}`}
                     </p>
                   </div>
-                  {isOwner ? (
+                  {isAdmin ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                       {/* Not in Figma's static frame, but cancel/resume needs to stay
                           reachable now that it no longer lives in a hero footer. */}
@@ -777,7 +777,7 @@ function OrgBillingView() {
                       Choose a plan to start using paid credits.
                     </p>
                   </div>
-                  {isOwner ? (
+                  {isAdmin ? (
                     <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
                   ) : (
                     <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
@@ -807,8 +807,8 @@ function OrgBillingView() {
           </div>
         )}
 
-        {/* Payment — owner-only; the backend returns empty billing info to anyone else */}
-        {isOwner && (
+        {/* Payment — admin-only; the backend returns empty billing info to anyone else */}
+        {isAdmin && (
           <SectionCard title="Payment" subtitle="Manage your billing details.">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
@@ -827,8 +827,8 @@ function OrgBillingView() {
           </SectionCard>
         )}
 
-        {/* Invoice history — owner-only; the backend returns empty billing info to anyone else */}
-        {isOwner && (
+        {/* Invoice history — admin-only; the backend returns empty billing info to anyone else */}
+        {isAdmin && (
           <SectionCard
             title="Invoice history"
             action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
@@ -876,7 +876,7 @@ function OrgBillingView() {
           </div>
         </div>
       )}
-      {isOwner && isEnterprise && capModalOpen && (
+      {isAdmin && isEnterprise && capModalOpen && (
         <SpendCapModal
           currentCapUsd={overageCapUsd}
           includedUsage={includedUsage}
@@ -895,7 +895,7 @@ function OrgBillingView() {
 // BuyMoreCreditsModal rather than that page's separate components, so both
 // account types share one visual language. Unlike the org view above, an
 // individual account has no admin/member distinction — the equivalents of
-// isOwner/canSeeCredits/canSeePayment/canSeeInvoices are all unconditionally
+// isAdmin/canSeeCredits/canSeePayment/canSeeInvoices are all unconditionally
 // true here, and isEnterprise is always false (individuals are never on an
 // Enterprise contract).
 
@@ -1264,7 +1264,7 @@ function PersonalBillingView() {
   )
 }
 
-// ── Admin permissions panel (owner view) ──────────────────────────────────────
+// ── Admin permissions panel (admin view) ──────────────────────────────────────
 
 function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -1558,7 +1558,7 @@ function InputField({
 
 // ── Overage spend limit (Enterprise) ──────────────────────────────────────────
 //
-// Enterprise usage is unlimited by default and billed in arrears. The owner can
+// Enterprise usage is unlimited by default and billed in arrears. An admin can
 // cap the *overage* — usage billed beyond the $125 included each month. The cap
 // never restricts the included allowance, only spend past it (backend
 // EnterpriseContract.overage_limit; `null` here ⇒ the INTERMAX "unlimited" sentinel).
@@ -1568,7 +1568,7 @@ function SpendLimitCard({
   overage,
   overageUsedPct,
   includedUsage,
-  isOwner,
+  isAdmin,
   onEdit,
   onRequest,
 }: {
@@ -1576,7 +1576,7 @@ function SpendLimitCard({
   overage:        number
   overageUsedPct: number
   includedUsage:  number
-  isOwner:        boolean
+  isAdmin:        boolean
   onEdit:         () => void
   onRequest:      () => void
 }) {
@@ -1586,7 +1586,7 @@ function SpendLimitCard({
       title="Overage spend limit"
       subtitle={`Caps usage billed beyond the ${fmtCredits(includedUsage)} included credits each month. Usage up to the included amount is always allowed.`}
       action={
-        isOwner
+        isAdmin
           ? <Button variant="secondary" onClick={onEdit}>Edit limit</Button>
           : <Button variant="secondary" onClick={onRequest}>Request change</Button>
       }

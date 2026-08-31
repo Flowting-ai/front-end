@@ -21,7 +21,7 @@ export interface TeamSwitcherTeam {
   id:            string
   name:          string
   projectCount?: number
-  role?:         'owner' | 'admin' | 'editor' | 'member'
+  role?:         'admin' | 'editor' | 'member'
 }
 
 export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> {

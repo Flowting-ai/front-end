@@ -301,7 +301,7 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * When true, the org badge is an interactive entry into the org/admin space and
    * the org-entry icon appears in the collapsed rail. Hidden/static for non-admins
-   * — only Owner/Admin roles should pass this. @default false
+   * — only the Admin role should pass this. @default false
    */
   showAdmin?: boolean
   /**
@@ -377,7 +377,7 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   currentUserRole?: WorkspaceRole
   /** Icon mode for all RoleBadge instances in this sidebar instance. @default 'solar' */
   roleMode?: RoleBadgeMode
-  /** Called when the Manage Organisation item is clicked (owner/admin only). */
+  /** Called when the Manage Organisation item is clicked (admin only). */
   onManageOrg?: () => void
   /** Pending org-update count shown as a trailing "N updated" Badge on the Manage Organisation row. Omit/0 → no badge. Figma 6459:101321. */
   orgUpdateCount?: number
@@ -814,7 +814,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     ref,
   ) {
     const showAdmin = currentUserRole !== undefined
-      ? (currentUserRole === 'owner' || currentUserRole === 'admin')
+      ? currentUserRole === 'admin'
       : showAdminProp
 
     const [isCollapsed,      setIsCollapsed]      = useState(defaultCollapsed)
@@ -962,7 +962,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             {!isCollapsed && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0, marginRight: '4px' }}>
                 <span style={{ display: 'inline-flex', flexShrink: 0 }}><SouvenirWordmark /></span>
-                {orgName && (currentUserRole === undefined || currentUserRole === 'owner' || currentUserRole === 'admin' || currentUserRole === 'editor') && (
+                {orgName && (currentUserRole === undefined || currentUserRole === 'admin' || currentUserRole === 'editor') && (
                   <OrgBadge
                     orgName={orgName}
                     orgLogoSrc={orgLogoSrc}
@@ -1019,7 +1019,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 retracts. Hidden when collapsed (replaced by the vertical icon rail). ── */}
           {!isCollapsed && (
             <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
-              {/* Tab-background card — Figma 6459:101321 / 6460:102861. For owner/
+              {/* Tab-background card — Figma 6459:101321 / 6460:102861. For
                   admin it groups the tabs + the "Manage Organisation" row (with its
                   "N updated" badge) on the rgba(247,242,237,0.5) surface; for other
                   roles it's an unstyled wrapper around just the tabs. */}
@@ -1504,7 +1504,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           {accountMenu ? accountMenu(isCollapsed) : (
             /* Default footer = the AccountMenu drop-up (its own trigger row +
                menu), per "Dropdowns Live at the Component Level". Role-gated:
-               Organization = owner/admin; Upgrade Plan = individuals; credits =
+               Organization = admin; Upgrade Plan = individuals; credits =
                all. Consumers needing custom handlers use the `accountMenu` prop. */
             <AccountMenu
               name={userName}
@@ -1516,10 +1516,10 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               roleBadge={currentUserRole ? (
                 <RoleBadge role={currentUserRole} showLabel={false} mode={roleMode} />
               ) : undefined}
-              showOrganization={currentUserRole === 'owner' || currentUserRole === 'admin'}
+              showOrganization={currentUserRole === 'admin'}
               showUpgradePlan={currentUserRole === undefined}
               onSettings={onSettingsClick ? () => onSettingsClick({} as React.MouseEvent<HTMLButtonElement>) : undefined}
-              onOrganization={(currentUserRole === 'owner' || currentUserRole === 'admin') ? onManageOrg : undefined}
+              onOrganization={currentUserRole === 'admin' ? onManageOrg : undefined}
               onUpgradePlan={currentUserRole === undefined ? onUpgradeClick : undefined}
             />
           )}

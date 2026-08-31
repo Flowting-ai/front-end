@@ -74,7 +74,7 @@ export default function TeamInviteConfirmPage() {
   const adminName = invite.invitedByName || invite.invitedByEmail || "your admin";
 
   // What the invitee is joining + the roster shown are scoped to the backend
-  // role (admin/owner → org, member → project), shared across screens.
+  // role (admin → org, member → project), shared across screens.
   const target = inviteTargetName(invite);
 
   const handleEnter = () => {
@@ -93,7 +93,7 @@ export default function TeamInviteConfirmPage() {
           <CardSubtitle>{target} welcomes you - know these before you dive in.</CardSubtitle>
         </div>
 
-        {/* Role-scoped context: org roster for admins/owners, org roster +
+        {/* Role-scoped context: org roster for admins, org roster +
             project list for members. */}
         <InviteScope invite={invite} />
 
@@ -107,7 +107,7 @@ export default function TeamInviteConfirmPage() {
             body="These surfaces are shared and you'll have your personal space too."
           />
           <InfoSection
-            title={`As ${roleLabel === "admin" || roleLabel === "owner" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own agents`}
+            title={`As ${roleLabel === "admin" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own agents`}
             body="You can share useful content with your organization. Reusable resources everyone benefits from."
           />
         </div>

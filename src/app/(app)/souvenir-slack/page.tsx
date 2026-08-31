@@ -308,7 +308,7 @@ export default function SouvenirSlackPage() {
   const [savingEditId,    setSavingEditId]    = useState<string | null>(null)
   const [deletingId,      setDeletingId]      = useState<string | null>(null)
 
-  const isAdmin = orgRole === 'owner' || orgRole === 'admin'
+  const isAdmin = orgRole === 'admin'
   const connected = status?.connected ?? false
   const teamName  = status?.workspaces[0]?.teamName ?? null
 

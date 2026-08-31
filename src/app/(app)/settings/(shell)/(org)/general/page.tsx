@@ -10,8 +10,7 @@ import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg, transferOrgOwnership, listMembers } from '@/lib/api/organization'
-import type { OrgMember } from '@/types/teams'
+import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from '@/lib/api/organization'
 import { listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
 import type { SlackChannel } from '@/lib/api/slack'
 import { CHAT_ROUTE } from '@/lib/routes'
@@ -487,10 +486,6 @@ export default function OrgGeneralPage() {
   // real and enabled (matching Figma 18:23880), but until there's a backend
   // contract it can only tell the admin that, not actually archive anything.
   const [archivingOrg,   setArchivingOrg]   = useState(false)
-  const [transferOpen,   setTransferOpen]   = useState(false)
-  const [orgMembers,     setOrgMembers]     = useState<OrgMember[]>([])
-  const [transferTarget, setTransferTarget] = useState('')
-  const [transferring,   setTransferring]   = useState(false)
 
   // Settings fields
   const [aiInstructions,           setAiInstructions]           = useState('')
@@ -608,28 +603,6 @@ export default function OrgGeneralPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to delete organization')
     } finally {
       setDeletingOrg(false)
-    }
-  }
-
-  const handleOpenTransfer = () => {
-    if (!orgId) return
-    setTransferOpen(true)
-    listMembers(orgId)
-      .then(all => setOrgMembers(all.filter(m => m.email !== user?.email && m.orgRole !== 'owner')))
-      .catch(console.error)
-  }
-
-  const handleTransferOwnership = async () => {
-    if (!orgId || !transferTarget) return
-    setTransferring(true)
-    try {
-      await transferOrgOwnership(orgId, transferTarget)
-      toast.success('Ownership transferred')
-      setTransferOpen(false)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to transfer ownership')
-    } finally {
-      setTransferring(false)
     }
   }
 

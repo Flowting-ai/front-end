@@ -2,18 +2,19 @@
 // Frontend mirror of the backend permission ladder in
 // SouvenirAI/services/organizations/roles.py.
 //
-//   Member → Admin → Owner
+//   Member → Admin
 //
 // Each capability is introduced exactly once, at the level that grants it —
 // there are no `false` stubs on lower classes. All-or-nothing capabilities are
-// gated by the class itself (Admin for org management, Owner for billing);
-// methods that depend on a specific project carry the grant sets they need.
+// gated by the class itself (Admin for org management AND billing — any
+// number of admins per org, all equal, no separate owner tier); methods that
+// depend on a specific project carry the grant sets they need.
 
 /** A user's stored org-wide standing — mirrors OrganizationRole. */
-export type OrgRole = 'owner' | 'admin' | 'member'
+export type OrgRole = 'admin' | 'member'
 
 /** The resolved role. */
-export type EffectiveRole = 'owner' | 'admin' | 'member'
+export type EffectiveRole = 'admin' | 'member'
 
 export interface RoleGrants {
   userId: string
@@ -45,7 +46,7 @@ export function resolveOrgBillingRole({
   const billingMatchesActiveOrg =
     !billingOrgId || (activeOrgId !== null && billingOrgId === activeOrgId)
   const isKnownBillingRole =
-    billingRole === 'owner' || billingRole === 'admin' || billingRole === 'member'
+    billingRole === 'admin' || billingRole === 'member'
 
   return billingMatchesActiveOrg && isKnownBillingRole ? billingRole : orgRole
 }
@@ -101,7 +102,8 @@ export class Member {
   }
 }
 
-/** Adds the whole org: every team and project, team CRUD, member management. */
+/** Adds the whole org: every team and project, team CRUD, member management,
+ *  and billing/payment authority — any number of admins per org, all equal. */
 export class Admin extends Member {
   override get label(): EffectiveRole {
     return 'admin'
@@ -122,13 +124,6 @@ export class Admin extends Member {
   override get canManageOrg(): boolean {
     return true
   }
-}
-
-/** Adds billing and payment authority. Exactly one per org. */
-export class Owner extends Admin {
-  override get label(): EffectiveRole {
-    return 'owner'
-  }
 
   override get canManageBilling(): boolean {
     return true
@@ -139,7 +134,6 @@ export class Owner extends Admin {
 
 /** Concrete role for one org. Mirrors resolve_role() on the backend. */
 export function resolveRole(orgRole: OrgRole, grants: RoleGrants): Member {
-  if (orgRole === 'owner') return new Owner(grants)
   if (orgRole === 'admin') return new Admin(grants)
   return new Member(grants)
 }

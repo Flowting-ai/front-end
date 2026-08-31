@@ -107,7 +107,7 @@ export default function OrgChangePlanPage() {
   }, [isOnTeamPlan, currentTeamTierIdx])
 
   useEffect(() => {
-    if (orgReady && orgRole !== 'owner') {
+    if (orgReady && orgRole !== 'admin') {
       router.replace(ORG_PLANS_ROUTE)
     }
   }, [orgReady, orgRole, router])
@@ -159,7 +159,7 @@ export default function OrgChangePlanPage() {
     ? `$${selectedTeam.price / 1000}k`
     : `$${selectedTeam.price}`
 
-  if (!orgReady || orgRole !== 'owner') return null
+  if (!orgReady || orgRole !== 'admin') return null
 
   return (
     <>

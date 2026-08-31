@@ -10,7 +10,6 @@ import {
   ORG_PLAN_POOL_CAP_ENDPOINT,
   ORG_PLAN_USAGE_ENDPOINT,
   ORG_AUDIT_ENDPOINT,
-  ORG_TRANSFER_OWNER_ENDPOINT,
   ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
@@ -34,8 +33,6 @@ interface OrganizationResponse {
   archived: boolean
   myRole: OrgRole | null
   planType: 'teams' | 'enterprise' | null
-  ownerUserId?: string | null
-  ownerEmail?: string | null
 }
 
 interface OrganizationSettingsResponse {
@@ -66,7 +63,7 @@ const memberResponseSchema = z.object({
   userId:           z.string(),
   name:             z.string().nullable().default(null),
   email:            z.string().nullable().default(null),
-  role:             z.enum(['owner', 'admin', 'member']),
+  role:             z.enum(['admin', 'member', 'service']),
   usageTotal:       z.number().nullable().transform(v => v ?? 0),
   inviteStatus:     z.enum(['active', 'pending']),
   inviteId:         z.string().nullable().default(null),
@@ -150,7 +147,7 @@ function normalizeMember(m: MemberResponse): OrgMember {
   // (Team and per-member caps are gone) — 'editor' and a real allocation/cap
   // were only ever reachable through those fields, so they're hardcoded to
   // their empty state below rather than parsed from data that doesn't exist.
-  const role = (m.role === 'owner' || m.role === 'admin') ? 'admin' : 'member'
+  const role = m.role === 'admin' ? 'admin' : 'member'
   const inviteStatus = m.inviteStatus === 'pending' ? 'invite_sent' : 'signed_up'
   return {
     id:              m.userId,
@@ -232,7 +229,7 @@ function normalizeAuditEntry(e: AuditEntryResponse): AuditLogEntry {
 
 /**
  * Create a new organization (team workspace). The backend makes the calling
- * user the owner and stamps `org_id` on their profile, which unlocks the
+ * user an admin and stamps `org_id` on their profile, which unlocks the
  * Organization settings (members / teams / plans). Used by team onboarding.
  */
 export async function createOrganization(params: {
@@ -267,7 +264,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
   }))
 }
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise'; ownerEmail: string | null; ownerUserId: string | null }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise' }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
   return {
     id:          data.id,
@@ -277,8 +274,6 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     logoUrl:     data.logoUrl,
     role:        data.myRole,
     planType:    data.planType === 'enterprise' ? 'enterprise' : 'teams',
-    ownerEmail:  data.ownerEmail ?? null,
-    ownerUserId: data.ownerUserId ?? null,
   }
 }
 
@@ -304,13 +299,6 @@ export async function deleteOrg(orgId: string, confirmName: string): Promise<voi
   await apiFetch(ORG_ENDPOINT(orgId), {
     method: 'DELETE',
     body:   JSON.stringify({ confirmName }),
-  })
-}
-
-export async function transferOrgOwnership(orgId: string, newOwnerUserId: string): Promise<void> {
-  await apiFetch(ORG_TRANSFER_OWNER_ENDPOINT(orgId), {
-    method: 'POST',
-    body:   JSON.stringify({ newOwnerUserId }),
   })
 }
 

@@ -17,17 +17,20 @@ interface OrgContextValue {
   members: OrgMember[]
   membersLoading: boolean
   plan: OrgPlan | null
-  /** Raw API role: 'owner' | 'admin' | 'member'. Use this for billing/ownership gates. */
+  /** Raw API role: 'admin' | 'member'. Use this for billing/org-management gates —
+   *  any admin has full billing authority, there's no separate owner tier. */
   orgRole: OrgRole
-  /** Legacy UI role: 'admin' (covers owner+admin) | 'member'. Use for general access checks. */
+  /** Same value as `orgRole` today — kept as a separate field for consumers that
+   *  were written against the old owner+admin fold. Use for general access checks. */
   currentUserRole: 'admin' | 'member'
   /**
    * Resolved capability ladder for the current user (mirrors the backend's
-   * services/organizations/roles.py). Prefer `caps.canPublishToTeam(teamId)` /
-   * `caps.canEditProject(teamId)` etc. over ad-hoc role string comparisons.
-   * Resolved from `orgRole`; owner/admin gates need no per-team grants. For a
-   * plain member, per-resource backend flags (project.canEdit, chat.canEdit)
-   * remain authoritative for project-scoped checks.
+   * services/organizations/roles.py: Member -> Admin, no separate Owner tier).
+   * Prefer `caps.canPublishToTeam(teamId)` / `caps.canEditProject(teamId)` etc.
+   * over ad-hoc role string comparisons. Resolved from `orgRole`; the admin
+   * gate needs no per-team grants. For a plain member, per-resource backend
+   * flags (project.canEdit, chat.canEdit) remain authoritative for
+   * project-scoped checks.
    */
   caps: Member
   refreshMembers: () => void
@@ -42,8 +45,8 @@ interface OrgContextValue {
   /**
    * True when the org was found (orgId is set) but the getOrg() role fetch
    * failed (network error, 5xx, etc.). In this state orgRole is stuck at the
-   * default 'member' even though the user may be the owner. Billing gates
-   * should treat this as "role unknown" and fall back to optimistic access.
+   * default 'member' even though the user may actually be an admin. Billing
+   * gates should treat this as "role unknown" and fall back to optimistic access.
    */
   roleError: boolean
   /**
@@ -81,16 +84,16 @@ const DEFAULT_ORG: WorkspaceOrg = {
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
 
-  // The account chose the Teams plan at onboarding (role_fit). This is the
-  // authoritative "this is an organization owner" signal — independent of the
-  // backend's per-org `my_role`, which can come back null/member and otherwise
-  // mis-classify a team owner as an individual.
+  // The account chose the Teams plan at onboarding (role_fit) — used as a
+  // fallback guess for "this user is an org admin" only when the backend
+  // hasn't returned a definitive per-org `my_role` yet (e.g. before an org id
+  // resolves, or `my_role` itself came back null).
   const isTeamPlan = user?.roleFit === 'small_team' || user?.roleFit === 'large_team'
 
   // Resolve the active org id. Prefer `org_id` from the profile, but /users/me
   // doesn't always include it — so when it's missing, discover the user's org
   // via the list endpoint. This ensures team members (and freshly-created team
-  // owners) get their Organization settings instead of an empty/hidden section.
+  // admins) get their Organization settings instead of an empty/hidden section.
   const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(user?.orgId ?? null)
   const [orgIdResolved, setOrgIdResolved] = useState<boolean>(Boolean(user?.orgId))
   useEffect(() => {
@@ -132,9 +135,8 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!orgIdResolved) return // wait until we know whether there's an org
     if (!orgId) {
-      // No resolved org yet. A team-plan owner is still an org admin (the org
-      // entity may just not be linked on the profile); everyone else is a member.
-      setOrgRole(isTeamPlan ? 'owner' : 'member')
+      // No resolved org yet — fall back to the isTeamPlan guess; everyone else is a member.
+      setOrgRole(isTeamPlan ? 'admin' : 'member')
       setOrgRoleResolved(isTeamPlan) // only "resolved" if we have a real signal
       setCurrentUserRole(isTeamPlan ? 'admin' : 'member')
       setRoleError(false)
@@ -147,34 +149,18 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .then(data => {
         setOrgName(data.name)
         setOrgPlanType(data.planType)
-        // When my_role is null, identify the owner via owner_email / owner_user_id
-        // before falling back to isTeamPlan. owner_email is the most reliable signal
-        // and works for users who upgraded from an individual plan (roleFit ≠ team).
-        let resolvedRole: OrgRole
-        let roleDefinitive: boolean
-        if (data.role !== null) {
-          resolvedRole  = data.role
-          roleDefinitive = true
-        } else {
-          const emailMatch  = !!(data.ownerEmail  && user?.email && data.ownerEmail  === user.email)
-          const idMatch     = !!(data.ownerUserId && user?.id    && String(data.ownerUserId) === String(user.id))
-          const isOwnerMatch = emailMatch || idMatch
-          resolvedRole   = isOwnerMatch ? 'owner' : (isTeamPlan ? 'owner' : 'member')
-          roleDefinitive = isOwnerMatch // isTeamPlan alone is a guess
-        }
+        // isTeamPlan is a guess for when the backend role is unknown (my_role
+        // came back null) — it must NOT override a definitive 'member' answer,
+        // or every real member whose own onboarding roleFit happened to be
+        // small_team/large_team gets silently promoted to 'admin' (this broke
+        // the clone-before-chat logic gated on currentUserRole !== 'admin'
+        // throughout the app, since a definitively-confirmed member was
+        // treated as an admin).
+        const roleDefinitive = data.role !== null
+        const resolvedRole: OrgRole = data.role ?? (isTeamPlan ? 'admin' : 'member')
         setOrgRole(resolvedRole)
         setOrgRoleResolved(roleDefinitive)
-        // isTeamPlan is a guess for when the backend role is unknown (roleDefinitive
-        // false) — it must NOT override a definitive 'member' answer, or every real
-        // non-owner team member whose own onboarding roleFit happened to be
-        // small_team/large_team gets silently promoted to 'admin' (this broke the
-        // clone-before-chat logic gated on currentUserRole !== 'admin' throughout
-        // the app, since a definitively-confirmed member was treated as an admin).
-        setCurrentUserRole(
-          resolvedRole === 'owner' || resolvedRole === 'admin'
-            ? 'admin'
-            : roleDefinitive ? 'member' : (isTeamPlan ? 'admin' : 'member'),
-        )
+        setCurrentUserRole(resolvedRole === 'admin' ? 'admin' : 'member')
       })
       .catch(err => {
         console.error(err)
@@ -185,7 +171,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   }, [orgId, orgIdResolved, isTeamPlan])
 
   // Fetch plan (credit pool) and the authoritative member list. Members come
-  // from the dedicated /members endpoint so roles (owner/admin/member) are
+  // from the dedicated /members endpoint so roles (admin/member) are
   // accurate; the plan endpoint is used only for the credit pool. They're
   // fetched independently so a failure in one doesn't blank the other; the
   // plan's bundled members are a fallback if /members fails.
@@ -211,7 +197,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     setPlanRefreshToken(t => t + 1)
   }
 
-  // Resolved capability ladder. owner/admin gates are role-only; a plain
+  // Resolved capability ladder. The admin gate is role-only; a plain
   // member's per-team editor grants aren't loaded here (project-scoped checks
   // fall back to backend per-resource flags), so grants stay empty.
   const caps = useMemo<Member>(

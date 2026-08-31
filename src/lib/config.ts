@@ -309,8 +309,6 @@ export const ORG_POOL_CAP_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan/pool-cap`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
-export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/transfer-owner`)
 // Connections are workspace-wide (Workspace Model v2) — a shared account is
 // created directly against the organization, with no Team indirection and no
 // personal-access approval gate (both removed entirely from the backend).

@@ -23,9 +23,9 @@ export interface Team {
   id:           string
   name:         string
   projectCount: number
-  /** This user's role **in this team**. Owner/Admin are org-level (uniform
-   *  across every team); editor/member vary per team. Drives the row's
-   *  RoleBadge and its action flyout (member → no flyout). */
+  /** This user's role **in this team**. Admin is org-level (uniform across
+   *  every team); editor/member vary per team. Drives the row's RoleBadge
+   *  and its action flyout (member → no flyout). */
   userRole:     WorkspaceRole
 }
 
@@ -49,7 +49,7 @@ export interface TeamSwitcherDropdownProps extends React.HTMLAttributes<HTMLDivE
 
 type ActionItem = { id: string; label: string; icon: React.ReactElement }
 
-const OWNER_ADMIN_ACTIONS: ActionItem[] = [
+const ADMIN_ACTIONS: ActionItem[] = [
   { id: 'manage',   label: 'Manage',   icon: <SettingsOneIcon /> },
   { id: 'usage',    label: 'Usage',    icon: <TokenCircleIcon /> },
   { id: 'request',  label: 'Request',  icon: <UserAddOneIcon /> },
@@ -65,7 +65,7 @@ const EDITOR_ACTIONS: ActionItem[] = [
 
 // A **member** team has no action flyout — "just a member" of that team.
 function getActions(role: WorkspaceRole): ActionItem[] {
-  if (role === 'owner' || role === 'admin') return OWNER_ADMIN_ACTIONS
+  if (role === 'admin') return ADMIN_ACTIONS
   if (role === 'editor') return EDITOR_ACTIONS
   return [] // member → no flyout
 }
@@ -251,8 +251,8 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
 
-    const isOwnerOrAdmin = currentUserRole === 'owner' || currentUserRole === 'admin'
-    const teamsLabel     = isOwnerOrAdmin ? 'All Teams' : 'Teams'
+    const isAdmin    = currentUserRole === 'admin'
+    const teamsLabel = isAdmin ? 'All Teams' : 'Teams'
 
     // Max 4 rows visible (48px/row + 4px gap + 6px padding = 210px)
     const needsOverflow = teams.length > 4
@@ -391,8 +391,8 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
             })()}
           </Dropdown.Section>
 
-          {/* Manage teams — shown to owners/admins */}
-          {isOwnerOrAdmin && onManageTeams && (
+          {/* Manage teams — shown to admins */}
+          {isAdmin && onManageTeams && (
             <Dropdown.Section divider fluid>
               <Dropdown.Item
                 fluid

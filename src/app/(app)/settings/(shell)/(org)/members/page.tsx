@@ -153,15 +153,15 @@ function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: bo
 }
 
 // Editable dropdown for a manageable row — selecting "Member" on an Admin
-// routes through the same downgrade confirmation the old modal had.
+// routes through the same downgrade confirmation the old modal had. Any admin
+// can promote/demote any other member — the backend itself is the only real
+// gate (rejects dropping the org below one admin).
 function RoleDropdown({
   member,
-  canPromoteToAdmin,
   onManageRole,
 }: {
-  member:            OrgMember
-  canPromoteToAdmin: boolean
-  onManageRole:      (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
+  member:       OrgMember
+  onManageRole: (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
 }) {
   const [open, setOpen] = useState(false)
   const [confirmDowngrade, setConfirmDowngrade] = useState(false)
@@ -176,11 +176,8 @@ function RoleDropdown({
     setSaving(false)
   }
 
-  // A plain Admin managing a Member can only leave them as Member or (if
-  // canPromoteToAdmin) raise them to Admin — never grant Admin without owner sign-off.
-  const options: { value: 'admin' | 'member'; label: string }[] = canPromoteToAdmin
-    ? [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }]
-    : [{ value: 'member', label: 'Member' }]
+  const options: { value: 'admin' | 'member'; label: string }[] =
+    [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }]
 
   return (
     <>
@@ -294,9 +291,7 @@ const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) minmax(320px, 1.5fr) 150
 
 function MembersTable({
   members,
-  ownerMemberId,
   isAdmin,
-  isCurrentUserOwner = false,
   loading,
   onManageRole,
   onRemove,
@@ -304,9 +299,7 @@ function MembersTable({
   onInviteClick,
 }: {
   members:              OrgMember[]
-  ownerMemberId:        string
   isAdmin:              boolean
-  isCurrentUserOwner?:  boolean
   loading?:             boolean
   onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
   onRemove:             (id: string) => void
@@ -433,12 +426,12 @@ function MembersTable({
               </p>
             </div>
           ) : filteredMembers.map(member => {
-            const isOwner = member.id === ownerMemberId
-            // Owners can manage anyone except the owner. A plain admin can only
-            // manage members whose orgRole is already 'member' (covers both the
-            // "Editor" and "Member" UI labels) — never another admin.
-            const canManageRole = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent' && (isCurrentUserOwner || member.orgRole === 'member')
-            const canRemove = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
+            // Any admin can manage/remove any other member, admin or not —
+            // the backend itself rejects an action that would drop the org
+            // below one admin, so no client-side "protect one special member"
+            // logic is needed here.
+            const canManageRole = isAdmin && member.inviteStatus !== 'invite_sent'
+            const canRemove = isAdmin && member.inviteStatus !== 'invite_sent'
 
             return (
               <SettingsTableRow
@@ -466,9 +459,9 @@ function MembersTable({
 
                 <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
                   {canManageRole ? (
-                    <RoleDropdown member={member} canPromoteToAdmin={isCurrentUserOwner} onManageRole={onManageRole} />
+                    <RoleDropdown member={member} onManageRole={onManageRole} />
                   ) : (
-                    <Badge label={ROLE_LABEL[isOwner ? 'owner' : member.orgRole === 'admin' ? 'admin' : 'member']} color="Neutral" />
+                    <Badge label={ROLE_LABEL[member.orgRole === 'admin' ? 'admin' : 'member']} color="Neutral" />
                   )}
                 </SettingsTableCell>
 
@@ -479,7 +472,7 @@ function MembersTable({
                       onConfirm={() => onRemove(member.id)}
                     />
                   )}
-                  {isAdmin && !isOwner && member.inviteStatus === 'invite_sent' && (
+                  {isAdmin && member.inviteStatus === 'invite_sent' && (
                     <RemoveButton
                       memberName={member.name || member.email}
                       label="Withdraw"
@@ -502,8 +495,7 @@ function MembersTable({
 // a standalone card in the page flow.
 
 const ROLES_INFO = [
-  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, and topup credit purchases.' },
-  { role: 'admin'  as const, description: 'Everything a owner can do. But cannot manage billing or payments.' },
+  { role: 'admin'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, and topup credit purchases. Any number of admins per org, all equal.' },
   { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings or manage other members.' },
 ]
 
@@ -670,24 +662,24 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
 // description of the roles, so this can't drift from what the roles actually do.
 
 const ROLE_COMPARISON_COLUMNS = ROLES_INFO.map(r => r.role)
-const ROLE_COMPARISON_GRID_COLUMNS = 'minmax(200px, 1fr) repeat(3, 84px)'
+const ROLE_COMPARISON_GRID_COLUMNS = 'minmax(200px, 1fr) repeat(2, 84px)'
 
-const ROLE_CAPABILITIES: { label: string; grants: Record<'owner' | 'admin' | 'member', boolean> }[] = [
+const ROLE_CAPABILITIES: { label: string; grants: Record<'admin' | 'member', boolean> }[] = [
   {
     label: 'Access assigned projects',
-    grants: { owner: true, admin: true, member: true },
+    grants: { admin: true, member: true },
   },
   {
     label: 'Full access to every project org-wide',
-    grants: { owner: true, admin: true, member: false },
+    grants: { admin: true, member: false },
   },
   {
     label: 'Manage the org: invites, members, roles, connectors',
-    grants: { owner: true, admin: true, member: false },
+    grants: { admin: true, member: false },
   },
   {
     label: 'Manage billing: plans, top-ups, invoices, payment method',
-    grants: { owner: true, admin: false, member: false },
+    grants: { admin: true, member: false },
   },
 ]
 
@@ -893,9 +885,10 @@ function MembersPageSkeleton() {
 }
 
 // Team has no backend route left at all, so a member's role is always just
-// the org-level owner/admin/member value — never a team-derived 'editor'.
+// the org-level admin/member value — never a team-derived 'editor'. A
+// 'service' row (machine principal) also displays as plain Member.
 function displayRoleFor(member: OrgMember): WorkspaceRole {
-  return member.orgRole === 'owner' || member.orgRole === 'admin' ? 'admin' : 'member'
+  return member.orgRole === 'admin' ? 'admin' : 'member'
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -904,7 +897,6 @@ export default function OrgMembersPage() {
   const { orgId, org, members: orgMembers, membersLoading, currentUserRole, refreshMembers } = useOrg()
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
-  const currentUserIsOwner = orgMembers.find(m => m.email === user?.email)?.orgRole === 'owner'
 
   const [members,        setMembers]        = useState<OrgMember[]>(orgMembers)
   // Bumped by every optimistic local edit (role change, remove, invite, ...)
@@ -985,15 +977,8 @@ export default function OrgMembersPage() {
       : m
   )
 
-  // The workspace owner (cannot be removed). Use the real backend role; fall
-  // back to the first admin only if no member is flagged as owner.
-  const ownerMemberId =
-    members.find(m => m.orgRole === 'owner')?.id ??
-    members.find(m => m.role === 'admin')?.id ??
-    ''
-
   const totalMembers   = members.length
-  const adminCount     = members.filter(m => m.orgRole === 'owner' || m.orgRole === 'admin').length
+  const adminCount     = members.filter(m => m.orgRole === 'admin').length
   const pendingInvites = members.filter(m => m.inviteStatus === 'invite_sent').length
 
   // Applies the Manage-role modal's result: a plain org-level Admin/Member
@@ -1207,9 +1192,7 @@ export default function OrgMembersPage() {
         {/* Members table */}
         <MembersTable
           members={displayMembers}
-          ownerMemberId={ownerMemberId}
           isAdmin={isAdmin}
-          isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
           onManageRole={(id, desiredOrgRole) => handleManageRole(id, desiredOrgRole)}
           onRemove={handleRemove}

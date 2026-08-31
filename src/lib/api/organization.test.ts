@@ -32,7 +32,7 @@ function rawPlan(overrides: Record<string, unknown> = {}) {
       userId: 'user-1',
       name: 'Ada',
       email: 'ada@example.com',
-      role: 'owner',
+      role: 'admin',
       usageTotal: 12.5,
       inviteStatus: 'active',
       inviteId: null,
