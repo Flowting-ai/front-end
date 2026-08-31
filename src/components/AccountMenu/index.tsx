@@ -14,18 +14,24 @@ import {
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
-import { Badge } from '@/components/Badge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface AccountMenuProps {
   /** Display name shown in both trigger and identity header. */
   name: string
-  /** Plan label — "Pro", "Free Trial", "Teams", etc. */
+  /** Workspace identity line under the name — e.g. "Acme Corp". Omit for
+   *  an individual account with no workspace context. */
   plan?: string
-  /** When true the plan label renders in amber warning colour (e.g. "No Plan Selected"). */
+  /** True when the viewer has no active plan — renders a "No Plan Selected"
+   *  status tag instead of the credit count. */
   planWarning?: boolean
-  /** Credit count shown in the identity header badge. */
+  /** Plan-type label prefixed onto the credit count in the status tag — e.g.
+   *  "Workspace" or "Pro", giving "Workspace | 250 credits left". Omit to
+   *  show just the credit count with no prefix. Ignored when `planWarning`. */
+  planType?: string
+  /** Credit count shown in the status tag beneath the identity row. Ignored
+   *  when `planWarning` is true. */
   credits?: number
   /** Avatar image URL. Falls back to initials if absent. */
   avatarSrc?: string
@@ -93,9 +99,9 @@ const ShortcutPill = ({ label }: { label: string }) => (
   </div>
 )
 
-// ── Credits badge ──────────────────────────────────────────────────────────────
+// ── Status badge — "No Plan Selected" / "{x} credits left" pill ──────────────────
 
-const CreditsBadge = ({ credits }: { credits: number }) => (
+const StatusBadge = ({ label }: { label: string }) => (
   <div
     style={{
       display:        'flex',
@@ -118,7 +124,7 @@ const CreditsBadge = ({ credits }: { credits: number }) => (
         whiteSpace: 'nowrap',
       }}
     >
-      {Math.round(credits).toLocaleString()} credits left
+      {label}
     </span>
   </div>
 )
@@ -168,8 +174,8 @@ const AvatarContent = ({ name, avatarSrc }: { name: string; avatarSrc?: string }
 const BODY_LH    = 22  // var(--line-height-body)    = 22px
 const CAPTION_LH = 16  // var(--line-height-caption) = 16px
 
-const IdentityRow = ({ name, plan, planWarning, avatarSrc }: {
-  name: string; plan?: string; planWarning?: boolean; avatarSrc?: string
+const IdentityRow = ({ name, plan, avatarSrc }: {
+  name: string; plan?: string; avatarSrc?: string
 }) => {
   const avatarSize = plan ? BODY_LH + CAPTION_LH : BODY_LH
 
@@ -221,25 +227,21 @@ const IdentityRow = ({ name, plan, planWarning, avatarSrc }: {
           {name}
         </p>
         {plan && (
-          planWarning ? (
-            <Badge color="Yellow" label={plan} style={{ alignSelf: 'flex-start' }} />
-          ) : (
-            <p
-              style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   'var(--font-weight-regular)',
-                fontSize:     'var(--font-size-caption)',
-                lineHeight:   'var(--line-height-caption)',
-                color:        'var(--neutral-500)',
-                whiteSpace:   'nowrap',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                margin:       0,
-              }}
-            >
-              {plan}
-            </p>
-          )
+          <p
+            style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   'var(--font-weight-regular)',
+              fontSize:     'var(--font-size-caption)',
+              lineHeight:   'var(--line-height-caption)',
+              color:        'var(--neutral-500)',
+              whiteSpace:   'nowrap',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              margin:       0,
+            }}
+          >
+            {plan}
+          </p>
         )}
       </div>
 
@@ -247,13 +249,21 @@ const IdentityRow = ({ name, plan, planWarning, avatarSrc }: {
   )
 }
 
-// ── Credits row — centered standalone row beneath the identity row ────────────
+// ── Plan status row — centered standalone row beneath the identity row.
+// "No Plan Selected" when there's no active plan, otherwise "{planType} |
+// {x} credits left" (e.g. "Workspace | 250 credits left") — the two are
+// mutually exclusive so this always renders exactly one. ──
 
-const CreditsRow = ({ credits }: { credits: number }) => (
-  <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
-    <CreditsBadge credits={credits} />
-  </div>
-)
+const PlanStatusRow = ({ planWarning, planType, credits }: { planWarning?: boolean; planType?: string; credits?: number }) => {
+  if (!planWarning && credits === undefined) return null
+  const creditsLabel = `${Math.round(credits ?? 0).toLocaleString()} credits left`
+  const label = planWarning ? 'No Plan Selected' : (planType ? `${planType} | ${creditsLabel}` : creditsLabel)
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
+      <StatusBadge label={label} />
+    </div>
+  )
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -262,6 +272,7 @@ export function AccountMenu({
   name,
   plan,
   planWarning = false,
+  planType,
   credits,
   avatarSrc,
   open: controlledOpen,
@@ -322,9 +333,9 @@ export function AccountMenu({
       >
         <Dropdown maxHeight={false} style={{ width: typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth }}>
           <Dropdown.Section fluid>
-            <IdentityRow name={name} plan={plan} planWarning={planWarning} avatarSrc={avatarSrc} />
+            <IdentityRow name={name} plan={plan} avatarSrc={avatarSrc} />
 
-            {credits !== undefined && <CreditsRow credits={credits} />}
+            <PlanStatusRow planWarning={planWarning} planType={planType} credits={credits} />
 
             <Dropdown.Item
               icon={<UserIcon />}
@@ -335,7 +346,7 @@ export function AccountMenu({
             {showUpgradePlan && (
               <Dropdown.Item
                 icon={<ArrowUpRightOneIcon />}
-                label="Upgrade Plan"
+                label={planWarning ? 'Choose a plan' : 'Upgrade Plan'}
                 fluid
                 onClick={() => { onUpgradePlan?.(); close() }}
               />

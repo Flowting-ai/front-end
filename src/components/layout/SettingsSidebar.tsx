@@ -62,7 +62,7 @@ const PERSONAL_ITEMS = [
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-personal.svg" /> },
 ]
 
-// WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Owner/admin only.
+// WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
 const WORKSPACE_ITEMS = [
   { id: 'general', label: 'General',         href: ORG_GENERAL_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/general.svg" /> },
   { id: 'members', label: 'Members',         href: ORG_MEMBERS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/members.svg" /> },
@@ -134,23 +134,38 @@ export function SettingsSidebar() {
     billingSnap?.isTeamAccount
   )
 
+  // A truthy `plan` object just means the plan API call returned something —
+  // orgs get one populated with zeroes before a real subscription/pool exists.
+  // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
+  const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
+
+  // Workspace identity line — just the org name, independent of plan/billing
+  // status, which now surfaces only via the status tag below. Individuals
+  // have no named workspace, so they get no second line at all.
   const planLabel = isTeamUser
-    ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')
+    ? (orgId ? (org?.name ?? 'Workspace') : 'Workspace')
+    : undefined
+
+  const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
+
+  // Plan-type label for the status tag ("Workspace | 250 credits left" /
+  // "Pro | 250 credits left") — distinct from planLabel above, which is now
+  // just the org's own name.
+  const planTypeLabel = isTeamUser
+    ? 'Workspace'
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
-        : 'No Plan Selected'
-
-  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
+        : undefined
 
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (plan ? org?.creditPool?.remaining : undefined)
-    : (user?.creditsRemaining ?? undefined)
+    ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
+    : (planWarning ? undefined : (user?.creditsRemaining ?? undefined))
 
   // Role badge with tooltip — mirrors LeftSidebar's displayRole hierarchy.
-  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+  const displayRole = orgRole === 'admin'
     ? orgRole
     : (currentUserRole ?? (orgId ? 'member' : undefined))
   const roleTooltip = displayRole
@@ -274,8 +289,8 @@ export function SettingsSidebar() {
 
         <Divider decorative style={{ margin: '8px 0' }} />
 
-        {/* WORKSPACE — node 18:27793 (owner/admin only; former /org/* admin pages) */}
-        {orgId && (orgRole === 'owner' || orgRole === 'admin') && (
+        {/* WORKSPACE — node 18:27793 (admin only; former /org/* admin pages) */}
+        {orgId && orgRole === 'admin' && (
           <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -399,6 +414,7 @@ export function SettingsSidebar() {
             name={displayName || 'Account'}
             plan={planLabel}
             planWarning={planWarning}
+            planType={planTypeLabel}
             credits={accountCredits}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={false}
@@ -408,7 +424,7 @@ export function SettingsSidebar() {
             onProfile={() => safeNavigate(SETTINGS_ACCOUNT_ROUTE)}
             onUpgradePlan={() => safeNavigate(ORG_PLANS_ROUTE)}
             onSettings={() => safeNavigate(SETTINGS_ROUTE)}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
+            onOrganization={(orgId && orgRole === 'admin') ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
             onHelp={() => safeNavigate(SETTINGS_HELP_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}

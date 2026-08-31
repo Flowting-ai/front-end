@@ -9,6 +9,8 @@ import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteT
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
+import { Dropdown } from "@/components/Dropdown";
+import { Divider } from "@/components/Divider";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
@@ -1757,55 +1759,6 @@ function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: B
 // components above this line are UNTOUCHED and keep serving Brain/Admin/
 // team-settings pages via the old <Sidebar>.
 
-const flatMenuItemStyle: React.CSSProperties = { ...menuItemStyle }
-const flatMenuItemDestructiveStyle: React.CSSProperties = { ...menuItemDestructiveStyle }
-
-// Canonical KDS dropdown-item hover treatment (see DropdownMenuItem/index.tsx)
-// — token-driven background + outer ring shadow, plus a separate absolutely-
-// positioned inner depth-shadow overlay, rather than a flat ad hoc color.
-function FlatMenuItem({
-  destructive,
-  onSelect,
-  children,
-}: {
-  destructive?: boolean
-  onSelect: () => void
-  children: React.ReactNode
-}) {
-  const [hovered, setHovered] = useState(false)
-  const hoverBg     = destructive ? "var(--dropdown-menu-item-danger-hover-bg)" : "var(--dropdown-menu-item-hover-bg)"
-  const hoverShadow = destructive ? "var(--shadow-dropdown-item-danger-hover)"  : "var(--shadow-dropdown-item-hover)"
-  const innerShadow = destructive ? "var(--shadow-dropdown-item-danger-inner)" : "var(--shadow-item-inner)"
-  return (
-    <DropdownMenu.Item
-      onSelect={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        ...(destructive ? flatMenuItemDestructiveStyle : flatMenuItemStyle),
-        position:        "relative",
-        backgroundColor: hovered ? hoverBg : "transparent",
-        boxShadow:       hovered ? hoverShadow : undefined,
-        transition:      "background-color 150ms, box-shadow 150ms",
-      }}
-    >
-      {children}
-      {hovered && (
-        <div
-          aria-hidden
-          style={{
-            position:      "absolute",
-            inset:         0,
-            pointerEvents: "none",
-            borderRadius:  "inherit",
-            boxShadow:     innerShadow,
-          }}
-        />
-      )}
-    </DropdownMenu.Item>
-  )
-}
-
 // -- FlatChatHistoryItem — rename/star/delete dropdown, onto FlatSidebarRow ----
 // Deliberately scoped down vs. ChatHistoryItem: "Move to project" is deferred
 // for this first pass (not in the locked v1.5 destinations/projects/recents
@@ -1828,7 +1781,6 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
-  const pendingRenameRef = useRef(false)
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim()
@@ -1854,60 +1806,42 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
 
   return (
     <>
-    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div style={{ position: "relative", width: "100%" }}>
-        <FlatSidebarRow
-          variant={isEditing ? "chat-item-edit" : "chat-item"}
-          label={chat.title}
-          selected={isActive}
-          href={isEditing ? undefined : `/chat?id=${chat.id}`}
-          badge={!isEditing && chat.can_edit === false && chat.visibility === 'team' ? <Badge color="Red" label="Read only" /> : undefined}
-          onClick={() => { if (!isEditing) onSelect(chat.id) }}
-          onMoreClick={isReadOnly ? undefined : (e) => { e.stopPropagation(); setMenuOpen(true) }}
-          onPinClick={(e) => { e.stopPropagation(); void onStar(chat.id) }}
-          pinned={chat.starred}
-          onRename={isReadOnly ? undefined : () => setIsEditing(true)}
-          onCommit={handleCommit}
-          onCancel={() => setIsEditing(false)}
-        />
-        <DropdownMenu.Trigger style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none", background: "none", padding: 0 }} />
-      </div>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          side="right" align="start" sideOffset={8} avoidCollisions collisionPadding={8}
-          onCloseAutoFocus={(e) => { if (pendingRenameRef.current) { e.preventDefault(); pendingRenameRef.current = false } }}
-          style={{ backgroundColor: "var(--neutral-white)", borderRadius: "12px", padding: "4px", boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)", zIndex: 5, minWidth: "168px", outline: "none" }}
-        >
-          <FlatMenuItem onSelect={() => push(`/chat?id=${chat.id}&share=1`)}>
-            <ShareOneIcon size={18} color="var(--neutral-600)" />
-            Share
-          </FlatMenuItem>
-          <FlatMenuItem onSelect={() => { pendingRenameRef.current = true; setIsEditing(true) }}>
-            <PenOneIcon animated size={18} color="var(--neutral-600)" />
-            Rename
-          </FlatMenuItem>
-          {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
-          <FlatMenuItem onSelect={() => void onStar(chat.id)}>
-            <PinIcon animated size={18} color="var(--neutral-600)" />
-            {chat.starred ? "Unpin chat" : "Pin chat"}
-          </FlatMenuItem>
-          <FlatMenuItem onSelect={() => setMoveModalOpen(true)}>
-            <FolderOneIcon size={18} color="var(--neutral-600)" variant="static" />
-            Move to project
-          </FlatMenuItem>
-          {/* No archive endpoint exists yet (src/lib/api/chat.ts has no archive call) — surfaced as coming-soon, same pattern as other unwired nav items. */}
-          <FlatMenuItem onSelect={() => toast.info("Archiving chats is coming soon")}>
-            <FolderLibraryIcon size={18} color="var(--neutral-600)" />
-            Archive
-          </FlatMenuItem>
-          <DropdownMenu.Separator style={{ height: "1px", backgroundColor: "var(--neutral-100)", margin: "4px 0" }} />
-          <FlatMenuItem destructive onSelect={handleDelete}>
-            <DeleteTwoIcon size={18} color="var(--red-500)" />
-            Delete
-          </FlatMenuItem>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <div style={{ position: "relative", width: "100%" }}>
+      <FlatSidebarRow
+        variant={isEditing ? "chat-item-edit" : "chat-item"}
+        label={chat.title}
+        selected={isActive}
+        href={isEditing ? undefined : `/chat?id=${chat.id}`}
+        badge={!isEditing && chat.can_edit === false && chat.visibility === 'team' ? <Badge color="Red" label="Read only" /> : undefined}
+        onClick={() => { if (!isEditing) onSelect(chat.id) }}
+        onMoreClick={isReadOnly ? undefined : (e) => { e.stopPropagation(); setMenuOpen(true) }}
+        onPinClick={(e) => { e.stopPropagation(); void onStar(chat.id) }}
+        pinned={chat.starred}
+        onRename={isReadOnly ? undefined : () => setIsEditing(true)}
+        onCommit={handleCommit}
+        onCancel={() => setIsEditing(false)}
+      />
+      <Dropdown.Float
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        placement="right-start"
+        trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
+      >
+        <Dropdown>
+          <Dropdown.Section fluid>
+            <Dropdown.Item fluid icon={<ShareOneIcon color="var(--neutral-600)" />} label="Share" onClick={() => push(`/chat?id=${chat.id}&share=1`)} />
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => setIsEditing(true)} />
+            {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} onClick={() => void onStar(chat.id)} />
+            <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => setMoveModalOpen(true)} />
+            {/* No archive endpoint exists yet (src/lib/api/chat.ts has no archive call) — surfaced as coming-soon, same pattern as other unwired nav items. */}
+            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => toast.info("Archiving chats is coming soon")} />
+            <Divider decorative />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    </div>
     <MoveToProjectModal
       open={moveModalOpen}
       onClose={() => setMoveModalOpen(false)}
@@ -2011,7 +1945,6 @@ interface FlatProjectChatItemProps {
 function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: FlatProjectChatItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const pendingRenameRef = useRef(false)
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim()
@@ -2023,33 +1956,33 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
   }
 
   return (
-    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div style={{ position: "relative", width: "100%" }}>
-        <FlatSidebarRow
-          variant={isEditing ? "chat-item-edit" : "chat-item"}
-          label={chat.title}
-          selected={isActive}
-          href={isEditing ? undefined : href}
-          onClick={() => { if (!isEditing) onSelect() }}
-          onMoreClick={(e) => { e.stopPropagation(); setMenuOpen(true) }}
-          onRename={() => setIsEditing(true)}
-          onCommit={handleCommit}
-          onCancel={() => setIsEditing(false)}
-        />
-        <DropdownMenu.Trigger style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none", background: "none", padding: 0 }} />
-      </div>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          side="right" align="start" sideOffset={8} avoidCollisions collisionPadding={8}
-          onCloseAutoFocus={(e) => { if (pendingRenameRef.current) { e.preventDefault(); pendingRenameRef.current = false } }}
-          style={{ backgroundColor: "var(--neutral-white)", borderRadius: "12px", padding: "4px", boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)", zIndex: 5, minWidth: "168px", outline: "none" }}
-        >
-          <FlatMenuItem onSelect={() => { pendingRenameRef.current = true; setIsEditing(true) }}>Rename</FlatMenuItem>
-          <DropdownMenu.Separator style={{ height: "1px", backgroundColor: "var(--neutral-100)", margin: "4px 0" }} />
-          <FlatMenuItem destructive onSelect={handleDelete}>Delete</FlatMenuItem>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <div style={{ position: "relative", width: "100%" }}>
+      <FlatSidebarRow
+        variant={isEditing ? "chat-item-edit" : "chat-item"}
+        label={chat.title}
+        selected={isActive}
+        href={isEditing ? undefined : href}
+        onClick={() => { if (!isEditing) onSelect() }}
+        onMoreClick={(e) => { e.stopPropagation(); setMenuOpen(true) }}
+        onRename={() => setIsEditing(true)}
+        onCommit={handleCommit}
+        onCancel={() => setIsEditing(false)}
+      />
+      <Dropdown.Float
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        placement="right-start"
+        trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
+      >
+        <Dropdown>
+          <Dropdown.Section fluid>
+            <Dropdown.Item fluid label="Rename" onClick={() => setIsEditing(true)} />
+            <Divider decorative />
+            <Dropdown.Item fluid variant="danger" label="Delete" onClick={handleDelete} />
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    </div>
   )
 }
 
@@ -2521,22 +2454,21 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Role chip next to the wordmark. admin/owner show their single org-level
-  // role; anyone else in an org shows 'member' — there's no team-level role
-  // to add to it any more.
-  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+  // Role chip next to the wordmark. admin shows its single org-level role;
+  // anyone else in an org shows 'member' — there's no team-level role to add
+  // to it any more.
+  const displayRole = orgRole === 'admin'
     ? orgRole
     : (orgId ? 'member' : undefined)
   const orgBadgeSublabel = orgId && displayRole
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
   const orgBadgeChipColor: ChipColor =
-    displayRole === 'owner'  ? 'Purple' :
     displayRole === 'admin'  ? 'Blue'   :
     'Neutral'
 
   // Fall back to roleFit + billing snapshot to detect team accounts when orgId
-  // hasn't resolved yet (e.g. owner whose profile lacks org_id, or org API failed).
+  // hasn't resolved yet (e.g. an admin whose profile lacks org_id, or org API failed).
   const billingSnap = (() => {
     try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
@@ -2548,16 +2480,30 @@ function LeftSidebarImpl({
     billingSnap?.isTeamAccount
   )
 
-  // Teams ? "Teams | <name>" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
+  // A truthy `plan` object just means the plan API call returned something —
+  // orgs get one populated with zeroes before a real subscription/pool exists.
+  // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
+  const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
+
+  // Workspace identity line — just the org name, independent of plan/billing
+  // status, which now surfaces only via the status tag below. Individuals
+  // have no named workspace, so they get no second line at all.
   const planLabel = isTeamUser
-    ? (orgId ? `Teams | ${orgDisplayName(org?.name) ?? 'Teams'}` : 'Teams')
+    ? (orgId ? (orgDisplayName(org?.name) ?? 'Workspace') : 'Workspace')
+    : undefined
+
+  const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
+
+  // Plan-type label for the status tag ("Workspace | 250 credits left" /
+  // "Pro | 250 credits left") — distinct from planLabel above, which is now
+  // just the org's own name.
+  const planTypeLabel = isTeamUser
+    ? 'Workspace'
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
-        : 'No Plan Selected'
-
-  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
+        : undefined
 
   // Credits shown in the account menu, by environment (kept isolated):
   //   • Organization ? the SHARED org pool remaining (org-context / getOrgPlan)
@@ -2565,8 +2511,8 @@ function LeftSidebarImpl({
   // Org and personal balances never mix; we pick the source by environment.
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (plan ? org?.creditPool?.remaining : undefined)
-    : (user?.creditsRemaining ?? undefined);
+    ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
+    : (planWarning ? undefined : (user?.creditsRemaining ?? undefined));
 
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
@@ -2638,6 +2584,7 @@ function LeftSidebarImpl({
                 name={displayName || "Account"}
                 plan={planLabel}
                 planWarning={planWarning}
+                planType={planTypeLabel}
                 credits={accountCredits}
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
@@ -2663,7 +2610,7 @@ function LeftSidebarImpl({
                 onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
                 onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
                 onSettings={() => push(SETTINGS_ROUTE)}
-                onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
+                onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
                 onHelp={() => push(SETTINGS_HELP_ROUTE)}
                 onReportBug={() => setReportBugOpen(true)}
                 onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
@@ -2729,7 +2676,7 @@ function LeftSidebarImpl({
       }}
       orgName={orgId ? orgDisplayName(org.name) : undefined}
       orgId={orgId ?? undefined}
-      showAdmin={Boolean(orgId) && (orgRole === 'owner' || orgRole === 'admin')}
+      showAdmin={Boolean(orgId) && orgRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}
       orgBadgeChipColor={orgBadgeChipColor}
       accountMenu={(collapsed) => {
@@ -2753,6 +2700,7 @@ function LeftSidebarImpl({
             name={displayName || "Account"}
             plan={planLabel}
             planWarning={planWarning}
+            planType={planTypeLabel}
             credits={accountCredits}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
@@ -2768,7 +2716,7 @@ function LeftSidebarImpl({
             onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
             onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
+            onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
