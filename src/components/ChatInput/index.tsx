@@ -1232,7 +1232,7 @@ export function ChatInput({
                           key={iconKey}
                           initial={isWave ? { scale: 0.5, opacity: 0 }               : { scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
                           animate={isWave ? { scale: 1,   opacity: 1 }               : { scale: 1,   opacity: 1, filter: 'blur(0px)' }}
-                          exit={{           scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
+                          exit={isWave    ? { scale: 0.5, opacity: 0 }               : { scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
