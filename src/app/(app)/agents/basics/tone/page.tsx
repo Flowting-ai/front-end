@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
 import { personaStarter, createPersonaRepo, urlToImageFile } from '@/lib/api/personas'
+import { consumePersonaStarterPrefetch } from '@/lib/persona-wizard-prefetch'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
@@ -130,15 +131,33 @@ function ToneCard({
 
 function ToneCardSkeleton() {
   return (
-    <div style={{
-      background: 'var(--neutral-50)',
-      border: '1px solid var(--neutral-100)',
-      borderRadius: 16,
-      padding: 12,
-      width: 332,
-      height: 108,
-      animation: 'pulse 1.5s ease-in-out infinite',
-    }} />
+    <div
+      aria-hidden
+      aria-busy="true"
+      style={{
+        background: 'var(--neutral-white)',
+        border: '1px solid var(--neutral-100)',
+        borderRadius: 16,
+        padding: 12,
+        display: 'flex', flexDirection: 'column', gap: 9,
+        boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        width: 332,
+      }}
+    >
+      {/* Label + subtitle */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="kaya-skeleton" style={{ height: 15, width: '55%' }} />
+        <div className="kaya-skeleton" style={{ height: 12, width: '80%' }} />
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(59,54,50,0.15)', width: '100%' }} />
+
+      {/* Example, 2 lines */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="kaya-skeleton" style={{ height: 13, width: '100%' }} />
+        <div className="kaya-skeleton" style={{ height: 13, width: '65%' }} />
+      </div>
+    </div>
   )
 }
 
@@ -208,11 +227,15 @@ function TonePageContent() {
       try { return JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}') } catch { return {} }
     })()
 
-    personaStarter({
-      name:        (draft.name    as string | undefined) ?? '',
-      description: (draft.purpose as string | undefined) ?? '',
-      tone:        undefined,
-    })
+    const draftName    = (draft.name    as string | undefined) ?? ''
+    const draftPurpose = (draft.purpose as string | undefined) ?? ''
+
+    // Reuse the in-flight request kicked off from the Name step's Continue click
+    // if it's still running (the common case) instead of firing a second one.
+    const request = consumePersonaStarterPrefetch(draftName, draftPurpose)
+      ?? personaStarter({ name: draftName, description: draftPurpose, tone: undefined })
+
+    request
       .then(starter => {
         if (cancelled) return
         try { sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter)) } catch { /* quota */ }

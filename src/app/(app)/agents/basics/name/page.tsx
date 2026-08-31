@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
 import { AGENTS_BASICS_TONE_ROUTE, AGENTS_BASICS_PURPOSE_ROUTE } from '@/lib/routes'
+import { prefetchPersonaStarter } from '@/lib/persona-wizard-prefetch'
 
 // ── Session-storage key (shared across wizard pages) ─────────────────────────
 
@@ -54,6 +55,17 @@ function NamePageContent() {
   function handleContinue() {
     if (!name.trim()) return
     saveName()
+    // Fire the tone options request now instead of waiting for the Tone page to
+    // mount, so its latency overlaps with this navigation. Skipped when a cached
+    // starter already covers this draft (back-nav) — the Tone page will use that
+    // instead and this request would just be wasted.
+    try {
+      const draft  = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      const cached = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: unknown[] } | null
+      if (!cached?.sounds?.length) {
+        prefetchPersonaStarter(name, (draft.purpose as string | undefined) ?? '')
+      }
+    } catch { /* ignore */ }
     push(`${AGENTS_BASICS_TONE_ROUTE}${buildQuery()}`)
   }
 
