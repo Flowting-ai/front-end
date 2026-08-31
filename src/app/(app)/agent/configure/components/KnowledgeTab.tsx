@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Search, Upload, MoreHorizontal, ArrowUp } from "lucide-react";
+import { InformationCircleIcon } from "@strange-huge/icons";
+import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
 import { FILE_ACCEPT } from "@/hooks/use-file-upload";
 
 export type KnowledgeFile = {
@@ -33,6 +36,12 @@ const ALLOWED_EXTENSIONS = new Set([
   "txt", "md", "json", "xml", "rtf", "html", "htm", "svg",
   "tiff", "tif", "avif", "png", "jpg", "jpeg", "webp", "epub", "zip",
 ]);
+
+// Human-readable grouping of ALLOWED_EXTENSIONS above, for the info tooltip.
+// Keep in sync with that set (htm groups under HTML, tif under TIFF, jpeg under JPG).
+const ALLOWED_FILE_TYPES_LABEL =
+  "PDF, Word (DOC, DOCX), PowerPoint (PPT, PPTX), Excel (XLS, XLSX), CSV, TXT, Markdown, " +
+  "JSON, XML, RTF, HTML, EPUB, ZIP, and images (PNG, JPG, WEBP, SVG, TIFF, AVIF)";
 
 // Extensions the browser can render natively in a tab when opened as a blob
 // URL — everything else (Word, PowerPoint, Excel, CSV, RTF, ZIP, EPUB) has no
@@ -584,6 +593,14 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 <Upload size={16} color="#524b47" />
                 Upload Files
               </button>
+              <Tooltip content={ALLOWED_FILE_TYPES_LABEL} side="top" maxWidth={260}>
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  aria-label="Supported file types"
+                  icon={<InformationCircleIcon size={16} />}
+                />
+              </Tooltip>
             </div>
           </div>
           <div
@@ -716,6 +733,14 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             <Plus size={16} color="#f7f2ed" />
             Upload Files
           </button>
+          <Tooltip content={ALLOWED_FILE_TYPES_LABEL} side="top" maxWidth={260}>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label="Supported file types"
+              icon={<InformationCircleIcon size={16} />}
+            />
+          </Tooltip>
         </div>
       </div>
 
