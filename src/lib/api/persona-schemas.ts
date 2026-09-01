@@ -52,11 +52,19 @@ export const personaRepoSchema = z.object({
   is_published:         z.boolean().default(false),
   version_count:        z.number().default(0),
   // Backend's real enum (services/organizations/schemas.py VISIBILITY_VALUES)
-  // is "private" | "shared" — not "org". The old "org" value here would throw
-  // a ZodError on every fetch that includes so much as one shared persona,
-  // breaking the whole personas list (sidebar, /agents, search, project panel)
-  // for that entire org.
-  visibility:           z.enum(['private', 'shared']).default('private'),
+  // is "private" | "shared" going forward — not "org" (see below) and not
+  // "team" either. "team" was the ORIGINAL value (back-end/alembic/versions/
+  // d3c4d5e6f7a8_add_visibility_to_resources.py) before
+  // f8a1c3e5b7d9_flatten_org_drop_teams.py renamed it to "shared" via a
+  // one-time `UPDATE "PersonaRepo" SET visibility = 'shared' WHERE
+  // visibility = 'team'`. Any environment where that migration (or its
+  // backfill) hasn't run yet can still hand back "team" on old rows — same
+  // class of drift as the "org" incident below, and the same fix: accept it
+  // and normalize, don't let one stale row 500 the whole personas list
+  // (sidebar, /agents, search, project panel) for the entire org.
+  visibility: z.union([z.literal('private'), z.literal('shared'), z.literal('team')])
+    .default('private')
+    .transform(v => (v === 'team' ? 'shared' : v)),
   organization_id:      nullableString,
   created_at:           z.string(),
   updated_at:           z.string(),
