@@ -83,7 +83,7 @@ type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
   status:     Set<'live' | 'draft' | 'paused'>
-  visibility: Set<'private' | 'team' | 'community'>
+  visibility: Set<'private' | 'team'>
   superLink:  Set<'has-link' | 'no-link'>
   models:     Set<string>
 }
@@ -95,8 +95,7 @@ function modelDisplayName(modelId: string | null): string | null {
   if (!modelId) return null
   const id = modelId.toLowerCase()
   if (id.includes('claude')) {
-    if (id.includes('opus'))  return 'Advanced'
-    if (id.includes('haiku')) return 'Basic'
+    if (id.includes('opus')) return 'Advanced'
     return 'Standard'
   }
   if (id.includes('gpt')) return (id.includes('3.5') || id.includes('3-5')) ? 'GPT-3.5' : 'GPT-4'
@@ -772,7 +771,7 @@ function PersonasPageInner() {
   // Visibility comes from the persona repo itself. Super Links are a separate
   // sharing surface and are handled by the Super Link filter below.
   const visibilityForPersona = useMemo(() => {
-    const map: Record<string, 'private' | 'team' | 'community'> = {}
+    const map: Record<string, 'private' | 'team'> = {}
     for (const p of personas) {
       map[p.id] = p.visibility
     }
@@ -1306,9 +1305,8 @@ function PersonasPageInner() {
                       {/* Visibility */}
                       <Dropdown.Section label="Visibility">
                         {([
-                          { id: 'private',   label: 'Private'   },
-                          { id: 'team',      label: 'Team'      },
-                          { id: 'community', label: 'Community' },
+                          { id: 'private', label: 'Private'   },
+                          { id: 'team',    label: 'Workspace' },
                         ] as const).map(({ id, label }) => (
                           <Dropdown.Item
                             key={id}
