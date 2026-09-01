@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { SearchOneIcon, SidebarLeftIcon } from '@strange-huge/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { SquareLock01Icon } from '@hugeicons/core-free-icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
@@ -40,9 +42,20 @@ export interface FlatSidebarProps {
   onCollapse?: () => void
   defaultCollapsed?: boolean
   /**
+   * Locks the sidebar collapsed AND inert while true — every row (New,
+   * Agents, Schedules, Connectors, Slack, projects, recents, search, the
+   * collapse toggle, the account menu) becomes unclickable and unfocusable,
+   * not just visually collapsed. For the agent creation/edit flow (wizard +
+   * configure tabs), where accidentally clicking a nav row mid-edit is the
+   * exact "unnecessary navigation" this exists to prevent. Restores the
+   * user's normal collapsed/expanded state and full interactivity as soon
+   * as this goes back to false.
+   */
+  forceCollapsed?: boolean
+  /**
    * Fixed, non-scrolling block rendered directly under the header (New /
    * Agents / Schedules / Connectors / Slack) — the scrollable area starts
-   * right after this, below "Slack in Souvenir" (Figma 136:53072). Receives
+   * right after this, below "Souvenir in Slack" (Figma 136:53072). Receives
    * `collapsed` so rows can render icon-only, matching the old Sidebar's own
    * nav-strip-stays-fixed pattern (src/components/Sidebar/index.tsx).
    */
@@ -56,10 +69,14 @@ export interface FlatSidebarProps {
 
 export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
   function FlatSidebar(
-    { onSearch, searchActive, onCollapse, defaultCollapsed = false, destinationsItems, projectItems, recentItems, accountMenu },
+    { onSearch, searchActive, onCollapse, defaultCollapsed = false, forceCollapsed = false, destinationsItems, projectItems, recentItems, accountMenu },
     ref,
   ) {
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
+    // The rendered state: locked collapsed when `forceCollapsed`, otherwise
+    // the user's own toggle state — never mutated while forced, so toggling
+    // back to `false` restores exactly what the user had before the lock.
+    const effectiveCollapsed = forceCollapsed || isCollapsed
     const [collapseHovered, setCollapseHovered] = useState(false)
     const [atScrollTop, setAtScrollTop] = useState(true)
     const [atScrollBottom, setAtScrollBottom] = useState(false)
@@ -85,7 +102,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
     useEffect(() => {
       const el = bodyScrollRef.current
       if (!el) return
-      if (isCollapsed) {
+      if (effectiveCollapsed) {
         savedScrollTopRef.current = el.scrollTop
         el.scrollTop = 0
       } else {
@@ -94,7 +111,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
         })
         return () => cancelAnimationFrame(id)
       }
-    }, [isCollapsed])
+    }, [effectiveCollapsed])
 
     const handleBodyScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
@@ -103,9 +120,10 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
     }
 
     const handleCollapse = useCallback(() => {
+      if (forceCollapsed) return
       setIsCollapsed(v => !v)
       onCollapse?.()
-    }, [onCollapse])
+    }, [forceCollapsed, onCollapse])
 
     // Ported: ⌘B / Ctrl+B, suppressed while typing.
     useEffect(() => {
@@ -136,17 +154,31 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
         className={cn()}
         style={{
           position: 'relative', display: 'flex', flexDirection: 'column',
-          width: isCollapsed ? '48px' : '294px', height: '100%',
+          width: effectiveCollapsed ? '48px' : '294px', height: '100%',
           backgroundColor: 'var(--neutral-50)', overflowX: 'hidden', flexShrink: 0, isolation: 'isolate',
           transition: 'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
+        {/* Everything actually interactive (header actions, destinations,
+            scroll body, footer/account menu) lives in this one `inert`
+            wrapper — `inset: 0` exactly reproduces the root's box so every
+            child's existing `position: absolute` offsets (top/bottom/etc.,
+            all originally written against the root) still land in the same
+            place. The lock badge below is a SIBLING of this wrapper, not a
+            descendant — `inert` cascades unconditionally to all descendants
+            with no way to opt a child back in, so the badge has to live
+            outside it to stay hoverable (tooltip) while everything else is
+            genuinely locked. */}
+        <div
+          inert={forceCollapsed || undefined}
+          style={{ position: 'absolute', inset: 0, opacity: forceCollapsed ? 0.55 : 1, transition: 'opacity 200ms' }}
+        >
         {/* ── Header ── */}
         <div ref={headerRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', padding: isCollapsed ? '24px 8px 8px' : '24px 8px 8px 20px' }}>
-            {!isCollapsed && <SouvenirWordmark />}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: effectiveCollapsed ? 'center' : 'space-between', padding: effectiveCollapsed ? '24px 8px 8px' : '24px 8px 8px 20px' }}>
+            {!effectiveCollapsed && <SouvenirWordmark />}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {!isCollapsed && (
+              {!effectiveCollapsed && (
                 <Tooltip content="Search" side="right" delayDuration={300}>
                   <div>
                     <IconButton
@@ -159,13 +191,19 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
                   </div>
                 </Tooltip>
               )}
-              <Tooltip content={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" delayDuration={300}>
+              {/* Still rendered (dimmed, via the wrapper's opacity) while
+                  forceCollapsed — it lives inside the `inert` wrapper below
+                  so it can't actually be hovered/tabbed to, but it should
+                  stay visible underneath the lock badge overlaid on top of
+                  it (rendered after the wrapper), not disappear outright. */}
+              <Tooltip content={forceCollapsed ? 'Sidebar collapsed' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" delayDuration={300}>
                 <div>
                   <IconButton
                     variant="ghost"
                     size="sm"
-                    aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    icon={<SidebarLeftIcon size={20} variant={isCollapsed ? 'open' : 'close'} triggered={collapseHovered} />}
+                    disabled={forceCollapsed}
+                    aria-label={forceCollapsed ? 'Sidebar collapsed' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    icon={<SidebarLeftIcon size={20} variant={effectiveCollapsed ? 'open' : 'close'} triggered={collapseHovered} />}
                     onClick={handleCollapse}
                     onMouseEnter={() => setCollapseHovered(true)}
                     onMouseLeave={() => setCollapseHovered(false)}
@@ -174,7 +212,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
               </Tooltip>
             </div>
           </div>
-          {isCollapsed && (
+          {effectiveCollapsed && (
             <Tooltip content="Search" side="right" delayDuration={300}>
               <div style={{ display: 'flex', justifyContent: 'center', padding: '0 8px 4px' }}>
                 <IconButton variant="ghost" size="sm" aria-label="Search" icon={<SearchOneIcon size={20} />} onClick={onSearch} />
@@ -184,8 +222,8 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
 
           {/* ── Destinations — fixed, part of the header, not the scroll area ── */}
           {destinationsItems && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch', gap: 4, padding: isCollapsed ? '0 6px 8px' : '0 8px 8px' }}>
-              {destinationsItems(isCollapsed)}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: effectiveCollapsed ? 'center' : 'stretch', gap: 4, padding: effectiveCollapsed ? '0 6px 8px' : '0 8px 8px' }}>
+              {destinationsItems(effectiveCollapsed)}
             </div>
           )}
         </div>
@@ -193,19 +231,19 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
         {/* ── Scrollable body: starts right after Destinations → Projects → Recents ── */}
         <div
           ref={bodyScrollRef}
-          className={isCollapsed ? undefined : 'kaya-scrollbar'}
+          className={effectiveCollapsed ? undefined : 'kaya-scrollbar'}
           onScroll={handleBodyScroll}
           style={{
             position: 'absolute', top: headerH, bottom: '62px', left: 0, right: 0,
-            overflowY: isCollapsed ? 'hidden' : 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain',
+            overflowY: effectiveCollapsed ? 'hidden' : 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain',
             display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 8px 20px',
           }}
         >
           <motion.div
-            animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
+            animate={{ opacity: effectiveCollapsed ? 0 : 1, filter: effectiveCollapsed ? 'blur(4px)' : 'blur(0px)' }}
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 16, pointerEvents: isCollapsed ? 'none' : 'auto' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16, pointerEvents: effectiveCollapsed ? 'none' : 'auto' }}
           >
             {projectItems && <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{projectItems}</div>}
             {recentItems && <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{recentItems}</div>}
@@ -224,12 +262,52 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
 
         {/* ── Footer: Profile row ── */}
         <div style={{
-          position: 'absolute', bottom: 0, left: isCollapsed ? '50%' : 0, right: isCollapsed ? 'auto' : 0,
-          transform: isCollapsed ? 'translateX(-50%)' : undefined, width: isCollapsed ? '52px' : undefined,
-          zIndex: 10, backgroundColor: 'var(--neutral-50)', padding: isCollapsed ? '10px 4px' : '10px', boxSizing: 'border-box',
+          position: 'absolute', bottom: 0, left: effectiveCollapsed ? '50%' : 0, right: effectiveCollapsed ? 'auto' : 0,
+          transform: effectiveCollapsed ? 'translateX(-50%)' : undefined, width: effectiveCollapsed ? '52px' : undefined,
+          zIndex: 10, backgroundColor: 'var(--neutral-50)', padding: effectiveCollapsed ? '10px 4px' : '10px', boxSizing: 'border-box',
         }}>
-          {accountMenu?.(isCollapsed)}
+          {accountMenu?.(effectiveCollapsed)}
         </div>
+        </div>
+        {/* forceCollapsed always implies effectiveCollapsed (see its
+            definition above). Replaces the collapse toggle at the exact
+            spot it renders when collapsed (centered, 24px from the top) —
+            the most semantically precise placement, since that button is
+            the literal control being disabled, and it already had a
+            tooltip slot there. Sits OUTSIDE the inert wrapper above (see
+            its comment) so it stays hoverable — the tooltip is the whole
+            point — while the hidden original underneath is genuinely
+            locked along with the rest of the rail. */}
+        {forceCollapsed && (
+          <Tooltip
+            side="right"
+            delayDuration={200}
+            maxWidth={200}
+            content={
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div>Navigation locked</div>
+                <div style={{ fontWeight: 'var(--font-weight-regular)', opacity: 0.75 }}>
+                  Finish or cancel creating this agent to use the sidebar again.
+                </div>
+              </div>
+            }
+          >
+            <div
+              style={{
+                position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                backgroundColor: 'var(--neutral-100)', cursor: 'default',
+                // Same active-step ring as the agents wizard stepper
+                // (WizardShell's StepNode) — border + soft glow.
+                border: '2px solid var(--blue-600)',
+                boxShadow: '0px 0px 0px 3px rgba(13,110,178,0.15)',
+              }}
+            >
+              <HugeiconsIcon icon={SquareLock01Icon} size={13} color="var(--neutral-700)" strokeWidth={2} />
+            </div>
+          </Tooltip>
+        )}
       </div>
     )
   },

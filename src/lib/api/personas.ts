@@ -263,8 +263,12 @@ export async function createPersonaRepo(params: {
     body: form,
   }));
   _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
-  _personasCache = null;
-  _personasCacheTime = 0;
+  // Was clearing only this file's own _personasCache — missed persona-repo.ts's
+  // separate inner cache (the one GET /persona actually goes through) and never
+  // fired PERSONAS_LIST_UPDATED_EVENT, so /agents could still render a
+  // pre-creation snapshot if that inner cache had been warmed within its 30s
+  // TTL (e.g. by an earlier visit to /agents before creating the agent).
+  bustPersonasCache();
   return repo;
 }
 
@@ -278,8 +282,7 @@ export async function usePersonaRepo(repoId: string): Promise<PersonaRepoRespons
     method: "POST",
   }));
   _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
-  _personasCache = null;
-  _personasCacheTime = 0;
+  bustPersonasCache();
   return repo;
 }
 

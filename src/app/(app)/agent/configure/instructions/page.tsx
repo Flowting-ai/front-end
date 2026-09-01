@@ -13,12 +13,10 @@ import {
   CancelOneIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
-  SearchOneIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { InputField } from '@/components/InputField'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
@@ -43,7 +41,7 @@ import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
-import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
+import { usePersonaConfigure, type ConfigureTabKey } from '@/app/(app)/agent/configure/context'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { setVersionTags } from '@/lib/version-tags'
@@ -243,7 +241,6 @@ function ModelDropdown({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const scrollRef     = useRef<HTMLDivElement | null>(null)
-  const [search,   setSearch]   = useState('')
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
 
@@ -267,23 +264,21 @@ function ModelDropdown({
 
   // Agents shouldn't be built on Starter-tier models — same tier resolution
   // as PresetModelSelectorDialog's "free" tab (planType ?? callType ?? modelType).
-  const selectableModels = React.useMemo(() => models.filter(m => {
+  // Shown disabled with an explanatory chip rather than hidden outright:
+  // Basic (Haiku) in particular performs poorly enough on agentic tasks that
+  // silently dropping it from the list just left people wondering where it
+  // went, instead of understanding it's an intentional restriction.
+  const isModelDisallowedForAgents = React.useCallback((m: AIModel) => {
     const tier = ((m.planType ?? m.callType ?? m.modelType) as string ?? '').toLowerCase()
-    return tier !== 'free' && tier !== 'starter'
-  }), [models])
-
-  // No provider grouping/filter — every model here is one of the 3 Souvenir
-  // Muse tiers under a single company, so a company tab/header would just
-  // read "Anthropic" and reveal the underlying provider for no benefit.
-  const filtered = selectableModels.filter(m => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return m.modelName.toLowerCase().includes(q)
-  })
+    return tier === 'free' || tier === 'starter'
+  }, [])
 
   // Advanced → Standard → Basic, same fixed order as every other model
-  // selector in the app (chat switcher, Change/Fix model modals).
-  const sortedFiltered = React.useMemo(() => sortModelsByTier(filtered), [filtered])
+  // selector in the app (chat switcher, Change/Fix model modals). No
+  // provider grouping/filter — every model here is one of the 3 Souvenir
+  // Muse tiers under a single company, so a company tab/header would just
+  // read "Anthropic" and reveal the underlying provider for no benefit.
+  const sortedModels = React.useMemo(() => sortModelsByTier(models), [models])
 
   const updateScrollEdges = () => {
     const el = scrollRef.current
@@ -306,7 +301,7 @@ function ModelDropdown({
     if (!open) return
     updateScrollEdges()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sortedFiltered.length])
+  }, [open, sortedModels.length])
 
   return (
     <div
@@ -386,35 +381,11 @@ function ModelDropdown({
           >
             <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Search */}
-              <div style={{ display: 'flex', width: '100%', flexShrink: 0 }}>
-                <InputField
-                  size="small"
-                  showLabel={false}
-                  label="Search models"
-                  showSubtitle={false}
-                  leftIcon={<SearchOneIcon size={16} />}
-                  rightIcon={search ? (
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Clear search"
-                      icon={<CancelOneIcon size={12} />}
-                      onClick={() => setSearch('')}
-                    />
-                  ) : undefined}
-                  placeholder="Look up your model…"
-                  value={search}
-                  onChange={setSearch}
-                  fluid
-                />
-              </div>
-
               {/* Model list — hugs its content up to MODEL_LIST_MAX_HEIGHT,
                   then scrolls; the panel above never reserves more space than
                   the actual row count needs. */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                {filtered.length > 0 ? (
+                {sortedModels.length > 0 ? (
                   <div style={{ position: 'relative' }}>
                     <div
                       ref={scrollRef}
@@ -423,21 +394,36 @@ function ModelDropdown({
                       style={{ maxHeight: MODEL_LIST_MAX_HEIGHT, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2 }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {sortedFiltered.map(m => {
+                        {sortedModels.map(m => {
                           const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
+                          const disallowed = isModelDisallowedForAgents(m)
                           return (
-                            <ModelSelectItem
+                            <div
                               key={String(m.modelId ?? m.id)}
-                              role="button"
-                              tabIndex={0}
-                              aria-pressed={isSelected}
-                              image={<SouvenirModelIcon size={18} />}
-                              label={m.modelName}
-                              icons={modelTagBadges(m)}
-                              selected={isSelected}
-                              onClick={() => onSelect(m)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
-                            />
+                              style={{ opacity: disallowed ? 0.6 : 1 }}
+                            >
+                              <ModelSelectItem
+                                role="button"
+                                tabIndex={disallowed ? -1 : 0}
+                                aria-pressed={isSelected}
+                                aria-disabled={disallowed || undefined}
+                                // ModelSelectItem hardcodes cursor: 'pointer' on its own
+                                // root element, which wins over the wrapping div's cursor
+                                // above (the browser cursors off the topmost element under
+                                // the pointer) — override it directly here instead.
+                                style={disallowed ? { cursor: 'not-allowed' } : undefined}
+                                image={<SouvenirModelIcon size={18} />}
+                                label={m.modelName}
+                                icons={
+                                  disallowed
+                                    ? <Badge label="Not allowed for agents" color="Neutral" />
+                                    : modelTagBadges(m)
+                                }
+                                selected={isSelected}
+                                onClick={() => { if (!disallowed) onSelect(m) }}
+                                onKeyDown={(e) => { if (disallowed) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
+                              />
+                            </div>
                           )
                         })}
                       </div>
@@ -457,7 +443,7 @@ function ModelDropdown({
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>
-                    {search ? `No models matching "${search}"` : 'No models available'}
+                    No models available
                   </div>
                 )}
               </div>
@@ -625,7 +611,6 @@ function PersonaConfigureInstructionsContent() {
   // state-hydration phase and the traffic-light only shows its stable final state.
   const [isDraftApplied,  setIsDraftApplied]  = useState(false)
   const [isSaving,        setIsSaving]        = useState(false)
-  const [showInfo,      setShowInfo]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
   const {
@@ -636,7 +621,7 @@ function PersonaConfigureInstructionsContent() {
     // Per-attribute "touched this session" flags for the table-of-contents rail — lives in
     // shared context (not local state) so it survives navigating to another tab and back;
     // lights up the moment a field is edited, clears only on an explicit save/publish.
-    touchedFieldsByTab, markFieldTouched, resetTouchedFields,
+    touchedFieldsByTab, markFieldTouched, resetTouchedFields, visitedTabs,
   } = usePersonaConfigure()
   const touchedFields = touchedFieldsByTab.instructions
   const markTouched = useCallback((field: string) => markFieldTouched('instructions', field), [markFieldTouched])
@@ -1329,7 +1314,7 @@ function PersonaConfigureInstructionsContent() {
             </div>
 
             {/* Tabs — centre column, centred between the back button and actions. */}
-            <div style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
+            <div style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'flex-start', position: 'relative', marginTop: 2 }}>
               {/* Frosted glass — only covers the tab button row, not the traffic lights */}
               <div
                 aria-hidden
@@ -1343,21 +1328,8 @@ function PersonaConfigureInstructionsContent() {
                     'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
                 }}
               />
-              <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: TABS.map(() => 'auto').join(' '), columnGap: 4, rowGap: 6, justifyContent: 'start' }}>
-                {/* Info legend */}
-                <div style={{ position: 'absolute', right: 'calc(100% + 8px)', top: 0, height: 36, display: 'flex', alignItems: 'center', zIndex: 9999 }}>
-                  <button type="button" onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--neutral-400)', backgroundColor: 'transparent', cursor: 'default', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: 'var(--neutral-500)', padding: 0 }}>i</button>
-                  {showInfo && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'white', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 10px', boxShadow: '0px 4px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 6, whiteSpace: 'nowrap', zIndex: 9999 }}>
-                      {([{ color: '#D1D5DB', border: '#9CA3AF', label: 'No changes' }, { color: '#F97316', border: '#C2600F', label: 'Unsaved changes' }, { color: '#6FCF97', border: '#27AE60', label: 'Saved' }] as const).map(({ color, border, label }) => (
-                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 24, height: 4, backgroundColor: color, border: `1px solid ${border}`, borderRadius: 2, flexShrink: 0 }} />
-                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-600)' }}>{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 4 }}>
                 {TABS.map(tab => {
                   const isActive = tab === 'Instructions'
                   return (
@@ -1368,13 +1340,23 @@ function PersonaConfigureInstructionsContent() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '7px 8px',
+                        padding: '9px 10px',
+                        // Fixed width (fits "Instructions", the longest label) so
+                        // all 5 tabs render the same size — same value across all
+                        // 5 configure pages (Instructions/Profile/Knowledge/
+                        // Connectors/Sharing), which each duplicate this tab bar.
+                        width: 132,
                         borderRadius: 10,
                         border: 'none',
                         cursor: 'pointer',
                         backgroundColor: isActive ? 'var(--neutral-white)' : 'transparent',
+                        // Two-sided inner shadow (soft top highlight + a slightly
+                        // stronger, blurred bottom shadow) reads as a proper
+                        // pressed-in inset instead of a single flat line — was
+                        // previously also duplicated by a separate overlay div
+                        // painting the same bottom line on top of this.
                         boxShadow: isActive
-                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)'
+                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)'
                           : 'none',
                         fontFamily: 'var(--font-body)',
                         fontWeight: 500,
@@ -1386,34 +1368,32 @@ function PersonaConfigureInstructionsContent() {
                         position: 'relative',
                       }}
                     >
-                      {isActive && (
-                        <div
-                          aria-hidden
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: 'inherit',
-                            boxShadow: 'inset 0px -1px 0px 0px rgba(38,33,30,0.1)',
-                            pointerEvents: 'none',
-                          }}
-                        />
-                      )}
                       {tab}
                     </button>
                   )
                 })}
-                {TABS.map(tab => {
-                  const hasFlag   = tabDirtyFlags[tab] !== undefined
-                  const isDirtyT  = hasFlag ? tabDirtyFlags[tab] ?? false : pendingChangeTags.includes(tab)
-                  const isPristine  = !hasFlag && !pendingChangeTags.includes(tab)
-                  const showGray    = isPristine && (!publishedVersionId || isInitialising || !isDraftApplied)
-                  const bgColor     = showGray ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
-                  const borderColor = showGray ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
-                  return (
-                    <div key={`${tab}-light`} aria-hidden style={{ height: 4, backgroundColor: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2, transition: 'background-color 300ms, border-color 300ms' }} />
-                  )
-                })}
-                {isDraftApplied && !isInitialising && (anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
+              </div>
+              {/* Visited-tab dots — one per tab, filled once you've landed on that
+                  tab this editing session (auto-tracked by the provider from the
+                  route), cleared entirely on publish. Simple visited/not-visited,
+                  unrelated to the dirty-tracking that used to live here. */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {TABS.map(tab => (
+                  <div key={`${tab}-dot`} style={{ width: 132, display: 'flex', justifyContent: 'center' }}>
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
+                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '#27AE60' : 'var(--neutral-200)',
+                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid #1E8449' : '1px solid var(--neutral-300)',
+                        transition: 'background-color 200ms, border-color 200ms',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+                {/* Hidden for now — Saved/Unsaved + Live/Unpublished status badges under the tab strip. */}
+                {false && isDraftApplied && !isInitialising && (anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
                   <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 10, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
                     {(anyDirty || publishedVersionId != null) && (
                       <>

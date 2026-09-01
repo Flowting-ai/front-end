@@ -105,7 +105,7 @@ export function ChatHistoryItem({
   return (
     <>
     <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div style={{ position: "relative", width: "100%" }}>
+      <div style={{ position: "relative", width: "100%", backgroundColor: "#000000" }}>
         <SidebarMenuItem
           fluid
           variant={isEditing ? "chat-item-edit" : "chat-item"}

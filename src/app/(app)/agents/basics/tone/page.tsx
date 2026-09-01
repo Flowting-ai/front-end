@@ -69,6 +69,13 @@ function starterSoundsToTones(
 }
 
 // ── Tone card ─────────────────────────────────────────────────────────────────
+// Fixed footprint so the grid stays aligned regardless of copy length: label
+// and subtitle are single-line (ellipsis overflow), the example stays
+// 2-line-clamped as before. Selection reads via the border/shadow color swap.
+// Hover adds a lift, matching the other wizard cards (TemplateCard/CustomCard)
+// instead of being static.
+
+const TONE_CARD_HEIGHT = 136
 
 function ToneCard({
   tone,
@@ -79,34 +86,47 @@ function ToneCard({
   selected: boolean
   onSelect: () => void
 }) {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <button
       onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        background: 'var(--neutral-white)',
-        border: selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-100)',
+        position: 'relative',
+        background: hovered && !selected ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        border: selected ? '1px solid var(--blue-400)' : `1px solid ${hovered ? 'var(--neutral-200)' : 'var(--neutral-100)'}`,
         borderRadius: 16,
         padding: 12,
         display: 'flex', flexDirection: 'column', gap: 9,
         boxShadow: selected
-          ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-200)'
-          : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+          ? '0px 4px 8px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--blue-200)'
+          : hovered
+            ? '0px 4px 8px 0px rgba(82,75,71,0.14), 0px 0px 0px 1px var(--neutral-100)'
+            : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         cursor: 'pointer',
         width: 332,
+        height: TONE_CARD_HEIGHT,
+        boxSizing: 'border-box',
         textAlign: 'left',
-        transition: 'border-color 150ms, box-shadow 150ms',
+        transform: hovered && !selected ? 'translateY(-1px)' : 'none',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
       }}
     >
       <div>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
           fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {tone.label}
         </p>
         <p style={{
-          fontFamily: 'var(--font-mono)', fontWeight: 400,
-          fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0,
+          fontFamily: 'var(--font-body)', fontWeight: 400,
+          fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+          color: 'var(--neutral-500)', margin: '2px 0 0',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {tone.subtitle}
         </p>
@@ -142,6 +162,8 @@ function ToneCardSkeleton() {
         display: 'flex', flexDirection: 'column', gap: 9,
         boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         width: 332,
+        height: TONE_CARD_HEIGHT,
+        boxSizing: 'border-box',
       }}
     >
       {/* Label + subtitle */}

@@ -24,7 +24,7 @@ export function CustomConnectorModal({ cancel }: { cancel: () => void }) {
       >
         <h2 style={heading}>Add a custom connector</h2>
         <div style={{ minHeight: 148, display: 'grid', placeItems: 'center', marginTop: SPACE.xl, border: '1px dashed var(--neutral-300)', borderRadius: 12, color: 'var(--neutral-500)', textAlign: 'center', padding: SPACE.lg }}>
-          Custom connectors aren&apos;t supported by the backend yet (see the migration doc&apos;s Gap #1).
+          Custom connectors aren&apos;t supported yet.
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: SPACE.xl }}>
           <Button variant="ghost" size="sm" onClick={cancel}>Close</Button>

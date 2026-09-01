@@ -43,12 +43,12 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
   // tooltip standing in for the label that's hidden in this state.
   if (collapsed) {
     return (
-      <Tooltip content="Slack in Souvenir" side="right" delayDuration={300}>
+      <Tooltip content="Souvenir in Slack" side="right" delayDuration={300}>
         <div
           role="button"
           tabIndex={0}
           aria-pressed={selected}
-          aria-label="Slack in Souvenir"
+          aria-label="Souvenir in Slack"
           onClick={onClick}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
           onMouseEnter={() => setIsHovered(true)}
@@ -95,7 +95,7 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
           lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          Slack in Souvenir
+          Souvenir in Slack
         </p>
       </div>
       {connected ? (

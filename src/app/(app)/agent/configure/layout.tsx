@@ -550,7 +550,16 @@ function PanelUserBubble({ text }: { text: string }) {
   return (
     <div
       style={{
-        maxWidth: '85%',
+        // Fixed px, not a %: this div's parent is an auto-sized flex column
+        // (no explicit width of its own) inside a flex row, so a percentage
+        // maxWidth has no definite containing-block width to resolve
+        // against — browsers effectively collapse it toward zero, and
+        // wordBreak: 'break-word' then wraps every single character onto
+        // its own line (e.g. "hi" renders as "h" / "i"). The app's own
+        // MessageBubble (src/components/MessageBubble) already avoids this
+        // the same way — a fixed px cap (566 there; smaller here since this
+        // is a narrow side panel, not the full chat width).
+        maxWidth: 280,
         padding: '8px 12px',
         borderRadius: 12,
         backgroundColor: 'var(--neutral-100)',
@@ -1124,13 +1133,9 @@ function ConfigureStepNav() {
   return (
     <div
       style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             8,
-        padding:         6,
-        borderRadius:    12,
-        backgroundColor: 'var(--neutral-white)',
-        boxShadow:       '0px 2px 8px rgba(0,0,0,0.10), 0px 0px 0px 1px var(--neutral-200)',
+        display:    'flex',
+        alignItems: 'center',
+        gap:        8,
       }}
     >
       {prevTab && (
@@ -1146,23 +1151,39 @@ function ConfigureStepNav() {
         </Tooltip>
       )}
 
+      {/* White box + blue text — same treatment as the active tab item in the
+          tab section above (same bg, text color, border radius, and layered
+          box-shadow: outer drop shadow + neutral ring + two-sided inner
+          shadow), not the blue info-toast tokens this used before. Height
+          fixed at 32px (not padding-derived) to exactly match the
+          surrounding Back/Continue Button size="sm" — both variants compute
+          to 32px total (5+5px vertical padding + 22px line-height), which is
+          fragile to rely on via padding here since this span's line-height
+          isn't the same token-driven value. */}
       <span
         style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   12,
-          fontWeight: 500,
-          color:      'var(--neutral-500)',
-          whiteSpace: 'nowrap',
-          padding:    '0 2px',
+          display:         'flex',
+          alignItems:      'center',
+          height:          32,
+          boxSizing:       'border-box',
+          fontFamily:      'var(--font-body)',
+          fontSize:        14,
+          fontWeight:      500,
+          color:           'var(--blue-600)',
+          backgroundColor: 'var(--neutral-white)',
+          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)',
+          borderRadius:    10,
+          padding:         '0 10px',
+          whiteSpace:      'nowrap',
         }}
       >
-        {idx + 1} / {ALL_CONFIGURE_TABS.length}
+        {idx + 1} / {ALL_CONFIGURE_TABS.length} — Currently on {ALL_CONFIGURE_LABELS[idx]} tab
       </span>
 
       {nextTab && (
         <Tooltip content={`Go to ${nextLabel} tab`} side="top">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             rightIcon={<ArrowRightOneIcon size={16} />}
             onClick={handleContinue}

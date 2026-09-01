@@ -257,7 +257,7 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
       <p style={{ ...muted, marginBottom: SPACE.lg }}>Choose when Souvenir can use these tools.</p>
       {isShared && (
         <div style={{ ...panel, padding: SPACE.lg, marginBottom: SPACE.lg, background: 'var(--yellow-50)' }}>
-          <BodyTextInline>Tool permissions for shared accounts aren&apos;t supported yet — the controls below are shown for reference only. (See Gap #11.)</BodyTextInline>
+          <BodyTextInline>Tool permissions for shared accounts aren&apos;t supported yet — the controls below are shown for reference only.</BodyTextInline>
         </div>
       )}
       {loadingTools ? (
@@ -408,7 +408,7 @@ export function AccountDetailView({
           </div>
         </div>
         <AccountTabs active={active} change={change} />
-        <div style={{ maxWidth: 820 }}>
+        <div>
           {active === 'permissions' && <PermissionsTab account={account} summary={summary} />}
           {active === 'access' && <AccessTab account={account} />}
           {active === 'settings' && <SettingsTab account={account} summary={summary} orgId={orgId} canManageShared={canManageShared} onChanged={onChanged} onRemove={onRemove} />}

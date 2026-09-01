@@ -52,6 +52,7 @@ import {
   ORG_ANALYTICS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
   AGENT_CHAT_ROUTE,
+  AGENT_CONFIGURE_BASE_ROUTE,
   AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
@@ -1806,7 +1807,11 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
 
   return (
     <>
-    <div style={{ position: "relative", width: "100%" }}>
+    {/* display:flex blockifies Dropdown.Float's inline-flex trigger wrapper. Left
+        inline it generates a line box (--line-height-body, 22px) under the 32px
+        row — the row's own height plus a phantom second line. The brain-thread
+        row dodges this by using a raw absolutely-positioned Radix trigger. */}
+    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column" }}>
       <FlatSidebarRow
         variant={isEditing ? "chat-item-edit" : "chat-item"}
         label={chat.title}
@@ -1859,17 +1864,36 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
 
 function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
   const [shown, setShown] = useState(true)
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
   const pinnedChats = chatHistory.chats.filter((c) => c.starred)
   if (pinnedChats.length === 0) return null
   return (
     <>
       <FlatSidebarRow variant="header" label="Pinned" shown={shown} onShowClick={() => setShown((s) => !s)} />
-      {shown && pinnedChats.map((chat) => (
-        <FlatChatHistoryItem
-          key={chat.id} chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
-          onRename={chatHistory.rename} onDelete={async (chatId) => { await chatHistory.remove(chatId) }} onStar={chatHistory.star}
-        />
-      ))}
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: "flex", flexDirection: "column", gap: 4 }}
+        >
+          {pinnedChats.map((chat) => (
+            <m.div key={chat.id} variants={sectionItemVariants}>
+              <FlatChatHistoryItem
+                chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
+                onRename={chatHistory.rename} onDelete={async (chatId) => { await chatHistory.remove(chatId) }} onStar={chatHistory.star}
+              />
+            </m.div>
+          ))}
+        </m.div>
+      </m.div>
       {/* Gap before Recent Chats — only takes up space when Pinned actually rendered (see the early return above). */}
       <div aria-hidden style={{ height: 12 }} />
     </>
@@ -1956,7 +1980,8 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    // display:flex for the same reason as FlatChatHistoryItem — see the note there.
+    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column" }}>
       <FlatSidebarRow
         variant={isEditing ? "chat-item-edit" : "chat-item"}
         label={chat.title}
@@ -2219,8 +2244,8 @@ function FlatDestinations({ onNewChat, isTeamUser, newChatSelected, collapsed = 
         href={isTeamUser ? ORG_CONNECTORS_ROUTE : SETTINGS_CONNECTORS_ROUTE}
         onClick={() => push(isTeamUser ? ORG_CONNECTORS_ROUTE : SETTINGS_CONNECTORS_ROUTE)}
       />
-      {/* "Slack in Souvenir" / "Souvenir in Slack" — same feature, own dedicated
-          top-level page (moved from /org/souvenir-slack to /souvenir-slack). */}
+      {/* "Souvenir in Slack" — own dedicated top-level page (moved from
+          /org/souvenir-slack to /souvenir-slack). */}
       <FlatSidebarSlackConnector
         collapsed={collapsed}
         connected={slackConnected}
@@ -2284,6 +2309,28 @@ function LeftSidebarImpl({
   const currentProject     = currentProjectId ? getProject(currentProjectId) : undefined
   const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
+  // The agent creation/edit flow: the template→basics wizard and the
+  // Instructions→Sharing configure tabs — narrower than isPersonaPage, which
+  // also matches the plain /agents library. The sidebar force-collapses and
+  // goes inert across this whole span so a stray click can't navigate away
+  // mid-creation/mid-edit (see FlatSidebar's `forceCollapsed`).
+  const isAgentCreateOrEditPage = (
+    pathname?.startsWith(AGENT_CONFIGURE_BASE_ROUTE) ||
+    pathname?.startsWith(AGENTS_TEMPLATES_ROUTE) ||
+    pathname?.startsWith("/agents/basics")
+  ) ?? false;
+  // One-time heads-up on each false→true transition into the locked flow —
+  // not on every re-render while already inside it, and it fires again if
+  // the user leaves and re-enters (e.g. Library → New agent a second time).
+  const wasAgentCreateOrEditPageRef = useRef(false);
+  useEffect(() => {
+    if (isAgentCreateOrEditPage && !wasAgentCreateOrEditPageRef.current) {
+      toast.info("Navigation locked until agent creation is complete", {
+        description: "Finish or cancel to use the sidebar again.",
+      });
+    }
+    wasAgentCreateOrEditPageRef.current = isAgentCreateOrEditPage;
+  }, [isAgentCreateOrEditPage]);
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
   // Flat sidebar's "New" row highlights for either flavor of "blank slate" —
   // a new chat or an idle (no thread loaded) Brain page — same condition the
@@ -2537,6 +2584,7 @@ function LeftSidebarImpl({
           searchActive={searchOpen}
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
+          forceCollapsed={isAgentCreateOrEditPage}
           destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} isTeamUser={isTeamUser} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />

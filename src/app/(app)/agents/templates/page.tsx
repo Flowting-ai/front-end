@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowRightOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { trackFeature } from '@/lib/analytics/events'
 import {
@@ -46,6 +46,47 @@ const TEMPLATE_ICONS: Record<string, typeof CustomerService01Icon> = {
   'Web QA': BrowserIcon,
 }
 
+// One line each — clamped to 2 lines in the card, so longer copy just wraps.
+const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
+  'Customer Support': 'Answer tickets and resolve issues fast',
+  'Sales': 'Qualify leads and move deals forward',
+  'Legal': 'Review contracts and flag legal risk',
+  'Research': 'Dig into topics and summarize findings',
+  'Content Writer': 'Draft blog posts, copy, and social content',
+  'Code Review': 'Catch bugs and suggest cleaner code',
+  'Onboarding': 'Guide new hires through their first weeks',
+  'Marketing': 'Plan campaigns and write marketing copy',
+  'Data Analyst': 'Turn raw data into clear insights',
+  'HR & Recruiting': 'Screen candidates and manage hiring',
+  'Executive Assistant': 'Manage schedules, email, and logistics',
+  'Education': 'Build lesson plans and course material',
+  'Productivity': 'Organize tasks and keep projects on track',
+  'Tutoring': 'Explain concepts and coach through problems',
+  'Web QA': 'Test flows and catch UI regressions',
+}
+
+// Reuses the shared tag palette (`--color-tag-{Color}-*`, see Badge) so each
+// category reads as a distinct, on-brand accent rather than an arbitrary hue.
+type TagColor = 'Blue' | 'Red' | 'Green' | 'Yellow' | 'Purple' | 'Brown' | 'Neutral'
+
+const TEMPLATE_COLORS: Record<string, TagColor> = {
+  'Customer Support': 'Blue',
+  'Sales': 'Green',
+  'Legal': 'Brown',
+  'Research': 'Purple',
+  'Content Writer': 'Yellow',
+  'Code Review': 'Neutral',
+  'Onboarding': 'Blue',
+  'Marketing': 'Green',
+  'Data Analyst': 'Purple',
+  'HR & Recruiting': 'Yellow',
+  'Executive Assistant': 'Neutral',
+  'Education': 'Brown',
+  'Productivity': 'Blue',
+  'Tutoring': 'Yellow',
+  'Web QA': 'Red',
+}
+
 const TEMPLATE_ROWS: string[][] = [
   ['Customer Support', 'Sales', 'Legal', 'Research'],
   ['Content Writer', 'Code Review', 'Onboarding', 'Marketing'],
@@ -54,9 +95,16 @@ const TEMPLATE_ROWS: string[][] = [
 ]
 
 // ── Template card ─────────────────────────────────────────────────────────────
+// Fixed width AND height so the grid stays aligned regardless of how long a
+// given name/description is — both are 2-line-clamped rather than left to
+// grow the card.
+
+const CARD_WIDTH = 179
+const CARD_HEIGHT = 172
 
 function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
+  const color = TEMPLATE_COLORS[name] ?? 'Neutral'
 
   return (
     <button
@@ -67,28 +115,128 @@ function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) 
         background: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
         border: `1.274px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-100)'}`,
         borderRadius: 15,
-        padding: 20,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        padding: '20px 16px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
         boxShadow: hovered
-          ? '0px 4px 8px 0px rgba(202,220,241,0.55)'
+          ? '0px 8px 16px 0px rgba(202,220,241,0.6)'
           : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
         cursor: 'pointer',
-        width: 179,
-        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms',
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
       }}
     >
-      <HugeiconsIcon
-        icon={TEMPLATE_ICONS[name]}
-        size={30}
-        color="#26211e"
-        strokeWidth={1.5}
-      />
-      <span style={{
-        fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-        fontSize: 16, lineHeight: '22px', color: 'var(--neutral-950)',
-        textAlign: 'center',
+      <div style={{
+        width: 44, height: 44,
+        borderRadius: 12,
+        flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `var(--color-tag-${color}-bg)`,
+        transform: hovered ? 'scale(1.06)' : 'scale(1)',
+        transition: 'transform 150ms',
       }}>
-        {name}
+        <HugeiconsIcon
+          icon={TEMPLATE_ICONS[name]}
+          size={22}
+          color={`var(--color-tag-${color}-text)`}
+          strokeWidth={1.5}
+        />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minHeight: 0 }}>
+        <span style={{
+          fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+          fontSize: 15, lineHeight: '20px', color: 'var(--neutral-950)',
+          textAlign: 'center',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>
+          {name}
+        </span>
+        <span
+          title={TEMPLATE_DESCRIPTIONS[name]}
+          style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400,
+            fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+            color: 'var(--neutral-500)',
+            textAlign: 'center',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}
+        >
+          {TEMPLATE_DESCRIPTIONS[name]}
+        </span>
+      </div>
+    </button>
+  )
+}
+
+// ── Custom / start-blank card ───────────────────────────────────────────────────
+// Same accent-icon + caption-description language as TemplateCard, but a wide
+// dashed row rather than a grid tile — signals "not a template" while still
+// matching the new visual system. Whole row is one button (was previously
+// only the "Start blank" pill), so the "Start blank" pill below is decorative.
+
+function CustomCard({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        border: `1px dashed ${hovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`,
+        borderRadius: 16,
+        padding: '16px 17px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: 764,
+        boxShadow: hovered
+          ? '0px 8px 16px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--neutral-100)'
+          : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        cursor: 'pointer',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--color-tag-Neutral-bg)',
+          transform: hovered ? 'scale(1.06)' : 'scale(1)',
+          transition: 'transform 150ms',
+        }}>
+          <PlusSignIcon size={20} color="var(--color-tag-Neutral-text)" />
+        </div>
+        <div>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+            fontSize: 15, lineHeight: '20px', color: 'var(--neutral-950)', margin: 0,
+          }}>
+            Custom
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400,
+            fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+            color: 'var(--neutral-500)', margin: 0,
+          }}>
+            Start from scratch
+          </p>
+        </div>
+      </div>
+      <span
+        aria-hidden
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          padding: '6px 12px', borderRadius: 8,
+          border: `1px solid ${hovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`,
+          fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+          fontSize: 13, lineHeight: '18px', color: 'var(--neutral-700)',
+          transition: 'border-color 150ms',
+        }}
+      >
+        Start blank
       </span>
     </button>
   )
@@ -143,33 +291,7 @@ export default function PersonaTemplatesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
           {/* Custom / start blank row */}
-          <div style={{
-            background: 'var(--neutral-white)',
-            border: '1px dashed var(--neutral-300)',
-            borderRadius: 16,
-            padding: '16px 17px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: 764,
-            boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-          }}>
-            <div>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Custom
-              </p>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-                Start from scratch.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)}
-            >
-              Start blank
-            </Button>
-          </div>
+          <CustomCard onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)} />
 
           {/* Template card rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

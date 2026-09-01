@@ -183,7 +183,7 @@ function BrainThreadItem({
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
           >
-            {thread.starred ? 'Unstar' : 'Star'}
+            {thread.starred ? 'Unpin Task' : 'Pin Task'}
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
@@ -318,7 +318,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
           <SidebarMenuItem
             fluid
             variant="header"
-            label="Starred Threads"
+            label="Pinned Tasks"
             shown={shownStarred}
             onShowClick={() => setShownStarred(s => !s)}
           />
@@ -495,7 +495,7 @@ function FlatBrainThreadItem({
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
           >
-            {thread.starred ? 'Unstar' : 'Star'}
+            {thread.starred ? 'Unpin Task' : 'Pin Task'}
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
@@ -611,7 +611,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
     <>
       {starredThreads.length > 0 && (
         <>
-          <FlatSidebarRow variant="header" label="Starred Threads" shown={shownStarred} onShowClick={() => setShownStarred(s => !s)} />
+          <FlatSidebarRow variant="header" label="Pinned Tasks" shown={shownStarred} onShowClick={() => setShownStarred(s => !s)} />
           {shownStarred && starredThreads.map(thread => (
             <FlatBrainThreadItem
               key={thread.id}

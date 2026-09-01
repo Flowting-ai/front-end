@@ -23,8 +23,8 @@ export const PROJECTS_NEW_ROUTE = "/projects/new";
 
 // NOTE: General/Members/Teams/Plans/Analytics/Activity moved from /org/* to
 // /settings/* (Souvenir V1.5) — old /org/{page} paths are now thin redirect
-// stubs to these. Connectors and Souvenir-in-Slack (aka "Slack in Souvenir")
-// moved further still, to their own top-level routes — each has its own
+// stubs to these. Connectors and "Souvenir in Slack" moved further still,
+// to their own top-level routes — each has its own
 // dedicated sidebar destination (see FlatDestinations in LeftSidebar.tsx) and
 // its own layout guard (src/app/(app)/connectors, src/app/(app)/souvenir-slack).
 // Constant names keep their historical ORG_ prefix to avoid touching every
