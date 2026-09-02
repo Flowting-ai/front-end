@@ -1302,22 +1302,11 @@ function PersonasPageInner() {
                         ))}
                       </Dropdown.Section>
 
-                      {/* Visibility */}
-                      <Dropdown.Section label="Visibility">
-                        {([
-                          { id: 'private', label: 'Private'   },
-                          { id: 'team',    label: 'Workspace' },
-                        ] as const).map(({ id, label }) => (
-                          <Dropdown.Item
-                            key={id}
-                            label={label}
-                            fluid
-                            showCheckbox
-                            checkboxChecked={filters.visibility.has(id)}
-                            onCheckboxChange={() => toggleFilter('visibility', id)}
-                          />
-                        ))}
-                      </Dropdown.Section>
+                      {/* Visibility filter UI hidden along with the rest of the
+                          shared-agent UI — `filters.visibility`/`AgentFilters`
+                          and its application in filterPanelFiltered below stay
+                          intact (always empty now, harmlessly a no-op) so this
+                          section can be re-added without rebuilding it. */}
 
                       {/* Super Link */}
                       <Dropdown.Section label="Super Link">
@@ -1496,7 +1485,10 @@ function PersonasPageInner() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          shared={persona.sourceShareId !== null || (persona.visibility === 'team' && !isOwnedByMe(persona))}
+                          // Super Link-accepted only — the team-visibility half of this
+                          // is hidden along with the rest of the shared-agent UI (see
+                          // SharingTab.tsx), not deleted from `Persona.visibility` itself.
+                          shared={persona.sourceShareId !== null}
                           createdBy={createdByForPersona[persona.id]}
                           useInChatLabel="Chat with agent"
                           // Draft cards already have their own "finish setup" treatment —
@@ -1512,7 +1504,9 @@ function PersonasPageInner() {
                               : undefined
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
-                          visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
+                          // "Team" badge hidden along with the rest of the shared-agent UI —
+                          // every card reads as Private regardless of the underlying value.
+                          visibility={visibilityForPersona[persona.id] ? 'private' : undefined}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the

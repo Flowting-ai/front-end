@@ -275,7 +275,36 @@ function ChatPageInner() {
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
-  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+  // Read from sessionStorage synchronously in the lazy initializer so
+  // selectedPersona is populated on the FIRST render (same reasoning as
+  // project/[id]/chat/[chatId]/page.tsx's identical pattern for its own
+  // pending-persona key — a useEffect would run one flush too late for the
+  // initial-send path to see it). Set by agents/published's "Use this Agent"
+  // button just before it navigates here.
+  const cameFromPendingPersonaRef = useRef(false);
+  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(() => {
+    if (chatIdFromUrl || typeof window === 'undefined') return null;
+    const stored = sessionStorage.getItem('new-chat-pending-persona');
+    if (!stored) return null;
+    sessionStorage.removeItem('new-chat-pending-persona');
+    try {
+      const parsed = JSON.parse(stored) as SelectedPersonaInfo;
+      cameFromPendingPersonaRef.current = true;
+      return parsed;
+    } catch { return null; }
+  });
+  // Same "Model locked to agent" notice ChatInput/TopBar already show on a
+  // click against the locked model selector — surfaced proactively here since
+  // arriving with the agent pre-attached (from agents/published's "Use this
+  // Agent") is a less visually obvious moment than picking one from the
+  // composer's own "+" menu, where the chip appearing is the feedback.
+  useEffect(() => {
+    if (!cameFromPendingPersonaRef.current) return;
+    cameFromPendingPersonaRef.current = false;
+    toast.info('Model locked to agent', {
+      description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
+    });
+  }, []);
   const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
   // Tracks which chatIds were created in this session as persona chats.

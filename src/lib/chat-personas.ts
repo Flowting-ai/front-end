@@ -131,12 +131,14 @@ export function fetchSelectableChatPersonas(
 
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
-    const personas = allPersonas.filter(persona => persona.status !== 'draft')
-    // Team was removed entirely (no backend route left for a team-persona-shares
-    // owner map), so there's no way to resolve a shared persona's real owner
-    // here anymore — resolveSelectableChatPersonas falls back to fallbackOwned
-    // for every org-shared persona, same as it already does for any persona
-    // missing from the map.
+    // Private-only — the shared-agent UI (and the eager clone-on-open behavior
+    // resolveSelectableChatPersonas runs for anything not owned by the viewer)
+    // is hidden app-wide, so this stays scoped to agents the viewer already
+    // owns outright rather than silently /use-cloning every org-shared agent
+    // into their account on each panel open. Matches brain/page.tsx's chip
+    // list, which was already scoped this way. resolveSelectableChatPersonas
+    // itself is untouched — still callable if this is ever re-widened.
+    const personas = allPersonas.filter(persona => persona.status !== 'draft' && persona.visibility === 'private')
     const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved

@@ -37,6 +37,11 @@ const FILTER_LABEL: Record<AgentFilter, string> = {
   superlink: 'Superlink Agents',
 }
 
+// "Team Agents" hidden from the selectable dropdown along with the rest of
+// the shared-agent UI — `AgentFilter`/`FILTER_LABEL.team`/byFilter's 'team'
+// branch below stay intact so this can be re-shown without rebuilding it.
+const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']
+
 // Loading placeholder shaped like a PersonaCard row (65px avatar, name/handle,
 // two description lines, a badge pill) so the list doesn't jump when real
 // cards swap in. Uses the shared .kaya-skeleton pulse utility (globals.css).
@@ -195,7 +200,7 @@ export function AgentsPanelContent() {
               >
                 <Dropdown size="md">
                   <Dropdown.Section fluid>
-                    {(Object.keys(FILTER_LABEL) as AgentFilter[]).map(f => (
+                    {VISIBLE_FILTERS.map(f => (
                       <Dropdown.Item
                         key={f}
                         label={FILTER_LABEL[f]}
@@ -306,10 +311,14 @@ export function AgentsPanelContent() {
                   description={p.description}
                   tags={p.tags}
                   paused={p.paused}
-                  shared={p.shared}
+                  // Super Link only — `p.shared` also folds in team-visibility
+                  // sharing, which is hidden from the UI here (isSuperlink(p) is
+                  // already computed independently below for the superlink prop).
+                  shared={isSuperlink(p)}
                   avatarUrl={p.imageUrl ?? undefined}
                   avatarSeed={p.id}
-                  visibility={p.visibility}
+                  // "Team" badge hidden along with the rest of the shared-agent UI.
+                  visibility="private"
                   superlink={isSuperlink(p)}
                   onUseInChat={() => handleSelect(p)}
                   style={{ width: '100%' }}

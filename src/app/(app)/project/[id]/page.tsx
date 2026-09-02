@@ -26,7 +26,7 @@ import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow
 import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
-import { ProjectAgentsPanel } from '@/components/ProjectAgentsPanel'
+import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
@@ -57,7 +57,7 @@ import { Tooltip } from '@/components/Tooltip'
 // Team-project chat tabs (private projects render a flat list instead).
 // 4 distinct, independently-filterable tabs in one row; a single info
 // button right after them explains what each of the four covers.
-type TeamTab = 'personal' | 'publish' | 'shared' | 'view-only'
+type TeamTab = 'personal' | 'publish' | 'shared'
 
 const tabsRowStyle: React.CSSProperties = {
   display:    'flex',
@@ -84,7 +84,7 @@ export default function ProjectPage() {
   const { push }  = useRouter()
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading } = useProjects()
   const { pins, isLoading: pinsLoading, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
-  const { setPanel: setProjectPanel } = useProjectPanel()
+  const { panel: sharedPanel, setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
@@ -165,7 +165,7 @@ export default function ProjectPage() {
   // Lazy-load chats shared with me (editable → "Shared with you", read-only →
   // "View only"), scoped to this project, when either tab first opens.
   useEffect(() => {
-    if (activeTab !== 'shared' && activeTab !== 'view-only') return
+    if (activeTab !== 'shared') return
     let cancelled = false
     setSharedLoading(true)
     setSharedError(null)
@@ -193,6 +193,31 @@ export default function ProjectPage() {
     const defaultModel = pickDefaultModel(models)
     if (defaultModel) selectModel(defaultModel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // AgentsPanelContent (the same "Add agent" panel /chat uses) closes itself
+  // by calling the shared setPanel(null) directly — it has no onClose prop to
+  // hook into — so agentsPanelOpen can't just be reset from this page's own
+  // onClose handlers alone. Re-sync it whenever the shared slot goes null out
+  // from under us while we still think it's open, so the toggle button's
+  // active state and the effect below (which re-derives content from these
+  // booleans every render) don't end up fighting a panel that already closed.
+  useEffect(() => {
+    if (agentsPanelOpen && sharedPanel === null) setAgentsPanelOpen(false)
+  }, [sharedPanel, agentsPanelOpen])
+
+  // Listen for AgentsPanelContent's selection — same cross-tree pattern
+  // /chat/page.tsx uses (the panel renders via the shared AppLayout tree,
+  // outside this page's own component tree). No extra toast here, matching
+  // /chat exactly — the panel closing and the chip appearing in the composer
+  // is its own feedback.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const persona = (e as CustomEvent<SelectedPersonaInfo>).detail
+      if (persona) setSelectedPersona(persona)
+    }
+    window.addEventListener(AGENT_SELECT_EVENT, handler)
+    return () => window.removeEventListener(AGENT_SELECT_EVENT, handler)
   }, [])
 
   // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
@@ -252,34 +277,25 @@ export default function ProjectPage() {
       return
     }
     if (agentsPanelOpen) {
+      // Same panel /chat uses (AgentsPanelContent) — same search/filter/list/
+      // footer, same AGENT_SELECT_EVENT selection mechanism (listened for
+      // above), same sidePadding: 8 flush layout FloatingPanel.tsx gives it.
       setProjectPanel({
-        title:   'Agents',
-        onClose: () => setAgentsPanelOpen(false),
-        content: (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   12,
-                lineHeight: '16px',
-                color:      'var(--neutral-500)',
-                margin:     '-6px 0 0',
-              }}
-            >
-              {project.teamId ? "Agents shared with this project's team." : 'Your agents, ready to use in this project.'}
-            </p>
-            <ProjectAgentsPanel teamId={project.teamId} />
-          </div>
-        ),
+        title:       'Agents',
+        onClose:     () => setAgentsPanelOpen(false),
+        content:     <AgentsPanelContent />,
+        sidePadding: 8,
       })
       return
     }
     if (membersPanelOpen) {
       setProjectPanel({
-        title:   'Members',
-        onClose: () => setMembersPanelOpen(false),
-        content: <ProjectMembersPanel projectId={project.id} ownerUserId={project.ownerUserId} canManage={project.canEdit} />,
+        title:       'Members',
+        onClose:     () => setMembersPanelOpen(false),
+        content:     <ProjectMembersPanel projectId={project.id} ownerUserId={project.ownerUserId} canManage={project.canEdit} />,
+        // Same flush 8px layout as the sibling Agents panel — ProjectMembersPanel
+        // no longer renders its own 24px-padded title/header internally.
+        sidePadding: 8,
       })
     }
   }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
@@ -409,8 +425,8 @@ export default function ProjectPage() {
   const canPublishChat = !!project.teamId && caps.canPublishToTeam(project.teamId)
 
   // "Personal" is everything in this project you can see via the normal chat
-  // list — your own chats AND published-to-team ones (blue badge marks which).
-  // "Published to team" is just the filtered subset of the same list.
+  // list — your own chats AND published-to-workspace ones (blue badge marks which).
+  // "Published to Workspace" is just the filtered subset of the same list.
   const personalChats  = teamChats
   const publishedChats = teamChats.filter(c => c.visibility === 'team')
   // Most-recently-shared first — createdAt is the only recency signal the
@@ -420,11 +436,10 @@ export default function ProjectPage() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
   // "Shared with you" is every share targeting this project, editable and
-  // view-only alike (red badge marks the view-only ones). "View only" is
-  // just the filtered subset of the same list.
-  const sharedReadOnly = sharedItemsSorted.filter(i => i.mode === 'read_only')
+  // view-only alike (red badge marks the view-only ones) — there's no
+  // separate view-only-only tab any more, so this is the one place both show.
 
-  // A chat row for the team-project tab (Personal / Published to team).
+  // A chat row for the team-project tab (Personal / Published to Workspace).
   function teamChatRow(chat: Chat) {
     return (
       <ProjectChatRow
@@ -870,7 +885,7 @@ export default function ProjectPage() {
             />
           </div>
 
-          {/* Chat list — 4 tabs on team projects (grouped in 2 labeled pairs), flat list on private */}
+          {/* Chat list — 3 tabs on team projects, flat list on private */}
           {project.teamId ? (
             <div style={{ width: '100%', maxWidth: '679px', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Tabs
@@ -878,7 +893,7 @@ export default function ProjectPage() {
                 onValueChange={(v: string) => setActiveTab(v as TeamTab)}
                 style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
               >
-                {/* All 4 tabs in one row, centered; the info button explains what
+                {/* All 3 tabs in one row, centered; the info button explains what
                     each covers. A spacer matching the info button's width (32px,
                     IconButton size="sm") balances it out so the tabs land dead
                     center in the row instead of shifted left by the button. */}
@@ -889,7 +904,7 @@ export default function ProjectPage() {
                     <TabsTrigger value="personal">Personal</TabsTrigger>
                     <TabsTrigger value="publish">
                       <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        Published to team
+                        Published to Workspace
                         {publishedChats.length > 0 && (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -903,7 +918,6 @@ export default function ProjectPage() {
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="shared">Shared with you</TabsTrigger>
-                    <TabsTrigger value="view-only">View only</TabsTrigger>
                   </TabsList>
 
                   <Tooltip
@@ -911,13 +925,11 @@ export default function ProjectPage() {
                     maxWidth={280}
                     content={
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div><b>Personal</b> — your own chats here, plus what&apos;s published to the team.</div>
+                        <div><b>Personal</b> — your own chats here, plus what&apos;s published to the workspace.</div>
                         <div style={tooltipDividerStyle} />
-                        <div><b>Published to team</b> — just the chats published to the team.</div>
+                        <div><b>Published to Workspace</b> — just the chats published to the workspace.</div>
                         <div style={tooltipDividerStyle} />
-                        <div><b>Shared with you</b> — chats teammates shared directly, editable and view-only.</div>
-                        <div style={tooltipDividerStyle} />
-                        <div><b>View only</b> — just the view-only shares; you can copy, not edit.</div>
+                        <div><b>Shared with you</b> — chats teammates shared directly, editable and view-only (a red badge marks the view-only ones).</div>
                       </div>
                     }
                   >
@@ -931,21 +943,21 @@ export default function ProjectPage() {
                 </div>
 
                 {/* Personal — everything in this project you can see: your own
-                    chats plus published-to-team ones (blue "Published" badge). */}
+                    chats plus published-to-workspace ones (blue "Published" badge). */}
                 <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {personalChats.length === 0 ? <ProjectChatEmptyRow /> : withDividers(personalChats.map(teamChatRow))}
                   </div>
                 </TabsContent>
 
-                {/* Published to team — the published-only subset, visible to and manageable by editor+ */}
+                {/* Published to Workspace — the published-only subset, visible to and manageable by editor+ */}
                 <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {publishedChats.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
                         <AlertCircleIcon size={16} />
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>
-                          {canPublishChat ? 'Hover a chat under “Personal” to publish it to the team.' : 'No chats have been published to the team yet.'}
+                          {canPublishChat ? 'Hover a chat under “Personal” to publish it to the workspace.' : 'No chats have been published to the workspace yet.'}
                         </span>
                       </div>
                     ) : withDividers(publishedChats.map(teamChatRow))}
@@ -958,15 +970,6 @@ export default function ProjectPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {sharedNotice(sharedItemsSorted, 'No chats have been shared with you in this project yet.') ?? (
                       withDividers(sharedItemsSorted.map(sharedChatRow))
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* View only — the view-only-only subset; open the shared view, no forking */}
-                <TabsContent value="view-only" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
-                    {sharedNotice(sharedReadOnly, 'No view-only chats in this project yet.') ?? (
-                      withDividers(sharedReadOnly.map(sharedChatRow))
                     )}
                   </div>
                 </TabsContent>

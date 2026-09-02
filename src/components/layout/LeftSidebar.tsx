@@ -476,7 +476,7 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
 const PROJECT_LIMIT = 5
 // Sidebar folders only ever surface a quick-glance slice of a project's
 // chats — "See all chats" is the entry point for the rest.
-const CHAT_LIMIT    = 2
+const CHAT_LIMIT    = 5
 
 function sortChatsByRecency(chats: ProjectChat[]): ProjectChat[] {
   return [...chats].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -2286,7 +2286,7 @@ function LeftSidebarImpl({
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
-  const { chats: projectChats, getProject } = useProjects();
+  const { chats: projectChats } = useProjects();
   const { orgId, org, plan, orgRole, currentUserRole } = useOrg();
 
   // -- Global search ---------------------------------------------------------
@@ -2303,11 +2303,6 @@ function LeftSidebarImpl({
   const isProjectPage = pathname?.startsWith("/project/") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
 
-  // Detect team project context: extract the project id from the path and look
-  // up its teamId so the agents tab can show only team-shared agents.
-  const currentProjectId   = isProjectPage ? (pathname?.match(/^\/project\/([^/]+)/)?.[1] ?? null) : null
-  const currentProject     = currentProjectId ? getProject(currentProjectId) : undefined
-  const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   // The agent creation/edit flow: the template→basics wizard and the
   // Instructions→Sharing configure tabs — narrower than isPersonaPage, which
@@ -2699,11 +2694,11 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onNewAgentChat={() => push(AGENTS_ROUTE)}
-      agentItems={
-        currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} />
-        : isTeamUser         ? <PersonasSectionAll />
-        :                      <PersonasSectionIndividual />
-      }
+      // Shared/team-agent UI hidden app-wide — always the private-only listing
+      // now, regardless of project/org context. `PersonasSectionAll` (the
+      // team-shared variant) stays defined, just unused from this call site,
+      // so it isn't rebuilt from scratch if this is ever re-shown.
+      agentItems={<PersonasSectionIndividual />}
       onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onBrainClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_ROUTE) }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates

@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
-import { fetchPersonaRepo } from '@/lib/api/persona-repo'
+import { fetchPersonaRepo, type PersonaRepo } from '@/lib/api/persona-repo'
 import { ApiError } from '@/lib/api/client'
 import {
   createShare,
@@ -17,7 +17,8 @@ import {
   type PersonaShare,
 } from '@/lib/api/persona-shares'
 import { canonicalShareUrl } from '@/lib/share-url'
-import { AGENTS_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,9 @@ function PersonaPublishedContent() {
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [isRevoking,     setIsRevoking]     = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
+  // Kept in full (not just name/imageUrl) so "Use this Agent" can build a
+  // complete SelectedPersonaInfo without a second fetch.
+  const [personaRepo,    setPersonaRepo]    = useState<PersonaRepo | null>(null)
 
   // Fetch the persona's avatar and authoritative name from the API.
   useEffect(() => {
@@ -231,6 +235,7 @@ function PersonaPublishedContent() {
       .then(repo => {
         setPersonaImageUrl(repo.workingVersion?.imageUrl ?? null)
         if (repo.name) setPersonaName(repo.name)
+        setPersonaRepo(repo)
       })
       .catch(() => {})
   }, [repoId])
@@ -281,6 +286,36 @@ function PersonaPublishedContent() {
     } finally {
       setIsRevoking(false)
     }
+  }
+
+  // "Use this Agent" opens a fresh /chat with the agent pre-attached to the
+  // input (not sent, not the agent's own dedicated /agents/[id]/chat page).
+  // /chat isn't mounted yet when this fires, so the persona is handed across
+  // via sessionStorage (read synchronously in a lazy initializer on /chat, the
+  // same mechanism project/[id]/chat/[chatId]/page.tsx already uses for its
+  // own pending-persona key) rather than the AGENT_SELECT_EVENT used when the
+  // Agents floating panel is opened from a page that's already mounted.
+  function handleUseAgent() {
+    if (!personaRepo) return
+    const v = personaRepo.currentVersion
+    const info: SelectedPersonaInfo = {
+      id:              personaRepo.id,
+      name:            personaRepo.name,
+      handle:          personaRepo.handle,
+      imageUrl:        personaRepo.imageUrl,
+      modelId:         v?.modelId ?? null,
+      activeVersionId: personaRepo.liveVersionId,
+      systemPrompt:    null,
+      temperature:     v?.temperature ?? null,
+      visibility:      personaRepo.visibility,
+      ownedByViewer:   true,
+      description:     personaRepo.description,
+      tags:            personaRepo.tags,
+      paused:          personaRepo.isPaused,
+      shared:          false,
+    }
+    sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(info))
+    push(CHAT_ROUTE)
   }
 
   return (
@@ -422,7 +457,7 @@ function PersonaPublishedContent() {
                 >
                   {isRepublished
                     ? `“${personaName}” is now live with your latest changes.`
-                    : `“${personaName}” is now live for your team. Members can add it from the Add button in any conversation.`}
+                    : `“${personaName}” is now live. Add it from the Add button in any conversation.`}
                 </p>
               </div>
             </div>
@@ -576,7 +611,8 @@ function PersonaPublishedContent() {
                     variant="secondary"
                     size="sm"
                     leftIcon={<BubbleChatAddIcon size={18} />}
-                    onClick={() => push(AGENT_CHAT_ROUTE(repoId))}
+                    disabled={!personaRepo}
+                    onClick={handleUseAgent}
                   >
                     Use this Agent
                   </Button>

@@ -83,7 +83,7 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
       { heading: 'Creativity Level',     description: 'Controls how varied the responses are. Low = precise and consistent. High = imaginative and varied. 0.5 is a good starting point for most agents.',    isRequired: false, highlightId: 'help-temperature'  },
       { heading: 'Example Conversations',description: 'Add sample exchanges to show the agent exactly how it should respond. Even 2–3 good examples dramatically improve response quality.',                   isRequired: false, highlightId: 'help-examples'     },
       { heading: 'Save Version',         description: 'Creates a named checkpoint of your current instruction, model, and settings. Restore any version at any time from the Versions panel on the right.',   highlightId: 'help-save-version'  },
-      { heading: 'Publish',              description: 'Makes this agent live for your team. Once published, teammates can add it from the library or mention it in any conversation.',                         highlightId: 'help-publish'       },
+      { heading: 'Publish',              description: 'Makes this agent live and ready to use. Once published, you can add it from the library or mention it in any conversation.',                             highlightId: 'help-publish'       },
     ],
   },
   profile: {
@@ -120,7 +120,6 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
   sharing: {
     title: 'Sharing',
     items: [
-      { heading: 'Visibility Level', description: 'Controls who can discover and access this agent — private (only you), team (workspace members), or public (anyone with the link). Set this before sharing.', isRequired: false, highlightId: 'help-sharing-visibility' },
       { heading: 'Super Link',       description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.',                      isRequired: false, highlightId: 'help-sharing-superlink' },
       { heading: 'Credit Limit (for Super Link)', description: 'Caps how many credits each Super Link user can consume. Set a limit to prevent unexpected overuse. Super Link must be enabled first.', isRequired: false, highlightId: 'help-sharing-token'     },
       { heading: 'Email Invite',     description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                                               isRequired: false, highlightId: 'help-sharing-email'     },

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 import { toast } from 'sonner'
@@ -85,7 +84,7 @@ function UsageBar({ percent }: { percent: number }) {
 
 export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
-  const { orgId, org } = useOrg()
+  const { orgId } = useOrg()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
@@ -334,50 +333,11 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       </h1>
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
-      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        <span style={ATTRIBUTE_HEADER_STYLE}>
-          Visibility
-        </span>
-
-        {/* ── 2 cards, same radio-pair pattern as the Muse/Advanced featured cards ── */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <ModelFeaturedCard
-              title="Private"
-              description="Only you can use this agent"
-              selected={visibility === 'private'}
-              onSelectedChange={next => { if (next) handleVisibilitySelect('private') }}
-            />
-          </div>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <ModelFeaturedCard
-              title="Shared"
-              description={orgId ? `Everyone in ${org?.name || 'your workspace'} can use it` : 'Join an organization to share'}
-              selected={visibility === 'team'}
-              onSelectedChange={next => { if (next && orgId) handleVisibilitySelect('team') }}
-              style={{
-                opacity: !orgId ? 0.45 : 1,
-                cursor:  !orgId ? 'not-allowed' : 'pointer',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Save button — primary, full width, disabled until something changes */}
-        <Button
-          variant="default"
-          fluid
-          disabled={visibilitySaving || !repoId || !visibilityChanged || (visibility === 'team' && !orgId)}
-          loading={visibilitySaving}
-          onClick={handleSaveVisibility}
-        >
-          {visibilitySaving ? 'Saving…' : 'Save visibility'}
-        </Button>
-      </div>
-
-      {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
+      {/* Agents are private-only for now — the team/shared visibility toggle is
+          hidden, not removed: `visibility`/`setPersonaVisibility` and everything
+          that reads `.visibility === 'team'` elsewhere stays intact so this can
+          be re-shown later without rebuilding it. See the "hide, don't delete"
+          instruction this was scoped under. */}
 
       {/* ── Super Link ──────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-superlink" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
