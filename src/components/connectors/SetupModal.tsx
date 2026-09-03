@@ -72,6 +72,7 @@ export function SetupModal({
   const flow = useConnectorSetupFlow({
     connectorSlug: summary.slug,
     connectorName: summary.name,
+    connectorProvider: summary.raw.provider,
     orgId,
     onConnected,
   })

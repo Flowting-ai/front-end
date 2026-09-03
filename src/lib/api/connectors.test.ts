@@ -11,6 +11,7 @@ import {
   bustConnectorCatalogCache,
   connectorToolBooleans,
   connectorToolPermission,
+  completeZapierLink,
   listConnectors,
 } from './connectors'
 
@@ -136,5 +137,40 @@ describe('listConnectors', () => {
     expect(entry.accounts).toEqual([])
     expect(entry.account_options).toEqual([])
     expect(entry.api_key_fields).toEqual([])
+    expect(entry.provider).toBe('pipedream')
+  })
+
+  it('parses a Zapier catalog row and completes a Connect UI id', async () => {
+    apiFetchJson.mockResolvedValueOnce({
+      connectors: [{
+        slug:         'slackcliapi',
+        display_name: 'Slack',
+        auth_mode:    'oauth2',
+        provider:     'zapier',
+        description:  'Slack via Zapier.',
+        logo_url:     'https://cdn.zapier.com/slack.png',
+        catalog_metadata: { id: 'SlackCLIAPI', title: 'Slack' },
+        linked:       false,
+      }],
+    })
+
+    const [entry] = await listConnectors()
+    expect(entry.provider).toBe('zapier')
+    expect(entry.catalog_metadata.id).toBe('SlackCLIAPI')
+
+    bustConnectorCatalogCache()
+    apiFetchJson.mockResolvedValueOnce({
+      ...entry,
+      linked: true,
+    })
+    const completed = await completeZapierLink('slackcliapi', 'conn-77')
+    expect(completed.linked).toBe(true)
+    expect(apiFetchJson).toHaveBeenLastCalledWith(
+      expect.stringContaining('/connectors/slackcliapi/complete'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ connection_id: 'conn-77' }),
+      }),
+    )
   })
 })

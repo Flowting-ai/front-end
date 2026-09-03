@@ -7,6 +7,7 @@ import {
   CONNECTORS_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
+  CONNECTOR_COMPLETE_ENDPOINT,
 } from '@/lib/config'
 
 // ── Backend response schemas ──────────────────────────────────────────────────
@@ -112,6 +113,7 @@ const connectorCatalogEntrySchema = z.object({
   slug:                z.string(),
   display_name:        z.string(),
   auth_mode:           z.enum(['oauth2', 'api_key']),
+  provider:            z.enum(['pipedream', 'mcp', 'zapier']).default('pipedream'),
   description:         z.string(),
   /** Provider-hosted brand logo (Pipedream Apps API img_src). Bundled assets
    *  in CONNECTOR_LOGO_MAP take precedence; this covers the long tail. */
@@ -286,6 +288,22 @@ export async function initiateLink(
     ...(hasInit ? { body: JSON.stringify({ init_data: initData }) } : {}),
   })
   return linkResponseSchema.parse(raw)
+}
+
+export async function completeZapierLink(
+  slug: string,
+  connectionId: string,
+  sharedAccountId?: string | null,
+): Promise<ConnectorCatalogEntry> {
+  const raw = await apiFetchJson<unknown>(CONNECTOR_COMPLETE_ENDPOINT(slug), {
+    method: 'POST',
+    body: JSON.stringify({
+      connection_id: connectionId,
+      ...(sharedAccountId ? { shared_account_id: sharedAccountId } : {}),
+    }),
+  })
+  bustConnectorCatalogCache()
+  return connectorCatalogEntrySchema.parse(raw)
 }
 
 export async function updateConnector(

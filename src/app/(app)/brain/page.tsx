@@ -54,6 +54,7 @@ import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
 import {
   initiateLink,
+  completeZapierLink,
   listConnectors,
   pollConnectorUntilActive,
   getConnector,
@@ -62,6 +63,7 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
+import { isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
 import { toast } from 'sonner'
 import {
   startBrainChat,
@@ -629,8 +631,17 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
       // undefined for plain OAuth.
       const { redirect_url } = await initiateLink(event.connector_slug, initData)
-      if (redirect_url) window.open(redirect_url, '_blank', 'noopener')
-      await pollConnectorUntilActive(event.connector_slug)
+      const popup = redirect_url
+        ? window.open(redirect_url, '_blank', 'width=900,height=700')
+        : null
+      if (redirect_url && isZapierProviderConnector(null, redirect_url)) {
+        const connectionId = await waitForZapierAuthId()
+        await completeZapierLink(event.connector_slug, connectionId)
+        popup?.close()
+      } else {
+        await pollConnectorUntilActive(event.connector_slug)
+        popup?.close()
+      }
       if (abortedRef.current) return
       setDone(true)
       onConnected?.(event.connector_slug)

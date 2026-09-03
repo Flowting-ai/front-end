@@ -848,6 +848,7 @@ export function useStreamingChat({
               connector_slug:  asString(parsed.connector_slug) ?? "",
               display_name:    asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
               auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
+              provider:        (['pipedream', 'mcp', 'zapier'] as const).find(value => value === parsed.provider),
               tool_name:       asString(parsed.tool_slug) ?? "",
               api_key_fields:  apiKeyFields,
               icon_url:        asString(parsed.icon_url),

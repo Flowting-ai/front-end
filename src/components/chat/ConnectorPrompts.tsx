@@ -7,13 +7,14 @@ import type { ConnectorConnectPrompt } from '@/hooks/use-chat-state'
 import {
   getConnector,
   initiateLink,
+  completeZapierLink,
   updateConnector,
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isMcpProviderConnector } from '@/lib/connectorProvider'
+import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     // Native MCP connectors: the backend's OAuth callback redirects back to
     // our own app domain on success/failure, so this must navigate the
     // current tab rather than a popup. No popup to pre-open in that case.
-    const isMcp = isMcpProviderConnector(prompt.connector_slug)
+    const isMcp = isMcpProviderConnector(prompt.connector_slug, prompt.provider)
 
     // Open WITHOUT noopener/noreferrer so we can navigate popup.location after
     // getting the redirect URL. noopener leaves the popup stuck at about:blank
@@ -176,6 +177,9 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
           window.open(link.redirect_url, '_blank')
         }
         setState('polling')
+        if (isZapierProviderConnector(prompt.provider, link.redirect_url)) {
+          return waitForZapierAuthId().then(id => completeZapierLink(prompt.connector_slug, id))
+        }
         return pollConnectorUntilActive(prompt.connector_slug)
       })
       .then((entry) => {

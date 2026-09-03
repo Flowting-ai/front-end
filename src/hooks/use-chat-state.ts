@@ -20,6 +20,7 @@ export interface ConnectorConnectPrompt {
   connector_slug:  string
   display_name:    string
   auth_mode:       'oauth2' | 'api_key'
+  provider?:       'pipedream' | 'mcp' | 'zapier'
   tool_name:       string
   /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */
   api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]

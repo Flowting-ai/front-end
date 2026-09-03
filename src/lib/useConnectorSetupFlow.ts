@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import {
+  completeZapierLink,
   initiateLink,
   updateConnector,
   unlinkConnector,
@@ -23,7 +24,7 @@ import {
   deleteOrgConnectorAccount,
   pollOrgConnectorAccountUntilConnected,
 } from '@/lib/api/org-connectors'
-import { isMcpProviderConnector } from '@/lib/connectorProvider'
+import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
 import type { AccountVisibility } from '@/lib/connectorsUnified'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
@@ -38,11 +39,12 @@ export interface SetupFlowResult {
 interface UseConnectorSetupFlowArgs {
   connectorSlug: string
   connectorName: string
+  connectorProvider?: string | null
   orgId: string | null
   onConnected: (result: SetupFlowResult) => void
 }
 
-export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onConnected }: UseConnectorSetupFlowArgs) {
+export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorProvider, orgId, onConnected }: UseConnectorSetupFlowArgs) {
   const [state, setState] = useState<SetupState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const abortedRef = useRef(false)
@@ -61,7 +63,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
   }, [])
 
   const connectPrivate = useCallback((initData?: Record<string, string>) => {
-    const isMcp = isMcpProviderConnector(connectorSlug)
+    const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
     // Opened without noopener deliberately — noopener leaves the popup stuck
     // at about:blank in some browsers once we later assign popup.location.
     const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
@@ -91,6 +93,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
         pollAbortRef.current = new AbortController()
         const { signal } = pollAbortRef.current
         let settled = false
+        const hosted = isZapierProviderConnector(connectorProvider, url)
 
         const finish = (entry: ConnectorCatalogEntry) => {
           if (settled || abortedRef.current) return
@@ -105,11 +108,19 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
         // success screen often stays open after the account is actually
         // linked. Abort the long poll and run a short grace-window poll
         // first; only report "cancelled" if that still comes back empty.
+        // Zapier never flips `linked` until we POST /complete with the
+        // postMessage id, so a closed popup is cancellation.
         const closedCheck = setInterval(() => {
           if (!popup?.closed || settled) return
           clearInterval(closedCheck)
           if (abortedRef.current) return
           pollAbortRef.current?.abort()
+          if (hosted) {
+            settled = true
+            setState('idle')
+            toast.info(`${connectorName} connection cancelled`)
+            return
+          }
           pollAbortRef.current = new AbortController()
           pollConnectorUntilActive(connectorSlug, {
             signal: pollAbortRef.current.signal,
@@ -127,7 +138,11 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
             })
         }, 1_000)
 
-        return pollConnectorUntilActive(connectorSlug, { signal }).then(entry => {
+        const pending = hosted
+          ? waitForZapierAuthId(signal).then(id => completeZapierLink(connectorSlug, id))
+          : pollConnectorUntilActive(connectorSlug, { signal })
+
+        return pending.then(entry => {
           clearInterval(closedCheck)
           if (entry) finish(entry)
         }).catch((err: unknown) => {
@@ -163,7 +178,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
         setErrorMsg(msg)
         toast.error(msg)
       })
-  }, [connectorSlug, connectorName, onConnected])
+  }, [connectorSlug, connectorName, connectorProvider, onConnected])
 
   const submitApiKeyPrivate = useCallback((values: Record<string, string>) => {
     setState('submitting')
@@ -205,7 +220,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
         }
 
         if (res.redirectUrl) {
-          const isMcp = isMcpProviderConnector(connectorSlug)
+          const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
           if (isMcp) {
             window.location.href = res.redirectUrl
             return
@@ -215,7 +230,14 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
           else window.open(res.redirectUrl, '_blank', 'noopener')
           setState('polling')
           try {
-            await pollOrgConnectorAccountUntilConnected(orgId, connectorSlug, res.sharedAccountId)
+            if (isZapierProviderConnector(connectorProvider, res.redirectUrl)) {
+              pollAbortRef.current?.abort()
+              pollAbortRef.current = new AbortController()
+              const connectionId = await waitForZapierAuthId(pollAbortRef.current.signal)
+              await completeZapierLink(connectorSlug, connectionId, res.sharedAccountId)
+            } else {
+              await pollOrgConnectorAccountUntilConnected(orgId, connectorSlug, res.sharedAccountId)
+            }
             popup?.close()
           } catch {
             popup?.close()
@@ -239,7 +261,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, orgId, onC
         setErrorMsg(msg)
         toast.error(msg)
       })
-  }, [orgId, connectorSlug, onConnected])
+  }, [orgId, connectorSlug, connectorProvider, onConnected])
 
   const disconnectPrivate = useCallback(async () => {
     await unlinkConnector(connectorSlug)
