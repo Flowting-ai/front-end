@@ -166,7 +166,7 @@ function RoleDropdown({
   const [open, setOpen] = useState(false)
   const [confirmDowngrade, setConfirmDowngrade] = useState(false)
   const [saving, setSaving] = useState(false)
-  const currentRole: 'admin' | 'member' = member.orgRole === 'admin' ? 'admin' : 'member'
+  const currentRole: 'admin' | 'member' = displayRoleFor(member)
   const memberName = member.name || member.email
 
   const commit = async (next: 'admin' | 'member') => {
@@ -461,7 +461,7 @@ function MembersTable({
                   {canManageRole ? (
                     <RoleDropdown member={member} onManageRole={onManageRole} />
                   ) : (
-                    <Badge label={ROLE_LABEL[member.orgRole === 'admin' ? 'admin' : 'member']} color="Neutral" />
+                    <Badge label={ROLE_LABEL[displayRoleFor(member)]} color="Neutral" />
                   )}
                 </SettingsTableCell>
 
@@ -886,9 +886,11 @@ function MembersPageSkeleton() {
 
 // Team has no backend route left at all, so a member's role is always just
 // the org-level admin/member value — never a team-derived 'editor'. A
-// 'service' row (machine principal) also displays as plain Member.
+// 'service' row (machine principal) also displays as plain Member. 'owner'
+// folds into 'admin' — same fold the backend applies to the viewer's own
+// role; there's no separate Owner tier in the UI.
 function displayRoleFor(member: OrgMember): WorkspaceRole {
-  return member.orgRole === 'admin' ? 'admin' : 'member'
+  return (member.orgRole === 'admin' || member.orgRole === 'owner') ? 'admin' : 'member'
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -978,7 +980,7 @@ export default function OrgMembersPage() {
   )
 
   const totalMembers   = members.length
-  const adminCount     = members.filter(m => m.orgRole === 'admin').length
+  const adminCount     = members.filter(m => displayRoleFor(m) === 'admin').length
   const pendingInvites = members.filter(m => m.inviteStatus === 'invite_sent').length
 
   // Applies the Manage-role modal's result: a plain org-level Admin/Member
@@ -996,7 +998,11 @@ export default function OrgMembersPage() {
     const prev = members
 
     try {
-      if (desiredOrgRole !== member.orgRole) {
+      // Compare against the *displayed* role, not the raw one — an 'owner'
+      // member already displays (and behaves) as Admin, so picking "Admin"
+      // for them shouldn't fire a write that would demote them off the
+      // owner role.
+      if (desiredOrgRole !== displayRoleFor(member)) {
         await setMemberRole(orgId, memberId, desiredOrgRole)
       }
       bumpMembers(ms => ms.map(m => m.id === memberId ? { ...m, role: desiredOrgRole, orgRole: desiredOrgRole } : m))

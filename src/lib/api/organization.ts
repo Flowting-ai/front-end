@@ -31,8 +31,19 @@ interface OrganizationResponse {
   description: string
   logoUrl: string | null
   archived: boolean
-  myRole: OrgRole | null
+  // 'owner' is a real value here (the org's creator) — not just 'admin'/'member'
+  // as OrgRole claims. There's no separate Owner capability tier anywhere in
+  // the UI (admin already has full billing/org authority), so it's folded
+  // into 'admin' at the boundary via foldOwnerRole() below rather than
+  // leaking a third value into every OrgRole-typed consumer (org-context's
+  // orgRole/currentUserRole, LeftSidebar, SettingsSidebar, roles.ts...),
+  // which all silently read an unrecognized 'owner' as "not admin".
+  myRole: OrgRole | 'owner' | null
   planType: 'teams' | 'enterprise' | null
+}
+
+function foldOwnerRole(role: OrgRole | 'owner' | null): OrgRole | null {
+  return role === 'owner' ? 'admin' : role
 }
 
 interface OrganizationSettingsResponse {
@@ -63,7 +74,10 @@ const memberResponseSchema = z.object({
   userId:           z.string(),
   name:             z.string().nullable().default(null),
   email:            z.string().nullable().default(null),
-  role:             z.enum(['admin', 'member', 'service']),
+  // 'owner' is a real value on the /members and plan-bundled-members responses
+  // (see the listMembers doc comment below) — it was missing here, which made
+  // any org with an owner-tier member throw a hard ZodError out of getOrgPlan.
+  role:             z.enum(['admin', 'member', 'service', 'owner']),
   usageTotal:       z.number().nullable().transform(v => v ?? 0),
   inviteStatus:     z.enum(['active', 'pending']),
   inviteId:         z.string().nullable().default(null),
@@ -147,7 +161,10 @@ function normalizeMember(m: MemberResponse): OrgMember {
   // (Team and per-member caps are gone) — 'editor' and a real allocation/cap
   // were only ever reachable through those fields, so they're hardcoded to
   // their empty state below rather than parsed from data that doesn't exist.
-  const role = m.role === 'admin' ? 'admin' : 'member'
+  // Owner folds into 'admin' for the UI role control — same fold the backend
+  // applies to the viewer's own role (services/organizations/roles.py), just
+  // not (yet) applied to other members' raw role on this list.
+  const role = (m.role === 'admin' || m.role === 'owner') ? 'admin' : 'member'
   const inviteStatus = m.inviteStatus === 'pending' ? 'invite_sent' : 'signed_up'
   return {
     id:              m.userId,
@@ -246,7 +263,7 @@ export async function createOrganization(params: {
     method: 'POST',
     body:   JSON.stringify(body),
   })
-  return { id: data.id, name: data.name, slug: data.slug, role: data.myRole ?? 'admin' }
+  return { id: data.id, name: data.name, slug: data.slug, role: foldOwnerRole(data.myRole) ?? 'admin' }
 }
 
 /**
@@ -260,7 +277,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
     id:   o.id,
     name: o.name,
     slug: o.slug,
-    role: o.myRole ?? 'member',
+    role: foldOwnerRole(o.myRole) ?? 'member',
   }))
 }
 
@@ -272,7 +289,7 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     slug:        data.slug,
     description: data.description,
     logoUrl:     data.logoUrl,
-    role:        data.myRole,
+    role:        foldOwnerRole(data.myRole),
     planType:    data.planType === 'enterprise' ? 'enterprise' : 'teams',
   }
 }
