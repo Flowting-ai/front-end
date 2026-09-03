@@ -63,7 +63,7 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
+import { isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 import { toast } from 'sonner'
 import {
   startBrainChat,
@@ -631,10 +631,12 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
       // undefined for plain OAuth.
       const { redirect_url } = await initiateLink(event.connector_slug, initData)
-      const popup = redirect_url
-        ? window.open(redirect_url, '_blank', 'width=900,height=700')
+      const hosted = Boolean(redirect_url && isZapierProviderConnector(null, redirect_url))
+      const openUrl = hosted && redirect_url ? zapierConnectHref(redirect_url) : redirect_url
+      const popup = openUrl
+        ? window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'width=900,height=700')
         : null
-      if (redirect_url && isZapierProviderConnector(null, redirect_url)) {
+      if (hosted) {
         const connectionId = await waitForZapierAuthId()
         await completeZapierLink(event.connector_slug, connectionId)
         popup?.close()

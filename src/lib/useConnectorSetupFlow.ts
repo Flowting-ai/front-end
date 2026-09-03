@@ -24,7 +24,7 @@ import {
   deleteOrgConnectorAccount,
   pollOrgConnectorAccountUntilConnected,
 } from '@/lib/api/org-connectors'
-import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
+import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 import type { AccountVisibility } from '@/lib/connectorsUnified'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
@@ -85,15 +85,16 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           window.location.href = url
           return
         }
-        if (popup && !popup.closed) popup.location.href = url
-        else window.open(url, '_blank')
+        const hosted = isZapierProviderConnector(connectorProvider, url)
+        const openUrl = hosted ? zapierConnectHref(url) : url
+        if (popup && !popup.closed) popup.location.href = openUrl
+        else window.open(openUrl, hosted ? 'zapier-connect' : '_blank')
         setState('polling')
 
         pollAbortRef.current?.abort()
         pollAbortRef.current = new AbortController()
         const { signal } = pollAbortRef.current
         let settled = false
-        const hosted = isZapierProviderConnector(connectorProvider, url)
 
         const finish = (entry: ConnectorCatalogEntry) => {
           if (settled || abortedRef.current) return
@@ -225,9 +226,11 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
             window.location.href = res.redirectUrl
             return
           }
+          const hosted = isZapierProviderConnector(connectorProvider, res.redirectUrl)
+          const openUrl = hosted ? zapierConnectHref(res.redirectUrl) : res.redirectUrl
           const popup = window.open('', '_blank', 'width=900,height=700')
-          if (popup && !popup.closed) popup.location.href = res.redirectUrl
-          else window.open(res.redirectUrl, '_blank', 'noopener')
+          if (popup && !popup.closed) popup.location.href = openUrl
+          else window.open(openUrl, hosted ? 'zapier-connect' : '_blank')
           setState('polling')
           try {
             if (isZapierProviderConnector(connectorProvider, res.redirectUrl)) {

@@ -47,6 +47,22 @@ export function isZapierConnectUrl(url: string | null | undefined): boolean {
   }
 }
 
+/** Encode the connect token so Zapier receives the bytes we were issued.
+ *
+ *  Live tokens are `$AESGCM$…` and include `+`, `/`, `=`. A raw `+` in the
+ *  query string is a space, which Zapier rejects as an invalid token.
+ */
+export function zapierConnectHref(url: string): string {
+  const marker = '?token='
+  const idx = url.indexOf(marker)
+  if (idx === -1) return url
+  const raw = url.slice(idx + marker.length)
+  if (raw.includes('%')) return url
+  const parsed = new URL(url.slice(0, idx))
+  parsed.searchParams.set('token', raw)
+  return parsed.toString()
+}
+
 /** Wait for Connect UI to post the new connection id back to this window. */
 export function waitForZapierAuthId(signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -5,6 +5,7 @@ import {
   isZapierConnectUrl,
   isZapierProviderConnector,
   waitForZapierAuthId,
+  zapierConnectHref,
 } from './connectorProvider'
 
 describe('isMcpProviderConnector', () => {
@@ -30,6 +31,21 @@ describe('isZapierProviderConnector', () => {
     expect(isZapierConnectUrl('https://connect.zapier.com/to/SlackCLIAPI?token=x')).toBe(true)
     expect(isZapierConnectUrl('https://pipedream.com/connect')).toBe(false)
     expect(isZapierProviderConnector(undefined, 'https://connect.zapier.com/to/SlackCLIAPI')).toBe(true)
+  })
+})
+
+describe('zapierConnectHref', () => {
+  it('encodes AESGCM token bytes so + is not a space', () => {
+    const href = zapierConnectHref(
+      'https://connect.zapier.com/to/GoogleSheetsV2CLIAPI?token=$AESGCM$abc+def/ghi=',
+    )
+    expect(href).toContain('token=%24AESGCM%24abc%2Bdef%2Fghi%3D')
+    expect(href).not.toContain('+def')
+  })
+
+  it('leaves an already-encoded token alone', () => {
+    const url = 'https://connect.zapier.com/to/SlackCLIAPI?token=%24AESGCM%24abc%2Bdef'
+    expect(zapierConnectHref(url)).toBe(url)
   })
 })
 

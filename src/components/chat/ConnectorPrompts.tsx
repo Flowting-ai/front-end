@@ -14,7 +14,7 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId } from '@/lib/connectorProvider'
+import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -170,11 +170,14 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
           window.location.href = link.redirect_url
           return
         }
+        const openUrl = isZapierProviderConnector(prompt.provider, link.redirect_url)
+          ? zapierConnectHref(link.redirect_url)
+          : link.redirect_url
         if (popup && !popup.closed) {
-          popup.location.href = link.redirect_url
+          popup.location.href = openUrl
         } else {
           // Popup was blocked — fall back to a new tab
-          window.open(link.redirect_url, '_blank')
+          window.open(openUrl, '_blank')
         }
         setState('polling')
         if (isZapierProviderConnector(prompt.provider, link.redirect_url)) {
