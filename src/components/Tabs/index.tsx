@@ -58,6 +58,11 @@ export interface TabsTriggerProps
   extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> {
   /** Optional 16×16 icon rendered to the left of the label */
   icon?: React.ReactNode
+  /**
+   * Injected by an outer Slot-based wrapper (e.g. a Radix TooltipTrigger with
+   * asChild) — never by a caller. Dropped rather than forwarded; see TabsTrigger.
+   */
+  'data-state'?: string
 }
 
 export interface TabsContentProps
@@ -477,12 +482,19 @@ export function TabsTrigger({
   children,
   icon,
   className,
+  'data-state': outerDataState,
   ...props
 }: TabsTriggerProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Trigger>> }) {
   const size       = use(TabsSizeContext)
   const isFluid    = use(TabsFluidContext)
   const isCollapse = use(TabsCollapseContext)
   const maxLabelW  = use(TabsMaxLabelContext)
+  // Wrapping a trigger in a Tooltip clones this element with the tooltip's own
+  // data-state ('closed' / 'delayed-open'). Radix Tabs spreads incoming props
+  // *after* its own data-state, so forwarding it clobbers 'active' - TabsList
+  // then finds no active trigger, the pill never renders and the tab reads as
+  // unselected. Swallow it here; nothing downstream needs the tooltip's state.
+  void outerDataState
   return (
     // asChild makes Radix use Slot - it merges data-state, aria-selected, role="tab"
     // etc. onto TabItem, which reads data-state to derive its selected visual state.
