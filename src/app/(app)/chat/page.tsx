@@ -243,7 +243,7 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { push, replace } = useRouter();
-  const { org, orgId, orgReady } = useOrg();
+  const { org, orgId, orgReady, orgPlanSettled } = useOrg();
   const { user } = useAuth();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
@@ -261,6 +261,11 @@ function ChatPageInner() {
   useEffect(() => {
     if (noPlanToastShown.current || !orgReady) return;
     if (orgId != null) {
+      // org.monthlyPrice/org.plan only reflect the real tier once the plan
+      // (credit pool) fetch has settled — orgReady flips true as soon as the
+      // role fetch resolves, which can land first and leave monthlyPrice at
+      // its 0 default, firing this toast for an org that does have a plan.
+      if (!orgPlanSettled) return;
       if (org.plan === 'enterprise' || (org.monthlyPrice ?? 0) > 0) return;
       noPlanToastShown.current = true;
       toast.info("Your workspace doesn't have a plan yet — pick one to get started.", { duration: Infinity });
@@ -269,7 +274,7 @@ function ChatPageInner() {
       noPlanToastShown.current = true;
       toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity });
     }
-  }, [orgReady, orgId, org.plan, org.monthlyPrice, user]);
+  }, [orgReady, orgId, orgPlanSettled, org.plan, org.monthlyPrice, user]);
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
