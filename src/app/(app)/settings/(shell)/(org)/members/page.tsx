@@ -156,12 +156,22 @@ function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: bo
 // routes through the same downgrade confirmation the old modal had. Any admin
 // can promote/demote any other member — the backend itself is the only real
 // gate (rejects dropping the org below one admin).
+//
+// One client-side exception: the sole remaining admin can't open this for
+// their OWN row at all. The backend would reject the write anyway, but
+// letting them open the menu, pick "Member", confirm the downgrade modal,
+// and only then get bounced by a network error is a worse way to learn the
+// same thing — so this is blocked before the menu even opens, with a toast
+// explaining why.
 function RoleDropdown({
   member,
   onManageRole,
+  lockSelfDemotion = false,
 }: {
-  member:       OrgMember
-  onManageRole: (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
+  member:            OrgMember
+  onManageRole:      (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
+  /** True only for the current user's own row when they're the org's only admin. */
+  lockSelfDemotion?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [confirmDowngrade, setConfirmDowngrade] = useState(false)
@@ -179,9 +189,17 @@ function RoleDropdown({
   const options: { value: 'admin' | 'member'; label: string }[] =
     [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }]
 
+  const handleOpenChange = (next: boolean) => {
+    if (next && lockSelfDemotion) {
+      toast.info("You're the only admin — promote someone else before changing your own role.")
+      return
+    }
+    setOpen(next)
+  }
+
   return (
     <>
-      <DropdownFloat open={open} onOpenChange={setOpen} placement="bottom-start" offset={4} trigger={
+      <DropdownFloat open={open} onOpenChange={handleOpenChange} placement="bottom-start" offset={4} trigger={
         <RoleDropdownTrigger label={ROLE_LABEL[currentRole]} disabled={saving} />
       }>
         <Dropdown style={{ width: 140 }}>
@@ -292,6 +310,7 @@ const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) minmax(320px, 1.5fr) 150
 function MembersTable({
   members,
   isAdmin,
+  currentUserEmail,
   loading,
   onManageRole,
   onRemove,
@@ -300,12 +319,15 @@ function MembersTable({
 }: {
   members:              OrgMember[]
   isAdmin:              boolean
+  /** Current user's email — used only to spot their own row for the sole-admin lock below. */
+  currentUserEmail?:    string | null
   loading?:             boolean
   onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
 }) {
+  const adminCount = members.filter(m => displayRoleFor(m) === 'admin').length
   const [searchQuery,   setSearchQuery]   = useState('')
   // Search starts collapsed to an icon button — matches the Pinboard panel's
   // search affordance (PinboardHeader): click to expand, an embedded icon
@@ -429,9 +451,14 @@ function MembersTable({
             // Any admin can manage/remove any other member, admin or not —
             // the backend itself rejects an action that would drop the org
             // below one admin, so no client-side "protect one special member"
-            // logic is needed here.
+            // logic is needed here — EXCEPT for the sole admin's own row,
+            // where we block it client-side too (see lockSelfDemotion below);
+            // letting them open the menu and get rejected by the network
+            // after confirming is worse than not opening it at all.
             const canManageRole = isAdmin && member.inviteStatus !== 'invite_sent'
             const canRemove = isAdmin && member.inviteStatus !== 'invite_sent'
+            const isSelf = !!currentUserEmail && member.email === currentUserEmail
+            const lockSelfDemotion = isSelf && displayRoleFor(member) === 'admin' && adminCount <= 1
 
             return (
               <SettingsTableRow
@@ -459,7 +486,7 @@ function MembersTable({
 
                 <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
                   {canManageRole ? (
-                    <RoleDropdown member={member} onManageRole={onManageRole} />
+                    <RoleDropdown member={member} onManageRole={onManageRole} lockSelfDemotion={lockSelfDemotion} />
                   ) : (
                     <Badge label={ROLE_LABEL[displayRoleFor(member)]} color="Neutral" />
                   )}
@@ -1190,6 +1217,7 @@ export default function OrgMembersPage() {
         <MembersTable
           members={displayMembers}
           isAdmin={isAdmin}
+          currentUserEmail={user?.email}
           loading={membersLoading}
           onManageRole={(id, desiredOrgRole) => handleManageRole(id, desiredOrgRole)}
           onRemove={handleRemove}
