@@ -9,32 +9,111 @@ vi.mock('./client', async importOriginal => {
 
 import {
   bustConnectorCatalogCache,
-  connectorToolBooleans,
-  connectorToolPermission,
   completeZapierLink,
+  ConnectorCatalog,
   listConnectors,
 } from './connectors'
 
+const GMAIL_LIST = {
+  slug: 'gmail',
+  display_name: 'Gmail',
+  auth_mode: 'oauth2',
+  provider: 'pipedream',
+  description: 'Send and read mail.',
+  logo_url: 'https://cdn.example.com/gmail.png',
+  categories: ['Communication'],
+  catalog_metadata: { name_slug: 'gmail', featured_weight: 12 },
+  tools: [],
+  api_key_fields: [],
+  linked: true,
+  connections: [
+    {
+      id: '2b0b8f8e-0000-4000-8000-000000000002',
+      nickname: 'Personal Gmail',
+      scope: 'personal',
+      connector_slug: 'gmail',
+      account_identifier: 'me@example.com',
+      connected: true,
+      status: 'active',
+      version: 1,
+      linked_by_user_id: null,
+      created_at: '2026-06-18T00:00:00Z',
+      updated_at: '2026-06-18T00:00:00Z',
+    },
+    {
+      id: '2b0b8f8e-0000-4000-8000-000000000001',
+      nickname: 'Marketing Gmail',
+      scope: 'shared',
+      connector_slug: 'gmail',
+      account_identifier: 'marketing@example.com',
+      connected: true,
+      status: 'active',
+      version: 1,
+      linked_by_user_id: 'auth0|editor',
+      created_at: '2026-06-18T00:00:00Z',
+      updated_at: '2026-06-18T00:00:00Z',
+    },
+  ],
+}
 
-describe('connectorToolPermission', () => {
-  it('preserves the backend boolean truth table', () => {
-    expect(connectorToolPermission({ allowed: true, blocked: false })).toBe('allowed')
-    expect(connectorToolPermission({ allowed: false, blocked: true })).toBe('blocked')
-    expect(connectorToolPermission({ allowed: false, blocked: false })).toBe('ask')
+const GMAIL_DETAIL = {
+  ...GMAIL_LIST,
+  tools: [
+    {
+      key: 'gmail-find-email',
+      name: 'Find Email',
+      description: 'Search the mailbox.',
+      read_only: true,
+      permission: 'ask',
+    },
+    {
+      key: 'gmail-send-email',
+      name: 'Send Email',
+      description: 'Send a message.',
+      read_only: false,
+      permission: 'allowed',
+    },
+  ],
+}
+
+describe('ConnectorCatalog', () => {
+  it('parses a ds-dev member catalog with private and shared connections', () => {
+    const entry = ConnectorCatalog.parse(GMAIL_LIST)
+
+    expect(entry.slug).toBe('gmail')
+    expect(entry.description).toBe('Send and read mail.')
+    expect(entry.linked).toBe(true)
+    expect(entry.connections.map(row => row.visibility)).toEqual(['private', 'shared'])
+    expect(entry.privateConnections[0].nickname).toBe('Personal Gmail')
+    expect(entry.sharedConnections[0].nickname).toBe('Marketing Gmail')
+    expect(entry.sharedConnections[0].email).toBe('marketing@example.com')
+    expect(entry.tools).toEqual([])
   })
 
-  it('keeps blocked as the winning state', () => {
-    expect(connectorToolPermission({ allowed: true, blocked: true, permission: 'allowed' })).toBe('blocked')
+  it('uses backend tool name, description, and read_only grouping', () => {
+    const entry = ConnectorCatalog.parse(GMAIL_DETAIL)
+    expect(entry.tools.map(tool => tool.key)).toEqual(['gmail-find-email', 'gmail-send-email'])
+    expect(entry.tools[0].name).toBe('Find Email')
+    expect(entry.tools[0].description).toBe('Search the mailbox.')
+    expect(entry.tools[0].group).toBe('read-only')
+    expect(entry.tools[1].group).toBe('write')
+    expect(entry.tools[1].permissionMode).toBe('always')
+    expect(entry.permissionSummary).toBe('custom')
   })
 
-  it('uses the response projection for a legacy shape without booleans', () => {
-    expect(connectorToolPermission({ permission: 'allowed' })).toBe('allowed')
-  })
-
-  it('maps editable states back to the binary API shape', () => {
-    expect(connectorToolBooleans('allowed')).toEqual({ allowed: true, blocked: false })
-    expect(connectorToolBooleans('ask')).toEqual({ allowed: false, blocked: false })
-    expect(connectorToolBooleans('blocked')).toEqual({ allowed: false, blocked: true })
+  it('parses a bare connector with no connections', () => {
+    const entry = ConnectorCatalog.parse({
+      slug: 'notion',
+      display_name: 'Notion',
+      auth_mode: 'oauth2',
+      provider: 'pipedream',
+      description: 'Read and write pages.',
+      linked: false,
+    })
+    expect(entry.linked).toBe(false)
+    expect(entry.connections).toEqual([])
+    expect(entry.apiKeyFields).toEqual([])
+    expect(entry.provider).toBe('pipedream')
   })
 })
 
@@ -44,124 +123,48 @@ describe('listConnectors', () => {
     bustConnectorCatalogCache()
   })
 
-  // GET /connectors as services/connectors/schemas.py actually serializes it
-  // for an org member holding both a personal and a shared account.
-  // AccountScope is Literal["personal", "shared"] (Workspace Model v2 — Team
-  // removed, connections are workspace-wide with no smaller scope).
-  it('parses a member catalog carrying a shared account', async () => {
-    apiFetchJson.mockResolvedValue({
-      connectors: [{
-        slug:               'gmail',
-        display_name:       'Gmail',
-        auth_mode:          'oauth2',
-        description:        'Send and read mail.',
-        logo_url:           'https://cdn.example.com/gmail.png',
-        categories:         ['Communication'],
-        catalog_metadata:   { name_slug: 'gmail' },
-        tools:              [{ slug: 'GMAIL_SEND_EMAIL', allowed: true, blocked: false, permission: 'allowed' }],
-        api_key_fields:     [],
-        linked:             true,
-        workspace_linked:   true,
-        workspace_linked_by: 'auth0|editor',
-        shared_account_id:  '2b0b8f8e-0000-4000-8000-000000000001',
-        account_label:      'Marketing Gmail',
-        account_identifier: 'marketing@example.com',
-        accounts: [{
-          id:                 '2b0b8f8e-0000-4000-8000-000000000001',
-          organization_id:    '2b0b8f8e-0000-4000-8000-0000000000ff',
-          connector_slug:     'gmail',
-          account_label:      'Marketing Gmail',
-          account_identifier: 'marketing@example.com',
-          connected:          true,
-          scope:              'shared',
-          status:             'active',
-          version:            1,
-          linked_by_user_id:  'auth0|editor',
-          created_at:         '2026-06-18T00:00:00Z',
-          updated_at:         '2026-06-18T00:00:00Z',
-        }],
-        account_options: [
-          {
-            connector_slug:      'gmail',
-            scope:               'personal',
-            account_label:       'Personal Gmail',
-            account_identifier:  null,
-            provider_account_id: 'ca_personal',
-            connected:           true,
-            status:              'active',
-            authorized_scopes:   ['https://www.googleapis.com/auth/gmail.send'],
-            can_manage:          true,
-          },
-          {
-            connector_slug:      'gmail',
-            scope:               'shared',
-            account_label:       'Marketing Gmail',
-            account_identifier:  'marketing@example.com',
-            provider_account_id: 'ca_shared',
-            connected:           true,
-            status:              'active',
-            authorized_scopes:   ['https://www.googleapis.com/auth/gmail.modify'],
-            shared_account_id:   '2b0b8f8e-0000-4000-8000-000000000001',
-            linked_by_user_id:   'auth0|editor',
-            can_manage:          false,
-          },
-        ],
-      }],
-    })
-
+  it('parses GET /connectors from ds-dev', async () => {
+    apiFetchJson.mockResolvedValue({ connectors: [GMAIL_LIST] })
     const [entry] = await listConnectors()
-
-    expect(entry.slug).toBe('gmail')
-    expect(entry.tools[0].permission).toBe('allowed')
-    expect(entry.account_options.map(option => option.scope)).toEqual(['personal', 'shared'])
-    expect(entry.account_options[1].provider_account_id).toBe('ca_shared')
-    // Absent on the personal option; the schema fills the backend's own defaults.
-    expect(entry.account_options[0].shared_account_id).toBeNull()
-  })
-
-  it('parses a bare connector with no accounts of either kind', async () => {
-    apiFetchJson.mockResolvedValue({
-      connectors: [{
-        slug:         'notion',
-        display_name: 'Notion',
-        auth_mode:    'oauth2',
-        description:  'Read and write pages.',
-        linked:       false,
-      }],
-    })
-
-    const [entry] = await listConnectors()
-
-    expect(entry.linked).toBe(false)
-    expect(entry.workspace_linked).toBe(false)
-    expect(entry.accounts).toEqual([])
-    expect(entry.account_options).toEqual([])
-    expect(entry.api_key_fields).toEqual([])
-    expect(entry.provider).toBe('pipedream')
+    expect(entry).toBeInstanceOf(ConnectorCatalog)
+    expect(entry.connections.map(row => row.scope)).toEqual(['personal', 'shared'])
   })
 
   it('parses a Zapier catalog row and completes a Connect UI id', async () => {
     apiFetchJson.mockResolvedValueOnce({
       connectors: [{
-        slug:         'slackcliapi',
+        slug: 'slackcliapi',
         display_name: 'Slack',
-        auth_mode:    'oauth2',
-        provider:     'zapier',
-        description:  'Slack via Zapier.',
-        logo_url:     'https://cdn.zapier.com/slack.png',
+        auth_mode: 'oauth2',
+        provider: 'zapier',
+        description: 'Slack via Zapier.',
+        logo_url: 'https://cdn.zapier.com/slack.png',
         catalog_metadata: { id: 'SlackCLIAPI', title: 'Slack' },
-        linked:       false,
+        linked: false,
       }],
     })
 
     const [entry] = await listConnectors()
     expect(entry.provider).toBe('zapier')
-    expect(entry.catalog_metadata.id).toBe('SlackCLIAPI')
+    expect(entry.catalogMetadata.id).toBe('SlackCLIAPI')
 
     bustConnectorCatalogCache()
     apiFetchJson.mockResolvedValueOnce({
-      ...entry,
+      slug: 'slackcliapi',
+      display_name: 'Slack',
+      auth_mode: 'oauth2',
+      provider: 'zapier',
+      description: 'Slack via Zapier.',
       linked: true,
+      connections: [{
+        id: '2b0b8f8e-0000-4000-8000-000000000077',
+        nickname: 'Slack',
+        scope: 'personal',
+        connector_slug: 'slackcliapi',
+        connected: true,
+        created_at: '2026-06-18T00:00:00Z',
+        updated_at: '2026-06-18T00:00:00Z',
+      }],
     })
     const completed = await completeZapierLink('slackcliapi', 'conn-77')
     expect(completed.linked).toBe(true)

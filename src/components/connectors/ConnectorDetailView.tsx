@@ -13,7 +13,7 @@ import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { AccountRow } from '@/components/AccountRow'
 import { Button } from '@/components/Button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
-import type { UnifiedAccount, UnifiedConnectorSummary } from '@/lib/connectorsUnified'
+import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
 import { ConnectorsShell } from './ConnectionsView'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
@@ -33,21 +33,21 @@ function Back({ onClick, children }: { onClick: () => void; children: React.Reac
 // to its own tinted panel with Reconnect as its only action, then the healthy
 // accounts split by visibility. Empty groups render nothing. Ported from the
 // story's Figma-sourced AccountGroups (163:22383).
-function AccountGroups({ accounts, open, reconnect }: { accounts: UnifiedAccount[]; open: (account: UnifiedAccount) => void; reconnect: (account: UnifiedAccount) => void }) {
-  const attention = accounts.filter(a => a.status === 'reconnect_required')
-  const healthy = accounts.filter(a => a.status !== 'reconnect_required')
-  const shared = healthy.filter(a => a.visibility === 'shared')
-  const priv = healthy.filter(a => a.visibility === 'private')
+function AccountGroups({ accounts, permission, open, reconnect }: { accounts: ConnectorConnection[]; permission: ConnectorCatalog['permissionSummary']; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
+  const attention = accounts.filter(a => a.needsReconnect)
+  const healthy = accounts.filter(a => !a.needsReconnect)
+  const shared = healthy.filter(a => a.isShared)
+  const priv = healthy.filter(a => a.isPrivate)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
-      <AccountPanel accounts={attention} tone="attention" open={open} reconnect={reconnect} />
-      <AccountPanel accounts={shared} tone="default" open={open} reconnect={reconnect} />
-      <AccountPanel accounts={priv} tone="default" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={attention} permission={permission} tone="attention" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={shared} permission={permission} tone="default" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={priv} permission={permission} tone="default" open={open} reconnect={reconnect} />
     </div>
   )
 }
 
-function AccountPanel({ accounts, tone, open, reconnect }: { accounts: UnifiedAccount[]; tone: 'attention' | 'default'; open: (account: UnifiedAccount) => void; reconnect: (account: UnifiedAccount) => void }) {
+function AccountPanel({ accounts, permission, tone, open, reconnect }: { accounts: ConnectorConnection[]; permission: ConnectorCatalog['permissionSummary']; tone: 'attention' | 'default'; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
   if (accounts.length === 0) return null
   const attention = tone === 'attention'
   return (
@@ -64,8 +64,8 @@ function AccountPanel({ accounts, tone, open, reconnect }: { accounts: UnifiedAc
             name={item.nickname}
             email={item.email}
             visibility={item.visibility}
-            state={item.status === 'reconnect_required' ? 'reconnect-required' : 'connected'}
-            permission={item.permission}
+            state={item.connectionState}
+            permission={permission}
             onManage={() => open(item)}
             onReconnect={() => reconnect(item)}
           />
@@ -76,13 +76,13 @@ function AccountPanel({ accounts, tone, open, reconnect }: { accounts: UnifiedAc
 }
 
 export function ConnectorDetailView({
-  summary, back, addAccount, openAccount, reconnectAccount,
+  catalog, back, addAccount, openAccount, reconnectAccount,
 }: {
-  summary: UnifiedConnectorSummary
+  catalog: ConnectorCatalog
   back: () => void
   addAccount: () => void
-  openAccount: (account: UnifiedAccount) => void
-  reconnectAccount: (account: UnifiedAccount) => void
+  openAccount: (account: ConnectorConnection) => void
+  reconnectAccount: (account: ConnectorConnection) => void
 }) {
   return (
     <ConnectorsShell>
@@ -90,26 +90,26 @@ export function ConnectorDetailView({
       <div style={{ ...panel, padding: 'clamp(20px, 4vw, 36px)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.xl, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.lg }}>
-            <ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={44} />
+            <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={44} />
             <div>
               <h1 style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-heading)', fontWeight: 'var(--font-weight-medium)', lineHeight: 'var(--line-height-heading)' }}>
-                {summary.name}
+                {catalog.name}
               </h1>
             </div>
           </div>
           <Button size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
         </div>
-        <p style={{ ...muted, margin: `${SPACE.xxl}px 0`, maxWidth: 680 }}>{summary.description}</p>
+        <p style={{ ...muted, margin: `${SPACE.xxl}px 0`, maxWidth: 680 }}>{catalog.description}</p>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SPACE.lg, marginBottom: SPACE.lg }}>
           <h2 style={{ ...heading, fontSize: 18 }}>Accounts</h2>
           <span style={{ ...muted, fontSize: 'var(--font-size-caption)' }}>
-            {summary.accounts.length} {summary.accounts.length === 1 ? 'account' : 'accounts'}
+            {catalog.connections.length} {catalog.connections.length === 1 ? 'account' : 'accounts'}
           </span>
         </div>
-        {summary.accounts.length === 0 ? (
+        {catalog.connections.length === 0 ? (
           <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No accounts connected yet.</p>
         ) : (
-          <AccountGroups accounts={summary.accounts} open={openAccount} reconnect={reconnectAccount} />
+          <AccountGroups accounts={catalog.connections} permission={catalog.permissionSummary} open={openAccount} reconnect={reconnectAccount} />
         )}
       </div>
     </ConnectorsShell>

@@ -13,16 +13,17 @@ import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
 import { VisibilityRow } from '@/components/VisibilityRow'
 import {
+  ConnectorCatalog,
+  ConnectorConnection,
   DEFAULT_API_KEY_FIELD,
   fieldLabel,
   fieldPlaceholder,
   isSecretField,
-  oauthNeedsInitFields,
+  type AccountVisibility,
   type ApiKeyField,
 } from '@/lib/api/connectors'
 import { useConnectorSetupFlow, type SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { isZapierProviderConnector } from '@/lib/connectorProvider'
-import type { AccountVisibility, UnifiedAccount, UnifiedConnectorSummary } from '@/lib/connectorsUnified'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 22, fontWeight: 400, lineHeight: 1.2 }
@@ -45,21 +46,19 @@ function Modal({ label, onDismiss, children }: { label: string; onDismiss: () =>
   )
 }
 
-function credentialFields(summary: UnifiedConnectorSummary): ApiKeyField[] {
-  if (summary.apiKeyFields.length > 0) return summary.apiKeyFields
-  return summary.authMode === 'api_key' ? [DEFAULT_API_KEY_FIELD] : []
+function credentialFields(catalog: ConnectorCatalog): ApiKeyField[] {
+  if (catalog.apiKeyFields.length > 0) return catalog.apiKeyFields
+  return catalog.authMode === 'api_key' ? [DEFAULT_API_KEY_FIELD] : []
 }
 
 export function SetupModal({
-  summary, orgId, canManageShared, mode, initialAccount, cancel, onConnected,
+  catalog, orgId, canManageShared, mode, initialAccount, cancel, onConnected,
 }: {
-  summary: UnifiedConnectorSummary
+  catalog: ConnectorCatalog
   orgId: string | null
-  /** False for a non-admin member — the backend still requires org
-   *  owner/admin for every shared-account mutation (create/update/delete). */
   canManageShared: boolean
   mode: 'connect' | 'reconnect'
-  initialAccount?: UnifiedAccount
+  initialAccount?: ConnectorConnection
   cancel: () => void
   onConnected: (result: SetupFlowResult) => void
 }) {
@@ -71,30 +70,28 @@ export function SetupModal({
   const [values, setValues] = useState<Record<string, string>>({})
 
   const flow = useConnectorSetupFlow({
-    connectorSlug: summary.slug,
-    connectorName: summary.name,
-    connectorProvider: summary.raw.provider,
+    connectorSlug: catalog.slug,
+    connectorName: catalog.name,
+    connectorProvider: catalog.provider,
     orgId,
     onConnected,
   })
 
-  const existingNames = summary.accounts.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
+  const existingNames = catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
   // Personal connections have no account-name field on the backend (a single
   // unnamed row per user+connector) — the name is only ever saved for shared
   // accounts, so it's only shown and validated in that case.
   const showAccountName = mode === 'connect' && visibility === 'shared'
   const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
-  const fields = credentialFields(summary)
-  const needsInitFields = oauthNeedsInitFields(summary.raw)
-  // Zapier Connect UI collects OAuth and API keys. Our API-key form PATCHes
-  // credentials to us, which is not a Zapier connection.
-  const hosted = isZapierProviderConnector(summary.raw.provider)
-  const needsForm = !hosted && (summary.authMode === 'api_key' || needsInitFields)
+  const fields = credentialFields(catalog)
+  const needsInitFields = catalog.needsOAuthInitFields
+  const hosted = isZapierProviderConnector(catalog.provider)
+  const needsForm = !hosted && (catalog.authMode === 'api_key' || needsInitFields)
   const allRequiredFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   const busy = flow.state === 'opening' || flow.state === 'polling' || flow.state === 'submitting'
 
   // Gap #14 — shared OAuth accounts have no re-authorize-in-place endpoint.
-  const reconnectSharedOAuthBlocked = reconnecting && visibility === 'shared' && summary.authMode === 'oauth2'
+  const reconnectSharedOAuthBlocked = reconnecting && visibility === 'shared' && catalog.authMode === 'oauth2'
 
   // Every shared-account mutation (create, reconnect/update) goes through the
   // admin-only shared-account endpoints — a non-admin member can't do this
@@ -110,7 +107,7 @@ export function SetupModal({
   // poll reports "connected" immediately because the existing row already
   // satisfies it). Block it here rather than let the UI promise something
   // the backend can't do.
-  const existingPrivateAccount = summary.accounts.find(a => a.visibility === 'private')
+  const existingPrivateAccount = catalog.privateConnections[0]
   const privateAccountLimitBlocked = !reconnecting && visibility === 'private' && Boolean(existingPrivateAccount)
 
   function submit() {
@@ -123,12 +120,12 @@ export function SetupModal({
       return
     }
     if (privateAccountLimitBlocked) {
-      toast.error(`You already have a private ${summary.name} account — only one is supported per person.`)
+      toast.error(`You already have a private ${catalog.name} account — only one is supported per person.`)
       return
     }
     if (visibility === 'private') {
       if (needsForm) {
-        if (summary.authMode === 'api_key') flow.submitApiKeyPrivate(values)
+        if (catalog.authMode === 'api_key') flow.submitApiKeyPrivate(values)
         else flow.connectPrivate(values)
       } else {
         flow.connectPrivate()
@@ -138,23 +135,23 @@ export function SetupModal({
     // Shared — workspace-wide, no team involved. Reconnect + api_key =
     // credential update in place (works today).
     if (reconnecting && initialAccount) {
-      flow.connectShared(name.trim() || initialAccount.nickname, undefined, undefined, summary.authMode === 'api_key' ? values : undefined)
+      flow.connectShared(name.trim() || initialAccount.nickname, undefined, undefined, catalog.authMode === 'api_key' ? values : undefined)
       return
     }
     flow.connectShared(
-      name.trim() || `${summary.name} account`,
+      name.trim() || `${catalog.name} account`,
       undefined,
-      summary.authMode === 'oauth2' ? values : undefined,
-      summary.authMode === 'api_key' ? values : undefined,
+      catalog.authMode === 'oauth2' ? values : undefined,
+      catalog.authMode === 'api_key' ? values : undefined,
     )
   }
 
   return (
-    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${summary.name}`} onDismiss={cancel}>
+    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${catalog.name}`} onDismiss={cancel}>
       <div style={{ display: 'flex', gap: SPACE.lg, marginBottom: SPACE.xl }}>
-        <ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={36} />
+        <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={36} />
         <div>
-          <h2 style={heading}>{reconnecting ? `Reconnect ${initialAccount?.nickname ?? summary.name}` : `Connect ${summary.name}`}</h2>
+          <h2 style={heading}>{reconnecting ? `Reconnect ${initialAccount?.nickname ?? catalog.name}` : `Connect ${catalog.name}`}</h2>
           <p style={{ ...muted, marginTop: SPACE.xs }}>{reconnecting ? 'Authorize this account again.' : 'Choose access before authorizing.'}</p>
         </div>
       </div>
@@ -194,7 +191,7 @@ export function SetupModal({
           </div>
           {existingPrivateAccount && (
             <p style={{ ...muted, marginTop: SPACE.sm }}>
-              You already have a private {summary.name} account ({existingPrivateAccount.nickname}) — only one is supported per person. Use Reconnect on that account to re-authorize it, or connect Shared instead.
+              You already have a private {catalog.name} account ({existingPrivateAccount.nickname}) — only one is supported per person. Use Reconnect on that account to re-authorize it, or connect Shared instead.
             </p>
           )}
           {orgId && !canManageShared && (
@@ -245,7 +242,7 @@ export function SetupModal({
           loading={busy}
           onClick={submit}
         >
-          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : reconnecting ? 'Reconnect' : `Continue to ${summary.name}`}
+          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : reconnecting ? 'Reconnect' : `Continue to ${catalog.name}`}
         </Button>
       </div>
     </Modal>

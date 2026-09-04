@@ -1,17 +1,17 @@
 'use client'
 
-// Top-level state machine for the new Connectors UI — the real-data
-// equivalent of the story's `Experience` component. Mounted by both
-// /connectors and /settings/connectors (see docs v1.5/connectors-v1.5-migration-plan.md
-// §0 — this migration consolidates those two old pages into one).
-
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import { listConnectors, unlinkConnector, type ConnectorCatalogEntry } from '@/lib/api/connectors'
+import {
+  ConnectorCatalog,
+  ConnectorConnection,
+  getConnector,
+  listConnectors,
+  unlinkConnector,
+} from '@/lib/api/connectors'
 import { deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
-import { summarizeCatalog, type UnifiedAccount, type UnifiedConnectorSummary } from '@/lib/connectorsUnified'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
@@ -27,7 +27,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
+  const [catalog, setCatalog] = useState<ConnectorCatalog[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('connections')
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
@@ -35,17 +35,17 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
-  const [setupAccount, setSetupAccount] = useState<UnifiedAccount | undefined>(undefined)
+  const [setupAccount, setSetupAccount] = useState<ConnectorConnection | undefined>(undefined)
 
   const [customOpen, setCustomOpen] = useState(false)
-  const [removeAccount, setRemoveAccount] = useState<UnifiedAccount | null>(null)
+  const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
   const [removeMaybeInUse, setRemoveMaybeInUse] = useState(false)
   const [removeBusy, setRemoveBusy] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      setEntries(await listConnectors())
+      setCatalog(await listConnectors())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
     } finally {
@@ -55,10 +55,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   useEffect(() => { void fetchAll() }, [fetchAll])
 
-  // Reflect the active account tab in the URL (?tab=permissions|access|settings)
-  // while it's open. Which connector/account is open stays in-memory only —
-  // a refresh always lands back on the connector list — this just makes the
-  // current tab visible/shareable within a session.
   useEffect(() => {
     const isTabView = view === 'permissions' || view === 'access' || view === 'settings'
     const nextTab = isTabView ? view : null
@@ -70,28 +66,29 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false })
   }, [view, pathname, router, searchParams])
 
-  const summaries = useMemo(() => summarizeCatalog(entries), [entries])
-  const activeSummary = summaries.find(s => s.slug === activeSlug) ?? null
-  const activeAccount = activeSummary?.accounts.find(a => a.id === activeAccountId) ?? null
-
-  // The backend still gates every shared-account mutation (create/update/
-  // delete) to org owners/admins (`require_organization_admin` in
-  // services/organizations/router.py) — the newer Connectors v1 UX spec says
-  // there should be no role differences at all, but the backend hasn't
-  // caught up to that yet. Until it does, reflect the real capability rather
-  // than showing an action that only 403s at the last step.
+  const active = catalog.find(row => row.slug === activeSlug) ?? null
+  const activeAccount = active?.connections.find(row => row.id === activeAccountId) ?? null
   const canManageShared = currentUserRole === 'admin'
 
-  const openConnectorDetail = useCallback((summary: UnifiedConnectorSummary) => {
-    setActiveSlug(summary.slug)
-    setView('connector')
+  const loadDetail = useCallback((slug: string) => {
+    void getConnector(slug)
+      .then(detail => {
+        setCatalog(prev => prev.map(row => row.slug === detail.slug ? detail : row))
+      })
+      .catch(() => { /* list row stays usable without tools */ })
   }, [])
 
-  const selectFromCatalog = useCallback((summary: UnifiedConnectorSummary) => {
-    if (summary.accounts.length > 0) {
-      openConnectorDetail(summary)
+  const openConnectorDetail = useCallback((row: ConnectorCatalog) => {
+    setActiveSlug(row.slug)
+    setView('connector')
+    loadDetail(row.slug)
+  }, [loadDetail])
+
+  const selectFromCatalog = useCallback((row: ConnectorCatalog) => {
+    if (row.connections.length > 0) {
+      openConnectorDetail(row)
     } else {
-      setActiveSlug(summary.slug)
+      setActiveSlug(row.slug)
       setSetupMode('connect')
       setSetupAccount(undefined)
       setSetupOpen(true)
@@ -104,12 +101,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     setSetupOpen(true)
   }, [])
 
-  const openAccount = useCallback((account: UnifiedAccount) => {
+  const openAccount = useCallback((account: ConnectorConnection) => {
     setActiveAccountId(account.id)
     setView('permissions')
   }, [])
 
-  const reconnectAccount = useCallback((account: UnifiedAccount) => {
+  const reconnectAccount = useCallback((account: ConnectorConnection) => {
     setActiveAccountId(account.id)
     setSetupMode('reconnect')
     setSetupAccount(account)
@@ -132,30 +129,25 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     void fetchAll()
   }, [fetchAll])
 
-  const requestRemove = useCallback(async (account: UnifiedAccount) => {
+  const requestRemove = useCallback(async (account: ConnectorConnection) => {
     setRemoveAccount(account)
     setRemoveMaybeInUse(false)
-    // Coarse org-level "is this connector referenced anywhere" check only —
-    // see Gap #3. Best-effort; a failure here shouldn't block the confirm dialog.
     if (orgId) {
       try {
         const usedBy = await getConnectorUsedBy(orgId, account.connectorSlug)
         setRemoveMaybeInUse(usedBy.length > 0)
       } catch {
-        // stay silent — the dialog still works without this signal
+        // dialog still works without this signal
       }
     }
   }, [orgId])
 
   const confirmRemove = useCallback(async () => {
     if (!removeAccount) return
-    if (removeAccount.visibility === 'shared' && !canManageShared) return
+    if (removeAccount.isShared && !canManageShared) return
     setRemoveBusy(true)
     try {
-      // Removal is a plain, one-shot call — no need for the full setup state
-      // machine, so it's called directly here rather than routed through
-      // useConnectorSetupFlow.
-      if (removeAccount.visibility === 'shared') {
+      if (removeAccount.isShared) {
         if (!orgId) throw new Error('No organization context.')
         await deleteOrgConnectorAccount(orgId, removeAccount.id)
       } else {
@@ -170,21 +162,21 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     } finally {
       setRemoveBusy(false)
     }
-  }, [removeAccount, orgId, backToConnector, fetchAll])
+  }, [removeAccount, orgId, canManageShared, backToConnector, fetchAll])
 
   if (!orgReady) {
-    return <ConnectionsView summaries={[]} loading select={() => {}} custom={() => {}} />
+    return <ConnectionsView catalog={[]} loading select={() => {}} custom={() => {}} />
   }
 
   return (
     <>
       {view === 'connections' && (
-        <ConnectionsView summaries={summaries} loading={loading} select={selectFromCatalog} custom={() => setCustomOpen(true)} initialSearch={initialSearch} />
+        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} custom={() => setCustomOpen(true)} initialSearch={initialSearch} />
       )}
 
-      {view === 'connector' && activeSummary && (
+      {view === 'connector' && active && (
         <ConnectorDetailView
-          summary={activeSummary}
+          catalog={active}
           back={backToConnections}
           addAccount={addAccount}
           openAccount={openAccount}
@@ -192,10 +184,10 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         />
       )}
 
-      {(view === 'permissions' || view === 'access' || view === 'settings') && activeSummary && activeAccount && (
+      {(view === 'permissions' || view === 'access' || view === 'settings') && active && activeAccount && (
         <AccountDetailView
           account={activeAccount}
-          summary={activeSummary}
+          catalog={active}
           orgId={orgId}
           canManageShared={canManageShared}
           active={view}
@@ -206,9 +198,9 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         />
       )}
 
-      {setupOpen && activeSummary && (
+      {setupOpen && active && (
         <SetupModal
-          summary={activeSummary}
+          catalog={active}
           orgId={orgId}
           canManageShared={canManageShared}
           mode={setupMode}
@@ -218,12 +210,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         />
       )}
 
-      {removeAccount && activeSummary && (
+      {removeAccount && active && (
         <RemoveModal
           account={removeAccount}
-          summary={activeSummary}
+          catalog={active}
           maybeInUse={removeMaybeInUse}
-          blockedReason={removeAccount.visibility === 'shared' && !canManageShared ? 'Only workspace admins can remove shared accounts.' : undefined}
+          blockedReason={removeAccount.isShared && !canManageShared ? 'Only workspace admins can remove shared accounts.' : undefined}
           busy={removeBusy}
           cancel={() => setRemoveAccount(null)}
           confirm={() => void confirmRemove()}

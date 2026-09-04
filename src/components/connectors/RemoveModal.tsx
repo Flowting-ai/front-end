@@ -10,7 +10,7 @@
 import React from 'react'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Button } from '@/components/Button'
-import type { UnifiedAccount, UnifiedConnectorSummary } from '@/lib/connectorsUnified'
+import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 22, fontWeight: 400, lineHeight: 1.2 }
@@ -18,10 +18,10 @@ const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)'
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
 export function RemoveModal({
-  account, summary, maybeInUse, blockedReason, busy, cancel, confirm,
+  account, catalog, maybeInUse, blockedReason, busy, cancel, confirm,
 }: {
-  account: UnifiedAccount
-  summary: UnifiedConnectorSummary
+  account: ConnectorConnection
+  catalog: ConnectorCatalog
   /** Coarse org-level "something references this connector" signal (Gap #3) — not a real count. */
   maybeInUse: boolean
   /** Set when the viewer isn't allowed to remove this account (e.g. a
@@ -41,7 +41,7 @@ export function RemoveModal({
         style={{ ...panel, width: '100%', maxWidth: 480, padding: SPACE.xxl, boxShadow: '0 24px 72px rgba(30,28,27,.28)' }}
       >
         <div style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 11, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)', marginBottom: SPACE.xl }}>
-          <ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={30} />
+          <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={30} />
         </div>
         <h2 style={heading}>Remove account?</h2>
         <p style={{ ...muted, marginTop: SPACE.sm }}>
@@ -59,7 +59,7 @@ export function RemoveModal({
             <p style={{ ...muted, margin: 0 }}>{blockedReason}</p>
           </div>
         )}
-        <p style={{ ...muted, marginTop: SPACE.lg }}>Other {summary.name} accounts stay connected.</p>
+        <p style={{ ...muted, marginTop: SPACE.lg }}>Other {catalog.name} accounts stay connected.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
           <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Keep account</Button>
           <Button variant="danger" size="sm" onClick={confirm} loading={busy} disabled={Boolean(blockedReason)}>Remove</Button>

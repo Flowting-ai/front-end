@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { listConnectors } from '@/lib/api/connectors'
-import { toConnector } from '@/lib/connector'
+import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 function ConnectorChip({
   entry,
@@ -13,19 +11,19 @@ function ConnectorChip({
   saving,
   onToggle,
 }: {
-  entry:    ConnectorCatalogEntry
+  entry:    ConnectorCatalog
   enabled:  boolean
   saving:   boolean
   onToggle: () => void
 }) {
-  const logo = toConnector(entry).logo
+  const logo = entry.logo
 
   return (
     <button
       type="button"
       onClick={onToggle}
       disabled={saving}
-      title={`${enabled ? 'Disable' : 'Enable'} ${entry.display_name} in this agent`}
+      title={`${enabled ? 'Disable' : 'Enable'} ${entry.displayName} in this agent`}
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -51,7 +49,7 @@ function ConnectorChip({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 9, fontWeight: 700, color: `hsl(${[...entry.slug].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 60% 35%)`,
         }}>
-          {entry.display_name.charAt(0).toUpperCase()}
+          {entry.displayName.charAt(0).toUpperCase()}
         </span>
       )}
       <span style={{
@@ -62,7 +60,7 @@ function ConnectorChip({
         color:      enabled ? 'var(--neutral-800)' : 'var(--neutral-400)',
         whiteSpace: 'nowrap',
       }}>
-        {entry.display_name}
+        {entry.displayName}
       </span>
     </button>
   )
@@ -83,7 +81,7 @@ export function ConnectorTogglesPanel({
   versionId:            string
   onConnectorsChange?:  (slugs: string[]) => void
 }) {
-  const [linked,       setLinked]       = useState<ConnectorCatalogEntry[]>([])
+  const [linked,       setLinked]       = useState<ConnectorCatalog[]>([])
   const [enabled,      setEnabled]      = useState<Set<string>>(new Set())
   const [savingSlug,   setSavingSlug]   = useState<string | null>(null)
   const [loaded,       setLoaded]       = useState(false)

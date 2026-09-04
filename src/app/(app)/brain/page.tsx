@@ -615,7 +615,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     getConnector(event.connector_slug)
       .then((entry) => {
         if (!abortedRef.current) {
-          setFields(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+          setFields(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
         }
       })
       .catch(() => {
@@ -630,9 +630,9 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     try {
       // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
       // undefined for plain OAuth.
-      const { redirect_url } = await initiateLink(event.connector_slug, initData)
-      const hosted = Boolean(redirect_url && isZapierProviderConnector(null, redirect_url))
-      const openUrl = hosted && redirect_url ? zapierConnectHref(redirect_url) : redirect_url
+      const { redirectUrl } = await initiateLink(event.connector_slug, initData)
+      const hosted = Boolean(redirectUrl && isZapierProviderConnector(null, redirectUrl))
+      const openUrl = hosted && redirectUrl ? zapierConnectHref(redirectUrl) : redirectUrl
       const popup = openUrl
         ? window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'width=900,height=700')
         : null
@@ -1321,9 +1321,9 @@ function BrainPageInner() {
         if (cancelled) return
         setConnectorCatalog(entries.map((e) => ({
           slug:         e.slug,
-          display_name: e.display_name,
-          status:       e.linked || e.workspace_linked ? 'connected' : 'disconnected',
-          logo_url:     e.logo_url,
+          display_name: e.displayName,
+          status:       e.linked ? 'connected' : 'disconnected',
+          logo_url:     e.logoUrl,
         })))
       })
       .catch(() => {})

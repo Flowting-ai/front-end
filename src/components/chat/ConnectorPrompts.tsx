@@ -132,7 +132,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     getConnector(prompt.connector_slug)
       .then((entry) => {
         if (!abortedRef.current) {
-          setFieldDefs(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+          setFieldDefs(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
         }
       })
       .catch(() => {
@@ -162,17 +162,17 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     initiateLink(prompt.connector_slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
-        if (!link.redirect_url) {
+        if (!link.redirectUrl) {
           popup?.close()
           throw new Error('No redirect URL returned by server')
         }
         if (isMcp) {
-          window.location.href = link.redirect_url
+          window.location.href = link.redirectUrl
           return
         }
-        const openUrl = isZapierProviderConnector(prompt.provider, link.redirect_url)
-          ? zapierConnectHref(link.redirect_url)
-          : link.redirect_url
+        const openUrl = isZapierProviderConnector(prompt.provider, link.redirectUrl)
+          ? zapierConnectHref(link.redirectUrl)
+          : link.redirectUrl
         if (popup && !popup.closed) {
           popup.location.href = openUrl
         } else {
@@ -180,7 +180,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
           window.open(openUrl, '_blank')
         }
         setState('polling')
-        if (isZapierProviderConnector(prompt.provider, link.redirect_url)) {
+        if (isZapierProviderConnector(prompt.provider, link.redirectUrl)) {
           return waitForZapierAuthId().then(id => completeZapierLink(prompt.connector_slug, id))
         }
         return pollConnectorUntilActive(prompt.connector_slug)

@@ -24,14 +24,14 @@ import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Tooltip } from '@/components/Tooltip'
 import { VisibilityRow } from '@/components/VisibilityRow'
 import {
+  ConnectorCatalog,
+  ConnectorConnection,
+  ConnectorTool,
   getConnector,
   updateConnector,
-  connectorToolBooleans,
-  type ConnectorTool,
   type ConnectorToolPermission,
 } from '@/lib/api/connectors'
 import { updateOrgConnectorAccount } from '@/lib/api/org-connectors'
-import type { UnifiedAccount, UnifiedConnectorSummary } from '@/lib/connectorsUnified'
 import { ConnectorsShell } from './ConnectionsView'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
@@ -73,26 +73,9 @@ const PERMISSION_ICONS: Record<PermissionMode, React.ReactElement> = {
   blocked: <CancelCircleIcon size={16} />,
 }
 
-function humanizeAction(toolSlug: string, connectorSlug: string): string {
-  let s = toolSlug
-  const prefix = `${connectorSlug.replace(/[\s-]/g, '_').toUpperCase()}_`
-  if (s.toUpperCase().startsWith(prefix)) s = s.slice(prefix.length)
-  s = s.replace(/_/g, ' ').trim().toLowerCase()
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
-}
-
-// No backend field groups tools as read-only vs. write (Gap #4) — this is a
-// hand-maintained keyword heuristic over the tool slug, same category of
-// workaround as connectorCategories.ts. Revisit if/when the backend adds a
-// real ToolEntry.group field.
-const WRITE_KEYWORDS = ['send', 'delete', 'remove', 'create', 'update', 'modify', 'write', 'post', 'add', 'edit', 'archive']
-function toolGroupOf(tool: ConnectorTool): 'write' | 'read-only' {
-  const lower = tool.slug.toLowerCase()
-  return WRITE_KEYWORDS.some(kw => lower.includes(kw)) ? 'write' : 'read-only'
-}
 function groupTools(tools: ConnectorTool[]) {
-  const readOnly = tools.filter(t => toolGroupOf(t) === 'read-only')
-  const write = tools.filter(t => toolGroupOf(t) === 'write')
+  const readOnly = tools.filter(t => t.group === 'read-only')
+  const write = tools.filter(t => t.group === 'write')
   return [
     { id: 'read-only', name: 'Read-only tools', tools: readOnly },
     { id: 'write', name: 'Write tools', tools: write },
@@ -115,7 +98,7 @@ function PermissionControl({ value, label, change, disabled }: { value: Permissi
       </TabsList>
     </TabsRoot>
   )
-  return disabled ? <Tooltip content="Tool permissions for shared accounts aren't supported yet" side="top">{control}</Tooltip> : control
+  return disabled ? <Tooltip content="Saving this permission…" side="top">{control}</Tooltip> : control
 }
 
 function GroupPermissionDropdown({ value, label, change, disabled }: { value?: PermissionMode; label: string; change: (value: PermissionMode) => void; disabled?: boolean }) {
@@ -135,7 +118,7 @@ function GroupPermissionDropdown({ value, label, change, disabled }: { value?: P
     </Button>
   )
   if (disabled) {
-    return <Tooltip content="Tool permissions for shared accounts aren't supported yet" side="top">{trigger}</Tooltip>
+    return <Tooltip content="Saving this permission…" side="top">{trigger}</Tooltip>
   }
   return (
     <Dropdown.Float trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-end">
@@ -171,14 +154,11 @@ function PermissionsTabSkeleton() {
   )
 }
 
-function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary: UnifiedConnectorSummary }) {
-  const isShared = account.visibility === 'shared'
-  const [tools, setTools] = useState<ConnectorTool[]>(summary.tools)
+function PermissionsTab({ catalog }: { catalog: ConnectorCatalog }) {
+  const [tools, setTools] = useState<ConnectorTool[]>(catalog.tools)
   const [saving, setSaving] = useState<string | null>(null)
-  // Only the initial backfill fetch counts as "loading" — an empty result
-  // after it resolves is a real "no tools" state, not a loading one.
-  const [loadingTools, setLoadingTools] = useState(!isShared && summary.tools.length === 0)
-  const baselineRef = useRef<ConnectorTool[]>(summary.tools)
+  const [loadingTools, setLoadingTools] = useState(catalog.tools.length === 0)
+  const baselineRef = useRef<ConnectorTool[]>(catalog.tools)
   const abortedRef = useRef(false)
 
   useEffect(() => {
@@ -186,13 +166,13 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
     return () => { abortedRef.current = true }
   }, [])
 
-  // Long-tail connectors return an empty tools array on the list endpoint —
-  // lazily backfill on first open, fail silently (account stays manageable
-  // even without a tool list).
   useEffect(() => {
-    if (isShared || tools.length > 0) return
+    if (tools.length > 0) {
+      setLoadingTools(false)
+      return
+    }
     let cancelled = false
-    getConnector(summary.slug)
+    getConnector(catalog.slug)
       .then(detail => {
         if (cancelled || abortedRef.current) return
         baselineRef.current = detail.tools
@@ -203,16 +183,16 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
         if (!cancelled && !abortedRef.current) setLoadingTools(false)
       })
     return () => { cancelled = true }
-  }, [isShared, summary.slug, tools.length])
+  }, [catalog.slug, tools.length])
 
   const groups = groupTools(tools)
 
-  async function changeTool(toolSlug: string, mode: PermissionMode) {
-    const booleans = connectorToolBooleans(toBackendPermission(mode))
-    setTools(prev => prev.map(t => (t.slug === toolSlug ? { ...t, ...booleans, permission: toBackendPermission(mode) } : t)))
-    setSaving(toolSlug)
+  async function changeTool(toolKey: string, mode: PermissionMode) {
+    const permission = toBackendPermission(mode)
+    setTools(prev => prev.map(t => (t.key === toolKey ? t.withPermission(permission) : t)))
+    setSaving(toolKey)
     try {
-      const updated = await updateConnector(summary.slug, { permissions: [{ slug: toolSlug, ...booleans }] })
+      const updated = await updateConnector(catalog.slug, { permissions: [{ key: toolKey, permission }] })
       if (abortedRef.current) return
       baselineRef.current = updated.tools
       setTools(updated.tools)
@@ -226,13 +206,15 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
     }
   }
 
-  async function changeGroup(groupTools_: ConnectorTool[], mode: PermissionMode) {
-    const booleans = connectorToolBooleans(toBackendPermission(mode))
-    const slugs = new Set(groupTools_.map(t => t.slug))
-    setTools(prev => prev.map(t => (slugs.has(t.slug) ? { ...t, ...booleans, permission: toBackendPermission(mode) } : t)))
+  async function changeGroup(groupToolList: ConnectorTool[], mode: PermissionMode) {
+    const permission = toBackendPermission(mode)
+    const keys = new Set(groupToolList.map(t => t.key))
+    setTools(prev => prev.map(t => (keys.has(t.key) ? t.withPermission(permission) : t)))
     setSaving('__group__')
     try {
-      const updated = await updateConnector(summary.slug, { permissions: groupTools_.map(t => ({ slug: t.slug, ...booleans })) })
+      const updated = await updateConnector(catalog.slug, {
+        permissions: groupToolList.map(t => ({ key: t.key, permission })),
+      })
       if (abortedRef.current) return
       baselineRef.current = updated.tools
       setTools(updated.tools)
@@ -247,7 +229,7 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
   }
 
   function groupMode(groupToolList: ConnectorTool[]): PermissionMode | undefined {
-    const modes = groupToolList.map(t => fromBackendPermission(t.permission ?? 'ask'))
+    const modes = groupToolList.map(t => t.permissionMode)
     return modes.every(m => m === modes[0]) ? modes[0] : undefined
   }
 
@@ -255,11 +237,6 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
     <section>
       <h2 style={{ ...heading, fontSize: 18, marginBottom: SPACE.xs }}>Tool permissions</h2>
       <p style={{ ...muted, marginBottom: SPACE.lg }}>Choose when Souvenir can use these tools.</p>
-      {isShared && (
-        <div style={{ ...panel, padding: SPACE.lg, marginBottom: SPACE.lg, background: 'var(--yellow-50)' }}>
-          <BodyTextInline>Tool permissions for shared accounts aren&apos;t supported yet — the controls below are shown for reference only.</BodyTextInline>
-        </div>
-      )}
       {loadingTools ? (
         <PermissionsTabSkeleton />
       ) : groups.length === 0 ? (
@@ -275,18 +252,21 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
                     <strong style={{ fontWeight: 500 }}>{group.name}</strong>
                     <span style={{ ...muted, marginLeft: SPACE.md, fontSize: 'var(--font-size-caption)' }}>{group.tools.length}</span>
                   </div>
-                  <GroupPermissionDropdown value={currentGroupMode} label={`Set all ${group.name.toLowerCase()}`} disabled={isShared} change={mode => void changeGroup(group.tools, mode)} />
+                  <GroupPermissionDropdown value={currentGroupMode} label={`Set all ${group.name.toLowerCase()}`} disabled={saving === '__group__'} change={mode => void changeGroup(group.tools, mode)} />
                 </div>
                 {group.tools.map((tool, index) => (
-                  <div key={tool.slug} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xl, flexWrap: 'wrap', padding: SPACE.xl, borderTop: index === 0 ? undefined : '1px solid var(--neutral-100)' }}>
+                  <div key={tool.key} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xl, flexWrap: 'wrap', padding: SPACE.xl, borderTop: index === 0 ? undefined : '1px solid var(--neutral-100)' }}>
                     <div style={{ flex: '1 1 300px' }}>
-                      <strong style={{ fontWeight: 500 }}>{humanizeAction(tool.slug, summary.slug)}</strong>
+                      <strong style={{ fontWeight: 500 }}>{tool.name}</strong>
+                      {tool.description ? (
+                        <p style={{ ...muted, margin: `${SPACE.xs}px 0 0` }}>{tool.description}</p>
+                      ) : null}
                     </div>
                     <PermissionControl
-                      value={fromBackendPermission(tool.permission ?? 'ask')}
-                      label={`Permission for ${humanizeAction(tool.slug, summary.slug)}`}
-                      disabled={isShared || saving === tool.slug}
-                      change={mode => void changeTool(tool.slug, mode)}
+                      value={fromBackendPermission(tool.permission)}
+                      label={`Permission for ${tool.name}`}
+                      disabled={saving === tool.key}
+                      change={mode => void changeTool(tool.key, mode)}
                     />
                   </div>
                 ))}
@@ -299,11 +279,7 @@ function PermissionsTab({ account, summary }: { account: UnifiedAccount; summary
   )
 }
 
-function BodyTextInline({ children }: { children: React.ReactNode }) {
-  return <p style={{ ...muted, margin: 0 }}>{children}</p>
-}
-
-function AccessTab({ account }: { account: UnifiedAccount }) {
+function AccessTab({ account }: { account: ConnectorConnection }) {
   const [visibility, setVisibility] = useState(account.visibility)
   const changed = visibility !== account.visibility
   return (
@@ -328,10 +304,10 @@ function AccessTab({ account }: { account: UnifiedAccount }) {
   )
 }
 
-function SettingsTab({ account, summary, orgId, canManageShared, onChanged, onRemove }: { account: UnifiedAccount; summary: UnifiedConnectorSummary; orgId: string | null; canManageShared: boolean; onChanged: () => void; onRemove: () => void }) {
+function SettingsTab({ account, orgId, canManageShared, onChanged, onRemove }: { account: ConnectorConnection; orgId: string | null; canManageShared: boolean; onChanged: () => void; onRemove: () => void }) {
   const [label, setLabel] = useState(account.nickname)
   const [saving, setSaving] = useState(false)
-  const isShared = account.visibility === 'shared'
+  const isShared = account.isShared
   const sharedButBlocked = isShared && !canManageShared
   const canRename = isShared && canManageShared
   const changed = canRename && label.trim() !== account.nickname && label.trim().length > 0
@@ -381,13 +357,11 @@ function SettingsTab({ account, summary, orgId, canManageShared, onChanged, onRe
 }
 
 export function AccountDetailView({
-  account, summary, orgId, canManageShared, active, back, change, onChanged, onRemove,
+  account, catalog, orgId, canManageShared, active, back, change, onChanged, onRemove,
 }: {
-  account: UnifiedAccount
-  summary: UnifiedConnectorSummary
+  account: ConnectorConnection
+  catalog: ConnectorCatalog
   orgId: string | null
-  /** False for a non-admin member — the backend still requires org
-   *  owner/admin for every shared-account mutation (rename/remove/etc). */
   canManageShared: boolean
   active: ActiveTab
   back: () => void
@@ -397,21 +371,21 @@ export function AccountDetailView({
 }) {
   return (
     <ConnectorsShell>
-      <Back onClick={back}>{summary.name}</Back>
+      <Back onClick={back}>{catalog.name}</Back>
       <div style={{ maxWidth: 968, margin: '0 auto', padding: 'clamp(22px, 4vw, 36px)', borderRadius: 22, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.lg, marginBottom: SPACE.xxl }}>
           <div>
-            <h1 style={{ ...heading, fontSize: 26 }}>{summary.name}</h1>
+            <h1 style={{ ...heading, fontSize: 26 }}>{catalog.name}</h1>
             <p style={{ ...muted, marginTop: SPACE.xs }}>
-              {account.email || account.nickname} · {account.visibility === 'shared' ? 'Shared' : 'Private'}
+              {account.email || account.nickname} · {account.isShared ? 'Shared' : 'Private'}
             </p>
           </div>
         </div>
         <AccountTabs active={active} change={change} />
         <div>
-          {active === 'permissions' && <PermissionsTab account={account} summary={summary} />}
+          {active === 'permissions' && <PermissionsTab catalog={catalog} />}
           {active === 'access' && <AccessTab account={account} />}
-          {active === 'settings' && <SettingsTab account={account} summary={summary} orgId={orgId} canManageShared={canManageShared} onChanged={onChanged} onRemove={onRemove} />}
+          {active === 'settings' && <SettingsTab account={account} orgId={orgId} canManageShared={canManageShared} onChanged={onChanged} onRemove={onRemove} />}
         </div>
       </div>
     </ConnectorsShell>

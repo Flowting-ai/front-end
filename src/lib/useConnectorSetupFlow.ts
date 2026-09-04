@@ -16,7 +16,8 @@ import {
   updateConnector,
   unlinkConnector,
   pollConnectorUntilActive,
-  type ConnectorCatalogEntry,
+  ConnectorCatalog,
+  type AccountVisibility,
 } from '@/lib/api/connectors'
 import {
   createOrgConnectorAccount,
@@ -25,14 +26,13 @@ import {
   pollOrgConnectorAccountUntilConnected,
 } from '@/lib/api/org-connectors'
 import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
-import type { AccountVisibility } from '@/lib/connectorsUnified'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
 
 export interface SetupFlowResult {
   /** For a private connect, the refreshed catalog entry. For a shared connect, the new account id. */
   kind: 'private' | 'shared'
-  entry?: ConnectorCatalogEntry
+  entry?: ConnectorCatalog
   sharedAccountId?: string
 }
 
@@ -73,7 +73,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     initiateLink(connectorSlug, initData)
       .then(link => {
         if (abortedRef.current) { popup?.close(); return }
-        const url = link.redirect_url
+        const url = link.redirectUrl
         if (!url) {
           popup?.close()
           throw new Error(`${connectorName} did not return an OAuth URL. The connector provider may be misconfigured on the backend.`)
@@ -96,7 +96,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
         const { signal } = pollAbortRef.current
         let settled = false
 
-        const finish = (entry: ConnectorCatalogEntry) => {
+        const finish = (entry: ConnectorCatalog) => {
           if (settled || abortedRef.current) return
           settled = true
           popup?.close()

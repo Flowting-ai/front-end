@@ -3,7 +3,7 @@
 // Connections view — covers S1 (empty), S2 (catalog), S3/S17 (connections),
 // S14 (reconnect banner). Ported 1:1 from
 // may-day-final/src/stories/teams/ConnectorLibraryV1.stories.tsx, wired to
-// real data via UnifiedConnectorSummary instead of the story's static mocks.
+// real data via ConnectorCatalog instead of the story's static mocks.
 // See docs v1.5/connectors-v1.5-migration-plan.md §2/§3.
 
 import React, { useEffect, useMemo, useState } from 'react'
@@ -23,7 +23,7 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'
-import { accountsNeedingAttention, type UnifiedConnectorSummary } from '@/lib/connectorsUnified'
+import { ConnectorCatalog } from '@/lib/api/connectors'
 
 const AVAILABLE_PAGE_SIZE = 10
 
@@ -92,21 +92,20 @@ const TYPE_LABELS: [TypeFilter, string][] = [['all', 'All'], ['trending', 'Trend
 
 // No backend field curates "trending"/"new" (Gap #12 in the plan doc) —
 // featured_weight is Pipedream's own sync weight, an approximate proxy only.
-function typeMembers(type: TypeFilter, pool: UnifiedConnectorSummary[]) {
+function typeMembers(type: TypeFilter, pool: ConnectorCatalog[]) {
   if (type === 'all') return pool
-  const weighted = pool
-    .map(s => ({ s, w: s.raw.catalog_metadata.featured_weight }))
+  const weighted = pool.map(row => ({ row, weight: row.featuredWeight }))
   if (type === 'trending') {
-    return weighted.filter(x => typeof x.w === 'number').sort((a, b) => (b.w as number) - (a.w as number)).map(x => x.s)
+    return weighted.filter(x => x.weight != null).sort((a, b) => (b.weight as number) - (a.weight as number)).map(x => x.row)
   }
-  return weighted.filter(x => x.w == null).map(x => x.s)
+  return weighted.filter(x => x.weight == null).map(x => x.row)
 }
 
 function CountHint({ value }: { value: number }) {
   return <span style={{ color: 'var(--color-text-placeholder)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)' }}>{value}</span>
 }
 
-function RefineMenu({ value, change, pool }: { value: TypeFilter; change: (value: TypeFilter) => void; pool: UnifiedConnectorSummary[] }) {
+function RefineMenu({ value, change, pool }: { value: TypeFilter; change: (value: TypeFilter) => void; pool: ConnectorCatalog[] }) {
   const [open, setOpen] = useState(false)
   return (
     <Dropdown.Float
@@ -160,7 +159,7 @@ function CatalogToolbar({
   view: CatalogView; changeView: (value: CatalogView) => void
   query: string; setQuery: (value: string) => void
   type: TypeFilter; setType: (value: TypeFilter) => void
-  pool: UnifiedConnectorSummary[]
+  pool: ConnectorCatalog[]
   sort: SortMode; setSort: (value: SortMode) => void
 }) {
   return (
@@ -183,9 +182,9 @@ function CatalogToolbar({
 // at 1040px), one column below ~730px.
 const CATALOG_GRID: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: SPACE.lg }
 
-function catalogCardState(summary: UnifiedConnectorSummary): ConnectorCatalogCardState {
-  if (summary.accounts.some(a => a.status === 'reconnect_required')) return 'reconnect-required'
-  if (summary.accounts.length > 0) return 'connected'
+function catalogCardState(summary: ConnectorCatalog): ConnectorCatalogCardState {
+  if (summary.needsAttention) return 'reconnect-required'
+  if (summary.connections.length > 0) return 'connected'
   return 'available'
 }
 
@@ -197,7 +196,7 @@ function CatalogSectionLabel({ label }: { label: string }) {
   )
 }
 
-function CatalogCell({ summary, select, highlight }: { summary: UnifiedConnectorSummary; select: (summary: UnifiedConnectorSummary) => void; highlight?: string }) {
+function CatalogCell({ summary, select, highlight }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog) => void; highlight?: string }) {
   const state = catalogCardState(summary)
   return (
     <ConnectorCatalogCard
@@ -207,7 +206,7 @@ function CatalogCell({ summary, select, highlight }: { summary: UnifiedConnector
       density="detailed"
       state={state}
       action={state === 'available' ? 'icon-add' : state === 'reconnect-required' ? 'reconnect' : state === 'connected' ? 'manage' : 'none'}
-      accountCount={summary.accounts.length}
+      accountCount={summary.connections.length}
       highlight={highlight}
       onAction={() => select(summary)}
     />
@@ -215,11 +214,11 @@ function CatalogCell({ summary, select, highlight }: { summary: UnifiedConnector
 }
 
 export function Catalog({
-  summaries, query, select, custom,
+  catalog, query, select, custom,
 }: {
-  summaries: UnifiedConnectorSummary[]
+  catalog: ConnectorCatalog[]
   query: string
-  select: (summary: UnifiedConnectorSummary) => void
+  select: (summary: ConnectorCatalog) => void
   custom: () => void
 }) {
   const [view, setView] = useState<CatalogView>('all')
@@ -230,8 +229,8 @@ export function Catalog({
   const trimmedQuery = (query || ownQuery).trim()
   const search = trimmedQuery.toLowerCase()
 
-  const pool = summaries.filter(summary => {
-    const connected = summary.accounts.length > 0
+  const pool = catalog.filter(summary => {
+    const connected = summary.connections.length > 0
     if (view === 'connected' && !connected) return false
     if (view === 'not-connected' && connected) return false
     return summary.name.toLowerCase().includes(search)
@@ -244,8 +243,8 @@ export function Catalog({
   // connected connectors across pages arbitrarily depending on where they
   // happen to fall alphabetically/by-weight. Same pattern the old pages used
   // for Enabled/Available (see docs v1.5/connectors-v1.5-migration-plan.md §4).
-  const connectedItems = sorted.filter(summary => summary.accounts.length > 0)
-  const availableAllItems = sorted.filter(summary => summary.accounts.length === 0)
+  const connectedItems = sorted.filter(summary => summary.connections.length > 0)
+  const availableAllItems = sorted.filter(summary => summary.connections.length === 0)
   const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / AVAILABLE_PAGE_SIZE))
   const safeAvailablePage = Math.min(availablePage, availablePageCount)
   const availableItems = availableAllItems.slice(
@@ -293,16 +292,16 @@ export function Catalog({
 }
 
 export function ConnectionsView({
-  summaries, loading, select, custom, initialSearch = '',
+  catalog, loading, select, custom, initialSearch = '',
 }: {
-  summaries: UnifiedConnectorSummary[]
+  catalog: ConnectorCatalog[]
   loading: boolean
-  select: (summary: UnifiedConnectorSummary) => void
+  select: (summary: ConnectorCatalog) => void
   custom: () => void
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
 }) {
-  const attention = useMemo(() => accountsNeedingAttention(summaries), [summaries])
+  const attention = useMemo(() => ConnectorCatalog.needingAttention(catalog), [catalog])
 
   if (loading) {
     return (
@@ -327,7 +326,7 @@ export function ConnectionsView({
             variant="outline"
             size="sm"
             onClick={() => {
-              const first = summaries.find(s => s.accounts.some(a => a.status === 'reconnect_required'))
+              const first = catalog.find(row => row.needsAttention)
               if (first) select(first)
             }}
           >
@@ -335,7 +334,7 @@ export function ConnectionsView({
           </Button>
         </div>
       )}
-      <Catalog summaries={summaries} query={initialSearch} select={select} custom={custom} />
+      <Catalog catalog={catalog} query={initialSearch} select={select} custom={custom} />
     </ConnectorsShell>
   )
 }
