@@ -61,6 +61,8 @@ const CARD: React.CSSProperties = {
   paddingBottom: 12,
 }
 
+const DANGER_CARD: React.CSSProperties = { ...CARD, border: '1px solid var(--red-200, #fecaca)' }
+
 // ── Shared skeleton shapes ────────────────────────────────────────────────────
 
 function PageHeader() {
@@ -109,18 +111,6 @@ function FormRow2Col() {
   )
 }
 
-function ListRow({ iconSize = 20, lines = 2 }: { iconSize?: number; lines?: number }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <Bone w={iconSize} h={iconSize} r={6} style={{ flexShrink: 0 }} />
-      <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <Bone w="55%" h={13} />
-        {lines > 1 && <Bone w="35%" h={11} />}
-      </div>
-    </div>
-  )
-}
-
 function ToggleRow() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
@@ -136,14 +126,63 @@ function ToggleRow() {
   )
 }
 
+function CheckboxRow() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <Bone w={16} h={16} r={4} style={{ flexShrink: 0 }} />
+      <Bone w="45%" h={13} />
+    </div>
+  )
+}
+
+function SectionLabel() {
+  return <Bone w={90} h={11} r={4} />
+}
+
+/** Sign-in-session row — icon + 2 lines, "Current" badge, trailing 3-dot menu
+ *  button. */
+function SessionRowSkeleton({ current = false }: { current?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <Bone w={20} h={20} r={6} style={{ flexShrink: 0 }} />
+      <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Bone w="40%" h={13} />
+          {current && <Bone w={56} h={18} r={6} />}
+        </div>
+        <Bone w="30%" h={11} />
+      </div>
+      <Bone w={28} h={28} r={8} style={{ flexShrink: 0 }} />
+    </div>
+  )
+}
+
+/** Help/Legal link row — no leading icon; title+description left, a "View →"
+ *  ghost button right. */
+function LinkRowSkeleton() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <Bone w="45%" h={13} />
+        <Bone w="65%" h={11} />
+      </div>
+      <Bone w={64} h={22} r={6} style={{ flexShrink: 0 }} />
+    </div>
+  )
+}
+
 // ── Page skeletons ────────────────────────────────────────────────────────────
+
+// Real page maxWidth is 860, not the shared 908 every other skeleton here uses.
+const ACCOUNT_INNER: React.CSSProperties = { ...INNER, maxWidth: 860 }
 
 export function AccountSkeleton() {
   return (
     <div className="kaya-scrollbar" style={OUTER} aria-busy="true">
-      <div style={INNER}>
+      <div style={ACCOUNT_INNER}>
         <PageHeader />
 
+        {/* Profile card */}
         <div style={CARD}>
           <Section divider>
             <Bone w={65} h={65} r={32} />
@@ -161,17 +200,37 @@ export function AccountSkeleton() {
           </Section>
         </div>
 
+        {/* Personalisation — Style + Default Model rows */}
         <div style={CARD}>
           <Section divider>
+            <Bone w={130} h={16} />
+          </Section>
+          {[0, 1].map(i => (
+            <Section key={i} divider={i === 0}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <Bone w={110} h={14} />
+                  <Bone w={200} h={12} />
+                </div>
+                <Bone w={160} h={34} r={8} />
+              </div>
+            </Section>
+          ))}
+        </div>
+
+        {/* Danger Zone — Delete account row with "Coming soon" badge */}
+        <div style={DANGER_CARD}>
+          <Section divider>
             <Bone w={110} h={16} />
+            <Bone w="55%" h={12} />
           </Section>
           <Section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <Bone w={160} h={14} />
-                <Bone w={280} h={12} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bone w={140} h={14} />
+                <Bone w={90} h={20} r={6} />
               </div>
-              <Bone w={140} h={34} r={8} />
+              <Bone w={120} h={34} r={8} />
             </div>
           </Section>
         </div>
@@ -193,6 +252,7 @@ export function FilesSkeleton() {
               <Bone w={120} h={16} />
               <Bone w={80} h={22} r={6} />
             </div>
+            <Bone w="60%" h={12} />
           </Section>
           <Section divider>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -200,6 +260,7 @@ export function FilesSkeleton() {
               <Bone w={60} h={12} />
             </div>
             <Bone w="100%" h={4} r={2} />
+            <Bone w="70%" h={11} />
           </Section>
           <Section>
             {[0, 1, 2].map(i => (
@@ -215,6 +276,7 @@ export function FilesSkeleton() {
         <div style={CARD}>
           <Section divider>
             <Bone w={140} h={16} />
+            <Bone w="55%" h={12} />
           </Section>
           <Section divider>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -240,6 +302,7 @@ export function FilesSkeleton() {
         <div style={CARD}>
           <Section divider>
             <Bone w={140} h={16} />
+            <Bone w="55%" h={12} />
           </Section>
           <Section>
             <div style={{ border: '1px solid var(--neutral-100)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -256,6 +319,7 @@ export function FilesSkeleton() {
         <div style={CARD}>
           <Section divider>
             <Bone w={155} h={16} />
+            <Bone w="60%" h={12} />
           </Section>
           {[0, 1].map(i => (
             <Section key={i} divider={i === 0}>
@@ -298,16 +362,16 @@ export function SecuritySkeleton() {
           </Section>
         </div>
 
-        {/* Password */}
+        {/* Password — field stacked above badge, left column beside the button */}
         <div style={CARD}>
           <Section divider>
             <Bone w={100} h={16} />
             <Bone w="50%" h={12} />
           </Section>
           <Section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Bone w={200} h={36} r={8} />
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Bone w={327} h={36} r={8} />
                 <Bone w={80} h={22} r={6} />
               </div>
               <Bone w={140} h={34} r={8} />
@@ -327,7 +391,7 @@ export function SecuritySkeleton() {
             </div>
           </Section>
           <Section>
-            {[0, 1, 2, 3].map(i => <ListRow key={i} iconSize={20} />)}
+            {[0, 1, 2, 3].map(i => <SessionRowSkeleton key={i} current={i === 0} />)}
           </Section>
         </div>
 
@@ -355,26 +419,21 @@ export function SecuritySkeleton() {
 }
 
 export function NotificationsSkeleton() {
-  function NotifGroup({ rowCount }: { rowCount: number }) {
+  function NotifGroupHeader() {
     return (
-      <div style={CARD}>
-        <Section divider>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Bone w={160} h={16} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Bone w={80} h={28} r={8} />
-              <Bone w={80} h={28} r={8} />
-            </div>
+      <Section divider>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Bone w={160} h={16} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Bone w={80} h={28} r={8} />
+            <Bone w={80} h={28} r={8} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 32 }}>
-            <Bone w={50} h={12} />
-            <Bone w={50} h={12} />
-          </div>
-        </Section>
-        <Section>
-          {Array.from({ length: rowCount }).map((_, i) => <ToggleRow key={i} />)}
-        </Section>
-      </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 32 }}>
+          <Bone w={50} h={12} />
+          <Bone w={50} h={12} />
+        </div>
+      </Section>
     )
   }
 
@@ -382,9 +441,54 @@ export function NotificationsSkeleton() {
     <div className="kaya-scrollbar" style={OUTER} aria-busy="true">
       <div style={INNER}>
         <PageHeader />
-        <NotifGroup rowCount={6} />
-        <NotifGroup rowCount={3} />
-        <NotifGroup rowCount={2} />
+
+        {/* Activity — 3 labelled sub-sections (AUTOMATIONS/CONTENT/USAGE) plus
+            the Budget routing checkbox group, not one flat toggle list. */}
+        <div style={CARD}>
+          <NotifGroupHeader />
+          <Section>
+            <SectionLabel />
+            {[0, 1].map(i => <ToggleRow key={i} />)}
+          </Section>
+          <Section divider>
+            <SectionLabel />
+            {[0, 1].map(i => <ToggleRow key={i} />)}
+          </Section>
+          <Section divider>
+            <SectionLabel />
+            {[0, 1].map(i => <ToggleRow key={i} />)}
+          </Section>
+          <Section>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <Bone w="50%" h={13} />
+              <Bone w="35%" h={11} />
+            </div>
+            {[0, 1, 2].map(i => <CheckboxRow key={i} />)}
+          </Section>
+        </div>
+
+        {/* Team & Collaboration */}
+        <div style={CARD}>
+          <NotifGroupHeader />
+          <Section>
+            {[0, 1, 2].map(i => <ToggleRow key={i} />)}
+          </Section>
+        </div>
+
+        {/* Billing */}
+        <div style={CARD}>
+          <NotifGroupHeader />
+          <Section>
+            {[0, 1].map(i => <ToggleRow key={i} />)}
+          </Section>
+        </div>
+
+        {/* Standalone info card — "Billing email notifications cannot be disabled" */}
+        <div style={CARD}>
+          <Section>
+            <Bone w="75%" h={13} />
+          </Section>
+        </div>
       </div>
     </div>
   )
@@ -424,6 +528,7 @@ export function PreferencesSkeleton() {
             <Bone w="55%" h={12} />
           </Section>
           <Section divider>
+            <SectionLabel />
             <Bone w="100%" h={34} r={8} />
           </Section>
           <Section divider>
@@ -476,30 +581,33 @@ export function HelpSkeleton() {
           ))}
         </div>
 
-        {/* Help resources */}
+        {/* Help resources — Help Center, Contact Support, Community Slack
+            ("What's new" is commented out on the real page) */}
         <div style={CARD}>
           <Section divider>
             <Bone w={130} h={16} />
             <Bone w="50%" h={12} />
           </Section>
           <Section>
-            {[0, 1, 2, 3].map(i => <ListRow key={i} iconSize={16} lines={1} />)}
+            {[0, 1, 2].map(i => <LinkRowSkeleton key={i} />)}
           </Section>
         </div>
 
-        {/* Legal */}
+        {/* Legal — Terms, Privacy, Cookie ("Data Processing Agreement" is
+            commented out on the real page) */}
         <div style={CARD}>
           <Section divider>
             <Bone w={55} h={16} />
             <Bone w="50%" h={12} />
           </Section>
           <Section>
-            {[0, 1, 2, 3].map(i => <ListRow key={i} iconSize={16} lines={1} />)}
+            {[0, 1, 2].map(i => <LinkRowSkeleton key={i} />)}
           </Section>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
-          <Bone w={220} h={12} />
+        {/* Footer — left-aligned row, not centered */}
+        <div style={{ display: 'flex', alignItems: 'center', paddingTop: 8 }}>
+          <Bone w="100%" h={12} />
         </div>
       </div>
     </div>

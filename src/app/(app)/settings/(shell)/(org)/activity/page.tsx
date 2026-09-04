@@ -85,21 +85,36 @@ function ActivityPageSkeleton() {
           <SkeletonBlock width={300} height={14} radius={4} />
         </div>
         <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          {/* Toolbar — title left, search field + filter dropdown button right */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={110} height={18} radius={6} />
-            <SkeletonBlock width={220} height={34} radius={10} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <SkeletonBlock width={220} height={34} radius={10} />
+              <SkeletonBlock width={110} height={32} radius={10} />
+            </div>
+          </div>
+          {/* Column headers — When / Actor / Action / Target (ACTIVITY_COLUMNS) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px' }}>
+            <div style={{ width: 120 }}><SkeletonBlock width={40} height={12} radius={4} /></div>
+            <div style={{ flex: '1.3 0 0', minWidth: 220 }}><SkeletonBlock width={45} height={12} radius={4} /></div>
+            <div style={{ width: 200 }}><SkeletonBlock width={50} height={12} radius={4} /></div>
+            <div style={{ flex: '1.2 0 0', minWidth: 200 }}><SkeletonBlock width={45} height={12} radius={4} /></div>
           </div>
           {[0, 1, 2, 3, 4, 5].map(i => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 24px', minHeight: 72, borderBottom: '1px solid var(--neutral-100)' }}>
-              <SkeletonBlock width={60} height={12} radius={4} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 0 0' }}>
+              <div style={{ width: 120 }}><SkeletonBlock width={60} height={12} radius={4} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1.3 0 0', minWidth: 220 }}>
                 <SkeletonBlock width={32} height={32} radius={16} />
                 <SkeletonBlock width={130} height={12} radius={4} />
               </div>
-              <SkeletonBlock width={120} height={22} radius={8} />
-              <SkeletonBlock width={140} height={12} radius={4} />
+              <div style={{ width: 200 }}><SkeletonBlock width={120} height={22} radius={8} /></div>
+              <div style={{ flex: '1.2 0 0', minWidth: 200 }}><SkeletonBlock width={140} height={12} radius={4} /></div>
             </div>
           ))}
+          {/* Footer — "Retains 90 days…" */}
+          <div style={{ padding: '12px 24px', borderTop: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={260} height={12} radius={4} />
+          </div>
         </div>
       </div>
     </>

@@ -409,29 +409,27 @@ function GeneralPageSkeleton() {
         </div>
       </SkeletonCard>
 
-      {/* Workspace defaults */}
+      {/* Slack channel mapping — real card is gated on
+          `slackLoading || slackChannels.length > 0` (page.tsx:1234), so we
+          can't know yet whether it'll render; show it as a reasonable
+          "might be there" placeholder like every other data-dependent card
+          here. The old "Workspace defaults" bone that used to sit here is
+          gone — that real card is permanently dead (`{false && (...)}`,
+          page.tsx:1138), never rendered. */}
       <SkeletonCard>
         <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SkeletonBlock width={180} height={16} radius={5} />
-          <SkeletonBlock width='80%' height={13} radius={4} />
+          <SkeletonBlock width={140} height={16} radius={5} />
+          <SkeletonBlock width='70%' height={13} radius={4} />
         </div>
-        <SkeletonRow>
-          <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <SkeletonBlock width={160} height={14} radius={5} />
-            <SkeletonBlock width={320} height={12} radius={4} />
+        {[0, 1].map(i => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 24px' }}>
+            <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <SkeletonBlock width={110} height={14} radius={5} />
+              <SkeletonBlock width={160} height={12} radius={4} />
+            </div>
+            <SkeletonBlock width={110} height={26} radius={6} />
           </div>
-          <SkeletonBlock width={327} height={36} radius={10} />
-        </SkeletonRow>
-        <SkeletonRow>
-          <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <SkeletonBlock width={160} height={14} radius={5} />
-            <SkeletonBlock width={240} height={12} radius={4} />
-          </div>
-          <SkeletonBlock width={327} height={36} radius={10} />
-        </SkeletonRow>
-        <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--neutral-100)' }}>
-          <SkeletonBlock width={108} height={32} radius={8} />
-        </div>
+        ))}
       </SkeletonCard>
 
       {/* Danger Zone */}

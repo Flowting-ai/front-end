@@ -227,7 +227,7 @@ function SectionCard({
       display:       'flex',
       flexDirection: 'column',
       gap:           12,
-      paddingTop:    12,
+      paddingTop:    18,
       paddingBottom: 12,
       overflow:      'hidden',
       width:         '100%',
@@ -239,7 +239,7 @@ function SectionCard({
         alignItems:   'center',
         gap:          12,
       }}>
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
             {title}
           </p>
@@ -272,19 +272,126 @@ function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string 
   )
 }
 
-function PlansPageSkeleton() {
+function SkeletonShimmerStyle() {
+  return <style>{`@keyframes plansSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+}
+
+function SkeletonPageHeader() {
+  return (
+    <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <SkeletonBlock width={80} height={24} radius={6} />
+      <SkeletonBlock width={240} height={14} radius={4} />
+    </div>
+  )
+}
+
+/** Bordered-card bone matching SectionCard's real chrome (header row + body). */
+function SkeletonSectionCard({
+  hasAction = false,
+  headerDivider = true,
+  bodyPadding = '12px 24px',
+  children,
+}: {
+  hasAction?:     boolean
+  headerDivider?: boolean
+  bodyPadding?:   string
+  children:       React.ReactNode
+}) {
+  return (
+    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+      <div style={{ borderBottom: headerDivider ? '1px solid var(--neutral-100)' : undefined, padding: headerDivider ? '0 24px 24px' : '0 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SkeletonBlock width={80} height={16} radius={4} />
+          <SkeletonBlock width={210} height={14} radius={4} />
+        </div>
+        {hasAction && <SkeletonBlock width={120} height={32} radius={8} />}
+      </div>
+      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** "Big number + label, action button" row — the Plan / Credits Remaining cards' body. */
+function SkeletonStatRow() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <SkeletonBlock width={180} height={16} radius={4} />
+        <SkeletonBlock width={140} height={14} radius={4} />
+      </div>
+      <SkeletonBlock width={130} height={32} radius={8} />
+    </div>
+  )
+}
+
+/** Plan + Credits Remaining two-card row (Figma 18:25119) — Teams and Personal both use this. */
+function SkeletonTwoCardRow() {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+        <SkeletonSectionCard hasAction headerDivider={false}><SkeletonStatRow /></SkeletonSectionCard>
+      </div>
+      <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+        <SkeletonSectionCard headerDivider={false}><SkeletonStatRow /></SkeletonSectionCard>
+      </div>
+    </div>
+  )
+}
+
+function SkeletonPaymentCard() {
+  return (
+    <SkeletonSectionCard>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <SkeletonBlock width={44} height={28} radius={6} />
+        <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SkeletonBlock width={180} height={16} radius={4} />
+          <SkeletonBlock width={100} height={14} radius={4} />
+        </div>
+        <SkeletonBlock width={150} height={32} radius={8} />
+      </div>
+    </SkeletonSectionCard>
+  )
+}
+
+function SkeletonInvoiceCard() {
+  return (
+    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+      <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: '1 0 0' }}><SkeletonBlock width={120} height={16} radius={4} /></div>
+        <SkeletonBlock width={100} height={32} radius={8} />
+      </div>
+      <div style={{ padding: '0 24px 12px' }}>
+        <div style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
+          <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+            {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
+            <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+          </div>
+          {[0, 1, 2].map((i, idx) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: idx < 2 ? '1px solid var(--neutral-100)' : undefined }}>
+              <SkeletonBlock width={80} height={14} radius={4} />
+              <SkeletonBlock width={60} height={14} radius={4} />
+              <SkeletonBlock width={45} height={20} radius={6} />
+              <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={36} height={14} radius={4} /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Enterprise branch (org.plan === 'enterprise'): hero → 3 stat tiles → spend-limit
+ *  card → Payment/Invoice (admin-only, matching the real `isAdmin &&` gates). */
+function EnterprisePlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <>
-      <style>{`@keyframes plansSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <SkeletonShimmerStyle />
       <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <SkeletonPageHeader />
 
-        {/* Page header */}
-        <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <SkeletonBlock width={80} height={24} radius={6} />
-          <SkeletonBlock width={240} height={14} radius={4} />
-        </div>
-
-        {/* Hero panel skeleton */}
+        {/* Hero panel */}
         <div style={{ borderRadius: 8, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, background: 'var(--neutral-100)', boxShadow: SHADOW_HERO }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <SkeletonBlock width={120} height={24} radius={6} />
@@ -301,16 +408,13 @@ function PlansPageSkeleton() {
           <SkeletonBlock width="100%" height={4} radius={2} />
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <SkeletonBlock width={150} height={13} radius={4} />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <SkeletonBlock width={130} height={32} radius={8} />
-              <SkeletonBlock width={110} height={32} radius={8} />
-            </div>
+            <SkeletonBlock width={140} height={13} radius={4} />
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* 3 stat tiles: Shared credits, Credits Remaining, Seats used */}
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {[0, 1, 2, 3].map(i => (
+          {[0, 1, 2].map(i => (
             <div key={i} style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, flex: '1 1 200px', minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <SkeletonBlock width={110} height={14} radius={4} />
               <SkeletonBlock width={60} height={24} radius={6} />
@@ -319,48 +423,64 @@ function PlansPageSkeleton() {
           ))}
         </div>
 
-        {/* Payment section card */}
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
-          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SkeletonBlock width={80} height={16} radius={4} />
-              <SkeletonBlock width={210} height={14} radius={4} />
-            </div>
+        {/* Overage spend limit card */}
+        <SkeletonSectionCard hasAction>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+            <SkeletonBlock width={80} height={24} radius={6} />
+            <SkeletonBlock width={160} height={14} radius={4} />
           </div>
-          <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <SkeletonBlock width={44} height={28} radius={6} />
-            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SkeletonBlock width={180} height={16} radius={4} />
-              <SkeletonBlock width={100} height={14} radius={4} />
-            </div>
-            <SkeletonBlock width={150} height={32} radius={8} />
-          </div>
-        </div>
+          <SkeletonBlock width="100%" height={4} radius={2} />
+          <SkeletonBlock width={220} height={14} radius={4} />
+        </SkeletonSectionCard>
 
-        {/* Invoice history section card */}
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
-          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: '1 0 0' }}><SkeletonBlock width={120} height={16} radius={4} /></div>
-            <SkeletonBlock width={100} height={32} radius={8} />
-          </div>
-          <div style={{ padding: '0 24px 12px' }}>
-            <div style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
-              <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
-                {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
-                <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+        {isAdmin && <SkeletonPaymentCard />}
+        {isAdmin && <SkeletonInvoiceCard />}
+      </div>
+    </>
+  )
+}
+
+/** Teams branch (org, not enterprise): no hero — Plan + Credits Remaining row →
+ *  Payment/Invoice (admin-only). */
+function TeamsPlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <>
+      <SkeletonShimmerStyle />
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <SkeletonPageHeader />
+        <SkeletonTwoCardRow />
+        {isAdmin && <SkeletonPaymentCard />}
+        {isAdmin && <SkeletonInvoiceCard />}
+      </div>
+    </>
+  )
+}
+
+/** Personal (individual, non-org) branch: same two-card row, plus the
+ *  "This month's usage" card (Chat/Slack/Brain) real page adds. */
+function PersonalPlansSkeleton() {
+  return (
+    <>
+      <SkeletonShimmerStyle />
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <SkeletonPageHeader />
+        <SkeletonTwoCardRow />
+
+        {/* This month's usage — Chat / Slack / Brain */}
+        <SkeletonSectionCard>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <SkeletonBlock width={50} height={14} radius={4} />
+                <SkeletonBlock width={90} height={14} radius={4} />
               </div>
-              {[0, 1, 2].map((i, idx) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: idx < 2 ? '1px solid var(--neutral-100)' : undefined }}>
-                  <SkeletonBlock width={80} height={14} radius={4} />
-                  <SkeletonBlock width={60} height={14} radius={4} />
-                  <SkeletonBlock width={45} height={20} radius={6} />
-                  <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={36} height={14} radius={4} /></div>
-                </div>
-              ))}
+              <SkeletonBlock width="100%" height={4} radius={2} />
             </div>
-          </div>
-        </div>
+          ))}
+        </SkeletonSectionCard>
 
+        <SkeletonPaymentCard />
+        <SkeletonInvoiceCard />
       </div>
     </>
   )
@@ -382,9 +502,13 @@ export default function PlansAndBillingPage() {
   }, [orgId, orgReady, orgRole, orgRoleResolved, roleError, router])
 
   if (!orgReady || (orgId && orgRoleResolved && !roleError && orgRole !== 'admin')) {
+    // orgId/isEnterprise aren't resolved yet (or role just resolved to
+    // non-admin and we're about to redirect away) — Teams' non-admin shape
+    // (no hero, no Payment/Invoice) is the closest neutral placeholder for
+    // this brief, transient state.
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
-        <PlansPageSkeleton />
+        <TeamsPlansSkeleton isAdmin={false} />
       </div>
     )
   }
@@ -600,7 +724,7 @@ function OrgBillingView() {
   if (billingLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
-        <PlansPageSkeleton />
+        {isEnterprise ? <EnterprisePlansSkeleton isAdmin={isAdmin} /> : <TeamsPlansSkeleton isAdmin={isAdmin} />}
       </div>
     )
   }
@@ -1058,7 +1182,7 @@ function PersonalBillingView() {
   if (showSkeleton) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
-        <PlansPageSkeleton />
+        <PersonalPlansSkeleton />
       </div>
     )
   }

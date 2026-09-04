@@ -179,7 +179,7 @@ export default function OrgChangePlanPage() {
       toast.success(`You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`, { duration: Infinity })
     } else {
       currentPlanToastShown.current = true
-      toast.info("You don't have a plan yet — pick one below to get started.", { duration: Infinity })
+      toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity })
     }
   }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
 

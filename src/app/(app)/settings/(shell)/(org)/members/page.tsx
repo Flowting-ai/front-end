@@ -816,10 +816,13 @@ function MembersPageSkeleton() {
       <style>{`@keyframes membersSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
       <div style={{ width: '100%', maxWidth: 1008, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Page header */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SkeletonBlock width={120} height={28} radius={6} />
-          <SkeletonBlock width={320} height={14} radius={4} />
+        {/* Page header — h1/subtitle left, "Roles & Permissions" button right */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonBlock width={120} height={28} radius={6} />
+            <SkeletonBlock width={320} height={14} radius={4} />
+          </div>
+          <SkeletonBlock width={170} height={32} radius={8} />
         </div>
 
         {/* Stats row */}
@@ -835,48 +838,36 @@ function MembersPageSkeleton() {
 
         {/* Members table skeleton */}
         <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
-          {/* Table header */}
+          {/* Toolbar — title left, search icon button + "Invite members" button right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={120} height={16} radius={4} />
             <div style={{ flex: '1 0 0' }} />
             <SkeletonBlock width={32} height={32} radius={8} />
-            <SkeletonBlock width={32} height={32} radius={8} />
-            <SkeletonBlock width={110} height={32} radius={8} />
+            <SkeletonBlock width={130} height={32} radius={8} />
           </div>
-          {/* Column headers */}
+          {/* Column headers — Member / Role / Actions (WORKSPACE_MEMBER_COLUMNS) */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px' }}>
-            <div style={{ flex: '1 0 0', minWidth: 200 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
-            <div style={{ width: 110 }}><SkeletonBlock width={40} height={13} radius={4} /></div>
-            <div style={{ width: 200 }}><SkeletonBlock width={50} height={13} radius={4} /></div>
-            <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+            <div style={{ flex: '1.25 0 0', minWidth: 260 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+            <div style={{ flex: '1.5 0 0', minWidth: 320, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={40} height={13} radius={4} /></div>
+            <div style={{ width: 150, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
           </div>
           {/* Member rows */}
           {[0, 1, 2, 3].map((i, idx) => (
             <React.Fragment key={i}>
               {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
               <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
-                <div style={{ flex: '1 0 0', minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: '1.25 0 0', minWidth: 260, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <SkeletonBlock width={32} height={32} radius={16} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <SkeletonBlock width={120} height={13} radius={4} />
                     <SkeletonBlock width={160} height={11} radius={4} />
                   </div>
                 </div>
-                <div style={{ width: 110 }}><SkeletonBlock width={70} height={28} radius={8} /></div>
-                <div style={{ width: 200 }}><SkeletonBlock width={80} height={20} radius={6} /></div>
-                <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
+                <div style={{ flex: '1.5 0 0', minWidth: 320, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
+                <div style={{ width: 150, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
               </div>
             </React.Fragment>
           ))}
-          {/* Footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderTop: '1px solid var(--neutral-100)' }}>
-            <SkeletonBlock width={160} height={13} radius={4} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <SkeletonBlock width={32} height={32} radius={8} />
-              <SkeletonBlock width={32} height={32} radius={8} />
-              <SkeletonBlock width={32} height={32} radius={8} />
-            </div>
-          </div>
         </div>
 
       </div>
