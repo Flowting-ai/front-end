@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { PlusSignIcon, CalendarThreeIcon } from '@strange-huge/icons'
+import { PlusSignIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
 
@@ -24,38 +24,33 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
       flexDirection:  'column',
       alignItems:     'center',
       justifyContent: 'center',
-      gap:            16,
-      padding:        '60px 24px',
-      textAlign:      'center',
+      gap:            24,
+      padding:        '48px 24px',
     }}>
-      <div style={{
-        width:           40,
-        height:          40,
-        borderRadius:    12,
-        backgroundColor: 'var(--neutral-100)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-      }}>
-        <CalendarThreeIcon size={20} color="var(--neutral-400)" />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-700)',
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <p style={{
+          fontFamily: 'var(--font-title)',
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   24,
+          lineHeight: '32px',
+          color:      '#1a1916',
+          margin:     0,
+          whiteSpace: 'nowrap',
         }}>
           No schedules yet
-        </span>
-        <span style={{
+        </p>
+        <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      'var(--neutral-400)',
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   16,
+          lineHeight: '22px',
+          color:      '#1a1916',
+          textAlign:  'center',
+          maxWidth:   427,
+          margin:     0,
         }}>
           Create a schedule to run Task automatically on a cadence.
-        </span>
+        </p>
       </div>
       <Button
         variant="default"
