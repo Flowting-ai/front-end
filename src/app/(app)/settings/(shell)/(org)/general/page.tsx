@@ -13,6 +13,7 @@ import { useAuth } from '@/context/auth-context'
 import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from '@/lib/api/organization'
 import { listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
 import type { SlackChannel } from '@/lib/api/slack'
+import { LeaveWorkspaceModal } from '@/components/LeaveWorkspaceModal'
 import { CHAT_ROUTE } from '@/lib/routes'
 
 // ── Text input ────────────────────────────────────────────────────────────────
@@ -484,6 +485,7 @@ export default function OrgGeneralPage() {
   // real and enabled (matching Figma 18:23880), but until there's a backend
   // contract it can only tell the admin that, not actually archive anything.
   const [archivingOrg,   setArchivingOrg]   = useState(false)
+  const [leaveWorkspaceOpen, setLeaveWorkspaceOpen] = useState(false)
 
   // Settings fields
   const [aiInstructions,           setAiInstructions]           = useState('')
@@ -1290,6 +1292,30 @@ export default function OrgGeneralPage() {
             </p>
           </div>
 
+          {/* Leave workspace */}
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                Leave workspace
+              </p>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                Remove yourself from this workspace. You'll lose access to its projects and chats.
+              </p>
+            </div>
+            <button
+              onClick={() => setLeaveWorkspaceOpen(true)}
+              style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)',
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-500)', whiteSpace: 'nowrap',
+              }}
+            >
+              Leave
+            </button>
+          </div>
+
           {/* Archive workspace */}
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
@@ -1351,6 +1377,8 @@ export default function OrgGeneralPage() {
         </Card>
 
       </div>
+
+      {leaveWorkspaceOpen && <LeaveWorkspaceModal onClose={() => setLeaveWorkspaceOpen(false)} />}
     </div>
   )
 }

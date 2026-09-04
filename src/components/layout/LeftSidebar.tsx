@@ -691,8 +691,13 @@ function ProjectsSection({
 }
 
 // -- Teams sidebar components --------------------------------------------------
-// Team no longer exists as a backend entity — "team projects" here just means
-// every project shared with the organization (project.teamId !== null).
+// Team no longer exists as a backend entity — "workspace projects" here means
+// every project visible to the organization (visibility 'workspace' or
+// 'shared'). NOT project.teamId !== null — an org member's own Personal
+// project also carries the org's teamId server-side (project.py sets
+// organizationId on every project a member creates, regardless of
+// visibility), so a teamId check would wrongly pull personal projects into
+// this list. Keyed off visibility to match /projects' own scope tabs.
 
 interface TeamsSidebarContentProps {
   role: 'admin' | 'member'
@@ -700,7 +705,7 @@ interface TeamsSidebarContentProps {
 
 // Stable references so they don't defeat memoization in ProjectsSection/
 // FlatProjectItemsList, which key their own useMemo off these functions.
-const isOrgSharedProject = (project: Project) => project.teamId !== null
+const isOrgSharedProject = (project: Project) => project.visibility === 'workspace' || project.visibility === 'shared'
 // FlatTeamsSidebarContent merges the viewer's personal and org-shared
 // projects into one list — no team layer left to filter by.
 const includeAllProjects = () => true

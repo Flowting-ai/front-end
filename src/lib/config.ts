@@ -243,6 +243,10 @@ export const PROJECT_MEMBERS_ENDPOINT = (projectId: string) =>
   withBase(`/projects/${projectId}/members`)
 export const PROJECT_MEMBER_ENDPOINT  = (projectId: string, auth0Id: string) =>
   withBase(`/projects/${projectId}/members/${auth0Id}`)
+export const PROJECT_LEAVE_ENDPOINT   = (projectId: string) =>
+  withBase(`/projects/${projectId}/leave`)
+export const PROJECT_RESTORE_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/restore`)
 
 // ── Persona Shares ─────────────────────────────────────────────────────────
 export const PERSONA_SHARES_ENDPOINT           = withBase('/persona-shares')
@@ -298,6 +302,8 @@ export const ORG_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
 export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
 export const ORG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}`)
+export const ORG_LEAVE_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/leave`)
 export const ORG_SETTINGS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/settings`)
 export const ORG_PLAN_ENDPOINT = (orgId: string) =>

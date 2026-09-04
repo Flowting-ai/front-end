@@ -38,6 +38,7 @@ import { trackFeature } from '@/lib/analytics/events'
 import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
+import { LeaveProjectModal } from '@/components/LeaveProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -82,7 +83,7 @@ function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
-  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading } = useProjects()
+  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading, refreshProjects } = useProjects()
   const { pins, isLoading: pinsLoading, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { panel: sharedPanel, setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
@@ -113,6 +114,7 @@ export default function ProjectPage() {
 
   const [menuOpen,         setMenuOpen]         = useState(false)
   const [editOpen,         setEditOpen]         = useState(false)
+  const [leaveOpen,        setLeaveOpen]        = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
@@ -140,12 +142,15 @@ export default function ProjectPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
-  // Team projects source their chat list from the global /chats endpoint
-  // (which carries visibility/team_id/pins_count), filtered to this project.
-  // "Your chats" = all of these; "Publish to team" = the visibility==='team'
-  // subset. Private projects keep useProjects().getChats() (see render).
+  // Workspace/Shared projects source their chat list from the global /chats
+  // endpoint (which carries visibility/team_id/pins_count), filtered to this
+  // project. "Your chats" = all of these; "Publish to team" = the
+  // visibility==='team' subset. Personal projects keep useProjects().getChats()
+  // (see render). Keyed on project.visibility, NOT project.teamId — the
+  // backend stamps organizationId on org members' Personal projects too, so
+  // teamId alone can't tell Personal apart from Workspace/Shared.
   useEffect(() => {
-    if (!project?.teamId) { setTeamChats([]); return }
+    if (!project || project.visibility === 'personal') { setTeamChats([]); return }
     let cancelled = false
     ;(async () => {
       const collected: Chat[] = []
@@ -160,7 +165,7 @@ export default function ProjectPage() {
       if (!cancelled) setTeamChats(collected.filter(c => c.project_id === params.id))
     })().catch(() => { if (!cancelled) setTeamChats([]) })
     return () => { cancelled = true }
-  }, [project?.teamId, params.id])
+  }, [project?.visibility, params.id])
 
   // Lazy-load chats shared with me (editable → "Shared with you", read-only →
   // "View only"), scoped to this project, when either tab first opens.
@@ -321,6 +326,11 @@ export default function ProjectPage() {
   // they don't own it — see the matching note in projects-context.tsx's
   // deleteProject guardrail, which is the actual enforcement point.
   const canDeleteProject = project.canEdit || (isOrgAdmin && !!orgId && project.teamId === orgId)
+  // Personal projects have no membership to leave (backend 400s) — leaving
+  // applies to both the owner (triggers successor/archive/convert) and any
+  // collaborator on a workspace/shared project.
+  const canLeaveProject = project.visibility !== 'personal'
+  const hasMenuActions = canDeleteProject || canLeaveProject
 
   const projectId = project.id
 
@@ -422,7 +432,9 @@ export default function ProjectPage() {
   const ownerName   = members.find(m => m.id === project.ownerUserId)?.name
   // Publish CTA gate — editor+ on this team (owner/admin resolve true). Members
   // (and editors whose grants aren't loaded yet) get no publish affordance.
-  const canPublishChat = !!project.teamId && caps.canPublishToTeam(project.teamId)
+  // Gated on visibility, not just teamId — an org member's own Personal
+  // project also carries the org's teamId, but there's no "team" to publish to.
+  const canPublishChat = project.visibility !== 'personal' && !!project.teamId && caps.canPublishToTeam(project.teamId)
 
   // "Personal" is everything in this project you can see via the normal chat
   // list — your own chats AND published-to-workspace ones (blue badge marks which).
@@ -628,7 +640,7 @@ export default function ProjectPage() {
                   onClick={handleOpenShare}
                 />}
 
-                {canDeleteProject && <Dropdown.Float
+                {hasMenuActions && <Dropdown.Float
                   open={menuOpen}
                   onOpenChange={setMenuOpen}
                   placement="bottom-end"
@@ -649,14 +661,21 @@ export default function ProjectPage() {
                         fluid
                       />
                     </Dropdown.Section>}
-                    <Dropdown.Section divider fluid>
+                    {canLeaveProject && <Dropdown.Section divider={project.canEdit} fluid>
+                      <Dropdown.Item
+                        label="Leave project"
+                        onClick={() => { setMenuOpen(false); setLeaveOpen(true) }}
+                        fluid
+                      />
+                    </Dropdown.Section>}
+                    {canDeleteProject && <Dropdown.Section divider fluid>
                       <Dropdown.Item
                         label="Delete"
                         variant="danger"
                         onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => push(PROJECTS_ROUTE)) }}
                         fluid
                       />
-                    </Dropdown.Section>
+                    </Dropdown.Section>}
                   </Dropdown>
                 </Dropdown.Float>}
 
@@ -689,7 +708,7 @@ export default function ProjectPage() {
               </div>
             </div>
 
-            {project.teamId ? (
+            {project.visibility !== 'personal' ? (
               ownerName && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
@@ -885,8 +904,9 @@ export default function ProjectPage() {
             />
           </div>
 
-          {/* Chat list — 3 tabs on team projects, flat list on private */}
-          {project.teamId ? (
+          {/* Chat list — 3 tabs on Workspace/Shared projects, flat list on
+              Personal. Keyed on visibility, not teamId (see effect above). */}
+          {project.visibility !== 'personal' ? (
             <div style={{ width: '100%', maxWidth: '679px', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Tabs
                 value={activeTab}
@@ -1040,7 +1060,7 @@ export default function ProjectPage() {
               setAgentsPanelOpen(v => !v)
             }}
           />
-          {project.teamId && (
+          {project.visibility !== 'personal' && (
             <FloatingMenuItem
               icon={<UserIcon size={20} animated />}
               label="Members"
@@ -1068,6 +1088,23 @@ export default function ProjectPage() {
         onSave={(name, description, tags) => updateProject(projectId, { name, description, tags })}
         onClose={() => setEditOpen(false)}
       />}
+
+      {leaveOpen && user?.auth0Id && (
+        <LeaveProjectModal
+          projectId={projectId}
+          isOwner={project.canEdit}
+          currentUserId={user.auth0Id}
+          onClose={() => setLeaveOpen(false)}
+          onLeft={() => {
+            // refreshProjects() has no built-in error handling — a failure
+            // here just means /projects looks stale until the next reload;
+            // the leave itself already succeeded and already toasted, and
+            // we're navigating away from this page regardless.
+            refreshProjects().catch(() => {})
+            push(PROJECTS_ROUTE)
+          }}
+        />
+      )}
 
       {project.canEdit && <SystemInstructionsModal
         open={instructionsOpen}

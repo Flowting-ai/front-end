@@ -5,23 +5,36 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
+import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
+
+const VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; description: string }[] = [
+  { value: 'personal',  label: 'Personal',  description: 'Just you.' },
+  { value: 'workspace', label: 'Workspace', description: 'Everyone in the workspace.' },
+  { value: 'shared',    label: 'Shared',    description: 'You choose who to invite.' },
+]
 
 function NewProjectPageInner() {
   const { push }                     = useRouter()
   const { projects, createProject } = useProjects()
+  const { orgId }                    = useOrg()
   const [name,        setName]       = useState('')
   const [description, setDescription] = useState('')
+  const [visibility,  setVisibility]  = useState<ProjectVisibility>('personal')
   const [loading,     setLoading]    = useState(false)
+
+  // Workspace/Shared require an org — backend 400s otherwise (Project.create()).
+  const visibilityOptions = orgId ? VISIBILITY_OPTIONS : VISIBILITY_OPTIONS.filter(o => o.value === 'personal')
 
   async function handleCreate() {
     if (!name.trim()) return
     setLoading(true)
     try {
-      const project = await createProject(name.trim(), description.trim())
+      const project = await createProject(name.trim(), description.trim(), undefined, visibility)
       push(PROJECT_ROUTE(project.id))
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
@@ -185,6 +198,40 @@ function NewProjectPageInner() {
               This becomes part of your project context.
             </p>
           </div>
+
+          {visibilityOptions.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label
+                style={{
+                  fontFamily:  'var(--font-body)',
+                  fontWeight:  'var(--font-weight-medium)',
+                  fontSize:    '14px',
+                  lineHeight:  '22px',
+                  color:       '#524b47',
+                }}
+              >
+                Who can see this
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {visibilityOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setVisibility(opt.value)}
+                    style={{
+                      flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left',
+                      padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                      border: visibility === opt.value ? '1.5px solid var(--neutral-900)' : '1px solid var(--neutral-200)',
+                      backgroundColor: visibility === opt.value ? 'var(--neutral-50)' : 'var(--neutral-white)',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-900)' }}>{opt.label}</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, color: 'var(--neutral-500)' }}>{opt.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

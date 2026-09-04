@@ -19,6 +19,7 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
   active?:    boolean
   onEdit?:    () => void
   onDelete?:  () => void
+  onLeave?:   () => void
   onClick?:   () => void
   /**
    * Pre-rendered server component for the static body (meta line, title, tags,
@@ -34,12 +35,12 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function ProjectCardInner(
-  { title, description, tags, teamName, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, description, tags, teamName, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onDelete, onLeave, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
-    const hasActions = Boolean(onEdit || onDelete)
+    const hasActions = Boolean(onEdit || onDelete || onLeave)
 
     const showMenu = hovered || focused || menuOpen || !!active
 
@@ -152,12 +153,21 @@ function ProjectCardInner(
               }
             >
               <Dropdown size="md">
-                <Dropdown.Section fluid>
-                  <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit?.() }} fluid />
-                </Dropdown.Section>
-                <Dropdown.Section divider fluid>
-                  <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
-                </Dropdown.Section>
+                {onEdit && (
+                  <Dropdown.Section fluid>
+                    <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
+                  </Dropdown.Section>
+                )}
+                {onLeave && (
+                  <Dropdown.Section divider={!!onEdit} fluid>
+                    <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
+                  </Dropdown.Section>
+                )}
+                {onDelete && (
+                  <Dropdown.Section divider fluid>
+                    <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
+                  </Dropdown.Section>
+                )}
               </Dropdown>
             </Dropdown.Float>
           </div>}

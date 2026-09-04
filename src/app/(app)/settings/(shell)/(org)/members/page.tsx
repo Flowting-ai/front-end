@@ -959,7 +959,12 @@ export default function OrgMembersPage() {
     let cancelled = false
     fetchProjects(user?.auth0Id ?? '')
       .then(items => {
-        if (!cancelled) setProjects(items.filter(project => project.teamId))
+        // Only Workspace/Shared projects are valid invite-time add targets —
+        // a Personal project also carries the org's teamId (organizationId
+        // is stamped on every org member's project regardless of
+        // visibility), so a bare teamId check would offer the inviter's own
+        // private projects as something to add the new member to.
+        if (!cancelled) setProjects(items.filter(project => project.teamId && project.visibility !== 'personal'))
       })
       .catch(() => {
         if (!cancelled) setProjects([])

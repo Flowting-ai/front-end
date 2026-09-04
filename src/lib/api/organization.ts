@@ -1,7 +1,7 @@
 'use client'
 
 import { z } from 'zod'
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
 import {
   ORGANIZATIONS_ENDPOINT,
   ORG_ENDPOINT,
@@ -14,6 +14,7 @@ import {
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_INVITE_ENDPOINT,
+  ORG_LEAVE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
@@ -317,6 +318,31 @@ export async function deleteOrg(orgId: string, confirmName: string): Promise<voi
     method: 'DELETE',
     body:   JSON.stringify({ confirmName }),
   })
+}
+
+/**
+ * POST /organizations/{id}/leave — 204 No Content on success. `successorAdminUserId`
+ * is only read server-side when the caller is the last admin (organization.py);
+ * harmless to omit otherwise. Uses `apiFetch` directly (not `apiFetchJson`) since
+ * a 204 body would fail `.json()` parsing on the success path — the error path
+ * below mirrors apiFetchJson's own `detail` extraction so real backend messages
+ * ("Must promote a replacement admin", "The billing admin cannot leave — transfer
+ * billing first", "Successor must be another member of this organization")
+ * surface verbatim instead of a generic status-code string.
+ */
+export async function leaveOrganization(orgId: string, successorAdminUserId?: string): Promise<void> {
+  const res = await apiFetch(ORG_LEAVE_ENDPOINT(orgId), {
+    method: 'POST',
+    body:   JSON.stringify(successorAdminUserId ? { successorAdminUserId } : {}),
+  })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'leave_org_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {

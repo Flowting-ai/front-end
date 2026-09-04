@@ -16,15 +16,30 @@ import { Dropdown } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
 import Tabs from '@/components/Tabs'
 import { EditProjectModal } from '@/components/EditProjectModal'
+import { LeaveProjectModal } from '@/components/LeaveProjectModal'
+import { ProjectTrashModal } from '@/components/ProjectTrashModal'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
+import { useAuth } from '@/context/auth-context'
 import type { OrgMember } from '@/types/teams'
+import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { getGradient } from '@/lib/team-gradients'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
-type ScopeFilter = 'personal' | 'team'
+// Same 3 values as ProjectVisibility — the list's scope tab is keyed directly
+// off a project's real visibility now, not the old binary teamId===null check.
+type ScopeFilter = ProjectVisibility
+const SCOPE_VALUES: readonly ScopeFilter[] = ['personal', 'workspace', 'shared']
+// Legacy '?scope=team' links (bookmarks, the sidebar, anywhere else that
+// hasn't been updated) map to 'workspace' — the closest equivalent now that
+// Team is gone from the backend (see docs v1.5/sharing-model-v2-gap-audit.md's
+// Cross-cutting Teams note).
+function parseScope(raw: string | null): ScopeFilter {
+  if (raw === 'team') return 'workspace'
+  return (SCOPE_VALUES as readonly string[]).includes(raw ?? '') ? (raw as ScopeFilter) : 'personal'
+}
 type ViewMode = 'grid' | 'list'
 
 // Gradient palette seeded by team name — shared with TeamChip/TeamSwitcherRow/
@@ -110,7 +125,7 @@ function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v:
 // ── Compact list-view row ────────────────────────────────────────────────────
 
 function ProjectListRow({
-  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete,
+  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete, onLeave,
 }: {
   project:      Project
   teamName?:    string
@@ -120,10 +135,11 @@ function ProjectListRow({
   onClick:      () => void
   onEdit?:      () => void
   onDelete?:    () => void
+  onLeave?:     () => void
 }) {
   const [hovered,  setHovered]  = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const hasActions = Boolean(onEdit || onDelete)
+  const hasActions = Boolean(onEdit || onDelete || onLeave)
   const showMenu   = hovered || menuOpen
   const scopeLabel = teamName ?? 'Personal'
 
@@ -242,12 +258,21 @@ function ProjectListRow({
               }
             >
               <Dropdown size="md">
-                <Dropdown.Section fluid>
-                  <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit?.() }} fluid />
-                </Dropdown.Section>
-                <Dropdown.Section divider fluid>
-                  <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
-                </Dropdown.Section>
+                {onEdit && (
+                  <Dropdown.Section fluid>
+                    <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
+                  </Dropdown.Section>
+                )}
+                {onLeave && (
+                  <Dropdown.Section divider={!!onEdit} fluid>
+                    <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
+                  </Dropdown.Section>
+                )}
+                {onDelete && (
+                  <Dropdown.Section divider fluid>
+                    <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
+                  </Dropdown.Section>
+                )}
               </Dropdown>
             </Dropdown.Float>
           </div>
@@ -264,11 +289,13 @@ function sortProjects(projects: Project[], key: SortKey): Project[] {
   return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 }
 
-// A team project's member count is its team's roster (everyone who can reach
-// it); a personal project's is just its owner — there's no separate
-// per-project membership list distinct from team membership.
+// A workspace/shared project's member count is its team's roster (everyone
+// who can reach it); a personal project's is just its owner — there's no
+// separate per-project membership list distinct from team membership.
+// Gated on visibility, not teamId — an org member's own Personal project
+// also carries the org's teamId, but has no roster of its own.
 function projectMemberCount(project: Project, members: OrgMember[]): number {
-  if (!project.teamId) return 1
+  if (project.visibility === 'personal' || !project.teamId) return 1
   const count = members.filter(m => m.teamMemberships.some(tm => tm.teamId === project.teamId)).length
   return count || 1
 }
@@ -292,8 +319,9 @@ function formatUpdated(iso: string) {
 function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
-  const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
+  const { projects, loading, updateProject, deleteProject, loadProjectChats, refreshProjects } = useProjects()
   const { orgId, members, currentUserRole }                                   = useOrg()
+  const { user }                                                              = useAuth()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
   // Always plain — this page's own "New Project" button should default to
@@ -321,13 +349,11 @@ function ProjectsPageInner() {
   // further down re-syncs this state whenever the URL's ?scope= changes out
   // from under it (e.g. browser Back/Forward), so the visible tab never
   // drifts from the address bar.
-  const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() =>
-    searchParams.get('scope') === 'team' ? 'team' : 'personal'
-  )
+  const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() => parseScope(searchParams.get('scope')))
   // Re-sync the tab any time the URL's ?scope= changes — including via
   // popstate (Back/Forward), not just the initial mount.
   useEffect(() => {
-    const urlScope: ScopeFilter = searchParams.get('scope') === 'team' ? 'team' : 'personal'
+    const urlScope = parseScope(searchParams.get('scope'))
     setScopeFilter(prev => (prev === urlScope ? prev : urlScope))
   }, [searchParams])
   // Keep the URL's ?scope= in sync with the tab so the current scope survives
@@ -343,6 +369,23 @@ function ProjectsPageInner() {
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [isDeleting,     setIsDeleting]     = useState(false)
+  const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
+  const [trashOpen,      setTrashOpen]      = useState(false)
+
+  // Personal projects have no membership to leave (backend 400s) — only
+  // workspace/shared projects get the "Leave project" menu item, for both
+  // the owner (triggers successor/archive/convert) and any collaborator.
+  function canLeaveProject(project: Project): boolean {
+    return project.visibility !== 'personal'
+  }
+
+  // refreshProjects() itself has no built-in error handling (unlike the
+  // bootstrap effect that originally owned this logic) — callers must catch.
+  // A failure here just means the list looks stale until the next reload;
+  // the leave/restore action itself already succeeded and already toasted.
+  function handleRefreshProjects() {
+    refreshProjects().catch(err => toast.error('Failed to refresh projects', { description: err instanceof Error ? err.message : undefined }))
+  }
 
   // Org owners/admins can delete a colleague's shared project even though
   // they don't own it — see the matching note in projects-context.tsx's
@@ -379,15 +422,15 @@ function ProjectsPageInner() {
     }
   }
 
-  // Standing personal/team split — independent of the scope tab below, so
-  // the heading badges always summarize the whole list at a glance. Team
-  // projects are never auto-hidden just because a different team is active
-  // elsewhere in the app — the Team tab always covers every team at once.
-  const personalCount = useMemo(() => projects.filter(p => p.teamId === null).length, [projects])
-  const teamCount      = useMemo(() => projects.filter(p => p.teamId !== null).length, [projects])
+  // Standing 3-way split — independent of the scope tab below, so the
+  // heading badges always summarize the whole list at a glance. Keyed off a
+  // project's real visibility now, not the old teamId===null proxy.
+  const personalCount  = useMemo(() => projects.filter(p => p.visibility === 'personal').length, [projects])
+  const workspaceCount = useMemo(() => projects.filter(p => p.visibility === 'workspace').length, [projects])
+  const sharedCount    = useMemo(() => projects.filter(p => p.visibility === 'shared').length, [projects])
 
   const scopedProjects = useMemo(() => {
-    return projects.filter(p => scopeFilter === 'personal' ? p.teamId === null : p.teamId !== null)
+    return projects.filter(p => p.visibility === scopeFilter)
   }, [projects, scopeFilter])
 
   // Split into two memos: sort doesn't re-run when query changes, filter doesn't
@@ -408,7 +451,9 @@ function ProjectsPageInner() {
 
   const emptyLabel = scopeFilter === 'personal'
     ? 'No personal projects yet. Create your first one to get started.'
-    : 'No team projects yet.'
+    : scopeFilter === 'workspace'
+      ? 'No workspace projects yet.'
+      : 'No shared projects yet.'
 
   return (
     <div
@@ -451,13 +496,21 @@ function ProjectsPageInner() {
                 {orgId && (
                   <>
                     <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
-                    <Badge label={`${teamCount} Team ${teamCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <Badge label={`${workspaceCount} Workspace ${workspaceCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
+                    <Badge label={`${sharedCount} Shared ${sharedCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
                   </>
                 )}
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              {/* Trash — workspace/shared projects deleted within the last 30
+                  days; personal projects hard-delete instantly and never
+                  show up here (see ProjectTrashModal). */}
+              <Button variant="secondary" onClick={() => setTrashOpen(true)}>
+                Trash
+              </Button>
               {/* New Project */}
               <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
                 New Project
@@ -468,13 +521,16 @@ function ProjectsPageInner() {
 
         {/* Search + filter row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
-          {/* Personal / Team scope — big tabs, anchored to the left. Only
-              meaningful once there's an org to have team projects in at all. */}
+          {/* Personal / Workspace / Shared scope — big tabs, anchored to the
+              left. Workspace and Shared both require an org (matches the
+              backend's own visibility rules), so the whole bar stays hidden
+              for individual users, same as before. */}
           {orgId && (
             <Tabs value={scopeFilter} onValueChange={v => handleScopeChange(v as ScopeFilter)}>
               <Tabs.List pillTopInset={0.5} pillBottomInset={1}>
                 <Tabs.Trigger value="personal">Personal</Tabs.Trigger>
-                <Tabs.Trigger value="team">Team</Tabs.Trigger>
+                <Tabs.Trigger value="workspace">Workspace</Tabs.Trigger>
+                <Tabs.Trigger value="shared">Shared</Tabs.Trigger>
               </Tabs.List>
             </Tabs>
           )}
@@ -651,6 +707,7 @@ function ProjectsPageInner() {
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
                 onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
+                onLeave={canLeaveProject(project) ? () => setLeaveTarget(project) : undefined}
               />
             ))}
           </div>
@@ -676,6 +733,7 @@ function ProjectsPageInner() {
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
                 onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
+                onLeave={canLeaveProject(project) ? () => setLeaveTarget(project) : undefined}
               />
             ))}
           </div>
@@ -850,6 +908,29 @@ function ProjectsPageInner() {
           )}
         </AnimatePresence>,
         document.body
+      )}
+
+      {leaveTarget && user?.auth0Id && (
+        <LeaveProjectModal
+          projectId={leaveTarget.id}
+          isOwner={leaveTarget.canEdit}
+          currentUserId={user.auth0Id}
+          onClose={() => setLeaveTarget(null)}
+          // leaveProjectApi already changed server state (member removed, or
+          // ownership/visibility changed) — refreshProjects() just re-fetches
+          // to reflect that. Must NOT call deleteProject here — that hits the
+          // real DELETE endpoint, an entirely different (and destructive)
+          // action from leaving.
+          onLeft={handleRefreshProjects}
+        />
+      )}
+
+      {trashOpen && user?.auth0Id && (
+        <ProjectTrashModal
+          currentUserId={user.auth0Id}
+          onClose={() => setTrashOpen(false)}
+          onRestored={handleRefreshProjects}
+        />
       )}
     </div>
   )

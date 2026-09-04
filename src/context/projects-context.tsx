@@ -19,7 +19,7 @@ import {
   removeProjectDocumentApi,
   addProjectFilesApi,
 } from '@/lib/api/projects'
-import type { ApiProject, ApiProjectSummary, ApiProjectChat } from '@/lib/api/projects'
+import type { ApiProject, ApiProjectSummary, ApiProjectChat, ProjectVisibility } from '@/lib/api/projects'
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -78,7 +78,7 @@ export interface Project {
   description:  string
   instructions: string
   teamId:       string | null
-  visibility:   'private' | 'team'
+  visibility:   ProjectVisibility
   canEdit:      boolean
   canManageVisibility: boolean
   tags:         ProjectTag[]
@@ -177,7 +177,7 @@ function apiToProject(
     // Same fallback as teamId above — a partial/degraded response shouldn't
     // be able to leave these two disagreeing (one falling back to the last-
     // known value, the other silently taking whatever came back).
-    visibility:   api.visibility ?? existing?.visibility ?? 'private',
+    visibility:   api.visibility ?? existing?.visibility ?? 'personal',
     canEdit:      api.canEdit,
     canManageVisibility: api.canManageVisibility,
     tags:         tagsFromLabels(api.tags),
@@ -207,7 +207,7 @@ interface ProjectsContextValue {
   projects:         Project[]
   chats:            ProjectChat[]
   loading:          boolean
-  createProject:    (name: string, description: string, teamId?: string) => Promise<Project>
+  createProject:    (name: string, description: string, teamId?: string, visibility?: ProjectVisibility) => Promise<Project>
   updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
   loadProject:      (id: string) => Promise<void>
@@ -219,6 +219,12 @@ interface ProjectsContextValue {
   loadProjectChats: (projectId: string) => Promise<void>
   getProject:       (id: string) => Project | undefined
   getChats:         (projectId: string) => ProjectChat[]
+  /** Re-fetches the project list from the server (not a mutation itself) —
+   *  for callers whose own action already changed server state through some
+   *  other endpoint (e.g. leaving or restoring a project) and just need the
+   *  list to catch up, without going through createProject/deleteProject's
+   *  own API calls. */
+  refreshProjects:  () => Promise<void>
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null)
@@ -248,36 +254,40 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+  const refreshProjects = useCallback(async () => {
+    const summaries = await fetchProjects(currentUserId)
+    // Use a functional updater so we never clobber full project data that
+    // loadProject() may have already fetched (race: loadProject resolves
+    // before this list call if the detail endpoint responds faster). Also
+    // naturally drops any project no longer in the server's list (e.g. one
+    // the caller just left or that got deleted from under them).
+    setProjects(prev => {
+      const prevMap = new Map(prev.map(p => [p.id, p]))
+      return summaries.map(s => {
+        const existing = prevMap.get(s.id)
+        // Preserve instructions + files if already loaded; just refresh summary fields.
+        if (existing && (existing.instructions || existing.files.length > 0)) {
+          return {
+            ...existing,
+            name:        s.title,
+            description: s.description,
+            ownerUserId: s.ownerUserId,
+            teamId:      s.teamId,
+            visibility:  s.visibility,
+            canEdit:     s.canEdit,
+            canManageVisibility: s.canManageVisibility,
+            chatCount:   s.chatCount,
+            updatedAt:   s.updatedAt,
+          }
+        }
+        return summaryToProject(s)
+      })
+    })
+  }, [currentUserId])
+
   useEffect(() => {
     if (!user) return // wait for the authenticated profile so canEdit resolves correctly
-    fetchProjects(currentUserId)
-      .then(summaries => {
-        // Use a functional updater so we never clobber full project data that
-        // loadProject() may have already fetched (race: loadProject resolves
-        // before this list call if the detail endpoint responds faster).
-        setProjects(prev => {
-          const prevMap = new Map(prev.map(p => [p.id, p]))
-          return summaries.map(s => {
-            const existing = prevMap.get(s.id)
-            // Preserve instructions + files if already loaded; just refresh summary fields.
-            if (existing && (existing.instructions || existing.files.length > 0)) {
-              return {
-                ...existing,
-                name:        s.title,
-                description: s.description,
-                ownerUserId: s.ownerUserId,
-                teamId:      s.teamId,
-                visibility:  s.visibility,
-                canEdit:     s.canEdit,
-                canManageVisibility: s.canManageVisibility,
-                chatCount:   s.chatCount,
-                updatedAt:   s.updatedAt,
-              }
-            }
-            return summaryToProject(s)
-          })
-        })
-      })
+    refreshProjects()
       .catch(err => toast.error('Failed to load projects', { description: err instanceof Error ? err.message : undefined }))
       .finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the user's
@@ -287,12 +297,20 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   // â”€â”€ CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const createProject = useCallback(async (name: string, description: string, teamId?: string): Promise<Project> => {
-    const api = await createProjectApi({ title: name, description, teamId }, currentUserId)
+  const createProject = useCallback(async (
+    name: string,
+    description: string,
+    teamId?: string,
+    visibility?: ProjectVisibility,
+  ): Promise<Project> => {
+    const api = await createProjectApi({ title: name, description, teamId, visibility }, currentUserId)
     const project = apiToProject(api)
     setProjects(prev => [project, ...prev])
     // Analytics: shared-context adoption — team-shared vs personal project.
-    trackBrowserEvent('project_created', { team_shared: !!teamId })
+    // Reads the visibility param, not teamId — the only caller
+    // (projects/new/page.tsx) always passes visibility and never teamId, so
+    // keying off teamId here silently reported team_shared:false always.
+    trackBrowserEvent('project_created', { team_shared: visibility !== undefined && visibility !== 'personal' })
     return project
   }, [currentUserId])
 
@@ -538,11 +556,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     loadProjectChats,
     getProject,
     getChats,
+    refreshProjects,
   }), [
     projects, chats, loading,
     createProject, updateProject, deleteProject, loadProject,
     uploadFiles, removeFile, addChat, removeChat, renameChat,
-    loadProjectChats, getProject, getChats,
+    loadProjectChats, getProject, getChats, refreshProjects,
   ])
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>

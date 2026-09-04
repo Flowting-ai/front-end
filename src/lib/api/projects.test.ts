@@ -19,6 +19,7 @@ describe('fetchProjects', () => {
       id: 'project-1',
       ownerUserId: 'user-1',
       organizationId: 'org-1',
+      visibility: 'workspace',
       title: 'Launch',
       description: '',
       tags: [],
@@ -32,7 +33,7 @@ describe('fetchProjects', () => {
       id: 'project-1',
       ownerUserId: 'user-1',
       teamId: 'org-1',
-      visibility: 'private',
+      visibility: 'workspace',
       canEdit: true,
       canManageVisibility: false,
       title: 'Launch',
@@ -42,6 +43,24 @@ describe('fetchProjects', () => {
       chatCount: 2,
       documentCount: 3,
     }])
+  })
+
+  it('falls back to personal visibility when the backend omits the field', async () => {
+    apiFetchJson.mockResolvedValue([{
+      id: 'project-1',
+      ownerUserId: 'user-1',
+      organizationId: 'org-1',
+      title: 'Launch',
+      description: '',
+      tags: [],
+      createdAt: '2026-06-18T00:00:00Z',
+      updatedAt: '2026-06-18T00:00:00Z',
+      chatCount: 2,
+      documentCount: 3,
+    }])
+
+    const [project] = await fetchProjects('user-1')
+    expect(project.visibility).toBe('personal')
   })
 
   it('marks a project not owned by the caller as read-only', async () => {

@@ -13,20 +13,27 @@ import {
   PROJECT_INVITES_ENDPOINT,
   PROJECT_MEMBERS_ENDPOINT,
   PROJECT_MEMBER_ENDPOINT,
+  PROJECT_LEAVE_ENDPOINT,
+  PROJECT_RESTORE_ENDPOINT,
   directUpload,
 } from '@/lib/config'
 
 // ── Backend shapes ──────────────────────────────────────────────────────────
-// The `services/projects` rewrite (back-end-test2 / the live `test` branch at
-// devapi.getsouvenir.com) replaced the old snake_case, visibility-toggle shape
-// with a class-based `Project` actor whose Pydantic response models serialize
-// by field NAME (camelCase), not the snake_case `validation_alias` they parse
-// from the DB row. There is no `visibility`/`can_edit`/`can_manage_visibility`
-// on the wire anymore — sharing is now real `ProjectMember` rows (GET/DELETE
+// The `services/projects` rewrite replaced the old snake_case, visibility-
+// toggle shape with a class-based `Project` actor whose Pydantic response
+// models serialize by field NAME (camelCase), not the snake_case
+// `validation_alias` they parse from the DB row. `can_edit`/`can_manage_visibility`
+// are gone for good — sharing is real `ProjectMember` rows (GET/DELETE
 // `/projects/{id}/members`, `POST /projects/{id}/invite(s)`), not an org-wide
-// toggle. Those endpoints aren't wired up on the frontend yet — see
-// `canEdit`'s derivation in the normalizers below for how we make do without
-// a server-supplied signal in the meantime.
+// toggle; see `canEdit`'s derivation in the normalizers below for how we make
+// do without a server-supplied signal there.
+//
+// UPDATE: `visibility` itself is back (commit 342b899d, "Enhance project
+// management features with access control and recovery options") — but as a
+// set-ONCE-at-creation field (`personal | workspace | shared`, sent as a
+// `visibility` form field to `POST /projects`), not the old PATCH-toggle.
+// `PATCH /projects/{id}/visibility` (below) genuinely still doesn't exist —
+// don't resurrect it.
 
 export interface ProjectDocumentResponse {
   id:        string
@@ -35,10 +42,13 @@ export interface ProjectDocumentResponse {
   createdAt: string
 }
 
+export type ProjectVisibility = 'personal' | 'workspace' | 'shared'
+
 export interface ProjectSummary {
   id:             string
   ownerUserId:    string
   organizationId?: string | null
+  visibility:     ProjectVisibility
   title:          string
   description:    string
   tags:           string[]
@@ -52,6 +62,7 @@ export interface ProjectResponse {
   id:                 string
   ownerUserId:        string
   organizationId?:    string | null
+  visibility:         ProjectVisibility
   title:              string
   description:        string
   systemInstruction:  string
@@ -94,7 +105,7 @@ export interface ApiProjectSummary {
   id:            string
   ownerUserId:   string
   teamId:        string | null
-  visibility:    'private' | 'team'
+  visibility:    ProjectVisibility
   canEdit:       boolean
   canManageVisibility: boolean
   title:         string
@@ -113,7 +124,7 @@ export interface ApiProject {
   systemInstruction: string
   tags:              string[]
   teamId:            string | null
-  visibility:        'private' | 'team'
+  visibility:        ProjectVisibility
   canEdit:           boolean
   canManageVisibility: boolean
   createdAt:         string
@@ -142,11 +153,10 @@ export interface ApiProjectMember {
 // above), so every normalizer takes the caller's own id and derives it as
 // straight ownership — the one part of the old `can_edit` contract ("can this
 // user change this resource") that's still knowable without calling the new
-// `/members` endpoint. `visibility`/`canManageVisibility` have no honest
-// equivalent left (the backend now sets `organizationId` on every project an
-// org member creates, shared or not, so it can't be used as a "this is shared"
-// signal without over-claiming) — they're fixed at 'private'/false so the
-// now-dead visibility-toggle UI stays hidden instead of lying about state.
+// `/members` endpoint. `visibility` now reads the real wire value (set once at
+// creation, see the UPDATE note above). `canManageVisibility` stays fixed at
+// `false` — visibility genuinely can't be changed post-creation (no PATCH
+// endpoint exists), so there's still nothing to manage.
 
 function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
   return { id: d.id, filename: d.filename, fileLink: d.fileLink, createdAt: d.createdAt, sizeBytes: null }
@@ -157,7 +167,12 @@ function normalizeProjectSummary(p: ProjectSummary, currentUserId: string): ApiP
     id:            p.id,
     ownerUserId:   p.ownerUserId,
     teamId:        p.organizationId ?? null,
-    visibility:    'private',
+    // No `existing` value to fall back to here (unlike apiToProject in
+    // projects-context.tsx) — this is a hard default, not a last-known-value
+    // guard. Still needed: the /projects list filters by exact visibility
+    // match, so a missing/degraded value would otherwise vanish this project
+    // from every scope tab silently instead of just mis-labeling it.
+    visibility:    p.visibility ?? 'personal',
     canEdit:       p.ownerUserId === currentUserId,
     canManageVisibility: false,
     title:         p.title,
@@ -178,7 +193,7 @@ function normalizeProject(p: ProjectResponse, currentUserId: string): ApiProject
     systemInstruction: p.systemInstruction ?? '',
     tags:              p.tags ?? [],
     teamId:            p.organizationId ?? null,
-    visibility:        'private',
+    visibility:        p.visibility ?? 'personal',
     canEdit:           p.ownerUserId === currentUserId,
     canManageVisibility: false,
     createdAt:         p.createdAt,
@@ -211,6 +226,14 @@ export async function fetchProjects(currentUserId: string): Promise<ApiProjectSu
   return list.map(p => normalizeProjectSummary(p, currentUserId))
 }
 
+/** GET /projects?deleted=recoverable — the trash view. Only workspace/shared
+ *  projects can ever appear here: personal projects hard-delete instantly
+ *  server-side (`DELETE /projects/{id}`) and are never recoverable. */
+export async function fetchDeletedProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
+  const list = await apiFetchJson<ProjectSummary[]>(`${PROJECTS_ENDPOINT}?deleted=recoverable`)
+  return list.map(p => normalizeProjectSummary(p, currentUserId))
+}
+
 /** GET /projects/{project_id} */
 export async function fetchProject(projectId: string, currentUserId: string): Promise<ApiProject> {
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
@@ -224,6 +247,9 @@ export interface CreateProjectParams {
   tags?:              string[]
   files?:             File[]
   teamId?:            string
+  /** 'personal' | 'workspace' | 'shared' — server defaults to 'personal' when
+   *  omitted. 'workspace'/'shared' 400 server-side if the caller has no org. */
+  visibility?:        ProjectVisibility
 }
 
 /**
@@ -237,6 +263,7 @@ export async function createProjectApi(params: CreateProjectParams, currentUserI
   if (params.description)       form.append('description', params.description)
   if (params.systemInstruction) form.append('systemInstruction', params.systemInstruction)
   if (params.tags)             form.append('tags', JSON.stringify(params.tags))
+  if (params.visibility)       form.append('visibility', params.visibility)
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
@@ -270,6 +297,36 @@ export async function updateProjectApi(projectId: string, params: UpdateProjectP
 /** DELETE /projects/{project_id} */
 export async function deleteProjectApi(projectId: string): Promise<void> {
   await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+}
+
+export interface LeaveProjectParams {
+  /** Required when the caller is the owner and other collaborators remain. */
+  successorUserId?: string
+  /** Required when the caller is the owner and no other collaborators remain. */
+  aloneAction?: 'archive' | 'convertPersonal'
+}
+
+/**
+ * POST /projects/{project_id}/leave — `200 { ok: true }`. Branches entirely
+ * server-side on the caller's role (project.py's `Project.leave()`): a plain
+ * collaborator just leaves (body ignored), an owner with other collaborators
+ * must supply `successorUserId`, an owner with nobody else on the project
+ * must supply `aloneAction`. Errors surface via apiFetchJson's own `detail`
+ * extraction (e.g. "Must name a successor", "Must archive or convert to
+ * personal") — real backend messages, not generic ones.
+ */
+export async function leaveProjectApi(projectId: string, params: LeaveProjectParams = {}): Promise<void> {
+  await apiFetchJson<{ ok: boolean }>(PROJECT_LEAVE_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify(params),
+  })
+}
+
+/** POST /projects/{project_id}/restore — only workspace/shared projects,
+ *  only within the 30-day recovery window (see fetchDeletedProjects). */
+export async function restoreProjectApi(projectId: string, currentUserId: string): Promise<ApiProject> {
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_RESTORE_ENDPOINT(projectId), { method: 'POST' })
+  return normalizeProject(project, currentUserId)
 }
 
 /** PUT /projects/{project_id}/files (multipart/form-data) — uploads files. */

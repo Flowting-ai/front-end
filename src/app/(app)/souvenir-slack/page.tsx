@@ -352,8 +352,13 @@ export default function SouvenirSlackPage() {
       setProjectsLoading(true)
       try {
         const summaries = await fetchProjects(currentUserId)
+        // Only Workspace/Shared projects are Slack-linkable targets — a
+        // Personal project also carries the org's teamId (organizationId is
+        // stamped on every org member's project regardless of visibility),
+        // so a bare teamId check would leak other members' private projects
+        // into this admin-facing list.
         const rows = summaries.flatMap(summary => {
-          return summary.teamId ? [{ ...summary, teamId: summary.teamId }] : []
+          return summary.teamId && summary.visibility !== 'personal' ? [{ ...summary, teamId: summary.teamId }] : []
         })
         if (cancelled) return
         setProjects(rows)
