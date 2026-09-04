@@ -164,10 +164,9 @@ export default function OrgChangePlanPage() {
     }
   }, [orgReady, orgRole, router])
 
-  // Announce the org's current plan once data is ready — green, and stays
-  // put until the user closes it themselves (no auto-dismiss). Only fires
-  // when there's an actual plan to report; an org with nothing selected yet
-  // gets no toast (there's nothing true to say "you're on").
+  // Announce the org's current plan once data is ready — green for an actual
+  // plan, blue for "nothing selected yet" — and stays put until the user
+  // closes it themselves (no auto-dismiss).
   const currentPlanToastShown = useRef(false)
   useEffect(() => {
     if (currentPlanToastShown.current || !orgReady) return
@@ -178,6 +177,9 @@ export default function OrgChangePlanPage() {
       const p = WORKSPACE_PLANS[currentWorkspaceTierIdx]!
       currentPlanToastShown.current = true
       toast.success(`You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`, { duration: Infinity })
+    } else {
+      currentPlanToastShown.current = true
+      toast.info("You don't have a plan yet — pick one below to get started.", { duration: Infinity })
     }
   }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
 
@@ -187,13 +189,13 @@ export default function OrgChangePlanPage() {
     const p = WORKSPACE_PLANS[idx]!
     const detail = `${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`
     if (!hasWorkspacePlan) {
-      toast.info(`Upgrade to Workspace — ${detail}`)
+      toast.info('Upgrade to Workspace', { description: detail })
     } else if (idx === currentWorkspaceTierIdx) {
-      toast.info(`This is your current plan — ${detail}`)
+      toast.info('This is your current plan', { description: detail })
     } else if (idx < currentWorkspaceTierIdx) {
-      toast.info(`Can't downgrade — ${detail}`)
+      toast.info("Can't downgrade", { description: detail })
     } else {
-      toast.info(`Upgrade Workspace plan — ${detail}`)
+      toast.info('Upgrade Workspace plan', { description: detail })
     }
   }
 
