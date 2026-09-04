@@ -191,15 +191,19 @@ export function ScheduleEditModal({
     }
   }, [isOpen])
 
-  // Escape closes the modal, same as clicking the backdrop.
+  // Escape closes the modal, same as clicking the backdrop. Latest onClose is
+  // read via a ref so the listener isn't torn down and re-attached on every
+  // render where the parent hands down a new callback identity.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
   useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
+      if (e.key === 'Escape') { e.stopPropagation(); onCloseRef.current() }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   const timeParts = time.match(/^(\d{2}):(\d{2})$/)
   const hourNum   = timeParts ? parseInt(timeParts[1], 10) : NaN
