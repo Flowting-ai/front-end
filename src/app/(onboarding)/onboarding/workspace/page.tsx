@@ -95,6 +95,7 @@ export default function OnboardingWorkspacePage() {
     setTouched(true);
     if (trimmedName.length === 0 || submitting) return;
     setSubmitting(true);
+    const toastId = toast.loading("Saving your workspace…");
     try {
       const fullName = `${trimmedName}-workspace`;
       // GET /users/me never returns an org id at all (no such field in the
@@ -114,12 +115,13 @@ export default function OnboardingWorkspacePage() {
         updateOnboarding({ role_fit: deriveRoleFitFromSize(data.workspaceSize) }),
         orgId ? updateOrg(orgId, { name: fullName }) : createOrganization({ name: fullName }),
       ]);
+      toast.dismiss(toastId);
     } catch (err) {
       // Non-fatal: don't trap the user here over a workspace-naming failure —
       // same tolerance the previous flow's equivalent step used. Surface it,
       // but let them continue; the name can be fixed later in settings.
       console.error("Workspace setup failed", err);
-      toast.error("We couldn't save your workspace details — you can update them later in settings.");
+      toast.error("We couldn't save your workspace details — you can update them later in settings.", { id: toastId });
     } finally {
       setSubmitting(false);
     }
@@ -165,7 +167,7 @@ export default function OnboardingWorkspacePage() {
               value={data.workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
               onBlur={() => setTouched(true)}
-              placeholder="Dev’s"
+              placeholder="John’s"
               style={{
                 flex: 1,
                 minWidth: 0,

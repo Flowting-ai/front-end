@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { m } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
@@ -133,16 +134,29 @@ export default function OrgChangePlanPage() {
   const currentPlan        = user?.planType ?? null
   const selectedWorkspace  = WORKSPACE_PLANS[workspaceIdx]!
 
-  const isOnWorkspacePlan       = Boolean(user?.orgId || orgId)
-  const currentWorkspacePrice   = isOnWorkspacePlan ? (org.monthlyPrice ?? 0) : 0
+  // `orgId`/`orgRole` are already required just to render this page (the admin
+  // gate below), so `Boolean(user?.orgId || orgId)` is always true here — it
+  // was conflating "is an org member" with "org has a paid workspace plan",
+  // which made the button/label logic below think every org already had a
+  // plan even when org.monthlyPrice was 0. The real signal is whether the
+  // org's current price actually matches one of the real tiers.
+  const currentWorkspacePrice   = org.monthlyPrice ?? 0
   const currentWorkspaceTierIdx = WORKSPACE_PLANS.findIndex(p => p.price === currentWorkspacePrice)
+  const hasWorkspacePlan        = currentWorkspaceTierIdx >= 0
+  // No backend field distinguishes "org is on a free/trial plan" from "org has
+  // no plan yet" — the only trial mechanism that exists (services/stripe/account.py
+  // startTrial) is individual-only and 403s for org members, so this can never
+  // be true for anything reachable on this page. Hidden until an org-level
+  // trial state actually exists on the backend — see
+  // docs v1.5/free-trial-onboarding-plan.md §3.
+  const isOnFreePlan = false
 
   // Sync tier picker to the org's current tier on load
   useEffect(() => {
-    if (isOnWorkspacePlan && currentWorkspaceTierIdx >= 0) {
+    if (hasWorkspacePlan) {
       setWorkspaceIdx(currentWorkspaceTierIdx)
     }
-  }, [isOnWorkspacePlan, currentWorkspaceTierIdx])
+  }, [hasWorkspacePlan, currentWorkspaceTierIdx])
 
   useEffect(() => {
     if (orgReady && orgRole !== 'admin') {
@@ -150,12 +164,29 @@ export default function OrgChangePlanPage() {
     }
   }, [orgReady, orgRole, router])
 
+  // Announce the org's current plan once data is ready — green, and stays
+  // put until the user closes it themselves (no auto-dismiss). Only fires
+  // when there's an actual plan to report; an org with nothing selected yet
+  // gets no toast (there's nothing true to say "you're on").
+  const currentPlanToastShown = useRef(false)
+  useEffect(() => {
+    if (currentPlanToastShown.current || !orgReady) return
+    if (org.plan === 'enterprise') {
+      currentPlanToastShown.current = true
+      toast.success("You're on the Pro (Enterprise) plan", { duration: Infinity })
+    } else if (hasWorkspacePlan) {
+      const p = WORKSPACE_PLANS[currentWorkspaceTierIdx]!
+      currentPlanToastShown.current = true
+      toast.success(`You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`, { duration: Infinity })
+    }
+  }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
+
   const handleSelectTier = (idx: number) => {
     setWorkspaceIdx(idx)
     setTierMenuOpen(false)
     const p = WORKSPACE_PLANS[idx]!
     const detail = `${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`
-    if (!isOnWorkspacePlan) {
+    if (!hasWorkspacePlan) {
       toast.info(`Upgrade to Workspace — ${detail}`)
     } else if (idx === currentWorkspaceTierIdx) {
       toast.info(`This is your current plan — ${detail}`)
@@ -171,7 +202,7 @@ export default function OrgChangePlanPage() {
     const planId = selectedWorkspace.planId
     setChangingTo(planId)
     try {
-      if (isOnWorkspacePlan && currentWorkspaceTierIdx >= 0) {
+      if (hasWorkspacePlan) {
         await updatePlan(planId)
         trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
         // See the matching comment in settings/billing/change-plan/page.tsx —
@@ -192,15 +223,15 @@ export default function OrgChangePlanPage() {
     }
   }
 
-  const workspaceIsCurrent      = isOnWorkspacePlan && workspaceIdx === currentWorkspaceTierIdx
-  const workspaceIsDowngrade    = isOnWorkspacePlan && workspaceIdx < currentWorkspaceTierIdx
+  const workspaceIsCurrent      = hasWorkspacePlan && workspaceIdx === currentWorkspaceTierIdx
+  const workspaceIsDowngrade    = hasWorkspacePlan && workspaceIdx < currentWorkspaceTierIdx
   const workspaceButtonDisabled = workspaceIsCurrent || workspaceIsDowngrade || !!changingTo
 
   const workspaceButtonLabel = (() => {
     if (workspaceIsCurrent)                       return 'Current plan'
     if (workspaceIsDowngrade)                     return "Can't downgrade"
     if (changingTo === selectedWorkspace.planId)  return 'Redirecting…'
-    if (isOnWorkspacePlan)                        return 'Upgrade Workspace plan'
+    if (hasWorkspacePlan)                         return 'Upgrade Workspace plan'
     return 'Upgrade to Workspace'
   })()
 
@@ -330,41 +361,44 @@ export default function OrgChangePlanPage() {
                     <Badge label="Recommended" color="brown" />
                   </div>
 
-                  {/* Free-plan status — Figma 85:22256. Literal copy: no org-level
-                      field backs a real trial-credit dollar figure yet, so the
-                      "$20" is static per the design, not wired to live data. */}
-                  <div style={{
-                    position: 'relative',
-                    backgroundColor: 'white', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
-                    padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
-                  }}>
+                  {/* Free-plan status — Figma 85:22256. Only renders while
+                      isOnFreePlan is real (currently never, see its definition
+                      above) — never show "$20 free credits" to an org that
+                      isn't actually on a free plan. */}
+                  {isOnFreePlan && (
                     <div style={{
-                      position: 'absolute', top: -11, left: 16,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      borderRadius: 6, overflow: 'hidden', backgroundColor: '#cadcf1',
-                      boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
+                      position: 'relative',
+                      backgroundColor: 'white', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
+                      padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
                     }}>
-                      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#135487', padding: '2px 6px' }}>
-                        FREE PLAN ACTIVE
-                      </span>
+                      <div style={{
+                        position: 'absolute', top: -11, left: 16,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 6, overflow: 'hidden', backgroundColor: '#cadcf1',
+                        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
+                      }}>
+                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#135487', padding: '2px 6px' }}>
+                          FREE PLAN ACTIVE
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: '#524b47' }}>
+                        <p style={{ margin: 0 }}>You have been assigned</p>
+                        <p style={{ margin: 0 }}>$20 worth of free credits</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => router.push(ORG_PLANS_ROUTE)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: '100%', padding: '6px 10px 8px', borderRadius: 10, border: 'none',
+                          backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
+                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                        }}
+                      >
+                        View usage
+                      </button>
                     </div>
-                    <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: '#524b47' }}>
-                      <p style={{ margin: 0 }}>You have been assigned</p>
-                      <p style={{ margin: 0 }}>$20 worth of free credits</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => router.push(ORG_PLANS_ROUTE)}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '100%', padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                        backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                        cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
-                      }}
-                    >
-                      View usage
-                    </button>
-                  </div>
+                  )}
 
                   {/* Price + tier picker */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -484,10 +518,12 @@ export default function OrgChangePlanPage() {
                   </p>
                 </div>
 
-                <button
+                <m.button
                   type="button"
                   onClick={() => { if (!changingTo && org.plan !== 'enterprise') setContactSalesOpen(true) }}
                   disabled={!!changingTo || org.plan === 'enterprise'}
+                  whileTap={(!!changingTo || org.plan === 'enterprise') ? undefined : { scale: 0.98 }}
+                  transition={{ duration: 0.1, ease: 'easeOut' }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
@@ -502,7 +538,7 @@ export default function OrgChangePlanPage() {
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
-                </button>
+                </m.button>
 
                 <Hairline />
 

@@ -271,6 +271,7 @@ export default function OnboardingProfilePage() {
     setTouched(true);
     if (trimmedFirst.length === 0 || trimmedLast.length === 0 || submitting) return;
     setSubmitting(true);
+    const toastId = toast.loading("Saving your profile…");
     try {
       await updateUser({ first_name: trimmedFirst, last_name: trimmedLast });
       // Role/tone are deliberately NOT sent here even though they're already
@@ -283,11 +284,12 @@ export default function OnboardingProfilePage() {
       // `data.role`/`data.tone` stay in WorkspaceOnboardingContext and are
       // sent together with `onboarding_completed: true` from the invite
       // step's own finish() instead, so completion only ever happens there.
+      toast.dismiss(toastId);
     } catch (err) {
       // Non-fatal, same tolerance as the workspace step — profile details can
       // be edited later in settings.
       console.error("Profile setup failed", err);
-      toast.error("We couldn't save your profile — you can update it later in settings.");
+      toast.error("We couldn't save your profile — you can update it later in settings.", { id: toastId });
     } finally {
       setSubmitting(false);
     }

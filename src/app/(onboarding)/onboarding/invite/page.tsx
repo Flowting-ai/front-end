@@ -106,7 +106,7 @@ export default function OnboardingInvitePage() {
     setEmailInput(next);
   }
 
-  const finish = async () => {
+  const finish = async (toastId?: string | number) => {
     // Persisting completion is the only call that gates entry to the app (see
     // the previous flow's equivalent step) — must succeed before navigating.
     // Role/tone (typed in on the profile step, held in
@@ -123,7 +123,7 @@ export default function OnboardingInvitePage() {
       onboarding_completed: true,
     });
     if (!result?.completed) {
-      toast.error("Couldn't finish setup. Please try again.");
+      toast.error("Couldn't finish setup. Please try again.", toastId ? { id: toastId } : undefined);
       return false;
     }
     return true;
@@ -132,11 +132,15 @@ export default function OnboardingInvitePage() {
   const handleSkip = async () => {
     if (submitting) return;
     setSubmitting(true);
+    const toastId = toast.loading("Finishing setup…");
     try {
-      if (await finish()) window.location.href = `${WELCOME_ROUTE}?slack=1`;
+      if (await finish(toastId)) {
+        toast.dismiss(toastId);
+        window.location.href = `${WELCOME_ROUTE}?slack=1`;
+      }
     } catch (err) {
       console.error("Onboarding completion failed", err);
-      toast.error("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.", { id: toastId });
     } finally {
       setSubmitting(false);
     }
@@ -145,6 +149,7 @@ export default function OnboardingInvitePage() {
   const handleNext = async () => {
     if (submitting) return;
     setSubmitting(true);
+    const toastId = toast.loading("Sending invites…");
     try {
       // Fold in whatever's still sitting in the input (typed but not yet
       // committed via Enter/comma/blur) so clicking Next doesn't silently
@@ -187,10 +192,13 @@ export default function OnboardingInvitePage() {
           );
         }
       }
-      if (await finish()) window.location.href = `${WELCOME_ROUTE}?slack=1`;
+      if (await finish(toastId)) {
+        toast.dismiss(toastId);
+        window.location.href = `${WELCOME_ROUTE}?slack=1`;
+      }
     } catch (err) {
       console.error("Onboarding completion failed", err);
-      toast.error("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.", { id: toastId });
     } finally {
       setSubmitting(false);
     }
