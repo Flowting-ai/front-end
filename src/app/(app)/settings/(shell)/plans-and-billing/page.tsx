@@ -10,16 +10,14 @@ import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useMounted } from '@/hooks/use-mounted'
 import {
-  fetchBilling,
+  Billing,
+  Usage,
+  TeamsTier,
   openBillingPortal,
   cancelSubscription,
   resumeSubscription,
-  startTrial,
-  type BillingInfo,
 } from '@/lib/api/stripe'
 import { setOrgPoolCap } from '@/lib/api/organization'
-import { resolveOrgBillingRole } from '@/lib/roles'
-import { creditsFromBilling } from '@/lib/credits'
 import {
   ORG_CHANGE_PLAN_ROUTE,
   ORG_MEMBERS_ROUTE,
@@ -28,24 +26,7 @@ import {
   SETTINGS_USAGE_ROUTE,
 } from '@/lib/routes'
 
-// ── Individual plan config (ported from the old /settings/billing page) ───────
-
-const PLAN_PRICES: Record<string, number> = {
-  starter: 12,
-  pro:     25,
-  power:   100,
-}
-
-const PLAN_FEATURE_LIST: Record<string, string[]> = {
-  starter: ['Basic routing', 'AI Assistants', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
-  pro:     ['Advanced routing', 'Model compare', 'Unlimited agents', 'Cost savings report', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
-  power:   ['Advanced routing', 'Model compare', 'Unlimited agents', 'Advanced analytics', 'Tasks & Automation', 'Connectors', 'Pins', 'Projects'],
-}
-
-// sessionStorage keys — last-known snapshot so returning from Stripe paints
-// instantly instead of flashing an empty "No Plan" state while data reloads.
 const PERSONAL_SNAP_KEY = 'kaya:billing:snapshot:v3'
-const PERSONAL_BILL_KEY = 'kaya:billing:info:v2'
 
 /** Minimal display snapshot persisted across the Stripe round-trip. */
 interface PersonalBillingSnapshot {
@@ -54,7 +35,7 @@ interface PersonalBillingSnapshot {
   creditsRemaining: number
   creditsUsed:      number
   chatCredits:      number
-  personaCredits:   number
+  slackCredits:     number
   brainCredits:     number
   nextBilling:      string
   periodEnd:        string | null
@@ -126,14 +107,7 @@ const HERO_GRADIENT_TEAMS =
 
 // ── Plan tiers (DECISIONS.md, matches Figma slider markers) ────────────────────
 
-const TIERS = [
-  { price: 125,   credits: 60_000 },
-  { price: 250,   credits: 125_000 },
-  { price: 500,   credits: 250_000 },
-  { price: 1_000, credits: 500_000 },
-  { price: 1_500, credits: 750_000 },
-  { price: 2_000, credits: 1_000_000 },
-]
+const TIERS = TeamsTier.all.map(tier => ({ price: tier.price, credits: tier.credits }))
 
 // ── Small primitives ───────────────────────────────────────────────────────────
 
@@ -399,8 +373,15 @@ function PlansPageSkeleton() {
 // gates the branch so an org account never flashes the personal view while its
 // org id is still resolving (see org-context.tsx).
 export default function PlansAndBillingPage() {
-  const { orgId, orgReady } = useOrg()
-  if (!orgReady) {
+  const { orgId, orgReady, orgRole, orgRoleResolved, roleError } = useOrg()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!orgReady || !orgId || roleError || !orgRoleResolved) return
+    if (orgRole !== 'admin') router.replace(SETTINGS_USAGE_ROUTE)
+  }, [orgId, orgReady, orgRole, orgRoleResolved, roleError, router])
+
+  if (!orgReady || (orgId && orgRoleResolved && !roleError && orgRole !== 'admin')) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <PlansPageSkeleton />
@@ -416,7 +397,7 @@ function OrgBillingView() {
 
   const isEnterprise = org.plan === 'enterprise'
 
-  const [billing,        setBilling]        = useState<BillingInfo | null>(null)
+  const [billing,        setBilling]        = useState<Billing | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
@@ -424,15 +405,7 @@ function OrgBillingView() {
   const [isCanceling,       setIsCanceling]       = useState(false)
   const [isResuming,        setIsResuming]        = useState(false)
 
-  // Prefer the role resolved for the billing entity itself. This is the role
-  // the Stripe endpoints authorize; orgRole is only the loading fallback.
-  const billingRole = resolveOrgBillingRole({
-    orgRole,
-    billingRole: billing?.entity === 'org' ? billing.role : null,
-    activeOrgId: orgId,
-    billingOrgId: billing?.entity === 'org' ? billing.org_id : null,
-  })
-  const isAdmin = billingRole === 'admin'
+  const isAdmin = orgRole === 'admin'
   const effectivePlan = plan
 
   const membersCount = orgMembers.length
@@ -505,14 +478,17 @@ function OrgBillingView() {
   // in the spec tracker), but the Plan card's cancel/next-billing state is
   // shown to everyone, so this fetches regardless of role.
   useEffect(() => {
-    if (!orgId) return
-    fetchBilling()
+    if (!orgId || !isAdmin) {
+      setBillingLoading(false)
+      return
+    }
+    Billing.fetch()
       .then(setBilling)
       .catch(console.error)
       .finally(() => setBillingLoading(false))
-  }, [orgId])
+  }, [orgId, isAdmin])
 
-  const pm = billing?.payment_method
+  const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
   const handleStripePortal = async () => {
@@ -527,7 +503,7 @@ function OrgBillingView() {
 
   const handleExportAllInvoices = () => {
     const urls = (billing?.invoices ?? [])
-      .map(inv => inv.invoice_pdf ?? inv.invoice_url)
+      .map(inv => inv.viewUrl)
       .filter((url): url is string => !!url)
     if (urls.length === 0) {
       toast.error('No invoices to export.')
@@ -537,7 +513,7 @@ function OrgBillingView() {
     toast.success(urls.length === 1 ? 'Opened 1 invoice' : `Opened ${urls.length} invoices`)
   }
 
-  const reloadBilling = () => fetchBilling().then(setBilling).catch(console.error)
+  const reloadBilling = () => Billing.fetch().then(setBilling).catch(console.error)
 
   // Cancel / resume the organization subscription — same flow as Settings → Billing.
   const handleCancelSubscription = async () => {
@@ -604,8 +580,8 @@ function OrgBillingView() {
   const cycleStart   = new Date(now.getFullYear(), now.getMonth(), 1)
   const cycleEnd     = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   const fmtShort     = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const nextBilling  = fmtDate(billing?.current_period_end) !== '—'
-    ? fmtDate(billing?.current_period_end)
+  const nextBilling  = fmtDate(billing?.currentPeriodEnd) !== '—'
+    ? fmtDate(billing?.currentPeriodEnd)
     : fmtShort(cycleEnd)
 
   if (billingLoading) {
@@ -632,7 +608,7 @@ function OrgBillingView() {
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
     />
   ) : null
-  const cancelAtPeriodEnd = billing?.cancel_at_period_end ?? false
+  const cancelAtPeriodEnd = billing?.cancelAtPeriodEnd ?? false
 
   return (
     <div
@@ -817,9 +793,7 @@ function OrgBillingView() {
                   {billingLoading ? 'Loading…' : pm ? `Card ending in ${pm.last4 ?? '••••'}` : 'No payment method on file'}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  {pm?.exp_month && pm?.exp_year
-                    ? `Expiry ${String(pm.exp_month).padStart(2, '0')}/${pm.exp_year}`
-                    : 'Add a card to continue.'}
+                  {pm?.expiry ?? 'Add a card to continue.'}
                 </p>
               </div>
               <Button variant="secondary" onClick={handleStripePortal}>Manage on Stripe</Button>
@@ -925,7 +899,8 @@ function PersonalBillingView() {
 
   // Lazy-init from the cached snapshot (runs once; SSR-safe) so returning from
   // Stripe paints instantly instead of flashing an empty "No Plan" state.
-  const [billing,       setBilling]       = useState<BillingInfo | null>(() => readCache<BillingInfo>(PERSONAL_BILL_KEY))
+  const [billing,       setBilling]       = useState<Billing | null>(null)
+  const [usage,         setUsage]         = useState<Usage | null>(null)
   const [billingLoaded, setBillingLoaded] = useState(false)
   const [snap]                            = useState<PersonalBillingSnapshot | null>(() => readCache<PersonalBillingSnapshot>(PERSONAL_SNAP_KEY))
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -938,8 +913,9 @@ function PersonalBillingView() {
   const reload = useCallback(async () => {
     await Promise.all([
       refreshUser(),
-      fetchBilling()
-        .then(b => { if (b) { setBilling(b); writeCache(PERSONAL_BILL_KEY, b) } })
+      Usage.fetch().then(setUsage).catch(console.error),
+      Billing.fetch()
+        .then(b => { if (b) setBilling(b) })
         .catch(() => {})
         .finally(() => setBillingLoaded(true)),
     ])
@@ -977,24 +953,22 @@ function PersonalBillingView() {
     return () => window.removeEventListener('credits:updated', onCreditsUpdated)
   }, [reload])
 
-  const liveReady = isHydrated && !!user && billingLoaded
-  const nextBillingRaw = billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd
+  const liveReady = isHydrated && !!user && billingLoaded && usage !== null
+  const nextBillingRaw = billing?.upcomingInvoice?.nextPaymentDate ?? user?.nextBillingDate ?? user?.currentPeriodEnd
   const nextBillingLive = isFutureIso(nextBillingRaw) ? fmtDate(nextBillingRaw) : '—'
-  const billingBalance = creditsFromBilling(billing?.credits ?? null)
-  const billingPerCategory = billing?.credits?.by_category ?? { chat: 0, persona: 0, brain: 0 }
 
-  const liveSnap: PersonalBillingSnapshot | null = liveReady
+  const liveSnap: PersonalBillingSnapshot | null = liveReady && usage
     ? {
-        planType:         billing?.plan_type ?? user?.planType ?? null,
-        creditsTotal:     (billing?.credits ? billingBalance.total : null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0,
-        creditsRemaining: (billing?.credits ? billingBalance.remaining : null) ?? user?.creditsRemaining ?? 0,
-        creditsUsed:      billingBalance.used ?? user?.creditsUsed ?? 0,
-        chatCredits:      Math.round((billingPerCategory.chat ?? 0) * 1000),
-        personaCredits:   Math.round((billingPerCategory.persona ?? 0) * 1000),
-        brainCredits:     Math.round((billingPerCategory.brain ?? 0) * 1000),
+        planType:         billing?.planId ?? null,
+        creditsTotal:     usage.totalCredits,
+        creditsRemaining: usage.remainingCredits,
+        creditsUsed:      usage.ownSpendCredits,
+        chatCredits:      usage.byCategory.chatCredits,
+        slackCredits:     usage.byCategory.slackCredits,
+        brainCredits:     usage.byCategory.brainCredits,
         nextBilling:      nextBillingLive,
-        periodEnd:        billing?.current_period_end ?? user?.currentPeriodEnd ?? null,
-        cancelAtPeriodEnd: billing?.cancel_at_period_end ?? user?.cancelAtPeriodEnd ?? false,
+        periodEnd:        billing?.currentPeriodEnd ?? user?.currentPeriodEnd ?? null,
+        cancelAtPeriodEnd: billing?.cancelAtPeriodEnd ?? false,
       }
     : null
 
@@ -1010,21 +984,21 @@ function PersonalBillingView() {
   const creditsTotal     = display?.creditsTotal     ?? 0
   const creditsRemaining = display?.creditsRemaining ?? 0
   const creditsUsed      = display?.creditsUsed      ?? 0
-  const individualPlan   = planType && planType in PLAN_PRICES ? planType : null
-  const isTrialUser      = !planType && creditsTotal > 0
-  const planName         = individualPlan ? individualPlan.charAt(0).toUpperCase() + individualPlan.slice(1) : (isTrialUser ? 'Trial' : null)
-  const planPrice        = individualPlan ? (PLAN_PRICES[individualPlan] ?? 0) : 0
-  const planFeatures     = individualPlan ? (PLAN_FEATURE_LIST[individualPlan] ?? []) : []
-  const hasActiveSub     = Boolean(individualPlan)
+  const teamsTier        = TeamsTier.fromPlanId(planType) ?? TeamsTier.fromCredits(creditsTotal)
+  const isTrialUser      = Boolean(usage?.isTrial || (!planType && creditsTotal > 0 && !teamsTier))
+  const planName         = teamsTier ? `Teams · $${teamsTier.price}` : (isTrialUser ? 'Trial' : null)
+  const planPrice        = teamsTier?.price ?? 0
+  const planFeatures     = teamsTier ? ['Shared workspace', 'Chat, Slack, and Brain', 'Admin billing'] : []
+  const hasActiveSub     = Boolean(teamsTier)
   const hasPlan          = hasActiveSub || isTrialUser
   const chatCredits      = display?.chatCredits    ?? 0
-  const personaCredits   = display?.personaCredits ?? 0
+  const slackCredits     = display?.slackCredits   ?? 0
   const brainCredits     = display?.brainCredits   ?? 0
   const nextBilling      = display?.nextBilling    ?? '—'
   const periodEnd        = display?.periodEnd      ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
 
-  const pm        = billing?.payment_method ?? null
+  const pm        = billing?.paymentMethod ?? null
   const cardBrand = (pm?.brand ?? 'unknown') as CardBrand
   const invoices  = billing?.invoices ?? []
   const billingPending = !billing && !billingLoaded
@@ -1040,7 +1014,7 @@ function PersonalBillingView() {
   }
 
   const handleExportAllInvoices = () => {
-    const urls = invoices.map(inv => inv.invoice_pdf ?? inv.invoice_url).filter((u): u is string => !!u)
+    const urls = invoices.map(inv => inv.viewUrl).filter((u): u is string => !!u)
     if (urls.length === 0) { toast.error('No invoices to export.'); return }
     urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'))
     toast.success(urls.length === 1 ? 'Opened 1 invoice' : `Opened ${urls.length} invoices`)
@@ -1077,7 +1051,7 @@ function PersonalBillingView() {
     if (isClaimingTrial) return
     setIsClaimingTrial(true)
     try {
-      await startTrial()
+      await Usage.startTrial()
       toast.success('1,000 free trial credits added to your account.')
       await reload()
     } catch (err) {
@@ -1159,7 +1133,7 @@ function PersonalBillingView() {
                       {isResuming ? 'Resuming…' : 'Resume plan'}
                     </button>
                   )}
-                  {isTrialUser && billingLoaded && !billing?.credits?.trial && (
+                  {isTrialUser && billingLoaded && !usage?.isTrial && (
                     <Button variant="secondary" leftIcon={<TokenCircleIcon size={16} animated />} loading={isClaimingTrial} onClick={() => { void handleClaimTrial() }}>
                       Claim free 1,000 credits
                     </Button>
@@ -1195,20 +1169,22 @@ function PersonalBillingView() {
         </div>
 
         <SectionCard title="This month's usage" subtitle={cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`} bodyGap={16}>
-          <PersonalUsageRow label="Chat"      used={chatCredits}    total={creditsTotal} />
-          <PersonalUsageRow label="AI Agents" used={personaCredits} total={creditsTotal} />
-          <PersonalUsageRow label="Tasks"     used={brainCredits}   total={creditsTotal} />
+          <PersonalUsageRow label="Chat"  used={chatCredits}  total={creditsTotal} />
+          <PersonalUsageRow label="Slack" used={slackCredits} total={creditsTotal} />
+          <PersonalUsageRow label="Brain" used={brainCredits} total={creditsTotal} />
         </SectionCard>
 
+        {billing && (
+          <>
         <SectionCard title="Payment" subtitle="Manage your billing details.">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <CardBrandLogo brand={cardBrand} />
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                {billingPending ? 'Loading…' : pm && pm.last4 ? `Card ending in ${pm.last4}` : 'No payment method on file'}
+                {pm?.label ?? 'No payment method on file'}
               </p>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                {pm?.exp_month && pm?.exp_year ? `Expiry ${String(pm.exp_month).padStart(2, '0')}/${pm.exp_year}` : 'Add a card to continue.'}
+                {pm?.expiry ?? 'Add a card to continue.'}
               </p>
             </div>
             <Button variant="secondary" onClick={() => { void handleStripePortal() }}>Manage on Stripe</Button>
@@ -1222,6 +1198,8 @@ function PersonalBillingView() {
         >
           <InvoiceTable billing={billing} loading={billingPending} />
         </SectionCard>
+          </>
+        )}
       </div>
 
       {showCancelDialog && (
@@ -1415,7 +1393,7 @@ function ProgressBar({ pct }: { pct: number }) {
 
 // ── Invoice table ─────────────────────────────────────────────────────────────
 
-function InvoiceTable({ billing, loading }: { billing: BillingInfo | null; loading: boolean }) {
+function InvoiceTable({ billing, loading }: { billing: Billing | null; loading: boolean }) {
   const invoices = billing?.invoices ?? []
 
   const cellHead: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
@@ -1446,14 +1424,14 @@ function InvoiceTable({ billing, loading }: { billing: BillingInfo | null; loadi
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
               <span style={cellBody}>{fmtDate(inv.created)}</span>
-              <span style={cellBody}>{fmtUsd(inv.amount_paid ?? 0)}</span>
+              <span style={cellBody}>{fmtUsd(inv.amountPaid)}</span>
               <div style={{ flex: '1 0 0', minWidth: 0 }}>
                 <Badge label={paid ? 'Paid' : (inv.status ?? 'Open')} tone={paid ? 'green' : 'red'} />
               </div>
               <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
-                {inv.invoice_pdf || inv.invoice_url ? (
+                {inv.viewUrl ? (
                   <a
-                    href={(inv.invoice_pdf ?? inv.invoice_url)!}
+                    href={inv.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', textDecoration: 'underline' }}

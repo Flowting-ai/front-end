@@ -1,8 +1,5 @@
 "use client";
 
-// Thin compatibility layer over the zod-validated billing client in ./user —
-// single implementation, two historical import paths.
-
 import {
   createCheckoutSession,
   type CheckoutPlan,
@@ -17,16 +14,21 @@ export {
   resumeSubscription,
   startTrial,
   updatePlan,
-  type BillingInfo,
   type BillingInvoice as InvoiceInfo,
   type BillingPaymentMethod as PaymentMethodInfo,
   type BillingPlan,
-  type BillingUpcomingInvoice as UpcomingInvoiceInfo,
   type CheckoutPlan,
   type PlanInfo,
   type SubscriptionActionResponse,
   type UserPlanType as PlanType,
 } from "./user";
+
+export {
+  Billing,
+  Billing as BillingInfo,
+  Usage,
+  TeamsTier,
+} from "./billing";
 
 export interface CreateCheckoutSessionRequest {
   planId: CheckoutPlan;

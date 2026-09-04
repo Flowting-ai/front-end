@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
+import { TeamsTier } from '@/lib/api/billing'
 import { resolveRole, type Member } from '@/lib/roles'
 import type {
   WorkspaceOrg,
@@ -148,7 +149,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     getOrg(orgId)
       .then(data => {
         setOrgName(data.name)
-        setOrgPlanType(data.planType)
+        if (data.planType) setOrgPlanType(data.planType)
         // isTeamPlan is a guess for when the backend role is unknown (my_role
         // came back null) — it must NOT override a definitive 'member' answer,
         // or every real member whose own onboarding roleFit happened to be
@@ -219,6 +220,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     id:         orgId ?? '',
     name:       orgName,
     plan:       orgPlanType,
+    monthlyPrice: TeamsTier.fromCredits(creditPool.total)?.price ?? 0,
     creditPool,
   }
 

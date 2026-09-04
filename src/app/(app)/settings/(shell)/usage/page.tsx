@@ -1,24 +1,10 @@
 'use client'
 
-import React from 'react'
-import { useAuth } from '@/context/auth-context'
-import { creditsFromUsage } from '@/lib/credits'
+import React, { useEffect, useState } from 'react'
+import { Usage } from '@/lib/api/billing'
 
-// ── Settings v1.5 — PERSONAL > Usage page ────────────────────────────────────
-// Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=17-22980
-//
-// Split out of the old combined "Usage & Billing" page (still at
-// SETTINGS_BILLING_ROUTE, now titled just "Plans & Billing" in the sidebar) —
-// this page is personal credit-consumption only, no plan/payment/invoice UI.
-// Data comes straight off `useAuth()`'s already-loaded `user.usage` (the same
-// /users/me payload the rest of the app uses) — no separate billing fetch,
-// since "Personal summary" is scoped to the viewer's own usage, not an org pool.
-//
-// Figma labels the 3 categories "Slackbot" / "Tasks" / "Chat" — the backend's
-// only 3 tracked categories are `chat` / `persona` / `workflow`
-// (`usage.by_category` in lib/api/user.ts), so those real numbers are mapped
-// onto Figma's exact labels below (workflow → Tasks, persona → Slackbot,
-// chat → Chat) rather than gating the page's copy on a backend rename.
+// Settings → PERSONAL → Usage. Everyone sees their own chat / Slack / Brain
+// spend plus remaining credits on GET /stripe/usage.
 
 const C = {
   ink:    'var(--neutral-900)',
@@ -32,25 +18,10 @@ const BODY  = 'var(--font-body)'
 const CARD_RING = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SECTION_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
 
-function fmtNum(n: number): string {
-  return n.toLocaleString('en-US')
-}
-
-function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '-'
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch {
-    return '-'
-  }
-}
-
-// ── Category breakdown — Figma's exact labels/subtitles/colours (node
-// 17:23077-23068, "Monthly Limits" order) ────────────────────────────────────
 const CATEGORIES = [
-  { key: 'persona',  label: 'Slackbot', chipColor: 'blue',   subtitle: 'Messages and actions in Slack' },
-  { key: 'workflow', label: 'Tasks',    chipColor: 'yellow', subtitle: 'Task creation and updates' },
-  { key: 'chat',     label: 'Chat',     chipColor: 'red',    subtitle: 'Direct conversations' },
+  { key: 'chat',  label: 'Chat',  chipColor: 'red',    subtitle: 'Direct conversations' },
+  { key: 'slack', label: 'Slack', chipColor: 'blue',   subtitle: 'Messages and actions in Slack' },
+  { key: 'brain', label: 'Brain', chipColor: 'yellow', subtitle: 'Brain runs and scheduled work' },
 ] as const
 
 const CHIP_TOKENS: Record<string, { bg: string; text: string; ring: string }> = {
@@ -62,6 +33,19 @@ const BAR_TOKENS: Record<string, string> = {
   yellow: 'var(--yellow-300,#c7b387)',
   blue:   'var(--accent,#0485f7)',
   red:    'var(--red-400,#ee3030)',
+}
+
+function fmtNum(n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return '—'
+  }
 }
 
 function Chip({ label, color }: { label: string; color: string }) {
@@ -77,9 +61,6 @@ function Chip({ label, color }: { label: string; color: string }) {
   )
 }
 
-/** 3-segment stacked bar — Figma "Progress Indicator" (18:23340) on the
- *  Personal summary card. Segments are proportional to each category's share
- *  of total consumption; a category with 0 credits renders no segment. */
 function StackedProgressBar({ segments }: { segments: { color: string; value: number }[] }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0)
   return (
@@ -115,9 +96,17 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 }
 
 export default function UsagePage() {
-  const { user } = useAuth()
+  const [usage, setUsage] = useState<Usage | null>(null)
 
-  if (!user) {
+  useEffect(() => {
+    let cancelled = false
+    Usage.fetch()
+      .then(next => { if (!cancelled) setUsage(next) })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [])
+
+  if (!usage) {
     return (
       <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <div style={{ width: '100%', maxWidth: 860 }} aria-busy>
@@ -127,31 +116,27 @@ export default function UsagePage() {
     )
   }
 
-  const balance = creditsFromUsage(user.usage)
-  const byCategory = user.usage?.by_category ?? {}
-  const toCredits = (dollars: number | undefined) => Math.round((dollars ?? 0) * 1000)
   const categoryCredits = CATEGORIES.map(c => ({
     ...c,
-    credits: toCredits(byCategory[c.key as keyof typeof byCategory]),
+    credits: c.key === 'chat' ? usage.byCategory.chatCredits
+      : c.key === 'slack' ? usage.byCategory.slackCredits
+      : usage.byCategory.brainCredits,
   }))
-
-  const resetDate = fmtDate(user.currentPeriodEnd ?? user.nextBillingDate ?? null)
+  const resetDate = fmtDate(usage.trialExpiresAt)
 
   return (
     <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* ── Page header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
           <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: C.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             Usage
           </h1>
           <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-            Manage your plan, monitor credit consumption, and download invoices.
+            Your spend this period, split by chat, Slack, and Brain.
           </p>
         </div>
 
-        {/* ── Personal summary ── */}
         <SectionCard>
           <div style={{ padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
             <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0 }}>
@@ -163,10 +148,12 @@ export default function UsagePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>My usage</p>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>Resets {resetDate}</p>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
+                    {fmtNum(usage.remainingCredits)} credits remaining
+                  </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: C.ink, margin: 0 }}>{fmtNum(balance.used)}</p>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: C.ink, margin: 0 }}>{fmtNum(usage.ownSpendCredits)}</p>
                   <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>credits consumed</p>
                 </div>
               </div>
@@ -180,17 +167,15 @@ export default function UsagePage() {
           </div>
         </SectionCard>
 
-        {/* ── This month's usage ── */}
         <SectionCard>
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
-            <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0, flex: '1 0 0', minWidth: 0 }}>This month&apos;s usage</p>
-            <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>Resets {resetDate}</p>
+            <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0, flex: '1 0 0', minWidth: 0 }}>This period&apos;s usage</p>
+            {resetDate !== '—' && (
+              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>Trial ends {resetDate}</p>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 24px 24px' }}>
-            <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0 }}>
-              Monthly Limits
-            </p>
             {categoryCredits.map(c => (
               <div key={c.key} style={{ display: 'flex', flexDirection: 'column', gap: 9, width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 24, width: '100%' }}>
@@ -206,12 +191,12 @@ export default function UsagePage() {
                     {fmtNum(c.credits)} credits
                   </p>
                 </div>
-                <ProgressBar used={c.credits} total={balance.total} />
+                <ProgressBar used={c.credits} total={usage.totalCredits} />
               </div>
             ))}
 
             <div style={{ display: 'flex', gap: 16, fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted }}>
-              <p style={{ margin: 0 }}>{fmtNum(balance.used)} credits consumed</p>
+              <p style={{ margin: 0 }}>{fmtNum(usage.ownSpendCredits)} credits consumed</p>
               <p style={{ margin: 0 }}>{categoryCredits.filter(c => c.credits > 0).length} sources</p>
             </div>
           </div>
