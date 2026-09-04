@@ -225,7 +225,8 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   // prompt; render the same credential form as api_key, but submit via the OAuth
   // path (posts init_data, then opens the hosted connect popup).
   const needsInitFields = oauthNeedsInitFields(prompt)
-  const showCredentialForm = prompt.auth_mode === 'api_key' || needsInitFields
+  const showCredentialForm = !isZapierProviderConnector(prompt.provider)
+    && (prompt.auth_mode === 'api_key' || needsInitFields)
 
   if (state === 'connected') {
     return (

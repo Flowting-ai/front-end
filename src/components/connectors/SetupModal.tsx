@@ -21,6 +21,7 @@ import {
   type ApiKeyField,
 } from '@/lib/api/connectors'
 import { useConnectorSetupFlow, type SetupFlowResult } from '@/lib/useConnectorSetupFlow'
+import { isZapierProviderConnector } from '@/lib/connectorProvider'
 import type { AccountVisibility, UnifiedAccount, UnifiedConnectorSummary } from '@/lib/connectorsUnified'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
@@ -85,7 +86,10 @@ export function SetupModal({
   const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(summary)
   const needsInitFields = oauthNeedsInitFields(summary.raw)
-  const needsForm = summary.authMode === 'api_key' || needsInitFields
+  // Zapier Connect UI collects OAuth and API keys. Our API-key form PATCHes
+  // credentials to us, which is not a Zapier connection.
+  const hosted = isZapierProviderConnector(summary.raw.provider)
+  const needsForm = !hosted && (summary.authMode === 'api_key' || needsInitFields)
   const allRequiredFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   const busy = flow.state === 'opening' || flow.state === 'polling' || flow.state === 'submitting'
 

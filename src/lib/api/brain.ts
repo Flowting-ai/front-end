@@ -213,6 +213,7 @@ export interface ToolConnectPromptEvent {
   connector_slug:  string
   display_name:    string
   auth_mode:       string
+  provider?:       'pipedream' | 'mcp' | 'zapier'
   tool_name:       string
   request_id:      string
   /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */

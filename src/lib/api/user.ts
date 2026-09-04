@@ -1,24 +1,21 @@
 "use client";
 
-import { z } from "zod";
 import {
-  STRIPE_BILLING_ENDPOINT,
   STRIPE_CHECKOUT_ENDPOINT,
   STRIPE_PLAN_ENDPOINT,
   STRIPE_PORTAL_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
   STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
-  STRIPE_TRIAL_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
   USER_ONBOARDING_ENDPOINT,
 } from "@/lib/config";
 import { parsePlanTierFromApi } from "@/lib/plan-tier";
 import { apiFetch } from "./client";
+import { Billing, Usage, type CheckoutPlan } from "./billing";
 
 export type UserPlanType = "starter" | "pro" | "power";
-/** Teams monthly price in USD. `POST /stripe/checkout` and `POST /stripe/plan` take this as `planId`. */
-export type CheckoutPlan = "50" | "100" | "250" | "500" | "1000" | "2000";
+export type { CheckoutPlan };
 export type BillingPlan = "monthly" | "annual";
 
 export interface PlanInfo {
@@ -92,8 +89,8 @@ export interface UserUsage {
   spent_this_period: number;
   by_category?: {
     chat?: number;
-    persona?: number;
-    workflow?: number;
+    slack?: number;
+    brain?: number;
   };
   // ── Legacy mirrors (kept populated by normalizeUserProfile for back-compat) ──
   monthly_limit: number;
@@ -109,8 +106,8 @@ export interface UserUsage {
   last_reset_date?: string;
   daily_by_category?: {
     chat?: number;
-    persona?: number;
-    workflow?: number;
+    slack?: number;
+    brain?: number;
   };
 }
 
@@ -133,18 +130,10 @@ export interface BillingCredits {
   /** Remaining balance. Current backend sends this explicitly; absent in the
    *  legacy shape (where `total_credits` was the remaining value). */
   remaining?: number;
-  /** Credits drawn down this period (= allowance − remaining). Current backend
-   *  sends a scalar; the legacy shape sent a per-category object here (now moved
-   *  to `by_category`). Kept as a union for back-compat. */
-  used?:
-    | number
-    | { chat?: number; persona?: number; brain?: number }
-    | null;
-  /** Period spend by source area. Current backend field (replaces the legacy
-   *  per-category `used` object). */
+  used?: number | null;
   by_category?: {
     chat?: number;
-    persona?: number;
+    slack?: number;
     brain?: number;
   } | null;
 }
@@ -272,7 +261,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       root.usage && typeof root.usage === "object"
         ? (() => {
             const u = root.usage as Record<string, unknown>;
-            // Current API shape: { credits, spent_this_period, by_category{chat,persona} }.
+            // Current API shape: { credits, spent_this_period, by_category{chat,slack,brain} }.
             // `credits` is the period allowance; `spent_this_period` is consumption.
             // Older payloads used monthly_limit/monthly_used — fall back to those.
             const credits =
@@ -348,16 +337,13 @@ function normalizeUserProfile(raw: unknown): UserProfile {
                     } as TrialCredits;
                   })()
                 : null;
-            const used =
-              c.used && typeof c.used === "object"
-                ? (c.used as { chat?: number; persona?: number; brain?: number })
-                : null;
             return {
               total_credits: typeof c.total_credits === "number" ? c.total_credits : 0,
               plan_credits: typeof c.plan_credits === "number" ? c.plan_credits : 0,
               topup_credits: typeof c.topup_credits === "number" ? c.topup_credits : 0,
               trial,
-              used,
+              used: typeof c.used === "number" ? c.used : null,
+              remaining: typeof c.remaining === "number" ? c.remaining : undefined,
             } as BillingCredits;
           })()
         : null,
@@ -371,103 +357,9 @@ function normalizeUserProfile(raw: unknown): UserProfile {
   };
 }
 
-// ── Billing snapshot (GET /stripe/billing → BillingInfo) ──────────────────────
-// Zod schemas mirroring services/stripe/schemas.py (BillingInfo) and
-// services/users/schemas.py (CreditSummary). Validated at the boundary so the
-// UI renders from the endpoint's real shape — no guessed defaults.
-
-const trialCreditInfoSchema = z.object({
-  amount: z.number(),
-  remaining: z.number(),
-  used: z.number(),
-  starts_at: z.string().nullable().default(null),
-  expires_at: z.string(),
-});
-
-const usageBreakdownSchema = z.object({
-  chat: z.number().default(0),
-  persona: z.number().default(0),
-  brain: z.number().default(0),
-});
-
-const creditSummarySchema = z.object({
-  total_credits: z.number().default(0),
-  plan_credits: z.number().default(0),
-  topup_credits: z.number().default(0),
-  used: z.number().default(0),
-  remaining: z.number().default(0),
-  trial: trialCreditInfoSchema.nullable().default(null),
-  by_category: usageBreakdownSchema.default({ chat: 0, persona: 0, brain: 0 }),
-});
-
-const paymentMethodInfoSchema = z.object({
-  brand: z.string().nullable().default(null),
-  last4: z.string().nullable().default(null),
-  exp_month: z.number().nullable().default(null),
-  exp_year: z.number().nullable().default(null),
-  funding: z.string().nullable().default(null),
-});
-
-// Stripe sends `created` as a Unix timestamp (seconds) on some payloads;
-// normalize to an ISO string for fmtDate().
-const invoiceDateSchema = z
-  .union([z.string(), z.number()])
-  .nullable()
-  .default(null)
-  .transform((v) => {
-    if (typeof v === "number") return new Date(v * 1000).toISOString();
-    return v && v.length > 0 ? v : null;
-  });
-
-const invoiceInfoSchema = z.object({
-  amount_paid: z.number().default(0),
-  currency: z.string().default("usd"),
-  status: z.string().nullable().default(null),
-  created: invoiceDateSchema,
-  invoice_url: z.string().nullable().default(null),
-  invoice_pdf: z.string().nullable().default(null),
-});
-
-const upcomingInvoiceInfoSchema = z.object({
-  amount_due: z.number().default(0),
-  currency: z.string().default("usd"),
-  next_payment_date: z.string().nullable().default(null),
-});
-
-export const billingInfoSchema = z.object({
-  entity: z.enum(["personal", "org"]).default("personal"),
-  org_id: z.string().nullable().default(null),
-  role: z.string().nullable().default(null),
-  plan_type: z.string().nullable().default(null),
-  subscription_status: z.string().nullable().default(null),
-  current_period_end: z.string().nullable().default(null),
-  cancel_at_period_end: z.boolean().default(false),
-  payment_method: paymentMethodInfoSchema.nullable().default(null),
-  invoices: z.array(invoiceInfoSchema).default([]),
-  upcoming_invoice: upcomingInvoiceInfoSchema.nullable().default(null),
-  credits: creditSummarySchema.prefault({}),
-  billing_model: z.string().nullable().default(null),
-  base_fee_usd: z.number().default(0),
-  included_usage_usd: z.number().default(0),
-  provider_usage_usd: z.number().default(0),
-  included_usage_remaining_usd: z.number().default(0),
-  overage_usd: z.number().default(0),
-  projected_invoice_usd: z.number().default(0),
-  input_tokens: z.number().default(0),
-  output_tokens: z.number().default(0),
-  // Backend's real field names (services/stripe/schemas.py BillingInfo) — the
-  // old reasoning_tokens/cached_tokens names here don't exist on the wire at
-  // all, so those stats always silently read 0 via zod's .default(0).
-  cache_read_tokens: z.number().default(0),
-  cache_write_tokens: z.number().default(0),
-  total_tokens: z.number().default(0),
-  usage_event_count: z.number().default(0),
-});
-
-export type BillingInfo = z.infer<typeof billingInfoSchema>;
-export type BillingPaymentMethod = z.infer<typeof paymentMethodInfoSchema>;
-export type BillingInvoice = z.infer<typeof invoiceInfoSchema>;
-export type BillingUpcomingInvoice = z.infer<typeof upcomingInvoiceInfoSchema>;
+export { billingInfoSchema } from "./billing-schemas";
+export { Billing as BillingInfo } from "./billing";
+export type { Invoice as BillingInvoice, PaymentMethod as BillingPaymentMethod, UpcomingInvoice as BillingUpcomingInvoice } from "./billing";
 
 export interface CheckoutSessionResponse {
   checkout_url: string;
@@ -682,16 +574,8 @@ export async function updatePlan(planId: CheckoutPlan): Promise<PlanInfo> {
  * Billing snapshot — payment method, invoices, upcoming invoice, and cancel
  * state. Lives on the backend (proxied), separate from `/users/me`.
  */
-export async function fetchBilling(): Promise<BillingInfo | null> {
-  const response = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
-  if (!response.ok) return null;
-  const raw = (await response.json()) as Record<string, unknown>;
-  const parsed = billingInfoSchema.safeParse(raw.data ?? raw);
-  if (!parsed.success) {
-    console.error("[fetchBilling] response failed schema validation", parsed.error.flatten());
-    return null;
-  }
-  return parsed.data;
+export async function fetchBilling(): Promise<Billing | null> {
+  return Billing.fetch();
 }
 
 /** Create a Stripe hosted billing-portal session and return its URL. */
@@ -742,24 +626,6 @@ export async function resumeSubscription(): Promise<SubscriptionActionResponse> 
   return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
 }
 
-export interface TrialResponse {
-  credits: number;
-  plan_credits: number;
-  topup_credits: number;
-  used: number;
-  spent_this_period: number;
-  trial?: { remaining: number; expires_at: string } | null;
-}
-
-/** POST /stripe/trial — grant 1000 free trial credits. */
-export async function startTrial(): Promise<TrialResponse> {
-  const response = await apiFetch(STRIPE_TRIAL_ENDPOINT, { method: "POST" });
-
-  const data = (await response.json()) as TrialResponse & { error?: string };
-
-  if (!response.ok) {
-    throw new Error((data as { error?: string }).error || "Failed to start trial.");
-  }
-
-  return data;
+export async function startTrial(): Promise<Usage> {
+  return Usage.startTrial();
 }

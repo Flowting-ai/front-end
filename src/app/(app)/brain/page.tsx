@@ -679,7 +679,8 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   // Per-tenant OAuth (Shopify BYOA) declares required init fields; render the
   // same credential form as api_key, but submit via the OAuth path (posts
   // init_data, then opens the hosted connect popup).
-  const showCredentialForm = event.auth_mode === 'api_key' || oauthNeedsInitFields(event)
+  const showCredentialForm = !isZapierProviderConnector(event.provider)
+    && (event.auth_mode === 'api_key' || oauthNeedsInitFields(event))
 
   const cardStyle: CSSProperties = {
     display:         'flex',
@@ -2084,6 +2085,7 @@ function BrainPageInner() {
         const slug         = typeof d.connector_slug === 'string' ? d.connector_slug : ''
         const display_name = typeof d.display_name   === 'string' ? d.display_name   : slug
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
+        const provider     = (['pipedream', 'mcp', 'zapier'] as const).find(value => value === d.provider)
         const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
         const request_id   = typeof d.prompt_id      === 'string' ? d.prompt_id      : ''
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can
@@ -2094,6 +2096,7 @@ function BrainPageInner() {
             connector_slug: slug,
             display_name,
             auth_mode,
+            provider,
             tool_name,
             request_id,
             api_key_fields,

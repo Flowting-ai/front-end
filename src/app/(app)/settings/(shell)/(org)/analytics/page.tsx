@@ -29,8 +29,8 @@ interface ChartDay { label: string; chat: number; assistants: number; brain: num
 // to match the design's exact copy.
 const FEATURE_META: Record<ChartMetric, { label: string; color: string }> = {
   chat:       { label: 'Chat',  color: 'var(--blue-600)'   },
-  assistants: { label: 'Tasks', color: 'var(--purple-500)' },
-  brain:      { label: 'Slack', color: 'var(--green-500)'  },
+  assistants: { label: 'Slack', color: 'var(--purple-500)' },
+  brain:      { label: 'Brain', color: 'var(--green-500)'  },
 }
 
 // Approximate feature mix of total consumption. The backend exposes org credit

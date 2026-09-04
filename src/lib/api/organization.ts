@@ -281,7 +281,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
   }))
 }
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise' }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise' | null }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
   return {
     id:          data.id,
@@ -290,7 +290,7 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     description: data.description,
     logoUrl:     data.logoUrl,
     role:        foldOwnerRole(data.myRole),
-    planType:    data.planType === 'enterprise' ? 'enterprise' : 'teams',
+    planType:    data.planType === 'enterprise' ? 'enterprise' : data.planType === 'teams' ? 'teams' : null,
   }
 }
 
