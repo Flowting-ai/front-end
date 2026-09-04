@@ -715,7 +715,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
+          // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url, variable path prevents next/image static analysis
           <img
             src={logoSrc}
             alt=""
@@ -991,8 +991,8 @@ function MessageImages({ images }: { images: { url: string }[] }) {
 
 // ── External-output card ("Done in the world") ────────────────────────────────
 // Adapts the backend ExternalOutputAction (snake_case, view_url/logo_url) to the
-// may-day ExternalOutputCard props: logo falls back to the bundled connector
-// asset, and view_url becomes an onView handler (omitted ⇒ no View button). No
+// may-day ExternalOutputCard props: logo comes from the action's own logo_url,
+// and view_url becomes an onView handler (omitted ⇒ no View button). No
 // `onUndo` — the backend never promises reversibility (see the schema docstring).
 function ExternalOutputBlock({ actions, completedAt }: { actions: ExternalOutputAction[]; completedAt?: string }) {
   if (actions.length === 0) return null

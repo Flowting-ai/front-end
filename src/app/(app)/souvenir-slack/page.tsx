@@ -516,7 +516,7 @@ export default function SouvenirSlackPage() {
             size="sm"
             style={{ marginTop: 4 }}
             onClick={() => setModalOpen(true)}
-            leftIcon={<img src="/connector-logos/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
+            leftIcon={<img src="/icons/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
           >
             Connect Slack workspace
           </Button>

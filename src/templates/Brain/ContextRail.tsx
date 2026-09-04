@@ -138,7 +138,7 @@ function ConnectorLogo({ connector: c }: { connector: ContextRailConnector }) {
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, lineHeight: 0 }}>
       {c.logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- brand asset (local or provider URL), variable path prevents next/image static analysis
+        // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url, variable path prevents next/image static analysis
         <img
           src={c.logo}
           alt={c.name}

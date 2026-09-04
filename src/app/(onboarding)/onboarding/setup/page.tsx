@@ -33,12 +33,12 @@ import { ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
 // replacing an earlier GridIcon placeholder.
 
 function SlackMark({ size = 24 }: { size?: number }) {
-  // Reuses the project's existing Slack asset (public/connector-logos/slack.svg)
-  // rather than re-downloading the mark from Figma — same glyph, already in use
-  // on the personal-connectors onboarding step.
+  // The Slack product mark for this setup route, not a catalog connector logo
+  // (those come from the backend's logo_url) — hence a static asset next to
+  // the other product icons.
   return (
     // eslint-disable-next-line @next/next/no-img-element -- static public SVG, no Next Image benefit for a 24px icon
-    <img src="/connector-logos/slack.svg" alt="" width={size} height={size} style={{ display: "block", flexShrink: 0 }} />
+    <img src="/icons/slack.svg" alt="" width={size} height={size} style={{ display: "block", flexShrink: 0 }} />
   );
 }
 

@@ -152,7 +152,7 @@ export function ConnectorCatalogCard({
           {isLoading ? (
             <span className="kaya-skeleton" style={{ display: 'block', width: '100%', height: '100%', borderRadius: 6, background: SKELETON_BG }} />
           ) : iconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- provider-hosted or bundled brand asset
+            // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url
             <img
               src={iconUrl}
               alt={iconAlt}

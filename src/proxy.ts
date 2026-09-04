@@ -289,8 +289,8 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Exclude framework internals AND any path with a file extension (the
-    // `.*\..*` alternative). Static assets under public/ — connector-logos,
-    // persona-avatars, icons, *.svg/*.png/*.mjs — must NOT pass through the
+    // `.*\..*` alternative). Static assets under public/ — persona-avatars,
+    // icons, *.svg/*.png/*.mjs — must NOT pass through the
     // onboarding/auth gate; otherwise an <img> request gets a 302 to /auth/login
     // (or the next onboarding step) instead of the file, rendering as a broken
     // image. App/API/auth routes have no dot in the path, so they still match.

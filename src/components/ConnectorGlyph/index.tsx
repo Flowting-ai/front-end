@@ -1,26 +1,24 @@
 'use client'
 
 import React from 'react'
-import { ConnectorIcon as BrandConnectorIcon, CONNECTOR_COLOR, CONNECTOR_MONO } from '@strange-huge/icons/connectors'
-import { toConnector } from '@/lib/connector'
 
-// Hybrid icon strategy (docs v1.5/connectors-v1.5-migration-plan.md, Gap #9):
-// @strange-huge/icons/connectors only covers ~18 curated brand ids, far short
-// of the ~150-slug live catalog. Use it where it exists (exact match to the
-// new Figma-sourced design), fall back to the existing backend-hosted/bundled
-// logo chain (toConnector().logo) everywhere else, and only fall further back
-// to a deterministic letter tile when neither has anything.
+// The backend's catalog logo_url is the single source of connector imagery —
+// it covers the whole ~150-slug live catalog, so nothing is bundled locally
+// and no icon package is consulted. When a catalog entry carries no logo_url
+// (today: the native-MCP seed rows), a deterministic letter tile stands in.
 
 export interface ConnectorGlyphProps {
   /** Connector slug, e.g. "notion", "google-drive". */
   slug: string
   /** Display name, used for the letter-tile fallback and alt text. */
   name?: string
-  /** Backend-provided logo/icon URL, if already resolved by the caller. */
-  logoUrl?: string | null
+  /**
+   * The catalog entry's backend logo_url — required, so a caller can't
+   * silently fall through to the letter tile by forgetting to fetch it.
+   * Pass null when the entry genuinely has none.
+   */
+  logoUrl: string | null
   size?: number
-  /** Force the monochrome (currentColor) variant when the brand icon package covers this id. */
-  mono?: boolean
   className?: string
   style?: React.CSSProperties
 }
@@ -29,29 +27,13 @@ function hueFromSlug(slug: string): number {
   return [...slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
 }
 
-export function ConnectorGlyph({ slug, name, logoUrl, size = 24, mono = false, className, style }: ConnectorGlyphProps) {
+export function ConnectorGlyph({ slug, name, logoUrl, size = 24, className, style }: ConnectorGlyphProps) {
   const id = slug.trim().toLowerCase()
-  const coverage = mono ? CONNECTOR_MONO : CONNECTOR_COLOR
-
-  if (coverage[id]) {
+  if (logoUrl) {
     return (
-      <BrandConnectorIcon
-        id={id}
-        size={size}
-        mono={mono}
-        className={className}
-        style={style}
-        alt={name ?? slug}
-      />
-    )
-  }
-
-  const resolvedLogo = logoUrl ?? toConnector({ slug, display_name: name }).logo
-  if (resolvedLogo) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- provider-hosted or bundled brand asset, runtime slug path
+      // eslint-disable-next-line @next/next/no-img-element -- provider-hosted image at a runtime URL
       <img
-        src={resolvedLogo}
+        src={logoUrl}
         alt={name ?? slug}
         width={size}
         height={size}
