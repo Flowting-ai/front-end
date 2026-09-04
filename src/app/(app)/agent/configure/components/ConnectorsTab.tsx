@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { ConnectorRow } from '@/components/ConnectorRow'
-import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
+import { ConnectorCatalog, listLinkedConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { SETTINGS_CONNECTORS_ROUTE } from '@/lib/routes'
@@ -107,7 +107,7 @@ export default function ConnectorsTab({
     setLoadError('')
     try {
       const [catalog, version] = await Promise.all([
-        listConnectors(),
+        listLinkedConnectors(),
         getVersion(repoId, versionId),
       ])
       const available = catalog.filter(row => row.isAvailable)

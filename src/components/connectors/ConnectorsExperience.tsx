@@ -8,7 +8,7 @@ import {
   ConnectorCatalog,
   ConnectorConnection,
   getConnector,
-  listConnectors,
+  listLinkedConnectors,
   unlinkConnector,
 } from '@/lib/api/connectors'
 import { deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
@@ -42,10 +42,18 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [removeMaybeInUse, setRemoveMaybeInUse] = useState(false)
   const [removeBusy, setRemoveBusy] = useState(false)
 
+  const mergeRows = useCallback((rows: ConnectorCatalog[]) => {
+    setCatalog(prev => {
+      const bySlug = new Map(prev.map(row => [row.slug, row]))
+      for (const row of rows) bySlug.set(row.slug, row)
+      return [...bySlug.values()]
+    })
+  }, [])
+
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      setCatalog(await listConnectors())
+      setCatalog(await listLinkedConnectors())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
     } finally {
@@ -85,15 +93,25 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [loadDetail])
 
   const selectFromCatalog = useCallback((row: ConnectorCatalog) => {
+    mergeRows([row])
     if (row.connections.length > 0) {
       openConnectorDetail(row)
-    } else {
-      setActiveSlug(row.slug)
-      setSetupMode('connect')
-      setSetupAccount(undefined)
-      setSetupOpen(true)
+      return
     }
-  }, [openConnectorDetail])
+    setActiveSlug(row.slug)
+    void getConnector(row.slug)
+      .then(detail => {
+        mergeRows([detail])
+        setSetupMode('connect')
+        setSetupAccount(undefined)
+        setSetupOpen(true)
+      })
+      .catch(() => {
+        setSetupMode('connect')
+        setSetupAccount(undefined)
+        setSetupOpen(true)
+      })
+  }, [mergeRows, openConnectorDetail])
 
   const addAccount = useCallback(() => {
     setSetupMode('connect')
@@ -171,7 +189,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   return (
     <>
       {view === 'connections' && (
-        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} custom={() => setCustomOpen(true)} initialSearch={initialSearch} />
+        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} custom={() => setCustomOpen(true)} initialSearch={initialSearch} onRows={mergeRows} />
       )}
 
       {view === 'connector' && active && (

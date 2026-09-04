@@ -6,7 +6,7 @@
 // real data via ConnectorCatalog instead of the story's static mocks.
 // See docs v1.5/connectors-v1.5-migration-plan.md §2/§3.
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownOneIcon,
   ArrowUpDownIcon,
@@ -23,7 +23,7 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'
-import { ConnectorCatalog } from '@/lib/api/connectors'
+import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
 
 const AVAILABLE_PAGE_SIZE = 10
 
@@ -214,77 +214,117 @@ function CatalogCell({ summary, select, highlight }: { summary: ConnectorCatalog
 }
 
 export function Catalog({
-  catalog, query, select, custom,
+  catalog, query, select, custom, onRows,
 }: {
   catalog: ConnectorCatalog[]
   query: string
   select: (summary: ConnectorCatalog) => void
   custom: () => void
+  onRows?: (rows: ConnectorCatalog[]) => void
 }) {
   const [view, setView] = useState<CatalogView>('all')
-  const [ownQuery, setOwnQuery] = useState('')
+  const [ownQuery, setOwnQuery] = useState(query)
   const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortMode>('recommended')
-  const [availablePage, setAvailablePage] = useState(1)
-  const trimmedQuery = (query || ownQuery).trim()
-  const search = trimmedQuery.toLowerCase()
+  const [page, setPage] = useState(1)
+  const cursorsRef = useRef<(string | undefined)[]>([undefined])
+  const [browseItems, setBrowseItems] = useState<ConnectorCatalog[]>([])
+  const [browseHasMore, setBrowseHasMore] = useState(false)
+  const [browseBusy, setBrowseBusy] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState(query.trim())
 
-  const pool = catalog.filter(summary => {
-    const connected = summary.connections.length > 0
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedQuery(ownQuery.trim()), 300)
+    return () => window.clearTimeout(handle)
+  }, [ownQuery])
+
+  useEffect(() => {
+    setPage(1)
+    cursorsRef.current = [undefined]
+  }, [debouncedQuery, view])
+
+  useEffect(() => {
+    if (view === 'connected' && !debouncedQuery) {
+      setBrowseItems([])
+      setBrowseHasMore(false)
+      setBrowseBusy(false)
+      return
+    }
+    let cancelled = false
+    setBrowseBusy(true)
+    const cursor = cursorsRef.current[page - 1]
+    const request = debouncedQuery
+      ? listConnectors({ q: debouncedQuery, cursor, limit: AVAILABLE_PAGE_SIZE })
+      : listConnectors({ linked: false, cursor, limit: AVAILABLE_PAGE_SIZE })
+    void request
+      .then(result => {
+        if (cancelled) return
+        setBrowseItems(result.connectors)
+        setBrowseHasMore(result.hasMore)
+        onRows?.(result.connectors)
+        if (result.nextCursor) cursorsRef.current[page] = result.nextCursor
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBrowseItems([])
+          setBrowseHasMore(false)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBrowseBusy(false)
+      })
+    return () => { cancelled = true }
+  }, [debouncedQuery, view, page, onRows])
+
+  const searching = Boolean(debouncedQuery)
+  const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
+  const source = searching || view !== 'connected' ? browseItems : linkedRows
+  const pool = source.filter(summary => {
+    const connected = summary.connections.length > 0 || summary.linked
     if (view === 'connected' && !connected) return false
     if (view === 'not-connected' && connected) return false
-    return summary.name.toLowerCase().includes(search)
+    return true
   })
   const items = typeMembers(type, pool)
   const sorted = sort === 'name' ? [...items].sort((a, b) => a.name.localeCompare(b.name)) : items
-
-  // Connected connectors always show in full, never paginated; only the rest
-  // paginates, on its own page counter — mixing the two would scatter
-  // connected connectors across pages arbitrarily depending on where they
-  // happen to fall alphabetically/by-weight. Same pattern the old pages used
-  // for Enabled/Available (see docs v1.5/connectors-v1.5-migration-plan.md §4).
-  const connectedItems = sorted.filter(summary => summary.connections.length > 0)
-  const availableAllItems = sorted.filter(summary => summary.connections.length === 0)
-  const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / AVAILABLE_PAGE_SIZE))
-  const safeAvailablePage = Math.min(availablePage, availablePageCount)
-  const availableItems = availableAllItems.slice(
-    (safeAvailablePage - 1) * AVAILABLE_PAGE_SIZE,
-    safeAvailablePage * AVAILABLE_PAGE_SIZE,
-  )
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
-  useEffect(() => { setAvailablePage(1) }, [search, type, sort, view])
-
-  const showConnectedLabel = connectedItems.length > 0 && availableAllItems.length > 0
+  const connectedItems = searching || view === 'all'
+    ? (searching ? sorted.filter(summary => summary.connections.length > 0 || summary.linked) : linkedRows)
+    : view === 'connected' ? sorted : []
+  const availableItems = view === 'connected' && !searching
+    ? []
+    : sorted.filter(summary => summary.connections.length === 0 && !summary.linked)
+  const showConnectedLabel = connectedItems.length > 0 && availableItems.length > 0
+  const empty = !browseBusy && connectedItems.length === 0 && availableItems.length === 0
 
   return (
     <section id="all-connectors">
       <CatalogToolbar view={view} changeView={setView} query={ownQuery} setQuery={setOwnQuery} type={type} setType={setType} pool={pool} sort={sort} setSort={setSort} />
-      {sorted.length === 0 ? (
+      {empty ? (
         <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No connectors found.</p>
       ) : (
         <div style={{ marginBottom: SPACE.xxl }}>
           {connectedItems.length > 0 && (
-            <div style={{ marginBottom: availableAllItems.length > 0 ? SPACE.xxl : 0 }}>
+            <div style={{ marginBottom: availableItems.length > 0 ? SPACE.xxl : 0 }}>
               {showConnectedLabel && <CatalogSectionLabel label="Connected" />}
               <div style={CATALOG_GRID}>
-                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={trimmedQuery} />)}
+                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} />)}
               </div>
             </div>
           )}
-          {availableAllItems.length > 0 && (
+          {availableItems.length > 0 && (
             <div>
               {showConnectedLabel && <CatalogSectionLabel label="All connectors" />}
               <div style={CATALOG_GRID}>
-                {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={trimmedQuery} />)}
+                {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} />)}
               </div>
               <div style={{ marginTop: SPACE.xl }}>
-                <Pagination page={safeAvailablePage} pageCount={availablePageCount} onChange={setAvailablePage} />
+                <Pagination page={page} hasMore={browseHasMore} onChange={setPage} />
               </div>
             </div>
           )}
         </div>
       )}
-      {sorted.length > 0 && (
+      {(connectedItems.length > 0 || availableItems.length > 0) && (
         <Button variant="ghost" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={custom}>Add custom connector</Button>
       )}
     </section>
@@ -292,7 +332,7 @@ export function Catalog({
 }
 
 export function ConnectionsView({
-  catalog, loading, select, custom, initialSearch = '',
+  catalog, loading, select, custom, initialSearch = '', onRows,
 }: {
   catalog: ConnectorCatalog[]
   loading: boolean
@@ -300,6 +340,7 @@ export function ConnectionsView({
   custom: () => void
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
+  onRows?: (rows: ConnectorCatalog[]) => void
 }) {
   const attention = useMemo(() => ConnectorCatalog.needingAttention(catalog), [catalog])
 
@@ -334,7 +375,7 @@ export function ConnectionsView({
           </Button>
         </div>
       )}
-      <Catalog catalog={catalog} query={initialSearch} select={select} custom={custom} />
+      <Catalog catalog={catalog} query={initialSearch} select={select} custom={custom} onRows={onRows} />
     </ConnectorsShell>
   )
 }

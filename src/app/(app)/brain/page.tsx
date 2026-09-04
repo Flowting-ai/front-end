@@ -55,7 +55,7 @@ import { usePinboard } from '@/context/pinboard-context'
 import {
   initiateLink,
   completeZapierLink,
-  listConnectors,
+  listLinkedConnectors,
   pollConnectorUntilActive,
   getConnector,
   updateConnector,
@@ -1316,7 +1316,7 @@ function BrainPageInner() {
   const [connectorCatalog, setConnectorCatalog] = useState<ContextConnector[]>([])
   useEffect(() => {
     let cancelled = false
-    void listConnectors()
+    void listLinkedConnectors()
       .then((entries) => {
         if (cancelled) return
         setConnectorCatalog(entries.map((e) => ({

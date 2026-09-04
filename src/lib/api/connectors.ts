@@ -176,8 +176,13 @@ export class ConnectorCatalog {
     return new ConnectorCatalog(connectorCatalogEntrySchema.parse(raw))
   }
 
-  static parseList(raw: unknown): ConnectorCatalog[] {
-    return connectorListResponseSchema.parse(raw).connectors.map(wire => new ConnectorCatalog(wire))
+  static parsePage(raw: unknown): ConnectorListPage {
+    const wire = connectorListResponseSchema.parse(raw)
+    return {
+      connectors: wire.connectors.map(entry => new ConnectorCatalog(entry)),
+      nextCursor: wire.next_cursor,
+      hasMore: wire.has_more,
+    }
   }
 
   get name(): string {
@@ -271,39 +276,68 @@ export function oauthNeedsInitFields(
     && c.api_key_fields.length > 0
 }
 
-const CATALOG_CACHE_TTL = 30_000
-let catalogCache: { data: ConnectorCatalog[]; time: number } | null = null
-let catalogInFlight: Promise<ConnectorCatalog[]> | null = null
+export type ConnectorListQuery = {
+  q?: string
+  cursor?: string
+  limit?: number
+  linked?: boolean
+}
+
+export type ConnectorListPage = {
+  connectors: ConnectorCatalog[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 let catalogBySlug = new Map<string, ConnectorCatalog>()
+const listInFlight = new Map<string, Promise<ConnectorListPage>>()
 
 export function bustConnectorCatalogCache(): void {
-  catalogCache = null
-  catalogInFlight = null
   catalogBySlug = new Map()
+  listInFlight.clear()
 }
 
 function remember(entry: ConnectorCatalog): ConnectorCatalog {
   catalogBySlug.set(entry.slug, entry)
-  if (catalogCache) {
-    catalogCache.data = catalogCache.data.map(row => row.slug === entry.slug ? entry : row)
-  }
   return entry
 }
 
-export function listConnectors(): Promise<ConnectorCatalog[]> {
-  if (catalogCache && Date.now() - catalogCache.time < CATALOG_CACHE_TTL) {
-    return Promise.resolve(catalogCache.data)
-  }
-  if (catalogInFlight) return catalogInFlight
-  catalogInFlight = apiFetchJson<unknown>(CONNECTORS_ENDPOINT)
+export function connectorsListUrl(query: ConnectorListQuery = {}): string {
+  const params = new URLSearchParams()
+  const q = query.q?.trim()
+  if (q) params.set('q', q)
+  const cursor = query.cursor?.trim()
+  if (cursor) params.set('cursor', cursor)
+  if (query.limit != null) params.set('limit', String(query.limit))
+  if (query.linked != null) params.set('linked', String(query.linked))
+  const qs = params.toString()
+  return qs ? `${CONNECTORS_ENDPOINT}?${qs}` : CONNECTORS_ENDPOINT
+}
+
+export function listConnectors(query: ConnectorListQuery = {}): Promise<ConnectorListPage> {
+  const url = connectorsListUrl(query)
+  const pending = listInFlight.get(url)
+  if (pending) return pending
+  const request = apiFetchJson<unknown>(url)
     .then(raw => {
-      const list = ConnectorCatalog.parseList(raw)
-      catalogCache = { data: list, time: Date.now() }
-      catalogBySlug = new Map(list.map(entry => [entry.slug, entry]))
-      return list
+      const page = ConnectorCatalog.parsePage(raw)
+      for (const entry of page.connectors) remember(entry)
+      return page
     })
-    .finally(() => { catalogInFlight = null })
-  return catalogInFlight
+    .finally(() => { listInFlight.delete(url) })
+  listInFlight.set(url, request)
+  return request
+}
+
+export async function listLinkedConnectors(): Promise<ConnectorCatalog[]> {
+  const out: ConnectorCatalog[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page = await listConnectors({ linked: true, cursor, limit: 100 })
+    out.push(...page.connectors)
+    if (!page.hasMore || !page.nextCursor) return out
+    cursor = page.nextCursor
+  }
 }
 
 export function resolveConnector(slug: string): Connector {

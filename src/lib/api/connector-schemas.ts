@@ -67,7 +67,9 @@ export const connectorCatalogEntrySchema = z.object({
 })
 
 export const connectorListResponseSchema = z.object({
-  connectors: z.array(connectorCatalogEntrySchema).default([]),
+  connectors:  z.array(connectorCatalogEntrySchema).default([]),
+  next_cursor: z.string().nullable().default(null),
+  has_more:    z.boolean().default(false),
 })
 
 export const linkResponseSchema = z.object({

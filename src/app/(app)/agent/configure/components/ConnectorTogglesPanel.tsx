@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
+import { ConnectorCatalog, listLinkedConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 
 function ConnectorChip({
@@ -90,7 +90,7 @@ export function ConnectorTogglesPanel({
     if (!repoId || !versionId) return
     let cancelled = false
     Promise.all([
-      listConnectors(),
+      listLinkedConnectors(),
       getVersion(repoId, versionId),
     ]).then(([catalog, version]) => {
       if (cancelled) return

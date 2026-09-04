@@ -11,7 +11,9 @@ import {
   bustConnectorCatalogCache,
   completeZapierLink,
   ConnectorCatalog,
+  connectorsListUrl,
   listConnectors,
+  listLinkedConnectors,
 } from './connectors'
 
 const GMAIL_LIST = {
@@ -123,32 +125,52 @@ describe('listConnectors', () => {
     bustConnectorCatalogCache()
   })
 
-  it('parses GET /connectors from ds-dev', async () => {
-    apiFetchJson.mockResolvedValue({ connectors: [GMAIL_LIST] })
-    const [entry] = await listConnectors()
-    expect(entry).toBeInstanceOf(ConnectorCatalog)
-    expect(entry.connections.map(row => row.scope)).toEqual(['personal', 'shared'])
+  it('builds list query params', () => {
+    expect(connectorsListUrl()).toMatch(/\/connectors$/)
+    expect(connectorsListUrl({ q: 'hubspot', cursor: 'gmail', limit: 10, linked: false }))
+      .toContain('q=hubspot')
+    expect(connectorsListUrl({ linked: true })).toContain('linked=true')
   })
 
-  it('parses a Zapier catalog row and completes a Connect UI id', async () => {
-    apiFetchJson.mockResolvedValueOnce({
-      connectors: [{
-        slug: 'slackcliapi',
-        display_name: 'Slack',
-        auth_mode: 'oauth2',
-        provider: 'zapier',
-        description: 'Slack via Zapier.',
-        logo_url: 'https://cdn.zapier.com/slack.png',
-        catalog_metadata: { id: 'SlackCLIAPI', title: 'Slack' },
-        linked: false,
-      }],
+  it('parses a page from GET /connectors', async () => {
+    apiFetchJson.mockResolvedValue({
+      connectors: [GMAIL_LIST],
+      next_cursor: 'gmail',
+      has_more: true,
     })
+    const page = await listConnectors({ linked: true })
+    expect(page.connectors[0]).toBeInstanceOf(ConnectorCatalog)
+    expect(page.connectors[0].connections.map(row => row.scope)).toEqual(['personal', 'shared'])
+    expect(page.nextCursor).toBe('gmail')
+    expect(page.hasMore).toBe(true)
+    expect(apiFetchJson).toHaveBeenCalledWith(expect.stringContaining('linked=true'))
+  })
 
-    const [entry] = await listConnectors()
-    expect(entry.provider).toBe('zapier')
-    expect(entry.catalogMetadata.id).toBe('SlackCLIAPI')
+  it('drains linked pages', async () => {
+    apiFetchJson
+      .mockResolvedValueOnce({
+        connectors: [GMAIL_LIST],
+        next_cursor: 'gmail',
+        has_more: true,
+      })
+      .mockResolvedValueOnce({
+        connectors: [{
+          slug: 'notion',
+          display_name: 'Notion',
+          auth_mode: 'oauth2',
+          provider: 'pipedream',
+          description: 'Pages.',
+          linked: true,
+        }],
+        next_cursor: null,
+        has_more: false,
+      })
+    const rows = await listLinkedConnectors()
+    expect(rows.map(row => row.slug)).toEqual(['gmail', 'notion'])
+    expect(apiFetchJson).toHaveBeenCalledTimes(2)
+  })
 
-    bustConnectorCatalogCache()
+  it('completes a Zapier Connect UI id', async () => {
     apiFetchJson.mockResolvedValueOnce({
       slug: 'slackcliapi',
       display_name: 'Slack',
