@@ -61,19 +61,32 @@ const invoiceDateSchema = z
     return value && value.length > 0 ? value : null;
   });
 
-const invoiceSchema = z.object({
-  amount_paid: z.number().default(0),
-  currency: z.string().default("usd"),
-  status: z.string().nullable().default(null),
+export const invoiceSchema = z.object({
+  amount_paid: z.coerce.number().default(0),
+  amount_due: z.coerce.number().default(0),
+  currency: z.string().nullish().transform((value) => value ?? "usd"),
+  status: z.string().nullish().transform((value) => value ?? null),
   created: invoiceDateSchema,
-  invoice_url: z.string().nullable().default(null),
-  invoice_pdf: z.string().nullable().default(null),
+  invoice_url: z.string().nullish().transform((value) => value ?? null),
+  invoice_pdf: z.string().nullish().transform((value) => value ?? null),
 });
 
+export function parseInvoices(raw: unknown): InvoiceWire[] {
+  const items = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
+      ? (raw as { data: unknown[] }).data
+      : [];
+  return items.flatMap((item) => {
+    const parsed = invoiceSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 const upcomingInvoiceSchema = z.object({
-  amount_due: z.number().default(0),
-  currency: z.string().default("usd"),
-  next_payment_date: z.string().nullable().default(null),
+  amount_due: z.coerce.number().default(0),
+  currency: z.string().nullish().transform((value) => value ?? "usd"),
+  next_payment_date: z.string().nullish().transform((value) => value ?? null),
 });
 
 /** Mirrors services/stripe/schemas.py BillingInfo. */
@@ -84,7 +97,7 @@ export const billingInfoSchema = z.object({
   current_period_end: z.string().nullable().default(null),
   cancel_at_period_end: z.boolean().default(false),
   payment_method: paymentMethodSchema.nullable().default(null),
-  invoices: z.array(invoiceSchema).default([]),
+  invoices: z.unknown().optional().transform((value) => parseInvoices(value)),
   upcoming_invoice: upcomingInvoiceSchema.nullable().default(null),
   credits: creditSummarySchema.prefault({}),
   billing_model: z.string().nullable().default(null),

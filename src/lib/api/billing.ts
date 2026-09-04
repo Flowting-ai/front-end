@@ -2,12 +2,14 @@
 
 import {
   STRIPE_BILLING_ENDPOINT,
+  STRIPE_INVOICES_ENDPOINT,
   STRIPE_TRIAL_ENDPOINT,
   STRIPE_USAGE_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "./client";
 import {
   billingInfoSchema,
+  parseInvoices,
   usageResponseSchema,
   type BillingInfoWire,
   type CategorySpendWire,
@@ -177,6 +179,7 @@ export class PaymentMethod {
 
 export class Invoice {
   readonly amountPaid: number;
+  readonly amountDue: number;
   readonly currency: string;
   readonly status: string | null;
   readonly created: string | null;
@@ -185,11 +188,34 @@ export class Invoice {
 
   constructor(wire: InvoiceWire) {
     this.amountPaid = wire.amount_paid;
+    this.amountDue = wire.amount_due;
     this.currency = wire.currency;
     this.status = wire.status;
     this.created = wire.created;
     this.invoiceUrl = wire.invoice_url;
     this.invoicePdf = wire.invoice_pdf;
+  }
+
+  static parseAll(raw: unknown): Invoice[] {
+    return parseInvoices(raw).map((wire) => new Invoice(wire));
+  }
+
+  static async list(): Promise<Invoice[]> {
+    const response = await apiFetch(STRIPE_INVOICES_ENDPOINT, { method: "GET" });
+    if (!response.ok) return [];
+    return Invoice.parseAll(await response.json());
+  }
+
+  static projected(amountUsd: number, date: string | null): Invoice {
+    return new Invoice({
+      amount_paid: 0,
+      amount_due: amountUsd,
+      currency: "usd",
+      status: "upcoming",
+      created: date,
+      invoice_url: null,
+      invoice_pdf: null,
+    });
   }
 
   get viewUrl(): string | null {
@@ -198,6 +224,25 @@ export class Invoice {
 
   get isPaid(): boolean {
     return this.status === "paid";
+  }
+
+  get isUpcoming(): boolean {
+    return this.status === "upcoming";
+  }
+
+  get displayAmount(): number {
+    return this.isPaid ? this.amountPaid : this.amountDue;
+  }
+
+  get statusLabel(): string {
+    if (this.isUpcoming) return "Upcoming";
+    if (this.isPaid) return "Paid";
+    return this.status ? this.status.charAt(0).toUpperCase() + this.status.slice(1) : "Open";
+  }
+
+  static history(issued: Invoice[], upcoming: UpcomingInvoice | null): Invoice[] {
+    if (!upcoming || upcoming.amountDue <= 0) return issued;
+    return [Invoice.projected(upcoming.amountDue, upcoming.nextPaymentDate), ...issued];
   }
 }
 

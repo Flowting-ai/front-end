@@ -26,6 +26,7 @@ export {
 export {
   Billing,
   Billing as BillingInfo,
+  Invoice,
   Usage,
   TeamsTier,
 } from "./billing";

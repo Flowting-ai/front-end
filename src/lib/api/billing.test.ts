@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Billing, CategorySpend, TeamsTier, Usage } from "./billing";
-import { billingInfoSchema, usageResponseSchema } from "./billing-schemas";
+import { Billing, CategorySpend, Invoice, TeamsTier, UpcomingInvoice, Usage } from "./billing";
+import { billingInfoSchema, parseInvoices, usageResponseSchema } from "./billing-schemas";
 
 describe("usageResponseSchema", () => {
   it("requires chat / slack / brain and rejects persona", () => {
@@ -66,6 +66,63 @@ describe("Billing", () => {
     expect(billing.paymentMethod?.label).toBe("Card ending in 4242");
     expect(billing.invoices[0]?.isPaid).toBe(true);
     expect(billing.teamsTier?.price).toBe(100);
+  });
+});
+
+describe("parseInvoices", () => {
+  it("keeps valid rows when one invoice is malformed", () => {
+    const parsed = parseInvoices([
+      { amount_paid: 100, amount_due: 0, currency: null, status: "paid", created: 1756684800 },
+      { amount_paid: "not-a-number", created: {} },
+      { amount_paid: 0, amount_due: 250, status: "open", created: "2026-09-01T00:00:00Z" },
+    ]);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.currency).toBe("usd");
+    expect(parsed[0]?.created).toEqual(expect.any(String));
+    expect(parsed[1]?.amount_due).toBe(250);
+  });
+});
+
+describe("Invoice", () => {
+  it("shows amount due until the invoice is paid", () => {
+    const open = new Invoice({
+      amount_paid: 0,
+      amount_due: 250,
+      currency: "usd",
+      status: "open",
+      created: "2026-09-01T00:00:00Z",
+      invoice_url: null,
+      invoice_pdf: null,
+    });
+    const paid = new Invoice({
+      amount_paid: 250,
+      amount_due: 0,
+      currency: "usd",
+      status: "paid",
+      created: "2026-09-01T00:00:00Z",
+      invoice_url: "https://example.com/inv",
+      invoice_pdf: null,
+    });
+    expect(open.displayAmount).toBe(250);
+    expect(open.statusLabel).toBe("Open");
+    expect(paid.displayAmount).toBe(250);
+    expect(paid.isPaid).toBe(true);
+  });
+
+  it("prepends the upcoming invoice onto issued history", () => {
+    const issued = Invoice.parseAll([
+      { amount_paid: 250, amount_due: 0, status: "paid", created: "2026-08-01T00:00:00Z" },
+    ]);
+    const upcoming = new UpcomingInvoice({
+      amount_due: 250,
+      currency: "usd",
+      next_payment_date: "2026-10-01T00:00:00",
+    });
+    const rows = Invoice.history(issued, upcoming);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.isUpcoming).toBe(true);
+    expect(rows[0]?.displayAmount).toBe(250);
+    expect(rows[1]?.isPaid).toBe(true);
   });
 });
 

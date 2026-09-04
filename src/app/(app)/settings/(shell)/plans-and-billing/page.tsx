@@ -11,6 +11,7 @@ import { useOrg } from '@/context/org-context'
 import { useMounted } from '@/hooks/use-mounted'
 import {
   Billing,
+  Invoice,
   Usage,
   TeamsTier,
   openBillingPortal,
@@ -20,7 +21,6 @@ import {
 import { setOrgPoolCap } from '@/lib/api/organization'
 import {
   ORG_CHANGE_PLAN_ROUTE,
-  ORG_MEMBERS_ROUTE,
   ORG_ANALYTICS_ROUTE,
   SETTINGS_BILLING_CHANGE_PLAN_ROUTE,
   SETTINGS_USAGE_ROUTE,
@@ -398,6 +398,7 @@ function OrgBillingView() {
   const isEnterprise = org.plan === 'enterprise'
 
   const [billing,        setBilling]        = useState<Billing | null>(null)
+  const [invoices,       setInvoices]       = useState<Invoice[]>([])
   const [billingLoading, setBillingLoading] = useState(true)
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
@@ -483,7 +484,14 @@ function OrgBillingView() {
       return
     }
     Billing.fetch()
-      .then(setBilling)
+      .then(async billed => {
+        setBilling(billed)
+        if (billed && billed.invoices.length > 0) {
+          setInvoices(billed.invoices)
+          return
+        }
+        setInvoices(await Invoice.list())
+      })
       .catch(console.error)
       .finally(() => setBillingLoading(false))
   }, [orgId, isAdmin])
@@ -491,9 +499,16 @@ function OrgBillingView() {
   const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
+  const isManualBilling = isEnterprise || billing?.billingModel === 'postpaid'
+  const invoiceRows = Invoice.history(invoices, billing?.upcomingInvoice ?? null)
+
   const handleStripePortal = async () => {
     if (!isAdmin) {
       toast.error('Only an organization admin can manage billing.')
+      return
+    }
+    if (isManualBilling) {
+      toast.error('Enterprise billing is managed manually.')
       return
     }
     const url = await openBillingPortal()
@@ -502,7 +517,7 @@ function OrgBillingView() {
   }
 
   const handleExportAllInvoices = () => {
-    const urls = (billing?.invoices ?? [])
+    const urls = invoiceRows
       .map(inv => inv.viewUrl)
       .filter((url): url is string => !!url)
     if (urls.length === 0) {
@@ -575,14 +590,12 @@ function OrgBillingView() {
     }
   }
 
-  // Billing-cycle dates.
-  const now          = new Date()
-  const cycleStart   = new Date(now.getFullYear(), now.getMonth(), 1)
-  const cycleEnd     = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-  const fmtShort     = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const nextBilling  = fmtDate(billing?.currentPeriodEnd) !== '—'
+  const now = new Date()
+  const cycle = billingCycle(billing?.currentPeriodEnd ?? null)
+  const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const nextBilling = fmtDate(billing?.currentPeriodEnd) !== '—'
     ? fmtDate(billing?.currentPeriodEnd)
-    : fmtShort(cycleEnd)
+    : fmtShort(cycle.end)
 
   if (billingLoading) {
     return (
@@ -605,7 +618,7 @@ function OrgBillingView() {
       overageUsd={trueOverageUsd}
       projectedInvoice={projectedInvoice}
       baseFeeUsd={baseFeeUsd}
-      cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
+      cycleLabel={`${fmtShort(cycle.start)} – ${fmtShort(cycle.end)}`}
     />
   ) : null
   const cancelAtPeriodEnd = billing?.cancelAtPeriodEnd ?? false
@@ -654,29 +667,6 @@ function OrgBillingView() {
                   : `${usedCredits.toLocaleString()} used this month`}
               />
               <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
-              <div style={{
-                background:    'var(--neutral-white, #fff)',
-                borderRadius:  8,
-                padding:       12,
-                boxShadow:     SHADOW_TILE,
-                display:       'flex',
-                flexDirection: 'column',
-                gap:           6,
-                flex:          '1 1 220px',
-                minWidth:      200,
-              }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                  Monthly caps
-                </p>
-                <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  Set per-member credit caps for this organization.
-                </p>
-                {isAdmin && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="secondary" onClick={() => router.push(ORG_MEMBERS_ROUTE)}>Manage caps</Button>
-                  </div>
-                )}
-              </div>
             </div>
 
             <SpendLimitCard
@@ -785,7 +775,10 @@ function OrgBillingView() {
 
         {/* Payment — admin-only; the backend returns empty billing info to anyone else */}
         {isAdmin && (
-          <SectionCard title="Payment" subtitle="Manage your billing details.">
+          <SectionCard
+            title="Payment"
+            subtitle={isManualBilling ? 'Enterprise billing is invoiced manually.' : 'Manage your billing details.'}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
               <div style={{ flex: '1 0 0', minWidth: 0 }}>
@@ -796,19 +789,20 @@ function OrgBillingView() {
                   {pm?.expiry ?? 'Add a card to continue.'}
                 </p>
               </div>
-              <Button variant="secondary" onClick={handleStripePortal}>Manage on Stripe</Button>
+              {!isManualBilling && (
+                <Button variant="secondary" onClick={handleStripePortal}>Manage on Stripe</Button>
+              )}
             </div>
           </SectionCard>
         )}
 
-        {/* Invoice history — admin-only; the backend returns empty billing info to anyone else */}
         {isAdmin && (
           <SectionCard
             title="Invoice history"
             action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
             bodyPadding="0 24px 12px"
           >
-            <InvoiceTable billing={billing} loading={billingLoading} />
+            <InvoiceTable invoices={invoiceRows} loading={billingLoading} />
           </SectionCard>
         )}
       </div>
@@ -1000,7 +994,7 @@ function PersonalBillingView() {
 
   const pm        = billing?.paymentMethod ?? null
   const cardBrand = (pm?.brand ?? 'unknown') as CardBrand
-  const invoices  = billing?.invoices ?? []
+  const invoices  = Invoice.history(billing?.invoices ?? [], billing?.upcomingInvoice ?? null)
   const billingPending = !billing && !billingLoaded
 
   const now          = new Date()
@@ -1196,7 +1190,7 @@ function PersonalBillingView() {
           action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
           bodyPadding="0 24px 12px"
         >
-          <InvoiceTable billing={billing} loading={billingPending} />
+          <InvoiceTable invoices={invoices} loading={billingPending} />
         </SectionCard>
           </>
         )}
@@ -1393,9 +1387,22 @@ function ProgressBar({ pct }: { pct: number }) {
 
 // ── Invoice table ─────────────────────────────────────────────────────────────
 
-function InvoiceTable({ billing, loading }: { billing: Billing | null; loading: boolean }) {
-  const invoices = billing?.invoices ?? []
+function billingCycle(periodEnd: string | null): { start: Date; end: Date } {
+  if (periodEnd) {
+    const close = new Date(periodEnd)
+    if (!Number.isNaN(close.getTime())) {
+      const end = new Date(close.getTime() - 86_400_000)
+      return { start: new Date(end.getFullYear(), end.getMonth(), 1), end }
+    }
+  }
+  const now = new Date()
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), 1),
+    end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+  }
+}
 
+function InvoiceTable({ invoices, loading }: { invoices: Invoice[]; loading: boolean }) {
   const cellHead: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
   const cellBody: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
 
@@ -1406,7 +1413,6 @@ function InvoiceTable({ billing, loading }: { billing: Billing | null; loading: 
       padding:      12,
       boxShadow:    SHADOW_TILE,
     }}>
-      {/* Header row */}
       <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
         <span style={cellHead}>Date</span>
         <span style={cellHead}>Amount</span>
@@ -1419,32 +1425,32 @@ function InvoiceTable({ billing, loading }: { billing: Billing | null; loading: 
       ) : invoices.length === 0 ? (
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>No invoices yet.</p>
       ) : (
-        invoices.map((inv, i) => {
-          const paid = inv.status === 'paid'
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
-              <span style={cellBody}>{fmtDate(inv.created)}</span>
-              <span style={cellBody}>{fmtUsd(inv.amountPaid)}</span>
-              <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                <Badge label={paid ? 'Paid' : (inv.status ?? 'Open')} tone={paid ? 'green' : 'red'} />
-              </div>
-              <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
-                {inv.viewUrl ? (
-                  <a
-                    href={inv.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', textDecoration: 'underline' }}
-                  >
-                    View
-                  </a>
-                ) : (
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-400)' }}>View</span>
-                )}
-              </div>
+        invoices.map((inv, i) => (
+          <div key={`${inv.status}-${inv.created}-${inv.displayAmount}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
+            <span style={cellBody}>{fmtDate(inv.created)}</span>
+            <span style={cellBody}>{fmtUsd(inv.displayAmount)}</span>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <Badge
+                label={inv.statusLabel}
+                tone={inv.isUpcoming ? 'neutral' : inv.isPaid ? 'green' : 'red'}
+              />
             </div>
-          )
-        })
+            <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
+              {inv.viewUrl ? (
+                <a
+                  href={inv.viewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', textDecoration: 'underline' }}
+                >
+                  View
+                </a>
+              ) : (
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-400)' }}>{inv.isUpcoming ? '—' : 'View'}</span>
+              )}
+            </div>
+          </div>
+        ))
       )}
     </div>
   )
