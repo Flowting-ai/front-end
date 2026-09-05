@@ -91,11 +91,11 @@ export default function InviteLandingPage() {
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Button size="sm" fluid asChild>
-              <a href={signUpUrl}>Sign up</a>
+            <Button size="sm" fluid onClick={() => { window.location.href = signUpUrl; }}>
+              Sign up
             </Button>
-            <Button variant="ghost" size="sm" fluid asChild>
-              <a href={signInUrl}>Already have an account? Sign in</a>
+            <Button variant="ghost" size="sm" fluid onClick={() => { window.location.href = signInUrl; }}>
+              Already have an account? Sign in
             </Button>
           </div>
         </div>
