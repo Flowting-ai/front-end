@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 
 // ── Shared shell for the v1.5 workspace-onboarding steps ─────────────────────
@@ -109,6 +109,225 @@ export function FieldError({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ── Shared text field (used by both the A1 and A2 profile steps) ────────────
+
+export function TextField({
+  label,
+  required,
+  placeholder,
+  value,
+  onChange,
+  onBlur,
+  error,
+}: {
+  label: string;
+  required?: boolean;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  error?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
+      <FieldLabel error={error}>
+        {label}
+        {required ? "*" : ""}
+      </FieldLabel>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          padding: "7px 10px",
+          borderRadius: 10,
+          backgroundColor: "var(--neutral-white,#fff)",
+          boxSizing: "border-box",
+          boxShadow: error
+            ? "0px 0px 0px 1px var(--red-600,#c62b29)"
+            : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+        }}
+      >
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          style={{
+            width: "100%",
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            fontFamily: "var(--font-body)",
+            fontWeight: 400,
+            fontSize: 14,
+            lineHeight: "16px",
+            color: "var(--neutral-900,#26211e)",
+            padding: 0,
+          }}
+        />
+      </div>
+      {error && <FieldError>This field can not be empty</FieldError>}
+    </div>
+  );
+}
+
+// ── Leave-without-saving guard ───────────────────────────────────────────────
+// Warns before the user loses in-progress input on a workspace-onboarding
+// step. Two independent mechanisms, since Next's App Router has no first-
+// party "block navigation" hook (that's a Pages Router-only API):
+//   1. `beforeunload` — covers a real page unload (refresh, closing the tab,
+//      typing a new URL, or this step's own `window.location.href` handoff
+//      to /welcome). Standard browser confirmation; text is not
+//      customizable by any browser, so there's no custom copy here.
+//   2. A pushState/popstate trick — covers the browser Back/Forward buttons,
+//      which don't unload the page in an SPA and so never fire
+//      `beforeunload`. On the first render where the step has unsaved input,
+//      a duplicate history entry is pushed; a Back press lands on that
+//      duplicate (caught via `popstate`) instead of actually leaving, and
+//      shows the styled confirmation below. "Leave" replays the Back press
+//      (skips both the duplicate and the real entry); "Stay" just re-arms.
+//      This does not touch this step's own in-flow Back/Next buttons (they
+//      call router.push, which never fires `popstate`).
+//
+// `bypass()` lets a caller doing an intentional `window.location.href`
+// handoff (see onboarding/invite/page.tsx) suppress the `beforeunload` guard
+// for that one navigation — it flips the ref straight from an event handler,
+// not through the `isDirty` prop, so no render has to land before the
+// navigation actually starts.
+
+export function useLeaveGuard(isDirty: boolean) {
+  const isDirtyRef = useRef(isDirty);
+  const armedRef = useRef(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    if (!isDirty) {
+      armedRef.current = false;
+      return;
+    }
+    if (armedRef.current) return;
+    armedRef.current = true;
+    window.history.pushState({ onboardingLeaveGuard: true }, "", window.location.href);
+
+    const onPopState = () => {
+      if (!isDirtyRef.current) return;
+      window.history.pushState({ onboardingLeaveGuard: true }, "", window.location.href);
+      setOpen(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isDirty]);
+
+  const stay = useCallback(() => setOpen(false), []);
+  const leave = useCallback(() => {
+    setOpen(false);
+    armedRef.current = false;
+    isDirtyRef.current = false;
+    window.history.go(-2);
+  }, []);
+  const bypass = useCallback(() => {
+    isDirtyRef.current = false;
+  }, []);
+
+  return { open, stay, leave, bypass };
+}
+
+export function LeaveGuardModal({
+  open,
+  onStay,
+  onLeave,
+}: {
+  open: boolean;
+  onStay: () => void;
+  onLeave: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      role="presentation"
+      onClick={onStay}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10000,
+        backgroundColor: "rgba(18,12,8,0.4)",
+        backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Unsaved changes"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "var(--neutral-white,#fff)",
+          borderRadius: 16,
+          padding: 24,
+          width: 380,
+          maxWidth: "calc(100vw - 32px)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+          boxShadow: "0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+        }}
+      >
+        <div>
+          <p
+            style={{
+              fontFamily: "var(--font-body)",
+              fontWeight: 600,
+              fontSize: 16,
+              lineHeight: "24px",
+              color: "var(--neutral-900,#26211e)",
+              margin: 0,
+            }}
+          >
+            Leave this step?
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--font-body)",
+              fontWeight: 400,
+              fontSize: 14,
+              lineHeight: "22px",
+              color: "var(--neutral-500,#8a8078)",
+              margin: "8px 0 0",
+            }}
+          >
+            You have unsaved changes on this page. If you leave now, they won&apos;t be saved.
+          </p>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="ghost" size="sm" onClick={onStay}>
+            Stay on this page
+          </Button>
+          <Button variant="danger" size="sm" onClick={onLeave}>
+            Leave without saving
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function ChevronLeft() {
@@ -149,7 +368,9 @@ export function StepFooter({
   onSkip?: () => void;
   skipLabel?: string;
   skipDisabled?: boolean;
-  onNext: () => void;
+  /** Omit to hide the primary Next/action button entirely — e.g. a screen whose
+   *  only action lives elsewhere on the page (a card's own embedded button). */
+  onNext?: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
   nextLoading?: boolean;
@@ -169,9 +390,11 @@ export function StepFooter({
             {skipLabel}
           </Button>
         )}
-        <Button size="sm" onClick={onNext} disabled={nextDisabled} loading={nextLoading} rightIcon={<ArrowRight />}>
-          {nextLabel}
-        </Button>
+        {onNext && (
+          <Button size="sm" onClick={onNext} disabled={nextDisabled} loading={nextLoading} rightIcon={<ArrowRight />}>
+            {nextLabel}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { useWorkspaceOnboarding, type WorkspaceSize } from "@/context/workspace-onboarding-context";
 import { createOrganization, updateOrg, listOrganizations } from "@/lib/api/organization";
 import { updateOnboarding } from "@/lib/api/user";
-import { StepCanvas, StepHeader, StepFooter, FieldLabel, FieldError } from "../_components/step-shell";
+import { StepCanvas, StepHeader, StepFooter, FieldLabel, FieldError, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
 import { ONBOARDING_SETUP_ROUTE, ONBOARDING_PROFILE_ROUTE } from "@/lib/routes";
 
 // ── A1 screen 2 / A2 screen 1 — "Setup your workspace" / "Join a workspace" ──
@@ -90,6 +90,8 @@ export default function OnboardingWorkspacePage() {
 
   const trimmedName = data.workspaceName.trim();
   const showError = touched && trimmedName.length === 0;
+  const hasUnsavedChanges = trimmedName.length > 0 || data.workspaceSize !== "just_me";
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
   const handleNext = async () => {
     setTouched(true);
@@ -221,6 +223,7 @@ export default function OnboardingWorkspacePage() {
         nextDisabled={trimmedName.length === 0}
         nextLoading={submitting}
       />
+      <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />
     </StepCanvas>
   );
 }

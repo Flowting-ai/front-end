@@ -26,7 +26,6 @@ import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, revokeInvite, getOrgSettings } from '@/lib/api/organization'
 import { inviteMembers } from '@/lib/api/teams'
-import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
 import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
@@ -943,7 +942,6 @@ export default function OrgMembersPage() {
 
   const [inviteOpen,     setInviteOpen]     = useState(false)
   const [inviteLoading,  setInviteLoading]  = useState(false)
-  const [projects,       setProjects]       = useState<ApiProjectSummary[]>([])
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
   const [rolesInfoOpen,  setRolesInfoOpen]  = useState(false)
 
@@ -953,24 +951,6 @@ export default function OrgMembersPage() {
       .then(s => setAllowedDomains(s.allowedEmailDomains ?? []))
       .catch(() => { /* non-fatal — open invite if settings unavailable */ })
   }, [orgId])
-
-  useEffect(() => {
-    if (!inviteOpen) return
-    let cancelled = false
-    fetchProjects(user?.auth0Id ?? '')
-      .then(items => {
-        // Only Workspace/Shared projects are valid invite-time add targets —
-        // a Personal project also carries the org's teamId (organizationId
-        // is stamped on every org member's project regardless of
-        // visibility), so a bare teamId check would offer the inviter's own
-        // private projects as something to add the new member to.
-        if (!cancelled) setProjects(items.filter(project => project.teamId && project.visibility !== 'personal'))
-      })
-      .catch(() => {
-        if (!cancelled) setProjects([])
-      })
-    return () => { cancelled = true }
-  }, [inviteOpen, user?.auth0Id])
 
   // Sync the current user's name to the backend when it appears stale
   // ("Someone" or empty) — mirrors how the individual plan syncs via
@@ -1019,6 +999,7 @@ export default function OrgMembersPage() {
     if (!member || !orgId) return false
     const memberName = member.name || member.email
     const prev = members
+    const toastId = toast.loading(`Updating ${memberName}'s role…`)
 
     try {
       // Compare against the *displayed* role, not the raw one — an 'owner'
@@ -1029,12 +1010,12 @@ export default function OrgMembersPage() {
         await setMemberRole(orgId, memberId, desiredOrgRole)
       }
       bumpMembers(ms => ms.map(m => m.id === memberId ? { ...m, role: desiredOrgRole, orgRole: desiredOrgRole } : m))
-      toast.success(desiredOrgRole === 'admin' ? `${memberName} is now an Admin` : `Updated ${memberName}'s role`)
+      toast.success(desiredOrgRole === 'admin' ? `${memberName} is now an Admin` : `Updated ${memberName}'s role`, { id: toastId })
       refreshMembers()
       return true
     } catch (err) {
       bumpMembers(prev)
-      toast.error(err instanceof Error ? err.message : 'Failed to update role')
+      toast.error(err instanceof Error ? err.message : 'Failed to update role', { id: toastId })
       return false
     }
   }
@@ -1043,13 +1024,15 @@ export default function OrgMembersPage() {
     if (!orgId) return
     const prev = members
     const removed = prev.find(m => m.id === id)
+    const memberLabel = removed?.name || removed?.email || 'member'
     bumpMembers(ms => ms.filter(m => m.id !== id))
+    const toastId = toast.loading(`Removing ${memberLabel}…`)
     try {
       await removeMember(orgId, id)
-      toast.success(`Removed ${removed?.name || removed?.email || 'member'}`)
+      toast.success(`Removed ${memberLabel}`, { id: toastId })
     } catch (err) {
       bumpMembers(prev)
-      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+      toast.error(err instanceof Error ? err.message : 'Failed to remove member', { id: toastId })
     }
   }
 
@@ -1057,7 +1040,9 @@ export default function OrgMembersPage() {
     if (!orgId) return
     const prev = members
     const invited = prev.find(m => m.id === id)
+    const memberLabel = invited?.email || 'member'
     bumpMembers(ms => ms.filter(m => m.id !== id))
+    const toastId = toast.loading(`Withdrawing invite to ${memberLabel}…`)
     try {
       // Pending invites live in the invite table, not the member table. Use
       // the invite-specific DELETE endpoint; fall back to removeMember only
@@ -1067,10 +1052,10 @@ export default function OrgMembersPage() {
       } else {
         await removeMember(orgId, id)
       }
-      toast.success(`Invite to ${invited?.email || 'member'} revoked`)
+      toast.success(`Invite to ${memberLabel} revoked`, { id: toastId })
     } catch (err) {
       bumpMembers(prev)
-      toast.error(err instanceof Error ? err.message : 'Failed to revoke invite')
+      toast.error(err instanceof Error ? err.message : 'Failed to revoke invite', { id: toastId })
     }
   }
 
@@ -1081,7 +1066,6 @@ export default function OrgMembersPage() {
   const handleInvite = async (
     emails: string[],
     role: WorkspaceRole,
-    projectId?: string,
   ): Promise<InviteResult> => {
     if (!orgId) {
       return { succeeded: [], failed: emails.map(email => ({ email, reason: 'No organization selected' })) }
@@ -1113,7 +1097,7 @@ export default function OrgMembersPage() {
 
     setInviteLoading(true)
     try {
-      await inviteMembers(orgId, toSend, role, projectId)
+      await inviteMembers(orgId, toSend, role)
 
       // Optimistic pending rows.
       bumpMembers(prev => [
@@ -1242,11 +1226,6 @@ export default function OrgMembersPage() {
         onInvite={handleInvite}
         workspaceName={org.name}
         loading={inviteLoading}
-        projects={projects.flatMap(project => (
-          project.teamId
-            ? [{ id: project.id, title: project.title, teamId: project.teamId }]
-            : []
-        ))}
         existingEmails={members.map(m => m.email).filter(Boolean)}
         allowedDomains={allowedDomains}
       />

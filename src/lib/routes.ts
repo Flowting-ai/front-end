@@ -66,7 +66,10 @@ export const TEAM_INVITE_BASE_ROUTE = "/team-invite";
 // invited email already has an account). Genuinely public: proxy.ts must
 // exempt this route from its logged-out → /auth/login redirect, since this
 // page IS the "decide sign in vs sign up" screen for a logged-out invitee.
-export const INVITE_LANDING_BASE_ROUTE = "/invite";
+// Path must match what the backend's build_invite_url() actually emails
+// (back-end/services/organizations/service.py) — it puts recipients at
+// `${FRONTEND_BASE_URL}/org-invite/{invite_id}`, not `/invite/...`.
+export const INVITE_LANDING_BASE_ROUTE = "/org-invite";
 export const INVITE_LANDING_ROUTE = (inviteId: string) => `${INVITE_LANDING_BASE_ROUTE}/${inviteId}`;
 
 export const ONBOARDING_HELLO_ROUTE = "/onboarding/hello";
@@ -109,8 +112,6 @@ export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/cha
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 
 export const ONBOARDING_TEAM_WELCOME_ROUTE = (inviteId: string) => `${ONBOARDING_TEAM_BASE_ROUTE}/${inviteId}`;
-export const ONBOARDING_TEAM_CONFIRM_ROUTE = (inviteId: string) => `/onboarding/team/${inviteId}/confirm`;
-export const ONBOARDING_TEAM_JOIN_ROUTE = (inviteId: string) => `/onboarding/team/${inviteId}/join`;
 export const ONBOARDING_TEAM_PROFILE_ROUTE = (inviteId: string) => `/onboarding/team/${inviteId}/profile`;
 
 type AgentConfigureQueryOpts = { name?: string | null; versionId?: string | null };

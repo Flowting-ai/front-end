@@ -37,7 +37,6 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   workspaceName?: string
   loading?: boolean
   disabled?: boolean
-  projects?: InviteProjectOption[]
   /** Emails already in the workspace (members + pending invites). Compared
    *  case-insensitively so a chip is flagged the instant it's typed, instead
    *  of only after a round trip to the backend. */
@@ -48,23 +47,11 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   onInvite?: (params: {
     emails: string[]
     role: WorkspaceRole
-    projectId?: string
   }) => Promise<InviteResult> | InviteResult
   asChild?: boolean
 }
 
-export interface InviteProjectOption {
-  id: string
-  title: string
-  teamId: string
-}
-
 const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'admin']
-
-const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
-  member: 'Can chat, use agents, access team projects',
-  admin:  'Full access excluding billing',
-}
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   admin:  'Admin',
@@ -144,125 +131,6 @@ function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => vo
   )
 }
 
-// ── Generic dropdown (Team / Project pickers) — same trigger+Popover pattern
-//    as RoleSelector below, just parameterized over a plain option list. ─────
-
-interface SimpleSelectOption {
-  value:    string
-  label:    string
-  subLabel?: string
-  avatar?:  React.ReactNode
-}
-
-function SimpleSelect({
-  value, onChange, options, placeholder, ariaLabel, disabled = false,
-}: {
-  value:        string
-  onChange:     (v: string) => void
-  options:      SimpleSelectOption[]
-  placeholder:  string
-  ariaLabel:    string
-  disabled?:    boolean
-}) {
-  const [open,    setOpen]    = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef   = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', h, { capture: true })
-    return () => document.removeEventListener('mousedown', h, { capture: true })
-  }, [open])
-
-  const selected = options.find(o => o.value === value)
-
-  return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        style={{
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  'space-between',
-          gap:             8,
-          width:           '100%',
-          padding:         '8px 10px',
-          borderRadius:    10,
-          border:          'none',
-          backgroundColor: hovered && !disabled ? 'var(--neutral-50)' : 'var(--neutral-white)',
-          boxShadow:       SHADOW_INPUT,
-          cursor:          disabled ? 'default' : 'pointer',
-          opacity:         disabled ? 0.6 : 1,
-          outline:         'none',
-          boxSizing:       'border-box' as const,
-          transition:      'background-color 120ms ease',
-        }}
-      >
-        <span style={{
-          fontFamily:   'var(--font-body)',
-          fontSize:     'var(--font-size-body)',
-          fontWeight:   400,
-          color:        selected ? 'var(--neutral-900)' : 'var(--neutral-400)',
-          overflow:     'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace:   'nowrap',
-        }}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <ArrowDownOneIcon size={11} color="var(--neutral-400)" />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="simple-select-panel"
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
-            animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scaleY: 0.85, transition: { duration: 0.08 } }}
-            style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100 }}
-          >
-            {/* Padding lives on this inner wrapper, not on <Popover>'s own
-                style prop — that prop only reaches Popover's outer
-                overflow:hidden shell, which sits OUTSIDE the actual
-                scrollable row list (maxHeight engages an inner ScrollArea).
-                Padding on the outer shell never reaches the rows, so they
-                rendered flush against the clipped scroll edges with zero
-                breathing room. */}
-            <Popover ref={panelRef} variant="dropdown" maxHeight={240} role="menu" aria-label={ariaLabel}>
-              <div style={{ padding: 4 }}>
-                {options.map(opt => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    fluid
-                    avatar={opt.avatar}
-                    label={opt.label}
-                    subLabel={opt.subLabel}
-                    selected={value === opt.value}
-                    onClick={() => { onChange(opt.value); setOpen(false) }}
-                  />
-                ))}
-              </div>
-            </Popover>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 // ── Role selector dropdown ────────────────────────────────────────────────────
 
 function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r: WorkspaceRole) => void }) {
@@ -317,7 +185,6 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
                   key={role}
                   fluid
                   label={ROLE_LABELS[role]}
-                  subLabel={ROLE_DESCRIPTIONS[role]}
                   selected={value === role}
                   onClick={() => { onChange(role); setOpen(false) }}
                 />
@@ -374,7 +241,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       workspaceName,
       loading = false,
       disabled = false,
-      projects = [],
       existingEmails,
       allowedDomains,
       onClose,
@@ -392,7 +258,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [emailChips, setEmailChips] = useState<EmailChip[]>([])
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
-    const [projectId,  setProjectId]  = useState('')
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => { inputRef.current?.focus() }, [])
@@ -456,16 +321,11 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       const pending = emailChips.filter(c => c.status === 'pending').map(c => c.value)
       if (pending.length === 0 || loading || submitting) return
 
-      const project = role === 'member'
-        ? projects.find(option => option.id === projectId)
-        : undefined
-
       setSubmitting(true)
       try {
         const result = await onInvite?.({
           emails: pending,
           role,
-          projectId: project?.id,
         })
         if (!result) return
 
@@ -481,13 +341,12 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           }))
 
         if (result.failed.length === 0) {
-          setProjectId('')
           onClose?.()
         }
       } finally {
         setSubmitting(false)
       }
-    }, [emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
+    }, [emailChips, loading, submitting, onInvite, onClose, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -619,42 +478,14 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             />
           </div>
           <div style={{ paddingTop: 1 }}>
-            <RoleSelector
-              value={role}
-              onChange={nextRole => {
-                setRole(nextRole)
-                setProjectId('')
-              }}
-            />
+            <RoleSelector value={role} onChange={setRole} />
           </div>
           </div>
         </div>
 
-        {/* Role description + domain restriction hints — boxed like ManageRoleModal's InfoNote */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <InfoNote>{ROLE_DESCRIPTIONS[role]}</InfoNote>
-          {allowedDomains && allowedDomains.length > 0 && (
-            <InfoNote>Restricted to: {allowedDomains.map(d => `@${d}`).join(', ')}</InfoNote>
-          )}
-        </div>
-
-        {role === 'member' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={SECTION_LABEL_STYLE}>Project access (optional)</span>
-            <SimpleSelect
-              ariaLabel="Project access"
-              value={projectId}
-              onChange={setProjectId}
-              placeholder="No project access"
-              options={[
-                { value: '', label: 'No project access' },
-                ...projects.map(project => ({
-                  value: project.id,
-                  label: project.title,
-                })),
-              ]}
-            />
-          </div>
+        {/* Domain restriction hint — boxed like ManageRoleModal's InfoNote */}
+        {allowedDomains && allowedDomains.length > 0 && (
+          <InfoNote>Restricted to: {allowedDomains.map(d => `@${d}`).join(', ')}</InfoNote>
         )}
 
         </div>
@@ -687,11 +518,9 @@ export interface AppInviteModalProps {
   onInvite:       (
     emails: string[],
     role: WorkspaceRole,
-    projectId?: string,
   ) => Promise<InviteResult> | InviteResult
   workspaceName?: string
   loading?:       boolean
-  projects?:      InviteProjectOption[]
   existingEmails?: string[]
   allowedDomains?: string[]
 }
@@ -702,7 +531,6 @@ export function AppInviteModal({
   onInvite,
   workspaceName,
   loading,
-  projects,
   existingEmails,
   allowedDomains,
 }: AppInviteModalProps) {
@@ -734,13 +562,10 @@ export function AppInviteModal({
           <InviteModal
             workspaceName={workspaceName}
             loading={loading}
-            projects={projects}
             existingEmails={existingEmails}
             allowedDomains={allowedDomains}
             onClose={onClose}
-            onInvite={({ emails, role, projectId }) => (
-              onInvite(emails, role, projectId)
-            )}
+            onInvite={({ emails, role }) => onInvite(emails, role)}
           />
         </Dialog.Content>
       </Dialog.Portal>

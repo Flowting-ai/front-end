@@ -194,10 +194,10 @@ export default async function proxy(request: NextRequest) {
     return await auth0.middleware(request);
   }
 
-  // B1/B2 pre-login invite landing (/invite/<id>) is deliberately public — it
-  // IS the "decide sign in vs sign up" screen for a logged-out invitee, so it
-  // must be reachable before any session check runs. Its own Sign in/Sign up
-  // buttons are what send the visitor into /auth/login.
+  // B1/B2 pre-login invite landing (/org-invite/<id>) is deliberately public —
+  // it IS the "decide sign in vs sign up" screen for a logged-out invitee, so
+  // it must be reachable before any session check runs. Its own Sign in/Sign
+  // up buttons are what send the visitor into /auth/login.
   if (pathname.startsWith(`${INVITE_LANDING_BASE_ROUTE}/`)) {
     return NextResponse.next();
   }

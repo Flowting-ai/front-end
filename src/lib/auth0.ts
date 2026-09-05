@@ -17,7 +17,18 @@ export const auth0 = new Auth0Client({
   onCallback: async (error, ctx) => {
     const baseUrl = process.env.APP_BASE_URL!;
     if (error) {
-      return NextResponse.redirect(new URL("/auth/login", baseUrl));
+      // Preserve the intended destination across the retry. ctx.returnTo is
+      // populated from transaction state even on an error callback (it's a
+      // plain optional field on OnCallbackContext, not gated on success) —
+      // without forwarding it here, a signup that hits an Auth0-side error
+      // branch (email verification, consent, MFA enrollment — all far more
+      // likely on signup than on a returning user's plain login) loses its
+      // destination and the next successful login falls through to "/",
+      // which the onboarding guard in proxy.ts then sends to the generic
+      // self-serve /onboarding/setup instead of back to e.g. a team invite.
+      const loginUrl = new URL("/auth/login", baseUrl);
+      if (ctx.returnTo) loginUrl.searchParams.set("returnTo", ctx.returnTo);
+      return NextResponse.redirect(loginUrl);
     }
     // Honor the post-login destination the SDK round-trips through transaction
     // state (set as ?returnTo= on /auth/login). Without this, a new user who

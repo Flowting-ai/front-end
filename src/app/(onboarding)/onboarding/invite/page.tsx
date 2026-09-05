@@ -13,7 +13,7 @@ import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/Badge";
 import { ChipInput } from "@/components/ChipInput";
-import { StepCanvas, StepHeader, StepFooter, FieldLabel } from "../_components/step-shell";
+import { StepCanvas, StepHeader, StepFooter, FieldLabel, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
 import { ONBOARDING_PROFILE_ROUTE, WELCOME_ROUTE } from "@/lib/routes";
 
 // Simple format check, not a deliverability check — "secure email verification
@@ -47,6 +47,8 @@ export default function OnboardingInvitePage() {
   const setEmailInput = setInviteEmailDraft;
   const setEmailList = setInviteEmailList;
   const [submitting, setSubmitting] = useState(false);
+  const hasUnsavedChanges = emailList.length > 0 || emailInput.trim().length > 0;
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
   // Splits raw comma/newline-separated text against the already-committed
   // list, sorting each entry into: added (new + well-formed), invalid
@@ -129,18 +131,31 @@ export default function OnboardingInvitePage() {
     return true;
   };
 
-  const handleSkip = async () => {
-    if (submitting) return;
-    setSubmitting(true);
+  // "Continue" (finish onboarding + hand off to /welcome) always gets its own
+  // loading/success/error toast, separate from whatever the invite send
+  // reported — the two are independent outcomes (invites can fail while
+  // onboarding still completes) and shouldn't share one toast's text.
+  const goToWelcome = async () => {
     const toastId = toast.loading("Finishing setup…");
     try {
       if (await finish(toastId)) {
-        toast.dismiss(toastId);
+        toast.success("You're all set!", { id: toastId });
+        // Intentional full navigation — suppress the leave-guard's
+        // beforeunload prompt for this handoff, not just any unload.
+        leaveGuard.bypass();
         window.location.href = `${WELCOME_ROUTE}?slack=1`;
       }
     } catch (err) {
       console.error("Onboarding completion failed", err);
       toast.error("Something went wrong. Please try again.", { id: toastId });
+    }
+  };
+
+  const handleSkip = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await goToWelcome();
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +164,6 @@ export default function OnboardingInvitePage() {
   const handleNext = async () => {
     if (submitting) return;
     setSubmitting(true);
-    const toastId = toast.loading("Sending invites…");
     try {
       // Fold in whatever's still sitting in the input (typed but not yet
       // committed via Enter/comma/blur) so clicking Next doesn't silently
@@ -164,6 +178,8 @@ export default function OnboardingInvitePage() {
         setEmailInput("");
       }
       if (finalEmails.length > 0) {
+        const inviteLabel = finalEmails.length === 1 ? "invite" : "invites";
+        const inviteToastId = toast.loading(`Sending ${finalEmails.length} ${inviteLabel}…`);
         try {
           let orgId = user?.orgId ?? null;
           if (!orgId) {
@@ -172,12 +188,16 @@ export default function OnboardingInvitePage() {
           }
           if (orgId) {
             await inviteMembers(orgId, finalEmails);
+            toast.success(`Sent ${finalEmails.length} ${inviteLabel}`, { id: inviteToastId });
           } else {
             // No org found at all — the workspace step's createOrganization()
             // call likely failed silently. Surface it instead of the previous
             // behavior of just dropping the invite with no feedback at all.
             console.error("Team invite skipped — no organization id resolved");
-            toast.error("Couldn't send invites — no workspace was found for your account. You can add members later in Settings → Members.");
+            toast.error(
+              "Couldn't send invites — no workspace was found for your account. You can add members later in Settings → Members.",
+              { id: inviteToastId },
+            );
           }
         } catch (inviteErr) {
           // Non-fatal — don't block completion over a failed invite send.
@@ -189,16 +209,14 @@ export default function OnboardingInvitePage() {
           const detail = inviteErr instanceof ApiError ? inviteErr.message : null;
           toast.error(
             detail ? `Couldn't send invites: ${detail}` : "Couldn't send invites — you can add members later in Settings → Members.",
+            { id: inviteToastId },
           );
         }
       }
-      if (await finish(toastId)) {
-        toast.dismiss(toastId);
-        window.location.href = `${WELCOME_ROUTE}?slack=1`;
-      }
+      await goToWelcome();
     } catch (err) {
       console.error("Onboarding completion failed", err);
-      toast.error("Something went wrong. Please try again.", { id: toastId });
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -209,7 +227,7 @@ export default function OnboardingInvitePage() {
       <StepHeader total={3} activeIndex={2} title="Invite your team members" />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", padding: "24px 0 0" }}>
-        <FieldLabel>Enter email ids</FieldLabel>
+        <FieldLabel>Enter their email ids</FieldLabel>
         <div
           onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus(); }}
           // Caps at ~10 rows of chips (Badge's 20px min-height + 6px row gap,
@@ -271,7 +289,7 @@ export default function OnboardingInvitePage() {
             ))}
           </AnimatePresence>
           <ChipInput
-            placeholder="Enter your email id"
+            placeholder="Add email id and press enter"
             // ChipInput's own default cap (30) is sized for short tags. This
             // field also accepts pasting several comma/newline-separated
             // emails at once (see handleEmailInputChange), so the cap needs
@@ -301,9 +319,11 @@ export default function OnboardingInvitePage() {
         onSkip={() => void handleSkip()}
         skipDisabled={submitting}
         onNext={() => void handleNext()}
-        nextLabel={emailList.length > 1 ? `Invite ${emailList.length} & continue` : "Next"}
+        nextLabel={`Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
+        nextDisabled={emailList.length === 0 && emailInput.trim().length === 0}
         nextLoading={submitting}
       />
+      <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />
     </StepCanvas>
   );
 }

@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { X } from "lucide-react";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { JoinedGreeting, JoinedTodos } from "@/components/onboarding/JoinedLanding";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
@@ -243,54 +242,31 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { push, replace } = useRouter();
-  const { org, orgId, orgReady, orgPlanSettled } = useOrg();
+  const { orgId, orgReady } = useOrg();
   const { user } = useAuth();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
   // "No plan yet" toast — blue, stays until the user closes it themselves.
-  // Org members: no active workspace/enterprise plan (same signal
-  // org/change-plan/page.tsx uses — org.monthlyPrice only reflects a real
-  // paid tier). Individual (non-org) users: no plan purchased at all
-  // (user.planType null — trial credits aren't a "plan"). Never user?.orgId
-  // for the org check — GET /users/me never actually populates it; orgId
-  // from useOrg() (resolved via listOrganizations as a fallback) is the only
-  // reliable signal. Only fires once there's a definitive answer, and never
-  // fires at all once a real plan exists.
+  // Individual (non-org) users only: no plan purchased at all (user.planType
+  // null — trial credits aren't a "plan"). Org members no longer get this
+  // toast on /chat (removed — was "Your workspace doesn't have a plan yet").
+  // Never user?.orgId for the org check — GET /users/me never actually
+  // populates it; orgId from useOrg() (resolved via listOrganizations as a
+  // fallback) is the only reliable signal.
   const noPlanToastShown = useRef(false);
   useEffect(() => {
-    if (noPlanToastShown.current || !orgReady) return;
-    if (orgId != null) {
-      // org.monthlyPrice/org.plan only reflect the real tier once the plan
-      // (credit pool) fetch has settled — orgReady flips true as soon as the
-      // role fetch resolves, which can land first and leave monthlyPrice at
-      // its 0 default, firing this toast for an org that does have a plan.
-      if (!orgPlanSettled) return;
-      if (org.plan === 'enterprise' || (org.monthlyPrice ?? 0) > 0) return;
-      noPlanToastShown.current = true;
-      toast.info("Your workspace doesn't have a plan yet — pick one to get started.", { duration: Infinity });
-    } else {
-      if (!user || user.planType) return;
-      noPlanToastShown.current = true;
-      toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity });
-    }
-  }, [orgReady, orgId, orgPlanSettled, org.plan, org.monthlyPrice, user]);
+    if (noPlanToastShown.current || !orgReady || orgId != null) return;
+    if (!user || user.planType) return;
+    noPlanToastShown.current = true;
+    toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity });
+  }, [orgReady, orgId, user]);
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
   // "Share" chat-menu item, which navigates here instead of opening the
   // modal directly since ChatShareOverlay lives on this page, not the sidebar.
   const shouldAutoOpenShare = searchParams.get("share") != null;
-  // First-time landing after finishing the invite flow (/chat?joined=<name>).
-  // Swaps the greeting + template cards for the "You just joined" welcome.
-  //
-  // The `joined` value is only a TRIGGER — never rendered verbatim, since the URL
-  // is user-editable and could otherwise spoof an arbitrary name on the landing.
-  // We resolve the display name from trusted org context (the real org name),
-  // not the URL param itself.
-  const justJoined    = searchParams.get("joined") != null;
-  const joinedTeam    = justJoined ? (org.name || null) : null;
-
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
@@ -1040,7 +1016,7 @@ function ChatPageInner() {
                 <m.div
                   exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
-                  {joinedTeam ? <JoinedGreeting teamName={joinedTeam} /> : <InitialPrompts />}
+                  <InitialPrompts />
                 </m.div>
 
                 {/* Input + action buttons + template cards exit downward */}
@@ -1158,35 +1134,31 @@ function ChatPageInner() {
                     ))}
                   </div>
 
-                  {/* ── Template cards / first-time joined orientation ──────── */}
-                  {joinedTeam ? (
-                    <JoinedTodos teamName={joinedTeam} />
-                  ) : (
-                    <div style={{ marginTop: "28px" }}>
-                      <p
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize:   "13px",
-                          fontWeight: 500,
-                          color:      "var(--neutral-500)",
-                          margin:     "0 0 10px",
-                          textAlign:  "left",
-                        }}
-                      >
-                        Not sure where to start?
-                      </p>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        {TEMPLATE_CARDS.map((card) => (
-                          <TemplateCard
-                            key={card.label}
-                            icon={card.icon}
-                            label={card.label}
-                            onClick={() => handleNewChatSend(card.prompt)}
-                          />
-                        ))}
-                      </div>
+                  {/* ── Template cards ──────────────────────────────────────── */}
+                  <div style={{ marginTop: "28px" }}>
+                    <p
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize:   "13px",
+                        fontWeight: 500,
+                        color:      "var(--neutral-500)",
+                        margin:     "0 0 10px",
+                        textAlign:  "left",
+                      }}
+                    >
+                      Not sure where to start?
+                    </p>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      {TEMPLATE_CARDS.map((card) => (
+                        <TemplateCard
+                          key={card.label}
+                          icon={card.icon}
+                          label={card.label}
+                          onClick={() => handleNewChatSend(card.prompt)}
+                        />
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </m.div>
               </div>
             </div>

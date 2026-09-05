@@ -11,7 +11,7 @@ import {
   type WorkspaceOnboardingRole,
   type WorkspaceOnboardingTone,
 } from "@/context/workspace-onboarding-context";
-import { StepCanvas, StepHeader, StepFooter, FieldLabel, FieldError } from "../_components/step-shell";
+import { StepCanvas, StepHeader, StepFooter, FieldLabel, TextField, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
 import { ONBOARDING_WORKSPACE_ROUTE, ONBOARDING_JOIN_ROUTE, ONBOARDING_INVITE_ROUTE } from "@/lib/routes";
 
 // ── A1 screen 3 / A2 screen 2 — "Create your profile" ────────────────────────
@@ -42,67 +42,6 @@ const TONES: { value: WorkspaceOnboardingTone; subtitle: string }[] = [
   { value: "Balanced", subtitle: "Friendly but efficient. The default." },
   { value: "Warm", subtitle: "Conversational, with context and reasoning." },
 ];
-
-function TextField({
-  label,
-  required,
-  placeholder,
-  value,
-  onChange,
-  onBlur,
-  error,
-}: {
-  label: string;
-  required?: boolean;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur?: () => void;
-  error?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
-      <FieldLabel error={error}>
-        {label}
-        {required ? "*" : ""}
-      </FieldLabel>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          padding: "7px 10px",
-          borderRadius: 10,
-          backgroundColor: "var(--neutral-white,#fff)",
-          boxSizing: "border-box",
-          boxShadow: error
-            ? "0px 0px 0px 1px var(--red-600,#c62b29)"
-            : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
-        }}
-      >
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          style={{
-            width: "100%",
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            fontFamily: "var(--font-body)",
-            fontWeight: 400,
-            fontSize: 14,
-            lineHeight: "16px",
-            color: "var(--neutral-900,#26211e)",
-            padding: 0,
-          }}
-        />
-      </div>
-      {error && <FieldError>This field can not be empty</FieldError>}
-    </div>
-  );
-}
 
 // ── Role select (same Dropdown/DropdownFloat pattern as onboarding/hello) ────
 function RoleSelect({
@@ -162,18 +101,20 @@ function RoleSelect({
       }
     >
       <Dropdown style={{ width: 403 }}>
-        {ROLES.map((role) => (
-          <Dropdown.Item
-            key={role}
-            fluid
-            label={role}
-            selected={role === value}
-            onClick={() => {
-              onChange(role);
-              setOpen(false);
-            }}
-          />
-        ))}
+        <Dropdown.Section fluid>
+          {ROLES.map((role) => (
+            <Dropdown.Item
+              key={role}
+              fluid
+              label={role}
+              selected={role === value}
+              onClick={() => {
+                onChange(role);
+                setOpen(false);
+              }}
+            />
+          ))}
+        </Dropdown.Section>
       </Dropdown>
     </DropdownFloat>
   );
@@ -237,19 +178,21 @@ function ToneSelect({
       }
     >
       <Dropdown style={{ width: 403 }}>
-        {TONES.map((tone) => (
-          <Dropdown.Item
-            key={tone.value}
-            fluid
-            label={tone.value}
-            subLabel={tone.subtitle}
-            selected={tone.value === value}
-            onClick={() => {
-              onChange(tone.value);
-              setOpen(false);
-            }}
-          />
-        ))}
+        <Dropdown.Section fluid>
+          {TONES.map((tone) => (
+            <Dropdown.Item
+              key={tone.value}
+              fluid
+              label={tone.value}
+              subLabel={tone.subtitle}
+              selected={tone.value === value}
+              onClick={() => {
+                onChange(tone.value);
+                setOpen(false);
+              }}
+            />
+          ))}
+        </Dropdown.Section>
       </Dropdown>
     </DropdownFloat>
   );
@@ -266,6 +209,8 @@ export default function OnboardingProfilePage() {
   const trimmedLast = data.lastName.trim();
   const firstError = touched && trimmedFirst.length === 0;
   const lastError = touched && trimmedLast.length === 0;
+  const hasUnsavedChanges = trimmedFirst.length > 0 || trimmedLast.length > 0 || data.role !== null || data.tone !== null;
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
   const handleNext = async () => {
     setTouched(true);
@@ -344,6 +289,7 @@ export default function OnboardingProfilePage() {
         nextDisabled={trimmedFirst.length === 0 || trimmedLast.length === 0}
         nextLoading={submitting}
       />
+      <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />
     </StepCanvas>
   );
 }
