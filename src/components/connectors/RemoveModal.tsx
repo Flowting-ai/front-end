@@ -1,11 +1,11 @@
 'use client'
 
-// Remove confirmation — S15 (with dependencies) / S16 (simple). Ported from
-// the story's Remove modal. The story's "Used by 3 agents · 2 automations"
-// copy is intentionally NOT reproduced — the backend's used-by endpoint only
-// returns a coarse org-level yes/no (Gap #3 in
-// docs v1.5/connectors-v1.5-migration-plan.md), so this shows a generic
-// warning instead of fabricating counts.
+// Remove confirmation — S15 / S16. Ported from the story's Remove modal.
+// The story's "Used by 3 agents · 2 automations" copy is intentionally NOT
+// reproduced: nothing reports what depends on an account (Gap #3 in
+// docs v1.5/connectors-v1.5-migration-plan.md), and inventing counts would be
+// worse than saying nothing. A shared account is warned about instead, since
+// removing it takes it away from everyone.
 
 import React from 'react'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
@@ -18,14 +18,11 @@ const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)'
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
 export function RemoveModal({
-  account, catalog, maybeInUse, blockedReason, busy, cancel, confirm,
+  account, catalog, blockedReason, busy, cancel, confirm,
 }: {
   account: ConnectorConnection
   catalog: ConnectorCatalog
-  /** Coarse org-level "something references this connector" signal (Gap #3) — not a real count. */
-  maybeInUse: boolean
-  /** Set when the viewer isn't allowed to remove this account (e.g. a
-   *  non-admin on a shared account) — disables Remove and explains why. */
+  /** Set when the viewer isn't the owner — disables Remove and explains why. */
   blockedReason?: string
   busy: boolean
   cancel: () => void
@@ -48,10 +45,10 @@ export function RemoveModal({
           <strong style={{ color: 'var(--neutral-800)', fontWeight: 500 }}>{account.nickname}</strong>
           {account.email ? ` · ${account.email}` : ''}
         </p>
-        {maybeInUse && (
+        {account.isShared && (
           <div style={{ ...panel, padding: SPACE.lg, marginTop: SPACE.xl }}>
-            <strong style={{ fontWeight: 500 }}>This account may be in use</strong>
-            <p style={{ ...muted, marginTop: SPACE.xs }}>Removing it could affect agents or automations that reference it. We can&apos;t show exactly which ones yet.</p>
+            <strong style={{ fontWeight: 500 }}>This account is shared</strong>
+            <p style={{ ...muted, marginTop: SPACE.xs }}>Everyone in your workspace loses it, along with any agents or automations running on it. We can&apos;t show exactly which ones yet.</p>
           </div>
         )}
         {blockedReason && (

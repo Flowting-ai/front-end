@@ -1,11 +1,13 @@
 'use client'
 
-// Connect/reconnect state machine for the Connectors v1.5 Setup screen (S11, S18).
+// Connect/reconnect state machine for the Connectors Setup screen (S11, S18).
 // Carries over every edge case documented in §4 of
-// docs v1.5/connectors-v1.5-migration-plan.md from the old useConnectFlow
-// (personal) and AddSharedAccountModal (org-shared) implementations, unified
-// behind one hook that branches on visibility instead of living in two
-// separate files.
+// docs v1.5/connectors-v1.5-migration-plan.md.
+//
+// There is one connect path. Sharing is not a different kind of link — the
+// account is always vaulted under the person who authorized it, and `shared`
+// is a flag flipped on the row afterwards, so connecting shared is just
+// connecting and then PATCHing.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -13,38 +15,28 @@ import { ApiError } from '@/lib/api/client'
 import {
   completeZapierLink,
   initiateLink,
-  updateConnector,
-  unlinkConnector,
+  updateAccount,
+  unlinkAccount,
   pollConnectorUntilActive,
   ConnectorCatalog,
-  type AccountVisibility,
 } from '@/lib/api/connectors'
-import {
-  createOrgConnectorAccount,
-  updateOrgConnectorAccount,
-  deleteOrgConnectorAccount,
-  pollOrgConnectorAccountUntilConnected,
-} from '@/lib/api/org-connectors'
 import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
 
 export interface SetupFlowResult {
-  /** For a private connect, the refreshed catalog entry. For a shared connect, the new account id. */
-  kind: 'private' | 'shared'
-  entry?: ConnectorCatalog
-  sharedAccountId?: string
+  /** The refreshed catalog entry, with the account that was just linked on it. */
+  entry: ConnectorCatalog
 }
 
 interface UseConnectorSetupFlowArgs {
   connectorSlug: string
   connectorName: string
   connectorProvider?: string | null
-  orgId: string | null
   onConnected: (result: SetupFlowResult) => void
 }
 
-export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorProvider, orgId, onConnected }: UseConnectorSetupFlowArgs) {
+export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorProvider, onConnected }: UseConnectorSetupFlowArgs) {
   const [state, setState] = useState<SetupState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const abortedRef = useRef(false)
@@ -62,7 +54,16 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     }
   }, [])
 
-  const connectPrivate = useCallback((initData?: Record<string, string>) => {
+  const connect = useCallback((
+    { initData, shared, accountLabel, knownAccountIds }: {
+      initData?: Record<string, string>
+      shared?: boolean
+      /** Renames the row this link produces; the backend seeds a default. */
+      accountLabel?: string
+      knownAccountIds?: string[]
+    } = {},
+  ) => {
+    const known = new Set(knownAccountIds ?? [])
     const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
     // Opened without noopener deliberately — noopener leaves the popup stuck
     // at about:blank in some browsers once we later assign popup.location.
@@ -82,6 +83,13 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           // Native MCP connectors' OAuth callback redirects back to our own
           // app domain, so this must navigate the current tab — a popup would
           // just land the app inside the small popup window.
+          //
+          // Nothing survives that navigation: the account does not exist until
+          // the callback lands, so there is no row to name or share yet. Say so
+          // rather than dropping the choice silently.
+          if (shared || accountLabel) {
+            toast.info(`Finish authorizing ${connectorName}, then set its name and sharing from the account's settings.`)
+          }
           window.location.href = url
           return
         }
@@ -96,13 +104,52 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
         const { signal } = pollAbortRef.current
         let settled = false
 
+        // The row the authorization just produced: the one owned account that
+        // was not there when this started. Falls back to the newest owned row
+        // when the caller did not say what it already had.
+        const linkedRow = (entry: ConnectorCatalog) => {
+          const mine = entry.connections.filter(row => row.owned)
+          return mine.find(row => !known.has(row.id)) ?? mine[mine.length - 1]
+        }
+
         const finish = (entry: ConnectorCatalog) => {
           if (settled || abortedRef.current) return
           settled = true
           popup?.close()
-          setState('idle')
-          toast.success(`${connectorName} connected`)
-          onConnected({ kind: 'private', entry })
+          const row = linkedRow(entry)
+          const wanted = {
+            ...(shared ? { shared: true } : {}),
+            ...(accountLabel ? { accountLabel } : {}),
+          }
+          if (!row || Object.keys(wanted).length === 0) {
+            setState('idle')
+            toast.success(`${connectorName} connected`)
+            onConnected({ entry })
+            return
+          }
+          // Naming it and sharing it are edits to the row we just linked, not
+          // part of the link itself.
+          setState('submitting')
+          updateAccount(row.id, wanted)
+            .then(() => {
+              if (abortedRef.current) return
+              setState('idle')
+              toast.success(shared ? `${connectorName} connected and shared` : `${connectorName} connected`)
+              onConnected({ entry })
+            })
+            .catch((err: unknown) => {
+              if (abortedRef.current) return
+              setState('idle')
+              // The account is linked and usable either way — say what did not happen.
+              toast.warning(
+                `${connectorName} connected, but saving its ${
+                  shared ? 'sharing' : 'name'
+                } failed: ${
+                  err instanceof Error ? err.message : 'unknown error'
+                }. Set it from the account's settings.`,
+              )
+              onConnected({ entry })
+            })
         }
 
         // A closed popup is not immediately cancellation — Pipedream's hosted
@@ -181,110 +228,13 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
       })
   }, [connectorSlug, connectorName, connectorProvider, onConnected])
 
-  const submitApiKeyPrivate = useCallback((values: Record<string, string>) => {
-    setState('submitting')
-    setErrorMsg('')
-    updateConnector(connectorSlug, { credentials: values })
-      .then(entry => {
-        if (abortedRef.current) return
-        setState('idle')
-        toast.success(`${connectorName} connected`)
-        onConnected({ kind: 'private', entry })
-      })
-      .catch((err: unknown) => {
-        if (abortedRef.current) return
-        setState('error')
-        const msg = err instanceof ApiError && err.status === 403 && err.rawMessage
-          ? err.rawMessage
-          : err instanceof Error ? err.message : 'Failed to save credentials'
-        setErrorMsg(msg)
-        toast.error(msg)
-      })
-  }, [connectorSlug, connectorName, onConnected])
-
-  const connectShared = useCallback((accountLabel: string, accountIdentifier: string | undefined, initData: Record<string, string> | undefined, apiKeyValues: Record<string, string> | undefined) => {
-    if (!orgId) {
-      toast.error('No organization to share this account with.')
-      return
-    }
-    setState('submitting')
-    setErrorMsg('')
-    // Connector sharing is workspace-wide by construction now — creating the
-    // org account is enough, there's no separate "make it shared" flip left
-    // (no smaller scope exists to distinguish it from).
-    createOrgConnectorAccount(orgId, connectorSlug, { accountLabel, accountIdentifier, initData })
-      .then(async res => {
-        if (abortedRef.current) return
-
-        if (apiKeyValues && Object.keys(apiKeyValues).length > 0) {
-          await updateOrgConnectorAccount(orgId, res.sharedAccountId, { credentials: apiKeyValues })
-        }
-
-        if (res.redirectUrl) {
-          const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
-          if (isMcp) {
-            window.location.href = res.redirectUrl
-            return
-          }
-          const hosted = isZapierProviderConnector(connectorProvider, res.redirectUrl)
-          const openUrl = hosted ? zapierConnectHref(res.redirectUrl) : res.redirectUrl
-          const popup = window.open('', '_blank', 'width=900,height=700')
-          if (popup && !popup.closed) popup.location.href = openUrl
-          else window.open(openUrl, hosted ? 'zapier-connect' : '_blank')
-          setState('polling')
-          try {
-            if (isZapierProviderConnector(connectorProvider, res.redirectUrl)) {
-              pollAbortRef.current?.abort()
-              pollAbortRef.current = new AbortController()
-              const connectionId = await waitForZapierAuthId(pollAbortRef.current.signal)
-              await completeZapierLink(connectorSlug, connectionId, res.sharedAccountId)
-            } else {
-              await pollOrgConnectorAccountUntilConnected(orgId, connectorSlug, res.sharedAccountId)
-            }
-            popup?.close()
-          } catch {
-            popup?.close()
-            toast.warning('OAuth flow timed out. The account was created; refresh the account list after finishing auth.')
-            setState('idle')
-            return
-          }
-        }
-
-        if (abortedRef.current) return
-        setState('idle')
-        toast.success('Shared account created')
-        onConnected({ kind: 'shared', sharedAccountId: res.sharedAccountId })
-      })
-      .catch((err: unknown) => {
-        if (abortedRef.current) return
-        setState('error')
-        const msg = err instanceof ApiError && err.status === 403 && err.rawMessage
-          ? err.rawMessage
-          : err instanceof Error ? err.message : 'Failed to create shared account'
-        setErrorMsg(msg)
-        toast.error(msg)
-      })
-  }, [orgId, connectorSlug, connectorProvider, onConnected])
-
-  const disconnectPrivate = useCallback(async () => {
-    await unlinkConnector(connectorSlug)
-  }, [connectorSlug])
-
-  const disconnectShared = useCallback(async (accountId: string) => {
-    if (!orgId) throw new Error('No organization context.')
-    await deleteOrgConnectorAccount(orgId, accountId)
-  }, [orgId])
-
-  const disconnect = useCallback((visibility: AccountVisibility, accountId: string) => (
-    visibility === 'shared' ? disconnectShared(accountId) : disconnectPrivate()
-  ), [disconnectPrivate, disconnectShared])
+  // One account, one id — shared or not, and whatever vault it lives in.
+  const disconnect = useCallback((accountId: string) => unlinkAccount(accountId), [])
 
   return {
     state,
     errorMsg,
-    connectPrivate,
-    submitApiKeyPrivate,
-    connectShared,
+    connect,
     disconnect,
   }
 }

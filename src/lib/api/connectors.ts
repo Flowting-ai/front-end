@@ -5,6 +5,7 @@ import { apiFetch, apiFetchJson } from './client'
 import { toConnector, type Connector } from '@/lib/connector'
 import {
   CONNECTORS_ENDPOINT,
+  CONNECTOR_ACCOUNT_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
   CONNECTOR_COMPLETE_ENDPOINT,
@@ -23,6 +24,7 @@ import {
   type ConnectionResponseWire,
   type LinkResponseWire,
   type ToolEntryWire,
+  type ToolPermissionEntryWire,
 } from './connector-schemas'
 
 export type {
@@ -45,37 +47,47 @@ export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
   required: true,
 }
 
+/** What a tool is. What an account decided about it is `AccountTool`. */
 export class ConnectorTool {
   readonly key: string
   readonly name: string
   readonly description: string
   readonly readOnly: boolean | null
-  readonly permission: ConnectorToolPermission
 
   constructor(wire: ToolEntryWire) {
     this.key = wire.key
     this.name = wire.name || wire.key
     this.description = wire.description
     this.readOnly = wire.read_only
-    this.permission = wire.permission
   }
 
   get group(): 'read-only' | 'write' {
     return this.readOnly === true ? 'read-only' : 'write'
   }
+}
+
+/** One catalog tool as one account decided it. A tool with no stored row is 'ask'. */
+export class AccountTool {
+  readonly tool: ConnectorTool
+  readonly permission: ConnectorToolPermission
+
+  constructor(tool: ConnectorTool, permission: ConnectorToolPermission = 'ask') {
+    this.tool = tool
+    this.permission = permission
+  }
+
+  get key(): string { return this.tool.key }
+  get name(): string { return this.tool.name }
+  get description(): string { return this.tool.description }
+  get readOnly(): boolean | null { return this.tool.readOnly }
+  get group(): 'read-only' | 'write' { return this.tool.group }
 
   get permissionMode(): Exclude<AccountPermissionSummary, 'custom'> {
     return this.permission === 'allowed' ? 'always' : this.permission
   }
 
-  withPermission(permission: ConnectorToolPermission): ConnectorTool {
-    return new ConnectorTool({
-      key: this.key,
-      name: this.name,
-      description: this.description,
-      read_only: this.readOnly,
-      permission,
-    })
+  withPermission(permission: ConnectorToolPermission): AccountTool {
+    return new AccountTool(this.tool, permission)
   }
 }
 
@@ -88,7 +100,9 @@ export class ConnectorConnection {
   readonly connected: boolean
   readonly status: ConnectorAccountStatus
   readonly version: number
-  readonly linkedByUserId: string | null
+  readonly ownerId: string
+  readonly owned: boolean
+  readonly permissions: ToolPermissionEntryWire[]
   readonly createdAt: string
   readonly updatedAt: string
 
@@ -101,7 +115,9 @@ export class ConnectorConnection {
     this.connected = wire.connected
     this.status = wire.status
     this.version = wire.version
-    this.linkedByUserId = wire.linked_by_user_id
+    this.ownerId = wire.owner_id
+    this.owned = wire.owned
+    this.permissions = wire.permissions
     this.createdAt = wire.created_at
     this.updatedAt = wire.updated_at
   }
@@ -138,8 +154,25 @@ export class ConnectorConnection {
     return this.needsReconnect ? 'reconnect-required' : 'connected'
   }
 
-  canManage(canManageShared: boolean): boolean {
-    return this.isPrivate || canManageShared
+  /** Sharing grants use, never control — only the owner can change this row. */
+  get canManage(): boolean {
+    return this.owned
+  }
+
+  permissionFor(toolKey: string): ConnectorToolPermission {
+    return this.permissions.find(entry => entry.key === toolKey)?.permission ?? 'ask'
+  }
+
+  /** The connector's catalog as this account decided it. */
+  toolsFrom(tools: ConnectorTool[]): AccountTool[] {
+    return tools.map(tool => new AccountTool(tool, this.permissionFor(tool.key)))
+  }
+
+  permissionSummary(tools: ConnectorTool[]): AccountPermissionSummary {
+    const decided = this.toolsFrom(tools)
+    if (decided.length === 0) return 'custom'
+    const first = decided[0].permissionMode
+    return decided.every(tool => tool.permissionMode === first) ? first : 'custom'
   }
 }
 
@@ -234,12 +267,6 @@ export class ConnectorCatalog {
     return this.linked
   }
 
-  get permissionSummary(): AccountPermissionSummary {
-    if (this.tools.length === 0) return 'custom'
-    const first = this.tools[0].permissionMode
-    return this.tools.every(tool => tool.permissionMode === first) ? first : 'custom'
-  }
-
   get needsAttention(): boolean {
     return this.connections.some(row => row.needsReconnect)
   }
@@ -252,20 +279,26 @@ export class ConnectorCatalog {
 export type LinkResponse = {
   connectorSlug: string
   redirectUrl: string | null
-  sharedAccountId: string | null
 }
 
 function linkFromWire(wire: LinkResponseWire): LinkResponse {
   return {
     connectorSlug: wire.connector_slug,
     redirectUrl: wire.redirect_url,
-    sharedAccountId: wire.shared_account_id,
   }
 }
 
-export interface UpdateConnectorRequest {
-  permissions?: { key: string; permission: ConnectorToolPermission }[]
-  credentials?: Record<string, string>
+/** Owner-only. Every field is optional; absent means unchanged. */
+export interface UpdateAccountRequest {
+  accountLabel?:      string
+  accountIdentifier?: string
+  /** Open it to everyone sharing an organization with you, or close it again. */
+  shared?:            boolean
+  permissions?:       { key: string; permission: ConnectorToolPermission }[]
+  credentials?:       Record<string, string>
+  status?:            ConnectorAccountStatus
+  /** Stale PATCH 409s when the row has moved on. */
+  expectedVersion?:   number
 }
 
 export function oauthNeedsInitFields(
@@ -369,35 +402,33 @@ export async function initiateLink(
 export async function completeZapierLink(
   slug: string,
   connectionId: string,
-  sharedAccountId?: string | null,
 ): Promise<ConnectorCatalog> {
   const raw = await apiFetchJson<unknown>(CONNECTOR_COMPLETE_ENDPOINT(slug), {
     method: 'POST',
-    body: JSON.stringify({
-      connection_id: connectionId,
-      ...(sharedAccountId ? { shared_account_id: sharedAccountId } : {}),
-    }),
+    body: JSON.stringify({ connection_id: connectionId }),
   })
   bustConnectorCatalogCache()
   return ConnectorCatalog.parse(raw)
 }
 
-export async function updateConnector(
-  slug: string,
-  body: UpdateConnectorRequest,
-): Promise<ConnectorCatalog> {
-  const raw = await apiFetchJson<unknown>(CONNECTOR_DETAIL_ENDPOINT(slug), {
+/** Rename, share, re-permission or disable one account. Owner only. */
+export async function updateAccount(
+  accountId: string,
+  body: UpdateAccountRequest,
+): Promise<ConnectorConnection> {
+  const raw = await apiFetchJson<unknown>(CONNECTOR_ACCOUNT_ENDPOINT(accountId), {
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
   bustConnectorCatalogCache()
-  return ConnectorCatalog.parse(raw)
+  return ConnectorConnection.parse(raw)
 }
 
-export async function unlinkConnector(slug: string): Promise<void> {
-  const res = await apiFetch(CONNECTOR_DETAIL_ENDPOINT(slug), { method: 'DELETE' })
+/** Owner only. Everyone it was shared with loses it. */
+export async function unlinkAccount(accountId: string): Promise<void> {
+  const res = await apiFetch(CONNECTOR_ACCOUNT_ENDPOINT(accountId), { method: 'DELETE' })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`Failed to unlink connector: ${res.status}`)
+    throw new Error(`Failed to unlink account: ${res.status}`)
   }
   bustConnectorCatalogCache()
 }

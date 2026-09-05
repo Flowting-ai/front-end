@@ -38,11 +38,14 @@ const GMAIL_LIST = {
       connected: true,
       status: 'active',
       version: 1,
-      linked_by_user_id: null,
+      owner_id: 'auth0|me',
+      owned: true,
+      permissions: [{ key: 'gmail-send-email', permission: 'allowed' }],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
     },
     {
+      // Someone else's account, shared with this workspace: usable, not editable.
       id: '2b0b8f8e-0000-4000-8000-000000000001',
       nickname: 'Marketing Gmail',
       scope: 'shared',
@@ -51,7 +54,9 @@ const GMAIL_LIST = {
       connected: true,
       status: 'active',
       version: 1,
-      linked_by_user_id: 'auth0|editor',
+      owner_id: 'auth0|editor',
+      owned: false,
+      permissions: [],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
     },
@@ -61,20 +66,8 @@ const GMAIL_LIST = {
 const GMAIL_DETAIL = {
   ...GMAIL_LIST,
   tools: [
-    {
-      key: 'gmail-find-email',
-      name: 'Find Email',
-      description: 'Search the mailbox.',
-      read_only: true,
-      permission: 'ask',
-    },
-    {
-      key: 'gmail-send-email',
-      name: 'Send Email',
-      description: 'Send a message.',
-      read_only: false,
-      permission: 'allowed',
-    },
+    { key: 'gmail-find-email', name: 'Find Email', description: 'Search the mailbox.', read_only: true },
+    { key: 'gmail-send-email', name: 'Send Email', description: 'Send a message.', read_only: false },
   ],
 }
 
@@ -99,8 +92,30 @@ describe('ConnectorCatalog', () => {
     expect(entry.tools[0].description).toBe('Search the mailbox.')
     expect(entry.tools[0].group).toBe('read-only')
     expect(entry.tools[1].group).toBe('write')
-    expect(entry.tools[1].permissionMode).toBe('always')
-    expect(entry.permissionSummary).toBe('custom')
+  })
+
+  it('reads each account\'s own permissions, so two accounts differ', () => {
+    const entry = ConnectorCatalog.parse(GMAIL_DETAIL)
+    const [mine, theirs] = entry.connections
+
+    // The catalog says what the tools are; the account says what it decided.
+    expect(mine.toolsFrom(entry.tools).map(t => t.permission)).toEqual(['ask', 'allowed'])
+    expect(mine.permissionFor('gmail-send-email')).toBe('allowed')
+    expect(mine.permissionSummary(entry.tools)).toBe('custom')
+
+    // A tool with no stored row is Ask, never inherited from another account.
+    expect(theirs.permissionFor('gmail-send-email')).toBe('ask')
+    expect(theirs.permissionSummary(entry.tools)).toBe('ask')
+  })
+
+  it('only the owner can manage an account', () => {
+    const [mine, theirs] = ConnectorCatalog.parse(GMAIL_LIST).connections
+    expect(mine.canManage).toBe(true)
+    expect(mine.ownerId).toBe('auth0|me')
+    // Shared with you: still usable, still not yours to change.
+    expect(theirs.canManage).toBe(false)
+    expect(theirs.isShared).toBe(true)
+    expect(theirs.ownerId).toBe('auth0|editor')
   })
 
   it('parses a bare connector with no connections', () => {
@@ -184,6 +199,8 @@ describe('listConnectors', () => {
         scope: 'personal',
         connector_slug: 'slackcliapi',
         connected: true,
+        owner_id: 'auth0|me',
+        owned: true,
         created_at: '2026-06-18T00:00:00Z',
         updated_at: '2026-06-18T00:00:00Z',
       }],

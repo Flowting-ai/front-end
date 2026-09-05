@@ -261,6 +261,9 @@ export const CONNECTORS_ENDPOINT            = withBase('/connectors')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
 export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
 export const CONNECTOR_COMPLETE_ENDPOINT    = (slug: string) => withBase(`/connectors/${slug}/complete`)
+// One account, addressed by id. Sharing, renaming, permissions and unlinking
+// all land here — the owner is the only one the backend lets through.
+export const CONNECTOR_ACCOUNT_ENDPOINT     = (accountId: string) => withBase(`/connectors/accounts/${accountId}`)
 
 // ── Workflows ─────────────────────────────────────────────────────────────────
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");
@@ -318,15 +321,6 @@ export const ORG_POOL_CAP_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan/pool-cap`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
-// Connections are workspace-wide (Workspace Model v2) — a shared account is
-// created directly against the organization, with no Team indirection and no
-// personal-access approval gate (both removed entirely from the backend).
-export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
-export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>
-  withBase(`/organizations/${orgId}/connectors/accounts/${accountId}`)
-export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>

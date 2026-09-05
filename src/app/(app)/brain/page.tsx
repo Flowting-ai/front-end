@@ -58,7 +58,6 @@ import {
   listLinkedConnectors,
   pollConnectorUntilActive,
   getConnector,
-  updateConnector,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
@@ -656,23 +655,12 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     }
   }, [busy, done, event.connector_slug, event.display_name, onConnected])
 
+  // API-key connectors are linked through the same hosted Connect flow as
+  // OAuth ones — the fields ride along as init_data. There is no separate
+  // credential endpoint to post them to.
   const handleApiKey = useCallback(async () => {
-    if (busy || done) return
-    setBusy(true)
-    setError(null)
-    try {
-      await updateConnector(event.connector_slug, { credentials: creds })
-      if (abortedRef.current) return
-      setDone(true)
-      onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — continuing your request.`)
-    } catch (e) {
-      if (abortedRef.current) return
-      setError(e instanceof Error ? e.message : 'Failed to save credentials.')
-    } finally {
-      setBusy(false)
-    }
-  }, [busy, done, event.connector_slug, event.display_name, creds, onConnected])
+    await handleOAuth(creds)
+  }, [handleOAuth, creds])
 
   const resolvedFields = fields ?? [DEFAULT_API_KEY_FIELD]
   const allFilled = resolvedFields.filter((f) => f.required).every((f) => (creds[f.name] ?? '').trim())

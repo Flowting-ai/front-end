@@ -9,12 +9,18 @@ export const accountScopeSchema = z.enum(['personal', 'shared'])
 export const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
 export const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
 
+// The catalog describes each tool once. Decisions live on the account, in
+// ConnectionResponse.permissions, joined back by key.
 export const toolEntrySchema = z.object({
   key:         z.string(),
   name:        z.string().default(''),
   description: z.string().default(''),
   read_only:   z.boolean().nullable().default(null),
-  permission:  toolPermissionSchema.default('ask'),
+})
+
+export const toolPermissionEntrySchema = z.object({
+  key:        z.string(),
+  permission: toolPermissionSchema.default('ask'),
 })
 
 export const connectionResponseSchema = z.object({
@@ -26,7 +32,12 @@ export const connectionResponseSchema = z.object({
   connected:           z.boolean(),
   status:              accountStatusSchema.default('active'),
   version:             z.number().int().default(1),
-  linked_by_user_id:   z.string().nullable().default(null),
+  // The person who linked it. `owned` is false when it was shared with you:
+  // usable, but only the owner can change or unlink it.
+  owner_id:            z.string(),
+  owned:               z.boolean(),
+  // Sparse — a tool with no entry is 'ask'.
+  permissions:         z.array(toolPermissionEntrySchema).default([]),
   created_at:          z.string(),
   updated_at:          z.string(),
 })
@@ -73,12 +84,12 @@ export const connectorListResponseSchema = z.object({
 })
 
 export const linkResponseSchema = z.object({
-  connector_slug:    z.string(),
-  redirect_url:      z.string().nullable().default(null),
-  shared_account_id: z.string().nullable().default(null),
+  connector_slug: z.string(),
+  redirect_url:   z.string().nullable().default(null),
 })
 
 export type ToolEntryWire = z.infer<typeof toolEntrySchema>
+export type ToolPermissionEntryWire = z.infer<typeof toolPermissionEntrySchema>
 export type ConnectionResponseWire = z.infer<typeof connectionResponseSchema>
 export type ApiKeyField = z.infer<typeof apiKeyFieldSchema>
 export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>

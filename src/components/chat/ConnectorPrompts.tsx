@@ -8,7 +8,6 @@ import {
   getConnector,
   initiateLink,
   completeZapierLink,
-  updateConnector,
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
@@ -202,24 +201,12 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
       })
   }, [prompt, onConnected])
 
+  // API-key connectors are linked through the same hosted Connect flow as
+  // OAuth ones — the fields ride along as init_data. There is no separate
+  // credential endpoint to post them to.
   const handleApiKey = useCallback(() => {
-    setState('connecting')
-    setErrorMsg('')
-    updateConnector(prompt.connector_slug, { credentials: apiKeyFields as Record<string, string> })
-      .then(() => {
-        if (abortedRef.current) return
-        setState('connected')
-        toast.success(`${prompt.display_name} connected`)
-        onConnected?.()
-      })
-      .catch((err: unknown) => {
-        if (abortedRef.current) return
-        setState('error')
-        const msg = err instanceof Error ? err.message : 'Failed to save credentials'
-        setErrorMsg(msg)
-        toast.error(`Failed to connect ${prompt.display_name}`)
-      })
-  }, [prompt, apiKeyFields, onConnected])
+    handleOAuth(apiKeyFields as Record<string, string>)
+  }, [handleOAuth, apiKeyFields])
 
   // Per-tenant OAuth (Shopify BYOA) declares required init fields in the connect
   // prompt; render the same credential form as api_key, but submit via the OAuth

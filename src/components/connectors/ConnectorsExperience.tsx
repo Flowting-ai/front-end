@@ -9,9 +9,8 @@ import {
   ConnectorConnection,
   getConnector,
   listLinkedConnectors,
-  unlinkConnector,
+  unlinkAccount,
 } from '@/lib/api/connectors'
-import { deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
@@ -23,7 +22,7 @@ import { CustomConnectorModal } from './CustomConnectorModal'
 type View = 'connections' | 'connector' | 'permissions' | 'access' | 'settings'
 
 export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: string }) {
-  const { orgId, orgReady, currentUserRole } = useOrg()
+  const { orgId, orgReady } = useOrg()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -39,7 +38,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const [customOpen, setCustomOpen] = useState(false)
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
-  const [removeMaybeInUse, setRemoveMaybeInUse] = useState(false)
   const [removeBusy, setRemoveBusy] = useState(false)
 
   const mergeRows = useCallback((rows: ConnectorCatalog[]) => {
@@ -76,7 +74,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const active = catalog.find(row => row.slug === activeSlug) ?? null
   const activeAccount = active?.connections.find(row => row.id === activeAccountId) ?? null
-  const canManageShared = currentUserRole === 'admin'
 
   const loadDetail = useCallback((slug: string) => {
     void getConnector(slug)
@@ -147,30 +144,16 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     void fetchAll()
   }, [fetchAll])
 
-  const requestRemove = useCallback(async (account: ConnectorConnection) => {
+  const requestRemove = useCallback((account: ConnectorConnection) => {
     setRemoveAccount(account)
-    setRemoveMaybeInUse(false)
-    if (orgId) {
-      try {
-        const usedBy = await getConnectorUsedBy(orgId, account.connectorSlug)
-        setRemoveMaybeInUse(usedBy.length > 0)
-      } catch {
-        // dialog still works without this signal
-      }
-    }
-  }, [orgId])
+  }, [])
 
   const confirmRemove = useCallback(async () => {
-    if (!removeAccount) return
-    if (removeAccount.isShared && !canManageShared) return
+    if (!removeAccount || !removeAccount.owned) return
     setRemoveBusy(true)
     try {
-      if (removeAccount.isShared) {
-        if (!orgId) throw new Error('No organization context.')
-        await deleteOrgConnectorAccount(orgId, removeAccount.id)
-      } else {
-        await unlinkConnector(removeAccount.connectorSlug)
-      }
+      // One id, whether it is shared or not — the row is the account.
+      await unlinkAccount(removeAccount.id)
       toast.success(`${removeAccount.nickname} removed`)
       setRemoveAccount(null)
       backToConnector()
@@ -180,7 +163,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     } finally {
       setRemoveBusy(false)
     }
-  }, [removeAccount, orgId, canManageShared, backToConnector, fetchAll])
+  }, [removeAccount, backToConnector, fetchAll])
 
   if (!orgReady) {
     return <ConnectionsView catalog={[]} loading select={() => {}} custom={() => {}} />
@@ -206,13 +189,11 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <AccountDetailView
           account={activeAccount}
           catalog={active}
-          orgId={orgId}
-          canManageShared={canManageShared}
           active={view}
           back={backToConnector}
           change={setView}
           onChanged={() => void fetchAll()}
-          onRemove={() => void requestRemove(activeAccount)}
+          onRemove={() => requestRemove(activeAccount)}
         />
       )}
 
@@ -220,7 +201,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <SetupModal
           catalog={active}
           orgId={orgId}
-          canManageShared={canManageShared}
           mode={setupMode}
           initialAccount={setupAccount}
           cancel={() => setSetupOpen(false)}
@@ -232,8 +212,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <RemoveModal
           account={removeAccount}
           catalog={active}
-          maybeInUse={removeMaybeInUse}
-          blockedReason={removeAccount.isShared && !canManageShared ? 'Only workspace admins can remove shared accounts.' : undefined}
+          blockedReason={removeAccount.owned ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
           busy={removeBusy}
           cancel={() => setRemoveAccount(null)}
           confirm={() => void confirmRemove()}

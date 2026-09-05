@@ -33,21 +33,21 @@ function Back({ onClick, children }: { onClick: () => void; children: React.Reac
 // to its own tinted panel with Reconnect as its only action, then the healthy
 // accounts split by visibility. Empty groups render nothing. Ported from the
 // story's Figma-sourced AccountGroups (163:22383).
-function AccountGroups({ accounts, permission, open, reconnect }: { accounts: ConnectorConnection[]; permission: ConnectorCatalog['permissionSummary']; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
+function AccountGroups({ accounts, tools, open, reconnect }: { accounts: ConnectorConnection[]; tools: ConnectorCatalog['tools']; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
   const attention = accounts.filter(a => a.needsReconnect)
   const healthy = accounts.filter(a => !a.needsReconnect)
   const shared = healthy.filter(a => a.isShared)
   const priv = healthy.filter(a => a.isPrivate)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
-      <AccountPanel accounts={attention} permission={permission} tone="attention" open={open} reconnect={reconnect} />
-      <AccountPanel accounts={shared} permission={permission} tone="default" open={open} reconnect={reconnect} />
-      <AccountPanel accounts={priv} permission={permission} tone="default" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={attention} tools={tools} tone="attention" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={shared} tools={tools} tone="default" open={open} reconnect={reconnect} />
+      <AccountPanel accounts={priv} tools={tools} tone="default" open={open} reconnect={reconnect} />
     </div>
   )
 }
 
-function AccountPanel({ accounts, permission, tone, open, reconnect }: { accounts: ConnectorConnection[]; permission: ConnectorCatalog['permissionSummary']; tone: 'attention' | 'default'; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
+function AccountPanel({ accounts, tools, tone, open, reconnect }: { accounts: ConnectorConnection[]; tools: ConnectorCatalog['tools']; tone: 'attention' | 'default'; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
   if (accounts.length === 0) return null
   const attention = tone === 'attention'
   return (
@@ -65,7 +65,7 @@ function AccountPanel({ accounts, permission, tone, open, reconnect }: { account
             email={item.email}
             visibility={item.visibility}
             state={item.connectionState}
-            permission={permission}
+            permission={item.permissionSummary(tools)}
             onManage={() => open(item)}
             onReconnect={() => reconnect(item)}
           />
@@ -109,7 +109,7 @@ export function ConnectorDetailView({
         {catalog.connections.length === 0 ? (
           <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No accounts connected yet.</p>
         ) : (
-          <AccountGroups accounts={catalog.connections} permission={catalog.permissionSummary} open={openAccount} reconnect={reconnectAccount} />
+          <AccountGroups accounts={catalog.connections} tools={catalog.tools} open={openAccount} reconnect={reconnectAccount} />
         )}
       </div>
     </ConnectorsShell>

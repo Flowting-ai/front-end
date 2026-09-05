@@ -1,10 +1,12 @@
 'use client'
 
-// Setup modal — S11 (reconnect) and S18 (connect). Ported from the story's
-// Setup, wired to real OAuth/API-key/shared-account mutations via
-// useConnectorSetupFlow. See docs v1.5/connectors-v1.5-migration-plan.md §4
-// (edge cases), Gap #2 (visibility locked after creation), Gap #14 (shared
-// OAuth accounts can't be reconnected in place).
+// Setup modal — S11 (reconnect) and S18 (connect), wired to the connect flow
+// in useConnectorSetupFlow. See docs v1.5/connectors-v1.5-migration-plan.md §4
+// (edge cases).
+//
+// Anyone can connect an account and anyone can share their own: sharing is a
+// flag on the row you own, so the choice here is just the flag's starting
+// value, and it stays changeable afterwards from the Access tab.
 
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -52,11 +54,11 @@ function credentialFields(catalog: ConnectorCatalog): ApiKeyField[] {
 }
 
 export function SetupModal({
-  catalog, orgId, canManageShared, mode, initialAccount, cancel, onConnected,
+  catalog, orgId, mode, initialAccount, cancel, onConnected,
 }: {
   catalog: ConnectorCatalog
+  /** Null when the viewer is in no workspace — nobody to share with. */
   orgId: string | null
-  canManageShared: boolean
   mode: 'connect' | 'reconnect'
   initialAccount?: ConnectorConnection
   cancel: () => void
@@ -65,7 +67,7 @@ export function SetupModal({
   const reconnecting = mode === 'reconnect'
   const [name, setName] = useState(reconnecting ? (initialAccount?.nickname ?? '') : '')
   const [visibility, setVisibility] = useState<AccountVisibility>(
-    reconnecting ? (initialAccount?.visibility ?? 'private') : (orgId && canManageShared ? 'shared' : 'private'),
+    reconnecting ? (initialAccount?.visibility ?? 'private') : 'private',
   )
   const [values, setValues] = useState<Record<string, string>>({})
 
@@ -73,15 +75,13 @@ export function SetupModal({
     connectorSlug: catalog.slug,
     connectorName: catalog.name,
     connectorProvider: catalog.provider,
-    orgId,
     onConnected,
   })
 
   const existingNames = catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
-  // Personal connections have no account-name field on the backend (a single
-  // unnamed row per user+connector) — the name is only ever saved for shared
-  // accounts, so it's only shown and validated in that case.
-  const showAccountName = mode === 'connect' && visibility === 'shared'
+  // Every account carries a nickname now, private or shared — it is what the
+  // model picks between when you hold several of the same connector.
+  const showAccountName = mode === 'connect'
   const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(catalog)
   const needsInitFields = catalog.needsOAuthInitFields
@@ -90,60 +90,21 @@ export function SetupModal({
   const allRequiredFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   const busy = flow.state === 'opening' || flow.state === 'polling' || flow.state === 'submitting'
 
-  // Gap #14 — shared OAuth accounts have no re-authorize-in-place endpoint.
-  const reconnectSharedOAuthBlocked = reconnecting && visibility === 'shared' && catalog.authMode === 'oauth2'
-
-  // Every shared-account mutation (create, reconnect/update) goes through the
-  // admin-only shared-account endpoints — a non-admin member can't do this
-  // regardless of auth mode. The "Shared" row is locked below so this should
-  // be unreachable via normal interaction; kept as a defensive submit-time
-  // check too.
-  const sharedPermissionBlocked = visibility === 'shared' && !canManageShared
-
-  // The backend has no concept of a second private account for this
-  // connector (personal links are a single row per user+connector — a
-  // second "connect" attempt silently overwrites the first one's
-  // credentials in place rather than creating anything new, and the OAuth
-  // poll reports "connected" immediately because the existing row already
-  // satisfies it). Block it here rather than let the UI promise something
-  // the backend can't do.
-  const existingPrivateAccount = catalog.privateConnections[0]
-  const privateAccountLimitBlocked = !reconnecting && visibility === 'private' && Boolean(existingPrivateAccount)
+  // Re-authorizing writes to the row, and only its owner may do that. An
+  // account shared with you is usable but not yours to reconnect.
+  const reconnectNotOwned = reconnecting && initialAccount != null && !initialAccount.owned
 
   function submit() {
-    if (sharedPermissionBlocked) {
-      toast.error(reconnecting ? 'Only workspace admins can reconnect a shared account.' : 'Only workspace admins can create a shared account.')
+    if (reconnectNotOwned) {
+      toast.error(`Only ${initialAccount?.nickname ?? 'the owner'}'s owner can reconnect it.`)
       return
     }
-    if (reconnectSharedOAuthBlocked) {
-      toast.error("Reconnecting a shared OAuth account isn't supported yet — remove and reconnect it instead.")
-      return
-    }
-    if (privateAccountLimitBlocked) {
-      toast.error(`You already have a private ${catalog.name} account — only one is supported per person.`)
-      return
-    }
-    if (visibility === 'private') {
-      if (needsForm) {
-        if (catalog.authMode === 'api_key') flow.submitApiKeyPrivate(values)
-        else flow.connectPrivate(values)
-      } else {
-        flow.connectPrivate()
-      }
-      return
-    }
-    // Shared — workspace-wide, no team involved. Reconnect + api_key =
-    // credential update in place (works today).
-    if (reconnecting && initialAccount) {
-      flow.connectShared(name.trim() || initialAccount.nickname, undefined, undefined, catalog.authMode === 'api_key' ? values : undefined)
-      return
-    }
-    flow.connectShared(
-      name.trim() || `${catalog.name} account`,
-      undefined,
-      catalog.authMode === 'oauth2' ? values : undefined,
-      catalog.authMode === 'api_key' ? values : undefined,
-    )
+    flow.connect({
+      initData: needsForm ? values : undefined,
+      shared: !reconnecting && visibility === 'shared',
+      accountLabel: showAccountName ? name.trim() || undefined : undefined,
+      knownAccountIds: catalog.connections.map(row => row.id),
+    })
   }
 
   return (
@@ -159,7 +120,7 @@ export function SetupModal({
       {showAccountName && (
         <InputField
           label="Account name (optional)"
-          subtitle={duplicate ? 'That account name is already used.' : 'Defaults to the connected email. Helps the model choose the right account.'}
+          subtitle={duplicate ? 'That account name is already used.' : 'Helps the model pick between several accounts on the same app.'}
           error={duplicate}
           value={name}
           onChange={setName}
@@ -174,35 +135,26 @@ export function SetupModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
             <VisibilityRow
               label="Shared"
-              description="Everyone in this workspace can use it."
+              description="Everyone in this workspace can use it. You stay the only one who can change it."
               selected={visibility === 'shared'}
-              locked={!orgId || !canManageShared}
-              lockedBadgeLabel={!orgId ? 'Needs a workspace' : 'Admins only'}
-              onClick={() => orgId && canManageShared && setVisibility('shared')}
+              locked={!orgId}
+              lockedBadgeLabel="Needs a workspace"
+              onClick={() => orgId && setVisibility('shared')}
             />
             <VisibilityRow
               label="Private"
               description="Only you can use it."
               selected={visibility === 'private'}
-              locked={Boolean(existingPrivateAccount)}
-              lockedBadgeLabel="Already connected"
-              onClick={() => !existingPrivateAccount && setVisibility('private')}
+              onClick={() => setVisibility('private')}
             />
           </div>
-          {existingPrivateAccount && (
-            <p style={{ ...muted, marginTop: SPACE.sm }}>
-              You already have a private {catalog.name} account ({existingPrivateAccount.nickname}) — only one is supported per person. Use Reconnect on that account to re-authorize it, or connect Shared instead.
-            </p>
-          )}
-          {orgId && !canManageShared && (
-            <p style={{ ...muted, marginTop: SPACE.sm }}>
-              Only workspace admins can create shared accounts. Connect Private instead, or ask an admin.
-            </p>
-          )}
+          <p style={{ ...muted, marginTop: SPACE.sm }}>
+            You can change this later from the account&apos;s Access tab.
+          </p>
         </fieldset>
       )}
 
-      {needsForm && !reconnectSharedOAuthBlocked && (
+      {needsForm && !reconnectNotOwned && (
         <div style={{ marginTop: SPACE.xl, display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
           {fields.map(field => (
             <InputField
@@ -218,15 +170,11 @@ export function SetupModal({
         </div>
       )}
 
-      {reconnecting && sharedPermissionBlocked && (
+      {reconnectNotOwned && (
         <div style={{ ...panel, padding: SPACE.lg, marginTop: SPACE.xl, background: 'var(--yellow-50)' }}>
-          <p style={{ ...muted, margin: 0 }}>Only workspace admins can reconnect a shared account.</p>
-        </div>
-      )}
-
-      {reconnectSharedOAuthBlocked && (
-        <div style={{ ...panel, padding: SPACE.lg, marginTop: SPACE.xl, background: 'var(--yellow-50)' }}>
-          <p style={{ ...muted, margin: 0 }}>Reconnecting a shared OAuth account isn&apos;t supported yet. Remove this account and connect it again instead.</p>
+          <p style={{ ...muted, margin: 0 }}>
+            {initialAccount?.nickname} was shared with you. Only the person who connected it can re-authorize it.
+          </p>
         </div>
       )}
 
@@ -238,7 +186,7 @@ export function SetupModal({
         <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Cancel</Button>
         <Button
           size="sm"
-          disabled={duplicate || busy || reconnectSharedOAuthBlocked || sharedPermissionBlocked || privateAccountLimitBlocked || (needsForm && !allRequiredFilled)}
+          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled)}
           loading={busy}
           onClick={submit}
         >
