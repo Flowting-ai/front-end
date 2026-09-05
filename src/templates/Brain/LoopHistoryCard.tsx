@@ -7,10 +7,9 @@ import {
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
   ArrowDownOneIcon,
-  TickTwoIcon,
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
-import type { AgentStep } from './lib/phase'
+import type { AgentStep, StepStatus } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -41,8 +40,16 @@ function StepStatusIcon({ status }: { status: AgentStep['status'] }) {
       </div>
     )
   }
-  // complete fallback
-  return <TickTwoIcon size={14} color="var(--color-tag-Green-text)" />
+  // pending / upcoming / executing — not finished, so not a tick.
+  return (
+    <div style={{
+      width:        14,
+      height:       14,
+      borderRadius: '50%',
+      border:       '1.5px solid var(--neutral-300)',
+      flexShrink:   0,
+    }} />
+  )
 }
 
 // ── Step row ──────────────────────────────────────────────────────────────────
@@ -77,24 +84,39 @@ function StepRow({ step }: { step: AgentStep }) {
 export interface LoopHistoryCardProps {
   steps:          AgentStep[]
   summary?:       string    // overall plan goal, shown above the step list
+  /** The raw text behind the summary — a traceback, a provider payload. Kept
+   *  out of the way until someone asks for it. */
+  detail?:        string
   completedAt?:   Date
   runLabel?:      string    // overrides the auto-formatted time (e.g. "Today · 8:00 AM")
   title?:         string    // header label — defaults to "Completed" (e.g. "Failed" for a failed run)
+  /** Colours the header when the card has no steps to derive it from — a run
+   *  that is one turn rather than a plan. */
+  status?:        StepStatus
   defaultOpen?:   boolean
 }
 
 // ── LoopHistoryCard ───────────────────────────────────────────────────────────
 
+const TITLE_COLOR: Partial<Record<StepStatus, string>> = {
+  failed:    'var(--color-tag-Red-text)',
+  complete:  'var(--color-tag-Green-text)',
+  executing: 'var(--color-tag-Blue-text)',
+}
+
 export function LoopHistoryCard({
   steps,
   summary,
+  detail,
   completedAt,
   runLabel,
   title = 'Completed',
+  status,
   defaultOpen = false,
 }: LoopHistoryCardProps) {
   const [open,          setOpen]          = useState(defaultOpen)
   const [headerHovered, setHeaderHovered] = useState(false)
+  const [detailOpen,    setDetailOpen]    = useState(false)
 
   const completedCount = steps.filter(s => s.status === 'complete').length
   const failedCount    = steps.filter(s => s.status === 'failed').length
@@ -138,28 +160,30 @@ export function LoopHistoryCard({
           transition:      'background-color 150ms ease',
         }}
       >
-        <PlayListIcon size={14} color="var(--neutral-400)" />
+        {status ? <StepStatusIcon status={status} /> : <PlayListIcon size={14} color="var(--neutral-400)" />}
 
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
           fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-500)',
+          color:      (status && TITLE_COLOR[status]) ?? 'var(--neutral-500)',
           lineHeight: 'var(--line-height-caption)',
         }}>
           {title}
         </span>
 
-        {/* Step count summary */}
+        {/* Step count summary — a card with no steps has nothing to count. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            color:      'var(--color-tag-Green-text)',
-            lineHeight: 'var(--line-height-caption)',
-          }}>
-            {completedCount} done
-          </span>
+          {steps.length > 0 && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-caption)',
+              color:      'var(--color-tag-Green-text)',
+              lineHeight: 'var(--line-height-caption)',
+            }}>
+              {completedCount} done
+            </span>
+          )}
           {skippedCount > 0 && (
             <span style={{
               fontFamily: 'var(--font-body)',
@@ -223,17 +247,60 @@ export function LoopHistoryCard({
               {/* Divider */}
               <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', marginBottom: 6 }} />
 
-              {/* Plan goal */}
+              {/* Plan goal, or what the run had to say */}
               {summary && (
                 <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-caption)',
-                  color:      'var(--neutral-500)',
-                  lineHeight: 'var(--line-height-caption)',
+                  fontFamily:   'var(--font-body)',
+                  fontSize:     'var(--font-size-caption)',
+                  color:        status === 'failed' ? 'var(--neutral-700)' : 'var(--neutral-500)',
+                  lineHeight:   'var(--line-height-caption)',
                   marginBottom: 4,
+                  whiteSpace:   'pre-wrap',
+                  overflowWrap: 'anywhere',
                 }}>
                   {summary}
                 </span>
+              )}
+
+              {detail && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setDetailOpen(v => !v)}
+                    style={{
+                      alignSelf:   'flex-start',
+                      background:  'none',
+                      border:      'none',
+                      padding:     0,
+                      cursor:      'pointer',
+                      fontFamily:  'var(--font-body)',
+                      fontSize:    'var(--font-size-caption)',
+                      fontWeight:  'var(--font-weight-medium)',
+                      lineHeight:  'var(--line-height-caption)',
+                      color:       'var(--neutral-400)',
+                    }}
+                  >
+                    {detailOpen ? 'Hide details' : 'Show details'}
+                  </button>
+                  {detailOpen && (
+                    <pre style={{
+                      margin:          0,
+                      padding:         '10px 12px',
+                      maxHeight:       220,
+                      overflow:        'auto',
+                      borderRadius:    8,
+                      backgroundColor: 'var(--neutral-50)',
+                      fontFamily:      'var(--font-mono, ui-monospace, monospace)',
+                      fontSize:        11,
+                      lineHeight:      1.5,
+                      color:           'var(--neutral-600)',
+                      whiteSpace:      'pre-wrap',
+                      overflowWrap:    'anywhere',
+                    }}>
+                      {detail}
+                    </pre>
+                  )}
+                </div>
               )}
 
               {steps.map((step) => <StepRow key={step.id} step={step} />)}

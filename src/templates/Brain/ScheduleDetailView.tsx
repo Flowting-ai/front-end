@@ -12,7 +12,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { LoopHistoryCard } from './LoopHistoryCard'
-import type { AgentStep } from './lib/phase'
+import type { AgentStep, StepStatus } from './lib/phase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +21,9 @@ export interface ScheduleRunRecord {
   label:         string     // e.g. "Today · 8:00 AM" — shown in run card header
   steps:         AgentStep[]
   title?:        string     // header label — "Completed", "Failed", "Running"
+  status?:       StepStatus // colours the header for a run that has no steps
   summary?:      string     // run result (synthesis) or failure reason, shown when expanded
+  detail?:       string     // the raw text behind the summary — a traceback
   completedAt?:  Date
   onViewThread?: () => void  // navigate to the full thread for this run
 }
@@ -29,7 +31,7 @@ export interface ScheduleRunRecord {
 export interface ScheduleDetailItem {
   id:           string
   name:         string
-  instructions: string
+  instructions: string     // what this automation does each run, in the user's words
   frequency:    string
   nextRun?:     string
   isActive:     boolean
@@ -213,7 +215,7 @@ export function ScheduleDetailView({
             lineHeight: 'var(--line-height-body)',
             color:      'var(--neutral-700)',
           }}>
-            Instructions
+            What it does
           </span>
         </div>
 
@@ -237,23 +239,6 @@ export function ScheduleDetailView({
           flexDirection: 'column',
           gap:           6,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--neutral-400)',
-            }}>
-              Frequency
-            </span>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-body)',
-              lineHeight: 'var(--line-height-body)',
-              color:      'var(--neutral-700)',
-            }}>
-              {schedule.frequency}
-            </span>
-          </div>
           {schedule.createdAt && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{
@@ -348,7 +333,9 @@ export function ScheduleDetailView({
                   completedAt={run.completedAt}
                   runLabel={run.label}
                   title={run.title}
+                  status={run.status}
                   summary={run.summary}
+                  detail={run.detail}
                 />
                 {run.onViewThread && (
                   <button

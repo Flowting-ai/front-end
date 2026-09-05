@@ -89,7 +89,7 @@ import { ApiError } from '@/lib/api/client'
 import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
-import { getAutomation, listAutomations, type Automation } from '@/lib/api/automations'
+import { getAutomation, listAutomations, runSummary, type Automation } from '@/lib/api/automations'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
@@ -1051,7 +1051,7 @@ function BrainPageInner() {
             scheduleId: task.id,
             scheduleName: task.name,
             ranAt: ranAt ? brainHomeTime(ranAt) : 'Recent run',
-            summary: run.answer || run.error || (run.status === 'succeeded' ? 'Run completed.' : 'Run needs review.'),
+            summary: runSummary(run),
             status: run.status === 'succeeded' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
           }]
         }))

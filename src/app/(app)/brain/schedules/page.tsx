@@ -18,6 +18,7 @@ import {
   runAutomationNow,
   updateAutomation,
   deleteAutomation,
+  runSummary,
   type Automation,
   type AutomationDetail,
   type AutomationRun,
@@ -40,102 +41,45 @@ export default function BrainSchedulesPage() {
 
 // ── Mapping helpers ───────────────────────────────────────────────────────────
 
-// Day-code → display name. Backend `days` are lowercase 3-letter (mon…sun),
-// canonicalised by services/brain/schedule_calc.py (`d.lower()[:3]`).
-const DAY_NAMES: Record<string, string> = {
-  mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
-  fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
-}
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-
-// Format the *real* backend schedule_json:
-//   { time_of_day: "09:00", days: ["mon",…], timezone, starts_on?, ends_on?, max_runs? }
-// (see services/brain/schedule_calc.py). Output stays compatible with the
-// downstream parsers (parseFrequency / ScheduleEditModal): "Daily · HH:MM" and
-// "Weekly · <Day> · HH:MM" round-trip exactly; the weekday/weekend/explicit-list
-// variants pass through as readable chip labels. Legacy payloads (hour/cron/type)
-// fall back to formatLegacyScheduleJson so older rows still render.
-function formatScheduleJson(json: Record<string, unknown>): string {
-  if (!json || typeof json !== 'object') return 'Scheduled'
-
-  // A one-off: one instant, and then the automation pauses itself. It has no
-  // cadence to describe, so neither shape below can say anything true about it.
-  if (json.kind === 'once' && typeof json.run_at === 'string') {
-    const at = new Date(json.run_at)
-    if (!Number.isNaN(at.getTime())) {
-      return `Once · ${at.toLocaleString(undefined, {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      })}`
-    }
-    return 'Once'
-  }
-
-  const timeOfDay = typeof json.time_of_day === 'string' ? json.time_of_day : null
-  let time: string | null = null
-  if (timeOfDay && /^\d{1,2}:\d{2}/.test(timeOfDay)) {
-    const [hh, mm] = timeOfDay.split(':')
-    time = `${String(parseInt(hh, 10)).padStart(2, '0')}:${mm.slice(0, 2)}`
-  }
-
-  // No `time_of_day` → this isn't the current backend shape; try legacy keys.
-  if (!time) return formatLegacyScheduleJson(json)
-
-  const rawDays = Array.isArray(json.days) ? json.days : []
-  const days = rawDays
-    .map((d) => (typeof d === 'string' ? d.toLowerCase().slice(0, 3) : ''))
-    .filter((d) => d in DAY_NAMES)
-    .sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b))
-
-  // Empty or all-seven → every day.
-  if (days.length === 0 || days.length === 7) return `Daily · ${time}`
-  // Single day round-trips through parseFrequency's weekly path.
-  if (days.length === 1) return `Weekly · ${DAY_NAMES[days[0]]} · ${time}`
-  // Common groupings.
-  if (days.length === 5 && ['mon', 'tue', 'wed', 'thu', 'fri'].every((d) => days.includes(d))) {
-    return `Weekdays · ${time}`
-  }
-  if (days.length === 2 && days.includes('sat') && days.includes('sun')) {
-    return `Weekends · ${time}`
-  }
-  // Explicit list, e.g. "Mon, Wed, Fri · 09:00".
-  return `${days.map((d) => DAY_NAMES[d].slice(0, 3)).join(', ')} · ${time}`
+// The schedule sentence the backend built ("Every 5 minutes", "Every weekday at
+// 9:30 AM (America/Chicago)"). `CronSpec` owns cron — this page formats none of
+// it, so what the user reads is what Pipedream is actually running.
+// See services/automations/schedule.py :: describeSchedule.
+function scheduleDescription(json: Record<string, unknown>): string {
+  const description = json?.description
+  return typeof description === 'string' && description ? description : 'On a schedule'
 }
 
-// Older / alternate schedule_json shapes (hour/minute/cron/type). Retained so
-// pre-existing rows keep rendering; new rows use the time_of_day/days shape above.
-function formatLegacyScheduleJson(json: Record<string, unknown>): string {
-  const type      = typeof json.type === 'string' ? json.type.toLowerCase() : 'daily'
-  const rawHour   = json.hour ?? json.hour_utc ?? json.at_hour
-  const rawMinute = json.minute ?? json.minute_utc ?? json.at_minute
-  const hour      = typeof rawHour   === 'number' ? rawHour   : typeof rawHour   === 'string' ? parseInt(rawHour,   10) : null
-  const minute    = typeof rawMinute === 'number' ? rawMinute : typeof rawMinute === 'string' ? parseInt(rawMinute, 10) : null
+function timeOfDay(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
 
-  if (hour === null) {
-    const cron = json.cron
-    if (typeof cron === 'string') return `Cron: ${cron}`
-    return 'Scheduled'
-  }
-
-  const pad  = (n: number) => String(n).padStart(2, '0')
-  const time = `${pad(hour)}:${pad(minute ?? 0)}`
-
-  if (type === 'weekly' || json.day_of_week || json.day) {
-    const day = (json.day ?? json.day_of_week ?? 'Monday') as string
-    return `Weekly · ${day} · ${time}`
-  }
-  return `Daily · ${time}`
+function daysApart(date: Date, now: Date): number {
+  const dayOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  return Math.round((dayOf(date) - dayOf(now)) / 86_400_000)
 }
 
 function formatNextRun(iso: string): string {
-  const date         = new Date(iso)
-  const now          = new Date()
-  const todayStart   = new Date(now.getFullYear(),  now.getMonth(),  now.getDate())
-  const tomorrowStart = new Date(todayStart.getTime() + 86_400_000)
-  const dateStart    = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const timeStr      = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  if (dateStart.getTime() === todayStart.getTime())    return `Today · ${timeStr}`
-  if (dateStart.getTime() === tomorrowStart.getTime()) return `Tomorrow · ${timeStr}`
-  return `${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${timeStr}`
+  const date = new Date(iso)
+  const now  = new Date()
+  const days = daysApart(date, now)
+  if (days === 0) return `Today · ${timeOfDay(date)}`
+  if (days === 1) return `Tomorrow · ${timeOfDay(date)}`
+  return `${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${timeOfDay(date)}`
+}
+
+// A run already happened, so "Tomorrow" can never be the answer — reusing the
+// next-run formatter left yesterday's failures reading as a bare date.
+function formatRunTime(iso: string): string {
+  const date = new Date(iso)
+  const now  = new Date()
+  const days = daysApart(date, now)
+  if (days === 0)  return `Today · ${timeOfDay(date)}`
+  if (days === -1) return `Yesterday · ${timeOfDay(date)}`
+  const sameYear = date.getFullYear() === now.getFullYear()
+  return `${date.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
+  })} · ${timeOfDay(date)}`
 }
 
 function formatCreatedAt(iso: string): string {
@@ -146,30 +90,31 @@ function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
   return {
     id:          task.id,
     name:        task.name,
-    description: task.prompt || undefined,
-    frequency:   formatScheduleJson(task.schedule_json),
+    description: task.summary || undefined,
+    frequency:   scheduleDescription(task.schedule_json),
     isActive:    task.is_active,
     chatId,
   }
 }
 
 /** Map one backend run into a run-history record for the detail view. A run is
- *  one Brain turn rather than a graph, so it becomes a single status row; the
- *  answer (or failure reason) shows when expanded. */
+ *  one turn rather than a graph — there are no steps to list, so the card is a
+ *  status, a time, and what the run has to say when expanded. */
 function runToRecord(run: AutomationRun): ScheduleRunRecord {
   const whenIso  = run.finished_at ?? run.started_at ?? null
   const isFailed = run.status === 'failed'
   const isDone   = run.status === 'succeeded'
-  const stepStatus = isDone ? 'complete' : isFailed ? 'failed' : 'executing'
-  const stepLabel  = isFailed ? (run.error || 'Run failed')
-    : isDone ? 'Run completed'
-    : 'Running…'
+  const summary  = runSummary(run)
+  const raw      = (run.error ?? '').trim()
   return {
     id:          run.id,
-    label:       whenIso ? formatNextRun(whenIso) : 'Run',
+    label:       whenIso ? formatRunTime(whenIso) : 'Run',
     title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
-    summary:     run.answer || (isFailed ? run.error ?? undefined : undefined),
-    steps:       [{ id: run.id, label: stepLabel, isCritical: false, status: stepStatus }],
+    status:      isFailed ? 'failed' : isDone ? 'complete' : 'executing',
+    summary,
+    // Only worth offering when there's more to it than the line above.
+    detail:      raw && raw !== summary ? raw : undefined,
+    steps:       [],
     completedAt: run.finished_at ? new Date(run.finished_at) : undefined,
   }
 }
@@ -178,8 +123,8 @@ function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDe
   return {
     id:           task.id,
     name:         task.name,
-    instructions: task.prompt ?? '',
-    frequency:    formatScheduleJson(task.schedule_json),
+    instructions: task.summary ?? '',
+    frequency:    scheduleDescription(task.schedule_json),
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
     isActive:     task.is_active,
     createdAt:    formatCreatedAt(task.created_at ?? ''),

@@ -77,37 +77,29 @@ function to12Hour(hour: number, minute: number): string {
   return `${h12}:${pad(minute)} ${period}`
 }
 
-// Parses a frequency string back into discrete form fields. Handles both the
-// modal format ("Daily • 14:00 (America/Chicago)"), the page format
-// ("Daily · 08:00", "Weekly · Monday · 14:00"), and legacy 12-hour strings
-// ("Daily • 8:00 AM"). A trailing "(Zone)" is read back as the timezone.
+// Reads the schedule sentence the backend built ("Every day at 9:00 AM
+// (America/Chicago)", "Every Monday at 6:30 PM (UTC)") back into the form's
+// fields. Cadences this two-field form cannot express — "Every 5 minutes", "On
+// the 2nd Friday of the month" — return null, and the form opens on its
+// defaults rather than misstating what is scheduled.
 function parseFrequency(
   freq: string,
 ): { type: FrequencyType; hour: number; minute: number; day: DayOfWeek; timezone: string | null } | null {
-  const tzMatch   = freq.match(/\(([^)]+)\)\s*$/)
-  const timezone  = tzMatch ? tzMatch[1].trim() : null
+  const tzMatch  = freq.match(/\(([^)]+)\)\s*$/)
+  const timezone = tzMatch ? tzMatch[1].trim() : null
 
-  const weeklyRe = /^Weekly\s*[·•]\s*(\w+)\s*(?:[·•]\s*)?(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
-  const wm = freq.match(weeklyRe)
-  if (wm) {
-    let h = parseInt(wm[2], 10)
-    const period = wm[4]?.toUpperCase()
-    if (period === 'PM' && h < 12) h += 12
-    if (period === 'AM' && h === 12) h = 0
-    const minute = parseInt(wm[3], 10)
-    const day    = DAYS.includes(wm[1] as DayOfWeek) ? (wm[1] as DayOfWeek) : 'Monday'
-    return { type: 'weekly', hour: h, minute, day, timezone }
-  }
-  const dailyRe = /^Daily\s*[·•]\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
-  const dm = freq.match(dailyRe)
-  if (dm) {
-    let h = parseInt(dm[1], 10)
-    const period = dm[3]?.toUpperCase()
-    if (period === 'PM' && h < 12) h += 12
-    if (period === 'AM' && h === 12) h = 0
-    const minute = parseInt(dm[2], 10)
-    return { type: 'daily', hour: h, minute, day: 'Monday', timezone }
-  }
+  const match = freq.match(/^Every\s+(day|\w+day)\s+at\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+  if (!match) return null
+
+  let hour = parseInt(match[2], 10)
+  const period = match[4].toUpperCase()
+  if (period === 'PM' && hour < 12) hour += 12
+  if (period === 'AM' && hour === 12) hour = 0
+  const minute = parseInt(match[3], 10)
+
+  const named = DAYS.find(d => d.toLowerCase() === match[1].toLowerCase())
+  if (named) return { type: 'weekly', hour, minute, day: named, timezone }
+  if (match[1].toLowerCase() === 'day') return { type: 'daily', hour, minute, day: 'Monday', timezone }
   return null
 }
 
