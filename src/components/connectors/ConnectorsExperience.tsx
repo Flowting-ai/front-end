@@ -51,9 +51,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      setCatalog(await listLinkedConnectors())
+      const rows = await listLinkedConnectors()
+      setCatalog(rows)
+      return rows
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
+      return null
     } finally {
       setLoading(false)
     }
@@ -139,6 +142,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     setActiveAccountId(null)
   }, [])
 
+  useEffect(() => {
+    if (loading || view === 'connections') return
+    const accountMissing = view !== 'connector' && !activeAccount
+    if (!active || accountMissing) backToConnections()
+  }, [loading, view, active, activeAccount, backToConnections])
+
   const handleSetupConnected = useCallback((_result: SetupFlowResult) => {
     setSetupOpen(false)
     void fetchAll()
@@ -156,14 +165,17 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       await unlinkAccount(removeAccount.id)
       toast.success(`${removeAccount.nickname} removed`)
       setRemoveAccount(null)
-      backToConnector()
-      await fetchAll()
+      const rows = await fetchAll()
+      const slug = removeAccount.connectorSlug
+      const stillLinked = rows?.some(row => row.slug === slug && row.connections.length > 0) ?? false
+      if (stillLinked) backToConnector()
+      else backToConnections()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove account')
     } finally {
       setRemoveBusy(false)
     }
-  }, [removeAccount, backToConnector, fetchAll])
+  }, [removeAccount, backToConnector, backToConnections, fetchAll])
 
   if (!orgReady) {
     return <ConnectionsView catalog={[]} loading select={() => {}} custom={() => {}} />
