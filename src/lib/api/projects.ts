@@ -296,7 +296,23 @@ export async function updateProjectApi(projectId: string, params: UpdateProjectP
 
 /** DELETE /projects/{project_id} */
 export async function deleteProjectApi(projectId: string): Promise<void> {
-  await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+  const res = await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+  // Never checked res.ok — a rejected delete (e.g. the 404 requireDelete/
+  // requireOwned gives a non-owner, including the still-live client-side
+  // admin-bypass that lets the button render for someone the backend will
+  // reject) resolved silently. The caller's optimistic removal was never
+  // rolled back and no error ever surfaced, so the project just reappeared
+  // on the next full reload having never actually been deleted.
+  if (!res.ok) {
+    let message = `Failed to delete project (${res.status})`
+    try {
+      const data = await res.clone().json() as { detail?: string }
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // non-JSON error body - keep the default message
+    }
+    throw new ApiError(res.status, 'delete_project_failed', message)
+  }
 }
 
 export interface LeaveProjectParams {
@@ -365,7 +381,10 @@ export async function addChatToProject(projectId: string, chatId: string): Promi
 
 /** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
-  await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+  const res = await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'remove_chat_failed', `Failed to unlink chat from project (${res.status})`)
+  }
 }
 
 /** GET /projects/{project_id}/members */
@@ -398,7 +417,23 @@ export async function inviteProjectMembers(projectId: string, auth0Ids: string[]
 
 /** DELETE /projects/{project_id}/members/{auth0_id} */
 export async function removeProjectMemberFromProject(projectId: string, auth0Id: string): Promise<void> {
-  await apiFetch(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
+  const res = await apiFetch(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
+  // Same missing-response.ok bug as deleteProjectApi (bug 16) — a rejected
+  // removal (e.g. the backend's 400 "The project owner cannot be removed")
+  // resolved silently. ProjectMembersPanel's handleRemove has a real catch
+  // block that shows an error toast, but it never fired: the member was
+  // optimistically dropped from local state and a false "removed" success
+  // toast shown, then reappeared the next time the panel reloaded.
+  if (!res.ok) {
+    let message = `Failed to remove member (${res.status})`
+    try {
+      const data = await res.clone().json() as { detail?: string }
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // non-JSON error body - keep the default message
+    }
+    throw new ApiError(res.status, 'remove_member_failed', message)
+  }
 }
 
 /**

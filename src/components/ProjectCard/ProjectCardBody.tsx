@@ -1,23 +1,24 @@
 // Server component — no 'use client' directive.
-// Renders the static visual parts of a ProjectCard: meta line, title, tags,
-// description, divider, and the bottom stats row. The scope avatar + ⋮ menu
-// live in the client wrapper instead — the ⋮ menu needs hover state, and sits
-// in the same top row as the avatar.
+// Renders the static visual parts of a ProjectCard: title, tags, description,
+// divider, and the bottom stats row. The top row (visibility badge, "Created
+// by", ⋮ menu) lives in the client wrapper instead — the ⋮ menu needs hover
+// state, and "Created by" / the badge sit in that same top row now, not here.
 // When the consumer page is a server component, pass an instance of this as the
 // `body` prop to ProjectCard so the static subtree is pre-rendered server-side.
 
 import { type BadgeColor } from '@/components/Badge'
 import { UserIcon, BubbleChatAddIcon } from '@strange-huge/icons'
 import { ProjectCardTagRow } from './ProjectCardTagRow'
+import type { ProjectVisibility } from '@/lib/api/projects'
 
 export interface ProjectCardBodyProps {
   title:        string
   description?: string
   tags?:        Array<{ label: string; color?: BadgeColor }>
-  /** Team this project belongs to — omitted/undefined for personal projects.
-   *  Rendered by the parent ProjectCard in the top-left avatar, not here. */
-  teamName?:    string
-  /** Project owner's display name, for the "Created by" meta line. */
+  /** Rendered by the parent ProjectCard as a top-left badge, not here. */
+  visibility:   ProjectVisibility
+  /** Project owner's display name — rendered by the parent ProjectCard in
+   *  the top row's left slot ("Created by X"), not here. */
   ownerName?:   string
   /** People with access to this project — the team's roster for a team
    *  project, or 1 (just the owner) for a personal one. */
@@ -27,31 +28,11 @@ export interface ProjectCardBodyProps {
   chatCount:    number
 }
 
-export function ProjectCardBody({ title, description, tags, ownerName, memberCount, updatedAt, chatCount }: ProjectCardBodyProps) {
+export function ProjectCardBody({ title, description, tags, memberCount, updatedAt, chatCount }: ProjectCardBodyProps) {
   return (
     <>
-      {/* Meta line — created-by only (relative update time moved to the footer) */}
-      {ownerName && (
-        <p
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   400,
-            fontSize:     '11px',
-            lineHeight:   '16px',
-            color:        'var(--neutral-500)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-            margin:       0,
-            marginTop:    '10px',
-            flexShrink:   0,
-          }}
-        >
-          Created by {ownerName}
-        </p>
-      )}
-
-      {/* Title */}
+      {/* Title — "Created by" moved up to the card's top row, alongside the
+          visibility badge, so it no longer lives here as a meta line. */}
       <p
         style={{
           fontFamily:      'var(--font-title)',

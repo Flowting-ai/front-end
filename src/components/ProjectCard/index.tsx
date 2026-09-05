@@ -1,19 +1,25 @@
 'use client'
 
 import React, { useState } from 'react'
-import { MoreVerticalIcon, FolderOneIcon } from '@strange-huge/icons'
+import { MoreVerticalIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { ProjectCardBody, type ProjectCardBodyProps } from './ProjectCardBody'
-import { getGradient } from '@/lib/team-gradients'
-
-// Gradient palette seeded by team name — shared with TeamChip/TeamSwitcherRow/
-// TeamSwitcherDropdown/etc via src/lib/team-gradients.ts, so a project's
-// avatar is the same colour as its team everywhere else in the app. Only
-// used for team projects — personal projects show a plain folder icon
-// instead (see the top row below).
+import type { ProjectVisibility } from '@/lib/api/projects'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+
+export const VISIBILITY_LABEL: Record<ProjectVisibility, string> = {
+  personal:  'Personal',
+  workspace: 'Workspace',
+  shared:    'Shared',
+}
+export const VISIBILITY_COLOR: Record<ProjectVisibility, BadgeColor> = {
+  personal:  'Green',
+  workspace: 'Blue',
+  shared:    'Yellow',
+}
 
 export interface ProjectCardProps extends ProjectCardBodyProps {
   active?:    boolean
@@ -35,7 +41,7 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function ProjectCardInner(
-  { title, description, tags, teamName, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onDelete, onLeave, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, description, tags, visibility, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onDelete, onLeave, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
@@ -55,9 +61,6 @@ function ProjectCardInner(
       if (focused) return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-300)'
       return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
     })()
-
-    const scopeLabel = teamName ?? 'Personal'
-    const initial     = scopeLabel.charAt(0).toUpperCase()
 
     return (
       <div
@@ -88,89 +91,73 @@ function ProjectCardInner(
           width:           '100%',
         }}
       >
-        {/* Top row — scope avatar + label (left), ⋮ menu (right, hover-fade) */}
+        {/* Top row — "Created by" (left), visibility badge + ⋮ menu (right, hover-fade) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span
-              aria-hidden
-              style={{
-                display:         'inline-flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                width:           'calc(var(--line-height-body) + var(--line-height-caption))',
-                height:          'calc(var(--line-height-body) + var(--line-height-caption))',
-                borderRadius:    teamName ? '3px' : undefined,
-                background:      teamName ? getGradient(scopeLabel) : undefined,
-                flexShrink:      0,
-                fontFamily:      'var(--font-title)',
-                fontWeight:      500,
-                fontSize:        '16px',
-                color:           teamName ? 'var(--neutral-white)' : 'var(--neutral-600)',
-                lineHeight:      1,
-                boxShadow:       teamName ? 'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)' : undefined,
-                userSelect:      'none',
-              }}
-            >
-              {teamName ? initial : <FolderOneIcon variant="closed" triggered={hovered} size={38} />}
-            </span>
-            <span
-              style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   'var(--font-weight-medium)',
-                fontSize:     '13px',
-                lineHeight:   '18px',
-                color:        'var(--neutral-700)',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-              }}
-            >
-              {scopeLabel}
-            </span>
+            {ownerName && (
+              <span
+                style={{
+                  fontFamily:   'var(--font-body)',
+                  fontWeight:   400,
+                  fontSize:     '11px',
+                  lineHeight:   '16px',
+                  color:        'var(--neutral-500)',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                }}
+              >
+                Created by {ownerName}
+              </span>
+            )}
           </div>
 
-          {/* ⋮ menu - fades in on hover/focus */}
-          {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-          {hasActions && <div
-            style={{
-              opacity:    showMenu ? 1 : 0,
-              transition: 'opacity 120ms ease',
-              flexShrink: 0,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Dropdown.Float
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
-              placement="bottom-end"
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
-                  aria-label="Project options"
-                />
-              }
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <Badge color={VISIBILITY_COLOR[visibility]} label={VISIBILITY_LABEL[visibility]} />
+
+            {/* ⋮ menu - fades in on hover/focus */}
+            {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
+            {hasActions && <div
+              style={{
+                opacity:    showMenu ? 1 : 0,
+                transition: 'opacity 120ms ease',
+                flexShrink: 0,
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <Dropdown size="md">
-                {onEdit && (
-                  <Dropdown.Section fluid>
-                    <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
-                  </Dropdown.Section>
-                )}
-                {onLeave && (
-                  <Dropdown.Section divider={!!onEdit} fluid>
-                    <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
-                  </Dropdown.Section>
-                )}
-                {onDelete && (
-                  <Dropdown.Section divider fluid>
-                    <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
-                  </Dropdown.Section>
-                )}
-              </Dropdown>
-            </Dropdown.Float>
-          </div>}
+              <Dropdown.Float
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                placement="bottom-end"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
+                    aria-label="Project options"
+                  />
+                }
+              >
+                <Dropdown size="md">
+                  {onEdit && (
+                    <Dropdown.Section fluid>
+                      <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
+                    </Dropdown.Section>
+                  )}
+                  {onLeave && (
+                    <Dropdown.Section divider={!!onEdit} fluid>
+                      <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
+                    </Dropdown.Section>
+                  )}
+                  {onDelete && (
+                    <Dropdown.Section divider fluid>
+                      <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
+                    </Dropdown.Section>
+                  )}
+                </Dropdown>
+              </Dropdown.Float>
+            </div>}
+          </div>
         </div>
 
         {/* Static body — use pre-rendered server component when provided, otherwise render inline */}
@@ -179,6 +166,7 @@ function ProjectCardInner(
             title={title}
             description={description}
             tags={tags}
+            visibility={visibility}
             ownerName={ownerName}
             memberCount={memberCount}
             updatedAt={updatedAt}

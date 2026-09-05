@@ -314,10 +314,18 @@ export async function updateOrg(
 }
 
 export async function deleteOrg(orgId: string, confirmName: string): Promise<void> {
-  await apiFetch(ORG_ENDPOINT(orgId), {
+  const res = await apiFetch(ORG_ENDPOINT(orgId), {
     method: 'DELETE',
     body:   JSON.stringify({ confirmName }),
   })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'delete_org_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 /**
@@ -415,14 +423,30 @@ export async function listAudit(
 }
 
 export async function setMemberRole(orgId: string, memberId: string, role: OrgRole): Promise<void> {
-  await apiFetch(ORG_MEMBER_ROLE_ENDPOINT(orgId, memberId), {
+  const res = await apiFetch(ORG_MEMBER_ROLE_ENDPOINT(orgId, memberId), {
     method: 'PATCH',
     body:   JSON.stringify({ role }),
   })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'set_member_role_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 export async function removeMember(orgId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+  const res = await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'remove_member_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 export async function revokeInvite(orgId: string, inviteId: string): Promise<void> {

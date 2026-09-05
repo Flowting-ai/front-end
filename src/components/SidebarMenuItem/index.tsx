@@ -175,6 +175,13 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
 
     useEffect(() => {
       if (isEditVariant && inputRef.current) {
+        // Re-sync to the current label every time edit mode opens — `editValue`'s
+        // `useState(label)` only seeds once, at this row's initial mount, and this
+        // row is a long-lived instance keyed on chat id, not title. Without this,
+        // a chat whose title changed externally after mount (e.g. auto-titled
+        // from "New chat" once the first reply lands) shows that stale label the
+        // first time Rename is opened, not the real current title.
+        setEditValue(label)
         renameResolvedRef.current = false
         // Deferred to a macrotask: Radix's DropdownMenu restores focus to its
         // trigger when the menu closes (which is how Rename gets opened), and
@@ -188,6 +195,9 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
         }, 0)
         return () => window.clearTimeout(id)
       }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync when
+    // edit mode opens (isEditVariant flips false→true), not on every label change
+    // while already editing, which would blow away in-progress user edits.
     }, [isEditVariant])
 
     // ── chat-item marquee ──────────────────────────────────────────────────────

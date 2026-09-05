@@ -465,10 +465,11 @@ export async function setPersonaVisibility(
   // all: every call with it 400s, so sharing an agent has never worked.
   const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' }
   if (visibility === 'team' && teamId) body.organizationId = teamId
-  await apiFetch(PERSONA_VISIBILITY_ENDPOINT(repoId), {
+  const res = await apiFetch(PERSONA_VISIBILITY_ENDPOINT(repoId), {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+  if (!res.ok) throw new Error(`Failed to update visibility (status ${res.status})`)
 }
 
 // ── Version CRUD ──────────────────────────────────────────────────────────────
@@ -670,7 +671,8 @@ export async function updateVersion(params: {
 
 /** DELETE /persona/{repo_id}/versions/{persona_id} */
 export async function deleteVersion(repoId: string, versionId: string): Promise<void> {
-  await apiFetch(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId), { method: "DELETE" });
+  const res = await apiFetch(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId), { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete version (status ${res.status})`);
 }
 
 // ── Document management ───────────────────────────────────────────────────────
@@ -751,10 +753,11 @@ export async function unblockVersionConnector(
   versionId: string,
   slug: string,
 ): Promise<void> {
-  await apiFetch(
+  const res = await apiFetch(
     PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT(repoId, versionId, slug),
     { method: 'DELETE' },
   );
+  if (!res.ok) throw new Error(`Failed to unblock connector (status ${res.status})`);
 }
 
 // ── Persona starter ────────────────────────────────────────────────────────────
@@ -892,25 +895,28 @@ export async function renamePersonaChat(
   chatId: string,
   title: string,
 ): Promise<void> {
-  await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(repoId), {
+  const res = await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(repoId), {
     method: "PATCH",
     body:   JSON.stringify({ chat_id: chatId, chat_title: title }),
   });
+  if (!res.ok) throw new Error(`Failed to rename chat (status ${res.status})`);
   bustPersonaChatsCache(repoId);
 }
 
 /** DELETE /persona/{repo_id}/chats — body: { chat_id }. */
 export async function deletePersonaChat(repoId: string, chatId: string): Promise<void> {
-  await apiFetch(PERSONA_CHATS_ENDPOINT(repoId), {
+  const res = await apiFetch(PERSONA_CHATS_ENDPOINT(repoId), {
     method: "DELETE",
     body:   JSON.stringify({ chat_id: chatId }),
   });
+  if (!res.ok) throw new Error(`Failed to delete chat (status ${res.status})`);
   bustPersonaChatsCache(repoId);
 }
 
 /** POST /persona/{repo_id}/chats/{chat_id}/stop — cancel an in-flight stream. */
 export async function stopPersonaChat(repoId: string, chatId: string): Promise<void> {
-  await apiFetch(PERSONA_CHAT_STOP_ENDPOINT(repoId, chatId), { method: "POST" });
+  const res = await apiFetch(PERSONA_CHAT_STOP_ENDPOINT(repoId, chatId), { method: "POST" });
+  if (!res.ok) throw new Error(`Failed to stop chat (status ${res.status})`);
 }
 
 /** DELETE /persona/{repo_id}/chats/{chat_id}/message/{message_id}. */
@@ -919,9 +925,10 @@ export async function removePersonaMessage(
   chatId: string,
   messageId: string,
 ): Promise<void> {
-  await apiFetch(PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT(repoId, chatId, messageId), {
+  const res = await apiFetch(PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT(repoId, chatId, messageId), {
     method: "DELETE",
   });
+  if (!res.ok) throw new Error(`Failed to delete message (status ${res.status})`);
 }
 
 // ── Persona test chat ─────────────────────────────────────────────────────────

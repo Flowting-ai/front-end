@@ -7,7 +7,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, CancelCircleIcon, AlertCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
-import { ProjectCard } from '@/components/ProjectCard'
+import { ProjectCard, VISIBILITY_LABEL, VISIBILITY_COLOR } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -25,7 +25,6 @@ import { useAuth } from '@/context/auth-context'
 import type { OrgMember } from '@/types/teams'
 import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
-import { getGradient } from '@/lib/team-gradients'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 // Same 3 values as ProjectVisibility — the list's scope tab is keyed directly
@@ -125,10 +124,9 @@ function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v:
 // ── Compact list-view row ────────────────────────────────────────────────────
 
 function ProjectListRow({
-  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete, onLeave,
+  project, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete, onLeave,
 }: {
   project:      Project
-  teamName?:    string
   ownerName?:   string
   memberCount:  number
   updatedAt:    string
@@ -141,7 +139,6 @@ function ProjectListRow({
   const [menuOpen, setMenuOpen] = useState(false)
   const hasActions = Boolean(onEdit || onDelete || onLeave)
   const showMenu   = hovered || menuOpen
-  const scopeLabel = teamName ?? 'Personal'
 
   return (
     <div
@@ -165,29 +162,8 @@ function ProjectListRow({
         boxSizing:       'border-box',
       }}
     >
-      {/* Scope avatar */}
-      <span
-        aria-hidden
-        style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          width:           'calc(var(--line-height-body) + var(--line-height-caption))',
-          height:          'calc(var(--line-height-body) + var(--line-height-caption))',
-          borderRadius:    '3px',
-          background:      getGradient(scopeLabel),
-          flexShrink:      0,
-          fontFamily:      'var(--font-title)',
-          fontWeight:      500,
-          fontSize:        '16px',
-          color:           'var(--neutral-white)',
-          lineHeight:      1,
-          boxShadow:       'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
-          userSelect:      'none',
-        }}
-      >
-        {scopeLabel.charAt(0).toUpperCase()}
-      </span>
+      {/* Visibility badge */}
+      <Badge color={VISIBILITY_COLOR[project.visibility]} label={VISIBILITY_LABEL[project.visibility]} />
 
       {/* Title + meta */}
       <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -217,7 +193,7 @@ function ProjectListRow({
             whiteSpace:   'nowrap',
           }}
         >
-          {scopeLabel}{ownerName ? ` · Created by ${ownerName}` : ''} · {updatedAt}
+          {ownerName ? `Created by ${ownerName} · ` : ''}{updatedAt}
         </span>
       </div>
 
@@ -320,7 +296,7 @@ function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
   const { projects, loading, updateProject, deleteProject, loadProjectChats, refreshProjects } = useProjects()
-  const { orgId, members, currentUserRole }                                   = useOrg()
+  const { orgId, members }                                                    = useOrg()
   const { user }                                                              = useAuth()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
@@ -387,11 +363,24 @@ function ProjectsPageInner() {
     refreshProjects().catch(err => toast.error('Failed to refresh projects', { description: err instanceof Error ? err.message : undefined }))
   }
 
-  // Org owners/admins can delete a colleague's shared project even though
-  // they don't own it — see the matching note in projects-context.tsx's
-  // deleteProject guardrail, which is the actual enforcement point.
+  // Editing content (title/description/tags) is broader than ownership — the
+  // backend's update() uses requireWritable, which also passes for any
+  // workspace member on a Workspace project (project.py). `project.canEdit`
+  // itself stays ownership-only (it also gates Delete/leave's owner branch),
+  // so this is a separate flag. NOT yet correct for a non-owner collaborator
+  // on a Shared project — that needs the project's member list, which isn't
+  // fetched eagerly here.
+  function canEditProjectContent(project: Project): boolean {
+    return project.canEdit || (project.visibility === 'workspace' && !!orgId && project.teamId === orgId)
+  }
+
+  // Owner-only — matches the backend exactly (requireDelete === requireOwned,
+  // project.py). This used to also allow any org admin, but the backend
+  // dropped that bypass; the stale client-side copy let a non-owner admin
+  // click Delete only to have it 404 (invisibly, until deleteProjectApi's
+  // own missing-response.ok bug was fixed — see projects.ts).
   function canDeleteProject(project: Project): boolean {
-    return project.canEdit || (currentUserRole === 'admin' && !!orgId && project.teamId === orgId)
+    return project.canEdit
   }
 
   async function handleDelete(project: Project) {
@@ -705,7 +694,7 @@ function ProjectsPageInner() {
                 memberCount={projectMemberCount(project, members)}
                 updatedAt={formatUpdated(project.updatedAt)}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
-                onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
+                onEdit={canEditProjectContent(project) ? () => setEditTarget(project) : undefined}
                 onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
                 onLeave={canLeaveProject(project) ? () => setLeaveTarget(project) : undefined}
               />
@@ -726,12 +715,13 @@ function ProjectsPageInner() {
                 title={project.name}
                 description={project.description}
                 tags={project.tags}
+                visibility={project.visibility}
                 ownerName={members.find(m => m.id === project.ownerUserId)?.name}
                 memberCount={projectMemberCount(project, members)}
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
-                onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
+                onEdit={canEditProjectContent(project) ? () => setEditTarget(project) : undefined}
                 onDelete={canDeleteProject(project) ? () => handleDelete(project) : undefined}
                 onLeave={canLeaveProject(project) ? () => setLeaveTarget(project) : undefined}
               />

@@ -525,7 +525,8 @@ export async function updateOnboarding(payload: {
 }
 
 export async function deleteUser(): Promise<void> {
-  await apiFetch(USER_ENDPOINT, { method: "DELETE" });
+  const res = await apiFetch(USER_ENDPOINT, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete account (status ${res.status})`);
 }
 
 /**

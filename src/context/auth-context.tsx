@@ -7,6 +7,8 @@ import {
   clearInMemoryAccessToken,
   setInMemoryAccessToken,
   isTokenExpiringSoon,
+  decodeJwtSub,
+  getInMemoryAccessToken,
 } from "@/lib/jwt-utils";
 import type {
   UserInvoice,
@@ -85,7 +87,7 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>;
 }
 
-function mapProfileToUser(profile: UserProfile): AuthUser {
+function mapProfileToUser(profile: UserProfile, jwtToken: string | null): AuthUser {
   // Auth0 sometimes defaults first_name to the user's email on new signups.
   // Treat any name value that looks like an email as absent, consistent with
   // the hello-page pre-fill filter (hello/page.tsx).
@@ -128,7 +130,16 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     : null;
 
   return {
-    auth0Id: profile.auth0_id || null,
+    // GET /users/me's response (UserResponse/UserAccountResponse, back-end
+    // services/users/schemas.py) has no auth0_id field at all — profile.auth0_id
+    // is always empty. The JWT's own `sub` claim is the real, reliable source
+    // (same workaround MixpanelProvider already applied locally for itself);
+    // doing it here instead means every consumer of user.auth0Id gets a real
+    // value, not just Mixpanel. This was silently breaking every
+    // `ownerUserId === currentUserId` ownership check app-wide (e.g. a
+    // project's own owner never satisfied `canEdit`, hidden only where an
+    // unrelated fallback — like the org-admin bypass on delete — masked it).
+    auth0Id: profile.auth0_id || decodeJwtSub(jwtToken) || null,
     email: profile.email,
     firstName,
     lastName,
@@ -253,7 +264,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const profile = await currentUser.refresh();
-      if (profile) setUser(mapProfileToUser(profile));
+      // Reads the module-level in-memory token, not the closed-over `jwtToken`
+      // state — this callback has an empty dep array (see the comment above),
+      // so `jwtToken` here would be frozen at whatever it was on first render.
+      if (profile) setUser(mapProfileToUser(profile, getInMemoryAccessToken()));
     } catch (error) {
       console.error("Failed to refresh user profile", error);
     }
@@ -302,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     currentUser.load()
       .then((profile) => {
-        if (mounted && profile) setUser(mapProfileToUser(profile));
+        if (mounted && profile) setUser(mapProfileToUser(profile, getInMemoryAccessToken()));
       })
       .catch((error) => {
         console.error("Failed to load user profile", error);

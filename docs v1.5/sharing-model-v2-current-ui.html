@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Project & Chat Sharing — Current UI (vs Spec V2)</title>
+<style>
+  :root{
+    --paper:#FAF9F6;
+    --ink:#1B1C1E;
+    --ink-soft:#55585E;
+    --line:#DDDAD2;
+    --line-strong:#B9B5AB;
+    --accent:#2F4B3F;
+    --accent-soft:#E4EAE4;
+    --blue:#3A4A8A;
+    --blue-soft:#E3E6F1;
+    --amber:#9A6B23;
+    --amber-soft:#F3E7D3;
+    --red:#9C3B3B;
+    --red-soft:#F3E1E1;
+    --green:#2F6B3F;
+    --green-soft:#E4EFE4;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:820px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:36px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{
+    font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line);
+    border-radius:6px; padding:12px 16px; margin-bottom:44px;
+  }
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .changelog a{color:var(--accent);}
+  h2{font-family:var(--serif); font-weight:600; font-size:26px; margin:64px 0 4px; padding-top:24px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h3{font-family:var(--serif); font-weight:600; font-size:18px; margin:34px 0 6px;}
+  p{font-size:15.5px; color:#33353A; max-width:66ch;}
+  ul{padding-left:20px; margin:12px 0;}
+  li{font-size:15.5px; margin-bottom:6px; max-width:62ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13.5px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:18px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:8px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:10px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 8px; border-radius:20px; font-weight:500; white-space:nowrap;}
+  .tag.personal{background:var(--accent-soft); color:var(--accent);}
+  .tag.workspace{background:var(--blue-soft); color:var(--blue);}
+  .tag.shared{background:var(--amber-soft); color:var(--amber);}
+  .tag.built{background:var(--green-soft); color:var(--green);}
+  .tag.broken{background:var(--red-soft); color:var(--red);}
+  .tag.gap{background:#EDEDEA; color:var(--ink-soft);}
+  .figure{margin:28px 0 8px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:20px 8px;}
+  .figure svg{display:block; width:100%; height:auto;}
+  .fig-caption{font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); margin:8px 4px 40px; text-align:center;}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:12px 16px; font-size:14px; color:#2B3B33; margin:16px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.broken{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .rule-block{border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin:18px 0; background:#fff;}
+  .rule-block .role{font-family:var(--mono); font-size:11px; color:var(--amber); font-weight:600; margin-bottom:6px; letter-spacing:.02em;}
+  .rule-block.built .role{color:var(--green);}
+  .rule-block.broken .role{color:var(--red);}
+  footer{margin-top:70px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — IMPLEMENTATION SNAPSHOT</span><span>2026-09-05</span></div>
+  <h1>Project & Chat Sharing — Current UI</h1>
+  <p class="subtitle">What's actually built and wired up today, walked through the same shape as the spec — with every gap between the two marked inline, not left for a separate table to explain.</p>
+
+  <div class="changelog">
+    <b>COMPANION DOCS</b> — this reads alongside two other files in the same directory:
+    <code>sharing-model-v2.html</code> (the target spec this snapshot is measured against) and
+    <code>sharing-model-v2-gap-audit.md</code> (the line-by-line audit: exact file/line citations,
+    every bug found and fixed today, and "how to test each" steps). This doc is the picture;
+    the audit doc is the receipts.
+  </div>
+
+  <h2><span class="num">00</span>Legend</h2>
+  <p>
+    <span class="tag built">Built</span> matches the spec and works &nbsp;
+    <span class="tag gap">Gap</span> spec says one thing, UI doesn't do it (no bug — nothing built here at all) &nbsp;
+    <span class="tag broken">Broken</span> UI exists and looks functional, but the action fails every time
+  </p>
+
+  <h2><span class="num">01</span>Projects</h2>
+
+  <h3>Creation — the one moment visibility is chosen</h3>
+  <div class="figure">
+    <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="26" font-family="IBM Plex Mono" font-size="12" fill="#55585E">/projects/new</text>
+      <rect x="20" y="46" width="660" height="46" rx="6" fill="#fff" stroke="#B9B5AB"/>
+      <text x="36" y="74" font-family="IBM Plex Sans" font-size="12.5" fill="#33353A">Name · Description</text>
+
+      <rect x="20" y="106" width="200" height="66" rx="6" fill="#E4EAE4" stroke="#2F4B3F"/>
+      <text x="120" y="132" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#2F4B3F">PERSONAL</text>
+      <text x="120" y="150" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2F4B3F">always offered</text>
+      <text x="120" y="163" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2F4B3F">(default selection)</text>
+
+      <rect x="250" y="106" width="200" height="66" rx="6" fill="#E3E6F1" stroke="#3A4A8A"/>
+      <text x="350" y="132" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#3A4A8A">WORKSPACE</text>
+      <text x="350" y="150" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#3A4A8A">only shown to</text>
+      <text x="350" y="163" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#3A4A8A">org members</text>
+
+      <rect x="480" y="106" width="200" height="66" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="580" y="132" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#9A6B23">SHARED</text>
+      <text x="580" y="150" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9A6B23">only shown to</text>
+      <text x="580" y="163" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9A6B23">org members</text>
+
+      <text x="350" y="195" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#55585E">picker hides Workspace/Shared entirely for individual (no-org) accounts — matches the backend 400</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 1 — <code>projects/new/page.tsx</code>: real 3-way picker, sends a real <code>visibility</code> field <span class="tag built">Built</span></div>
+
+  <div class="rule-block broken">
+    <div class="role">DEAD END — CONFIRMED TWICE TODAY</div>
+    Whatever gets picked here is <strong>permanent</strong>. There is no button, menu item, or endpoint
+    anywhere that changes a project's visibility after creation — a live re-check of the entire
+    <code>/projects</code> route table found nothing (the generic update endpoint's body schema doesn't
+    even accept a <code>visibility</code> field). A Personal project stays Personal forever unless this
+    gets built — <em>this is the gap</em> if the intended logic is "Personal now, Shared later, owner's choice."
+  </div>
+
+  <h3>The Sharing entry point — icon button, left of the model selector</h3>
+  <div class="figure">
+    <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="26" font-family="IBM Plex Mono" font-size="12" fill="#55585E">/project/[id] — share icon click</text>
+      <line x1="20" y1="38" x2="680" y2="38" stroke="#B9B5AB"/>
+
+      <rect x="20" y="60" width="200" height="150" rx="6" fill="#E4EAE4" stroke="#2F4B3F"/>
+      <text x="120" y="86" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#2F4B3F">PERSONAL</text>
+      <text x="120" y="130" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2F4B3F">button doesn't</text>
+      <text x="120" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2F4B3F">even render —</text>
+      <text x="120" y="158" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2F4B3F">nothing to share</text>
+
+      <rect x="250" y="60" width="200" height="150" rx="6" fill="#E3E6F1" stroke="#3A4A8A"/>
+      <text x="350" y="86" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#3A4A8A">WORKSPACE</text>
+      <text x="350" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">read-only modal:</text>
+      <text x="350" y="134" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">"everyone in the</text>
+      <text x="350" y="148" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">workspace has</text>
+      <text x="350" y="162" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">access" — no list</text>
+
+      <rect x="480" y="60" width="200" height="150" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="580" y="86" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#9A6B23">SHARED</text>
+      <text x="580" y="115" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">real member list</text>
+      <text x="580" y="129" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">(ProjectMembersPanel,</text>
+      <text x="580" y="143" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">reused, not rebuilt)</text>
+      <text x="580" y="163" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">any collaborator</text>
+      <text x="580" y="177" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">can add/remove</text>
+
+      <text x="350" y="226" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#9C3B3B">no path between these three columns exists — this is a snapshot of 3 dead-end states, not a flow</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 2 — Rebuilt today: was a Private↔Shared visibility <em>toggle</em> (dead — no PATCH endpoint ever backed it); now read-only status + real member management for Shared <span class="tag built">Built</span></div>
+
+  <p>The button itself sits in the project header, immediately left of the model-selector button — reordered today so nothing (the "…" menu) sits between them.</p>
+
+  <h3>Leaving & reassignment</h3>
+  <div class="figure">
+    <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+      <rect x="250" y="10" width="200" height="44" rx="6" fill="#1B1C1E"/>
+      <text x="350" y="37" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" fill="#FAF9F6">"Leave project" clicked</text>
+      <line x1="350" y1="54" x2="350" y2="76" stroke="#B9B5AB"/>
+      <polygon points="345,76 355,76 350,84" fill="#B9B5AB"/>
+
+      <polygon points="350,84 450,140 350,196 250,140" fill="#fff" stroke="#1B1C1E"/>
+      <text x="350" y="135" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#1B1C1E">are you the</text>
+      <text x="350" y="149" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#1B1C1E">owner?</text>
+
+      <line x1="250" y1="140" x2="130" y2="220" stroke="#B9B5AB"/>
+      <text x="150" y="180" font-family="IBM Plex Mono" font-size="10" fill="#55585E">no</text>
+      <rect x="30" y="220" width="200" height="60" rx="6" fill="#EDEDEA" stroke="#B9B5AB"/>
+      <text x="130" y="245" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#33353A" font-weight="600">Plain confirm</text>
+      <text x="130" y="261" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#55585E">no gating at all</text>
+
+      <line x1="450" y1="140" x2="570" y2="200" stroke="#B9B5AB"/>
+      <text x="545" y="170" font-family="IBM Plex Mono" font-size="10" fill="#55585E">yes, others</text>
+      <text x="545" y="182" font-family="IBM Plex Mono" font-size="10" fill="#55585E">remain</text>
+      <rect x="470" y="200" width="210" height="50" rx="6" fill="#E3E6F1" stroke="#3A4A8A"/>
+      <text x="575" y="230" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A" font-weight="600">Required successor picker</text>
+
+      <line x1="450" y1="150" x2="640" y2="260" stroke="#B9B5AB"/>
+      <text x="600" y="285" font-family="IBM Plex Mono" font-size="10" fill="#55585E">yes, alone</text>
+      <rect x="470" y="260" width="210" height="34" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="575" y="282" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23" font-weight="600">Archive / convert to Personal</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 3 — <code>LeaveProjectModal</code>, matches spec's owner-exit flow exactly <span class="tag built">Built</span></div>
+  <p>Also handles the case the diagram can't show: a failed member-list fetch shows "Couldn't check who else is on this project" and blocks confirming, rather than silently treating a network error as "you're alone" and offering Archive when it shouldn't.</p>
+
+  <h3>Deletion & recovery</h3>
+  <table>
+    <tr><th class="label">Type</th><th>UI today</th><th>Status</th></tr>
+    <tr><td class="label"><span class="tag personal">Personal</span></td><td>Delete confirm → instant, gone, never in Trash</td><td><span class="tag built">Built</span></td></tr>
+    <tr><td class="label"><span class="tag workspace">Workspace</span></td><td>Soft-delete, appears in the new Trash view, "Restore" button, 30-day window</td><td><span class="tag built">Built</span></td></tr>
+    <tr><td class="label"><span class="tag shared">Shared</span></td><td>Same as Workspace</td><td><span class="tag built">Built</span></td></tr>
+  </table>
+  <div class="note flag">
+    Still stale: the Delete confirmation copy still says "permanently, cannot be undone" for every
+    project type — wrong for Workspace/Shared now that Trash visibly proves otherwise. And a non-owner
+    admin can still open Delete on a project they don't own (client-side check never removed after the
+    backend dropped that bypass) — it 404s when they actually click through. <span class="tag gap">Gap</span>
+  </div>
+
+  <h3>The <code>/projects</code> list — scope filter</h3>
+  <div class="figure">
+    <svg viewBox="0 0 700 110" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="140" height="40" rx="20" fill="#1B1C1E"/>
+      <text x="90" y="55" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#FAF9F6">Personal</text>
+      <rect x="170" y="30" width="150" height="40" rx="20" fill="#fff" stroke="#B9B5AB"/>
+      <text x="245" y="55" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#33353A">Workspace</text>
+      <rect x="330" y="30" width="130" height="40" rx="20" fill="#fff" stroke="#B9B5AB"/>
+      <text x="395" y="55" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#33353A">Shared</text>
+      <text x="480" y="55" font-family="IBM Plex Mono" font-size="10.5" fill="#55585E">keyed on visibility, not teamId</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 4 — real 3-way tab bar, rebuilt today from the old binary Personal/Team split <span class="tag built">Built</span></div>
+  <p>The old binary version had a real, live consequence: any org member's own Personal project also carries the org's <code>teamId</code> server-side, so a <code>teamId</code>-based filter miscounted it as a Team/Workspace project everywhere that reused the same shortcut — the sidebar's "Workspace projects" list, member-count badges on project cards, the Slack channel-linking picker, and the invite modal's "add to project" picker all did this independently. All rebuilt today to key off real <code>visibility</code> instead.</p>
+
+  <h2><span class="num">02</span>Chats</h2>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg">
+      <rect x="30" y="70" width="150" height="60" rx="6" fill="#E4EAE4" stroke="#2F4B3F"/>
+      <text x="105" y="95" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2F4B3F">Private</text>
+      <text x="105" y="112" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2F4B3F">default at creation</text>
+
+      <line x1="180" y1="85" x2="250" y2="85" stroke="#B9B5AB"/>
+      <polygon points="246,80 254,85 246,90" fill="#B9B5AB"/>
+      <rect x="250" y="55" width="160" height="60" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="330" y="80" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9A6B23">Shared</text>
+      <text x="330" y="97" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9A6B23">ChatShareOverlay</text>
+      <text x="415" y="70" font-family="IBM Plex Mono" font-size="10" fill="#2F6B3F">built ✓</text>
+
+      <line x1="180" y1="115" x2="250" y2="150" stroke="#B9B5AB"/>
+      <polygon points="244,146 254,148 248,157" fill="#B9B5AB"/>
+      <rect x="250" y="135" width="160" height="60" rx="6" fill="#F3E1E1" stroke="#9C3B3B"/>
+      <text x="330" y="160" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9C3B3B">Archived</text>
+      <text x="330" y="177" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#9C3B3B">toast: "coming soon"</text>
+      <text x="415" y="185" font-family="IBM Plex Mono" font-size="10" fill="#9A6B23">backend ready, FE stub</text>
+
+      <rect x="470" y="55" width="200" height="60" rx="6" fill="#F3E1E1" stroke="#9C3B3B"/>
+      <text x="570" y="80" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#9C3B3B">"Publish to Workspace"</text>
+      <text x="570" y="97" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C3B3B">toggle on chat rows — 404s</text>
+
+      <rect x="470" y="135" width="200" height="60" rx="6" fill="#F3E1E1" stroke="#9C3B3B"/>
+      <text x="570" y="160" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#9C3B3B">"Move to project"</text>
+      <text x="570" y="177" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C3B3B">still wired — always 409s</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 5 — Chat state UI vs reality: two boxes on the right are fully wired UI hitting dead/blocked endpoints, not missing UI</div>
+
+  <table>
+    <tr><th class="label">Feature</th><th>UI today</th><th>Status</th></tr>
+    <tr><td class="label">Shared chat list</td><td><code>ChatShareOverlay</code> — creator-managed, person/project targets, revoke</td><td><span class="tag built">Built</span></td></tr>
+    <tr><td class="label">Continue / fork</td><td>"Create a copy" button on a viewed shared chat</td><td><span class="tag built">Built</span></td></tr>
+    <tr><td class="label">Delete</td><td><code>DeleteChatDialog</code> — instant, no recovery, no gating</td><td><span class="tag built">Built</span></td></tr>
+    <tr><td class="label">Archive</td><td><code>toast.info("Archiving chats is coming soon")</code> — backend's had <code>POST /{chat_id}/archive</code> since 09-04</td><td><span class="tag gap">Gap</span></td></tr>
+    <tr><td class="label">"Publish to Workspace" toggle</td><td>Renders on chat rows inside Workspace/Shared projects, calls <code>PATCH /chats/{id}/visibility</code> — that route doesn't exist in the backend any more</td><td><span class="tag broken">Broken</span></td></tr>
+    <tr><td class="label">"Move to project"</td><td>Fully wired dropdown item — backend now hard-rejects moving a chat's project link post-creation (409, "fixed at creation")</td><td><span class="tag broken">Broken</span></td></tr>
+  </table>
+
+  <h2><span class="num">03</span>Cross-cutting: dead code still in the tree</h2>
+  <p>Three things confirmed unreachable or actively wrong today, none touched by today's Sharing-modal rebuild (each already tracked in the gap-audit doc):</p>
+  <ul>
+    <li><strong>Delete admin-bypass</strong> — <code>project.canEdit || (isOrgAdmin && teamId===orgId)</code> exists in <em>three</em> separate spots (two page-level gates plus one inside <code>projects-context.tsx</code>'s <code>deleteProject()</code> itself) — the backend removed this bypass, so a non-owner admin clicking Delete gets a 404 every one of the three ways in.</li>
+    <li><strong>Legacy Teams components</strong> — <code>TeamSwitcher</code>/<code>TeamSwitcherDropdown</code>/<code>TeamChip</code> are still live, still rendering, for a backend concept (<code>Team</code>) that's been fully dropped. Undecided: delete outright, or repurpose the shape for something else.</li>
+    <li><strong>The old visibility-toggle modal's remnants</strong> — as of today, gone. It's the one item in this list that got resolved rather than just documented.</li>
+  </ul>
+
+  <h2><span class="num">04</span>The open question</h2>
+  <div class="rule-block">
+    <div class="role">STATED TARGET LOGIC, NOT YET BUILT ANYWHERE</div>
+    A project is Personal or Workspace at creation. If Personal, the owner can later turn it Shared
+    (and apparently back). Verified today, twice, that this has <strong>zero</strong> backing anywhere in
+    the current backend — no endpoint, no schema field, no implicit side-effect of any existing action.
+    Building it needs a new backend endpoint (something like <code>owner-only, personal→shared, one-way
+    or reversible</code>) before the frontend has anything real to call. Halted pending a decision on
+    that backend work.
+  </div>
+
+  <footer>SOUVENIR — CURRENT UI SNAPSHOT — companion to sharing-model-v2.html and sharing-model-v2-gap-audit.md</footer>
+</div>
+</body>
+</html>

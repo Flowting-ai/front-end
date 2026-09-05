@@ -1,7 +1,7 @@
 'use client'
 
 import { z } from 'zod'
-import { apiFetch, apiFetchJson, ApiError } from './client'
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
 import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
 import { AguiSSEDecoder, type DecodedSSEEvent } from '../sse-decoder'
@@ -656,24 +656,38 @@ export async function respondToPrompt(
   }
 }
 
+async function throwIfNotOk(res: Response, code: string, fallback: string): Promise<void> {
+  if (res.ok) return
+  let detail = fallback
+  try {
+    const body = await res.json() as { detail?: string }
+    if (typeof body.detail === 'string') detail = body.detail
+  } catch { /* non-JSON error body */ }
+  throw new ApiError(res.status, code, friendlyApiError(detail, res.status), detail)
+}
+
 export async function stopBrainChat(chatId: string): Promise<void> {
-  await apiFetch(BRAIN_STOP(chatId), { method: 'POST' })
+  const res = await apiFetch(BRAIN_STOP(chatId), { method: 'POST' })
+  await throwIfNotOk(res, 'brain_stop_failed', `Failed to stop chat (${res.status})`)
 }
 
 export async function starBrainChat(chatId: string): Promise<void> {
-  await apiFetch(BRAIN_STAR(chatId), { method: 'PATCH' })
+  const res = await apiFetch(BRAIN_STAR(chatId), { method: 'PATCH' })
+  await throwIfNotOk(res, 'brain_star_failed', `Failed to update pin (${res.status})`)
 }
 
 export async function renameBrainChat(chatId: string, chatTitle: string): Promise<void> {
-  await apiFetch(BRAIN_RENAME, {
+  const res = await apiFetch(BRAIN_RENAME, {
     method: 'PATCH',
     body:   JSON.stringify({ chat_id: chatId, chat_title: chatTitle }),
   })
+  await throwIfNotOk(res, 'brain_rename_failed', `Failed to rename chat (${res.status})`)
 }
 
 export async function deleteBrainChat(chatId: string): Promise<void> {
-  await apiFetch(BRAIN_BASE, {
+  const res = await apiFetch(BRAIN_BASE, {
     method: 'DELETE',
     body:   JSON.stringify({ chat_id: chatId }),
   })
+  await throwIfNotOk(res, 'brain_delete_failed', `Failed to delete chat (${res.status})`)
 }

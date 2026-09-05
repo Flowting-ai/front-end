@@ -5,7 +5,8 @@ import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PersonalProjectsIcon, PinIcon, PlusSignIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { IconWithFallback } from "@/components/IconWithFallback";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -1906,6 +1907,7 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
 }
 
 function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat }: SectionProps & { onNewChat?: () => void }) {
+  const { push } = useGuardedRouter()
   const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -1918,6 +1920,18 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
       <FlatSidebarRow
         variant="header" label="Recent Chats" shown={shown} onShowClick={() => setShown((s) => !s)}
         onAddClick={onNewChat ? (e) => { e.stopPropagation(); onNewChat() } : undefined} addLabel="New chat"
+        extraHeaderIcons={[
+          {
+            icon: (
+              <IconWithFallback
+                icon={<FolderLibraryIcon size={14} animated />}
+                fallback={<FolderThreeIcon size={14} animated />}
+              />
+            ),
+            onClick: () => push(CHATS_ROUTE),
+            label: 'All chats',
+          },
+        ]}
       />
       <m.div
         animate={shown ? "open" : "closed"}
@@ -2175,7 +2189,12 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
       <FlatSidebarRow
         variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)}
         onAddClick={isAdmin ? (e) => { e.stopPropagation(); push('/projects/new') } : undefined} addLabel="New Project"
-        headerIcon={<FolderOneIcon size={14} variant="static" />}
+        headerIcon={
+          <IconWithFallback
+            icon={<PersonalProjectsIcon size={14} />}
+            fallback={<FolderThreeIcon size={14} animated />}
+          />
+        }
         onHeaderIconClick={() => push(PROJECTS_ROUTE)}
         headerIconLabel="All Projects"
       />
@@ -2589,7 +2608,15 @@ function LeftSidebarImpl({
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
-            <FlatProjectsSection label="Personal Projects" headerIcon={<FolderOneIcon size={14} variant="static" />} />
+            <FlatProjectsSection
+              label="Personal Projects"
+              headerIcon={
+                <IconWithFallback
+                  icon={<PersonalProjectsIcon size={14} />}
+                  fallback={<FolderThreeIcon size={14} animated />}
+                />
+              }
+            />
           )}
           recentItems={
             !user ? (

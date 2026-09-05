@@ -122,24 +122,19 @@ function SharedChatContent() {
                 Shared chat
               </span>
               <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>·</span>
-              {view.mode === 'editable'
-                ? <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>You can make a copy</span>
-                : <Badge label="Read only" color="Red" />
-              }
+              <Badge label="Read only" color="Red" />
             </div>
           </div>
-          {view.mode === 'editable' && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => void handleFork()}
-              loading={forking}
-              disabled={forking}
-              style={{ flexShrink: 0 }}
-            >
-              {forking ? 'Copying…' : 'Make a copy'}
-            </Button>
-          )}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => void handleFork()}
+            loading={forking}
+            disabled={forking}
+            style={{ flexShrink: 0 }}
+          >
+            {forking ? 'Copying…' : 'Make a copy'}
+          </Button>
         </div>
 
         {/* Divider */}

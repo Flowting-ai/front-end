@@ -446,7 +446,14 @@ export async function deleteMessage(messageId: string): Promise<void> {
 
 /** POST /chats/{chat_id}/stop — abort an in-flight stream. */
 export async function stopChat(chatId: string): Promise<void> {
-  await apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" });
+  const response = await apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" });
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      "stop_chat_failed",
+      friendlyApiError(`Failed to stop chat (${response.status})`, response.status),
+    );
+  }
 }
 
 /** POST /chats/files/{attachment_id}/save-to-drive */
@@ -499,8 +506,19 @@ export async function setChatVisibility(
   // publishing/sharing a chat to the team has never worked against this backend.
   const body: Record<string, unknown> = { visibility: visibility === "team" ? "shared" : "private" };
   if (visibility === "team" && teamId) body.organizationId = teamId;
-  await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
+  const response = await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
     method: "PATCH",
     body:   JSON.stringify(body),
   });
+  // This route no longer exists on the backend at all (confirmed by reading
+  // chat/router.py's full route list) — every call 404s. Checking response.ok
+  // doesn't fix that, but it stops the caller from optimistically updating
+  // and showing a false success toast for an action that never happened.
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      "set_chat_visibility_failed",
+      friendlyApiError(`Failed to update chat visibility (${response.status})`, response.status),
+    );
+  }
 }

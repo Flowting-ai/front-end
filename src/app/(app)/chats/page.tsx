@@ -15,7 +15,7 @@ import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
 import { addChatToProject } from '@/lib/api/projects'
-import { listSharedWithMe, forkChatShare } from '@/lib/api/chat-shares'
+import { listSharedWithMe } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
 import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
@@ -47,7 +47,6 @@ export default function ChatsPage() {
   const [activeTab,     setActiveTab]     = useState<'my' | 'shared'>('my')
   const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
   const [sharedLoading, setSharedLoading] = useState(false)
-  const [forkingId,     setForkingId]     = useState<string | null>(null)
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
@@ -171,26 +170,12 @@ export default function ChatsPage() {
     }
   }, [sharedItems.length])
 
-  const handleFork = useCallback(async (shareId: string) => {
-    setForkingId(shareId)
-    try {
-      const { chatId } = await forkChatShare(shareId)
-      toast.success('Chat copied to your history')
-      push(`${CHAT_ROUTE}?id=${chatId}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
-    } finally {
-      setForkingId(null)
-    }
+  // Viewing a share is always read-only-in-place now — forking into your own
+  // copy is a separate, explicit action from inside that view (there's no
+  // "editable" mode any more to skip straight past it for).
+  const handleOpenShared = useCallback((item: SharedChatItem) => {
+    push(CHAT_SHARE_ROUTE(item.shareId))
   }, [push])
-
-  const handleOpenShared = useCallback(async (item: SharedChatItem) => {
-    if (item.mode === 'read_only') {
-      push(CHAT_SHARE_ROUTE(item.shareId))
-      return
-    }
-    await handleFork(item.shareId)
-  }, [handleFork, push])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -332,19 +317,15 @@ export default function ChatsPage() {
                       Shared by <span style={{ fontWeight: 700, color: 'var(--neutral-700)' }}>{item.sharedByName ?? 'someone'}</span>
                     </span>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-300)' }}>·</span>
-                    {item.mode === 'editable'
-                      ? <Badge label="Editable" color="Green" />
-                      : <Badge label="Read-only" color="Red" />
-                    }
+                    <Badge label="Read-only" color="Red" />
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={forkingId === item.shareId}
-                  onClick={() => void handleOpenShared(item)}
+                  onClick={() => handleOpenShared(item)}
                 >
-                  {forkingId === item.shareId ? 'Copying…' : item.mode === 'editable' ? 'Open copy' : 'Open'}
+                  Open
                 </Button>
               </div>
             ))}

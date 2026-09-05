@@ -81,7 +81,7 @@ function PersonaCardSkeleton() {
 /** Quick-add-an-agent-to-this-chat panel — same list this app already shows
  *  in the chat input's "Add agent" submenu (useSelectableChatPersonas), just
  *  surfaced as a full Pinboard-style side panel instead of a dropdown. */
-export function AgentsPanelContent() {
+export function AgentsPanelContent({ inProject = false }: { inProject?: boolean } = {}) {
   const [search, setSearch] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [filter, setFilter] = useState<AgentFilter>('mine')
@@ -321,6 +321,7 @@ export function AgentsPanelContent() {
                   visibility="private"
                   superlink={isSuperlink(p)}
                   onUseInChat={() => handleSelect(p)}
+                  useInChatLabel={inProject ? 'Use in project chat' : undefined}
                   style={{ width: '100%' }}
                 />
               ))

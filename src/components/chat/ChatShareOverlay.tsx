@@ -7,24 +7,22 @@ import { ShareOneIcon, CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/ico
 import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { Tooltip } from '@/components/Tooltip'
 import { copyChat } from '@/lib/api/chat'
-import { createChatShare, listChatShares, deleteChatShare, type ChatShare, type ChatShareMode } from '@/lib/api/chat-shares'
+import { createChatShare, listChatShares, deleteChatShare, type ChatShare } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { useProjects } from '@/context/projects-context'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
-// One card, two levels of tabs: the outer Share/Active-shares tabs, and
-// inside "Share" a Person/Project switch — not a Private/Team visibility
-// toggle. "Team" never meant "visible to the whole team"; it always resolved
-// to picking one specific project, so the picker now says what it does:
-// recipient type is Person or Project, and picking Project goes straight to
-// a project list (grouped into "Personal" plus one section per team for
-// scanability) instead of gating behind a separate "pick a team first" step.
+// One card, two tabs: Share (person picker) and Active shares (revoke list).
+// Standalone chat sharing is person-to-person only — the backend dropped
+// project/team targets and the editable/read-only mode entirely (migration
+// c8d1e4f7a2b5): in-project chats inherit the whole project as their
+// audience via a separate mechanism (POST /chats/{id}/share), and every
+// standalone share is now uniformly "view read-only, then optionally fork
+// your own copy" — there's nothing left to toggle for either dimension.
 
 interface ChatShareOverlayProps {
   chatId:    string | undefined
@@ -60,38 +58,20 @@ const MODAL_HEIGHT = 480
 export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
   const { orgId, members: orgMembers } = useOrg()
   const { user } = useAuth()
-  const { projects } = useProjects()
 
   const [chatShareOpen,       setChatShareOpen]       = useState(false)
   const [activeTab,           setActiveTab]           = useState<ChatShareTab>('share')
   const [existingShares,      setExistingShares]      = useState<ChatShare[]>([])
   const [sharesLoading,       setSharesLoading]       = useState(false)
   const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null)
-  const [shareTargetType,     setShareTargetType]     = useState<'user' | 'project'>('user')
   const [shareTargetId,       setShareTargetId]       = useState('')
-  const [shareMode,           setShareMode]           = useState<ChatShareMode>('read_only')
   const [shareTargetDropOpen, setShareTargetDropOpen] = useState(false)
   const [creatingShare,       setCreatingShare]       = useState(false)
   const [copyingChat,         setCopyingChat]         = useState(false)
 
-  // There's only ever one organization, so every editable project is equally
-  // shareable — no more "Personal" vs. "grouped by team" split. (There used
-  // to be one, keyed off the org's teams list; that list is permanently
-  // empty now that Team has no backend route at all, which silently dropped
-  // every shared project out of this picker until this list was flattened
-  // back out.)
-  const shareableProjects = projects.filter(project => project.canEdit)
-  const hasShareableProjects = shareableProjects.length > 0
-
-  function projectLabel(project?: { name: string }) {
-    return project?.name ?? 'Project'
-  }
-
   function handleOpenChatShare() {
     setExistingShares([])
     setShareTargetId('')
-    setShareTargetType('user')
-    setShareMode('read_only')
     setActiveTab('share')
     setChatShareOpen(true)
     if (chatId) {
@@ -107,12 +87,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
     if (!chatId || !shareTargetId) return
     setCreatingShare(true)
     try {
-      const share = await createChatShare({
-        chatId,
-        mode:      shareMode,
-        userId:    shareTargetType === 'user' ? shareTargetId : undefined,
-        projectId: shareTargetType === 'project' ? shareTargetId : undefined,
-      })
+      const share = await createChatShare({ chatId, userId: shareTargetId })
       setExistingShares(prev => [...prev, share])
       setShareTargetId('')
       toast.success('Chat shared')
@@ -292,69 +267,18 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
 
-                    {/* Recipient type — Person or Project, a real switch (not a
-                        Private/Team visibility toggle: "Team" never meant
-                        "visible to the whole team", it always meant "pick one
-                        project" — so the control now says that directly. */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                        Recipient
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: shareTargetType === 'user' ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                          Person
-                        </span>
-                        <Switch
-                          checked={shareTargetType === 'project'}
-                          aria-label="Share with a project instead of a person"
-                          disabled={!orgId}
-                          onCheckedChange={(checked) => { setShareTargetType(checked ? 'project' : 'user'); setShareTargetId('') }}
-                        />
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: shareTargetType === 'project' ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                          Project
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ height: '1px', background: 'var(--neutral-100)' }} />
-
-                    {/* Access — Read only / Can create a copy, a real binary switch
-                        instead of a two-item dropdown for the same choice */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                          Access
-                        </p>
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: '2px 0 0' }}>
-                          {shareMode === 'editable' ? 'They can create their own editable copy.' : 'They can view this chat, but not edit it.'}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: shareMode === 'read_only' ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                          Read only
-                        </span>
-                        <Switch
-                          checked={shareMode === 'editable'}
-                          aria-label="Allow creating a copy"
-                          onCheckedChange={(checked) => setShareMode(checked ? 'editable' : 'read_only')}
-                        />
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: shareMode === 'editable' ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                          Can copy
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ height: '1px', background: 'var(--neutral-100)' }} />
-
-                    {/* Target — Person or Project, one combined dropdown; projects
-                        are grouped into "Personal" plus one section per team so no
-                        separate "pick a team first" step, and personal projects
-                        aren't left out of the list. */}
+                    {/* Person-to-person only — the backend dropped both the
+                        project/team target and the editable/read-only mode
+                        (see the file header comment). Viewing is always
+                        read-only-in-place; the recipient can always fork
+                        their own copy from there, so there's nothing left
+                        to pick beyond who to share with. */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
+                        Share with
+                      </p>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: 0 }}>
-                        {shareTargetType === 'project'
-                          ? 'Everyone with access to the chosen project can open this chat.'
-                          : 'Share this chat directly with a specific person.'}
+                        They can view this chat and make their own copy of it.
                       </p>
                       <DropdownFloat
                         open={shareTargetDropOpen}
@@ -365,46 +289,27 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                           <button type="button" style={dropdownTriggerStyle}>
                             <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: shareTargetId ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
                               {shareTargetId
-                                ? shareTargetType === 'project'
-                                  ? projectLabel(shareableProjects.find(p => p.id === shareTargetId))
-                                  : (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || 'Person')
-                                : shareTargetType === 'project' ? 'Select project…' : 'Select person…'}
+                                ? (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || 'Person')
+                                : 'Select person…'}
                             </span>
                             <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
                           </button>
                         }
                       >
                         <Dropdown style={{ width: DROPDOWN_PANEL_WIDTH }} maxHeight={false}>
-                          {shareTargetType === 'project'
-                            ? (!hasShareableProjects
-                                ? <Dropdown.Section fluid><Dropdown.Item fluid label="No editable projects available" disabled /></Dropdown.Section>
-                                : <Dropdown.Section fluid>
-                                    {shareableProjects.map(project => (
-                                      <Dropdown.Item
-                                        key={project.id}
-                                        fluid
-                                        label={project.name}
-                                        selected={shareTargetId === project.id}
-                                        onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false) }}
-                                      />
-                                    ))}
-                                  </Dropdown.Section>)
-                            : (
-                                <Dropdown.Section fluid>
-                                  {orgMembers
-                                    .filter(member => member.email.toLowerCase() !== user?.email?.toLowerCase())
-                                    .map(member => (
-                                      <Dropdown.Item
-                                        key={member.id}
-                                        fluid
-                                        label={member.name || member.email}
-                                        selected={shareTargetId === member.id}
-                                        onClick={() => { setShareTargetId(member.id); setShareTargetDropOpen(false) }}
-                                      />
-                                    ))}
-                                </Dropdown.Section>
-                              )
-                          }
+                          <Dropdown.Section fluid>
+                            {orgMembers
+                              .filter(member => member.email.toLowerCase() !== user?.email?.toLowerCase())
+                              .map(member => (
+                                <Dropdown.Item
+                                  key={member.id}
+                                  fluid
+                                  label={member.name || member.email}
+                                  selected={shareTargetId === member.id}
+                                  onClick={() => { setShareTargetId(member.id); setShareTargetDropOpen(false) }}
+                                />
+                              ))}
+                          </Dropdown.Section>
                         </Dropdown>
                       </DropdownFloat>
                     </div>
@@ -436,9 +341,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                       </div>
                     ) : (
                       existingShares.map(share => {
-                        const label = share.targetProjectId
-                          ? projectLabel(projects.find(project => project.id === share.targetProjectId))
-                          : (share.targetUserName || share.targetUserEmail || 'Person')
+                        const label = share.targetUserName || share.targetUserEmail || 'Person'
                         const isRevoking = revokingShareId === share.id
                         return (
                           <div
@@ -458,9 +361,11 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {label}
                               </p>
-                              <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', textTransform: 'capitalize' }}>
-                                {share.mode.replace('_', ' ')}
-                              </p>
+                              {share.targetUserName && share.targetUserEmail && (
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {share.targetUserEmail}
+                                </p>
+                              )}
                             </div>
                             <Button
                               variant="outline"

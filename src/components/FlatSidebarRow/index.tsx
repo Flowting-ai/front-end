@@ -53,6 +53,8 @@ export interface FlatSidebarRowProps extends Omit<React.HTMLAttributes<HTMLDivEl
   onHeaderIconClick?: React.MouseEventHandler<HTMLButtonElement>
   /** header variant only — aria-label for the header icon button. Defaults to `Open ${label}`. */
   headerIconLabel?: string
+  /** header variant only — persistent icon buttons rendered just left of the add (+) button, e.g. "All chats" / "All tasks" shortcuts. */
+  extraHeaderIcons?: Array<{ icon: React.ReactNode; onClick: React.MouseEventHandler<HTMLButtonElement>; label: string }>
   /** header variant only — shrinks the label to caption size, for a nested sub-header (e.g. "Personal Projects" under "Projects") that shouldn't read as loud as a top-level section title. */
   compact?: boolean
 }
@@ -120,6 +122,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       headerIcon,
       onHeaderIconClick,
       headerIconLabel,
+      extraHeaderIcons,
       compact = false,
       className,
       onMouseEnter: externalMouseEnter,
@@ -138,6 +141,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
     const [moreIconHovered, setMoreIconHovered] = useState(false)
     const [headerIconHovered, setHeaderIconHovered] = useState(false)
     const [addIconHovered, setAddIconHovered] = useState(false)
+    const [extraIconHovered, setExtraIconHovered] = useState<number | null>(null)
     const [chatMoreIconHovered, setChatMoreIconHovered] = useState(false)
     const [pinIconHovered, setPinIconHovered] = useState(false)
 
@@ -258,6 +262,20 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
               <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms' }}>
                 {headerIcon}
               </span>
+            ))}
+            {extraHeaderIcons?.map((item, i) => (
+              <Tooltip key={i} content={item.label} side="top" delayDuration={300}>
+                <button
+                  type="button"
+                  aria-label={item.label}
+                  onClick={(e) => { e.stopPropagation(); item.onClick(e) }}
+                  onMouseEnter={() => setExtraIconHovered(i)}
+                  onMouseLeave={() => setExtraIconHovered(null)}
+                  style={headerActionButtonStyle(isHovered, extraIconHovered === i)}
+                >
+                  {item.icon}
+                </button>
+              </Tooltip>
             ))}
             {onAddClick && (
               <Tooltip content={addLabel ?? `Add to ${label}`} side="top" delayDuration={300}>

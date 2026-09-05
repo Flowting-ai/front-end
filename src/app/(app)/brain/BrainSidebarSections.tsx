@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { FlatSidebarRow } from '@/components/FlatSidebarRow'
+import { FolderLibraryIcon, FolderThreeIcon } from '@strange-huge/icons'
+import { IconWithFallback } from '@/components/IconWithFallback'
 import {
   listBrainChats,
   renameBrainChat,
@@ -25,7 +27,7 @@ import {
   type BrainThreadEventDetail,
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
-import { BRAIN_ROUTE } from '@/lib/routes'
+import { BRAIN_ROUTE, BRAIN_THREADS_ROUTE } from '@/lib/routes'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
 
@@ -626,7 +628,21 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
         </>
       )}
 
-      <FlatSidebarRow variant="header" label="Recent Tasks" shown={shownAll} onShowClick={() => setShownAll(s => !s)} />
+      <FlatSidebarRow
+        variant="header" label="Recent Tasks" shown={shownAll} onShowClick={() => setShownAll(s => !s)}
+        extraHeaderIcons={[
+          {
+            icon: (
+              <IconWithFallback
+                icon={<FolderLibraryIcon size={14} animated />}
+                fallback={<FolderThreeIcon size={14} animated />}
+              />
+            ),
+            onClick: () => push(BRAIN_THREADS_ROUTE),
+            label: 'All tasks',
+          },
+        ]}
+      />
       {shownAll && (
         isLoading ? (
           <>

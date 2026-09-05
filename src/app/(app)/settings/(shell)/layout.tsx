@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
 import { SettingsSidebar } from '@/components/layout/SettingsSidebar'
-import { OrgProvider } from '@/context/org-context'
 import { SettingsGuardProvider } from '@/context/settings-guard-context'
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
-    <OrgProvider>
     <SettingsGuardProvider>
     <div style={{ display: 'flex', width: '100%', height: '100%' }}>
       <SettingsSidebar />
@@ -39,6 +37,5 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
     </SettingsGuardProvider>
-    </OrgProvider>
   )
 }

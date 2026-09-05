@@ -212,7 +212,8 @@ export class PersonaRepo {
     // 400s every time (see the matching fix in lib/api/personas.ts).
     const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' };
     if (visibility === 'team' && organizationId) body.organizationId = organizationId;
-    await apiFetch(PERSONA_VISIBILITY_ENDPOINT(this.id), { method: 'PATCH', body: JSON.stringify(body) });
+    const res = await apiFetch(PERSONA_VISIBILITY_ENDPOINT(this.id), { method: 'PATCH', body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`Failed to update visibility (status ${res.status})`);
     bustPersonasCache();
   }
 

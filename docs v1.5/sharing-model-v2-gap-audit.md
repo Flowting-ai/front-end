@@ -180,6 +180,92 @@ integration points named in the table rows above.
     from bug #9 when the field is genuinely missing. Full suite (36 files,
     256 tests) passes clean after the fix — checked for any other
     regressions from today's changes, found none.
+16. **`lib/api/projects.ts`'s `deleteProjectApi`** — used plain `apiFetch`
+    and never checked `response.ok`. Any rejected delete (404, 403, whatever)
+    resolved silently as if it had succeeded. Since `deleteProject()` in
+    `projects-context.tsx` does an *optimistic* local removal before awaiting
+    the API call, a silently-"successful" failure meant: the project vanishes
+    from the UI (both `/projects` and the sidebar, which read the same shared
+    context) for the rest of that session, no error toast, nothing rolled
+    back — but the backend never actually touched it. On the next full
+    reload, a fresh `GET /projects` returns it again, looking like it "wasn't
+    deleted properly" or "reappeared." This is what bugs 17 and 18 below were
+    actually hitting. Fixed: now checks `res.ok` and throws a real
+    `ApiError` with the backend's `detail` message on failure, matching the
+    pattern already used by every other mutating call in this file.
+17. **`canDeleteProject`'s admin-bypass — 3rd confirmed live trigger for
+    bug 16** — `project.canEdit || (isOrgAdmin && teamId===orgId)` in both
+    `projects/page.tsx` and `project/[id]/page.tsx`, plus the matching
+    `isOrgAdminOverride` inside `projects-context.tsx`'s `deleteProject()`
+    itself, all still granted a non-owner org admin the *appearance* of
+    delete permission even though the backend's `requireDelete` is strictly
+    `requireOwned` (no admin exception at all, confirmed again by re-reading
+    `project.py`). Before bug 16's fix, clicking Delete as a non-owner admin
+    silently no-op'd server-side while looking successful client-side —
+    exactly the "reappears after reload" symptom, now explained. Fixed: all
+    three copies simplified to owner-only (`project.canEdit`), matching the
+    backend exactly. (`orgId`/`currentUserRole` became unused as a result in
+    `projects-context.tsx` and `projects/page.tsx` — removed there too.)
+18. **`project.canEdit` used to gate content-editing (Instructions, Files,
+    the "Edit" title/description modal) is too narrow** — it's ownership-only
+    (`ownerUserId === currentUserId`), but the backend's `update()` (which
+    backs all of these) uses `requireWritable`, which also passes for *any
+    workspace member* on a Workspace project (`project.py`'s `requireAccess`).
+    A workspace member who wasn't the project's original creator could see
+    the Instructions/Files panel and the "Edit" menu item, but never the
+    buttons to actually use them — a real, reported bug ("Instructions and
+    Files panel is missing the Edit button"). Fixed: added a separate
+    `canEditProjectContent` flag (`project.canEdit || (visibility==='workspace'
+    && orgId match)`) in both `project/[id]/page.tsx` and `projects/page.tsx`,
+    used for Instructions/Files/Edit-modal gating only — `project.canEdit`
+    itself is untouched, since Delete and the leave-flow's owner-branch
+    detection both correctly need real ownership, not writable-access.
+    **Still not fully correct**: a non-owner *collaborator on a Shared
+    project* (not Workspace) should also pass `requireWritable` per the
+    backend, but the frontend has no project-membership signal available
+    without an eager members-fetch this fix doesn't add — flagged as a
+    known remaining gap, not silently declared fixed.
+19. **`user.auth0Id` has been `null` for every user, always — the single
+    biggest bug found this session.** `GET /users/me`'s actual response
+    schema (`UserResponse`/`UserAccountResponse`, back-end
+    `services/users/schemas.py:66-82`) has **no `auth0_id` field at all** —
+    confirmed by reading the Pydantic model directly, not just the frontend's
+    (wrong) assumption. `auth-context.tsx`'s `mapProfileToUser` read
+    `profile.auth0_id`, which was therefore always `undefined` → `""` → the
+    frontend's `user.auth0Id` was always `null`. Every place in the app that
+    computes `currentUserId = user?.auth0Id ?? ''` — which includes every
+    single `canEdit` computation (`ownerUserId === currentUserId`) — has
+    therefore always evaluated to `false`, for every project, for every
+    user, project-wide. This was already known and separately worked around
+    in exactly one place (`MixpanelProvider.tsx:44`: `user?.auth0Id ||
+    decodeJwtSub(jwtToken)`) without ever being fixed at the source, so
+    every other consumer (all of `canEdit`) kept reading the broken value.
+    **Why this looked fine until today**: the old `canDeleteProject` admin-
+    bypass (`isOrgAdmin && teamId===orgId`, removed today as bug #17)
+    happened to also match on every project in the same org *regardless of
+    visibility* (confirmed: `organizationId` is stamped on Personal projects
+    too), so for any org-admin testing their own projects, the always-broken
+    `canEdit` was silently masked — Delete/Edit "worked" only because of an
+    unrelated bypass, not because ownership detection ever actually worked.
+    Removing that bypass (correctly, matching the backend) is what finally
+    made this fully-latent, pre-existing bug visible: a freshly-created
+    **Personal** project's owner saw no "…" menu at all (`hasMenuActions =
+    canDeleteProject || canLeaveProject`, and Personal projects have no
+    Leave option to fall back on — Workspace/Shared projects always had
+    `canLeaveProject` true regardless of ownership, which is why those
+    looked unaffected). Root-caused with the user's help: they pulled the
+    live `GET /projects/{id}` response via DevTools showing a completely
+    normal, correctly-owned project, which is what proved the bug was in
+    identity resolution, not project data. Fixed: `mapProfileToUser` now
+    falls back to `decodeJwtSub()` on the in-memory access token (the same
+    fix Mixpanel already had, applied at the source instead of one
+    consumer) — `auth0Id: profile.auth0_id || decodeJwtSub(jwtToken) ||
+    null`. This fixes `canEdit` correctly for every project type, not just
+    the two narrower flags (`canEditProjectContent`, `canDeleteProject`)
+    patched around it in bugs #17–18 above — those patches are now
+    unnecessary-but-harmless in the case they were built for, and still
+    correctly extend access for the Workspace-member case they were built
+    for. `tsc --noEmit` and the full suite (37 files, 259 tests) both clean.
 
 **Also found, NOT part of this bug class, added to the Chats table below**:
 while tracing `handlePublishToggle`/`canPublishChat` for bug #10, the
@@ -337,8 +423,23 @@ round-trips) is still verified-by-reading only, not verified-by-running.
   project(s)" picker (bug 14). Finally, create a new Workspace or Shared
   project and confirm (via Mixpanel/network tab on the `project_created`
   event) that `team_shared` now reports `true` for it.
-- **Unit tests**: `npx vitest run` from `front-end/` — should be 36 files /
-  256 tests, all green (bug 15's fix + regression check).
+- **Unit tests**: `npx vitest run` from `front-end/` — should be 37 files /
+  259 tests, all green (bugs 15–18's fixes + regression check).
+- **Delete silent-failure (bugs 16–17)**: as a non-owner org admin, try
+  deleting a colleague's Workspace/Shared project — the Delete action/menu
+  item should no longer even be offered (owner-only now). If you can force a
+  delete to fail some other way, confirm you get a real error toast and the
+  project stays in the list, not a silent disappear-then-reappear-on-reload.
+- **Content-edit gating (bug 18)**: as a workspace member who didn't create
+  a given Workspace project, open it and confirm the Instructions/Files
+  panel's edit controls and the "Edit" menu item now appear. As a non-owner
+  collaborator on a Shared project, confirm they're still correctly absent
+  for now (the known remaining gap) — should not silently work or 404.
+- **`auth0Id` identity fix (bug 19)**: create a brand-new **Personal**
+  project (the cleanest test — no admin-bypass, no Workspace-member
+  fallback to mask a regression) and confirm its own "…" menu shows both
+  Edit and Delete immediately. Then check a Workspace/Shared project you
+  own the same way. If either is missing again, this exact bug is back.
 
 ## Bottom line
 
@@ -407,3 +508,33 @@ didn't actually describe the trivial `?? null` default one line above it —
 fixed to describe what the code actually does. No functional bug; this
 session's own "comments drift from the code" pattern, caught in a comment
 written today rather than an old one.
+
+**Superseded again 2026-09-05 (user-reported)**: three real bugs reported
+directly by a user testing the app — deleted projects reappearing in the
+sidebar, projects-with-chats "not deleting properly" (reappearing on
+reload), and a missing Edit button on the Instructions/Files panel. All
+three traced to real root causes and fixed (bugs 16–18 above): a
+silently-swallowed delete failure (`deleteProjectApi` never checked
+`response.ok`), which the already-known 3-copy admin-bypass bug was actively
+triggering; and `project.canEdit`'s ownership-only definition being used to
+gate a broader "can write content" permission the backend actually grants to
+any workspace member. The admin-bypass bug (previously "documented, not
+fixed, out of scope") is now fixed as a direct consequence of fixing the
+delete bug it was silently breaking. `tsc --noEmit` and the full suite (37
+files, 259 tests) both clean after all three fixes.
+
+**Superseded again 2026-09-05 (the real root cause)**: fixing the admin-
+bypass above unmasked a much bigger, pre-existing bug it had been silently
+covering for — `user.auth0Id` has been `null` for literally every user this
+whole time, because `GET /users/me`'s response never had an `auth0_id` field
+to begin with (verified directly against the backend Pydantic schema, not
+assumed). Every `canEdit` check in the app has therefore always been broken;
+it only ever "worked" for org admins because the bypass being removed
+happened to match every same-org project regardless of visibility. A user
+confirmed this by creating a fresh Personal project and pulling its raw
+`GET /projects/{id}` response via DevTools — a completely normal, correctly-
+owned project with a broken owner check on top of it, which is what pointed
+at identity resolution rather than project data. Fixed at the source
+(`auth-context.tsx`'s `mapProfileToUser`, bug #19) using the same
+`decodeJwtSub()` fallback Mixpanel had already applied locally for itself,
+without it ever reaching anywhere else that needed it.

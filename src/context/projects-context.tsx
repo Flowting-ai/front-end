@@ -4,7 +4,6 @@ import React, { createContext, useCallback, use, useEffect, useMemo, useRef, use
 import { toast } from 'sonner'
 import type { BadgeColor } from '@/components/Badge'
 import { useAuth } from '@/context/auth-context'
-import { useOrg } from '@/context/org-context'
 import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 import type { PinProps, PinLabel } from '@/components/Pin'
 import {
@@ -237,13 +236,6 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // must be the real id, not a placeholder, or every project looks read-only
   // until the profile loads.
   const currentUserId = user?.auth0Id ?? ''
-  // Org owners/admins can delete a colleague's shared project even though
-  // they don't own it (backend `requireDelete` allows this once the project
-  // has at least one ProjectMember — see lib/api/projects.ts's backend-shape
-  // note). The frontend has no per-project membership signal yet, so this
-  // only narrows by org match; the backend still 404s a genuinely-private
-  // project and the existing catch below surfaces that as an error toast.
-  const { orgId, currentUserRole } = useOrg()
 
   const [projects,        setProjects]        = useState<Project[]>([])
   const [chats,           setChats]           = useState<ProjectChat[]>([])
@@ -350,12 +342,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const deleteProject = useCallback(async (id: string) => {
     const snapshot = projectsRef.current.find(p => p.id === id)
 
-    // Guardrail: deletion requires either ownership or org admin/owner
-    // authority over a project in the same org (the backend's actual rule —
-    // see the note on `orgId`/`currentUserRole` above). Plain members with
-    // no edit rights are still blocked client-side.
-    const isOrgAdminOverride = currentUserRole === 'admin' && !!orgId && snapshot?.teamId === orgId
-    if (snapshot && !snapshot.canEdit && !isOrgAdminOverride) {
+    // Guardrail: owner-only, matching the backend exactly (requireDelete ===
+    // requireOwned, project.py). Used to also allow an org admin — the
+    // backend dropped that bypass, so this stale copy let a non-owner admin's
+    // optimistic removal proceed only to 404 silently (deleteProjectApi never
+    // checked response.ok — fixed in lib/api/projects.ts).
+    if (snapshot && !snapshot.canEdit) {
       toast.error("You don't have permission to delete this project.")
       return
     }
@@ -371,7 +363,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to delete project', { description: err instanceof Error ? err.message : undefined })
       throw err
     }
-  }, [orgId, currentUserRole])
+  }, [])
 
   const loadProject = useCallback(async (id: string) => {
     try {
