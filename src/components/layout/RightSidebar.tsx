@@ -7,7 +7,7 @@ import { m, AnimatePresence } from "framer-motion"
 import { CancelOneIcon } from "@strange-huge/icons"
 import { usePinboard, type PinItem, type PinCategory, type PinComment } from "@/context/pinboard-context"
 import { useChatHistoryContext } from "@/context/chat-history-context"
-import { Pinboard, type PinboardPin, type PinboardView } from "@/components/Pinboard"
+import { Pinboard, DEFAULT_PINBOARD_VIEWS, type PinboardPin, type PinboardView } from "@/components/Pinboard"
 import { PinboardSkeleton } from "@/components/PinboardSkeleton"
 import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
@@ -318,6 +318,22 @@ function RightSidebarImpl() {
     [chatFilter, currentChatId],
   )
 
+  // "Current chat" is meaningless with no chat open (e.g. /project/[id]'s
+  // overview page, before any specific chat is selected) — it would always
+  // show zero pins with no explanation why. Drop it from the dropdown
+  // entirely rather than leave a dead-end option.
+  const pinboardViews = useMemo(
+    () => effectiveChatId ? DEFAULT_PINBOARD_VIEWS : DEFAULT_PINBOARD_VIEWS.filter(v => v.id !== "current-chat"),
+    [effectiveChatId],
+  )
+
+  // If the view was "current-chat" and the user navigates somewhere with no
+  // chat open, fall back to "All pins" so the trigger never shows a view
+  // that's no longer a valid option in the dropdown above.
+  useEffect(() => {
+    if (!effectiveChatId && selectedViewId === "current-chat") setSelectedViewId("all")
+  }, [effectiveChatId, selectedViewId])
+
   // ── Stable per-pin handlers ──────────────────────────────────────────────
   // Closures are created once per pin ID and cached in a ref so they don't
   // change identity on re-renders. filteredRawRef and chatNameByIdRef are
@@ -453,6 +469,7 @@ function RightSidebarImpl() {
           <Pinboard
             fluid
             pins={filteredPins}
+            views={pinboardViews}
             personalFolders={folders}
             onSearch={setRawSearch}
             onClose={close}
