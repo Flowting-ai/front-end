@@ -919,9 +919,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   // instead of silently discarding an unpublished version. Cleared on
   // unmount so leaving the configure route entirely doesn't leave the rest
   // of the app permanently guarded.
+  //
+  // Temporarily disabled — hide the agent navigation lock for now. Leave the
+  // wiring in place (just never mark dirty) so it's a one-line revert.
   const { setIsDirty: setGlobalDirty } = useNavGuard()
   useEffect(() => {
-    setGlobalDirty(pendingChangeTags.length > 0 || Object.values(tabDirtyFlags).some(Boolean))
+    setGlobalDirty(false)
   }, [pendingChangeTags, tabDirtyFlags, setGlobalDirty])
   useEffect(() => () => setGlobalDirty(false), [setGlobalDirty])
 
