@@ -141,6 +141,8 @@ export const CHAT_COPY_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/copy`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
+export const CHAT_ARCHIVE_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/archive`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>
   withBase(`/chats/message/${messageId}`);
 export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>

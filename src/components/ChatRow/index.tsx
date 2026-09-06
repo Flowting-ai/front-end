@@ -5,7 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import { PinIcon, MoreHorizontalIcon, PenOneIcon, StarIcon, FolderOneIcon } from '@strange-huge/icons'
+import { PinIcon, MoreHorizontalIcon, PenOneIcon, StarIcon, FolderOneIcon, DownloadOneIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
@@ -58,6 +58,18 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   readOnly?: boolean
   /** When true, shows a "Scheduled" badge — this chat was started from (or is linked to) a schedule. */
   scheduled?: boolean
+  /**
+   * When true, shows a neutral "Archived" badge and hides Rename/Star (the
+   * backend 403s both on an archived chat — services/chat/router.py's
+   * rejectArchivedWrite) and the Archive menu item itself (already
+   * archived — there is no unarchive endpoint yet). Delete and Move to
+   * project stay available; the backend permits both on an archived chat.
+   * Distinct from `readOnly`, which hides the whole menu — an archived
+   * chat still gets one, just a reduced one.
+   */
+  archived?: boolean
+  /** Called when user selects Archive from the context menu. Omit to hide the item. */
+  onArchive?: () => void
 }
 
 // ── PinCountChip ─────────────────────────────────────────────────────────────
@@ -226,6 +238,8 @@ function ChatRowInner(
     asChild       = false,
     readOnly      = false,
     scheduled     = false,
+    archived      = false,
+    onArchive,
     className,
     style,
     onClick,
@@ -525,6 +539,9 @@ function ChatRowInner(
               {readOnly && !selectionMode && (
                 <Badge color="Red" label="Read only" />
               )}
+              {archived && !selectionMode && (
+                <Badge color="Neutral" label="Archived" />
+              )}
               {!selectionMode && readOnly && (
                 <ThreeDotButton visible={showMenu} title={resolvedTitle} readOnly />
               )}
@@ -553,21 +570,32 @@ function ChatRowInner(
                         zIndex:        5,
                       }}
                     >
-                      <MenuItem
-                        label="Rename"
-                        icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
-                        onSelect={() => { pendingMenuActionRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
-                      />
-                      <MenuItem
-                        label={starred ? 'Unstar' : 'Star'}
-                        icon={<StarIcon animated size={14} color="var(--neutral-600)" />}
-                        onSelect={() => { pendingMenuActionRef.current = true; onStar?.() }}
-                      />
+                      {!archived && (
+                        <MenuItem
+                          label="Rename"
+                          icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
+                          onSelect={() => { pendingMenuActionRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
+                        />
+                      )}
+                      {!archived && (
+                        <MenuItem
+                          label={starred ? 'Unstar' : 'Star'}
+                          icon={<StarIcon animated size={14} color="var(--neutral-600)" />}
+                          onSelect={() => { pendingMenuActionRef.current = true; onStar?.() }}
+                        />
+                      )}
                       {onMoveToProject && (
                         <MenuItem
                           label="Move to project"
                           icon={<FolderOneIcon size={14} color="var(--neutral-600)" variant="static" />}
                           onSelect={() => { pendingMenuActionRef.current = true; onMoveToProject() }}
+                        />
+                      )}
+                      {!archived && onArchive && (
+                        <MenuItem
+                          label="Archive"
+                          icon={<DownloadOneIcon size={14} color="var(--neutral-600)" />}
+                          onSelect={() => { pendingMenuActionRef.current = true; onArchive() }}
                         />
                       )}
                       <DropdownMenu.Separator

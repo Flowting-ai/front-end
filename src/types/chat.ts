@@ -4,7 +4,7 @@ export interface Chat {
   id: string;
   owner_user_id?: string;
   can_edit?: boolean;
-  visibility?: "private" | "team";
+  visibility?: "private" | "team" | "archived";
   team_id?: string | null;
   title: string;
   created_at: string;

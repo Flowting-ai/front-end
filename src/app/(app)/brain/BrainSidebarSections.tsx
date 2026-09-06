@@ -27,7 +27,7 @@ import {
   type BrainThreadEventDetail,
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
-import { BRAIN_ROUTE, BRAIN_THREADS_ROUTE } from '@/lib/routes'
+import { BRAIN_ROUTE, CHATS_ROUTE } from '@/lib/routes'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
 
@@ -638,7 +638,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
                 fallback={<FolderThreeIcon size={14} animated />}
               />
             ),
-            onClick: () => push(BRAIN_THREADS_ROUTE),
+            onClick: () => push(`${CHATS_ROUTE}?filter=tasks`),
             label: 'All tasks',
           },
         ]}

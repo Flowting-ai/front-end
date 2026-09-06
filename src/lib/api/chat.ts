@@ -7,6 +7,7 @@ import {
   CHATS_RENAME_ENDPOINT,
   CHAT_MESSAGES_ENDPOINT,
   CHAT_STAR_ENDPOINT,
+  CHAT_ARCHIVE_ENDPOINT,
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
@@ -30,7 +31,9 @@ interface BackendChat {
   owner_user_id?: string;
   can_edit?: boolean;
   // Backend's real value is "shared", not "org" — see setChatVisibility's comment.
-  visibility?: "private" | "shared";
+  // "archived" is a genuine third value (POST /chats/{id}/archive sets it) —
+  // see normalizeChat's own comment on why this must not collapse to "private".
+  visibility?: "private" | "shared" | "archived";
   organization_id?: string | null;
   starred?: boolean;
   is_starred?: boolean;
@@ -54,7 +57,11 @@ function normalizeChat(raw: BackendChat): Chat {
     id: raw.id,
     owner_user_id: raw.owner_user_id,
     can_edit: raw.can_edit ?? false,
-    visibility: raw.visibility === "shared" ? "team" : "private",
+    // Archived must be preserved as its own value, not collapsed into
+    // "private" — POST /chats/{id}/archive (see archiveChat below) sets the
+    // backend's real visibility to "archived", and the Chats library page's
+    // Archived tab needs to actually see that value to filter on it.
+    visibility: raw.visibility === "shared" ? "team" : raw.visibility === "archived" ? "archived" : "private",
     team_id: raw.organization_id ?? null,
     title: raw.chat_title ?? raw.title ?? raw.name ?? "Untitled",
     created_at: raw.created_at ?? new Date().toISOString(),
@@ -161,6 +168,20 @@ export async function starChat(chatId: string): Promise<void> {
   await apiFetchJson(CHAT_STAR_ENDPOINT(chatId), {
     method: "PATCH",
   });
+}
+
+export async function archiveChat(chatId: string): Promise<void> {
+  const response = await apiFetch(CHAT_ARCHIVE_ENDPOINT(chatId), {
+    method: "POST",
+  });
+  if (!response.ok && response.status !== 204) {
+    throw new ApiError(
+      response.status,
+      "archive_chat_failed",
+      friendlyApiError("Failed to archive chat", response.status),
+      "Failed to archive chat",
+    );
+  }
 }
 
 export async function copyChat(chatId: string): Promise<{ chatId: string; chatTitle: string }> {

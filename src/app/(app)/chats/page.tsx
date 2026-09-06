@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useRef, useState, useCallback, useMemo } from 'react'
+import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
@@ -17,19 +17,75 @@ import { usePinboard } from '@/context/pinboard-context'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
-import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
+import { CHAT_ROUTE, CHAT_SHARE_ROUTE, BRAIN_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
+import { LibraryFilterButton, type LibraryMode } from '@/components/LibraryFilterButton'
+import {
+  listBrainChats,
+  renameBrainChat,
+  starBrainChat,
+  deleteBrainChat,
+  type BrainChatListItem,
+} from '@/lib/api/brain'
+import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
+import {
+  BRAIN_NEW_THREAD_EVENT,
+  BRAIN_THREAD_DELETED_EVENT,
+  emitBrainThreadDeleted,
+  type BrainThreadDeletedEventDetail,
+} from '@/hooks/use-sidebar-events'
+import { listAutomations } from '@/lib/api/automations'
+import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ── Library page — merged Chats + Tasks ─────────────────────────────────────
+// Was two separate pages (/chats and /brain/threads); merged into one, with
+// LibraryFilterButton (same Tooltip+IconButton+Dropdown.Float pattern as
+// Pinboard's own Filter button) switching the whole page between:
+//   Chats mode → tabs: All chats, Shared with me, Archived chats
+//   Tasks mode → tab:  All tasks (brain/threads' content, inlined verbatim)
+// /brain/threads is now a redirect stub into Tasks mode (?filter=tasks).
+
+type ChatsTab = 'all' | 'shared' | 'archived'
+
+function formatTaskTimestamp(iso: string | undefined | null): string {
+  if (!iso) return ''
+  const d    = new Date(iso)
+  const now  = new Date()
+  const diff = (now.getTime() - d.getTime()) / 1000
+
+  if (diff < 60)        return 'Just now'
+  if (diff < 3600)      return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400)     return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 86400 * 2) return 'Yesterday'
+  if (diff < 86400 * 7) return d.toLocaleDateString('en-US', { weekday: 'short' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// ── Page wrapper — Suspense required for useSearchParams ────────────────────
 
 export default function ChatsPage() {
-  const { push }                       = useRouter()
-  const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star } = useChatHistoryContext()
+  return (
+    <Suspense fallback={null}>
+      <ChatsPageInner />
+    </Suspense>
+  )
+}
+
+function ChatsPageInner() {
+  const { push }        = useRouter()
+  const searchParams    = useSearchParams()
+  const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star, archive } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
+
+  // ── Chats mode / Tasks mode ────────────────────────────────────────────────
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>(
+    () => (searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'),
+  )
+  const [chatsTab, setChatsTab] = useState<ChatsTab>('all')
 
   const pinCountMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -44,17 +100,20 @@ export default function ChatsPage() {
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
   const [isMoving,      setIsMoving]      = useState(false)
-  const [activeTab,     setActiveTab]     = useState<'my' | 'shared'>('my')
   const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
   const [sharedLoading, setSharedLoading] = useState(false)
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
+  // Archived chats live in their own tab, not "All chats".
+  const activeChats = useMemo(() => chats.filter((c) => c.visibility !== 'archived'), [chats])
+  const archivedChats = useMemo(() => chats.filter((c) => c.visibility === 'archived'), [chats])
+
   const filteredChats = useMemo(() => {
-    if (!searchQuery.trim()) return chats
+    if (!searchQuery.trim()) return activeChats
     const q = searchQuery.toLowerCase()
-    return chats.filter((c) => c.title.toLowerCase().includes(q))
-  }, [chats, searchQuery])
+    return activeChats.filter((c) => c.title.toLowerCase().includes(q))
+  }, [activeChats, searchQuery])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
@@ -66,7 +125,7 @@ export default function ChatsPage() {
     overscan:         10,
   })
 
-  const allSelected = selectedIds.size === chats.length && chats.length > 0
+  const allSelected = selectedIds.size === activeChats.length && activeChats.length > 0
 
   // ── Selection helpers ─────────────────────────────────────────────────────────
 
@@ -79,8 +138,8 @@ export default function ChatsPage() {
   }, [])
 
   const toggleAll = useCallback(() => {
-    setSelectedIds(allSelected ? new Set() : new Set(chats.map((c) => c.id)))
-  }, [allSelected, chats])
+    setSelectedIds(allSelected ? new Set() : new Set(activeChats.map((c) => c.id)))
+  }, [allSelected, activeChats])
 
   const enterSelection = useCallback(() => {
     setSelectionMode(true)
@@ -92,7 +151,26 @@ export default function ChatsPage() {
     setSelectedIds(new Set())
   }, [])
 
-  // ── Actions ───────────────────────────────────────────────────────────────────
+  // ── Mode / tab switching — always leave selection mode behind ───────────────
+
+  const handleLibraryModeChange = useCallback((mode: LibraryMode) => {
+    setLibraryMode(mode)
+    exitSelection()
+  }, [exitSelection])
+
+  const handleChatsTabChange = useCallback((tab: ChatsTab) => {
+    setChatsTab(tab)
+    if (tab !== 'all') exitSelection()
+    if (tab === 'shared' && sharedItems.length === 0) {
+      setSharedLoading(true)
+      listSharedWithMe()
+        .then(setSharedItems)
+        .catch(() => toast.error('Failed to load shared chats'))
+        .finally(() => setSharedLoading(false))
+    }
+  }, [exitSelection, sharedItems.length])
+
+  // ── Chats actions ─────────────────────────────────────────────────────────────
 
   const handleNewChat = useCallback(() => {
     push(CHAT_ROUTE)
@@ -159,23 +237,92 @@ export default function ChatsPage() {
     }
   }, [selectedIds, projects, chats, removeLocal, exitSelection, addChat])
 
-  const handleTabChange = useCallback((tab: 'my' | 'shared') => {
-    setActiveTab(tab)
-    if (tab === 'shared' && sharedItems.length === 0) {
-      setSharedLoading(true)
-      listSharedWithMe()
-        .then(setSharedItems)
-        .catch(() => toast.error('Failed to load shared chats'))
-        .finally(() => setSharedLoading(false))
-    }
-  }, [sharedItems.length])
-
   // Viewing a share is always read-only-in-place now — forking into your own
   // copy is a separate, explicit action from inside that view (there's no
   // "editable" mode any more to skip straight past it for).
   const handleOpenShared = useCallback((item: SharedChatItem) => {
     push(CHAT_SHARE_ROUTE(item.shareId))
   }, [push])
+
+  // ── Tasks mode state (brain/threads' content, inlined verbatim) ─────────────
+
+  const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
+  const [tasksLoading, setTasksLoading] = useState(true)
+  const [tasksSearchQuery, setTasksSearchQuery] = useState('')
+  // Chat ids that are linked to a still-existing schedule — drives the
+  // "Scheduled" tag on each thread row. Cross-referenced against the live
+  // task list since scheduleLinks is a local-only map that isn't cleaned up
+  // when a schedule is deleted.
+  const [scheduledChatIds, setScheduledChatIds] = useState<Set<string>>(new Set())
+  const tasksLoadedRef = useRef(false)
+
+  // Lazily load tasks the first time Tasks mode is actually opened, matching
+  // how the Shared tab above lazy-loads on first visit.
+  useEffect(() => {
+    if (libraryMode !== 'tasks' || tasksLoadedRef.current) return
+    tasksLoadedRef.current = true
+    setTasksLoading(true)
+    listBrainChats()
+      .then(setThreads)
+      .catch(() => toast.error('Failed to load tasks'))
+      .finally(() => setTasksLoading(false))
+    listAutomations()
+      .then(tasks => {
+        const links = getAllScheduleLinks()
+        const chatIds = tasks.map(t => links[t.id]).filter((id): id is string => !!id)
+        setScheduledChatIds(new Set(chatIds))
+      })
+      .catch(() => {})
+  }, [libraryMode])
+
+  // Navigate to /brain when sidebar "New thread" button fires the event.
+  useEffect(() => {
+    const handler = () => push(BRAIN_ROUTE)
+    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+  }, [push])
+
+  // Keep the list in sync when a thread is deleted elsewhere (e.g. the sidebar),
+  // so it disappears here without a manual refresh.
+  useEffect(() => {
+    const handleDeleted = (e: Event) => {
+      const { chatId } = (e as CustomEvent<BrainThreadDeletedEventDetail>).detail
+      setThreads(prev => prev.filter(t => t.id !== chatId))
+    }
+    window.addEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
+    return () => window.removeEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
+  }, [])
+
+  const filteredThreads = useMemo(() => {
+    if (!tasksSearchQuery.trim()) return threads
+    const q = tasksSearchQuery.toLowerCase()
+    return threads.filter(t => (t.chat_title || '').toLowerCase().includes(q))
+  }, [threads, tasksSearchQuery])
+
+  const handleTaskRename = useCallback((id: string, title: string) => {
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, chat_title: title } : t))
+    void renameBrainChat(id, title).catch(() => toast.error('Failed to rename thread'))
+  }, [])
+
+  const handleTaskStar = useCallback((id: string) => {
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+    void starBrainChat(id).catch(() => {
+      setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+    })
+  }, [])
+
+  const handleTaskDelete = useCallback((id: string, title: string) => {
+    openDeleteChatDialog({
+      chatId:    id,
+      chatTitle: title,
+      onConfirm: async () => {
+        await deleteBrainChat(id)
+        setThreads(prev => prev.filter(t => t.id !== id))
+        emitBrainThreadDeleted({ chatId: id })
+        toast.success('Task deleted')
+      },
+    })
+  }, [])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -223,7 +370,7 @@ export default function ChatsPage() {
               flexShrink: 0,
             }}
           >
-            Chats
+            {libraryMode === 'chats' ? 'Chats' : 'Tasks'}
           </h1>
 
           {/* Right controls — animates between normal ↔ selection */}
@@ -238,7 +385,7 @@ export default function ChatsPage() {
               >
                 <ChatSelectionBar
                   selectedCount={selectedIds.size}
-                  totalCount={chats.length}
+                  totalCount={activeChats.length}
                   onToggleAll={toggleAll}
                   onMoveToProject={() => setMoveModalOpen(true)}
                   onDelete={handleDelete}
@@ -254,40 +401,77 @@ export default function ChatsPage() {
                 transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                <Button variant="outline" onClick={enterSelection}>
-                  Select
-                </Button>
-                <Button
-                  variant="default"
-                  leftIcon={<PlusSignIcon animated />}
-                  onClick={handleNewChat}
-                >
-                  New chat
-                </Button>
+                {libraryMode === 'chats' ? (
+                  <>
+                    {chatsTab === 'all' && (
+                      <Button variant="outline" onClick={enterSelection}>
+                        Select
+                      </Button>
+                    )}
+                    <Button
+                      variant="default"
+                      leftIcon={<PlusSignIcon animated />}
+                      onClick={handleNewChat}
+                    >
+                      New chat
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="default"
+                    leftIcon={<PlusSignIcon animated />}
+                    onClick={() => push(BRAIN_ROUTE)}
+                  >
+                    New task
+                  </Button>
+                )}
               </m.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* ── Tabs ─────────────────────────────────────────────────────────── */}
+        {/* ── Tabs + filter button ─────────────────────────────────────────── */}
         {!selectionMode && (
-          <div style={{ padding: '4px 0 12px', borderBottom: '1px solid var(--neutral-100)', marginBottom: 12 }}>
-            <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as 'my' | 'shared')}>
-              <TabsList>
-                <TabsTrigger value="my">My chats</TabsTrigger>
-                <TabsTrigger value="shared">Shared with me</TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <div
+            style={{
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'space-between',
+              gap:            12,
+              padding:        '4px 0 12px',
+              borderBottom:   '1px solid var(--neutral-100)',
+              marginBottom:   12,
+            }}
+          >
+            {libraryMode === 'chats' ? (
+              <Tabs value={chatsTab} onValueChange={(v) => handleChatsTabChange(v as ChatsTab)}>
+                <TabsList>
+                  <TabsTrigger value="all">All chats</TabsTrigger>
+                  <TabsTrigger value="shared">Shared with me</TabsTrigger>
+                  <TabsTrigger value="archived">Archived chats</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : (
+              <Tabs value="all">
+                <TabsList>
+                  <TabsTrigger value="all">All tasks</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            <LibraryFilterButton value={libraryMode} onChange={handleLibraryModeChange} />
           </div>
         )}
 
+        {/* ══════════════════════════ Chats mode ══════════════════════════ */}
+        {libraryMode === 'chats' && (
+          <>
+
         {/* ── Shared with me view ─────────────────────────────────────────── */}
-        {activeTab === 'shared' && !selectionMode && (
+        {chatsTab === 'shared' && !selectionMode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {sharedLoading && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[...Array(4)].map((_, i) => (
-                  // eslint-disable-next-line react/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
                   <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
                 ))}
               </div>
@@ -332,8 +516,40 @@ export default function ChatsPage() {
           </div>
         )}
 
-        {/* ── My chats content (original) ──────────────────────────────────── */}
-        {(activeTab === 'my' || selectionMode) && (
+        {/* ── Archived chats view ──────────────────────────────────────────── */}
+        {chatsTab === 'archived' && !selectionMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }} role="list" aria-label="Archived chats">
+            {isLoading && chats.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+                ))}
+              </div>
+            )}
+            {!isLoading && archivedChats.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No archived chats.</p>
+            )}
+            {archivedChats.map((chat) => (
+              <div key={chat.id} role="listitem" style={{ padding: '1px 0 6px' }}>
+                <ChatRow
+                  title={chat.title}
+                  timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
+                  pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
+                  pinBoardOpen={isOpen && chatFilter === chat.id}
+                  onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                  starred={chat.starred}
+                  archived
+                  onClick={() => handleOpenChat(chat.id)}
+                  onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
+                  onDelete={async () => { if (await remove(chat.id)) toast.success('Chat deleted') }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── All chats content (original) ─────────────────────────────────── */}
+        {(chatsTab === 'all' || selectionMode) && (
           <>
 
         {/* ── Search — hidden in selection mode ───────────────────────────── */}
@@ -362,7 +578,6 @@ export default function ChatsPage() {
         {isLoading && chats.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[...Array(5)].map((_, i) => (
-              // eslint-disable-next-line react/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
               <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
             ))}
           </div>
@@ -388,14 +603,14 @@ export default function ChatsPage() {
             )}
 
             {/* Empty slot — only when no chats exist and not searching/selecting */}
-            {!selectionMode && !searchQuery && chats.length === 0 && (
+            {!selectionMode && !searchQuery && activeChats.length === 0 && (
               <div role="listitem" style={{ padding: '1px 0' }}>
                 <ChatRow isEmpty />
               </div>
             )}
 
             {/* Selection empty state */}
-            {selectionMode && chats.length === 0 && (
+            {selectionMode && activeChats.length === 0 && (
               <p
                 style={{
                   margin:     '32px 0',
@@ -447,6 +662,7 @@ export default function ChatsPage() {
                         onStar={() => star(chat.id)}
                         onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
                         onDelete={async () => { if (await remove(chat.id)) toast.success('Chat deleted') }}
+                        onArchive={() => void archive(chat.id)}
                       />
                     </div>
                   )
@@ -456,6 +672,76 @@ export default function ChatsPage() {
 
           </div>
         ) : null}
+
+          </>
+        )}
+
+          </>
+        )}
+
+        {/* ══════════════════════════ Tasks mode ══════════════════════════ */}
+        {libraryMode === 'tasks' && (
+          <>
+
+            {/* ── Search ── */}
+            <div style={{ marginBottom: 16, marginTop: 4, padding: '4px' }}>
+              <InputField
+                fluid
+                placeholder="Search tasks…"
+                leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
+                value={tasksSearchQuery}
+                onChange={setTasksSearchQuery}
+              />
+            </div>
+
+            {/* ── Loading skeleton ── */}
+            {tasksLoading && threads.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+                ))}
+              </div>
+            )}
+
+            {/* ── Thread list ── */}
+            {(!tasksLoading || threads.length > 0) && (
+              <div role="list" aria-label="Tasks">
+
+                {filteredThreads.length === 0 && tasksSearchQuery && (
+                  <p style={{
+                    margin:     '32px 0',
+                    textAlign:  'center',
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-body)',
+                    color:      'var(--neutral-400)',
+                  }}>
+                    No tasks match &ldquo;{tasksSearchQuery}&rdquo;
+                  </p>
+                )}
+
+                {!tasksSearchQuery && threads.length === 0 && !tasksLoading && (
+                  <div role="listitem" style={{ padding: '1px 0' }}>
+                    <ChatRow isEmpty />
+                  </div>
+                )}
+
+                {filteredThreads.map(thread => (
+                  <div key={thread.id} role="listitem" style={{ padding: '1px 0 6px' }}>
+                    <ChatRow
+                      title={thread.chat_title || 'Untitled'}
+                      timestamp={formatTaskTimestamp(thread.updated_at ?? thread.created_at)}
+                      starred={thread.starred}
+                      scheduled={scheduledChatIds.has(thread.id)}
+                      onClick={() => push(`${BRAIN_ROUTE}?id=${thread.id}`)}
+                      onRename={(title) => handleTaskRename(thread.id, title)}
+                      onStar={() => handleTaskStar(thread.id)}
+                      onDelete={() => handleTaskDelete(thread.id, thread.chat_title)}
+                    />
+                  </div>
+                ))}
+
+              </div>
+            )}
 
           </>
         )}

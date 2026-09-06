@@ -58,7 +58,6 @@ import {
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
   BRAIN_ROUTE,
-  BRAIN_THREADS_ROUTE,
   BRAIN_SCHEDULES_ROUTE,
   CHAT_ROUTE,
   CHATS_ROUTE,
@@ -2443,7 +2442,7 @@ function LeftSidebarImpl({
   // workspace). Only project-linked chats are excluded, since those already
   // surface inside the Projects section.
   const filteredChatHistory = useMemo(() => {
-    const chats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id));
+    const chats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id) && c.visibility !== 'archived');
     return { ...chatHistory, chats };
   }, [chatHistory, projectChatIdSet]);
 
@@ -2734,7 +2733,7 @@ function LeftSidebarImpl({
       onChatTabClick={isPersonaPage ? () => push(CHAT_ROUTE) : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
-      onManageAllThreadsClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
+      onManageAllThreadsClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(`${CHATS_ROUTE}?filter=tasks`) }}
       // Use a URL command so this works even when the current thread is an
       // unsaved session already at bare `/brain`. The page consumes `?new=1`,
       // performs its complete imperative reset, then cleans the URL.

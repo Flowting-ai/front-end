@@ -8,6 +8,7 @@ import {
   renameChat,
   deleteChat,
   starChat,
+  archiveChat,
 } from "@/lib/api/chat";
 import type { Chat } from "@/types/chat";
 
@@ -28,6 +29,11 @@ export interface UseChatHistoryResult {
   /** Remove one or more chats from the local list without calling the backend delete API. */
   removeLocal: (...chatIds: string[]) => void;
   star: (chatId: string) => Promise<void>;
+  /** Returns true on success, false on failure (already toasted internally).
+   *  Flips visibility in place rather than removing the chat — archiving is
+   *  one-way (no unarchive endpoint exists yet), but the chat must stay in
+   *  this list for the Archived tab (and any other consumer) to see it. */
+  archive: (chatId: string) => Promise<boolean>;
   addOptimistic: (chat: Chat) => void;
   /** Fetch the backend title for a specific chat and update local state if it has changed. */
   refreshChatTitle: (chatId: string) => Promise<void>;
@@ -137,6 +143,24 @@ export function useChatHistory(): UseChatHistoryResult {
     }
   };
 
+  const handleArchive = async (chatId: string): Promise<boolean> => {
+    const rollback = chats.find((c) => c.id === chatId)?.visibility;
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, visibility: "archived" } : c)),
+    );
+    try {
+      await archiveChat(chatId);
+      toast.success("Chat archived");
+      return true;
+    } catch {
+      setChats((prev) =>
+        prev.map((c) => (c.id === chatId ? { ...c, visibility: rollback } : c)),
+      );
+      toast.error("Failed to archive chat");
+      return false;
+    }
+  };
+
   const addOptimistic = (chat: Chat) => {
     setChats((prev) => [chat, ...prev.filter((c) => c.id !== chat.id)]);
   };
@@ -213,6 +237,7 @@ export function useChatHistory(): UseChatHistoryResult {
     remove: handleDelete,
     removeLocal,
     star: handleStar,
+    archive: handleArchive,
     addOptimistic,
     refreshChatTitle,
   };
