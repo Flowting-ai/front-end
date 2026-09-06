@@ -404,13 +404,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     onPublishAndLeaveRef.current?.()
   }, [])
 
+  // Temporarily disabled — hide the agent navigation lock for now (same as
+  // the app-wide nav guard below). Leave the wiring in place (leaveConfirmHref/
+  // setLeaveConfirmHref, the dialog in layout.tsx, needsRepublish) so it's a
+  // one-line revert: restore the "prompt to save a version" branch here and
+  // the `if (needsRepublishRef.current)` check in safeBack.
   const safeNavigate = useCallback((href: string) => {
-    const isLeavingConfigure = !href.includes('/agent/configure/')
-    // Prompt to save a version when leaving configure with unsaved changes
-    if (isLeavingConfigure && pendingChangeTagsRef.current.length > 0) {
-      setLeaveConfirmHref(href)
-      return
-    }
     const save = autoSaveRef.current
     if (save) {
       save().catch(() => {}).finally(() => push(href))
@@ -420,7 +419,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [push])
 
   const safeBack = useCallback(() => {
-    if (needsRepublishRef.current) { setLeaveConfirmHref('__back__'); return }
     const save = autoSaveRef.current
     if (save) {
       save().catch(() => {}).finally(() => back())
