@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { toast } from 'sonner'
-import { ShareOneIcon, CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
-import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { Avatar } from '@/components/Avatar'
+import { Checkbox } from '@/components/Checkbox'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
@@ -16,7 +17,8 @@ import { useAuth } from '@/context/auth-context'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
-// One card, two tabs: Share (person picker) and Active shares (revoke list).
+// One card, two tabs: Share (multiselect workspace member list) and Active
+// shares (revoke list).
 // Standalone chat sharing is person-to-person only — the backend dropped
 // project/team targets and the editable/read-only mode entirely (migration
 // c8d1e4f7a2b5): in-project chats inherit the whole project as their
@@ -40,20 +42,13 @@ interface ChatShareOverlayProps {
 
 type ChatShareTab = 'share' | 'manage'
 
-// Modal card is `width: 460px` capped at `calc(100vw - 32px)`, with 20px of
-// horizontal padding inside — so a dropdown panel that's meant to span the
-// card's content width needs the same responsive cap, not a bare "420px"
-// that can overflow a narrow viewport once the card itself has shrunk.
-const DROPDOWN_PANEL_WIDTH = 'min(420px, calc(100vw - 72px))'
-
 // Modal height is fixed (matching the one other tabbed dialog in this
 // codebase, SuperLinkDrawer) rather than left to size to content — the
-// Share tab (a couple of rows) and Active shares tab (an empty state or a
-// list) have different natural heights, so letting the card free-size would
-// make it visibly resize on every tab switch. 480px comfortably fits the
-// Share tab's content with a little breathing room, and the Active shares
-// tab scrolls internally past that via its own `overflowY: auto`.
-const MODAL_HEIGHT = 480
+// Share tab (a scrollable member list) and Active shares tab (an empty state
+// or a list) have different natural heights, so letting the card free-size
+// would make it visibly resize on every tab switch. Both tabs' lists scroll
+// internally past this via their own `overflowY: auto`.
+const MODAL_HEIGHT = 640
 
 export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
   const { orgId, members: orgMembers } = useOrg()
@@ -64,14 +59,13 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
   const [existingShares,      setExistingShares]      = useState<ChatShare[]>([])
   const [sharesLoading,       setSharesLoading]       = useState(false)
   const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null)
-  const [shareTargetId,       setShareTargetId]       = useState('')
-  const [shareTargetDropOpen, setShareTargetDropOpen] = useState(false)
+  const [selectedIds,         setSelectedIds]         = useState<Set<string>>(new Set())
   const [creatingShare,       setCreatingShare]       = useState(false)
   const [copyingChat,         setCopyingChat]         = useState(false)
 
   function handleOpenChatShare() {
     setExistingShares([])
-    setShareTargetId('')
+    setSelectedIds(new Set())
     setActiveTab('share')
     setChatShareOpen(true)
     if (chatId) {
@@ -83,19 +77,40 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
     }
   }
 
+  function toggleSelected(userId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  // Fires one createChatShare per selected person — there's no batch-create
+  // endpoint. Partial failures keep only the failed ids selected (so Share
+  // can just be pressed again for those), and the toast reflects exactly
+  // what happened rather than a blanket success/failure.
   async function handleCreateShare() {
-    if (!chatId || !shareTargetId) return
+    if (!chatId || selectedIds.size === 0) return
     setCreatingShare(true)
-    try {
-      const share = await createChatShare({ chatId, userId: shareTargetId })
-      setExistingShares(prev => [...prev, share])
-      setShareTargetId('')
-      toast.success('Chat shared')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to share chat')
-    } finally {
-      setCreatingShare(false)
+    const ids = Array.from(selectedIds)
+    const settled = await Promise.allSettled(ids.map(id => createChatShare({ chatId, userId: id })))
+    const created: ChatShare[] = []
+    const failedIds = new Set<string>()
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled') created.push(result.value)
+      else failedIds.add(ids[i]!)
+    })
+    if (created.length > 0) setExistingShares(prev => [...prev, ...created])
+    setSelectedIds(failedIds)
+    if (failedIds.size === 0) {
+      toast.success(created.length === 1 ? 'Chat shared' : `Chat shared with ${created.length} people`)
+    } else if (created.length > 0) {
+      toast.error(`Shared with ${created.length}, failed for ${failedIds.size}`)
+    } else {
+      toast.error('Failed to share chat')
     }
+    setCreatingShare(false)
   }
 
   async function handleRevokeShare(shareId: string) {
@@ -143,19 +158,22 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpen, chatId, canManage])
 
-  const dropdownTriggerStyle: React.CSSProperties = {
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'space-between',
-    gap:             '8px',
-    width:           '100%',
-    padding:         '9px 12px',
-    borderRadius:    '10px',
-    border:          'none',
-    backgroundColor: 'var(--neutral-white)',
-    boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-    cursor:          'pointer',
-    outline:         'none',
+  // Eligible for a new share: everyone in the org except me and anyone who
+  // already has an active share of this chat (they're already covered in
+  // the Active shares tab — offering them again here would just 400).
+  const alreadySharedIds = new Set(existingShares.map(s => s.targetUserId))
+  const shareableMembers = orgMembers.filter(
+    member => member.email.toLowerCase() !== user?.email?.toLowerCase() && !alreadySharedIds.has(member.id),
+  )
+
+  const memberRowStyle: React.CSSProperties = {
+    display:      'flex',
+    alignItems:   'center',
+    gap:          10,
+    width:        '100%',
+    padding:      '8px 10px',
+    borderRadius: 10,
+    boxSizing:    'border-box',
   }
 
   return (
@@ -214,7 +232,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                 background:    'var(--neutral-white)',
                 borderRadius:  '20px',
                 boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                width:         '460px',
+                width:         '560px',
                 maxWidth:      'calc(100vw - 32px)',
                 height:        MODAL_HEIGHT,
                 maxHeight:     'calc(100vh - 64px)',
@@ -259,59 +277,86 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                   </TabsList>
                 </div>
 
-                {/* ── Share tab — create a new share ── */}
+                {/* ── Share tab — multiselect everyone in the workspace who
+                    doesn't already have an active share of this chat ── */}
                 <TabsContent
                   value="share"
-                  className="kaya-scrollbar"
-                  style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: '16px', paddingBottom: '20px' }}
+                  style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0, paddingTop: '16px' }}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
+                  {/* Person-to-person only — the backend dropped both the
+                      project/team target and the editable/read-only mode
+                      (see the file header comment). Viewing is always
+                      read-only-in-place; the recipient can always fork
+                      their own copy from there, so there's nothing left
+                      to pick beyond who to share with. */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 20px', flexShrink: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
+                      Share with
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: '0 0 8px' }}>
+                      They can view this chat and make their own copy of it.
+                    </p>
+                  </div>
 
-                    {/* Person-to-person only — the backend dropped both the
-                        project/team target and the editable/read-only mode
-                        (see the file header comment). Viewing is always
-                        read-only-in-place; the recipient can always fork
-                        their own copy from there, so there's nothing left
-                        to pick beyond who to share with. */}
+                  <div
+                    className="kaya-scrollbar"
+                    style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px 20px' }}
+                  >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                        Share with
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: 0 }}>
-                        They can view this chat and make their own copy of it.
-                      </p>
-                      <DropdownFloat
-                        open={shareTargetDropOpen}
-                        onOpenChange={setShareTargetDropOpen}
-                        placement="bottom-start"
-                        offset={4}
-                        trigger={
-                          <button type="button" style={dropdownTriggerStyle}>
-                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: shareTargetId ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                              {shareTargetId
-                                ? (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || 'Person')
-                                : 'Select person…'}
-                            </span>
-                            <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
-                          </button>
-                        }
-                      >
-                        <Dropdown style={{ width: DROPDOWN_PANEL_WIDTH }} maxHeight={false}>
-                          <Dropdown.Section fluid>
-                            {orgMembers
-                              .filter(member => member.email.toLowerCase() !== user?.email?.toLowerCase())
-                              .map(member => (
-                                <Dropdown.Item
-                                  key={member.id}
-                                  fluid
-                                  label={member.name || member.email}
-                                  selected={shareTargetId === member.id}
-                                  onClick={() => { setShareTargetId(member.id); setShareTargetDropOpen(false) }}
-                                />
-                              ))}
-                          </Dropdown.Section>
-                        </Dropdown>
-                      </DropdownFloat>
+                      {sharesLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} aria-hidden style={memberRowStyle}>
+                            <div className="kaya-skeleton" style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0 }} />
+                            <div className="kaya-skeleton" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                              <div className="kaya-skeleton" style={{ height: 13, width: '45%', borderRadius: 6 }} />
+                              <div className="kaya-skeleton" style={{ height: 11, width: '65%', borderRadius: 6 }} />
+                            </div>
+                          </div>
+                        ))
+                      ) : shareableMembers.length === 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 8px', textAlign: 'center' }}>
+                          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ShareOneIcon size={20} color="var(--neutral-400)" />
+                          </div>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-400)', margin: 0 }}>
+                            Everyone in the workspace already has this chat shared with them.
+                          </p>
+                        </div>
+                      ) : (
+                        shareableMembers.map(member => {
+                          const checked = selectedIds.has(member.id)
+                          return (
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => toggleSelected(member.id)}
+                              style={{
+                                ...memberRowStyle,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: checked ? 'var(--blue-50, #eef5fc)' : 'var(--neutral-white)',
+                                boxShadow: checked
+                                  ? '0px 0px 0px 1px var(--blue-300, #a8cdec)'
+                                  : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                              }}
+                            >
+                              <Checkbox checked={checked} onCheckedChange={() => toggleSelected(member.id)} />
+                              <Avatar name={member.name || member.email} size="sm" />
+                              <div style={{ minWidth: 0, flex: '1 0 0', textAlign: 'left' }}>
+                                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {member.name || member.email}
+                                </p>
+                                {member.name && member.email && (
+                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {member.email}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -392,8 +437,8 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                   {activeTab === 'share' ? 'Cancel' : 'Close'}
                 </Button>
                 {activeTab === 'share' && (
-                  <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
-                    Share
+                  <Button variant="secondary" size="sm" loading={creatingShare} disabled={selectedIds.size === 0 || creatingShare} onClick={() => void handleCreateShare()}>
+                    {selectedIds.size > 1 ? `Share (${selectedIds.size})` : 'Share'}
                   </Button>
                 )}
               </div>
