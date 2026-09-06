@@ -302,7 +302,12 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                     className="kaya-scrollbar"
                     style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px 20px' }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* padding: 3 — same convention as ProjectMembersPanel/
+                        ProjectAddMembersList's own scrollable row lists: gives
+                        the selected row's box-shadow ring room to breathe so
+                        it doesn't get clipped at the scroll container's edges
+                        (most visibly the top row, flush against the top). */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: 3 }}>
                       {sharesLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                           <div key={i} aria-hidden style={memberRowStyle}>
