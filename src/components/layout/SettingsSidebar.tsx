@@ -1,9 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { m } from 'framer-motion'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
@@ -11,14 +10,12 @@ import { AccountMenu } from '@/components/AccountMenu'
 import { ReportBugModal } from '@/components/ReportBugModal'
 import { RequestFeatureModal } from '@/components/RequestFeatureModal'
 import { Divider } from '@/components/Divider'
-import { Button } from '@/components/Button'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useSettingsGuard } from '@/context/settings-guard-context'
-import { useMounted } from '@/hooks/use-mounted'
+import { useGuardedRouter } from '@/context/nav-guard-context'
 import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
@@ -82,41 +79,22 @@ const HELP_ITEMS = [
 
 
 export function SettingsSidebar() {
-  const { push } = useRouter()
+  // Guarded push — same app-wide "unsaved changes" system LeftSidebar uses
+  // (nav-guard-context), so leaving a dirty Settings page shows the shared
+  // confirmation modal (rendered once in (app)/layout.tsx) regardless of
+  // whether the user clicks a Settings nav item or the main app sidebar.
+  const { push } = useGuardedRouter()
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
   const { orgId, org, plan, orgRole, currentUserRole } = useOrg()
-  const { isDirty, saveRef } = useSettingsGuard()
-  const portalMounted = useMounted()
-  const [pendingHref,    setPendingHref]    = useState<string | null>(null)
-  const [isSavingGuard,  setIsSavingGuard]  = useState(false)
   const [reportBugOpen,  setReportBugOpen]  = useState(false)
   const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
 
+  // No-op for a click on the already-active nav item — avoids re-triggering
+  // the guard (or a pointless re-navigation) for a same-page click.
   const safeNavigate = (href: string) => {
-    if (isDirty && pathname !== href) {
-      setPendingHref(href)
-      return
-    }
+    if (pathname === href) return
     push(href)
-  }
-
-  const handleDiscard = () => {
-    const href = pendingHref!
-    setPendingHref(null)
-    push(href)
-  }
-
-  const handleSaveAndContinue = async () => {
-    if (!saveRef.current) { handleDiscard(); return }
-    setIsSavingGuard(true)
-    const ok = await saveRef.current()
-    setIsSavingGuard(false)
-    if (ok) {
-      const href = pendingHref!
-      setPendingHref(null)
-      push(href)
-    }
   }
 
   const displayName = user
@@ -448,41 +426,8 @@ export function SettingsSidebar() {
       </div>
     </div>
 
-    {/* ── Unsaved changes confirmation modal ── */}
-    {portalMounted && pendingHref && createPortal(
-      // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        onClick={() => { if (!isSavingGuard) setPendingHref(null) }}
-      >
-        {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions */}
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Unsaved account changes"
-          style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)' }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              Unsaved account changes
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
-              Your profile changes will be lost if you leave now.
-            </p>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button variant="secondary" size="sm" disabled={isSavingGuard} onClick={handleDiscard}>
-              Discard changes
-            </Button>
-            <Button variant="default" size="sm" loading={isSavingGuard} onClick={() => { void handleSaveAndContinue() }}>
-              Save & continue
-            </Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    {/* Unsaved-changes confirmation is now the shared NavGuardModal (mounted
+        once app-wide in (app)/layout.tsx) — see useGuardedRouter() above. */}
 
     {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
     {requestFeatureOpen && <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />}

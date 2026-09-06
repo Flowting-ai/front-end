@@ -585,15 +585,15 @@ function OrgBillingView() {
   // entirely to ORG_CHANGE_PLAN_ROUTE, so this page just displays the current
   // plan's real price rather than previewing a hypothetical one.
   //
-  // A brand-new org has never had any credits granted at all — plan_credits,
-  // topup_credits, and used are all 0, so totalCredits is 0 — until an admin
-  // actually completes a Stripe checkout (there's no backend signal to check
-  // instead: GET /organizations/{id}/plan's plan_type defaults to "teams"
-  // unconditionally for any non-enterprise org, whether or not one was ever
-  // purchased). Previously `TIERS.findIndex` returning -1 for "no match"
-  // silently fell back to TIERS[0] ($125/mo), presenting the cheapest paid
-  // tier as the org's "Active" plan for anyone who hadn't chosen one yet.
-  const hasPlan = isEnterprise || totalCredits > 0
+  // `hasSelectedPlan` (OrgPlan, from the backend's real plan_type != null) is
+  // the correct signal here — NOT totalCredits > 0. A fresh org gets a
+  // founder-grant starting credit balance at onboarding with no plan ever
+  // selected, so totalCredits > 0 was true immediately and fabricated a fake
+  // "Active" plan card (org name as the plan name, the cheapest tier's price,
+  // a real-looking next-billing-date) for anyone who hadn't chosen a plan at
+  // all. Previously `TIERS.findIndex` returning -1 for "no match" also
+  // silently fell back to TIERS[0] ($125/mo) on top of that.
+  const hasPlan = isEnterprise || Boolean(effectivePlan?.hasSelectedPlan)
   const currentTierIdx = useMemo(() => TIERS.findIndex(t => t.credits === totalCredits), [totalCredits])
   const tier        = TIERS[currentTierIdx] ?? TIERS[0]
   const tierMonthly  = org.billingCycle === 'annual' ? Math.round(tier.price * 0.75) : tier.price
@@ -815,7 +815,7 @@ function OrgBillingView() {
               action={
                 hasPlan
                   ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : 'Active'} tone={cancelAtPeriodEnd ? 'red' : 'green'} />
-                  : <Badge label="No plan selected" tone="neutral" />
+                  : <Badge label="Free Plan" tone="blue" />
               }
               headerDivider={false}
             >
@@ -861,7 +861,7 @@ function OrgBillingView() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: '1 0 0', minWidth: 0 }}>
                     <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                      {org.name}
+                      Currently on Free Plan
                     </p>
                     <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                       Choose a plan to start using paid credits.

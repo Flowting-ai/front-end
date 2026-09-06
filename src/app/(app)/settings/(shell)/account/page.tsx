@@ -7,7 +7,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from '@/lib/api/user'
-import { useSettingsGuard } from '@/context/settings-guard-context'
+import { useNavGuard } from '@/context/nav-guard-context'
 import { toast } from 'sonner'
 import { AccountSkeleton } from '../SettingsSkeleton'
 
@@ -241,8 +241,20 @@ function AccountPageContent({
   refreshUser: () => Promise<void>
 }) {
   // ── Navigation guard ─────────────────────────────────────────────────────
-  const { setIsDirty, saveRef } = useSettingsGuard()
+  // Single app-wide guard now (nav-guard-context) — Settings' own sidebar
+  // and the main app sidebar both route navigation through this, so leaving
+  // this page with unsaved changes is caught no matter which sidebar the
+  // user clicks.
+  const { setIsDirty, setGuardMessage, setSaveHandler } = useNavGuard()
   const isDirtyRef = useRef(false)
+
+  useEffect(() => {
+    setGuardMessage({
+      title:       'Unsaved profile changes',
+      description: 'Your profile changes will be lost if you leave now.',
+    })
+    return () => setGuardMessage(null)
+  }, [setGuardMessage])
 
   // Browser close / refresh
   useEffect(() => {
@@ -255,9 +267,9 @@ function AccountPageContent({
     return () => {
       window.removeEventListener('beforeunload', onBefore)
       setIsDirty(false)
-      saveRef.current = null
+      setSaveHandler(null)
     }
-  }, [setIsDirty, saveRef])
+  }, [setIsDirty, setSaveHandler])
 
   // Baselines from the loaded profile — the source of truth for dirty checks.
   const baseFirstName = user.firstName ?? ''
@@ -271,6 +283,7 @@ function AccountPageContent({
   const [avatar,      setAvatar]      = useState<string | null>(baseAvatar)
   const [isSaving,    setIsSaving]    = useState(false)
   const [avatarHover, setAvatarHover] = useState(false)
+  const [isEditing,   setIsEditing]   = useState(false)
 
   const [tone, setToneState] = useState(baseTone)
   const [tonePending, setTonePending] = useState(false)
@@ -314,7 +327,7 @@ function AccountPageContent({
   isDirtyRef.current = isDirty
 
   // Sync dirty flag to the nav guard context via effect — calling setIsDirty during
-  // render would update a different component (SettingsGuardProvider), which React forbids.
+  // render would update a different component (NavGuardProvider), which React forbids.
   useEffect(() => {
     setIsDirty(isDirty)
   }, [isDirty, setIsDirty])
@@ -359,11 +372,22 @@ function AccountPageContent({
       toast.error('That image is too large (max 8 MB)')
       return
     }
+    // Purely local/staged — nothing is sent to the backend until Save
+    // changes, but reading+resizing the image is genuinely async, so this
+    // still gets its own loading→success/error toast rather than silently
+    // updating the preview.
+    const toastId = toast.loading('Updating profile picture…')
     try {
       setAvatar(await fileToAvatarDataUrl(file))
+      toast.success('Profile picture updated', { id: toastId })
     } catch {
-      toast.error('Could not read that image')
+      toast.error('Could not read that image', { id: toastId })
     }
+  }
+
+  const handleRemoveAvatar = () => {
+    setAvatar(null)
+    toast.success('Profile picture removed')
   }
 
   const handleSave = async (): Promise<boolean> => {
@@ -384,7 +408,8 @@ function AccountPageContent({
 
       await Promise.all(tasks)
       await refreshUser()
-      toast.success('Account saved')
+      toast.success('Account details updated')
+      setIsEditing(false)
       return true
     } catch {
       toast.error('Failed to save — please try again')
@@ -394,8 +419,31 @@ function AccountPageContent({
     }
   }
 
-  // Keep the guard's save reference up to date on every render
-  saveRef.current = handleSave
+  const handleEditProfile = () => {
+    setIsEditing(true)
+    toast.info('Editing profile')
+  }
+
+  const handleCancelEdit = () => {
+    setFirstName(baseFirstName)
+    setLastName(baseLastName)
+    setAvatar(baseAvatar)
+    setIsEditing(false)
+    toast.info('Changes discarded')
+  }
+
+  // Keep the guard's registered save handler pointed at the latest
+  // `handleSave` closure. `handleSave` is recreated every render (it isn't
+  // memoized), so the handler passed to setSaveHandler must be a stable
+  // wrapper that reads through a ref — registering the raw closure directly
+  // in a effect keyed on `[handleSave]` would re-run (and re-render) on
+  // every render instead of once.
+  const handleSaveRef = useRef(handleSave)
+  handleSaveRef.current = handleSave
+  useEffect(() => {
+    setSaveHandler(() => handleSaveRef.current())
+    return () => setSaveHandler(null)
+  }, [setSaveHandler])
 
   const handleDeleteAccount = () => {
     // TODO: open confirmation dialog before proceeding
@@ -458,9 +506,10 @@ function AccountPageContent({
                 style={{ display: 'none' }}
               />
 
-              {/* Avatar — click to change */}
+              {/* Avatar — click to change, only once Edit Profile is on */}
               <button
                 type="button"
+                disabled={!isEditing}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setAvatarHover(true)}
                 onMouseLeave={() => setAvatarHover(false)}
@@ -471,7 +520,7 @@ function AccountPageContent({
                   borderRadius: 55,
                   padding:      0,
                   border:       'none',
-                  cursor:       'pointer',
+                  cursor:       isEditing ? 'pointer' : 'default',
                   backgroundColor: 'var(--neutral-100)',
                   boxShadow:    '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
                   flexShrink:   0,
@@ -515,7 +564,7 @@ function AccountPageContent({
                     fontSize:       11,
                     lineHeight:     '14px',
                     textAlign:      'center',
-                    opacity:        avatarHover ? 1 : 0,
+                    opacity:        isEditing && avatarHover ? 1 : 0,
                     transition:     'opacity 150ms',
                     pointerEvents:  'none',
                   }}
@@ -542,6 +591,7 @@ function AccountPageContent({
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     type="button"
+                    disabled={!isEditing}
                     onClick={() => fileInputRef.current?.click()}
                     style={{
                       display:        'flex',
@@ -550,7 +600,8 @@ function AccountPageContent({
                       padding:        '5px 8px',
                       borderRadius:   8,
                       border:         'none',
-                      cursor:         'pointer',
+                      cursor:         isEditing ? 'pointer' : 'not-allowed',
+                      opacity:        isEditing ? 1 : 0.5,
                       backgroundColor:'transparent',
                       boxShadow:      '0px 0px 0px 1px rgba(59,54,50,0.3)',
                       fontFamily:     'var(--font-body)',
@@ -565,7 +616,8 @@ function AccountPageContent({
                   {avatar && (
                     <button
                       type="button"
-                      onClick={() => setAvatar(null)}
+                      disabled={!isEditing}
+                      onClick={handleRemoveAvatar}
                       style={{
                         display:        'flex',
                         alignItems:     'center',
@@ -573,7 +625,8 @@ function AccountPageContent({
                         padding:        '5px 8px',
                         borderRadius:   8,
                         border:         'none',
-                        cursor:         'pointer',
+                        cursor:         isEditing ? 'pointer' : 'not-allowed',
+                        opacity:        isEditing ? 1 : 0.5,
                         backgroundColor:'transparent',
                         fontFamily:     'var(--font-body)',
                         fontWeight:     500,
@@ -602,6 +655,7 @@ function AccountPageContent({
                 onChange={setFirstName}
                 placeholder="Your first name"
                 subtitle="Shown in team chats and persona attribution"
+                disabled={!isEditing}
               />
               <InputField
                 fluid
@@ -609,6 +663,7 @@ function AccountPageContent({
                 value={lastName}
                 onChange={setLastName}
                 placeholder="Your last name"
+                disabled={!isEditing}
               />
             </div>
           </CardSection>
@@ -634,18 +689,29 @@ function AccountPageContent({
             </div>
           </CardSection>
 
-          {/* Save changes */}
+          {/* Edit Profile / Save changes */}
           <CardSection padTop={12} padBottom={12}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="default"
-                size="sm"
-                disabled={!isDirty || isSaving}
-                loading={isSaving}
-                onClick={handleSave}
-              >
-                Save changes
-              </Button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              {isEditing ? (
+                <>
+                  <Button variant="ghost" size="sm" disabled={isSaving} onClick={handleCancelEdit}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={!isDirty || isSaving}
+                    loading={isSaving}
+                    onClick={handleSave}
+                  >
+                    Save changes
+                  </Button>
+                </>
+              ) : (
+                <Button variant="default" size="sm" onClick={handleEditProfile}>
+                  Edit Profile
+                </Button>
+              )}
             </div>
           </CardSection>
         </SettingsCard>

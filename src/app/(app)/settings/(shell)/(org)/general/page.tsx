@@ -4,12 +4,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ArrowDownOneIcon, TickTwoIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
+import { useNavGuard } from '@/context/nav-guard-context'
 import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from '@/lib/api/organization'
 import { listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
 import type { SlackChannel } from '@/lib/api/slack'
@@ -473,10 +475,21 @@ export default function OrgGeneralPage() {
   const [slugValue,      setSlugValue]      = useState('')
   const [orgIdValue,     setOrgIdValue]     = useState('')
   const [logoUrl,        setLogoUrl]        = useState<string | null>(null)
+  // Staged logo — not uploaded until Save changes; `logoFile` is what
+  // actually gets sent, `logoPreview` is its local data/object URL shown in
+  // place of `logoUrl` while staged.
+  const [logoFile,       setLogoFile]       = useState<File | null>(null)
+  const [logoPreview,    setLogoPreview]    = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [identityLoading, setIdentityLoading] = useState(true)
   const [identitySaving,  setIdentitySaving]  = useState(false)
+  const [isEditingIdentity, setIsEditingIdentity] = useState(false)
+  // Baselines from the loaded org — the source of truth for the dirty check,
+  // separate from the live draft state above (which the inputs write to
+  // directly). Updated on load and after a successful save; restored on Cancel.
+  const [baseWorkspaceName, setBaseWorkspaceName] = useState('')
+  const [baseSlugValue,     setBaseSlugValue]     = useState('')
 
   // Danger zone
   const [deleteOrgInput, setDeleteOrgInput] = useState('')
@@ -484,7 +497,6 @@ export default function OrgGeneralPage() {
   // No archive endpoint exists in lib/api/organization.ts yet — the button is
   // real and enabled (matching Figma 18:23880), but until there's a backend
   // contract it can only tell the admin that, not actually archive anything.
-  const [archivingOrg,   setArchivingOrg]   = useState(false)
   const [leaveWorkspaceOpen, setLeaveWorkspaceOpen] = useState(false)
 
   // Settings fields
@@ -512,13 +524,51 @@ export default function OrgGeneralPage() {
     getOrg(orgId)
       .then(data => {
         setWorkspaceName(data.name)
+        setBaseWorkspaceName(data.name)
         setSlugValue(data.slug)
+        setBaseSlugValue(data.slug)
         setOrgIdValue(data.id)
         setLogoUrl(data.logoUrl)
       })
       .catch(console.error)
       .finally(() => setIdentityLoading(false))
   }, [orgId])
+
+  // ── Workspace Identity — dirty tracking + unsaved-changes guard ─────────
+  // Same app-wide guard /settings/account uses (nav-guard-context) — leaving
+  // this page with unsaved identity edits is caught no matter which sidebar
+  // (Settings' own or the main app one) the user clicks, plus a native
+  // browser prompt on tab close/refresh.
+  const { setIsDirty: setNavDirty, setGuardMessage, setSaveHandler } = useNavGuard()
+  const isIdentityDirtyRef = useRef(false)
+  const isIdentityDirty = workspaceName.trim() !== baseWorkspaceName.trim() || slugValue.trim() !== baseSlugValue.trim() || logoFile !== null
+  isIdentityDirtyRef.current = isIdentityDirty
+
+  useEffect(() => {
+    setGuardMessage({
+      title:       'Unsaved workspace identity changes',
+      description: 'Your workspace name/URL changes will be lost if you leave now.',
+    })
+    return () => setGuardMessage(null)
+  }, [setGuardMessage])
+
+  useEffect(() => {
+    const onBefore = (e: BeforeUnloadEvent) => {
+      if (!isIdentityDirtyRef.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBefore)
+    return () => {
+      window.removeEventListener('beforeunload', onBefore)
+      setNavDirty(false)
+      setSaveHandler(null)
+    }
+  }, [setNavDirty, setSaveHandler])
+
+  useEffect(() => {
+    setNavDirty(isIdentityDirty)
+  }, [isIdentityDirty, setNavDirty])
 
   // Load org settings
   useEffect(() => {
@@ -545,29 +595,34 @@ export default function OrgGeneralPage() {
       .finally(() => setSlackLoading(false))
   }, [orgId])
 
-  const handleLogoUpload = useCallback(async (file: File) => {
-    if (!orgId || !file.type.startsWith('image/')) return
+  // Stages the logo locally (like the name/slug fields) instead of uploading
+  // immediately — it's only actually sent to the backend when Save changes
+  // is clicked, alongside whatever else changed (see handleSaveIdentity).
+  const handlePickLogo = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) return
     setAvatarUploading(true)
     try {
-      // Downscale to 512x512 client-side, then upload the raw bytes. The backend
-      // stores them in S3 and returns the logo URL.
-      let upload: File = file
+      // Downscale to 512x512 client-side; the data URL doubles as the local
+      // preview, and the File built from it is what actually gets uploaded.
+      let staged: File = file
+      let preview = ''
       try {
-        const dataUrl = await compressImage(file, 512, 512, 0.85)
-        const blob = await (await fetch(dataUrl)).blob()
-        upload = new File([blob], 'logo.jpg', { type: blob.type || 'image/jpeg' })
+        preview = await compressImage(file, 512, 512, 0.85)
+        const blob = await (await fetch(preview)).blob()
+        staged = new File([blob], 'logo.jpg', { type: blob.type || 'image/jpeg' })
       } catch {
-        // compression unsupported in this browser — fall back to the original file
+        // compression unsupported in this browser — fall back to the
+        // original file for upload, and an object URL for the preview.
+        preview = URL.createObjectURL(file)
       }
-      const { logoUrl } = await updateOrg(orgId, { logoFile: upload })
-      setLogoUrl(logoUrl)
-      toast.success('Logo updated')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update logo')
+      setLogoFile(staged)
+      setLogoPreview(preview)
+    } catch {
+      toast.error('Could not read that image')
     } finally {
       setAvatarUploading(false)
     }
-  }, [orgId])
+  }, [])
 
   const handleSetSlackMapping = async (channelId: string, projectId: string | null) => {
     if (!orgId) return
@@ -585,10 +640,8 @@ export default function OrgGeneralPage() {
   }
 
   const handleArchiveOrg = () => {
-    if (!canDeleteOrg) { toast.error('Only an admin or owner can archive this organization.'); return }
-    setArchivingOrg(true)
-    toast.info('Archiving workspaces isn’t available yet — check back soon.')
-    setArchivingOrg(false)
+    // TODO: no backend enforcement exists yet — wire once `archived` is
+    // actually read/gated somewhere server-side.
   }
 
   const handleDeleteOrg = async () => {
@@ -606,20 +659,52 @@ export default function OrgGeneralPage() {
     }
   }
 
-  const handleSaveIdentity = async () => {
-    if (!orgId) return
+  const handleSaveIdentity = async (): Promise<boolean> => {
+    if (!orgId || !isIdentityDirty) return false
     setIdentitySaving(true)
     try {
-      const updated = await updateOrg(orgId, { name: workspaceName, slug: slugValue })
+      const updated = await updateOrg(orgId, { name: workspaceName, slug: slugValue, logoFile })
       setWorkspaceName(updated.name)
+      setBaseWorkspaceName(updated.name)
       setSlugValue(updated.slug)
+      setBaseSlugValue(updated.slug)
+      setLogoUrl(updated.logoUrl)
+      setLogoFile(null)
+      setLogoPreview(null)
       toast.success('Workspace identity saved')
+      setIsEditingIdentity(false)
+      return true
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save identity')
+      return false
     } finally {
       setIdentitySaving(false)
     }
   }
+
+  const handleEditIdentity = () => {
+    setIsEditingIdentity(true)
+    toast.info('Editing workspace identity')
+  }
+
+  const handleCancelIdentityEdit = () => {
+    setWorkspaceName(baseWorkspaceName)
+    setSlugValue(baseSlugValue)
+    setLogoFile(null)
+    setLogoPreview(null)
+    setIsEditingIdentity(false)
+    toast.info('Changes discarded')
+  }
+
+  // Keep the guard's registered save handler pointed at the latest
+  // `handleSaveIdentity` closure — same stable-ref-wrapper pattern
+  // /settings/account uses, since the closure is recreated every render.
+  const handleSaveIdentityRef = useRef(handleSaveIdentity)
+  handleSaveIdentityRef.current = handleSaveIdentity
+  useEffect(() => {
+    setSaveHandler(() => handleSaveIdentityRef.current())
+    return () => setSaveHandler(null)
+  }, [setSaveHandler])
 
   const handleClearInstructions = async () => {
     if (!orgId) return
@@ -789,9 +874,9 @@ export default function OrgGeneralPage() {
                   alignItems:      'center',
                   justifyContent:  'center',
                 }}>
-                  {logoUrl ? (
+                  {logoPreview ?? logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logoUrl} alt="Workspace logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={logoPreview ?? logoUrl ?? ''} alt="Workspace logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <rect width="32" height="32" rx="16" fill="var(--neutral-300)" />
@@ -824,17 +909,17 @@ export default function OrgGeneralPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={avatarUploading}
+                  disabled={avatarUploading || !isEditingIdentity}
                   onClick={() => logoInputRef.current?.click()}
                 >
-                  {avatarUploading ? 'Uploading…' : logoUrl ? 'Change Logo' : 'Upload Logo'}
+                  {avatarUploading ? 'Processing…' : (logoPreview ?? logoUrl) ? 'Change Logo' : 'Upload Logo'}
                 </Button>
                 <input
                   ref={logoInputRef}
                   type="file"
                   accept="image/*"
                   style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = '' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) void handlePickLogo(f); e.target.value = '' }}
                 />
               </div>
 
@@ -848,6 +933,7 @@ export default function OrgGeneralPage() {
                   <TextInput
                     value={workspaceName}
                     onChange={setWorkspaceName}
+                    readOnly={!isEditingIdentity}
                     style={{ width: 521 }}
                   />
                 </FieldRow>
@@ -868,6 +954,7 @@ export default function OrgGeneralPage() {
                     <TextInput
                       value={slugValue}
                       onChange={setSlugValue}
+                      readOnly={!isEditingIdentity}
                     />
                   </FieldRow>
                 </div>
@@ -905,16 +992,28 @@ export default function OrgGeneralPage() {
             </div>
           </div>
 
-          {/* Save changes — outside the bordered content box. */}
-          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSaveIdentity}
-              disabled={identitySaving || identityLoading}
-            >
-              {identitySaving ? 'Saving…' : 'Save changes'}
-            </Button>
+          {/* Edit / Save changes / Cancel — outside the bordered content box. */}
+          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            {isEditingIdentity ? (
+              <>
+                <Button variant="ghost" size="sm" disabled={identitySaving} onClick={handleCancelIdentityEdit}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => void handleSaveIdentity()}
+                  disabled={!isIdentityDirty || identitySaving}
+                  loading={identitySaving}
+                >
+                  Save changes
+                </Button>
+              </>
+            ) : (
+              <Button variant="default" size="sm" disabled={identityLoading} onClick={handleEditIdentity}>
+                Edit
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -1316,23 +1415,33 @@ export default function OrgGeneralPage() {
             </button>
           </div>
 
-          {/* Archive workspace */}
+          {/* handleArchiveOrg kept as a no-op stub (matching account page's
+              handleDeleteAccount precedent) so the disabled button stays
+              wired rather than dead-code. */}
+          {/* Archive workspace — no backend enforcement exists behind the
+              `archived` org field yet (nothing reads it to actually gate
+              member access), so this stays disabled behind a "Coming soon"
+              badge rather than wiring a button that wouldn't really archive
+              anything. */}
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Archive workspace
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                  Archive workspace
+                </p>
+                <Badge label="Coming soon" color="Red" />
+              </div>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Temporarily disable the workspace. Members will lose access until restored.
               </p>
             </div>
             <button
+              disabled
               onClick={handleArchiveOrg}
-              disabled={archivingOrg || !canDeleteOrg}
               style={{
                 flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: canDeleteOrg ? 'pointer' : 'not-allowed',
-                opacity: canDeleteOrg ? 1 : 0.5,
+                padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'not-allowed',
+                opacity: 0.5,
                 backgroundColor: 'var(--neutral-white)',
                 boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)',
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-500)', whiteSpace: 'nowrap',
@@ -1342,12 +1451,17 @@ export default function OrgGeneralPage() {
             </button>
           </div>
 
-          {/* Delete workspace */}
+          {/* Delete workspace — real DELETE endpoint exists and is fully
+              wired (see handleDeleteOrg), but stays behind "Coming soon"
+              per the same disable-until-ready treatment as Archive above. */}
           <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Delete workspace
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                  Delete workspace
+                </p>
+                <Badge label="Coming soon" color="Red" />
+              </div>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Permanently delete this workspace, all teams, projects, and data. This cannot be undone.
               </p>
@@ -1356,16 +1470,17 @@ export default function OrgGeneralPage() {
               value={deleteOrgInput}
               onChange={setDeleteOrgInput}
               placeholder={`Type "${workspaceName}" to confirm`}
+              readOnly
               style={{ width: 327, flexShrink: 0 }}
             />
             <button
+              disabled
               onClick={() => void handleDeleteOrg()}
-              disabled={deletingOrg || deleteOrgInput !== workspaceName || !canDeleteOrg}
               style={{
                 flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                cursor: (deleteOrgInput === workspaceName && canDeleteOrg) ? 'pointer' : 'not-allowed',
-                opacity: (deleteOrgInput === workspaceName && canDeleteOrg) ? 1 : 0.5,
+                cursor: 'not-allowed',
+                opacity: 0.5,
                 backgroundColor: 'var(--neutral-white)',
                 boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100)',
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-500)', whiteSpace: 'nowrap',
