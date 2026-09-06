@@ -164,9 +164,10 @@ export default function OrgChangePlanPage() {
     }
   }, [orgReady, orgRole, router])
 
-  // Announce the org's current plan once data is ready — green for an actual
-  // plan, blue for "nothing selected yet" — and stays put until the user
-  // closes it themselves (no auto-dismiss).
+  // Announce the org's current plan once data is ready — only when there's an
+  // actual plan to announce; no toast at all for "nothing selected yet" (see
+  // memory: this toast is explicitly unwanted anywhere in the app). Stays put
+  // until the user closes it themselves (no auto-dismiss).
   const currentPlanToastShown = useRef(false)
   useEffect(() => {
     if (currentPlanToastShown.current || !orgReady) return
@@ -179,7 +180,6 @@ export default function OrgChangePlanPage() {
       toast.success(`You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`, { duration: Infinity })
     } else {
       currentPlanToastShown.current = true
-      toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity })
     }
   }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
 
