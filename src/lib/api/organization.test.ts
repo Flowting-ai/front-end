@@ -53,12 +53,22 @@ describe('getOrgPlan', () => {
     const plan = await getOrgPlan('org-1')
 
     expect(plan.planType).toBe('teams') // null plan_type falls back to 'teams'
+    expect(plan.hasSelectedPlan).toBe(false) // null plan_type => no plan actually selected
     expect(plan.members).toEqual([expect.objectContaining({
       id:         'user-1',
       email:      'ada@example.com',
       inviteStatus: 'signed_up',
       creditUsed: 12500, // toDisplayCredits(12.5)
     })])
+  })
+
+  it('sets hasSelectedPlan true when plan_type is a real subscription/contract value', async () => {
+    apiFetchJson.mockResolvedValue(rawPlan({ plan_type: 'teams' }))
+
+    const plan = await getOrgPlan('org-1')
+
+    expect(plan.planType).toBe('teams')
+    expect(plan.hasSelectedPlan).toBe(true)
   })
 
   it('treats a null usageTotal as zero instead of throwing', async () => {

@@ -37,8 +37,6 @@ import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import { InlineCreditNotice } from "@/components/InlineCreditNotice";
-import { useOrg } from "@/context/org-context";
-import { useAuth } from "@/context/auth-context";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
@@ -242,25 +240,9 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { push, replace } = useRouter();
-  const { orgId, orgReady } = useOrg();
-  const { user } = useAuth();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
-  // "No plan yet" toast — blue, stays until the user closes it themselves.
-  // Individual (non-org) users only: no plan purchased at all (user.planType
-  // null — trial credits aren't a "plan"). Org members no longer get this
-  // toast on /chat (removed — was "Your workspace doesn't have a plan yet").
-  // Never user?.orgId for the org check — GET /users/me never actually
-  // populates it; orgId from useOrg() (resolved via listOrganizations as a
-  // fallback) is the only reliable signal.
-  const noPlanToastShown = useRef(false);
-  useEffect(() => {
-    if (noPlanToastShown.current || !orgReady || orgId != null) return;
-    if (!user || user.planType) return;
-    noPlanToastShown.current = true;
-    toast.info("You don't have a plan yet — pick one to get started.", { duration: Infinity });
-  }, [orgReady, orgId, user]);
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's

@@ -139,6 +139,14 @@ export function SettingsSidebar() {
   // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
   const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
 
+  // Distinct from orgHasPlan above: true only once a plan is actually
+  // SELECTED (a real Teams subscription or signed Enterprise contract), not
+  // just because the org has a starting credit balance — the one-time $25
+  // founder org-create grant funds the pool immediately on workspace
+  // creation, before any plan is ever chosen. See OrgPlan.hasSelectedPlan's
+  // own doc comment (types/teams.ts) for the backend signal this reads.
+  const orgHasSelectedPlan = orgId ? !!plan?.hasSelectedPlan : false
+
   // Workspace identity line — just the org name, independent of plan/billing
   // status, which now surfaces only via the status tag below. Individuals
   // have no named workspace, so they get no second line at all.
@@ -150,14 +158,20 @@ export function SettingsSidebar() {
 
   // Plan-type label for the status tag ("Workspace | 250 credits left" /
   // "Pro | 250 credits left") — distinct from planLabel above, which is now
-  // just the org's own name.
+  // just the org's own name. Team orgs get "Free Plan" (blue tag, see
+  // planStatusVariant below) until a real plan is selected, then "Workspace".
   const planTypeLabel = isTeamUser
-    ? 'Workspace'
+    ? (orgHasSelectedPlan ? 'Workspace' : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
         : undefined
+
+  // Blue tag for "Free Plan" (running on starting credits, no plan selected
+  // yet); default color once a real plan is selected, and always for
+  // individuals.
+  const planStatusVariant: 'neutral' | 'blue' = (isTeamUser && orgHasPlan && !orgHasSelectedPlan) ? 'blue' : 'neutral'
 
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
@@ -416,6 +430,7 @@ export function SettingsSidebar() {
             planWarning={planWarning}
             planType={planTypeLabel}
             credits={accountCredits}
+            planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={false}
             panelWidth={274}

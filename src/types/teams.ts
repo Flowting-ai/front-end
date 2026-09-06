@@ -200,6 +200,20 @@ export interface MemberBurn {
 export interface OrgPlan {
   organizationId: string
   planType: 'teams' | 'enterprise'
+  /**
+   * True only when the org has an actually-selected/subscribed plan (a real
+   * Teams subscription or a signed Enterprise contract) — distinct from
+   * merely having a starting credit balance. The backend's `plan_type` stays
+   * null until a real subscription exists (services/organizations/service.py
+   * get_plan()); the one-time $25 founder-org-create credit grant funds the
+   * pool but is NOT a plan selection, so this is false right after workspace
+   * onboarding even though `totalCredits`/`remaining` are already > 0.
+   * `planType` above can't be used for this distinction — it's normalized to
+   * always fall back to 'teams' when the backend sends null (kept as-is;
+   * many existing consumers depend on that binary 'teams'|'enterprise'
+   * shape), so this is a separate, additive field just for this purpose.
+   */
+  hasSelectedPlan: boolean
   billingModel: 'prepaid' | 'postpaid'
   planCredits: number
   topupCredits: number

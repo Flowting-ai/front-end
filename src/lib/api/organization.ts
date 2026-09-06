@@ -190,6 +190,11 @@ function normalizePlan(p: PlanResponse): OrgPlan {
   return {
     organizationId: p.organization_id,
     planType:       p.plan_type === 'enterprise' ? 'enterprise' : 'teams',
+    // Unlike planType above (which always falls back to 'teams'), this
+    // preserves the real null — true only when the backend actually returned
+    // a plan_type at all (a real subscription/contract), not the founder
+    // org-create credit grant alone. See the field's own doc comment.
+    hasSelectedPlan: p.plan_type != null,
     billingModel:   isPostpaid ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),

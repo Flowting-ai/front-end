@@ -2551,6 +2551,14 @@ function LeftSidebarImpl({
   // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
   const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
 
+  // Distinct from orgHasPlan above: true only once a plan is actually
+  // SELECTED (a real Teams subscription or signed Enterprise contract), not
+  // just because the org has a starting credit balance — the one-time $25
+  // founder org-create grant funds the pool immediately on workspace
+  // creation, before any plan is ever chosen. See OrgPlan.hasSelectedPlan's
+  // own doc comment (types/teams.ts) for the backend signal this reads.
+  const orgHasSelectedPlan = orgId ? !!plan?.hasSelectedPlan : false
+
   // Workspace identity line — just the org name, independent of plan/billing
   // status, which now surfaces only via the status tag below. Individuals
   // have no named workspace, so they get no second line at all.
@@ -2562,14 +2570,21 @@ function LeftSidebarImpl({
 
   // Plan-type label for the status tag ("Workspace | 250 credits left" /
   // "Pro | 250 credits left") — distinct from planLabel above, which is now
-  // just the org's own name.
+  // just the org's own name. Team orgs get "Free Plan" (blue tag, see
+  // planStatusVariant below) until a real plan is selected, then "Workspace".
   const planTypeLabel = isTeamUser
-    ? 'Workspace'
+    ? (orgHasSelectedPlan ? 'Workspace' : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
         : undefined
+
+  // Blue tag for "Free Plan" (running on starting credits, no plan selected
+  // yet); default color once a real plan is selected, and always for
+  // individuals. Irrelevant when planWarning is set (that state has its own
+  // look) — AccountMenu itself ignores this prop in that case too.
+  const planStatusVariant: 'neutral' | 'blue' = (isTeamUser && orgHasPlan && !orgHasSelectedPlan) ? 'blue' : 'neutral'
 
   // Credits shown in the account menu, by environment (kept isolated):
   //   • Organization ? the SHARED org pool remaining (org-context / getOrgPlan)
@@ -2609,7 +2624,7 @@ function LeftSidebarImpl({
             <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
             <FlatProjectsSection
-              label="Personal Projects"
+              label="Projects"
               headerIcon={
                 <IconWithFallback
                   icon={<PersonalProjectsIcon size={14} />}
@@ -2661,6 +2676,7 @@ function LeftSidebarImpl({
                 planWarning={planWarning}
                 planType={planTypeLabel}
                 credits={accountCredits}
+                planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
                 panelWidth={274}
@@ -2777,6 +2793,7 @@ function LeftSidebarImpl({
             planWarning={planWarning}
             planType={planTypeLabel}
             credits={accountCredits}
+            planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
             panelWidth={274}
@@ -2802,7 +2819,7 @@ function LeftSidebarImpl({
       projectItems={orgId ? (
         <TeamsSidebarContent role={currentUserRole} />
       ) : (
-        <ProjectsSection label="Personal Projects" />
+        <ProjectsSection label="Projects" />
       )}
       scheduledTasksItems={isBrainPage ? (
         <BrainScheduledTasksSection

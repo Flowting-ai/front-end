@@ -33,6 +33,12 @@ export interface AccountMenuProps {
   /** Credit count shown in the status tag beneath the identity row. Ignored
    *  when `planWarning` is true. */
   credits?: number
+  /** Status-tag color — 'blue' for a workspace running on its starting
+   *  credit grant with no plan selected yet (e.g. "Free Plan | 25000 credits
+   *  left"); 'neutral' (default) once a real plan is selected, and always
+   *  for individuals. Ignored when `planWarning` (that state has its own
+   *  look). @default 'neutral' */
+  planStatusVariant?: 'neutral' | 'blue'
   /** Avatar image URL. Falls back to initials if absent. */
   avatarSrc?: string
   /** Controlled open state. */
@@ -100,34 +106,42 @@ const ShortcutPill = ({ label }: { label: string }) => (
 )
 
 // ── Status badge — "No Plan Selected" / "{x} credits left" pill ──────────────────
+// 'blue' variant reuses the same --color-tag-Blue-* tokens the shared Badge
+// component's Blue color uses, for the "Free Plan" (no plan selected yet,
+// still on starting credits) state.
 
-const StatusBadge = ({ label }: { label: string }) => (
-  <div
-    style={{
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      padding:        '2px 4px',
-      borderRadius:   '6px',
-      background:     'var(--neutral-100)',
-      boxShadow:      '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
-      flexShrink:     0,
-    }}
-  >
-    <span
+const StatusBadge = ({ label, variant = 'neutral' }: { label: string; variant?: 'neutral' | 'blue' }) => {
+  const isBlue = variant === 'blue'
+  return (
+    <div
       style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 'var(--font-weight-medium)',
-        fontSize:   'var(--font-size-caption)',
-        lineHeight: 'var(--line-height-caption)',
-        color:      'var(--neutral-700)',
-        whiteSpace: 'nowrap',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        '2px 4px',
+        borderRadius:   '6px',
+        background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
+        boxShadow:      isBlue
+          ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
+          : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+        flexShrink:     0,
       }}
     >
-      {label}
-    </span>
-  </div>
-)
+      <span
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontWeight: 'var(--font-weight-medium)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      isBlue ? 'var(--color-tag-Blue-text)' : 'var(--neutral-700)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
 
 // ── Avatar content ─────────────────────────────────────────────────────────────
 
@@ -254,13 +268,13 @@ const IdentityRow = ({ name, plan, avatarSrc }: {
 // {x} credits left" (e.g. "Workspace | 250 credits left") — the two are
 // mutually exclusive so this always renders exactly one. ──
 
-const PlanStatusRow = ({ planWarning, planType, credits }: { planWarning?: boolean; planType?: string; credits?: number }) => {
+const PlanStatusRow = ({ planWarning, planType, credits, planStatusVariant = 'neutral' }: { planWarning?: boolean; planType?: string; credits?: number; planStatusVariant?: 'neutral' | 'blue' }) => {
   if (!planWarning && credits === undefined) return null
   const creditsLabel = `${Math.round(credits ?? 0).toLocaleString()} credits left`
   const label = planWarning ? 'No Plan Selected' : (planType ? `${planType} | ${creditsLabel}` : creditsLabel)
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
-      <StatusBadge label={label} />
+      <StatusBadge label={label} variant={planWarning ? 'neutral' : planStatusVariant} />
     </div>
   )
 }
@@ -274,6 +288,7 @@ export function AccountMenu({
   planWarning = false,
   planType,
   credits,
+  planStatusVariant = 'neutral',
   avatarSrc,
   open: controlledOpen,
   onOpenChange,
@@ -335,7 +350,7 @@ export function AccountMenu({
           <Dropdown.Section fluid>
             <IdentityRow name={name} plan={plan} avatarSrc={avatarSrc} />
 
-            <PlanStatusRow planWarning={planWarning} planType={planType} credits={credits} />
+            <PlanStatusRow planWarning={planWarning} planType={planType} credits={credits} planStatusVariant={planStatusVariant} />
 
             <Dropdown.Item
               icon={<UserIcon />}
