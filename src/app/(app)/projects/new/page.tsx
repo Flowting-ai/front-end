@@ -139,6 +139,49 @@ function NewProjectPageInner() {
             />
           </div>
 
+          {visibilityOptions.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label
+                style={{
+                  fontFamily:  'var(--font-body)',
+                  fontWeight:  'var(--font-weight-medium)',
+                  fontSize:    '14px',
+                  lineHeight:  '22px',
+                  color:       '#524b47',
+                }}
+              >
+                Who can see this
+              </label>
+              <Dropdown.Float
+                open={visibilityOpen}
+                onOpenChange={setVisibilityOpen}
+                placement="bottom-start"
+                trigger={
+                  <Button variant="secondary" fluid rightIcon={<ArrowDownOneIcon size={16} />}>
+                    <span style={{ flex: '1 0 0', textAlign: 'center' }}>
+                      {visibilityOptions.find(o => o.value === visibility)?.label}
+                    </span>
+                  </Button>
+                }
+              >
+                <Dropdown size="md">
+                  <Dropdown.Section fluid>
+                    {visibilityOptions.map(opt => (
+                      <Dropdown.Item
+                        key={opt.value}
+                        label={opt.label}
+                        subLabel={opt.description}
+                        selected={visibility === opt.value}
+                        onClick={() => { setVisibility(opt.value); setVisibilityOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label
               htmlFor="new-project-desc"
@@ -200,49 +243,6 @@ function NewProjectPageInner() {
               This becomes part of your project context.
             </p>
           </div>
-
-          {visibilityOptions.length > 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label
-                style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-medium)',
-                  fontSize:    '14px',
-                  lineHeight:  '22px',
-                  color:       '#524b47',
-                }}
-              >
-                Who can see this
-              </label>
-              <Dropdown.Float
-                open={visibilityOpen}
-                onOpenChange={setVisibilityOpen}
-                placement="bottom-start"
-                trigger={
-                  <Button variant="secondary" fluid rightIcon={<ArrowDownOneIcon size={16} />}>
-                    <span style={{ flex: '1 0 0', textAlign: 'center' }}>
-                      {visibilityOptions.find(o => o.value === visibility)?.label}
-                    </span>
-                  </Button>
-                }
-              >
-                <Dropdown size="md">
-                  <Dropdown.Section fluid>
-                    {visibilityOptions.map(opt => (
-                      <Dropdown.Item
-                        key={opt.value}
-                        label={opt.label}
-                        subLabel={opt.description}
-                        selected={visibility === opt.value}
-                        onClick={() => { setVisibility(opt.value); setVisibilityOpen(false) }}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
-                </Dropdown>
-              </Dropdown.Float>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
