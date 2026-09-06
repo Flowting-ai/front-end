@@ -149,7 +149,7 @@ export default function UsagePage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>My usage</p>
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-                    {fmtNum(usage.remainingCredits)} credits remaining
+                    {usage.isUnlimited ? 'Unlimited credits' : `${fmtNum(usage.remainingCredits)} credits remaining`}
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>

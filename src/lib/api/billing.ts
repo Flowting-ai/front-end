@@ -26,6 +26,14 @@ export const CREDITS_PER_USD = 1000;
 const USAGE_RATIO = 0.8;
 const TEAMS_PLAN_IDS = ["50", "100", "250", "500", "1000", "2000"] as const;
 
+// Enterprise orgs are funded with this explicit "never runs out" sentinel
+// (back-end/services/users/enterprise_pricing.py's ENTERPRISE_INTERMAX) as
+// their pool's dollar balance, so it never empties — non-payment is the only
+// stop. Any consumer of a raw dollar/credit figure that could carry this
+// value must check for it and render "Unlimited" instead of the literal
+// number (~2.15 trillion once converted to credits).
+export const ENTERPRISE_INTERMAX = 2_147_483_647;
+
 export function dollarsToCredits(usd: number): number {
   return Math.max(0, Math.round(usd * CREDITS_PER_USD));
 }
@@ -133,6 +141,12 @@ export class Usage {
 
   get isTrial(): boolean {
     return this.trialExpiresAt !== null;
+  }
+
+  // True for an Enterprise org's pool — `credits` (remaining) is the raw
+  // INTERMAX sentinel dollar balance, not a real number to display.
+  get isUnlimited(): boolean {
+    return this.credits >= ENTERPRISE_INTERMAX;
   }
 
   get remainingCredits(): number {
