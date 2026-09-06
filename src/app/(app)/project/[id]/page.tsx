@@ -344,10 +344,12 @@ export default function ProjectPage() {
   // click Delete only to have it 404 (invisibly, until deleteProjectApi's
   // own missing-response.ok bug was fixed — see projects.ts).
   const canDeleteProject = project.canEdit
-  // Personal projects have no membership to leave (backend 400s) — leaving
-  // applies to both the owner (triggers successor/archive/convert) and any
-  // collaborator on a workspace/shared project.
-  const canLeaveProject = project.visibility !== 'personal'
+  // Personal projects have no membership to leave (backend 400s). The owner
+  // leaving would trigger successor/archive/convert — real backend logic,
+  // but there's no "transfer ownership" flow to pair with it yet, so the
+  // backend rejects it for now too (project.py's OWNER_LEAVE_ENABLED flag).
+  // Only a non-owner collaborator on a workspace/shared project can leave.
+  const canLeaveProject = project.visibility !== 'personal' && !project.canEdit
   const hasMenuActions = canDeleteProject || canLeaveProject
 
   const projectId = project.id

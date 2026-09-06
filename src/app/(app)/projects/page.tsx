@@ -348,11 +348,13 @@ function ProjectsPageInner() {
   const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
   const [trashOpen,      setTrashOpen]      = useState(false)
 
-  // Personal projects have no membership to leave (backend 400s) — only
-  // workspace/shared projects get the "Leave project" menu item, for both
-  // the owner (triggers successor/archive/convert) and any collaborator.
+  // Personal projects have no membership to leave (backend 400s). The owner
+  // leaving would trigger successor/archive/convert — real backend logic,
+  // but there's no "transfer ownership" flow to pair with it yet, so the
+  // backend rejects it for now too (project.py's OWNER_LEAVE_ENABLED flag).
+  // Only a non-owner collaborator on a workspace/shared project can leave.
   function canLeaveProject(project: Project): boolean {
-    return project.visibility !== 'personal'
+    return project.visibility !== 'personal' && !project.canEdit
   }
 
   // refreshProjects() itself has no built-in error handling (unlike the
