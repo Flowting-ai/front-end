@@ -29,9 +29,8 @@ import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
-import { forkChatShare, type SharedChatItem } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
-import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
+import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
 import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Chat } from '@/types/chat'
@@ -53,9 +52,9 @@ import { Tooltip } from '@/components/Tooltip'
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 // Team-project chat tabs (private projects render a flat list instead).
-// 4 distinct, independently-filterable tabs in one row; a single info
-// button right after them explains what each of the four covers.
-type TeamTab = 'personal' | 'publish' | 'shared'
+// 2 distinct, independently-filterable tabs in one row; a single info
+// button right after them explains what each covers.
+type TeamTab = 'personal' | 'publish'
 
 const tabsRowStyle: React.CSSProperties = {
   display:    'flex',
@@ -80,7 +79,7 @@ function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
-  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading, refreshProjects } = useProjects()
+  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading, refreshProjects } = useProjects()
   const { pins, isLoading: pinsLoading, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { panel: sharedPanel, setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
@@ -137,10 +136,6 @@ export default function ProjectPage() {
   const [shareOpen,        setShareOpen]        = useState(false)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<Chat[]>([])
-  const [sharedItems,      setSharedItems]      = useState<SharedChatItem[]>([])
-  const [sharedLoading,    setSharedLoading]    = useState(false)
-  const [sharedError,      setSharedError]      = useState<string | null>(null)
-  const [forkingShareId,   setForkingShareId]   = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -168,24 +163,6 @@ export default function ProjectPage() {
     })().catch(() => { if (!cancelled) setTeamChats([]) })
     return () => { cancelled = true }
   }, [project?.visibility, params.id])
-
-  // "Shared with you" tab — KNOWN GAP, not fixed here: this used to filter
-  // listSharedWithMe() (person-to-person ChatShare records) down to this
-  // project via a `targetProjectId` field. That field no longer exists on
-  // SharedChatItem at all — the backend dropped project-targeted chat
-  // shares entirely (in-project chats now inherit the whole project as
-  // their audience via a separate mechanism, POST /chats/{id}/share, not a
-  // per-person ChatShare row). So this tab's real data source needs to be
-  // project-scoped chat visibility instead, not the person-to-person share
-  // list — flagged, not redesigned here. Left empty (matching its actual
-  // prior behavior — the old filter could never match either) rather than
-  // querying an endpoint that can't return anything relevant.
-  useEffect(() => {
-    if (activeTab !== 'shared') return
-    setSharedLoading(false)
-    setSharedError(null)
-    setSharedItems([])
-  }, [activeTab])
 
   // Lock the model selector context while an agent chip is active on the project page.
   useEffect(() => {
@@ -345,10 +322,10 @@ export default function ProjectPage() {
   // own missing-response.ok bug was fixed — see projects.ts).
   const canDeleteProject = project.canEdit
   // Personal projects have no membership to leave (backend 400s). The owner
-  // leaving would trigger successor/archive/convert — real backend logic,
-  // but there's no "transfer ownership" flow to pair with it yet, so the
-  // backend rejects it for now too (project.py's OWNER_LEAVE_ENABLED flag).
-  // Only a non-owner collaborator on a workspace/shared project can leave.
+  // leaving would trigger the backend's real successor/archive/convert
+  // logic, but there's no "transfer ownership" flow to pair with it yet, so
+  // this stays frontend-only for now: only a non-owner collaborator on a
+  // workspace/shared project can leave.
   const canLeaveProject = project.visibility !== 'personal' && !project.canEdit
   const hasMenuActions = canDeleteProject || canLeaveProject
 
@@ -397,40 +374,6 @@ export default function ProjectPage() {
     }
   }
 
-  // Fork a chat shared with me into my own workspace. If a fork already
-  // exists, reuse it instead of creating a duplicate — forkChatShare itself
-  // is idempotent per share+user, so this is safe to call repeatedly.
-  // forkChatShare hands back a bare, project-less chat, so it must be linked
-  // into this project (addChat) — otherwise the chat page's local chats-list
-  // lookup can't find it and renders "Chat not found." It's also pushed into
-  // `teamChats` directly so the "Personal" tab on *this* page updates without
-  // waiting on a refetch — addChat only reaches the sidebar/other pages via
-  // the shared projects context.
-  async function copySharedChat(item: SharedChatItem, opts: { navigate: boolean }) {
-    if (item.forkedChatId) {
-      addChat(projectId, item.forkedChatId, item.chatTitle)
-      if (opts.navigate) push(PROJECT_CHAT_ROUTE(projectId, item.forkedChatId))
-      else toast.success('Chat copied to your personal chats')
-      return
-    }
-    setForkingShareId(item.shareId)
-    try {
-      const { chatId } = await forkChatShare(item.shareId)
-      const now = new Date().toISOString()
-      addChat(projectId, chatId, item.chatTitle)
-      setTeamChats(prev => [
-        { id: chatId, can_edit: true, visibility: 'private', title: item.chatTitle, created_at: now, updated_at: now, starred: false, project_id: projectId },
-        ...prev.filter(c => c.id !== chatId),
-      ])
-      toast.success(opts.navigate ? 'Chat forked to your workspace' : 'Chat copied to your personal chats')
-      if (opts.navigate) push(PROJECT_CHAT_ROUTE(projectId, chatId))
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
-    } finally {
-      setForkingShareId(null)
-    }
-  }
-
   const ownerName   = members.find(m => m.id === project.ownerUserId)?.name
   // Publish CTA gate — editor+ on this team (owner/admin resolve true). Members
   // (and editors whose grants aren't loaded yet) get no publish affordance.
@@ -443,17 +386,8 @@ export default function ProjectPage() {
   // "Published to Workspace" is just the filtered subset of the same list.
   const personalChats  = teamChats
   const publishedChats = teamChats.filter(c => c.visibility === 'team')
-  // Most-recently-shared first — createdAt is the only recency signal the
-  // shared-with-me API gives us, so make the ordering explicit rather than
-  // leaning on the backend's own default sort.
-  const sharedItemsSorted = [...sharedItems].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
-  // "Shared with you" is every share targeting this project, editable and
-  // view-only alike (red badge marks the view-only ones) — there's no
-  // separate view-only-only tab any more, so this is the one place both show.
 
-  // A chat row for the team-project tab (Personal / Published to Workspace).
+  // A chat row for the team-project tab (Your chats / Published chats).
   function teamChatRow(chat: Chat) {
     return (
       <ProjectChatRow
@@ -478,34 +412,6 @@ export default function ProjectPage() {
     )
   }
 
-  // A row for the "Shared with you" / "View only" tabs. Viewing is always
-  // read-only-in-place now (no more editable/read-only mode distinction —
-  // see the effect above); "Create a copy" is always offered as a separate
-  // action rather than gated behind a mode that no longer exists.
-  function sharedChatRow(item: SharedChatItem) {
-    return (
-      <div key={item.shareId} style={{ display: 'flex', flexDirection: 'column' }}>
-        <ProjectChatRow
-          title={item.chatTitle}
-          timestamp=""
-          author={item.sharedByName ?? undefined}
-          pinCount={0}
-          readOnly
-          onChatClick={() => push(CHAT_SHARE_ROUTE(item.shareId))}
-          onCreateCopy={() => {
-            if (forkingShareId !== item.shareId) void copySharedChat(item, { navigate: false })
-          }}
-        />
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 16px 10px', marginTop: -2 }}>
-          <AlertCircleIcon size={14} color="var(--neutral-400)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-            This is a copy of the chat between Souvenir and {item.sharedByName ?? 'a teammate'}. Content may include unverified information. Shared snapshot may not contain all attachments.
-          </span>
-        </div>
-      </div>
-    )
-  }
-
   // Private projects keep the flat list, sourced from useProjects().
   const privateChatList = chats.length === 0 ? (
     <ProjectChatEmptyRow />
@@ -526,31 +432,6 @@ export default function ProjectPage() {
       />
     )))
   )
-
-  // Loading / error / empty notice shared by the "Shared with you" and
-  // "View only" tabs. Returns null when there's real content to render.
-  function sharedNotice(items: SharedChatItem[], emptyText: string): React.ReactNode | null {
-    if (sharedLoading) {
-      return <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', padding: '12px 4px', margin: 0 }}>Loading shared chats…</p>
-    }
-    if (sharedError) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--red-600, #b83c3c)' }}>
-          <AlertCircleIcon size={16} />
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>{sharedError}</span>
-        </div>
-      )
-    }
-    if (items.length === 0) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
-          <AlertCircleIcon size={16} />
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>{emptyText}</span>
-        </div>
-      )
-    }
-    return null
-  }
 
   return (
     <div style={{ position: 'relative', display: 'flex', width: '100%', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
@@ -909,7 +790,7 @@ export default function ProjectPage() {
                 onValueChange={(v: string) => setActiveTab(v as TeamTab)}
                 style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
               >
-                {/* All 3 tabs in one row, centered; the info button explains what
+                {/* Both tabs in one row, centered; the info button explains what
                     each covers. A spacer matching the info button's width (32px,
                     IconButton size="sm") balances it out so the tabs land dead
                     center in the row instead of shifted left by the button. */}
@@ -917,10 +798,10 @@ export default function ProjectPage() {
                   <div style={{ width: 32, flexShrink: 0 }} aria-hidden />
 
                   <TabsList size="small">
-                    <TabsTrigger value="personal">Personal</TabsTrigger>
+                    <TabsTrigger value="personal">Your chats</TabsTrigger>
                     <TabsTrigger value="publish">
                       <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        Published to Workspace
+                        Published chats
                         {publishedChats.length > 0 && (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -933,7 +814,6 @@ export default function ProjectPage() {
                         )}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="shared">Shared with you</TabsTrigger>
                   </TabsList>
 
                   <Tooltip
@@ -941,11 +821,9 @@ export default function ProjectPage() {
                     maxWidth={280}
                     content={
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div><b>Personal</b> — your own chats here, plus what&apos;s published to the workspace.</div>
+                        <div><b>Your chats</b> — your own chats here, plus what&apos;s published to the workspace.</div>
                         <div style={tooltipDividerStyle} />
-                        <div><b>Published to Workspace</b> — just the chats published to the workspace.</div>
-                        <div style={tooltipDividerStyle} />
-                        <div><b>Shared with you</b> — chats teammates shared directly, editable and view-only (a red badge marks the view-only ones).</div>
+                        <div><b>Published chats</b> — just the chats published to the workspace.</div>
                       </div>
                     }
                   >
@@ -958,7 +836,7 @@ export default function ProjectPage() {
                   </Tooltip>
                 </div>
 
-                {/* Personal — everything in this project you can see: your own
+                {/* Your chats — everything in this project you can see: your own
                     chats plus published-to-workspace ones (blue "Published" badge). */}
                 <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
@@ -966,27 +844,17 @@ export default function ProjectPage() {
                   </div>
                 </TabsContent>
 
-                {/* Published to Workspace — the published-only subset, visible to and manageable by editor+ */}
+                {/* Published chats — the published-only subset, visible to and manageable by editor+ */}
                 <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {publishedChats.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
                         <AlertCircleIcon size={16} />
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>
-                          {canPublishChat ? 'Hover a chat under “Personal” to publish it to the workspace.' : 'No chats have been published to the workspace yet.'}
+                          {canPublishChat ? 'Hover a chat under “Your chats” to publish it to the workspace.' : 'No chats have been published to the workspace yet.'}
                         </span>
                       </div>
                     ) : withDividers(publishedChats.map(teamChatRow))}
-                  </div>
-                </TabsContent>
-
-                {/* Shared with you — editable AND view-only shares (red "View only"
-                    badge marks the latter); click an editable one to fork it. */}
-                <TabsContent value="shared" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
-                    {sharedNotice(sharedItemsSorted, 'No chats have been shared with you in this project yet.') ?? (
-                      withDividers(sharedItemsSorted.map(sharedChatRow))
-                    )}
                   </div>
                 </TabsContent>
               </Tabs>

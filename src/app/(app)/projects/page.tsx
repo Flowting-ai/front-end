@@ -17,7 +17,7 @@ import { Tooltip } from '@/components/Tooltip'
 import Tabs from '@/components/Tabs'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { LeaveProjectModal } from '@/components/LeaveProjectModal'
-import { ProjectTrashModal } from '@/components/ProjectTrashModal'
+import { ProjectTrashList } from '@/components/ProjectTrashModal/ProjectTrashList'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
@@ -27,10 +27,11 @@ import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
-// Same 3 values as ProjectVisibility — the list's scope tab is keyed directly
-// off a project's real visibility now, not the old binary teamId===null check.
-type ScopeFilter = ProjectVisibility
-const SCOPE_VALUES: readonly ScopeFilter[] = ['personal', 'workspace', 'shared']
+// Same 3 values as ProjectVisibility, plus a 4th 'trash' tab that isn't a
+// real visibility — it lists soft-deleted Workspace/Shared projects instead
+// of filtering `projects` by visibility (see the render below).
+type ScopeFilter = ProjectVisibility | 'trash'
+const SCOPE_VALUES: readonly ScopeFilter[] = ['personal', 'workspace', 'shared', 'trash']
 // Legacy '?scope=team' links (bookmarks, the sidebar, anywhere else that
 // hasn't been updated) map to 'workspace' — the closest equivalent now that
 // Team is gone from the backend (see docs v1.5/sharing-model-v2-gap-audit.md's
@@ -346,13 +347,12 @@ function ProjectsPageInner() {
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [isDeleting,     setIsDeleting]     = useState(false)
   const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
-  const [trashOpen,      setTrashOpen]      = useState(false)
 
   // Personal projects have no membership to leave (backend 400s). The owner
-  // leaving would trigger successor/archive/convert — real backend logic,
-  // but there's no "transfer ownership" flow to pair with it yet, so the
-  // backend rejects it for now too (project.py's OWNER_LEAVE_ENABLED flag).
-  // Only a non-owner collaborator on a workspace/shared project can leave.
+  // leaving would trigger the backend's real successor/archive/convert
+  // logic, but there's no "transfer ownership" flow to pair with it yet, so
+  // this stays frontend-only for now: only a non-owner collaborator on a
+  // workspace/shared project can leave.
   function canLeaveProject(project: Project): boolean {
     return project.visibility !== 'personal' && !project.canEdit
   }
@@ -496,16 +496,12 @@ function ProjectsPageInner() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-              {/* Trash — workspace/shared projects deleted within the last 30
-                  days; personal projects hard-delete instantly and never
-                  show up here (see ProjectTrashModal). */}
-              <Button variant="secondary" onClick={() => setTrashOpen(true)}>
-                Trash
-              </Button>
-              {/* New Project */}
-              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
-                New Project
-              </Button>
+              {/* New Project — hidden on the Trash tab, which has no create action */}
+              {scopeFilter !== 'trash' && (
+                <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
+                  New Project
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -522,11 +518,14 @@ function ProjectsPageInner() {
                 <Tabs.Trigger value="personal">Personal</Tabs.Trigger>
                 <Tabs.Trigger value="workspace">Workspace</Tabs.Trigger>
                 <Tabs.Trigger value="shared">Shared</Tabs.Trigger>
+                <Tabs.Trigger value="trash">Trash</Tabs.Trigger>
               </Tabs.List>
             </Tabs>
           )}
 
-          {/* Search + view + sort — grouped to the right */}
+          {/* Search + view + sort — grouped to the right; none of these apply
+              to the Trash tab (nothing to search/sort/switch grid-list for). */}
+          {scopeFilter !== 'trash' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
             {/* Search — same collapse-to-icon pattern as PinboardHeader's own
                 search: ghost IconButton expands into an InputField in place. */}
@@ -618,10 +617,15 @@ function ProjectsPageInner() {
               </Dropdown>
             </Dropdown.Float>
           </div>
+          )}
         </div>
 
-        {/* Project grid */}
-        {loading ? (
+        {/* Trash tab — lists soft-deleted Workspace/Shared projects instead
+            of filtering `projects` by visibility (personal projects hard-
+            delete instantly and never show up here). */}
+        {scopeFilter === 'trash' ? (
+          user?.auth0Id && <ProjectTrashList currentUserId={user.auth0Id} onRestored={handleRefreshProjects} />
+        ) : loading ? (
           <div
             style={{
               display:        'flex',
@@ -914,14 +918,6 @@ function ProjectsPageInner() {
           // real DELETE endpoint, an entirely different (and destructive)
           // action from leaving.
           onLeft={handleRefreshProjects}
-        />
-      )}
-
-      {trashOpen && user?.auth0Id && (
-        <ProjectTrashModal
-          currentUserId={user.auth0Id}
-          onClose={() => setTrashOpen(false)}
-          onRestored={handleRefreshProjects}
         />
       )}
     </div>

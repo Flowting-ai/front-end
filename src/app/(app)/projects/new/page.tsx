@@ -3,12 +3,13 @@
 import React, { Suspense, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { Dropdown } from '@/components/Dropdown'
 import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
@@ -26,6 +27,7 @@ function NewProjectPageInner() {
   const [description, setDescription] = useState('')
   const [visibility,  setVisibility]  = useState<ProjectVisibility>('personal')
   const [loading,     setLoading]    = useState(false)
+  const [visibilityOpen, setVisibilityOpen] = useState(false)
 
   // Workspace/Shared require an org — backend 400s otherwise (Project.create()).
   const visibilityOptions = orgId ? VISIBILITY_OPTIONS : VISIBILITY_OPTIONS.filter(o => o.value === 'personal')
@@ -212,24 +214,33 @@ function NewProjectPageInner() {
               >
                 Who can see this
               </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {visibilityOptions.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setVisibility(opt.value)}
-                    style={{
-                      flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left',
-                      padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                      border: visibility === opt.value ? '1.5px solid var(--neutral-900)' : '1px solid var(--neutral-200)',
-                      backgroundColor: visibility === opt.value ? 'var(--neutral-50)' : 'var(--neutral-white)',
-                    }}
-                  >
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-900)' }}>{opt.label}</span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, color: 'var(--neutral-500)' }}>{opt.description}</span>
-                  </button>
-                ))}
-              </div>
+              <Dropdown.Float
+                open={visibilityOpen}
+                onOpenChange={setVisibilityOpen}
+                placement="bottom-start"
+                trigger={
+                  <Button variant="secondary" fluid rightIcon={<ArrowDownOneIcon size={16} />}>
+                    <span style={{ flex: '1 0 0', textAlign: 'center' }}>
+                      {visibilityOptions.find(o => o.value === visibility)?.label}
+                    </span>
+                  </Button>
+                }
+              >
+                <Dropdown size="md">
+                  <Dropdown.Section fluid>
+                    {visibilityOptions.map(opt => (
+                      <Dropdown.Item
+                        key={opt.value}
+                        label={opt.label}
+                        subLabel={opt.description}
+                        selected={visibility === opt.value}
+                        onClick={() => { setVisibility(opt.value); setVisibilityOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
             </div>
           )}
         </div>
