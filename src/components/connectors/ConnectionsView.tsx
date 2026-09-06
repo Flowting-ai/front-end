@@ -10,7 +10,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownOneIcon,
   ArrowUpDownIcon,
-  PlusSignIcon,
   SearchOneIcon,
   SettingsOneIcon,
   TickTwoIcon,
@@ -214,12 +213,11 @@ function CatalogCell({ summary, select, highlight }: { summary: ConnectorCatalog
 }
 
 export function Catalog({
-  catalog, query, select, custom, onRows,
+  catalog, query, select, onRows,
 }: {
   catalog: ConnectorCatalog[]
   query: string
   select: (summary: ConnectorCatalog) => void
-  custom: () => void
   onRows?: (rows: ConnectorCatalog[]) => void
 }) {
   const [view, setView] = useState<CatalogView>('all')
@@ -324,20 +322,16 @@ export function Catalog({
           )}
         </div>
       )}
-      {(connectedItems.length > 0 || availableItems.length > 0) && (
-        <Button variant="ghost" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={custom}>Add custom connector</Button>
-      )}
     </section>
   )
 }
 
 export function ConnectionsView({
-  catalog, loading, select, custom, initialSearch = '', onRows,
+  catalog, loading, select, initialSearch = '', onRows,
 }: {
   catalog: ConnectorCatalog[]
   loading: boolean
   select: (summary: ConnectorCatalog) => void
-  custom: () => void
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
   onRows?: (rows: ConnectorCatalog[]) => void
@@ -375,7 +369,7 @@ export function ConnectionsView({
           </Button>
         </div>
       )}
-      <Catalog catalog={catalog} query={initialSearch} select={select} custom={custom} onRows={onRows} />
+      <Catalog catalog={catalog} query={initialSearch} select={select} onRows={onRows} />
     </ConnectorsShell>
   )
 }

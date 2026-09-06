@@ -17,7 +17,6 @@ import { ConnectorDetailView } from './ConnectorDetailView'
 import { AccountDetailView } from './AccountDetailView'
 import { SetupModal } from './SetupModal'
 import { RemoveModal } from './RemoveModal'
-import { CustomConnectorModal } from './CustomConnectorModal'
 
 type View = 'connections' | 'connector' | 'permissions' | 'access' | 'settings'
 
@@ -36,7 +35,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
   const [setupAccount, setSetupAccount] = useState<ConnectorConnection | undefined>(undefined)
 
-  const [customOpen, setCustomOpen] = useState(false)
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
   const [removeBusy, setRemoveBusy] = useState(false)
 
@@ -178,13 +176,13 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [removeAccount, backToConnector, backToConnections, fetchAll])
 
   if (!orgReady) {
-    return <ConnectionsView catalog={[]} loading select={() => {}} custom={() => {}} />
+    return <ConnectionsView catalog={[]} loading select={() => {}} />
   }
 
   return (
     <>
       {view === 'connections' && (
-        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} custom={() => setCustomOpen(true)} initialSearch={initialSearch} onRows={mergeRows} />
+        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} initialSearch={initialSearch} onRows={mergeRows} />
       )}
 
       {view === 'connector' && active && (
@@ -230,8 +228,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           confirm={() => void confirmRemove()}
         />
       )}
-
-      {customOpen && <CustomConnectorModal cancel={() => setCustomOpen(false)} />}
     </>
   )
 }

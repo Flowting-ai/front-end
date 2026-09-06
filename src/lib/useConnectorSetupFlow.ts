@@ -41,6 +41,11 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
   const [errorMsg, setErrorMsg] = useState('')
   const abortedRef = useRef(false)
   const pollAbortRef = useRef<AbortController | null>(null)
+  // Tracks the popup across the whole flow so unmounting (e.g. the user
+  // clicking Cancel while still "Waiting for auth…") can close it too, not
+  // just abort the poll — otherwise a cancelled flow can leave an orphaned
+  // OAuth popup open in the background.
+  const popupRef = useRef<Window | null>(null)
 
   // React StrictMode double-mount guard: reset on every effect setup, not just
   // once — otherwise dev-mode's mount->cleanup->mount leaves abortedRef stuck
@@ -51,6 +56,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     return () => {
       abortedRef.current = true
       pollAbortRef.current?.abort()
+      popupRef.current?.close()
     }
   }, [])
 
@@ -68,6 +74,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     // Opened without noopener deliberately — noopener leaves the popup stuck
     // at about:blank in some browsers once we later assign popup.location.
     const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
+    popupRef.current = popup
     setState('opening')
     setErrorMsg('')
 

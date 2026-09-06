@@ -183,7 +183,14 @@ export function SetupModal({
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
-        <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Cancel</Button>
+        {/* Only disabled while actually writing to the account row
+            (naming/sharing after a successful link) — opening the popup or
+            waiting on auth is always safe to bail out of, and closing this
+            modal fully aborts the poll (see useConnectorSetupFlow's cleanup
+            effect). Without this, a user who closes the external OAuth
+            window has no way to escape "Waiting for auth…" except waiting
+            out the poll's timeout. */}
+        <Button variant="ghost" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
         <Button
           size="sm"
           disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled)}
