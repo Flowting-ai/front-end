@@ -27,6 +27,7 @@ import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
+import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
 import { useOrg } from '@/context/org-context'
@@ -36,6 +37,7 @@ import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { LeaveProjectModal } from '@/components/LeaveProjectModal'
+import { DeleteProjectModal } from '@/components/DeleteProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -118,6 +120,8 @@ export default function ProjectPage() {
   const [menuOpen,         setMenuOpen]         = useState(false)
   const [editOpen,         setEditOpen]         = useState(false)
   const [leaveOpen,        setLeaveOpen]        = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [isDeletingProject, setIsDeletingProject] = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
@@ -360,6 +364,20 @@ export default function ProjectPage() {
     setShareOpen(false)
   }
 
+  // Confirms first — never fires straight from the menu click, matching
+  // every other project-delete entry point (DeleteProjectModal).
+  async function handleConfirmDeleteProject() {
+    setIsDeletingProject(true)
+    try {
+      await deleteProject(projectId)
+      push(PROJECTS_ROUTE)
+    } catch {
+      // error toast shown by the projects context
+    } finally {
+      setIsDeletingProject(false)
+    }
+  }
+
   // Publish / unpublish a single chat to the project's team. Optimistic — the
   // row's "Published" badge follows `teamChats`; revert on failure.
   async function handlePublishToggle(chatId: string, next: boolean) {
@@ -530,18 +548,18 @@ export default function ProjectPage() {
                         fluid
                       />
                     </Dropdown.Section>}
-                    {canLeaveProject && <Dropdown.Section divider={canEditProjectContent} fluid>
+                    {canLeaveProject && <Dropdown.Section fluid>
                       <Dropdown.Item
                         label="Leave project"
                         onClick={() => { setMenuOpen(false); setLeaveOpen(true) }}
                         fluid
                       />
                     </Dropdown.Section>}
-                    {canDeleteProject && <Dropdown.Section divider fluid>
+                    {canDeleteProject && <Dropdown.Section fluid>
                       <Dropdown.Item
                         label="Delete"
                         variant="danger"
-                        onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => push(PROJECTS_ROUTE)) }}
+                        onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true) }}
                         fluid
                       />
                     </Dropdown.Section>}
@@ -970,6 +988,15 @@ export default function ProjectPage() {
         />
       )}
 
+      <DeleteProjectModal
+        open={deleteConfirmOpen}
+        projectName={project.name}
+        chatCount={project.chatCount}
+        loading={isDeletingProject}
+        onConfirm={handleConfirmDeleteProject}
+        onClose={() => setDeleteConfirmOpen(false)}
+      />
+
       {canEditProjectContent && <SystemInstructionsModal
         open={instructionsOpen}
         projectName={project.name}
@@ -993,9 +1020,12 @@ export default function ProjectPage() {
           the backend has no PATCH to change a project's visibility after
           creation (personal/workspace/shared is fixed at creation, per
           sharing-model-v2.html's Types table). So this is now read-only
-          status plus, for Shared projects, the real member-management UI
-          (ProjectMembersPanel — same component the "Members" floating panel
-          uses, reused here rather than re-implemented). Workspace projects
+          status plus, for Shared projects, an invite-only list (org members
+          NOT yet in the project, each with its own "Add to project" button
+          — ProjectAddMembersList). Viewing/removing people already on the
+          project stays the "Members" floating panel's job
+          (ProjectMembersPanel) — this modal never shows current members, to
+          avoid duplicating that same list in two places. Workspace projects
           have nothing to manage: access is automatic for the whole
           workspace, per spec ("membership = whole workspace, not managed"). */}
       {shareOpen && typeof document !== 'undefined' && createPortal(
@@ -1011,7 +1041,7 @@ export default function ProjectPage() {
               left:            '50%',
               transform:       'translate(-50%, -50%)',
               zIndex:          101,
-              width:           480,
+              width:           600,
               maxWidth:        'calc(100vw - 48px)',
               maxHeight:       'calc(100vh - 96px)',
               // Only the Shared branch (real member list below) gets a real
@@ -1021,7 +1051,7 @@ export default function ProjectPage() {
               // to give it, so it rendered at ~0px. The Workspace branch is a
               // couple lines of static text with nothing to scroll, so it
               // stays auto-height (no wasted white space below short text).
-              height:          project.visibility === 'shared' ? 420 : undefined,
+              height:          project.visibility === 'shared' ? 600 : undefined,
               overflow:        'hidden',
               borderRadius:    16,
               backgroundColor: 'white',
@@ -1040,7 +1070,7 @@ export default function ProjectPage() {
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
                   {project.visibility === 'workspace'
                     ? `Everyone in ${org.name || 'your workspace'} can see this project.`
-                    : 'Only the people below can see this project.'}
+                    : 'Add teammates from your workspace to this project.'}
                 </p>
               </div>
               <IconButton
@@ -1075,21 +1105,14 @@ export default function ProjectPage() {
                 </p>
               </div>
             ) : (
-              // ProjectMembersPanel's root renders `height: '100%'` — flex
-              // items get a definite resolved height from the flex layout
-              // itself (even with no explicit `height` here), so this just
-              // needs to actually participate in that: `flex: 1 1 0` lets it
-              // grow to fill whatever room the header/badge/footer leave
-              // (bounded by the card's own maxHeight above), and `minHeight:
-              // 0` lets it shrink instead of forcing the card to overflow —
-              // ProjectMembersPanel's own internal list already scrolls once
-              // squeezed smaller than its content.
+              // This modal is invite-only — viewing/removing people already
+              // on the project is the "Members" floating panel's job
+              // (ProjectMembersPanel), not this one's. `flex: 1 1 0` +
+              // `minHeight: 0` let the list grow to fill whatever room the
+              // header/badge/footer leave (bounded by the card's own
+              // maxHeight above) and scroll internally once it overflows.
               <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-                <ProjectMembersPanel
-                  projectId={project.id}
-                  ownerUserId={project.ownerUserId}
-                  canManage={canManageProjectMembers}
-                />
+                <ProjectAddMembersList projectId={project.id} />
               </div>
             )}
 

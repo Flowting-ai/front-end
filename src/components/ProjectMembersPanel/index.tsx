@@ -143,7 +143,7 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
   const selectedMemberLabel = selectedMember ? (selectedMember.name || selectedMember.email) : 'Select member...'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {/* Scrollable member list — same flush region + kaya-scrollbar treatment
           the sibling Agents panel uses for its own list. */}
       <div style={{ position: 'relative', flex: '1 1 0', minHeight: 0 }}>

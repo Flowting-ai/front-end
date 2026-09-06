@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { DeleteTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { toast } from 'sonner'
@@ -78,16 +79,36 @@ export function ProjectTrashList({ currentUserId, onRestored }: ProjectTrashList
         ) : loadFailed ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', textAlign: 'center', margin: 0 }}>
-              Couldn't load the trash.
+              Couldn't load recently deleted projects.
             </p>
             <Button variant="secondary" size="sm" onClick={() => setLoadAttempt(a => a + 1)}>
               Try again
             </Button>
           </div>
         ) : projects.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', textAlign: 'center', padding: 24, margin: 0 }}>
-            Nothing in the trash.
-          </p>
+          // Same icon-square + title + subtext convention as AgentsPanelContent's
+          // and ProjectMembersPanel's own empty states, for a consistent look
+          // across this app's panel/tab empty states.
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 24px', textAlign: 'center' }}>
+            <div
+              aria-hidden
+              style={{
+                width: 48, height: 48, borderRadius: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'var(--neutral-100)',
+              }}
+            >
+              <DeleteTwoIcon size={22} color="var(--neutral-400)" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-700)' }}>
+                Nothing here
+              </p>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+                No projects have been deleted recently.
+              </p>
+            </div>
+          </div>
         ) : (
           projects.map(p => (
             <div

@@ -162,8 +162,9 @@ export function EditProjectModal({
               background:    'var(--neutral-white)',
               borderRadius:  '20px',
               boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-              width:         '480px',
+              width:         '560px',
               maxWidth:      'calc(100vw - 32px)',
+              height:        '580px',
               maxHeight:     'calc(100dvh - 64px)',
               display:       'flex',
               flexDirection: 'column',
@@ -238,7 +239,7 @@ export function EditProjectModal({
                   value={draftDesc}
                   onChange={(e) => setDraftDesc(e.target.value)}
                   placeholder="e.g. All discovery and design work for the V2 redesign"
-                  rows={4}
+                  rows={6}
                   style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
                   onFocus={focusInput}
                   onBlur={blurInput}

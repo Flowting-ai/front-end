@@ -115,14 +115,10 @@ function ProjectCardInner(
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <Badge color={VISIBILITY_COLOR[visibility]} label={VISIBILITY_LABEL[visibility]} />
 
-            {/* ⋮ menu - fades in on hover/focus */}
+            {/* ⋮ menu - always visible (not hover-only) */}
             {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
             {hasActions && <div
-              style={{
-                opacity:    showMenu ? 1 : 0,
-                transition: 'opacity 120ms ease',
-                flexShrink: 0,
-              }}
+              style={{ flexShrink: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
               <Dropdown.Float
@@ -145,12 +141,12 @@ function ProjectCardInner(
                     </Dropdown.Section>
                   )}
                   {onLeave && (
-                    <Dropdown.Section divider={!!onEdit} fluid>
+                    <Dropdown.Section fluid>
                       <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
                     </Dropdown.Section>
                   )}
                   {onDelete && (
-                    <Dropdown.Section divider fluid>
+                    <Dropdown.Section fluid>
                       <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
                     </Dropdown.Section>
                   )}

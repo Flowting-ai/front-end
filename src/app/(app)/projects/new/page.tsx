@@ -8,7 +8,6 @@ import { useProjects } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
 import { Dropdown } from '@/components/Dropdown'
 import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
@@ -21,7 +20,7 @@ const VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; description
 
 function NewProjectPageInner() {
   const { push }                     = useRouter()
-  const { projects, createProject } = useProjects()
+  const { createProject } = useProjects()
   const { orgId }                    = useOrg()
   const [name,        setName]       = useState('')
   const [description, setDescription] = useState('')
@@ -109,9 +108,6 @@ function NewProjectPageInner() {
           >
             What&apos;s this project about?
           </h1>
-          <div style={{ alignSelf: 'flex-start' }}>
-            <Badge label={`${projects.length} Projects`} color="Neutral" />
-          </div>
         </div>
 
         {/* Form */}
