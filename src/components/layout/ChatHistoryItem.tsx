@@ -93,7 +93,7 @@ export function ChatHistoryItem({
     setMoveModalOpen(false);
     try {
       await addChatToProject(projectId, chat.id);
-      addChat(projectId, chat.id, chat.title);
+      addChat(projectId, chat.id, chat.title, { skipLink: true });
       removeLocal(chat.id);
       const project = projects.find((p) => p.id === projectId);
       toast.success(`Moved to "${project?.name ?? "project"}"`);

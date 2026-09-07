@@ -140,6 +140,15 @@ interface ChatInterfaceProps {
   selectedPersonaSystemPrompt?: string | null;
   /** Temperature override from the selected persona. */
   selectedPersonaTemperature?: number | null;
+  /**
+   * True while a just-selected persona's active version (system prompt,
+   * temperature, model) is still being fetched. Selecting an agent doesn't
+   * arrive with that data — the caller resolves it async right after — so
+   * sending immediately after picking an agent raced that fetch and sent
+   * `systemPrompt: undefined`, breaking only the first turn (subsequent
+   * sends always had it by then). Blocks sending until it resolves instead.
+   */
+  personaConfigLoading?: boolean;
   /** Style/tone ID to send with every message (e.g. "professional", "teaching"). */
   selectedStyleId?: string | null;
   /**
@@ -219,6 +228,7 @@ export function ChatInterface({
   selectedPersonaId,
   selectedPersonaSystemPrompt,
   selectedPersonaTemperature,
+  personaConfigLoading = false,
   selectedStyleId,
   scrollToMessageId,
   disabledModelSelector,
@@ -569,11 +579,18 @@ export function ChatInterface({
   };
 
   useEffect(() => {
+    // Same race as handleSend's personaConfigLoading check — this is the
+    // path that actually fires for "Use this Agent" and any agent selected
+    // on the blank new-chat screen: the prompt is already staged and this
+    // effect auto-sends it the instant ChatInterface mounts, which is before
+    // the persona's version fetch has had any real time to resolve. Wait for
+    // it instead of sending with systemPrompt missing.
+    if (personaConfigLoading) return;
     if (initialPrompt && !initialPromptSentRef.current) {
       initialPromptSentRef.current = true;
       sendInitialPrompt.current?.(initialPrompt);
     }
-  }, [initialPrompt]);
+  }, [initialPrompt, personaConfigLoading]);
 
   // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
   // We track the previous loading state so we fire exactly once on the
@@ -809,6 +826,11 @@ export function ChatInterface({
     // already disabled and the CreditStatusBanner explains why, so block silently.
     if (creditStatus.blocked) return;
 
+    // Same idea: a just-selected persona's system prompt/model is still being
+    // fetched (see personaConfigLoading doc) — the input is disabled for this
+    // too, so block silently rather than send with systemPrompt missing.
+    if (personaConfigLoading) return;
+
     // Reentrancy guard: see isSendingRef declaration above.
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -951,6 +973,7 @@ export function ChatInterface({
   // Update the ref synchronously during render (safe: only read in event handlers)
   _handleEditMessageImpl.current = (messageId: string, newContent: string) => {
     if (isStreaming) return  // never edit while a stream is in-flight
+    if (personaConfigLoading) return  // same race as handleSend — see its comment
 
     // User messages loaded from history have IDs like "{uuid}-prompt" (added by
     // normalizeMessages). The backend requires a bare UUID for replace_message_id,
@@ -1306,7 +1329,7 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={readOnly || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked}
+            disabled={readOnly || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
               readOnly
                 ? 'Create your own copy to continue this chat.'
@@ -1314,7 +1337,9 @@ export function ChatInterface({
                 ? 'Workspace locked. Contact your admin.'
                 : creditStatus.blocked
                   ? 'Credits exhausted. Buy a top-up to continue.'
-                  : 'How can I help you today?'
+                  : personaConfigLoading
+                    ? 'Loading agent…'
+                    : 'How can I help you today?'
             }
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}

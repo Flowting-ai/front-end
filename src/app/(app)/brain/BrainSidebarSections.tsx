@@ -634,6 +634,10 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
 
       <FlatSidebarRow
         variant="header" label="Recent Tasks" shown={shownAll} onShowClick={() => setShownAll(s => !s)}
+        // Use a URL command, not a local reset — this section doesn't own the
+        // active thread's state, the Brain page does (see its own `?new=1`
+        // handling, BrainPage's onNewBrainThread comment).
+        onAddClick={() => push(`${BRAIN_ROUTE}?new=1`)} addLabel="New task"
         extraHeaderIcons={[
           {
             icon: (

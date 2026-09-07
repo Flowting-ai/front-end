@@ -218,7 +218,7 @@ function ChatsPageInner() {
 
       for (const id of succeeded) {
         const title = chats.find(c => c.id === id)?.title ?? ''
-        addChat(projectId, id, title)
+        addChat(projectId, id, title, { skipLink: true })
       }
 
       if (succeeded.length > 0) {

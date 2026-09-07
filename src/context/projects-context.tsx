@@ -212,7 +212,7 @@ interface ProjectsContextValue {
   loadProject:      (id: string) => Promise<void>
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
   removeFile:       (projectId: string, fileId: string) => Promise<void>
-  addChat:          (projectId: string, chatId: string, title: string) => void
+  addChat:          (projectId: string, chatId: string, title: string, options?: { skipLink?: boolean }) => void
   removeChat:       (projectId: string, chatId: string) => void
   renameChat:       (projectId: string, chatId: string, title: string) => void
   loadProjectChats: (projectId: string) => Promise<void>
@@ -475,16 +475,20 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // â”€â”€ Chat management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   // Optimistic: called after a chat has been created via the chats API and linked to this project.
-  const addChat = useCallback((projectId: string, chatId: string, title: string) => {
+  // `skipLink` is for callers (move-to-project) that already awaited addChatToProject
+  // themselves for real error handling — without it, every move fired the link call twice.
+  const addChat = useCallback((projectId: string, chatId: string, title: string, options?: { skipLink?: boolean }) => {
     const now  = new Date().toISOString()
     const chat: ProjectChat = { id: chatId, ownerUserId: '', canEdit: true, projectId, title, pinCount: 0, createdAt: now, updatedAt: now }
     setChats(prev => [chat, ...prev.filter(c => !(c.projectId === projectId && c.id === chatId))])
     setProjects(prev => prev.map(p =>
       p.id === projectId ? { ...p, chatCount: p.chatCount + 1, updatedAt: now } : p,
     ))
-    addChatToProject(projectId, chatId).catch(() => {
-      // silent - the chat was created, linking failure is non-fatal
-    })
+    if (!options?.skipLink) {
+      addChatToProject(projectId, chatId).catch(() => {
+        // silent - the chat was created, linking failure is non-fatal
+      })
+    }
   }, [])
 
   const removeChat = useCallback((projectId: string, chatId: string) => {

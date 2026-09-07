@@ -1801,7 +1801,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
     setMoveModalOpen(false)
     try {
       await addChatToProject(projectId, chat.id)
-      addChat(projectId, chat.id, chat.title)
+      addChat(projectId, chat.id, chat.title, { skipLink: true })
       removeLocal(chat.id)
       const project = projects.find((p) => p.id === projectId)
       toast.success(`Moved to "${project?.name ?? "project"}"`)
@@ -2481,6 +2481,23 @@ function LeftSidebarImpl({
     // The new flat sidebar's "New" row calls this unconditionally from every
     // page, so that branch just made "New" a no-op on /agents and any
     // /agents/[id]/chat page — removed; "New" now always opens a blank chat.
+    //
+    // Task context is the one exception: on a Brain page or /chats in Tasks
+    // mode, "New" should open a blank task, not a blank chat — same URL
+    // command (`?new=1`) the Recent Tasks header's own add button and the old
+    // tabbed Sidebar's onNewBrainThread use, so Brain's own reset handles it
+    // identically regardless of entry point.
+    if (isBrainPage || isChatsTasksMode) {
+      const isAlreadyOnNewTask = pathname === BRAIN_ROUTE && !new URLSearchParams(window.location.search).get("id");
+      if (isAlreadyOnNewTask) {
+        toast.info("Already on new task");
+        return;
+      }
+      toast.info("Opening new task");
+      push(`${BRAIN_ROUTE}?new=1`);
+      return;
+    }
+
     const isAlreadyOnNewChat = pathname === CHAT_ROUTE && !new URLSearchParams(window.location.search).get("id");
     if (isAlreadyOnNewChat) {
       toast.info("Already on new chat");

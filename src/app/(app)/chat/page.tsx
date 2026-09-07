@@ -1198,6 +1198,7 @@ function ChatPageInner() {
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
+              personaConfigLoading={!!selectedPersona && selectedPersona.systemPrompt === null && !!selectedPersona.activeVersionId}
               scrollToMessageId={msgFromUrl}
               readOnly={activeChatReadOnly}
               chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
