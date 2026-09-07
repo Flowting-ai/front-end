@@ -620,11 +620,11 @@ export function ChatInterface({
     };
   }, [isSettling]);
 
-  // Scroll to bottom as new streaming content arrives — but only when the
-  // user is already at (or near) the bottom. If they scrolled up to read
-  // earlier messages while the model is generating, we must NOT force them
-  // back down. atBottomRef always reflects the latest scroll position without
-  // creating a dependency cycle.
+  // Scroll to the start of a new streaming reply — but only when the user is
+  // already at (or near) the bottom. If they scrolled up to read earlier
+  // messages while the model is generating, we must NOT force them back down;
+  // atBottomRef always reflects the latest scroll position without creating a
+  // dependency cycle.
   useEffect(() => {
     if (!isStreaming) {
       streamingTopMessageIdRef.current = null;
@@ -651,10 +651,29 @@ export function ChatInterface({
     if (!isScrollable) return;
 
     streamingTopMessageIdRef.current = messageId;
+    // A user who had already scrolled away stays exactly where they are —
+    // don't yank them to the new reply's start either. Only the
+    // already-at-bottom case jumps, and only then do we mark it "left the
+    // bottom" (the jump reveals mostly-empty new-message space below).
+    if (!atBottomRef.current) return;
     atBottomRef.current = false;
     setAtBottom(false);
     msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
   }, [isStreaming, messages, isLoadingMessages, msgVirtualizer]);
+
+  // Continuously follow the bottom as streamed content grows — the effect
+  // above only jumps once, to the *start* of a new reply; without this, a
+  // reply that keeps growing past the viewport leaves the user stuck exactly
+  // there instead of tracking new tokens the way ChatGPT-style UIs do. Fires
+  // on every `messages` update (each streamed chunk produces a new array
+  // reference) but only follows while atBottomRef is true, so a manual
+  // scroll-up during generation is never overridden.
+  useEffect(() => {
+    if (!isStreaming) return;
+    if (!atBottomRef.current) return;
+    if (messages.length === 0) return;
+    msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
+  }, [isStreaming, messages, msgVirtualizer]);
 
   // Scroll-to-top for pagination + track whether user is at bottom.
   // We gate setAtBottom behind a threshold comparison against the ref value
@@ -1112,7 +1131,13 @@ export function ChatInterface({
               const idx     = vRow.index;
               return (
                 <div
-                  key={message.id}
+                  // Keyed by the stable reactKey, not `id` — `id` gets swapped in
+                  // place from a temp id to the real backend UUID once the
+                  // message_saved event arrives (use-streaming-chat.ts), and
+                  // keying by `id` directly made that swap look like a new row
+                  // to React, remounting it and replaying its entrance
+                  // animation on content that was already fully visible.
+                  key={message.reactKey ?? message.id}
                   data-index={vRow.index}
                   ref={msgVirtualizer.measureElement}
                   style={{

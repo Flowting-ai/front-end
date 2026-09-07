@@ -19,6 +19,15 @@ import { AccountSkeleton } from '../SettingsSkeleton'
 // free-text "AI Tone" input.
 const TONE_OPTIONS = ['Direct', 'Balanced', 'Warm'] as const
 
+// Same copy onboarding/tone/page.tsx uses to introduce these exact 3 choices —
+// reused verbatim rather than reworded, so the tone means the same thing
+// whether someone reads about it at onboarding or resets it here later.
+const TONE_DESCRIPTIONS: Record<typeof TONE_OPTIONS[number], string> = {
+  Direct:   'Skip the preamble. Just the answer.',
+  Balanced: 'Friendly but efficient. The default.',
+  Warm:     'Conversational, with context and reasoning.',
+}
+
 // Default Model dropdown — the 3 Souvenir Muse tiers (MODEL_TIER_RANK in
 // lib/ai-models.ts). PENDING CONFIRMATION: there is no backend field for a
 // per-user "default model" preference anywhere in this codebase — every
@@ -741,7 +750,7 @@ function AccountPageContent({
             </p>
           </CardSection>
           <SettingsRow title="Style" subtitle="How the interface should feel" divider>
-            <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} />
+            <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} />
           </SettingsRow>
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
             <PillSelect value={modelTier} options={MODEL_TIER_OPTIONS} onChange={handleModelTierChange} descriptions={MODEL_TIER_DESCRIPTIONS} />

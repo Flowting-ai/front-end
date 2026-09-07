@@ -597,6 +597,10 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
   }
 
   const starredThreads = threads.filter(t => t.starred)
+  // Excluded from Recent, same as chats' own FlatRecentsSection — otherwise
+  // pinning a task keeps it listed under Recent Tasks too instead of moving
+  // it out, and unpinning has nothing to "return" since it never left.
+  const recentThreads = threads.filter(t => !t.starred)
 
   const emptyRow = (
     <div style={{
@@ -650,8 +654,8 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
             <SidebarMenuSkeleton index={1} fluid />
             <SidebarMenuSkeleton index={2} fluid />
           </>
-        ) : threads.length === 0 ? emptyRow : (
-          threads.map(thread => (
+        ) : recentThreads.length === 0 ? emptyRow : (
+          recentThreads.map(thread => (
             <FlatBrainThreadItem
               key={thread.id}
               thread={thread}

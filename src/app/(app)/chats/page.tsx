@@ -75,7 +75,7 @@ export default function ChatsPage() {
 }
 
 function ChatsPageInner() {
-  const { push }        = useRouter()
+  const { push, replace } = useRouter()
   const searchParams    = useSearchParams()
   const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star, archive } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
@@ -156,7 +156,12 @@ function ChatsPageInner() {
   const handleLibraryModeChange = useCallback((mode: LibraryMode) => {
     setLibraryMode(mode)
     exitSelection()
-  }, [exitSelection])
+    // Sync to the URL — this used to be read-once (the useState initializer
+    // above), so LeftSidebar's own useSearchParams() never saw a mode change
+    // made after the page loaded, and kept showing Recent Chats/Tasks whether
+    // or not it matched. Query-only, so it doesn't add a history entry per toggle.
+    replace(mode === 'tasks' ? '?filter=tasks' : '?', { scroll: false })
+  }, [exitSelection, replace])
 
   const handleChatsTabChange = useCallback((tab: ChatsTab) => {
     setChatsTab(tab)

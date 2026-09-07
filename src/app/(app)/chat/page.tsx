@@ -766,9 +766,15 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
+    // Highlights ("jump gutter" markers) otherwise only clear via the
+    // chatIdFromUrl-watching effect above — same unreliable-on-this-path
+    // issue as the rest of this handler exists to work around, so the
+    // previous chat's highlight gutter could still be showing on the new,
+    // blank chat. Cleared directly here for the same reason.
+    clearHighlights();
     const defaultModel = pickDefaultModel(modelsRef.current);
     if (defaultModel) selectModelRef.current(defaultModel);
-  }, []);
+  }, [clearHighlights]);
   useSidebarEvents({ onNewChat: handleSidebarNewChat });
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;

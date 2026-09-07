@@ -12,6 +12,8 @@ import {
   DownloadThreeIcon,
   DeleteTwoIcon,
   TickTwoIcon,
+  ExpandIcon,
+  UnfoldLessIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
@@ -1454,7 +1456,18 @@ export function Pin({
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0 }}
               >
-                <ActionBar onInsert={onInsert} onShowInChat={onShowInChat} onComment={handleCommentClick} hideComment />
+                <ActionBar
+                  onInsert={onInsert}
+                  onShowInChat={onShowInChat}
+                  onComment={handleCommentClick}
+                  hideComment
+                  expanded
+                  onToggleExpand={() => {
+                    collapsingRef.current = true
+                    setIsExpanded(false)
+                    setExtraLines(0)
+                  }}
+                />
               </m.div>
             )}
           </AnimatePresence>
@@ -1522,6 +1535,7 @@ export function Pin({
               onInsert={onInsert}
               onShowInChat={onShowInChat}
               onComment={handleCommentClick}
+              onToggleExpand={() => setIsExpanded(true)}
               instant={skipActionBarEntry.current}
             />
           ) : null}
@@ -1567,7 +1581,7 @@ function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: s
 //   useIsPresent → pointerEvents:none during exit so fast mouse-outs can't
 //                  accidentally trigger Insert during the 180ms fade
 
-function AbsoluteActionBar({ onInsert, onShowInChat, onComment, instant }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; instant?: boolean }) {
+function AbsoluteActionBar({ onInsert, onShowInChat, onComment, onToggleExpand, instant }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; onToggleExpand?: () => void; instant?: boolean }) {
   const isPresent = useIsPresent()
 
   return (
@@ -1599,12 +1613,12 @@ function AbsoluteActionBar({ onInsert, onShowInChat, onComment, instant }: { onI
         pointerEvents:   isPresent ? 'auto' : 'none',
       }}
     >
-      <ActionBar onInsert={onInsert} onShowInChat={onShowInChat} onComment={onComment} />
+      <ActionBar onInsert={onInsert} onShowInChat={onShowInChat} onComment={onComment} onToggleExpand={onToggleExpand} />
     </m.div>
   )
 }
 
-function ActionBar({ onInsert, onShowInChat, onComment, hideComment = false }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; hideComment?: boolean }) {
+function ActionBar({ onInsert, onShowInChat, onComment, onToggleExpand, hideComment = false, expanded = false }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; onToggleExpand?: () => void; hideComment?: boolean; expanded?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1616,6 +1630,18 @@ function ActionBar({ onInsert, onShowInChat, onComment, hideComment = false }: {
             <IconButton variant="ghost" size="sm" icon={<InputShortTextIcon size={20} />} aria-label="Comment" onClick={onComment} />
           </Tooltip>
         )}
+        {/* Manual expand/collapse fallback — drag-to-expand handle can get
+            hijacked by the card's own native HTML5 drag (drag onto chat
+            input), so this button-based path always works regardless. */}
+        <Tooltip content={expanded ? 'Collapse' : 'Expand'}>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            icon={expanded ? <UnfoldLessIcon size={20} animated /> : <ExpandIcon size={20} />}
+            aria-label={expanded ? 'Collapse pin' : 'Expand pin'}
+            onClick={onToggleExpand}
+          />
+        </Tooltip>
       </div>
       <Button variant="secondary" size="sm" onClick={onInsert}>Insert</Button>
     </div>

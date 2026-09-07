@@ -239,8 +239,11 @@ export function MoveToProjectModal({
             className={cn(className)}
             style={{
               pointerEvents:   'auto',
-              width:           480,
+              width:           560,
               maxWidth:        'calc(100vw - 32px)',
+              maxHeight:       'calc(100dvh - 64px)',
+              display:         'flex',
+              flexDirection:   'column',
               borderRadius:    16,
               backgroundColor: 'var(--neutral-white)',
               boxShadow:       SHADOW_MODAL,
@@ -250,6 +253,7 @@ export function MoveToProjectModal({
 
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div style={{
+              flexShrink:   0,
               padding:      '20px 20px 16px',
               borderBottom: '1px solid var(--neutral-100)',
               position:     'relative',
@@ -287,6 +291,7 @@ export function MoveToProjectModal({
 
             {/* ── Context card — ModelFeaturedCard default (unselected) style ── */}
             <div style={{
+              flexShrink:      0,
               margin:          '16px 16px 0',
               borderRadius:    12,
               position:        'relative',
@@ -339,8 +344,10 @@ export function MoveToProjectModal({
               </div>
             </div>
 
-            {/* ── Project list ───────────────────────────────────────────── */}
-            <div style={{ position: 'relative', padding: '12px 16px 0' }}>
+            {/* ── Project list — the one section that grows/shrinks with the
+                modal's own maxHeight; header/context-card/footer stay fixed
+                size (flexShrink: 0 above/below) ── */}
+            <div style={{ flex: '1 1 auto', minHeight: 0, position: 'relative', padding: '12px 16px 0', display: 'flex', flexDirection: 'column' }}>
               <div
                 role="radiogroup"
                 aria-label="Select a project"
@@ -350,7 +357,9 @@ export function MoveToProjectModal({
                   display:             'flex',
                   flexDirection:       'column',
                   gap:                 4,
-                  maxHeight:           240,
+                  flex:                '1 1 auto',
+                  minHeight:           0,
+                  maxHeight:           420,
                   overflowY:           'auto',
                   overscrollBehaviorY: 'contain',
                   padding:             3,
@@ -379,26 +388,9 @@ export function MoveToProjectModal({
                 )}
               </div>
 
-              {/* Top blur edge */}
-              {[
-                { height: 32, blur: 2 },
-                { height: 20, blur: 4 },
-                { height: 12, blur: 6 },
-              ].map(({ height, blur }) => (
-                <div key={blur} aria-hidden style={{
-                  position:            'absolute',
-                  top: 12, left: 16, right: 16,
-                  height:              `${height}px`,
-                  backdropFilter:      `blur(${blur}px)`,
-                  WebkitBackdropFilter:`blur(${blur}px)`,
-                  maskImage:           'linear-gradient(to bottom, black 0%, transparent 100%)',
-                  WebkitMaskImage:     'linear-gradient(to bottom, black 0%, transparent 100%)',
-                  pointerEvents:       'none',
-                  zIndex:              10,
-                  opacity:             atTop ? 0 : 1,
-                  transition:          'opacity 150ms ease',
-                }} />
-              ))}
+              {/* Top/bottom scroll-edge fade — plain gradient, no backdrop
+                  blur (the blurred layers made the rows right underneath
+                  the edge unreadable while scrolling). */}
               <div aria-hidden style={{
                 position:      'absolute',
                 top: 12, left: 16, right: 16,
@@ -410,26 +402,6 @@ export function MoveToProjectModal({
                 transition:    'opacity 150ms ease',
               }} />
 
-              {/* Bottom blur edge */}
-              {[
-                { height: 32, blur: 2 },
-                { height: 20, blur: 4 },
-                { height: 12, blur: 6 },
-              ].map(({ height, blur }) => (
-                <div key={blur} aria-hidden style={{
-                  position:            'absolute',
-                  bottom: 0, left: 16, right: 16,
-                  height:              `${height}px`,
-                  backdropFilter:      `blur(${blur}px)`,
-                  WebkitBackdropFilter:`blur(${blur}px)`,
-                  maskImage:           'linear-gradient(to top, black 0%, transparent 100%)',
-                  WebkitMaskImage:     'linear-gradient(to top, black 0%, transparent 100%)',
-                  pointerEvents:       'none',
-                  zIndex:              10,
-                  opacity:             atBottom ? 0 : 1,
-                  transition:          'opacity 150ms ease',
-                }} />
-              ))}
               <div aria-hidden style={{
                 position:      'absolute',
                 bottom: 0, left: 16, right: 16,
@@ -444,6 +416,7 @@ export function MoveToProjectModal({
 
             {/* ── Footer ─────────────────────────────────────────────────── */}
             <div style={{
+              flexShrink:     0,
               display:        'flex',
               justifyContent: 'flex-end',
               alignItems:     'center',

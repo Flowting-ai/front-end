@@ -8,6 +8,7 @@ import {
   forkChatShare,
   type SharedChatView,
 } from '@/lib/api/chat-shares'
+import { useChatHistoryContext } from '@/context/chat-history-context'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
@@ -24,6 +25,7 @@ function SharedChatContent() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [forking, setForking] = useState(false)
+  const { refresh: refreshChatHistory } = useChatHistoryContext()
 
   useEffect(() => {
     if (!shareId) return
@@ -39,6 +41,10 @@ function SharedChatContent() {
     setForking(true)
     try {
       const { chatId } = await forkChatShare(shareId)
+      // forkChatShare only returns the new id, not a full Chat record to
+      // add optimistically — re-fetch instead, so the sidebar shows the
+      // copy without needing a full page reload.
+      refreshChatHistory()
       router.push(`${CHAT_ROUTE}?id=${chatId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to copy chat')

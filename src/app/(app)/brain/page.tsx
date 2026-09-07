@@ -1363,10 +1363,16 @@ function BrainPageInner() {
   const threadRef       = useRef<HTMLDivElement>(null)
   const activeTurnRef   = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
-  const shouldFollowThreadBottom = useCallback(() => {
-    if (!isNearBottomRef.current) return false
-    return ['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phaseRef.current)
-  }, [])
+  // Previously only followed during settled phases (idle/complete/paused/etc)
+  // and explicitly skipped 'thinking'/'streaming'/'executing' — backwards from
+  // what's needed: those active phases are exactly when step cards and
+  // streamed text are growing and following the bottom matters most. Now
+  // follows purely off scroll position, in every phase, so a user sitting at
+  // the bottom stays pinned there through generation, and one who has
+  // scrolled up to read is never yanked back down by content growth alone
+  // (only the explicit force-scrolls below — permission/connector/clarify
+  // cards needing input — still bypass this).
+  const shouldFollowThreadBottom = useCallback(() => isNearBottomRef.current, [])
 
   // Attach scroll listener once on mount to keep isNearBottomRef in sync.
   useEffect(() => {

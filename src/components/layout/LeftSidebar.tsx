@@ -1835,6 +1835,11 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
         open={menuOpen}
         onOpenChange={setMenuOpen}
         placement="right-start"
+        // Chat rows can sit anywhere in a scrollable, arbitrary-length list —
+        // a chat near the bottom of the sidebar had this menu run off the
+        // bottom of the viewport with the fixed placement every other
+        // Dropdown.Float uses. Flips to open upward instead when it would.
+        autoFlipVertical
         trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
       >
         <Dropdown>
@@ -1908,6 +1913,11 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
 function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat }: SectionProps & { onNewChat?: () => void }) {
   const { push } = useGuardedRouter()
   const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory
+  // Starred chats live in FlatPinnedSection (see its own `.filter(c => c.starred)`
+  // above) — excluded here too, or a newly-pinned chat kept showing in both
+  // places instead of moving out of Recent, and unpinning had nothing to
+  // "return" since it never left.
+  const recentChats = useMemo(() => chats.filter((c) => !c.starred), [chats])
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const loading = mounted && isLoading
@@ -1948,11 +1958,11 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
         >
           {loading && chats.length === 0 ? (
             Array.from({ length: 5 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)
-          ) : chats.length === 0 ? (
+          ) : recentChats.length === 0 ? (
             <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>No chats yet</div>
           ) : (
             <>
-              {chats.map((chat) => (
+              {recentChats.map((chat) => (
                 <m.div key={chat.id} variants={sectionItemVariants}>
                   <FlatChatHistoryItem
                     chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
@@ -2325,6 +2335,13 @@ function LeftSidebarImpl({
   // isAnyProjectPage check).
   const isProjectPage = pathname?.startsWith("/project/") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
+  // /chats merged the old /brain/threads page into a Chats/Tasks toggle (see
+  // src/app/(app)/chats/page.tsx) — Tasks mode shows the exact same brain
+  // threads a Brain page does, so the sidebar's Recents should swap to
+  // "Recent Tasks" there too, not just on /brain*. handleLibraryModeChange
+  // syncs the toggle to this same `?filter=` query param specifically so
+  // this reacts to it.
+  const isChatsTasksMode = pathname === CHATS_ROUTE && chatSearchParams.get("filter") === "tasks";
 
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   // The agent creation/edit flow: the template→basics wizard and the
@@ -2640,10 +2657,11 @@ function LeftSidebarImpl({
                   <SidebarMenuSkeleton key={i} index={i} fluid />
                 ))}
               </div>
-            ) : isBrainPage ? (
+            ) : isBrainPage || isChatsTasksMode ? (
               // Task side of the Task/Chat tab (src/templates/Brain/index.tsx,
-              // src/app/(app)/chat/page.tsx) — Recents shows Brain threads
-              // instead of regular chats while on a Brain page.
+              // src/app/(app)/chat/page.tsx, and /chats in Tasks mode) —
+              // Recents shows Brain threads instead of regular chats while on
+              // a Brain page OR /chats?filter=tasks.
               <FlatBrainSidebarSections
                 activeChatId={chatSearchParams.get('id') ?? null}
                 onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}

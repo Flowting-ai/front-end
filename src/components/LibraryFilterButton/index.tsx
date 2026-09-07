@@ -20,9 +20,9 @@ export interface LibraryFilterButtonProps {
   onChange: (mode: LibraryMode) => void
 }
 
-const MODE_OPTIONS: { value: LibraryMode; label: string }[] = [
-  { value: 'chats', label: 'Chats' },
-  { value: 'tasks', label: 'Tasks' },
+const MODE_OPTIONS: { value: LibraryMode; label: string; description: string }[] = [
+  { value: 'chats', label: 'Chats', description: 'Your conversations with Souvenir' },
+  { value: 'tasks', label: 'Tasks', description: 'Your threads from Brain' },
 ]
 
 export function LibraryFilterButton({ value, onChange }: LibraryFilterButtonProps) {
@@ -44,13 +44,14 @@ export function LibraryFilterButton({ value, onChange }: LibraryFilterButtonProp
         </Tooltip>
       }
     >
-      <Dropdown style={{ width: 160 }}>
+      <Dropdown style={{ width: 220 }}>
         <Dropdown.Section fluid>
           {MODE_OPTIONS.map((opt) => (
             <Dropdown.Item
               key={opt.value}
               fluid
               label={opt.label}
+              subLabel={opt.description}
               selected={opt.value === value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
             />

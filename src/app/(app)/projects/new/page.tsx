@@ -3,11 +3,13 @@
 import React, { Suspense, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeftOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
@@ -137,17 +139,27 @@ function NewProjectPageInner() {
 
           {visibilityOptions.length > 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label
-                style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-medium)',
-                  fontSize:    '14px',
-                  lineHeight:  '22px',
-                  color:       '#524b47',
-                }}
-              >
-                Who can see this
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <label
+                  style={{
+                    fontFamily:  'var(--font-body)',
+                    fontWeight:  'var(--font-weight-medium)',
+                    fontSize:    '14px',
+                    lineHeight:  '22px',
+                    color:       '#524b47',
+                  }}
+                >
+                  Who can see this
+                </label>
+                <Tooltip content="You can't change this once the project is created.">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<InformationCircleIcon size={16} />}
+                    aria-label="About project visibility"
+                  />
+                </Tooltip>
+              </div>
               <Dropdown.Float
                 open={visibilityOpen}
                 onOpenChange={setVisibilityOpen}

@@ -707,7 +707,9 @@ export function PersonaChatInterface({
 
           {messages.map((msg, idx) => (
             <ChatMessageMemo
-              key={msg.id}
+              // Keyed by the stable reactKey, not `id` — see the matching
+              // comment in ChatInterface.tsx for why `id` alone isn't safe here.
+              key={msg.reactKey ?? msg.id}
               message={msg}
               isLast={idx === messages.length - 1}
               isNewMessage={idx === messages.length - 1 && isStreaming}

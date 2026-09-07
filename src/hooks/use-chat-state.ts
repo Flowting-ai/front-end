@@ -89,6 +89,15 @@ export interface UIMessage extends Message {
   externalOutputActions?: ExternalOutputAction[]
   /** @-mentioned pins attached to this user message (optimistic; not persisted across refresh). */
   mentionedPins?: Array<{ id: string; label: string }>
+  /** Stable React list key, set once at creation and never reassigned.
+   *  `id` itself gets swapped in place from a temp "loading-assistant-…"/
+   *  "optimistic-…" value to the real backend UUID once the backend confirms
+   *  the message (see use-streaming-chat.ts's `message_saved` handling) — if
+   *  the message list were keyed directly by `id`, that swap would look like
+   *  a brand-new row to React and remount it, replaying its entrance
+   *  animation on content that's already fully visible. Keying by this field
+   *  instead keeps the row's identity stable across that swap. */
+  reactKey?: string
 }
 
 /** Model selection metadata from the backend. */
@@ -484,6 +493,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
       id,
+      reactKey: id,
       role: "user",
       content,
       created_at: new Date().toISOString(),
@@ -508,6 +518,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     const id = `loading-assistant-${Date.now()}`
     const msg: UIMessage = {
       id,
+      reactKey: id,
       role: "assistant",
       content: "",
       created_at: new Date().toISOString(),

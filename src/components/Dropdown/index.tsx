@@ -203,6 +203,18 @@ export interface DropdownFloatProps {
   placement?: DropdownPlacement
   /** Gap between trigger and dropdown. Defaults to 8 px (KDS standard). */
   offset?: number
+  /**
+   * Opt-in vertical collision flip — measures the panel's real rendered
+   * height each time it opens and, if `placement` would overflow the
+   * viewport bottom, uses the opposite vertical anchor instead (`right-start`
+   * ↔ `right-end`, `left-start` ↔ `left-end`, `bottom-*` ↔ `top-*`) so the
+   * menu opens upward instead of running off-screen. Defaults to `false` —
+   * every existing caller keeps the exact fixed placement from the spec
+   * table above; this is for the rare case where the SAME trigger can sit
+   * anywhere in a scrollable list (e.g. a chat row near the bottom of the
+   * sidebar), where a single fixed placement can't work for every row.
+   */
+  autoFlipVertical?: boolean
   /** Dropdown content - typically a `<Dropdown>` containing one or more `<Dropdown.Section>`s. */
   children: React.ReactNode
 }
@@ -216,12 +228,23 @@ export interface DropdownFloatProps {
  *  - Scroll/resize re-anchoring while open
  *  - Per-placement scale/opacity entry & exit (transform-origin = trigger edge)
  */
+// Vertical-flip counterpart per placement — only the 5 placements whose panel
+// extends downward from its anchor have one; horizontal-only anchors don't.
+const VERTICAL_FLIP: Partial<Record<DropdownPlacement, DropdownPlacement>> = {
+  'right-start':   'right-end',
+  'left-start':    'left-end',
+  'bottom-start':  'top-start',
+  'bottom-center': 'top-center',
+  'bottom-end':    'top-end',
+}
+
 export function DropdownFloat({
   trigger,
   open,
   onOpenChange,
   placement = 'bottom-end',
   offset = DROPDOWN_GAP,
+  autoFlipVertical = false,
   children,
 }: DropdownFloatProps) {
   // The trigger is wrapped in a static <span> so we can read a layout-box
@@ -235,6 +258,9 @@ export function DropdownFloat({
   const panelRef       = React.useRef<HTMLDivElement | null>(null)
   const wasOpenRef     = React.useRef(false)
   const [posStyle, setPosStyle] = React.useState<React.CSSProperties>({})
+  // Only diverges from `placement` when autoFlipVertical actually flips it —
+  // drives both the position calc below and the transform-origin at render.
+  const [resolvedPlacement, setResolvedPlacement] = React.useState(placement)
 
   const recompute = React.useCallback(() => {
     const t = triggerWrapRef.current
@@ -255,8 +281,24 @@ export function DropdownFloat({
       const parentPanel = t.closest('[data-kds-dropdown-panel]') as HTMLElement | null
       if (parentPanel) rect = parentPanel.getBoundingClientRect()
     }
-    setPosStyle(computeFloatStyle(rect, placement, offset))
-  }, [placement, offset])
+
+    // Measures the panel's OWN already-mounted height — accurate even on the
+    // very first open, since useLayoutEffect (below) runs after the panel's
+    // content commits to the DOM but before the browser paints, so there's no
+    // visible flash at the un-flipped position first.
+    let effectivePlacement = placement
+    const flipped = VERTICAL_FLIP[placement]
+    if (autoFlipVertical && flipped) {
+      const panelHeight = panelRef.current?.offsetHeight ?? 0
+      const vh = document.documentElement.clientHeight
+      const overflowsBelow = isSideways
+        ? rect.top + panelHeight + 8 > vh
+        : rect.bottom + offset + panelHeight + 8 > vh
+      if (panelHeight > 0 && overflowsBelow) effectivePlacement = flipped
+    }
+    setResolvedPlacement(effectivePlacement)
+    setPosStyle(computeFloatStyle(rect, effectivePlacement, offset))
+  }, [placement, offset, autoFlipVertical])
 
   // Find all keyboard-navigable menu items (excluding disabled / aria-disabled).
   const getMenuItems = React.useCallback((): HTMLElement[] => {
@@ -422,7 +464,7 @@ export function DropdownFloat({
                 animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
                 exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin: PLACEMENT_ORIGIN[placement], pointerEvents: 'auto' }}
+                style={{ transformOrigin: PLACEMENT_ORIGIN[resolvedPlacement], pointerEvents: 'auto' }}
               >
                 {children}
               </m.div>
