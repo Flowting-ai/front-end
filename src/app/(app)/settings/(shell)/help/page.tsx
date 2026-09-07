@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { Badge } from '@/components/Badge'
 import { HelpSkeleton } from '../SettingsSkeleton'
-import { ReportBugModal } from '@/components/ReportBugModal'
-import { RequestFeatureModal } from '@/components/RequestFeatureModal'
 import { trackFeature } from '@/lib/analytics/events'
 
 // ── External link arrow icon ──────────────────────────────────────────────────
@@ -83,7 +81,7 @@ function LinkRow({
       display:      'flex',
       alignItems:   'center',
       gap:          12,
-      padding:      '12px 24px 24px',
+      padding:      '20px 24px',
       borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
     }}>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
@@ -141,7 +139,7 @@ function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div style={{
       borderBottom: '1px solid var(--neutral-100)',
-      padding:      '12px 24px 24px',
+      padding:      '24px',
     }}>
       <p style={{
         fontFamily:   'var(--font-body)',
@@ -177,8 +175,6 @@ function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
 
 export default function HelpPage() {
   const [mounted, setMounted] = useState(false)
-  const [reportBugOpen,     setReportBugOpen]     = useState(false)
-  const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { trackFeature('settings_help_opened') }, [])
   if (!mounted) return <HelpSkeleton />
@@ -192,15 +188,18 @@ export default function HelpPage() {
         overflowY:      'auto',
         overflowX:      'hidden',
         display:        'flex',
-        alignItems:     'flex-start',
-        justifyContent: 'center',
-        paddingTop:     64,
+        flexDirection:  'column',
+        alignItems:     'center',
+        paddingTop:     48,
         paddingBottom:  48,
       }}
     >
       {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          keeps the scrollbar flush with the container's edge. margin: 'auto 0'
+          (not justifyContent/alignItems: center on the parent) centers this block
+          vertically — it collapses to 0 instead of clipping the top when the
+          content is taller than the viewport, so it stays fully scrollable. */}
+      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10, margin: 'auto 0' }}>
 
         {/* ── Page header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
@@ -254,96 +253,6 @@ export default function HelpPage() {
           <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies"              href="https://www.getsouvenir.com/legal/cookies" />
         </InfoCard>
 
-        {/* ── Feature Request + Report a Bug (side by side) — moved to the
-            bottom: both already have permanent Settings-sidebar entries
-            (HELP_ITEMS in SettingsSidebar.tsx), so as large cards up top they
-            duplicated that nav and pushed the actual help/legal resources
-            down. Kept on this page as a secondary, lower-priority access
-            point rather than removed outright. ── */}
-        <div style={{ display: 'flex', gap: 10 }}>
-
-          {/* Feature Request */}
-          <div style={{
-            flex:            '1 0 0',
-            minWidth:        0,
-            backgroundColor: 'white',
-            borderRadius:    16,
-            boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-            padding:         12,
-            display:         'flex',
-            flexDirection:   'column',
-            gap:             12,
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-              <p style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   500,
-                fontSize:     14,
-                lineHeight:   '22px',
-                color:        'var(--neutral-900)',
-                margin:       0,
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-              }}>
-                Feature Request
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-500)',
-                margin:     0,
-              }}>
-                We&apos;re building Souvenir with you, not just for you. Tell us what would make your experience better - we read every request.
-              </p>
-            </div>
-            <GhostButton onClick={() => setRequestFeatureOpen(true)}>Suggest a feature</GhostButton>
-          </div>
-
-          {/* Report a Bug */}
-          <div style={{
-            flex:            '1 0 0',
-            minWidth:        0,
-            backgroundColor: 'white',
-            borderRadius:    16,
-            boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-            padding:         12,
-            display:         'flex',
-            flexDirection:   'column',
-            gap:             12,
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-              <p style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   500,
-                fontSize:     14,
-                lineHeight:   '22px',
-                color:        'var(--neutral-900)',
-                margin:       0,
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-              }}>
-                Report a Bug
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-500)',
-                margin:     0,
-              }}>
-                Something didn&apos;t work right? Your report helps our small team ship a better Souvenir. Please describe what happened and what you expected.
-              </p>
-            </div>
-            <GhostButton onClick={() => setReportBugOpen(true)}>Report a bug</GhostButton>
-          </div>
-
-        </div>
-
         {/* ── Footer ── */}
         <div style={{
           display:    'flex',
@@ -364,7 +273,7 @@ export default function HelpPage() {
             textOverflow: 'ellipsis',
             whiteSpace:   'nowrap',
           }}>
-            Souvenir v1.1 · © 2026 Souvenir AI
+            Souvenir v1.5 · © 2026 Souvenir AI
           </p>
           <p style={{
             fontFamily:   'var(--font-body)',
@@ -383,13 +292,6 @@ export default function HelpPage() {
 
       </div>
     </div>
-
-    {reportBugOpen && (
-      <ReportBugModal onClose={() => setReportBugOpen(false)} />
-    )}
-    {requestFeatureOpen && (
-      <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />
-    )}
     </>
   )
 }

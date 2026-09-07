@@ -46,7 +46,6 @@ export const ORG_CONNECTORS_ROUTE = "/connectors";
 export const SETTINGS_ROUTE = "/settings";
 export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
 export const SETTINGS_HELP_ROUTE = "/settings/help";
-export const SETTINGS_CONNECTORS_ROUTE = "/settings/connectors";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
 // Retired — plans/payment/invoices for every account type now live on
 // ORG_PLANS_ROUTE (/settings/plans-and-billing). This route is now just a

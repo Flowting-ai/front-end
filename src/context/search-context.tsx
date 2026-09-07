@@ -19,7 +19,6 @@ import {
   BRAIN_ROUTE,
   BRAIN_SCHEDULES_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
-  SETTINGS_CONNECTORS_ROUTE,
   SETTINGS_HELP_ROUTE,
   ORG_GENERAL_ROUTE,
   ORG_MEMBERS_ROUTE,
@@ -65,7 +64,6 @@ const NAV_PAGES: NavPage[] = [
   { id: "page-org-slack",     title: "Souvenir in Slack", subtitle: "Organization", route: ORG_SOUVENIR_SLACK_ROUTE, keywords: "organization org slack integration" },
   { id: "page-org-activity",  title: "Activity Log",     subtitle: "Organization", route: ORG_ACTIVITY_ROUTE,       keywords: "organization org activity log audit" },
   { id: "page-account",       title: "Account",          subtitle: "Settings",    route: SETTINGS_ACCOUNT_ROUTE,    keywords: "account profile settings me user" },
-  { id: "page-connectors",    title: "Connectors",       subtitle: "Settings",    route: SETTINGS_CONNECTORS_ROUTE, keywords: "connectors integrations tools apps mcp" },
   { id: "page-help",          title: "Help & Legal",     subtitle: "Settings",    route: SETTINGS_HELP_ROUTE,       keywords: "help legal support docs terms privacy faq" },
 ];
 

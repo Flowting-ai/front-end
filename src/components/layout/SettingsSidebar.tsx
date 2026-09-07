@@ -82,8 +82,10 @@ function SettingsNavSkeleton() {
 
 // ── Settings v1.5 nav groups ──────────────────────────────────────────────────
 // PERSONAL: node 18:27786. "Connectors" (previously in this group under the
-// old design, SETTINGS_CONNECTORS_ROUTE) has no home in the new Figma frame —
-// dropped here, flagged for follow-up rather than silently discarded.
+// old design) has no home in the new Figma frame — the /settings/connectors
+// page it used to point at has been removed entirely; the main app sidebar's
+// own "Connectors" row (ORG_CONNECTORS_ROUTE, /connectors) is now the only
+// entry point, for every account type.
 const PERSONAL_ITEMS = [
   { id: 'account', label: 'Account', href: SETTINGS_ACCOUNT_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/account.svg" /> },
   // Was a stand-in pointing at SETTINGS_BILLING_ROUTE until the dedicated

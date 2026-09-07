@@ -54,7 +54,6 @@ describe("routeToScreen", () => {
   it("maps settings tabs (including the real /account and /ai names)", () => {
     expect(routeToScreen("/settings")).toBe("settings_profile");
     expect(routeToScreen("/settings/account")).toBe("settings_profile");
-    expect(routeToScreen("/settings/connectors")).toBe("settings_connectors");
     expect(routeToScreen("/settings/ai")).toBe("settings_models");
     expect(routeToScreen("/settings/billing/change-plan")).toBe("settings_billing");
     expect(routeToScreen("/settings/security")).toBe("settings_security");

@@ -63,7 +63,6 @@ import {
   SETTINGS_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
   SETTINGS_HELP_ROUTE,
-  SETTINGS_CONNECTORS_ROUTE,
   ORG_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
@@ -2241,13 +2240,12 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
 
 interface FlatDestinationsProps {
   onNewChat: () => void
-  isTeamUser: boolean
   /** New chat, or an idle (no thread loaded) Brain page — either counts as "New". */
   newChatSelected: boolean
   collapsed?: boolean
 }
 
-function FlatDestinations({ onNewChat, isTeamUser, newChatSelected, collapsed = false }: FlatDestinationsProps) {
+function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: FlatDestinationsProps) {
   const { push } = useGuardedRouter()
   const pathname = usePathname()
   const { orgId } = useOrg()
@@ -2274,9 +2272,8 @@ function FlatDestinations({ onNewChat, isTeamUser, newChatSelected, collapsed = 
       />
       <FlatSidebarRow
         collapsed={collapsed} variant="default" icon={<LinkSixIcon size={20} animated />} label="Connectors"
-        selected={pathname.startsWith(ORG_CONNECTORS_ROUTE) || pathname.startsWith(SETTINGS_CONNECTORS_ROUTE)}
-        href={isTeamUser ? ORG_CONNECTORS_ROUTE : SETTINGS_CONNECTORS_ROUTE}
-        onClick={() => push(isTeamUser ? ORG_CONNECTORS_ROUTE : SETTINGS_CONNECTORS_ROUTE)}
+        selected={pathname.startsWith(ORG_CONNECTORS_ROUTE)}
+        href={ORG_CONNECTORS_ROUTE} onClick={() => push(ORG_CONNECTORS_ROUTE)}
       />
       {/* "Souvenir in Slack" — own dedicated top-level page (moved from
           /org/souvenir-slack to /souvenir-slack). */}
@@ -2321,7 +2318,7 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
-  const { orgId, org, plan, orgRole, currentUserRole } = useOrg();
+  const { orgId, org, plan, orgRole, currentUserRole, orgPlanSettled } = useOrg();
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -2631,7 +2628,7 @@ function LeftSidebarImpl({
           searchActive={searchOpen}
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
-          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} isTeamUser={isTeamUser} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
+          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
@@ -2669,7 +2666,13 @@ function LeftSidebarImpl({
             )
           }
           accountMenu={(collapsed) => {
-            if (!user) {
+            // Wait for the org's own plan fetch too, not just `user` — for a
+            // team user, `isTeamUser` can go true (via user?.orgId) before
+            // org-context's `plan`/`org.creditPool` load, and planWarning's
+            // `!orgHasPlan` branch reads org-context state. Rendering early
+            // showed "No Plan Selected" for a beat, then flipped to the real
+            // plan tag once org data caught up.
+            if (!user || (isTeamUser && !orgPlanSettled)) {
               return (
                 <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0 }} />
@@ -2784,7 +2787,10 @@ function LeftSidebarImpl({
       orgBadgeSublabel={orgBadgeSublabel}
       orgBadgeChipColor={orgBadgeChipColor}
       accountMenu={(collapsed) => {
-        if (!user) {
+        // See the matching comment on the FlatSidebar accountMenu above —
+        // isTeamUser can resolve true before org-context's own plan fetch
+        // settles, which otherwise flashes "No Plan Selected" briefly.
+        if (!user || (isTeamUser && !orgPlanSettled)) {
           return collapsed ? (
             <div style={{ padding: '12px 8px', display: 'flex', justifyContent: 'center' }}>
               <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />

@@ -7,6 +7,7 @@ import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { createCheckout, updatePlan, type CheckoutPlan } from '@/lib/api/stripe'
+import { TeamsTier } from '@/lib/api/billing'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
@@ -121,10 +122,130 @@ function Hairline() {
   return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+// Shown while org data (orgReady) resolves — mirrors the real layout below
+// (header, billing toggle, the two pricing cards) so there's no layout shift
+// once the real content swaps in. Reuses the app-wide .kaya-skeleton pulse
+// utility (globals.css) rather than the CSS-variable-driven Bone from
+// SettingsSkeleton.tsx — this page is styled with raw hex values throughout,
+// not design tokens.
+
+function Bone({ w, h = 14, r = 6, style: extra }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
+  return <div aria-hidden className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
+}
+
+function FeatureLineSkeleton({ w }: { w: number | string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <Bone w={8} h={8} r={19} />
+      <Bone w={w} h={14} />
+    </div>
+  )
+}
+
+function FeatureGroupSkeleton({ items }: { items: (number | string)[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Bone w={90} h={13} />
+      {items.map((w, i) => <FeatureLineSkeleton key={i} w={w} />)}
+    </div>
+  )
+}
+
+function ChangePlanSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      className="kaya-scrollbar"
+      style={{
+        minHeight: '100vh', overflowX: 'hidden',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '24px 24px 48px',
+        background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
+          <Bone w={100} h={30} r={10} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <Bone w={90} h={28} r={8} />
+            <Bone w={340} h={16} />
+          </div>
+          <div style={{ width: 100, opacity: 0 }} />
+        </div>
+
+        {/* ── Monthly / Yearly tab ── */}
+        <Bone w={220} h={38} r={10} />
+
+        {/* ── Cards Row ── */}
+        <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+          {/* Workspace card */}
+          <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              backgroundColor: 'white', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
+              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Bone w={110} h={28} r={8} />
+                  <Bone w={90} h={20} r={6} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Bone w={90} h={30} r={10} />
+                  <Bone w={80} h={16} />
+                </div>
+                <Hairline />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <FeatureGroupSkeleton items={['80%', '75%', '90%', '70%']} />
+                  <Hairline />
+                  <FeatureGroupSkeleton items={['60%', '85%', '75%']} />
+                  <Hairline />
+                  <FeatureGroupSkeleton items={['70%', '55%', '65%']} />
+                </div>
+              </div>
+              <Bone w="100%" h={36} r={10} />
+            </div>
+          </div>
+
+          {/* Enterprise card */}
+          <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              backgroundColor: 'white', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
+              display: 'flex', flexDirection: 'column', gap: 28,
+              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Bone w={60} h={28} r={8} />
+                <Bone w="80%" h={14} />
+              </div>
+              <Bone w="100%" h={36} r={10} />
+              <Hairline />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
+                <FeatureGroupSkeleton items={['65%', '85%']} />
+                <Hairline />
+                <FeatureGroupSkeleton items={['30%', '50%', '75%']} />
+                <Hairline />
+                <FeatureGroupSkeleton items={['70%', '80%', '60%']} />
+                <Hairline />
+                <FeatureGroupSkeleton items={['75%', '70%']} />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function OrgChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { org, orgId, orgRole, orgReady, refreshMembers } = useOrg()
+  const { org, orgId, orgRole, orgReady, refreshMembers, plan } = useOrg()
   const [workspaceIdx,     setWorkspaceIdx]     = useState(1)
   const [billing,          setBilling]          = useState<'monthly' | 'annual'>('monthly')
   const [tierMenuOpen,     setTierMenuOpen]     = useState(false)
@@ -134,15 +255,23 @@ export default function OrgChangePlanPage() {
   const currentPlan        = user?.planType ?? null
   const selectedWorkspace  = WORKSPACE_PLANS[workspaceIdx]!
 
-  // `orgId`/`orgRole` are already required just to render this page (the admin
-  // gate below), so `Boolean(user?.orgId || orgId)` is always true here — it
-  // was conflating "is an org member" with "org has a paid workspace plan",
-  // which made the button/label logic below think every org already had a
-  // plan even when org.monthlyPrice was 0. The real signal is whether the
-  // org's current price actually matches one of the real tiers.
-  const currentWorkspacePrice   = org.monthlyPrice ?? 0
-  const currentWorkspaceTierIdx = WORKSPACE_PLANS.findIndex(p => p.price === currentWorkspacePrice)
-  const hasWorkspacePlan        = currentWorkspaceTierIdx >= 0
+  // `org.monthlyPrice` is `TeamsTier.fromCredits(creditPool.total)?.price ?? 0`
+  // — an EXACT match of total credits (which drift off the 6 fixed tier
+  // boundaries the moment there's a topup or mid-cycle usage) against the
+  // Teams tiers, silently falling back to 0 on no match. That falsely read
+  // as "no plan" here, so upgrades went through createCheckout() (new
+  // subscription) instead of updatePlan() (existing subscription), which the
+  // backend correctly rejects with "You already have a plan. Use update plan
+  // to change it." The reliable "does this org have a plan at all" signal is
+  // `plan.hasSelectedPlan` (real backend plan_type != null) — used on its own,
+  // NOT combined with a tier-price match, since that match can independently
+  // fail (e.g. `planCredits` not landing exactly on one of the 6 tiers) and
+  // would silently reintroduce the same bug this is fixing. `currentTier` is
+  // only used below for cosmetics (which tier to preselect/label as current);
+  // it's allowed to come back unknown (-1) without affecting hasWorkspacePlan.
+  const currentTier             = TeamsTier.fromCredits(plan?.planCredits ?? 0)
+  const currentWorkspaceTierIdx = currentTier ? WORKSPACE_PLANS.findIndex(p => p.price === currentTier.price) : -1
+  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org.plan !== 'enterprise'
   // No backend field distinguishes "org is on a free/trial plan" from "org has
   // no plan yet" — the only trial mechanism that exists (services/stripe/account.py
   // startTrial) is individual-only and 403s for org members, so this can never
@@ -151,9 +280,11 @@ export default function OrgChangePlanPage() {
   // docs v1.5/free-trial-onboarding-plan.md §3.
   const isOnFreePlan = false
 
-  // Sync tier picker to the org's current tier on load
+  // Sync tier picker to the org's current tier on load — only when the tier
+  // was actually identified; hasWorkspacePlan can be true with the tier
+  // unknown (-1), and WORKSPACE_PLANS[-1] is undefined.
   useEffect(() => {
-    if (hasWorkspacePlan) {
+    if (hasWorkspacePlan && currentWorkspaceTierIdx >= 0) {
       setWorkspaceIdx(currentWorkspaceTierIdx)
     }
   }, [hasWorkspacePlan, currentWorkspaceTierIdx])
@@ -175,9 +306,12 @@ export default function OrgChangePlanPage() {
       currentPlanToastShown.current = true
       toast.success("You're on the Pro (Enterprise) plan", { duration: Infinity })
     } else if (hasWorkspacePlan) {
-      const p = WORKSPACE_PLANS[currentWorkspaceTierIdx]!
+      const p = currentWorkspaceTierIdx >= 0 ? WORKSPACE_PLANS[currentWorkspaceTierIdx] : null
       currentPlanToastShown.current = true
-      toast.success(`You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`, { duration: Infinity })
+      toast.success(
+        p ? `You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits` : "You're on the Workspace plan",
+        { duration: Infinity },
+      )
     } else {
       currentPlanToastShown.current = true
     }
@@ -242,7 +376,8 @@ export default function OrgChangePlanPage() {
     : selectedWorkspace.price
   const workspacePriceLabel = fmtPrice(displayedPrice)
 
-  if (!orgReady || orgRole !== 'admin') return null
+  if (!orgReady) return <ChangePlanSkeleton />
+  if (orgRole !== 'admin') return null
 
   return (
     <>

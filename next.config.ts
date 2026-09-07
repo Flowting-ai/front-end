@@ -102,6 +102,14 @@ const nextConfig: NextConfig = {
         destination: '/onboarding/plans?type=team',
         permanent: false,
       },
+      // /settings/connectors was removed — ORG_CONNECTORS_ROUTE (/connectors)
+      // is now the only entry point for every account type. Redirect any
+      // stale bookmarks/links instead of 404ing.
+      {
+        source: '/settings/connectors',
+        destination: '/connectors',
+        permanent: true,
+      },
     ]
   },
 

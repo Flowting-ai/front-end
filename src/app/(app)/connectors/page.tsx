@@ -1,10 +1,10 @@
 'use client'
 
 // Connectors v1.5 — full UI replacement. See
-// docs v1.5/connectors-v1.5-migration-plan.md. This route and
-// /settings/connectors both mount the same unified experience: the old
-// split between a personal connectors page and an org-admin connectors page
-// no longer exists (§0/§2 of the plan doc).
+// docs v1.5/connectors-v1.5-migration-plan.md. The old split between a
+// personal connectors page (/settings/connectors, removed) and an org-admin
+// connectors page no longer exists (§0/§2 of the plan doc) — this is the one
+// unified experience for every account type.
 
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'

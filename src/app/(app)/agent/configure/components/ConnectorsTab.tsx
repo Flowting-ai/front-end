@@ -9,7 +9,7 @@ import { ConnectorRow } from '@/components/ConnectorRow'
 import { ConnectorCatalog, listLinkedConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
-import { SETTINGS_CONNECTORS_ROUTE } from '@/lib/routes'
+import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -223,10 +223,10 @@ export default function ConnectorsTab({
           }}>
             <div>
               <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>
-                Leave to Settings?
+                Leave to Connectors?
               </p>
               <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
-                You are about to leave the agent editor. You can save a version first before going to Settings.
+                You are about to leave the agent editor. You can save a version first before going to Connectors.
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -246,7 +246,7 @@ export default function ConnectorsTab({
                   setIsSavingNav(true)
                   try {
                     await onSaveVersion?.()
-                    push(SETTINGS_CONNECTORS_ROUTE)
+                    push(ORG_CONNECTORS_ROUTE)
                   } catch {
                     // onSaveVersion shows its own error toast; stay in modal
                   } finally {
@@ -272,7 +272,7 @@ export default function ConnectorsTab({
           rightIcon={<ArrowUpRightOneIcon size={16} animated />}
           onClick={() => setShowNavModal(true)}
         >
-          Manage in Settings
+          Manage Connectors
         </Button>
       </div>
 
@@ -320,10 +320,10 @@ export default function ConnectorsTab({
       ) : connectors.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
-            No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
+            No connectors are available yet. Connect or enable connectors from the Connectors page to use them in this agent.
           </p>
           <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
-            Go to Settings
+            Go to Connectors
           </Button>
         </div>
       ) : workspaceRows.length === 0 && personalRows.length === 0 ? (
@@ -331,11 +331,11 @@ export default function ConnectorsTab({
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
             {searchQuery
               ? <>No connectors match &ldquo;{searchQuery}&rdquo;.</>
-              : 'No connectors are connected yet. Connect accounts in Settings to use them here.'}
+              : 'No connectors are connected yet. Connect accounts from the Connectors page to use them here.'}
           </p>
           {!searchQuery && (
             <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
-              Go to Settings
+              Go to Connectors
             </Button>
           )}
         </div>

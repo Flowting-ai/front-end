@@ -211,9 +211,19 @@ function RoleDropdown({
 
   return (
     <>
-      <DropdownFloat open={open} onOpenChange={handleOpenChange} placement="bottom-start" offset={4} trigger={
-        <RoleDropdownTrigger label={ROLE_LABEL[currentRole]} disabled={saving} />
-      }>
+      <DropdownFloat
+        open={open}
+        onOpenChange={handleOpenChange}
+        placement="bottom-start"
+        offset={4}
+        // Rows sit at arbitrary heights in a member list of any length — the
+        // fixed "bottom-start" placement ran the panel off the bottom of the
+        // viewport for rows near the end. Flips to open upward when it would.
+        autoFlipVertical
+        trigger={
+          <RoleDropdownTrigger label={ROLE_LABEL[currentRole]} disabled={saving} />
+        }
+      >
         {/* Wider than a plain label list (AccountMenu's own dropdown panel is
             274px for the same reason) — each option carries a one-line
             description via subLabel, not just its name. Items sit in their
@@ -229,7 +239,11 @@ function RoleDropdown({
                 label={ROLE_LABEL[o.role]}
                 subLabel={o.shortDescription}
                 selected={o.role === currentRole}
-                icon={o.role === currentRole ? <TickTwoIcon size={14} /> : undefined}
+                // Trailing, not leading — a leading icon ate into the label/
+                // subLabel column's width, truncating "Access through
+                // assigned projects only" harder on whichever row was
+                // currently selected than on the other, icon-less row.
+                rightIcon={o.role === currentRole ? <TickTwoIcon size={14} /> : undefined}
                 onClick={() => {
                   setOpen(false)
                   if (currentRole === 'admin' && o.role === 'member') { setConfirmDowngrade(true); return }

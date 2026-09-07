@@ -219,7 +219,7 @@ teams
 /org
 org_manage
 /settings (each tab)
-settings_profile, settings_connectors, settings_models, settings_billing, settings_analytics
+settings_profile, settings_models, settings_billing, settings_analytics
 /onboarding (each step)
 onboarding_<step>
 /welcome

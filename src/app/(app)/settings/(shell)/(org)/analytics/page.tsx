@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserIcon } from '@strange-huge/icons'
+import { UserIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Tooltip } from '@/components/Tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { UsageBarChart } from '@/components/UsageBarChart'
 import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
 import { useOrg } from '@/context/org-context'
 import { Billing } from '@/lib/api/stripe'
 import { ORG_MEMBERS_ROUTE } from '@/lib/routes'
@@ -53,10 +54,17 @@ interface ChartDay { label: string; chat: number; assistants: number; brain: num
 // colour slots (blue/purple/green) as the categories this data actually
 // tracks (chat / persona-assistant work / brain-automation), just relabelled
 // to match the design's exact copy.
-const FEATURE_META: Record<ChartMetric, { label: string; color: string }> = {
-  chat:       { label: 'Chat',  color: 'var(--blue-600)'   },
-  assistants: { label: 'Slack', color: 'var(--purple-500)' },
-  brain:      { label: 'Brain', color: 'var(--green-500)'  },
+//
+// Based on the same tag bg tints Chip/Badge/PinCategory use (aliases.css
+// --color-tag-{Color}-bg), one primitive step darker than the exact tag tint
+// (blue-100→200, purple-100→200, green's tag tint is already the lighter
+// -bg-soft/green-50, so its next step is green-100 — the tag system's own
+// plain -bg). `border` is that tag's ring color (--color-tag-{Color}-ring) —
+// the same 1px outline every Chip/Badge renders around its bg tint.
+const FEATURE_META: Record<ChartMetric, { label: string; color: string; border: string }> = {
+  chat:       { label: 'Chat',  color: 'var(--blue-200)',           border: 'var(--color-tag-Blue-ring)'   },
+  assistants: { label: 'Slack', color: 'var(--purple-200)',         border: 'var(--color-tag-Purple-ring)' },
+  brain:      { label: 'Brain', color: 'var(--color-tag-Green-bg)', border: 'var(--color-tag-Green-ring)'  },
 }
 
 // Approximate feature mix of total consumption. The backend exposes org credit
@@ -244,10 +252,11 @@ function UserAvatar() {
 function FeatureChart({ days, caption }: { days: ChartDay[]; caption: string }) {
   const chartDays = days.map(d => d.label)
   const series = METRIC_KEYS.map(metric => ({
-    id:    metric,
-    label: FEATURE_META[metric].label,
-    color: FEATURE_META[metric].color,
-    data:  days.map(d => d[metric]),
+    id:          metric,
+    label:       FEATURE_META[metric].label,
+    color:       FEATURE_META[metric].color,
+    borderColor: FEATURE_META[metric].border,
+    data:        days.map(d => d[metric]),
   }))
 
   return (
@@ -255,7 +264,7 @@ function FeatureChart({ days, caption }: { days: ChartDay[]; caption: string }) 
       {/* Figma 18:26035 stacks the 3 categories per day (not side-by-side) —
           "per-link" mode matches that. Its static tooltip mock is what this
           component's real hover tooltip already provides. */}
-      <UsageBarChart days={chartDays} series={series} mode="per-link" height={140} />
+      <UsageBarChart days={chartDays} series={series} mode="per-link" height={140} barRadius={[0, 0, 0, 0]} showHoverCursor={false} />
       {/* There's no real per-day/per-feature usage API yet (see FEATURE_SPLIT
           note above) — this states plainly what the bars represent so the
           total here doesn't read as a silent mismatch against "Monthly
@@ -442,6 +451,20 @@ function AnalyticsPageSkeleton() {
   )
 }
 
+// "Monthly Limits" and "Active members" are a matched pair (Figma 18:25963) —
+// same header size/weight, same "big number" style for the plan line / member
+// count, and both progress bars landing on the same row, so the two cards
+// read as one unit instead of two differently-styled tiles bolted together.
+const statCardHeaderStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0,
+}
+const statCardBigLineStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 26, lineHeight: '34px', color: 'var(--neutral-900)', margin: 0,
+}
+const statCardFooterTextStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)',
+}
+
 export default function OrgUsageAnalyticsPage() {
   const router = useRouter()
   const { org, orgId, members, membersLoading, plan, orgReady } = useOrg()
@@ -460,6 +483,16 @@ export default function OrgUsageAnalyticsPage() {
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0
+  // org.monthlyPrice only ever matches the fixed Teams $50–$2000 ladder
+  // (TeamsTier.fromCredits in org-context.tsx) — an Enterprise/Pro org's
+  // custom-contracted credit total never lands on one of those six exact
+  // numbers, so it silently fell back to $0 here regardless of what the org
+  // actually pays. Same base-fee derivation plans-and-billing/page.tsx uses
+  // for its own "Pro Plan · $X/mo" (projected invoice minus metered overage).
+  const isEnterprise  = plan?.planType === 'enterprise'
+  const monthlyPrice  = isEnterprise
+    ? Math.max((plan?.projectedInvoiceUsd ?? 0) - (plan?.overageUsd ?? 0), 0)
+    : org.monthlyPrice
 
   // Feature-usage series — derived from real `used` credits + selected range.
   const featureSeries = React.useMemo(
@@ -606,11 +639,31 @@ export default function OrgUsageAnalyticsPage() {
         <PageCard padding={12}>
           <div style={{ display: 'flex', gap: 9, alignItems: 'stretch' }}>
             <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: 'var(--shadow-surface-card)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Monthly Limits
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                ${org.monthlyPrice}/mo · {totalCredits.toLocaleString()} credits
+              {/* Fixed-height row, matching Active members' — its IconButton
+                  (24px) is taller than this plain text line (22px), and
+                  without pinning both header rows to the same height that
+                  extra height pushed every row below it down, throwing off
+                  the progress-bar alignment the two cards otherwise share. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 24 }}>
+                <p style={statCardHeaderStyle}>
+                  Monthly Limits
+                </p>
+                <Tooltip
+                  side="top"
+                  align="end"
+                  maxWidth={280}
+                  content="Your organization's plan includes a fixed number of credits each billing cycle, for the price shown here. The bar below tracks how much of that allowance your team has used so far — it fills up as credits are spent and resets automatically at the start of your next billing cycle."
+                >
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    icon={<InformationCircleIcon size={16} />}
+                    aria-label="About Monthly Limits"
+                  />
+                </Tooltip>
+              </div>
+              <p style={statCardBigLineStyle}>
+                ${Math.round(monthlyPrice)}/mo · {totalCredits.toLocaleString()} credits
               </p>
               {/* The bar fills to % USED (standard "progress toward your limit"
                   reading) — leading with "remaining" here read as contradicting
@@ -618,39 +671,54 @@ export default function OrgUsageAnalyticsPage() {
                   now sits first, right next to the fill it actually matches. */}
               <ProgressBar value={poolPercentUsed} height={4} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+                <span style={statCardFooterTextStyle}>
                   {poolPercentUsed}% used · {100 - poolPercentUsed}% remaining
                 </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+                <span style={statCardFooterTextStyle}>
                   {totalUsed.toLocaleString()}/{totalCredits.toLocaleString()}
                 </span>
               </div>
             </div>
 
-            <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: 'var(--shadow-surface-card)', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Tooltip content="Members who have accepted their invite — excludes pending invites." side="top">
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, width: 'fit-content', cursor: 'default', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+            <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: 'var(--shadow-surface-card)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 24 }}>
+                <p style={statCardHeaderStyle}>
                   Active members
                 </p>
-              </Tooltip>
-              <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-                {activeMembers.length}
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                {pendingCount > 0
-                  ? `of ${members.length} total · ${pendingCount} pending invite${pendingCount === 1 ? '' : 's'}`
-                  : `of ${members.length} total · unlimited seats`}
-              </p>
+                <Tooltip
+                  side="top"
+                  align="end"
+                  maxWidth={280}
+                  content="Members who have accepted their invite and joined your workspace — pending invites aren't counted until accepted. The number shown is how many people are active out of your total member count. The bar below shows what share of them have used at least 1 credit this billing cycle."
+                >
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    icon={<InformationCircleIcon size={16} />}
+                    aria-label="About active members"
+                  />
+                </Tooltip>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <p style={statCardBigLineStyle}>
+                  {activeMembers.length}
+                </p>
+                <span style={statCardFooterTextStyle}>
+                  {pendingCount > 0
+                    ? `of ${members.length} total · ${pendingCount} pending invite${pendingCount === 1 ? '' : 's'}`
+                    : `of ${members.length} total · unlimited seats`}
+                </span>
+              </div>
               {/* A solid chip always reads as "full" regardless of the number
                   inside it — same proportional bar the Monthly Limits card
-                  uses instead, so a half-used cycle actually looks half-full. */}
+                  uses instead, so a half-used cycle actually looks half-full.
+                  Lands on the same row as Monthly Limits' own bar: both cards
+                  go header → big number/line → bar → footer. */}
+              <ProgressBar value={utilisationPct} height={4} />
               <Tooltip content="Share of active members who've used at least 1 credit this billing cycle." side="top">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', cursor: 'default' }}>
-                  <ProgressBar value={utilisationPct} height={4} />
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
-                    {utilisationPct}% used credits this cycle
-                  </span>
-                </div>
+                <span style={{ ...statCardFooterTextStyle, width: 'fit-content', cursor: 'default', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+                  {utilisationPct}% used credits this cycle
+                </span>
               </Tooltip>
             </div>
           </div>
@@ -669,7 +737,7 @@ export default function OrgUsageAnalyticsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {METRIC_KEYS.map(metric => (
                   <span key={metric} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: FEATURE_META[metric].color, flexShrink: 0 }} />
+                    <span aria-hidden style={{ width: 8, height: 8, backgroundColor: FEATURE_META[metric].color, border: `1px solid ${FEATURE_META[metric].border}`, boxSizing: 'border-box', flexShrink: 0 }} />
                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>
                       {FEATURE_META[metric].label}
                     </span>

@@ -155,17 +155,23 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
   ) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
-    const isActive      = isHovered || isFocused || selected
+    const isHeader      = variant === 'header'
+    const isChatItem    = variant === 'chat-item'
+    const isEditVariant = variant === 'chat-item-edit'
+    const isAccountItem = variant === 'account-item'
+    // account-item has no click behavior of its own beyond the settings
+    // button (onSettingsClick) — a caller with no handler (e.g. the Settings
+    // sidebar footer's static AccountMenu) renders the identity row with
+    // nothing to click, so it shouldn't show hover/focus feedback or a
+    // pointer cursor either.
+    const isInert        = isAccountItem && !onSettingsClick
+    const isActive      = !isInert && (isHovered || isFocused || selected)
 
     // When this item is deselected (another item was clicked), clear any stale
     // isFocused state so it doesn't remain visually active.
     useEffect(() => {
       if (!selected) setIsFocused(false)
     }, [selected])
-    const isHeader      = variant === 'header'
-    const isChatItem    = variant === 'chat-item'
-    const isEditVariant = variant === 'chat-item-edit'
-    const isAccountItem = variant === 'account-item'
 
     // ── chat-item-edit state ───────────────────────────────────────────────────
     const [editValue, setEditValue] = useState(label)
@@ -293,14 +299,14 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       boxShadow:       isEditVariant
                          ? '0px 0px 0px 1px var(--focus-ring)'
                          : (!isHeader && isActive) ? SHADOW_ITEM_HOVER : undefined,
-      cursor:          isHeader ? 'default' : isEditVariant ? 'text' : 'pointer',
+      cursor:          isHeader ? 'default' : isEditVariant ? 'text' : isInert ? 'default' : 'pointer',
       transition:      isEditVariant ? undefined : 'background-color 150ms, box-shadow 150ms',
     }
 
     const rootProps = {
       ref,
-      role: isHeader || isEditVariant || isLink ? undefined : 'button',
-      tabIndex: isHeader || isEditVariant ? undefined : 0,
+      role: isHeader || isEditVariant || isLink || isInert ? undefined : 'button',
+      tabIndex: isHeader || isEditVariant || isInert ? undefined : 0,
       'aria-pressed': (!isHeader && !isEditVariant) ? selected : undefined,
       className: cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className),
       style: isLink ? { ...containerStyle, textDecoration: 'none' } : containerStyle,

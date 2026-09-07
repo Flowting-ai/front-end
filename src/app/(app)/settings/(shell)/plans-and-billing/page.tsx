@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, TokenCircleIcon } from '@strange-huge/icons'
@@ -100,9 +100,17 @@ const SHADOW_MODAL   = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px 
 const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const ENTERPRISE_INTERMAX = 2_147_483_647
 
-// ── Plan tiers (DECISIONS.md, matches Figma slider markers) ────────────────────
-
-const TIERS = TeamsTier.all.map(tier => ({ price: tier.price, credits: tier.credits }))
+// Same "big number" / secondary-text convention as the Monthly Limits /
+// Active members cards on /settings/analytics — applied here to the Plan /
+// Included Credits Remaining cards' own big line and captions so the two
+// pages' stat cards read consistently. SectionCard's own title already
+// renders at this size/weight, so no separate header style is needed here.
+const statCardBigLineStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 26, lineHeight: '34px', color: 'var(--neutral-900)', margin: 0,
+}
+const statCardCaptionStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0,
+}
 
 // ── Small primitives ───────────────────────────────────────────────────────────
 
@@ -159,6 +167,9 @@ function SectionCard({
   bodyPadding = '12px 24px',
   bodyGap,
   headerDivider = true,
+  background,
+  bodyAlign = 'center',
+  titleColor = 'var(--neutral-900)',
 }: {
   title:          string
   subtitle?:      string
@@ -169,6 +180,22 @@ function SectionCard({
   /** Figma 18:24922/18:25080 (Plan / Credits Remaining) have no rule between
    *  title and body — unlike Payment/Invoice history, which do. */
   headerDivider?: boolean
+  /** Explicit card fill — any valid CSS `background` value (solid color or gradient). Omit to keep the existing transparent/inherited look. */
+  background?:    string
+  /**
+   * Body content's vertical alignment. Default `'center'` (existing
+   * behavior everywhere else) — pass `'flex-start'` when this card sits
+   * beside another SectionCard whose first line needs to land on the same
+   * row regardless of how much content follows it in either card; centering
+   * shifts that first line up/down based on each card's own content height.
+   * Pass `'space-between'` when the body is a top block plus a trailing
+   * actions row that should sink to the card's bottom edge (e.g. when
+   * `alignItems: 'stretch'` on the surrounding row makes this card taller
+   * than its own content) instead of sitting immediately under the block.
+   */
+  bodyAlign?:     'center' | 'flex-start' | 'space-between'
+  /** Title text color. @default 'var(--neutral-900)' */
+  titleColor?:    string
 }) {
   return (
     <div style={{
@@ -182,6 +209,7 @@ function SectionCard({
       paddingBottom: 12,
       overflow:      'hidden',
       width:         '100%',
+      background,
     }}>
       <div style={{
         borderBottom: headerDivider ? '1px solid var(--neutral-100)' : undefined,
@@ -191,7 +219,7 @@ function SectionCard({
         gap:          12,
       }}>
         <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: titleColor, margin: 0 }}>
             {title}
           </p>
           {subtitle && (
@@ -202,7 +230,7 @@ function SectionCard({
         </div>
         {action}
       </div>
-      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: bodyGap }}>
+      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', justifyContent: bodyAlign, gap: bodyGap }}>
         {children}
       </div>
     </div>
@@ -439,7 +467,7 @@ export default function PlansAndBillingPage() {
 
 function OrgBillingView() {
   const router = useRouter()
-  const { org, orgId, orgRole, plan, members: orgMembers, refreshMembers } = useOrg()
+  const { org, orgId, orgRole, plan, refreshMembers } = useOrg()
 
   const isEnterprise = org.plan === 'enterprise'
 
@@ -454,8 +482,6 @@ function OrgBillingView() {
 
   const isAdmin = orgRole === 'admin'
   const effectivePlan = plan
-
-  const membersCount = orgMembers.length
 
   // Everything below comes straight from the plan endpoint (getOrgPlan, validated
   // by planResponseSchema) — the single source of truth. No merge with
@@ -516,9 +542,25 @@ function OrgBillingView() {
   // all. Previously `TIERS.findIndex` returning -1 for "no match" also
   // silently fell back to TIERS[0] ($125/mo) on top of that.
   const hasPlan = isEnterprise || Boolean(effectivePlan?.hasSelectedPlan)
-  const currentTierIdx = useMemo(() => TIERS.findIndex(t => t.credits === totalCredits), [totalCredits])
-  const tier        = TIERS[currentTierIdx] ?? TIERS[0]
-  const tierMonthly  = org.billingCycle === 'annual' ? Math.round(tier.price * 0.75) : tier.price
+  // Three-step fallback, most-to-least reliable:
+  //  1. billing.teamsTier — resolves from the real Stripe plan_id
+  //     (TeamsTier.fromPlanId). Most reliable, but `billing` is admin-only
+  //     (Billing.fetch() below is gated on isAdmin) — null for anyone else.
+  //  2. TeamsTier.fromCredits(effectivePlan.planCredits) — planCredits is the
+  //     backend's own base-tier allocation, separate from topupCredits, so
+  //     it lands on an exact tier boundary even when a topup or mid-cycle
+  //     usage has moved totalCredits off of one. Available to every viewer.
+  //  3. TeamsTier.fromCredits(totalCredits) — last resort. This was
+  //     previously the ONLY source (via TIERS.findIndex(...) ?? TIERS[0]),
+  //     which is what caused the TIERS[0] ($50) bug: any credits total that
+  //     doesn't land on an exact tier boundary silently showed the cheapest
+  //     tier's price instead of the org's real one.
+  const teamsTier   = billing?.teamsTier
+    ?? TeamsTier.fromCredits(effectivePlan?.planCredits ?? 0)
+    ?? TeamsTier.fromCredits(totalCredits)
+  const tierMonthly  = teamsTier
+    ? (org.billingCycle === 'annual' ? Math.round(teamsTier.price * 0.75) : teamsTier.price)
+    : null
 
   // Fetch billing data. Payment/Invoices below are admin-only (the backend's
   // visiblePlan() zeroes billing/usage fields for any non-admin — see ST2/ST3
@@ -678,12 +720,7 @@ function OrgBillingView() {
             Plan &amp; Billing
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            {isEnterprise
-              ? '$250 monthly platform fee with $125 of provider usage included.'
-              // Figma 18:24652's exact text — same subtitle the Members page
-              // uses (a copy-paste there), kept verbatim per "match 1:1,
-              // all text".
-              : 'Manage who has access to your workspace and what they can do.'}
+            Manage your plan, billing details, and usage.
           </p>
         </div>
 
@@ -691,54 +728,68 @@ function OrgBillingView() {
           /* Matches the Teams/core layout below: a "Plan" / "Credits Remaining"
              two-card row, rather than a bespoke gradient hero. */
           <>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-                <SectionCard
-                  title="Plan"
-                  action={<Badge label="Active" tone="green" />}
-                  headerDivider={false}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                        Pro Plan · ${Math.round(baseFeeUsd)}/mo
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                        Next billing date: {nextBilling}
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
-                        Unlimited seats · {membersCount} active
-                      </p>
+            {/* Outer enclosing border/bg — same treatment as the Monthly
+                Limits / Active members pairing on /settings/analytics: one
+                bordered shell around both stat cards, not each card floating
+                on its own. */}
+            <div style={{
+              width:           '100%',
+              border:          '1px solid var(--neutral-200)',
+              borderRadius:    16,
+              boxShadow:       SHADOW_CARD,
+              overflow:        'hidden',
+              backgroundColor: 'var(--neutral-50)',
+              padding:         12,
+            }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+                  <SectionCard
+                    title="Plan"
+                    titleColor="var(--neutral-700)"
+                    action={<Badge label="Active" tone="green" />}
+                    headerDivider={false}
+                    background="linear-gradient(135deg, var(--neutral-white) 0%, var(--neutral-200) 100%)"
+                    bodyAlign="flex-start"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                        <p style={statCardBigLineStyle}>
+                          Pro Plan · ${Math.round(baseFeeUsd)}/mo
+                        </p>
+                        <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
+                          Next billing date: {nextBilling}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </SectionCard>
-              </div>
+                  </SectionCard>
+                </div>
 
-              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-                {/* "Included" in the title (and totalCredits below) is
-                    deliberately just the plan's base allowance, not the
-                    allowance plus the overage cap — see SpendLimitCard for
-                    the separate, additional paid-usage story. */}
-                <SectionCard title="Included Credits Remaining" headerDivider={false}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                      <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
-                        {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                        credits consumed
+                <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+                  {/* "Included" in the title (and totalCredits below) is
+                      deliberately just the plan's base allowance, not the
+                      allowance plus the overage cap — see SpendLimitCard for
+                      the separate, additional paid-usage story. */}
+                  <SectionCard title="Included Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={8}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                        <p style={{ ...statCardBigLineStyle, whiteSpace: 'nowrap' }}>
+                          {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
+                        </p>
+                        <p style={statCardCaptionStyle}>
+                          credits consumed
+                        </p>
+                      </div>
+                      <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
+                        {usedCredits > totalCredits
+                          ? `${(usedCredits - totalCredits).toLocaleString()} credits in paid overage — see below`
+                          : `Resets ${nextBilling}`}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                       <Button variant="secondary" onClick={() => router.push(ORG_ANALYTICS_ROUTE)}>View usage</Button>
                     </div>
-                  </div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
-                    {usedCredits > totalCredits
-                      ? `${(usedCredits - totalCredits).toLocaleString()} credits in paid overage — see below`
-                      : `Resets ${nextBilling}`}
-                  </p>
-                </SectionCard>
+                  </SectionCard>
+                </div>
               </div>
             </div>
 
@@ -756,92 +807,114 @@ function OrgBillingView() {
           /* Figma 18:25119: two compact cards side by side — Plan, and Credits
              Remaining. The old inline tier slider/annual toggle moved entirely
              to ORG_CHANGE_PLAN_ROUTE (what "Upgrade Plan" already opens) rather
-             than living here too. */
-          <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-            <SectionCard
-              title="Plan"
-              action={
-                hasPlan
-                  ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : 'Active'} tone={cancelAtPeriodEnd ? 'red' : 'green'} />
-                  : <Badge label="Free Plan" tone="blue" />
-              }
-              headerDivider={false}
-            >
-              {hasPlan ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                      {org.name} · ${tierMonthly}/mo
-                    </p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                      {cancelAtPeriodEnd ? `Access ends ${nextBilling}` : `Next billing date: ${nextBilling}`}
-                    </p>
-                  </div>
-                  {isAdmin ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                      {/* Not in Figma's static frame, but cancel/resume needs to stay
-                          reachable now that it no longer lives in a hero footer. */}
-                      {cancelAtPeriodEnd ? (
-                        <button
-                          type="button"
-                          onClick={() => { void handleResumeSubscription() }}
-                          disabled={isResuming}
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: isResuming ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--blue-700)', textDecoration: 'underline', opacity: isResuming ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                        >
-                          {isResuming ? 'Resuming…' : 'Resume plan'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setShowCancelDialog(true)}
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-700)', textDecoration: 'underline', whiteSpace: 'nowrap' }}
-                        >
-                          Cancel plan
-                        </button>
-                      )}
-                      <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Upgrade Plan</Button>
+             than living here too. Same outer enclosing border/bg + card
+             styling as the Enterprise branch above and the Monthly Limits /
+             Active members pairing on /settings/analytics. */
+          <div style={{
+            width:           '100%',
+            border:          '1px solid var(--neutral-200)',
+            borderRadius:    16,
+            boxShadow:       SHADOW_CARD,
+            overflow:        'hidden',
+            backgroundColor: 'var(--neutral-50)',
+            padding:         12,
+          }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+              <SectionCard
+                title="Plan"
+                titleColor="var(--neutral-700)"
+                action={
+                  hasPlan
+                    ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : 'Active'} tone={cancelAtPeriodEnd ? 'red' : 'green'} />
+                    : <Badge label="Free Plan" tone="blue" />
+                }
+                headerDivider={false}
+                background="linear-gradient(135deg, var(--neutral-white) 0%, var(--neutral-200) 100%)"
+                bodyAlign="space-between"
+                bodyGap={8}
+              >
+                {hasPlan ? (
+                  // Actions on their own row at the bottom, not squeezed
+                  // beside the plan info — Cancel/Resume + Upgrade together
+                  // could crowd the text column and force awkward wrapping.
+                  // Two direct children (not one wrapping div) so SectionCard's
+                  // own bodyAlign="space-between" sinks the action row to the
+                  // card's bottom edge when the stretched-height Credits
+                  // Remaining card next to it makes this card taller than its
+                  // own content — bodyGap is the floor when it isn't.
+                  <>
+                    <div>
+                      <p style={statCardBigLineStyle}>
+                        Core Plan{tierMonthly != null ? ` · $${tierMonthly}/mo` : ''}
+                      </p>
+                      <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
+                        {cancelAtPeriodEnd ? `Access ends ${nextBilling}` : `Next billing date: ${nextBilling}`}
+                      </p>
                     </div>
-                  ) : (
-                    <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                      Currently on Free Plan
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                      {isAdmin ? (
+                        <>
+                          {/* Not in Figma's static frame, but cancel/resume needs to stay
+                              reachable now that it no longer lives in a hero footer. */}
+                          {cancelAtPeriodEnd ? (
+                            <Button variant="ghost" disabled={isResuming} onClick={() => { void handleResumeSubscription() }}>
+                              {isResuming ? 'Resuming…' : 'Resume plan'}
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
+                              Cancel plan
+                            </Button>
+                          )}
+                          <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Upgrade Plan</Button>
+                        </>
+                      ) : (
+                        <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p style={statCardBigLineStyle}>
+                        Currently on Free Plan
+                      </p>
+                      <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
+                        Choose a plan to start using paid credits.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                      {isAdmin ? (
+                        <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
+                      ) : (
+                        <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </SectionCard>
+              </div>
+
+              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+              <SectionCard title="Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={8}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <p style={{ ...statCardBigLineStyle, whiteSpace: 'nowrap' }}>
+                      {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
                     </p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                      Choose a plan to start using paid credits.
+                    <p style={statCardCaptionStyle}>
+                      credits consumed
                     </p>
                   </div>
-                  {isAdmin ? (
-                    <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
-                  ) : (
-                    <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
-                  )}
-                </div>
-              )}
-            </SectionCard>
-            </div>
-
-            <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-            <SectionCard title="Credits Remaining" headerDivider={false}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
-                    {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                    credits consumed
+                  <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
+                    Resets {nextBilling}
                   </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                   <Button variant="secondary" onClick={() => router.push(ORG_ANALYTICS_ROUTE)}>View usage</Button>
                 </div>
+              </SectionCard>
               </div>
-            </SectionCard>
             </div>
           </div>
         )}
@@ -1165,6 +1238,7 @@ function PersonalBillingView() {
           <div style={{ flex: '1 0 0', minWidth: 280 }}>
             <SectionCard
               title="Plan"
+              titleColor="var(--neutral-700)"
               action={
                 hasPlan
                   ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : (isTrialUser ? 'Free Trial' : 'Active')} tone={cancelAtPeriodEnd ? 'red' : (isTrialUser ? 'blue' : 'green')} />
@@ -1177,7 +1251,7 @@ function PersonalBillingView() {
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                     {hasPlan ? `${planName} Plan${planPrice > 0 ? ` · $${planPrice}/mo` : ''}` : 'No plan selected'}
                   </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
                     {isTrialUser
                       ? `${fmtNum(creditsRemaining)} of ${fmtNum(creditsTotal)} trial credits remaining`
                       : cancelAtPeriodEnd
@@ -1194,23 +1268,14 @@ function PersonalBillingView() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   {hasActiveSub && !cancelAtPeriodEnd && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCancelDialog(true)}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-700)', textDecoration: 'underline', whiteSpace: 'nowrap' }}
-                    >
+                    <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
                       Cancel plan
-                    </button>
+                    </Button>
                   )}
                   {hasActiveSub && cancelAtPeriodEnd && (
-                    <button
-                      type="button"
-                      onClick={() => { void handleResumeSubscription() }}
-                      disabled={isResuming}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: isResuming ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--blue-700)', textDecoration: 'underline', opacity: isResuming ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                    >
+                    <Button variant="ghost" disabled={isResuming} onClick={() => { void handleResumeSubscription() }}>
                       {isResuming ? 'Resuming…' : 'Resume plan'}
-                    </button>
+                    </Button>
                   )}
                   {isTrialUser && billingLoaded && !usage?.isTrial && (
                     <Button variant="secondary" leftIcon={<TokenCircleIcon size={16} animated />} loading={isClaimingTrial} onClick={() => { void handleClaimTrial() }}>
@@ -1226,9 +1291,9 @@ function PersonalBillingView() {
           </div>
 
           <div style={{ flex: '1 0 0', minWidth: 280 }}>
-            <SectionCard title="Credits Remaining" headerDivider={false}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+            <SectionCard title="Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} bodyAlign="space-between" bodyGap={8}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
                     {fmtNum(creditsUsed)}/{fmtNum(creditsTotal)}
                   </p>
@@ -1236,13 +1301,13 @@ function PersonalBillingView() {
                     credits consumed
                   </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                  <Button variant="secondary" onClick={() => router.push(SETTINGS_USAGE_ROUTE)}>View usage</Button>
-                </div>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
+                  {cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`}
+                </p>
               </div>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
-                {cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <Button variant="secondary" onClick={() => router.push(SETTINGS_USAGE_ROUTE)}>View usage</Button>
+              </div>
             </SectionCard>
           </div>
         </div>

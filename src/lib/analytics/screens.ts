@@ -14,8 +14,6 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
     case undefined:          // /settings → home defaults to the profile tab
     case "account":
       return "settings_profile";
-    case "connectors":
-      return "settings_connectors";
     case "ai":
       return "settings_models";
     case "billing":
