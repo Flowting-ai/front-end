@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertTwoIcon, CancelCircleIcon, CheckmarkCircleTwoIcon } from '@strange-huge/icons'
-import { Badge } from '@/components/Badge'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { cn } from '@/lib/utils'
 
@@ -39,10 +39,17 @@ const PERMISSION_LABEL: Record<AccountRowPermission, string> = {
 }
 
 const PERMISSION_ICON: Record<AccountRowPermission, React.ReactElement> = {
-  always: <CheckmarkCircleTwoIcon size={16} />,
-  ask: <AlertTwoIcon size={16} />,
-  blocked: <CancelCircleIcon size={16} />,
-  custom: <AlertTwoIcon size={16} />,
+  always: <CheckmarkCircleTwoIcon size={12} />,
+  ask: <AlertTwoIcon size={12} />,
+  blocked: <CancelCircleIcon size={12} />,
+  custom: <AlertTwoIcon size={12} />,
+}
+
+const PERMISSION_COLOR: Record<AccountRowPermission, BadgeColor> = {
+  always: 'Green',
+  ask: 'Yellow',
+  blocked: 'Red',
+  custom: 'Neutral',
 }
 
 export function AccountRow({
@@ -120,14 +127,12 @@ export function AccountRow({
           </Button>
         ) : (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={PERMISSION_ICON[permission]}
+            <Badge
+              label={PERMISSION_LABEL[permission]}
+              color={PERMISSION_COLOR[permission]}
+              icon={PERMISSION_ICON[permission]}
               aria-label={`Permissions for ${name}: ${PERMISSION_LABEL[permission]}`}
-            >
-              {PERMISSION_LABEL[permission]}
-            </Button>
+            />
             <Button variant="outline" size="sm" aria-label={`Manage ${name}`} onClick={onManage}>
               Manage
             </Button>

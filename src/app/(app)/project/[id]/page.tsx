@@ -404,6 +404,10 @@ export default function ProjectPage() {
   // "Published to Workspace" is just the filtered subset of the same list.
   const personalChats  = teamChats
   const publishedChats = teamChats.filter(c => c.visibility === 'team')
+  // Tab label: "Shared chats" on a Shared project, "Workspace chats" on a
+  // Workspace one — this whole tab strip only renders when visibility isn't
+  // 'personal', so it's one or the other here.
+  const publishedTabLabel = project.visibility === 'workspace' ? 'Workspace chats' : 'Shared chats'
 
   // A chat row for the team-project tab (Your chats / Published chats).
   function teamChatRow(chat: Chat) {
@@ -819,7 +823,7 @@ export default function ProjectPage() {
                     <TabsTrigger value="personal">Your chats</TabsTrigger>
                     <TabsTrigger value="publish">
                       <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        Published chats
+                        {publishedTabLabel}
                         {publishedChats.length > 0 && (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -841,7 +845,7 @@ export default function ProjectPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div><b>Your chats</b> — your own chats here, plus what&apos;s published to the workspace.</div>
                         <div style={tooltipDividerStyle} />
-                        <div><b>Published chats</b> — just the chats published to the workspace.</div>
+                        <div><b>{publishedTabLabel}</b> — just the chats published to the workspace.</div>
                       </div>
                     }
                   >

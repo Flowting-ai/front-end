@@ -229,9 +229,21 @@ function saveChatSettings(chatId: string, settings: ChatSettings): void {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
+  // Forces a genuinely fresh mount of ChatPageInner on "New chat" from the
+  // sidebar — belt-and-suspenders alongside handleSidebarNewChat's own
+  // synchronous reset inside ChatPageInner. That reset depends on this
+  // instance's effects actually re-running; if the client router ever serves
+  // this route from its cache instead of a true remount, that can lag or get
+  // superseded. A key change is the one thing React always honors regardless
+  // of what the router did underneath — it discards the old instance (and
+  // whatever state/highlights it was still carrying) outright, no race
+  // possible. Lives here, not inside ChatPageInner, so the counter survives
+  // the very remounts it triggers.
+  const [newChatEpoch, setNewChatEpoch] = useState(0);
+  useSidebarEvents({ onNewChat: () => setNewChatEpoch((e) => e + 1) });
   return (
     <Suspense fallback={null}>
-      <ChatPageInner />
+      <ChatPageInner key={`chat-${newChatEpoch}`} />
       <WelcomeModal />
     </Suspense>
   );

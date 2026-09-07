@@ -62,10 +62,38 @@ function SharedChatContent() {
   }
 
   if (error || !view) {
+    // The generic "not found" 404 (client.ts's friendly-error fallback) is what
+    // a revoked share resolves to — the share row is just gone, same as any
+    // other missing resource — so it reads as a dead link rather than telling
+    // the viewer what actually happened and what to do about it.
+    const message = error === 'The requested resource was not found.'
+      ? 'The requested resource was not found. Please ask the user to share it again.'
+      : (error ?? 'This shared chat could not be found.')
     return (
-      <div style={{ padding: 48, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-700)', margin: 0 }}>
-          {error ?? 'This shared chat could not be found.'}
+      <div
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          gap:            20,
+          height:         '100%',
+          padding:        48,
+          textAlign:      'center',
+        }}
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-title)',
+            fontWeight: 400,
+            fontSize:   22,
+            lineHeight: '30px',
+            color:      'var(--neutral-900)',
+            margin:     0,
+            maxWidth:   440,
+          }}
+        >
+          {message}
         </p>
         <Button variant="outline" size="sm" onClick={() => router.back()}>Go back</Button>
       </div>

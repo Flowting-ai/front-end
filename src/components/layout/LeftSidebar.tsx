@@ -53,7 +53,6 @@ import {
   ORG_ANALYTICS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
   AGENT_CHAT_ROUTE,
-  AGENT_CONFIGURE_BASE_ROUTE,
   AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
@@ -1777,9 +1776,10 @@ interface FlatChatHistoryItemProps {
   onRename: (chatId: string, title: string) => Promise<void>
   onDelete: (chatId: string) => Promise<void>
   onStar: (chatId: string) => Promise<void>
+  onArchive: (chatId: string) => Promise<void>
 }
 
-function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onStar }: FlatChatHistoryItemProps) {
+function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onStar, onArchive }: FlatChatHistoryItemProps) {
   const { push } = useGuardedRouter()
   const { projects, addChat } = useProjects()
   const { removeLocal } = useChatHistoryContext()
@@ -1849,8 +1849,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
             {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
             <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} onClick={() => void onStar(chat.id)} />
             <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => setMoveModalOpen(true)} />
-            {/* No archive endpoint exists yet (src/lib/api/chat.ts has no archive call) — surfaced as coming-soon, same pattern as other unwired nav items. */}
-            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => toast.info("Archiving chats is coming soon")} />
+            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => void onArchive(chat.id)} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>
@@ -1899,6 +1898,7 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
               <FlatChatHistoryItem
                 chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
                 onRename={chatHistory.rename} onDelete={async (chatId) => { await chatHistory.remove(chatId) }} onStar={chatHistory.star}
+                onArchive={async (chatId) => { await chatHistory.archive(chatId) }}
               />
             </m.div>
           ))}
@@ -1912,7 +1912,7 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
 
 function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat }: SectionProps & { onNewChat?: () => void }) {
   const { push } = useGuardedRouter()
-  const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory
+  const { chats, isLoading, hasMore, loadMore, rename, remove, star, archive } = chatHistory
   // Starred chats live in FlatPinnedSection (see its own `.filter(c => c.starred)`
   // above) — excluded here too, or a newly-pinned chat kept showing in both
   // places instead of moving out of Recent, and unpinning had nothing to
@@ -1967,6 +1967,7 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
                   <FlatChatHistoryItem
                     chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
                     onRename={rename} onDelete={async (chatId) => { await remove(chatId) }} onStar={star}
+                    onArchive={async (chatId) => { await archive(chatId) }}
                   />
                 </m.div>
               ))}
@@ -2344,28 +2345,6 @@ function LeftSidebarImpl({
   const isChatsTasksMode = pathname === CHATS_ROUTE && chatSearchParams.get("filter") === "tasks";
 
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
-  // The agent creation/edit flow: the template→basics wizard and the
-  // Instructions→Sharing configure tabs — narrower than isPersonaPage, which
-  // also matches the plain /agents library. The sidebar force-collapses and
-  // goes inert across this whole span so a stray click can't navigate away
-  // mid-creation/mid-edit (see FlatSidebar's `forceCollapsed`).
-  const isAgentCreateOrEditPage = (
-    pathname?.startsWith(AGENT_CONFIGURE_BASE_ROUTE) ||
-    pathname?.startsWith(AGENTS_TEMPLATES_ROUTE) ||
-    pathname?.startsWith("/agents/basics")
-  ) ?? false;
-  // One-time heads-up on each false→true transition into the locked flow —
-  // not on every re-render while already inside it, and it fires again if
-  // the user leaves and re-enters (e.g. Library → New agent a second time).
-  const wasAgentCreateOrEditPageRef = useRef(false);
-  useEffect(() => {
-    if (isAgentCreateOrEditPage && !wasAgentCreateOrEditPageRef.current) {
-      toast.info("Navigation locked until agent creation is complete", {
-        description: "Finish or cancel to use the sidebar again.",
-      });
-    }
-    wasAgentCreateOrEditPageRef.current = isAgentCreateOrEditPage;
-  }, [isAgentCreateOrEditPage]);
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
   // Flat sidebar's "New" row highlights for either flavor of "blank slate" —
   // a new chat or an idle (no thread loaded) Brain page — same condition the
@@ -2635,7 +2614,6 @@ function LeftSidebarImpl({
           searchActive={searchOpen}
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
-          forceCollapsed={isAgentCreateOrEditPage}
           destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} isTeamUser={isTeamUser} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />

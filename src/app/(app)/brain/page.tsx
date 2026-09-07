@@ -120,9 +120,29 @@ import type { ContextRailData } from '@/templates/Brain/ContextRail'
 export default function BrainPage() {
   return (
     <Suspense fallback={null}>
-      <BrainPageInner />
+      <BrainRemountGate />
     </Suspense>
   )
+}
+
+// Forces a genuinely fresh mount of BrainPageInner across a `?new=1`
+// transition — belt-and-suspenders alongside its own internal
+// newThreadRequested effect (which calls handleNewChat() imperatively).
+// That reset depends on this instance's effects actually re-running for the
+// new URL; if the client router ever serves /brain from its cache instead of
+// a true remount, a key change is the one thing React always honors
+// regardless of what the router did underneath, discarding the old instance
+// (and whichever thread's state it was still carrying) outright — no race
+// possible. Only two key values ('new' / 'thread'), not one per request: the
+// transition into `?new=1` and the subsequent replace() back out of it both
+// need to force a remount, but every other transition (switching between two
+// *existing* threads, or this same new thread acquiring a real id once the
+// user sends its first message) must NOT remount — those still rely on
+// BrainPageInner's own chatIdFromUrl-driven in-place reset, same as today.
+function BrainRemountGate() {
+  const searchParams = useSearchParams()
+  const newThreadRequested = searchParams.get('new') === '1'
+  return <BrainPageInner key={newThreadRequested ? 'new' : 'thread'} />
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

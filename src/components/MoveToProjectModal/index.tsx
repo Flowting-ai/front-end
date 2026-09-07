@@ -209,7 +209,6 @@ export function MoveToProjectModal({
               position:        'fixed',
               inset:           0,
               backgroundColor: 'rgba(0,0,0,0.28)',
-              backdropFilter:  'blur(2px)',
               zIndex:          20,
             }}
           />

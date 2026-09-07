@@ -202,7 +202,17 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           active={view}
           back={backToConnector}
           change={setView}
-          onChanged={() => void fetchAll()}
+          // Was `fetchAll()` — the list endpoint intentionally omits each
+          // connector's tools and each account's per-tool permissions (backend:
+          // page_user_connectors always calls withPermissions=False and never
+          // passes catalog_tools; only GET /connectors/{slug} includes them).
+          // Refreshing via the list after a permission/access/label edit wiped
+          // that data back to empty, so permissionSummary() fell back to
+          // 'custom' and a freshly re-opened Permissions tab re-fetched from
+          // scratch — looking "wrong until reload". loadDetail hits the single-
+          // connector detail endpoint instead, so tools/permissions stay
+          // populated and in sync everywhere this connector is shown.
+          onChanged={() => loadDetail(active.slug)}
           onRemove={() => requestRemove(activeAccount)}
         />
       )}
