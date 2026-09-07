@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { SettingsSidebar } from '@/components/layout/SettingsSidebar'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
@@ -30,7 +31,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             overflow:        'hidden',
           }}
         >
-          {children}
+          {/* Scoped to just the active page — keeps SettingsSidebar outside
+              the pathname-keyed remount boundary so it stays mounted (no
+              entrance-animation replay) while switching between settings
+              pages, instead of being torn down along with the app-wide
+              ErrorBoundary this used to sit inside (AppLayout.tsx). */}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </div>
       </div>
     </div>

@@ -1,22 +1,48 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
+import { Tooltip } from '@/components/Tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { UsageBarChart } from '@/components/UsageBarChart'
 import { Button } from '@/components/Button'
 import { useOrg } from '@/context/org-context'
+import { Billing } from '@/lib/api/stripe'
 import { ORG_MEMBERS_ROUTE } from '@/lib/routes'
 
-type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
+// Same derivation plans-and-billing/page.tsx uses for its own "Resets {date}"
+// captions — Stripe's `current_period_end` is the day billing rolls over, so
+// the cycle runs from the 1st of the PRIOR day's month through that end date.
+// Falls back to the current calendar month when billing hasn't loaded yet
+// (Billing.fetch() is admin-only and can 403/null for non-Stripe orgs) so
+// this always has a best-effort answer rather than nothing at all.
+function cycleRange(periodEnd: string | null | undefined, now: Date): { start: Date; end: Date } {
+  if (periodEnd) {
+    const close = new Date(periodEnd)
+    if (!Number.isNaN(close.getTime())) {
+      const end = new Date(close.getTime() - 86_400_000)
+      return { start: new Date(end.getFullYear(), end.getMonth(), 1), end }
+    }
+  }
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), 1),
+    end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+  }
+}
+
+function fmtCycleDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+type DateRange = '7d' | '1m' | '3m' | '6m'
 
 const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
-  { id: '7d',  label: 'Last 7 days' },
-  { id: '30d', label: 'Last 30 days' },
-  { id: 'mtd', label: 'MTD' },
-  { id: 'qtd', label: 'QTD' },
+  { id: '7d', label: 'Last 7 days' },
+  { id: '1m', label: '1 month' },
+  { id: '3m', label: '3 months' },
+  { id: '6m', label: '6 months' },
 ]
 
 type ChartMetric = 'chat' | 'assistants' | 'brain'
@@ -40,18 +66,19 @@ const FEATURE_META: Record<ChartMetric, { label: string; color: string }> = {
 // frozen mock. It changes per org, per usage level, and per date range.
 const FEATURE_SPLIT: Record<ChartMetric, number> = { chat: 0.68, assistants: 0.20, brain: 0.12 }
 
+// Matches AnalyticsPageSkeleton's 4 placeholder rows below. A real top-N cap —
+// "Manage members" only makes sense as a way to see the REST of the team, so
+// it must stay hidden whenever this list already covers everyone active.
+const TOP_USERS_LIMIT = 4
+
 const METRIC_KEYS: ChartMetric[] = ['chat', 'assistants', 'brain']
 
-function rangeConfig(range: DateRange, now: Date): { buckets: number; windowDays: number } {
+function rangeConfig(range: DateRange): { buckets: number; windowDays: number } {
   switch (range) {
-    case '7d':  return { buckets: 7, windowDays: 7 }
-    case '30d': return { buckets: 6, windowDays: 30 }
-    case 'mtd': return { buckets: Math.max(4, Math.ceil(now.getDate() / 5)), windowDays: now.getDate() }
-    case 'qtd': {
-      const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
-      const days = Math.round((now.getTime() - qStart.getTime()) / 86_400_000) + 1
-      return { buckets: 6, windowDays: Math.max(days, 6) }
-    }
+    case '7d': return { buckets: 7, windowDays: 7 }
+    case '1m': return { buckets: 6, windowDays: 30 }
+    case '3m': return { buckets: 6, windowDays: 90 }
+    case '6m': return { buckets: 6, windowDays: 180 }
   }
 }
 
@@ -59,10 +86,23 @@ function rangeConfig(range: DateRange, now: Date): { buckets: number; windowDays
 function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
   days: ChartDay[]
   totals: Record<ChartMetric, number>
+  windowUsed: number
 } {
-  const { buckets, windowDays } = rangeConfig(range, now)
-  const cycleDays  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const windowUsed = Math.round(totalUsed * Math.min(1, windowDays / cycleDays))
+  const { buckets, windowDays } = rangeConfig(range)
+  // `totalUsed` is already the org's CYCLE-TO-DATE total (usage since the
+  // cycle started, through today) — not a full-cycle projection that still
+  // needs discounting. The backend only ever gives us this ONE cycle's total,
+  // with no real per-day or prior-cycle history, so a window longer than the
+  // cycle-to-date (1/3/6 months will almost always be, since a billing cycle
+  // is at most ~31 days) simply can't include more than that total — it's
+  // capped at it rather than fabricating usage from a period we have no data
+  // for. The correct denominator for "how much of totalUsed falls inside a
+  // SHORTER window" (only ever relevant for "Last 7 days") is how many days
+  // have actually elapsed in the cycle so far — `now.getDate()`, consistent
+  // with this page (and plans-and-billing's `billingCycle` helper) already
+  // treating the cycle as calendar-month-aligned.
+  const elapsedDays = Math.max(1, now.getDate())
+  const windowUsed  = Math.round(totalUsed * Math.min(1, windowDays / elapsedDays))
   const bucketSpan = windowDays / buckets
 
   // Deterministic per-bucket weights (stable across renders — no Math.random).
@@ -89,7 +129,7 @@ function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
     days.push(day)
     totals.chat += day.chat; totals.assistants += day.assistants; totals.brain += day.brain
   }
-  return { days, totals }
+  return { days, totals, windowUsed }
 }
 
 function PageCard({
@@ -161,7 +201,11 @@ function ProgressBar({ value, height = 8 }: { value: number; height?: number }) 
         width:           '100%',
         height,
         borderRadius:    height / 2,
-        backgroundColor: height === 4 ? 'var(--neutral-white)' : 'var(--neutral-100)',
+        // Both call sites in this file sit on a `--neutral-white` stat tile
+        // (Monthly Limits, Active members) — a white track there is
+        // invisible, leaving only the filled portion visible. `--neutral-100`
+        // actually contrasts against that background, at any bar height.
+        backgroundColor: 'var(--neutral-100)',
         overflow:        'hidden',
       }}
     >
@@ -197,7 +241,7 @@ function UserAvatar() {
   )
 }
 
-function FeatureChart({ days }: { days: ChartDay[] }) {
+function FeatureChart({ days, caption }: { days: ChartDay[]; caption: string }) {
   const chartDays = days.map(d => d.label)
   const series = METRIC_KEYS.map(metric => ({
     id:    metric,
@@ -212,6 +256,13 @@ function FeatureChart({ days }: { days: ChartDay[] }) {
           "per-link" mode matches that. Its static tooltip mock is what this
           component's real hover tooltip already provides. */}
       <UsageBarChart days={chartDays} series={series} mode="per-link" height={140} />
+      {/* There's no real per-day/per-feature usage API yet (see FEATURE_SPLIT
+          note above) — this states plainly what the bars represent so the
+          total here doesn't read as a silent mismatch against "Monthly
+          Limits" above for any range shorter than the full cycle. */}
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', textAlign: 'center', margin: '12px 0 0' }}>
+        {caption}
+      </p>
     </div>
   )
 }
@@ -220,16 +271,21 @@ function RankedList({
   title,
   items,
   onViewAll,
+  note,
 }: {
   title: string
   items: Array<{ name: string; credits: string; share: string }>
   onViewAll?: () => void
+  note?: string
 }) {
   return (
     <PageCard>
       <CardTitle
         title={title}
-        action={onViewAll && <Button variant="secondary" size="sm" onClick={onViewAll}>View all</Button>}
+        // Labeled "Manage members", not "View all" — it opens the Members
+        // page (people/roles/removal), which has no usage numbers at all, so
+        // "View all" over-promised a fuller usage breakdown that doesn't exist.
+        action={onViewAll && <Button variant="secondary" size="sm" onClick={onViewAll}>Manage members</Button>}
       />
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {items.length === 0 ? (
@@ -262,6 +318,11 @@ function RankedList({
           </div>
         ))}
       </div>
+      {note && (
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: '12px 24px 0' }}>
+          {note}
+        </p>
+      )}
     </PageCard>
   )
 }
@@ -287,9 +348,15 @@ function AnalyticsPageSkeleton() {
       <div style={{ flex: '1 0 0', minWidth: 0, maxWidth: 1162, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
-        <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <SkeletonBlock width={180} height={24} radius={6} />
-          <SkeletonBlock width={300} height={14} radius={4} />
+        <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <SkeletonBlock width={180} height={24} radius={6} />
+            <SkeletonBlock width={300} height={14} radius={4} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <SkeletonBlock width={150} height={13} radius={4} />
+            <SkeletonBlock width={90} height={13} radius={4} />
+          </div>
         </div>
 
         {/* Date range tab strip */}
@@ -377,8 +444,19 @@ function AnalyticsPageSkeleton() {
 
 export default function OrgUsageAnalyticsPage() {
   const router = useRouter()
-  const { org, members, membersLoading, plan, orgReady } = useOrg()
+  const { org, orgId, members, membersLoading, plan, orgReady } = useOrg()
   const [dateRange,  setDateRange]  = useState<DateRange>('7d')
+  const [billing,    setBilling]    = useState<Billing | null>(null)
+
+  // Admin-only endpoint (this whole page already is, per the (org) layout
+  // guard) — 403/null for a non-Stripe org just means the calendar-month
+  // fallback in `cycleRange` keeps showing instead.
+  useEffect(() => {
+    if (!orgId) return
+    Billing.fetch().then(setBilling).catch(() => {})
+  }, [orgId])
+
+  const cycle = cycleRange(billing?.currentPeriodEnd, new Date())
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0
@@ -401,23 +479,57 @@ export default function OrgUsageAnalyticsPage() {
     ? Math.min(100, Math.round((totalUsed / totalCredits) * 100))
     : 0
 
+  // "Active" = has accepted their invite (mirrors Members page's own
+  // total-vs-"Pending invites" split) — not "used the product recently".
   const activeMembers = members.filter(m => m.inviteStatus !== 'invite_sent')
+  const pendingCount  = members.length - activeMembers.length
 
   // "20% utilisation" (Figma 18:26193) has no direct backend equivalent — the
-  // closest real, computable signal is the share of members who've actually
-  // spent any credits this period, rather than a fabricated number.
+  // closest real, computable signal is the share of ACTIVE members who've
+  // actually spent any credits this billing cycle, rather than a fabricated
+  // number. Spelled out in the card copy below so "50%" isn't left undefined.
   const utilisationPct = activeMembers.length > 0
     ? Math.round((activeMembers.filter(m => m.creditUsed > 0).length / activeMembers.length) * 100)
     : 0
 
-  // Top users sorted by credit usage descending
+  // Top users sorted by credit usage descending, capped to TOP_USERS_LIMIT —
+  // "Manage members" is only a way to see everyone else, so it's suppressed
+  // below whenever this slice already covers the full active roster.
   const topUsers = [...activeMembers]
     .sort((a, b) => b.creditUsed - a.creditUsed)
+    .slice(0, TOP_USERS_LIMIT)
     .map(m => ({
       name:    m.name || m.email,
       credits: `${m.creditUsed.toLocaleString()} credits`,
       share:   totalCredits > 0 ? `${Math.round((m.creditUsed / totalCredits) * 100)}%` : '0%',
     }))
+  const hasMoreMembers = activeMembers.length > TOP_USERS_LIMIT
+
+  // Per-member `creditUsed` (backend `usageTotal`) sums every logged category,
+  // including "utility" work (auto-titling, summarization, memory extraction,
+  // context classification) — metered for visibility but never charged. The
+  // org's `used`/Monthly Limits total only reflects usage that actually debited
+  // the credit pool, so it structurally excludes utility spend. Members will
+  // therefore usually sum to slightly MORE than Monthly Limits, not less — this
+  // spells that out rather than leaving the gap looking like a tracking error.
+  const membersUsedSum = activeMembers.reduce((sum, m) => sum + m.creditUsed, 0)
+  const usageGap        = membersUsedSum - totalUsed
+  const topUsersNote     = usageGap > 0
+    ? `Member totals sum to ${membersUsedSum.toLocaleString()}, ${usageGap.toLocaleString()} above the ${totalUsed.toLocaleString()}-credit Monthly Limits total — member totals include "utility" usage (auto-titling, summarization, memory extraction) that's metered for visibility but never charged against your plan.`
+    : usageGap < 0
+      ? `Member totals sum to ${membersUsedSum.toLocaleString()}, ${Math.abs(usageGap).toLocaleString()} below the ${totalUsed.toLocaleString()}-credit Monthly Limits total — likely usage from members no longer in the organization.`
+      : undefined
+
+  // Whenever the selected window's estimate reaches the full cycle-to-date
+  // total (windowUsed clamps at totalUsed — true for 1/3/6 months in nearly
+  // every case, and for "Last 7 days" itself early in a new cycle), it
+  // reconciles exactly with the "Monthly Limits" total above. Otherwise it's
+  // a real subset of that total — spelled out so that isn't mistaken for the
+  // bars simply not adding up.
+  const rangeLabel   = DATE_RANGES.find(r => r.id === dateRange)?.label ?? dateRange
+  const chartCaption = featureSeries.windowUsed >= totalUsed
+    ? `${featureSeries.windowUsed.toLocaleString()} credits — matches your Monthly Limits total for this cycle.`
+    : `${featureSeries.windowUsed.toLocaleString()} of ${totalUsed.toLocaleString()} credits used this cycle · estimated for ${rangeLabel.toLowerCase()} (no per-day breakdown yet).`
 
   return (
     <div
@@ -448,12 +560,24 @@ export default function OrgUsageAnalyticsPage() {
           gap:           12,
         }}
       >
-        <div style={{ paddingLeft: 4 }}>
-          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-            Usage
-          </h1>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Manage your plan, monitor credit consumption, and download invoices.
+        <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              Usage
+            </h1>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              Manage your plan, monitor credit consumption, and download invoices.
+            </p>
+          </div>
+          {/* This page says "this cycle" repeatedly (Monthly Limits, the
+              chart caption, utilisation) with no start/end/reset date to
+              anchor it to — this is that date, sourced from the same
+              Stripe `current_period_end` plans-and-billing already shows as
+              "Next billing"/"Resets". */}
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0, textAlign: 'right', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            Current cycle: {fmtCycleDate(cycle.start)} – {fmtCycleDate(cycle.end)}
+            <br />
+            Resets {fmtCycleDate(cycle.end)}
           </p>
         </div>
 
@@ -482,16 +606,20 @@ export default function OrgUsageAnalyticsPage() {
         <PageCard padding={12}>
           <div style={{ display: 'flex', gap: 9, alignItems: 'stretch' }}>
             <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: 'var(--shadow-surface-card)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Monthly Limits
               </p>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 ${org.monthlyPrice}/mo · {totalCredits.toLocaleString()} credits
               </p>
+              {/* The bar fills to % USED (standard "progress toward your limit"
+                  reading) — leading with "remaining" here read as contradicting
+                  a mostly-empty bar, since it's the complementary number. Used%
+                  now sits first, right next to the fill it actually matches. */}
               <ProgressBar value={poolPercentUsed} height={4} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
-                  {100 - poolPercentUsed}% remaining
+                  {poolPercentUsed}% used · {100 - poolPercentUsed}% remaining
                 </span>
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
                   {totalUsed.toLocaleString()}/{totalCredits.toLocaleString()}
@@ -500,16 +628,30 @@ export default function OrgUsageAnalyticsPage() {
             </div>
 
             <div style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: 'var(--shadow-surface-card)', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                Active members
-              </p>
+              <Tooltip content="Members who have accepted their invite — excludes pending invites." side="top">
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, width: 'fit-content', cursor: 'default', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+                  Active members
+                </p>
+              </Tooltip>
               <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 {activeMembers.length}
               </p>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                all members
+                {pendingCount > 0
+                  ? `of ${members.length} total · ${pendingCount} pending invite${pendingCount === 1 ? '' : 's'}`
+                  : `of ${members.length} total · unlimited seats`}
               </p>
-              <Badge label={`${utilisationPct}% utilisation`} color="Blue" />
+              {/* A solid chip always reads as "full" regardless of the number
+                  inside it — same proportional bar the Monthly Limits card
+                  uses instead, so a half-used cycle actually looks half-full. */}
+              <Tooltip content="Share of active members who've used at least 1 credit this billing cycle." side="top">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', cursor: 'default' }}>
+                  <ProgressBar value={utilisationPct} height={4} />
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+                    {utilisationPct}% used credits this cycle
+                  </span>
+                </div>
+              </Tooltip>
             </div>
           </div>
         </PageCard>
@@ -517,21 +659,33 @@ export default function OrgUsageAnalyticsPage() {
         <PageCard>
           <CardTitle
             title="Credit usage by feature"
+            // Derived straight from FEATURE_META/METRIC_KEYS — the same
+            // source UsageBarChart's `series` prop below is built from — so
+            // these swatches can't drift out of sync with the actual bar
+            // colors the way the old hardcoded Chat/Tasks/Slack badges did
+            // (that trio didn't even name the real 3 series correctly, let
+            // alone match their colors).
             action={(
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Badge label="Chat" color="Blue" />
-                <Badge label="Tasks" color="Purple" />
-                <Badge label="Slack" color="Green" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {METRIC_KEYS.map(metric => (
+                  <span key={metric} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: FEATURE_META[metric].color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>
+                      {FEATURE_META[metric].label}
+                    </span>
+                  </span>
+                ))}
               </div>
             )}
           />
-          <FeatureChart days={featureSeries.days} />
+          <FeatureChart days={featureSeries.days} caption={chartCaption} />
         </PageCard>
 
         <RankedList
-          title={`Top users · ${DATE_RANGES.find(r => r.id === dateRange)?.label ?? 'Last 30 days'}`}
+          title={`Top users · ${rangeLabel}`}
           items={topUsers}
-          onViewAll={() => router.push(ORG_MEMBERS_ROUTE)}
+          onViewAll={hasMoreMembers ? () => router.push(ORG_MEMBERS_ROUTE) : undefined}
+          note={topUsersNote}
         />
       </div>
     </div>

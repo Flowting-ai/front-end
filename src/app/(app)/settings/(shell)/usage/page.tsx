@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react'
 import { Usage } from '@/lib/api/billing'
+import { useAuth } from '@/context/auth-context'
 
-// Settings → PERSONAL → Usage. Everyone sees their own chat / Slack / Brain
+// Settings → PERSONAL → Usage. Everyone sees their own Slack / Tasks / Chat
 // spend plus remaining credits on GET /stripe/usage.
 
 const C = {
@@ -18,10 +19,13 @@ const BODY  = 'var(--font-body)'
 const CARD_RING = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SECTION_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
 
+// "Brain" was renamed to "Tasks" — the `key: 'brain'` stays as-is (it maps to
+// the API's `byCategory.brainCredits` field below), only the display label/
+// copy changed. Order is Slack > Tasks > Chat throughout this page.
 const CATEGORIES = [
-  { key: 'chat',  label: 'Chat',  chipColor: 'red',    subtitle: 'Direct conversations' },
   { key: 'slack', label: 'Slack', chipColor: 'blue',   subtitle: 'Messages and actions in Slack' },
-  { key: 'brain', label: 'Brain', chipColor: 'yellow', subtitle: 'Brain runs and scheduled work' },
+  { key: 'brain', label: 'Tasks', chipColor: 'yellow', subtitle: 'Scheduled and automated task runs' },
+  { key: 'chat',  label: 'Chat',  chipColor: 'red',    subtitle: 'Direct conversations' },
 ] as const
 
 const CHIP_TOKENS: Record<string, { bg: string; text: string; ring: string }> = {
@@ -96,6 +100,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 }
 
 export default function UsagePage() {
+  const { user } = useAuth()
   const [usage, setUsage] = useState<Usage | null>(null)
 
   useEffect(() => {
@@ -122,7 +127,19 @@ export default function UsagePage() {
       : c.key === 'slack' ? usage.byCategory.slackCredits
       : usage.byCategory.brainCredits,
   }))
-  const resetDate = fmtDate(usage.trialExpiresAt)
+  // "This period's usage" said that repeatedly with no date to anchor it to
+  // for anyone not on a trial — `nextBillingDate` (from the user's own
+  // profile, already loaded by AuthProvider, same field plans-and-billing's
+  // Personal view uses for "Resets"/"Next billing date") fills that in
+  // whenever there's a real subscription cycle to report.
+  const trialEndDate = fmtDate(usage.trialExpiresAt)
+  const isTrial       = trialEndDate !== '—'
+  const billingResetDate = fmtDate(user?.nextBillingDate)
+  const periodLabel = isTrial
+    ? `Trial ends ${trialEndDate}`
+    : billingResetDate !== '—'
+      ? `Resets ${billingResetDate}`
+      : null
 
   return (
     <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
@@ -133,7 +150,7 @@ export default function UsagePage() {
             Usage
           </h1>
           <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-            Your spend this period, split by chat, Slack, and Brain.
+            Your spend this period, split by Slack, Tasks, and Chat.
           </p>
         </div>
 
@@ -170,8 +187,8 @@ export default function UsagePage() {
         <SectionCard>
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
             <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0, flex: '1 0 0', minWidth: 0 }}>This period&apos;s usage</p>
-            {resetDate !== '—' && (
-              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>Trial ends {resetDate}</p>
+            {periodLabel && (
+              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>{periodLabel}</p>
             )}
           </div>
 

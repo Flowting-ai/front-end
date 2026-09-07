@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { m } from "framer-motion";
 import { CancelOneIcon } from "@strange-huge/icons";
 import { LeftSidebar } from "./LeftSidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
@@ -107,6 +108,12 @@ export function AppLayout({
   const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
+  // No ErrorBoundary wrap here: `children` is the settings shell (its own
+  // persistent SettingsSidebar + the active page), and the shell owns its own
+  // boundary around just the page slot (settings/(shell)/layout.tsx) so a
+  // caught error — or the pathname-keyed remount that resets it — can't also
+  // tear down and replay the sidebar's entrance animation on every settings
+  // navigation.
   if (isSettingsPage) {
     return (
       <div
@@ -145,7 +152,7 @@ export function AppLayout({
           />
         </Suspense>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </div>
         <AppDialogs />
       </div>
@@ -173,7 +180,7 @@ export function AppLayout({
             onNewChat={onNewChat}
           />
         </Suspense>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
         <AppDialogs />
       </div>
     )
@@ -237,7 +244,7 @@ export function AppLayout({
               flexDirection: "column",
             }}
           >
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </main>
         ) : (
           /* ── Inner rounded container (Figma 3220:33871) ──
@@ -293,7 +300,7 @@ export function AppLayout({
                 flexDirection:       "column",
               }}
             >
-              {children}
+              <ErrorBoundary>{children}</ErrorBoundary>
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}

@@ -400,25 +400,13 @@ function GeneralPageSkeleton() {
         </div>
       </SkeletonCard>
 
-      {/* Allowed email domains */}
-      <SkeletonCard>
-        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <SkeletonBlock width={190} height={16} radius={5} />
-          <div style={{ flex: '1 0 0' }} />
-          <SkeletonBlock width={96} height={32} radius={8} />
-        </div>
-        <div style={{ padding: '12px 24px' }}>
-          <SkeletonBlock width={210} height={14} radius={5} />
-        </div>
-      </SkeletonCard>
-
       {/* Slack channel mapping — real card is gated on
           `slackLoading || slackChannels.length > 0` (page.tsx:1234), so we
           can't know yet whether it'll render; show it as a reasonable
           "might be there" placeholder like every other data-dependent card
-          here. The old "Workspace defaults" bone that used to sit here is
-          gone — that real card is permanently dead (`{false && (...)}`,
-          page.tsx:1138), never rendered. */}
+          here. The "Allowed email domains" and "Workspace defaults" bones
+          that used to sit here are gone — those real cards are permanently
+          dead (`{false && (...)}`, page.tsx:1123 and 1138), never rendered. */}
       <SkeletonCard>
         <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SkeletonBlock width={140} height={16} radius={5} />
@@ -1120,7 +1108,8 @@ export default function OrgGeneralPage() {
           </div>
         </Card>
 
-        {/* ── Allowed email domains card ── */}
+        {/* ── Allowed email domains card (temporarily disabled) ── */}
+        {false && (
         <Card>
           <div style={{
             borderBottom: '1px solid var(--neutral-100)',
@@ -1232,6 +1221,7 @@ export default function OrgGeneralPage() {
             )}
           </div>
         </Card>
+        )}
 
         {/* ── Workspace defaults card (temporarily disabled) ── */}
         {false && (

@@ -711,9 +711,12 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
                 and the settings (abacus) icon sit in ONE container at a 4px gap
                 with 6px outer padding, so the chip↔icon gap is just 4px — not
                 inflated by a separate button's own padding. The container is the
-                settings click target. */}
+                settings click target. Gated on `onSettingsClick` too, not just
+                `!collapsed` — a caller with no handler (a static, non-interactive
+                account row, e.g. the Settings sidebar footer) shouldn't show a
+                button that looks clickable but does nothing. */}
             <AnimatePresence mode="popLayout" initial={false}>
-              {!collapsed && (
+              {!collapsed && onSettingsClick && (
                 <motion.button
                   key="account-actions"
                   type="button"

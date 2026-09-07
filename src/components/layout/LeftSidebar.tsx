@@ -2567,12 +2567,13 @@ function LeftSidebarImpl({
 
   const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
 
-  // Plan-type label for the status tag ("Workspace | 250 credits left" /
+  // Plan-type label for the status tag ("Core | 250 credits left" /
   // "Pro | 250 credits left") — distinct from planLabel above, which is now
   // just the org's own name. Team orgs get "Free Plan" (blue tag, see
-  // planStatusVariant below) until a real plan is selected, then "Workspace".
+  // planStatusVariant below) until a real plan is selected, then "Core"
+  // (org.plan 'teams') or "Pro" (org.plan 'enterprise').
   const planTypeLabel = isTeamUser
-    ? (orgHasSelectedPlan ? 'Workspace' : 'Free Plan')
+    ? (orgHasSelectedPlan ? (org?.plan === 'enterprise' ? 'Pro' : 'Core') : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial

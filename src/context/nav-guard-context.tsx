@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react'
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/Button'
 
@@ -71,6 +71,50 @@ export function NavGuardProvider({ children }: { children: React.ReactNode }) {
   const [guardMessage, setGuardMessage] = useState<GuardMessage | null>(null)
   const [saveFn, setSaveFn] = useState<(() => Promise<boolean>) | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Browser Back/Forward — same idea as onboarding's own `useLeaveGuard`
+  // (onboarding/_components/step-shell.tsx), ported here so it protects
+  // every page already wired into this shared `isDirty`/`guardedNavigate`
+  // system, not just onboarding. `router.push()` (what guardedNavigate above
+  // wraps) never fires `popstate` — that only fires on real history
+  // traversal — so this is a genuinely separate path from the sidebar guard,
+  // not a duplicate of it.
+  //
+  // Mechanism: while dirty, a duplicate history entry sits behind the
+  // current one. A Back press lands on that duplicate (`popstate`) instead
+  // of actually leaving; it's immediately re-pushed (so the URL doesn't
+  // change yet) and the SAME confirmation dialog opens via `pendingAction`,
+  // stashed as "skip both the duplicate and the real entry"
+  // (`history.go(-2)`). `isDirtyRef` exists because `history.go(-2)` fires
+  // its own `popstate` synchronously — updating the ref directly, not
+  // through the `isDirty` state (which only reaches this closure a render
+  // later via the effect below), keeps that second popstate from being
+  // mistaken for a fresh Back press and re-opening the dialog.
+  const isDirtyRef = useRef(isDirty)
+  const armedRef = useRef(false)
+  useEffect(() => { isDirtyRef.current = isDirty }, [isDirty])
+
+  useEffect(() => {
+    if (!isDirty) {
+      armedRef.current = false
+      return
+    }
+    if (armedRef.current) return
+    armedRef.current = true
+    window.history.pushState({ navGuard: true }, '', window.location.href)
+
+    const onPopState = () => {
+      if (!isDirtyRef.current) return
+      window.history.pushState({ navGuard: true }, '', window.location.href)
+      setPendingAction(() => () => {
+        armedRef.current = false
+        isDirtyRef.current = false
+        window.history.go(-2)
+      })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [isDirty])
 
   const guardedNavigate = useCallback((action: () => void) => {
     if (isDirty) setPendingAction(() => action)

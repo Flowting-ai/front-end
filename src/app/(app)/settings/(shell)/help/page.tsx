@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { Badge } from '@/components/Badge'
 import { HelpSkeleton } from '../SettingsSkeleton'
 import { ReportBugModal } from '@/components/ReportBugModal'
 import { RequestFeatureModal } from '@/components/RequestFeatureModal'
@@ -67,12 +68,15 @@ function LinkRow({
   divider,
   href,
   disabled,
+  comingSoon,
 }: {
   title:       string
   description: string
   divider?:    boolean
   href?:       string
   disabled?:   boolean
+  /** Explains WHY it's disabled — a disabled row with no label just looks broken. */
+  comingSoon?: boolean
 }) {
   return (
     <div style={{
@@ -83,16 +87,19 @@ function LinkRow({
       borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
     }}>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 500,
-          fontSize:   14,
-          lineHeight: '22px',
-          color:      'var(--neutral-900)',
-          margin:     0,
-        }}>
-          {title}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize:   14,
+            lineHeight: '22px',
+            color:      'var(--neutral-900)',
+            margin:     0,
+          }}>
+            {title}
+          </p>
+          {comingSoon && <Badge label="Coming soon" color="Neutral" />}
+        </div>
         <p style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 400,
@@ -222,7 +229,37 @@ export default function HelpPage() {
           </p>
         </div>
 
-        {/* ── Feature Request + Report a Bug (side by side) ── */}
+        {/* ── Help resources card — Community Slack first: it's the only live
+            link here now that Help Center/Contact Support are "Coming soon". ── */}
+        <InfoCard>
+          <CardHeader
+            title="Help resources"
+            subtitle="Guides, documentation, and direct support options."
+          />
+          <LinkRow title="Community Slack"   description="Connect with other Souvenir users, share workflows, get tips"   href="https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg" divider />
+          <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider disabled comingSoon />
+          <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    disabled comingSoon />
+          {/* <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" /> */}
+        </InfoCard>
+
+        {/* ── Legal card ── */}
+        <InfoCard>
+          <CardHeader
+            title="Legal"
+            subtitle="Review the agreements and policies that govern your use of Souvenir."
+          />
+          <LinkRow title="Terms of Service"           description="Your agreement with Souvenir AI regarding use of the platform"     href="https://www.getsouvenir.com/legal/terms"   divider />
+          <LinkRow title="Privacy Policy"             description="How we collect, use, and protect your personal data"               href="https://www.getsouvenir.com/legal/privacy" divider />
+          {/* <LinkRow title="Data Processing Agreement"  description="DPA for teams and enterprise customers - GDPR, DPDPA compliant"    divider /> */}
+          <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies"              href="https://www.getsouvenir.com/legal/cookies" />
+        </InfoCard>
+
+        {/* ── Feature Request + Report a Bug (side by side) — moved to the
+            bottom: both already have permanent Settings-sidebar entries
+            (HELP_ITEMS in SettingsSidebar.tsx), so as large cards up top they
+            duplicated that nav and pushed the actual help/legal resources
+            down. Kept on this page as a secondary, lower-priority access
+            point rather than removed outright. ── */}
         <div style={{ display: 'flex', gap: 10 }}>
 
           {/* Feature Request */}
@@ -306,30 +343,6 @@ export default function HelpPage() {
           </div>
 
         </div>
-
-        {/* ── Help resources card ── */}
-        <InfoCard>
-          <CardHeader
-            title="Help resources"
-            subtitle="Guides, documentation, and direct support options."
-          />
-          <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider disabled />
-          <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    divider disabled />
-          <LinkRow title="Community Slack"   description="Connect with other Souvenir users, share workflows, get tips"   href="https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg" divider />
-          {/* <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" /> */}
-        </InfoCard>
-
-        {/* ── Legal card ── */}
-        <InfoCard>
-          <CardHeader
-            title="Legal"
-            subtitle="Review the agreements and policies that govern your use of Souvenir."
-          />
-          <LinkRow title="Terms of Service"           description="Your agreement with Souvenir AI regarding use of the platform"     href="https://www.getsouvenir.com/legal/terms"   divider />
-          <LinkRow title="Privacy Policy"             description="How we collect, use, and protect your personal data"               href="https://www.getsouvenir.com/legal/privacy" divider />
-          {/* <LinkRow title="Data Processing Agreement"  description="DPA for teams and enterprise customers - GDPR, DPDPA compliant"    divider /> */}
-          <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies"              href="https://www.getsouvenir.com/legal/cookies" />
-        </InfoCard>
 
         {/* ── Footer ── */}
         <div style={{

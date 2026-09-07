@@ -32,6 +32,17 @@ const TONE_OPTIONS = ['Direct', 'Balanced', 'Warm'] as const
 const MODEL_TIER_OPTIONS = ['Advanced', 'Standard', 'Basic'] as const
 const DEFAULT_MODEL_TIER_STORAGE_KEY = 'souvenir:settings:default-model-tier'
 
+// Qualitative, not exact numbers — there's no published per-tier credit-cost
+// table to cite (see the PENDING CONFIRMATION note above), so this sticks to
+// the same relative quality/speed/cost tradeoff every "good/better/best"
+// model tier (here, and Anthropic's own Opus/Sonnet/Haiku) already implies,
+// rather than fabricating precise multipliers.
+const MODEL_TIER_DESCRIPTIONS: Record<typeof MODEL_TIER_OPTIONS[number], string> = {
+  Advanced: 'Highest quality · slower · more credits',
+  Standard: 'Balanced quality and speed (default)',
+  Basic:    'Fastest · fewest credits · simpler tasks',
+}
+
 function ChevronDownIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
@@ -45,10 +56,13 @@ function PillSelect<T extends string>({
   value,
   options,
   onChange,
+  descriptions,
 }: {
   value: T
   options: readonly T[]
   onChange: (value: T) => void
+  /** Optional one-line "what this means" caption shown under each option's label. */
+  descriptions?: Partial<Record<T, string>>
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -93,6 +107,7 @@ function PillSelect<T extends string>({
             <Dropdown.Item
               key={option}
               label={option}
+              subLabel={descriptions?.[option]}
               selected={option === value}
               onClick={() => { onChange(option); setOpen(false) }}
               style={{ width: 'auto' }}
@@ -643,14 +658,15 @@ function AccountPageContent({
             </div>
           </CardSection>
 
-          {/* Full Name + Last Name — Figma labels these "Full Name"/"Last Name",
-              but they're wired to the real first_name/last_name fields (see
-              the baseline comment above) rather than split from one string. */}
+          {/* First Name + Last Name — Figma mislabeled the first one "Full
+              Name" even though it's wired to the real first_name field (see
+              the baseline comment above) and its own placeholder already
+              said "Your first name". Label corrected to match. */}
           <CardSection divider padTop={12} padBottom={24}>
             <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
               <InputField
                 fluid
-                label="Full Name"
+                label="First Name"
                 value={firstName}
                 onChange={setFirstName}
                 placeholder="Your first name"
@@ -728,7 +744,7 @@ function AccountPageContent({
             <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} />
           </SettingsRow>
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
-            <PillSelect value={modelTier} options={MODEL_TIER_OPTIONS} onChange={handleModelTierChange} />
+            <PillSelect value={modelTier} options={MODEL_TIER_OPTIONS} onChange={handleModelTierChange} descriptions={MODEL_TIER_DESCRIPTIONS} />
           </SettingsRow>
         </SettingsCard>
 

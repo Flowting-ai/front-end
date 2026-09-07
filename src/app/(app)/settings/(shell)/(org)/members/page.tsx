@@ -120,6 +120,22 @@ function RemoveButton({
 // Team has no backend route left at all, so a member's role is just the
 // org-level owner/admin/member value.
 
+// Single source of truth for role copy — the dropdown's one-line `shortDescription`
+// and the "Roles & Permissions" modal's full `description` (further down this
+// file) both read from here, so the two can't drift apart on what each role means.
+const ROLES_INFO = [
+  {
+    role:             'admin'  as const,
+    shortDescription: 'Full access, including billing',
+    description:      'Full organization control, including billing, payment methods, invoices, subscriptions, and topup credit purchases. Any number of admins per org, all equal.',
+  },
+  {
+    role:             'member' as const,
+    shortDescription: 'Access through assigned projects only',
+    description:      'Baseline access through assigned projects. Cannot change organization settings or manage other members.',
+  },
+]
+
 function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: boolean }) {
   return (
     <button
@@ -185,9 +201,6 @@ function RoleDropdown({
     setSaving(false)
   }
 
-  const options: { value: 'admin' | 'member'; label: string }[] =
-    [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }]
-
   const handleOpenChange = (next: boolean) => {
     if (next && lockSelfDemotion) {
       toast.info("You're the only admin — promote someone else before changing your own role.")
@@ -201,21 +214,30 @@ function RoleDropdown({
       <DropdownFloat open={open} onOpenChange={handleOpenChange} placement="bottom-start" offset={4} trigger={
         <RoleDropdownTrigger label={ROLE_LABEL[currentRole]} disabled={saving} />
       }>
-        <Dropdown style={{ width: 140 }}>
-          {options.map(o => (
-            <DropdownMenuItem
-              key={o.value}
-              fluid
-              label={o.label}
-              selected={o.value === currentRole}
-              icon={o.value === currentRole ? <TickTwoIcon size={14} /> : undefined}
-              onClick={() => {
-                setOpen(false)
-                if (currentRole === 'admin' && o.value === 'member') { setConfirmDowngrade(true); return }
-                void commit(o.value)
-              }}
-            />
-          ))}
+        {/* Wider than a plain label list (AccountMenu's own dropdown panel is
+            274px for the same reason) — each option carries a one-line
+            description via subLabel, not just its name. Items sit in their
+            own 8px-padded wrapper (PillSelect's own dropdown does the same)
+            — without it they sit flush against the popover's edges, with
+            no matching margin top/bottom/left/right. */}
+        <Dropdown style={{ width: 240 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
+            {ROLES_INFO.map(o => (
+              <DropdownMenuItem
+                key={o.role}
+                fluid
+                label={ROLE_LABEL[o.role]}
+                subLabel={o.shortDescription}
+                selected={o.role === currentRole}
+                icon={o.role === currentRole ? <TickTwoIcon size={14} /> : undefined}
+                onClick={() => {
+                  setOpen(false)
+                  if (currentRole === 'admin' && o.role === 'member') { setConfirmDowngrade(true); return }
+                  void commit(o.role)
+                }}
+              />
+            ))}
+          </div>
         </Dropdown>
       </DropdownFloat>
 
@@ -518,12 +540,8 @@ function MembersTable({
 
 // ── Roles & Permissions modal ──────────────────────────────────────────────────
 // Triggered by the info button next to the "Members" page title, rather than
-// a standalone card in the page flow.
-
-const ROLES_INFO = [
-  { role: 'admin'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, and topup credit purchases. Any number of admins per org, all equal.' },
-  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings or manage other members.' },
-]
+// a standalone card in the page flow. ROLES_INFO itself lives above, next to
+// RoleDropdown, which is the other consumer.
 
 // Badge diameter — same size for all four levels; the rail (connecting line +
 // ordering) carries the hierarchy, not badge scale.

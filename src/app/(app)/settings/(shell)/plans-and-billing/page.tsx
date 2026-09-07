@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { CancelOneIcon, TokenCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
+import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useMounted } from '@/hooks/use-mounted'
@@ -95,15 +96,9 @@ function fmtNum(n: number | null | undefined): string {
 
 const SHADOW_CARD    = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'                                   // bordered section card
 const SHADOW_TILE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' // white inner tile
-const SHADOW_HERO    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 1px 0px 1px var(--neutral-100)'  // gradient hero panel
 const SHADOW_MODAL   = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
 const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const ENTERPRISE_INTERMAX = 2_147_483_647
-
-// Hero gradient — extracted verbatim from Figma (mauve + gold radial blend, image fill).
-const HERO_GRADIENT_TEAMS =
-  "url(\"data:image/svg+xml;utf8,<svg viewBox='0 0 1090 372' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><rect x='0' y='0' height='100%' width='100%' fill='url(%23grad)' opacity='0.8'/><defs><radialGradient id='grad' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(182.6 25.368 -6.6498 62.021 18.115 356.78)'><stop stop-color='rgba(248,236,249,1)' offset='0.14157'/><stop stop-color='rgba(222,208,223,1)' offset='0.41669'/><stop stop-color='rgba(222,208,223,1)' offset='0.5657'/><stop stop-color='rgba(174,156,175,1)' offset='0.746'/><stop stop-color='rgba(149,129,151,1)' offset='0.83615'/><stop stop-color='rgba(125,103,127,1)' offset='0.92631'/></radialGradient></defs></svg>\"), " +
-  "url(\"data:image/svg+xml;utf8,<svg viewBox='0 0 1090 372' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><rect x='0' y='0' height='100%' width='100%' fill='url(%23grad)' opacity='1'/><defs><radialGradient id='grad' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(140.38 29.757 -6.1283 47.447 440.34 312.89)'><stop stop-color='rgba(199,179,135,1)' offset='0.14157'/><stop stop-color='rgba(181,158,103,1)' offset='0.53394'/><stop stop-color='rgba(162,136,71,1)' offset='0.92631'/></radialGradient></defs></svg>\")"
 
 // ── Plan tiers (DECISIONS.md, matches Figma slider markers) ────────────────────
 
@@ -152,50 +147,6 @@ function Badge({ label, tone }: { label: string; tone: 'blue' | 'yellow' | 'neut
     }}>
       {label}
     </span>
-  )
-}
-
-/** White stat tile — label / value / sub. */
-function StatTile({
-  label,
-  value,
-  sub,
-  flex,
-  children,
-}: {
-  label:    string
-  value?:   string
-  sub?:     string
-  flex?:    boolean
-  children?: React.ReactNode
-}) {
-  return (
-    <div style={{
-      background:    'var(--neutral-white, #fff)',
-      borderRadius:  8,
-      padding:       12,
-      boxShadow:     SHADOW_TILE,
-      display:       'flex',
-      flexDirection: 'column',
-      gap:           6,
-      flex:          flex ? '1 1 0' : '1 1 200px',
-      minWidth:      160,
-    }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-        {label}
-      </p>
-      {value !== undefined && (
-        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          {value}
-        </p>
-      )}
-      {sub && (
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          {sub}
-        </p>
-      )}
-      {children}
-    </div>
   )
 }
 
@@ -382,8 +333,8 @@ function SkeletonInvoiceCard() {
   )
 }
 
-/** Enterprise branch (org.plan === 'enterprise'): hero → 3 stat tiles → spend-limit
- *  card → Payment/Invoice (admin-only, matching the real `isAdmin &&` gates). */
+/** Enterprise/Pro branch (org.plan === 'enterprise'): Plan/Credits Remaining row →
+ *  spend-limit card → Payment/Invoice (admin-only, matching the real `isAdmin &&` gates). */
 function EnterprisePlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <>
@@ -391,37 +342,8 @@ function EnterprisePlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
       <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SkeletonPageHeader />
 
-        {/* Hero panel */}
-        <div style={{ borderRadius: 8, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, background: 'var(--neutral-100)', boxShadow: SHADOW_HERO }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <SkeletonBlock width={120} height={24} radius={6} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <SkeletonBlock width={150} height={14} radius={4} />
-              <SkeletonBlock width={80} height={22} radius={6} />
-            </div>
-            <SkeletonBlock width={300} height={14} radius={4} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-            <SkeletonBlock width={110} height={32} radius={6} />
-            <SkeletonBlock width={140} height={14} radius={4} />
-          </div>
-          <SkeletonBlock width="100%" height={4} radius={2} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <SkeletonBlock width={150} height={13} radius={4} />
-            <SkeletonBlock width={140} height={13} radius={4} />
-          </div>
-        </div>
-
-        {/* 3 stat tiles: Shared credits, Credits Remaining, Seats used */}
-        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, flex: '1 1 200px', minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SkeletonBlock width={110} height={14} radius={4} />
-              <SkeletonBlock width={60} height={24} radius={6} />
-              <SkeletonBlock width={130} height={13} radius={4} />
-            </div>
-          ))}
-        </div>
+        {/* Plan / Credits Remaining — matches the Teams-branch skeleton below */}
+        <SkeletonTwoCardRow />
 
         {/* Overage spend limit card */}
         <SkeletonSectionCard hasAction>
@@ -566,19 +488,19 @@ function OrgBillingView() {
     : 0
 
   // Credit view. Teams: the prepaid shared pool (already credits from the plan).
-  // Enterprise: total/remaining reflect the TRUE ceiling — included allowance
-  // plus the overage cap when one is set — not just the included allowance.
-  // Otherwise "Credits Remaining" reads as 0 (and the progress bar as 100%)
-  // the moment usage crosses the included amount, even with plenty of overage
-  // budget still left. Falls back to the included-only view when the cap is
-  // unlimited, since there's no finite ceiling to measure against there.
-  const enterpriseCeilingUsd = overageCapUsd != null ? includedUsage + overageCapUsd : null
+  // Enterprise: total/used are the plan's real INCLUDED allowance only — NOT
+  // the included amount plus the overage cap. Folding the overage cap in here
+  // made paid overage look like part of the base balance (e.g. a 125,000-
+  // credit plan with a 1,000-credit overage cap showed "126,000" as the
+  // total), which contradicted the Overage spend limit card's own "125,000
+  // included credits" language just below. The "used > total" case already
+  // renders as "X credits in paid overage" (see the JSX below) rather than a
+  // negative/broken remaining, so going over included credits still reads
+  // correctly — the overage allowance itself is told separately, and only
+  // there, by SpendLimitCard.
   const totalCredits   = isEnterprise
-    ? toCredits(enterpriseCeilingUsd ?? includedUsage)
+    ? toCredits(includedUsage)
     : (effectivePlan?.totalCredits ?? 0)
-  const remainingCreds = isEnterprise
-    ? toCredits(Math.max((enterpriseCeilingUsd ?? includedUsage) - providerUsage, 0))
-    : (effectivePlan?.remaining ?? 0)
   const usedCredits    = isEnterprise ? toCredits(providerUsage) : (effectivePlan?.used ?? 0)
 
   // The interactive tier slider/annual toggle used to live inline here — moved
@@ -624,7 +546,11 @@ function OrgBillingView() {
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
   const isManualBilling = isEnterprise || billing?.billingModel === 'postpaid'
-  const invoiceRows = Invoice.history(invoices, billing?.upcomingInvoice ?? null)
+  // Invoice history shows only real, issued invoices now — the upcoming
+  // invoice (never downloadable; Invoice.projected() gives it no viewUrl) is
+  // surfaced separately as the card's subtitle instead of a row in the same
+  // table, so it can't be mistaken for something "Export all" should cover.
+  const hasDownloadableInvoice = invoices.some(inv => !!inv.viewUrl)
 
   const handleStripePortal = async () => {
     if (!isAdmin) {
@@ -632,7 +558,7 @@ function OrgBillingView() {
       return
     }
     if (isManualBilling) {
-      toast.error('Enterprise billing is managed manually.')
+      toast.error('Pro billing is managed manually.')
       return
     }
     const url = await openBillingPortal()
@@ -641,7 +567,7 @@ function OrgBillingView() {
   }
 
   const handleExportAllInvoices = () => {
-    const urls = invoiceRows
+    const urls = invoices
       .map(inv => inv.viewUrl)
       .filter((url): url is string => !!url)
     if (urls.length === 0) {
@@ -714,7 +640,6 @@ function OrgBillingView() {
     }
   }
 
-  const now = new Date()
   const cycle = billingCycle(billing?.currentPeriodEnd ?? null)
   const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const nextBilling = fmtDate(billing?.currentPeriodEnd) !== '—'
@@ -729,22 +654,6 @@ function OrgBillingView() {
     )
   }
 
-  // ── Hero (Enterprise only — see the Teams-case rewrite below) ────────────────
-  const hero = isEnterprise ? (
-    <EnterpriseHero
-      nextBilling={nextBilling}
-      usageAsOf={fmtDate(now.toISOString())}
-      totalCredits={totalCredits}
-      usedCredits={usedCredits}
-      remainingCredits={remainingCreds}
-      providerUsage={providerUsage}
-      includedUsage={includedUsage}
-      overageUsd={trueOverageUsd}
-      projectedInvoice={projectedInvoice}
-      baseFeeUsd={baseFeeUsd}
-      cycleLabel={`${fmtShort(cycle.start)} – ${fmtShort(cycle.end)}`}
-    />
-  ) : null
   const cancelAtPeriodEnd = billing?.cancelAtPeriodEnd ?? false
 
   return (
@@ -779,18 +688,58 @@ function OrgBillingView() {
         </div>
 
         {isEnterprise ? (
+          /* Matches the Teams/core layout below: a "Plan" / "Credits Remaining"
+             two-card row, rather than a bespoke gradient hero. */
           <>
-            {hero}
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
-              <StatTile
-                label="Credits Remaining"
-                value={remainingCreds.toLocaleString()}
-                sub={usedCredits > totalCredits
-                  ? `${(usedCredits - totalCredits).toLocaleString()} credits over plan`
-                  : `${usedCredits.toLocaleString()} used this month`}
-              />
-              <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+                <SectionCard
+                  title="Plan"
+                  action={<Badge label="Active" tone="green" />}
+                  headerDivider={false}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                        Pro Plan · ${Math.round(baseFeeUsd)}/mo
+                      </p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                        Next billing date: {nextBilling}
+                      </p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+                        Unlimited seats · {membersCount} active
+                      </p>
+                    </div>
+                  </div>
+                </SectionCard>
+              </div>
+
+              <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+                {/* "Included" in the title (and totalCredits below) is
+                    deliberately just the plan's base allowance, not the
+                    allowance plus the overage cap — see SpendLimitCard for
+                    the separate, additional paid-usage story. */}
+                <SectionCard title="Included Credits Remaining" headerDivider={false}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                      <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
+                        {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
+                      </p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                        credits consumed
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                      <Button variant="secondary" onClick={() => router.push(ORG_ANALYTICS_ROUTE)}>View usage</Button>
+                    </div>
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
+                    {usedCredits > totalCredits
+                      ? `${(usedCredits - totalCredits).toLocaleString()} credits in paid overage — see below`
+                      : `Resets ${nextBilling}`}
+                  </p>
+                </SectionCard>
+              </div>
             </div>
 
             <SpendLimitCard
@@ -901,7 +850,7 @@ function OrgBillingView() {
         {isAdmin && (
           <SectionCard
             title="Payment"
-            subtitle={isManualBilling ? 'Enterprise billing is invoiced manually.' : 'Manage your billing details.'}
+            subtitle={isManualBilling ? 'Pro billing is invoiced manually.' : 'Manage your billing details.'}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
@@ -923,10 +872,19 @@ function OrgBillingView() {
         {isAdmin && (
           <SectionCard
             title="Invoice history"
-            action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
+            subtitle={billing?.upcomingInvoice
+              ? `Next invoice: ${fmtUsd(billing.upcomingInvoice.amountDue)} due ${fmtDate(billing.upcomingInvoice.nextPaymentDate)}`
+              : undefined}
+            action={
+              <Tooltip content="No downloadable invoices yet" side="top" disabled={hasDownloadableInvoice}>
+                <span style={{ display: 'inline-flex' }}>
+                  <Button variant="secondary" onClick={handleExportAllInvoices} disabled={!hasDownloadableInvoice}>Export all</Button>
+                </span>
+              </Tooltip>
+            }
             bodyPadding="0 24px 12px"
           >
-            <InvoiceTable invoices={invoiceRows} loading={billingLoading} />
+            <InvoiceTable invoices={invoices} loading={billingLoading} />
           </SectionCard>
         )}
       </div>
@@ -983,7 +941,7 @@ function OrgBillingView() {
 
 // ── Personal (individual, non-org) view ────────────────────────────────────────
 // Ported from the retired src/app/(app)/settings/(shell)/billing/page.tsx.
-// Reuses this file's own SectionCard/StatTile/Badge/InvoiceTable/ModalShell/
+// Reuses this file's own SectionCard/Badge/InvoiceTable/ModalShell/
 // BuyMoreCreditsModal rather than that page's separate components, so both
 // account types share one visual language. Unlike the org view above, an
 // individual account has no admin/member distinction — the equivalents of
@@ -1118,7 +1076,10 @@ function PersonalBillingView() {
 
   const pm        = billing?.paymentMethod ?? null
   const cardBrand = (pm?.brand ?? 'unknown') as CardBrand
-  const invoices  = Invoice.history(billing?.invoices ?? [], billing?.upcomingInvoice ?? null)
+  // Real, issued invoices only — the upcoming invoice (never downloadable)
+  // is shown separately as the card's subtitle, not merged into this list.
+  const invoices  = billing?.invoices ?? []
+  const hasDownloadableInvoice = invoices.some(inv => !!inv.viewUrl)
   const billingPending = !billing && !billingLoaded
 
   const now          = new Date()
@@ -1311,7 +1272,16 @@ function PersonalBillingView() {
 
         <SectionCard
           title="Invoice history"
-          action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
+          subtitle={billing?.upcomingInvoice
+            ? `Next invoice: ${fmtUsd(billing.upcomingInvoice.amountDue)} due ${fmtDate(billing.upcomingInvoice.nextPaymentDate)}`
+            : undefined}
+          action={
+            <Tooltip content="No downloadable invoices yet" side="top" disabled={hasDownloadableInvoice}>
+              <span style={{ display: 'inline-flex' }}>
+                <Button variant="secondary" onClick={handleExportAllInvoices} disabled={!hasDownloadableInvoice}>Export all</Button>
+              </span>
+            </Tooltip>
+          }
           bodyPadding="0 24px 12px"
         >
           <InvoiceTable invoices={invoices} loading={billingPending} />
@@ -1399,113 +1369,6 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         transition:   'left 0.15s ease',
       }} />
     </button>
-  )
-}
-
-// ── Enterprise hero ───────────────────────────────────────────────────────────
-
-function EnterpriseHero({
-  nextBilling,
-  usageAsOf,
-  totalCredits,
-  usedCredits,
-  remainingCredits,
-  providerUsage,
-  includedUsage,
-  overageUsd,
-  projectedInvoice,
-  baseFeeUsd,
-  cycleLabel,
-}: {
-  nextBilling:    string
-  usageAsOf:      string
-  totalCredits: number
-  usedCredits: number
-  remainingCredits: number
-  providerUsage: number
-  includedUsage: number
-  overageUsd: number
-  projectedInvoice: number
-  baseFeeUsd: number
-  cycleLabel:     string
-}) {
-  const pct = totalCredits > 0 ? Math.min(100, (usedCredits / totalCredits) * 100) : 0
-  return (
-    <HeroShell>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          Enterprise Plan
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-            Next billing: {nextBilling}
-          </p>
-          <Badge label={`$${Math.round(baseFeeUsd)}/month`} tone="blue" />
-        </div>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          Shared credits · Unlimited seats · {fmtCredits(includedUsage)} included credits · Usage as of {usageAsOf}
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          {remainingCredits.toLocaleString()}
-        </p>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          credits remaining
-        </p>
-      </div>
-
-      <ProgressBar pct={pct} />
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
-          Cycle: {cycleLabel}
-        </span>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-white, #fff)' }}>
-          {usedCredits.toLocaleString()} of {totalCredits.toLocaleString()} credits used
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Badge
-          label={overageUsd > 0
-            ? `${fmtCredits(overageUsd)} credits overage`
-            : `${fmtCredits(Math.max(includedUsage - providerUsage, 0))} included credits left`}
-          tone={overageUsd > 0 ? 'red' : 'green'}
-        />
-        <Badge label={`${fmtUsd(projectedInvoice)} projected invoice`} tone="neutral" />
-      </div>
-    </HeroShell>
-  )
-}
-
-/** Gradient hero panel shell. The Figma fill uses preserveAspectRatio=none → stretch. */
-function HeroShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      borderRadius:    8,
-      padding:         24,
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             16,
-      boxShadow:       SHADOW_HERO,
-      backgroundImage: HERO_GRADIENT_TEAMS,
-      backgroundSize:  '100% 100%',
-      backgroundRepeat: 'no-repeat',
-      overflow:        'hidden',
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function ProgressBar({ pct }: { pct: number }) {
-  return (
-    <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-900)', width: `${pct}%`, transition: 'width 0.3s ease' }} />
-      <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-900)', boxShadow: '0 0 0 2px white' }} />
-    </div>
   )
 }
 

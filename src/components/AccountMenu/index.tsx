@@ -60,6 +60,16 @@ export interface AccountMenuProps {
    * click handler that opens/closes the same dropdown the default trigger uses.
    */
   renderTrigger?: (props: { onOpenSettingsClick: () => void }) => React.ReactElement
+  /**
+   * Set false to render a static, non-interactive identity display — the
+   * trigger's visual only, with no click behavior, no dropdown, and no
+   * settings-icon affordance. For a context that already exposes Profile/
+   * Upgrade Plan/Settings/Organization/Help as its own persistent nav (e.g.
+   * the Settings sidebar footer), where this dropdown would just repeat
+   * those same destinations, plus offer "Settings" while already there.
+   * @default true
+   */
+  interactive?: boolean
   /** Show the "Upgrade Plan" item. @default true (gate to individuals in the Sidebar). */
   showUpgradePlan?: boolean
   /** Force-show the "Organization" item (owner/admin). Otherwise it shows whenever `onOrganization` is provided. @default false */
@@ -297,6 +307,7 @@ export function AccountMenu({
   collapsed = false,
   roleBadge,
   renderTrigger,
+  interactive = true,
   showUpgradePlan = true,
   showOrganization = false,
   onProfile,
@@ -334,9 +345,19 @@ export function AccountMenu({
       avatarSrc={avatarSrc}
       roleBadge={roleBadge}
       {...(collapsed ? { collapsed: true } : { fluid: true })}
-      onSettingsClick={onOpenSettingsClick}
+      onSettingsClick={interactive ? onOpenSettingsClick : undefined}
     />
   )
+
+  // Static mode: just the identity visual, no dropdown wrapper, no click
+  // behavior at all.
+  if (!interactive) {
+    return (
+      <div ref={ref} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+        {trigger}
+      </div>
+    )
+  }
 
   return (
     <div ref={ref} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>

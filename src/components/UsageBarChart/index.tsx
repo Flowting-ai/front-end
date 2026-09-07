@@ -44,9 +44,15 @@ function fmtK(n: number): string {
 
 // Dark tooltip bubble matching the app's established convention (dark
 // gradient background, --tooltip-text foreground) — one row per series,
-// colour dot + label + value, sorted to match the legend/bar order.
-function ChartTooltip({ active, payload, label, series }: TooltipContentProps & { series: UsageBarChartSeries[] }) {
+// colour dot + label + value, ordered to match the visual stack.
+function ChartTooltip({ active, payload, label, series, mode }: TooltipContentProps & { series: UsageBarChartSeries[]; mode: UsageBarChartProps['mode'] }) {
   if (!active || !payload || payload.length === 0) return null
+
+  // In `per-link` (stacked), each <Bar> below stacks in declaration order —
+  // the FIRST series ends up at the BOTTOM of the stack, the LAST at the TOP.
+  // Reversed here so reading the tooltip top-to-bottom matches reading the
+  // bar top-to-bottom, instead of listing bottom-of-stack first.
+  const rows = mode === 'per-link' ? [...series].reverse() : series
 
   return (
     <div
@@ -66,7 +72,7 @@ function ChartTooltip({ active, payload, label, series }: TooltipContentProps & 
       }}
     >
       <span style={{ fontWeight: 500, opacity: 0.7 }}>{label}</span>
-      {series.map(s => {
+      {rows.map(s => {
         const item = payload.find(p => p.dataKey === s.id)
         if (!item || item.value == null) return null
         return (
@@ -130,7 +136,7 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, cl
             {mode !== 'all' && (
               <Tooltip
                 cursor={{ fill: 'var(--neutral-100)' }}
-                content={(tooltipProps: TooltipContentProps) => <ChartTooltip {...tooltipProps} series={series} />}
+                content={(tooltipProps: TooltipContentProps) => <ChartTooltip {...tooltipProps} series={series} mode={mode} />}
               />
             )}
             {mode === 'all' ? (

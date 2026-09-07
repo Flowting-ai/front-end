@@ -5,6 +5,7 @@ import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
+import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ReportBugModal } from '@/components/ReportBugModal'
@@ -16,7 +17,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useGuardedRouter } from '@/context/nav-guard-context'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -48,6 +49,37 @@ const sectionItemVariants = {
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
 }
 
+// ── Nav loading skeleton ──────────────────────────────────────────────────────
+// Whether WORKSPACE renders at all depends on org/role data that resolves
+// async (useOrg's orgReady) — rendering the real sections as that data trickles
+// in would mean WORKSPACE popping in underneath PERSONAL after the fact. This
+// bone stands in for the whole nav (PERSONAL + WORKSPACE + HELP shape) as one
+// static block until orgReady, so the swap to the real, fully-resolved menu
+// happens once, atomically, rather than assembling section by section.
+function SettingsNavSkeleton() {
+  const section = (labelWidth: number, rows: number) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '5px 6px' }}>
+        <div className="kaya-skeleton" style={{ width: labelWidth, height: 14, borderRadius: 4 }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {Array.from({ length: rows }).map((_, i) => (
+          <SidebarMenuSkeleton key={i} index={i} fluid showIcon />
+        ))}
+      </div>
+    </div>
+  )
+  return (
+    <>
+      {section(64, 2)}
+      <Divider decorative style={{ margin: '8px 0' }} />
+      {section(90, 3)}
+      <Divider decorative style={{ margin: '8px 0' }} />
+      {section(120, 3)}
+    </>
+  )
+}
+
 // ── Settings v1.5 nav groups ──────────────────────────────────────────────────
 // PERSONAL: node 18:27786. "Connectors" (previously in this group under the
 // old design, SETTINGS_CONNECTORS_ROUTE) has no home in the new Figma frame —
@@ -56,7 +88,8 @@ const PERSONAL_ITEMS = [
   { id: 'account', label: 'Account', href: SETTINGS_ACCOUNT_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/account.svg" /> },
   // Was a stand-in pointing at SETTINGS_BILLING_ROUTE until the dedicated
   // Usage page (node 17-22980) existed — now points at its own route.
-  { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-personal.svg" /> },
+  // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
+  { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
@@ -85,8 +118,8 @@ export function SettingsSidebar() {
   // whether the user clicks a Settings nav item or the main app sidebar.
   const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, plan, orgRole, currentUserRole } = useOrg()
+  const { user } = useAuth()
+  const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
   const [reportBugOpen,  setReportBugOpen]  = useState(false)
   const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
 
@@ -134,12 +167,13 @@ export function SettingsSidebar() {
 
   const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
 
-  // Plan-type label for the status tag ("Workspace | 250 credits left" /
+  // Plan-type label for the status tag ("Core | 250 credits left" /
   // "Pro | 250 credits left") — distinct from planLabel above, which is now
   // just the org's own name. Team orgs get "Free Plan" (blue tag, see
-  // planStatusVariant below) until a real plan is selected, then "Workspace".
+  // planStatusVariant below) until a real plan is selected, then "Core"
+  // (org.plan 'teams') or "Pro" (org.plan 'enterprise').
   const planTypeLabel = isTeamUser
-    ? (orgHasSelectedPlan ? 'Workspace' : 'Free Plan')
+    ? (orgHasSelectedPlan ? (org?.plan === 'enterprise' ? 'Pro' : 'Core') : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
@@ -157,9 +191,15 @@ export function SettingsSidebar() {
     : (planWarning ? undefined : (user?.creditsRemaining ?? undefined))
 
   // Role badge with tooltip — mirrors LeftSidebar's displayRole hierarchy.
-  const displayRole = orgRole === 'admin'
-    ? orgRole
-    : (currentUserRole ?? (orgId ? 'member' : undefined))
+  // Gated on `orgReady`, not just `orgId`: `orgId` resolves before the role
+  // fetch settles, and the old fallback (`currentUserRole ?? (orgId ?
+  // 'member' : undefined)`) guessed 'member' the instant orgId was known —
+  // showing that guess, then correcting to 'admin' once the real role
+  // arrived, is exactly the Member-then-Admin flash this exists to prevent.
+  // `undefined` here means no badge at all until the real role is in.
+  const displayRole = orgReady && orgId
+    ? (orgRole === 'admin' ? orgRole : currentUserRole)
+    : undefined
   const roleTooltip = displayRole
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
@@ -242,6 +282,8 @@ export function SettingsSidebar() {
             element above — keeps the scrollbar flush with the sidebar's edge. */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
 
+        {!orgReady ? <SettingsNavSkeleton /> : (
+        <>
         {/* PERSONAL — node 18:27786 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -378,6 +420,8 @@ export function SettingsSidebar() {
             </m.div>
           </m.div>
         </div>
+        </>
+        )}
 
         </div>
 
@@ -402,7 +446,11 @@ export function SettingsSidebar() {
             </div>
           </div>
         ) : (
+          // Static — no dropdown. Profile/Upgrade Plan/Settings/Organization/
+          // Help/Report a bug would just repeat this same sidebar's own nav
+          // (and "Settings" makes no sense to offer while already here).
           <AccountMenu
+            interactive={false}
             name={displayName || 'Account'}
             plan={planLabel}
             planWarning={planWarning}
@@ -411,16 +459,7 @@ export function SettingsSidebar() {
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={false}
-            panelWidth={274}
             roleBadge={roleBadge}
-            placement="top-start"
-            onProfile={() => safeNavigate(SETTINGS_ACCOUNT_ROUTE)}
-            onUpgradePlan={() => safeNavigate(ORG_PLANS_ROUTE)}
-            onSettings={() => safeNavigate(SETTINGS_ROUTE)}
-            onOrganization={(orgId && orgRole === 'admin') ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
-            onHelp={() => safeNavigate(SETTINGS_HELP_ROUTE)}
-            onReportBug={() => setReportBugOpen(true)}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )}
       </div>
