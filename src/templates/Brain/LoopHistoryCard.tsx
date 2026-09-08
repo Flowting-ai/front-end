@@ -9,6 +9,7 @@ import {
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
 import type { AgentStep, StepStatus } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -247,19 +248,26 @@ export function LoopHistoryCard({
               {/* Divider */}
               <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', marginBottom: 6 }} />
 
-              {/* Plan goal, or what the run had to say */}
+              {/* Plan goal, or what the run had to say — through the same
+                  MarkdownRenderer every chat message uses, instead of a raw
+                  span, so a URL in the answer is an actual clickable link
+                  rather than inert text. The --prose-* custom properties are
+                  scoped to this wrapper only (not overridden globally), so
+                  it still reads at the card's normal caption size/color
+                  instead of MarkdownRenderer's default full-size chat prose. */}
               {summary && (
-                <span style={{
-                  fontFamily:   'var(--font-body)',
-                  fontSize:     'var(--font-size-caption)',
-                  color:        status === 'failed' ? 'var(--neutral-700)' : 'var(--neutral-500)',
-                  lineHeight:   'var(--line-height-caption)',
-                  marginBottom: 4,
-                  whiteSpace:   'pre-wrap',
-                  overflowWrap: 'anywhere',
-                }}>
-                  {summary}
-                </span>
+                <div
+                  style={{
+                    marginBottom:      4,
+                    overflowWrap:      'anywhere',
+                    '--prose-size-body': 'var(--font-size-caption)',
+                    '--prose-line-body': 'var(--line-height-caption)',
+                    '--prose-text':      status === 'failed' ? 'var(--neutral-700)' : 'var(--neutral-500)',
+                    '--prose-measure':   'none',
+                  } as React.CSSProperties}
+                >
+                  <MarkdownRenderer content={summary} />
+                </div>
               )}
 
               {detail && (

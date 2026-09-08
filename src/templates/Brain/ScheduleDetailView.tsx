@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { LoopHistoryCard } from './LoopHistoryCard'
 import type { AgentStep, StepStatus } from './lib/phase'
 
@@ -220,16 +221,20 @@ export function ScheduleDetailView({
         </div>
 
         <div style={{ padding: '16px' }}>
-          <p style={{
-            margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-700)',
-            whiteSpace: 'pre-wrap',
-          }}>
-            {schedule.instructions}
-          </p>
+          {/* Through MarkdownRenderer (same one every chat message uses)
+              instead of a raw <p> — this text is AI-generated (the
+              automation's own summary), so a URL in it should be an actual
+              clickable link, not inert text. --prose-* overrides keep it at
+              this card's normal body size/color rather than MarkdownRenderer's
+              default full chat-prose size. */}
+          <div style={{
+            '--prose-size-body': 'var(--font-size-body)',
+            '--prose-line-body': 'var(--line-height-body)',
+            '--prose-text':      'var(--neutral-700)',
+            '--prose-measure':   'none',
+          } as React.CSSProperties}>
+            <MarkdownRenderer content={schedule.instructions} />
+          </div>
         </div>
 
         <div style={{

@@ -87,20 +87,21 @@ export function ScheduleListView({
         <div style={{ flex: '1 0 0' }}>
           <h2 style={{
             margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body-lg)',
-            fontWeight: 'var(--font-weight-semibold)',
-            lineHeight: 'var(--line-height-body-lg)',
+            fontFamily: 'var(--font-title)',
+            fontSize:   24,
+            fontWeight: 'var(--font-weight-regular)',
+            lineHeight: '32px',
             color:      'var(--neutral-900)',
           }}>
             Schedules
           </h2>
           <p style={{
-            margin:     '2px 0 0',
+            margin:     '4px 0 0',
             fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-400)',
+            fontWeight: 'var(--font-weight-regular)',
+            fontSize:   14,
+            lineHeight: '22px',
+            color:      'var(--neutral-500)',
           }}>
             Automated tasks that run on your behalf
           </p>
@@ -124,8 +125,8 @@ export function ScheduleListView({
           {/* Schedule grid */}
           <div style={{
             display:             'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap:                 12,
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap:                 24,
           }}>
             {schedules.map(s => (
               <ScheduleCard

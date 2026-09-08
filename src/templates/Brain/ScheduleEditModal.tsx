@@ -7,6 +7,8 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
+import { TimeField } from '@/components/TimeField'
+import Tabs from '@/components/Tabs'
 import { springs } from '@/lib/springs'
 import { trackFeature } from '@/lib/analytics/events'
 
@@ -105,12 +107,36 @@ function parseFrequency(
 
 // ── Shared field chrome ───────────────────────────────────────────────────────
 
+// Frequency, Day, Time, and Timezone controls all share this width so they
+// line up as one right-aligned column regardless of each control's own
+// natural content width.
+const FIELD_WIDTH = 200
+
+// Matches the field-label convention used by other standard modals
+// (EditProjectModal, ConnectorRequestModal) for hand-rolled controls that
+// don't go through InputField itself — 14px/medium/neutral-700, not caption.
 const labelStyle: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
-  fontSize:     'var(--font-size-caption)',
+  fontSize:     'var(--font-size-body)',
   fontWeight:   'var(--font-weight-medium)',
-  lineHeight:   'var(--line-height-caption)',
-  color:        'var(--neutral-500)',
+  lineHeight:   'var(--line-height-body)',
+  color:        'var(--neutral-700)',
+  marginBottom: 6,
+  display:      'block',
+}
+
+// The three top-level section headers (Name, Instructions, Frequency card) —
+// a separate style from `labelStyle` above (which is for the smaller
+// Day/Time/Timezone/Frequency-toggle sub-fields) so the two tiers can each
+// stay internally consistent without fighting one shared value. Matches
+// InputField's own label exactly (same font tokens/color/weight) so Name's
+// real InputField label and these two hand-rolled ones read as identical.
+const sectionLabelStyle: React.CSSProperties = {
+  fontFamily:   'var(--font-body)',
+  fontSize:     'var(--font-size-body)',
+  fontWeight:   'var(--font-weight-regular)',
+  lineHeight:   'var(--line-height-body)',
+  color:        'var(--text-field-label)',
   marginBottom: 6,
   display:      'block',
 }
@@ -261,8 +287,9 @@ export function ScheduleEditModal({
             style={{
               backgroundColor: 'var(--neutral-white)',
               borderRadius:    16,
-              maxWidth:        520,
+              maxWidth:        640,
               width:           '100%',
+              minHeight:       600,
               maxHeight:       'calc(100vh - 48px)',
               display:         'flex',
               flexDirection:   'column',
@@ -280,10 +307,10 @@ export function ScheduleEditModal({
             }}>
               <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-body-lg)',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  lineHeight: 'var(--line-height-body-lg)',
+                  fontFamily: 'var(--font-title)',
+                  fontSize:   'var(--font-size-heading)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  lineHeight: 'var(--line-height-heading)',
                   color:      'var(--neutral-900)',
                 }}>
                   {isCreate ? 'New schedule' : 'Edit schedule'}
@@ -323,7 +350,7 @@ export function ScheduleEditModal({
               {/* Name */}
               <InputField
                 ref={nameInputRef}
-                label="Name"
+                label="Name of the schedule"
                 value={name}
                 onChange={setName}
                 placeholder="Morning briefing"
@@ -332,7 +359,7 @@ export function ScheduleEditModal({
 
               {/* Instructions */}
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label htmlFor="schedule-instructions" style={labelStyle}>Instructions</label>
+                <label htmlFor="schedule-instructions" style={sectionLabelStyle}>Set instructions for the schedule</label>
                 <textarea
                   id="schedule-instructions"
                   value={instructions}
@@ -348,68 +375,53 @@ export function ScheduleEditModal({
               </div>
 
               {/* Frequency card — grouped so cadence/day/time/timezone read as
-                  one decision rather than four loose fields. */}
+                  one decision rather than four loose fields. Wrapped together
+                  with its header in one flex column (gap 8) so the two stay
+                  tightly coupled regardless of the body's own larger gap-20,
+                  matching how Name/Instructions hug their own control. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <p style={sectionLabelStyle}>When and how often it should run</p>
               <div style={{
-                display:         'flex',
-                flexDirection:   'column',
-                gap:             16,
-                padding:         16,
-                borderRadius:    12,
-                border:          '1px solid var(--neutral-200)',
-                backgroundColor: 'var(--neutral-50)',
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           16,
+                padding:       16,
+                borderRadius:  12,
+                border:        '1px solid var(--neutral-200)',
               }}>
-                {/* Cadence */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ ...labelStyle, margin: 0 }}>Repeats</p>
-                  <div style={{
-                    display:      'inline-flex',
-                    borderRadius: 8,
-                    border:       '1px solid var(--neutral-200)',
-                    overflow:     'hidden',
-                    alignSelf:    'flex-start',
-                    backgroundColor: 'var(--neutral-white)',
-                  }}>
-                    {(['daily', 'weekly'] as FrequencyType[]).map((t, i) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setFreqType(t)}
-                        style={{
-                          fontFamily:      'var(--font-body)',
-                          fontSize:        'var(--font-size-body)',
-                          lineHeight:      'var(--line-height-body)',
-                          color:           freqType === t ? 'var(--neutral-800)' : 'var(--neutral-400)',
-                          backgroundColor: freqType === t ? 'var(--neutral-100)' : 'transparent',
-                          border:          'none',
-                          padding:         '7px 16px',
-                          cursor:          'pointer',
-                          fontWeight:      freqType === t ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)',
-                          transition:      'background-color 0.12s ease, color 0.12s ease',
-                          borderRight:     i === 0 ? '1px solid var(--neutral-200)' : 'none',
-                        }}
-                      >
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                      </button>
-                    ))}
-                  </div>
+                {/* Frequency, Day (weekly only), Time, Timezone — one row
+                    each, label to the left and its field pinned to the right
+                    edge, instead of a label-above/field-below column stack. */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <p style={{ ...labelStyle, margin: 0 }}>Frequency</p>
+                  <Tabs
+                    value={freqType}
+                    onValueChange={(v) => setFreqType(v as FrequencyType)}
+                    style={{ width: FIELD_WIDTH, flexShrink: 0 }}
+                  >
+                    <Tabs.List size="small" fluid>
+                      <Tabs.Trigger value="daily">Daily</Tabs.Trigger>
+                      <Tabs.Trigger value="weekly">Weekly</Tabs.Trigger>
+                    </Tabs.List>
+                  </Tabs>
                 </div>
 
-                {/* Day picker (weekly only) */}
                 {freqType === 'weekly' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <label id="schedule-day-label" style={{ ...labelStyle, margin: 0 }}>Day</label>
                     <Dropdown.Float
                       open={dayOpen}
                       onOpenChange={setDayOpen}
-                      placement="bottom-start"
+                      placement="top-end"
                       trigger={
                         <Button
                           id="schedule-day"
                           variant="outline"
                           size="sm"
+                          fluid
                           aria-labelledby="schedule-day-label"
                           rightIcon={<ArrowDownOneIcon animated />}
-                          style={{ alignSelf: 'flex-start' }}
+                          style={{ width: FIELD_WIDTH }}
                         >
                           {day}
                         </Button>
@@ -432,56 +444,66 @@ export function ScheduleEditModal({
                   </div>
                 )}
 
-                {/* Time + timezone — side by side, each with its own label
-                    above (matches Name/Instructions rhythm instead of the
-                    old inline label+control row). */}
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '0 0 auto' }}>
-                    <label htmlFor="schedule-time" style={{ ...labelStyle, margin: 0 }}>Time</label>
-                    <input
-                      id="schedule-time"
-                      type="time"
-                      value={time}
-                      onChange={e => setTime(e.target.value)}
-                      aria-label="Time"
-                      style={{ ...fieldShellStyle, width: 140 }}
-                    />
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <label htmlFor="schedule-time" style={{ ...labelStyle, margin: 0 }}>Time</label>
+                  <TimeField
+                    id="schedule-time"
+                    label="Time"
+                    showLabel={false}
+                    size="small"
+                    value={time}
+                    onChange={setTime}
+                    style={{ width: FIELD_WIDTH, flexShrink: 0 }}
+                  />
+                </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 160px', minWidth: 0 }}>
-                    <label id="schedule-timezone-label" style={{ ...labelStyle, margin: 0 }}>Timezone</label>
-                    <Dropdown.Float
-                      open={tzOpen}
-                      onOpenChange={(next) => {
-                        setTzOpen(next)
-                        if (!next) setTzSearch('') // reset search each time the popover closes
-                      }}
-                      placement="bottom-start"
-                      trigger={
-                        <Button
-                          id="schedule-timezone"
-                          variant="outline"
-                          size="sm"
-                          aria-labelledby="schedule-timezone-label"
-                          rightIcon={<ArrowDownOneIcon animated />}
-                          style={{ width: '100%', justifyContent: 'space-between' }}
-                        >
-                          <span style={{
-                            overflow:     'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace:   'nowrap',
-                          }}>
-                            {timezone.replace(/_/g, ' ')}
-                          </span>
-                        </Button>
-                      }
-                    >
-                      {/* Popover's own scroll cap wraps ALL children in one shared
-                          scroll area by default — disable it here so only the
-                          inner zone list (its own overflow below) ever scrolls,
-                          never the search input above it. */}
-                      <Dropdown maxHeight={false} size="lg">
-                        <div style={{ padding: '8px 8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <label id="schedule-timezone-label" style={{ ...labelStyle, margin: 0 }}>Timezone</label>
+                  <Dropdown.Float
+                    open={tzOpen}
+                    onOpenChange={(next) => {
+                      setTzOpen(next)
+                      if (!next) setTzSearch('') // reset search each time the popover closes
+                    }}
+                    placement="top-end"
+                    trigger={
+                      <Button
+                        id="schedule-timezone"
+                        variant="outline"
+                        size="sm"
+                        fluid
+                        aria-labelledby="schedule-timezone-label"
+                        rightIcon={<ArrowDownOneIcon animated />}
+                        style={{ width: FIELD_WIDTH }}
+                      >
+                        {/* flex/minWidth so long zone names still truncate with
+                            an ellipsis and the chevron stays pinned to the
+                            right, instead of centering (and possibly
+                            overflowing) alongside it like the short Day/Time
+                            labels do. */}
+                        <span style={{
+                          flex:         '1 1 0',
+                          minWidth:     0,
+                          overflow:     'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace:   'nowrap',
+                          textAlign:    'left',
+                        }}>
+                          {timezone.replace(/_/g, ' ')}
+                        </span>
+                      </Button>
+                    }
+                  >
+                    {/* Search sits in Popover's own sticky `header` slot, and
+                        the list is a plain Dropdown.Section — Popover's default
+                        scroll area (kaya-scrollbar + edge fades) handles the
+                        list, and Section's own 8px padding/4px gap give each
+                        row the same spacing as every other dropdown, instead
+                        of a hand-rolled scroll div with its own ad-hoc padding. */}
+                    <Dropdown
+                      size="lg"
+                      header={
+                        <div style={{ padding: 8 }}>
                           <InputField
                             size="small"
                             showLabel={false}
@@ -494,37 +516,33 @@ export function ScheduleEditModal({
                             fluid
                           />
                         </div>
-                        <Dropdown.Section fluid>
-                          <div
-                            className="kaya-scrollbar"
-                            style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 280, overflowY: 'auto', padding: 3 }}
-                          >
-                            {filteredTimezones.length > 0 ? (
-                              filteredTimezones.map(tz => (
-                                <Dropdown.Item
-                                  key={tz}
-                                  label={tz.replace(/_/g, ' ')}
-                                  selected={timezone === tz}
-                                  onClick={() => { setTimezone(tz); setTzOpen(false) }}
-                                  fluid
-                                />
-                              ))
-                            ) : (
-                              <div style={{
-                                padding:    '8px 6px',
-                                fontFamily: 'var(--font-body)',
-                                fontSize:   'var(--font-size-caption)',
-                                color:      'var(--neutral-500)',
-                                textAlign:  'center',
-                              }}>
-                                {`No timezones matching "${tzSearch}"`}
-                              </div>
-                            )}
+                      }
+                    >
+                      <Dropdown.Section divider fluid>
+                        {filteredTimezones.length > 0 ? (
+                          filteredTimezones.map(tz => (
+                            <Dropdown.Item
+                              key={tz}
+                              label={tz.replace(/_/g, ' ')}
+                              selected={timezone === tz}
+                              onClick={() => { setTimezone(tz); setTzOpen(false) }}
+                              fluid
+                            />
+                          ))
+                        ) : (
+                          <div style={{
+                            padding:    '8px 6px',
+                            fontFamily: 'var(--font-body)',
+                            fontSize:   'var(--font-size-caption)',
+                            color:      'var(--neutral-500)',
+                            textAlign:  'center',
+                          }}>
+                            {`No timezones matching "${tzSearch}"`}
                           </div>
-                        </Dropdown.Section>
-                      </Dropdown>
-                    </Dropdown.Float>
-                  </div>
+                        )}
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
                 </div>
 
                 {/* Live preview — confirms the cadence in plain English before
@@ -541,6 +559,7 @@ export function ScheduleEditModal({
                     {previewText}
                   </p>
                 )}
+              </div>
               </div>
             </div>
 

@@ -93,6 +93,7 @@ function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
     description: task.summary || undefined,
     frequency:   scheduleDescription(task.schedule_json),
     isActive:    task.is_active,
+    createdAt:   task.created_at ? formatCreatedAt(task.created_at) : undefined,
     chatId,
   }
 }
@@ -140,6 +141,7 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
     instructions: item.description ?? '',
     frequency:    item.frequency,
     isActive:     item.isActive,
+    createdAt:    item.createdAt,
     chatId:       item.chatId,
   }
 }
@@ -400,7 +402,7 @@ function BrainSchedulesPageInner() {
             className="kaya-scrollbar"
           >
             <div style={{
-              maxWidth:      '810px',
+              maxWidth:      991,
               width:         '100%',
               margin:        '0 auto',
               paddingLeft:   28,
@@ -455,6 +457,48 @@ function BrainSchedulesPageInner() {
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
+// Mirrors ScheduleCard's own box model exactly (220px, padding 20, top row /
+// title / description / divider / footer) so the loading state doesn't jump
+// when the real cards swap in.
+function ScheduleCardSkeleton({ delay }: { delay: number }) {
+  const fade = { opacity: 1 - delay * 0.15 }
+  return (
+    <div style={{
+      display:        'flex',
+      flexDirection:  'column',
+      height:         220,
+      padding:        20,
+      boxSizing:      'border-box',
+      borderRadius:   12,
+      boxShadow:      '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+    }}>
+      {/* Top row — "Created on" (left), status badge (right) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="kaya-skeleton" style={{ ...fade, width: 96, height: 12 }} />
+        <div className="kaya-skeleton" style={{ ...fade, width: 52, height: 20, borderRadius: 999 }} />
+      </div>
+
+      {/* Title */}
+      <div className="kaya-skeleton" style={{ ...fade, width: '65%', height: 18, marginTop: 12 }} />
+
+      {/* Description — 2 lines */}
+      <div className="kaya-skeleton" style={{ ...fade, width: '100%', height: 12, marginTop: 14 }} />
+      <div className="kaya-skeleton" style={{ ...fade, width: '80%', height: 12, marginTop: 6 }} />
+
+      {/* Spacer — pushes divider/footer to the bottom, matching ScheduleCard */}
+      <div style={{ flex: '1 1 auto', minHeight: 12 }} />
+
+      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)' }} />
+
+      {/* Footer — calendar icon + frequency text */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+        <div className="kaya-skeleton" style={{ ...fade, width: 14, height: 14, borderRadius: 4 }} />
+        <div className="kaya-skeleton" style={{ ...fade, width: 84, height: 12 }} />
+      </div>
+    </div>
+  )
+}
+
 function SchedulesLoadingState() {
   return (
     <div style={{
@@ -462,28 +506,25 @@ function SchedulesLoadingState() {
       flexDirection: 'column',
       gap:           24,
       padding:       '32px 0',
+      width:         '100%',
     }}>
-      {/* Header skeleton */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width:        160,
-          height:       24,
-          borderRadius: 6,
-          backgroundColor: 'var(--neutral-100)',
-        }} />
+      {/* Header skeleton — matches ScheduleListView's title + subtitle +
+          "New schedule" button layout */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ flex: '1 0 0' }}>
+          <div className="kaya-skeleton" style={{ width: 120, height: 24 }} />
+          <div className="kaya-skeleton" style={{ width: 220, height: 14, marginTop: 6 }} />
+        </div>
+        <div className="kaya-skeleton" style={{ width: 128, height: 32, borderRadius: 8 }} />
       </div>
-      {/* Card skeletons */}
+      {/* Card skeletons — same 2-column grid, gap 24, as ScheduleListView */}
       <div style={{
         display:             'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap:                 12,
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap:                 24,
       }}>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="kaya-skeleton"
-            style={{ height: 110, borderRadius: 12 }}
-          />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <ScheduleCardSkeleton key={i} delay={i} />
         ))}
       </div>
     </div>
