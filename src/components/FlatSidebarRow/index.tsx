@@ -57,6 +57,8 @@ export interface FlatSidebarRowProps extends Omit<React.HTMLAttributes<HTMLDivEl
   extraHeaderIcons?: Array<{ icon: React.ReactNode; onClick: React.MouseEventHandler<HTMLButtonElement>; label: string }>
   /** header variant only — shrinks the label to caption size, for a nested sub-header (e.g. "Personal Projects" under "Projects") that shouldn't read as loud as a top-level section title. */
   compact?: boolean
+  /** header variant only — keeps headerIcon/extraHeaderIcons/add always visible instead of only revealing them on row hover. Default false (hover-only) for every other header section. */
+  actionsAlwaysVisible?: boolean
 }
 
 const bodyTextStyle: React.CSSProperties = {
@@ -124,6 +126,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       headerIconLabel,
       extraHeaderIcons,
       compact = false,
+      actionsAlwaysVisible = false,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -135,6 +138,8 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
     const isHeader = variant === 'header'
     const isEditVariant = variant === 'chat-item-edit'
     const isActive = isHovered || selected
+    // header variant only — reveal state for headerIcon/extraHeaderIcons/add.
+    const showActions = isHovered || actionsAlwaysVisible
 
     // Per-icon hover — darkens just the icon being pointed at, independent of
     // the row/header-level hover that only controls reveal (opacity/underline).
@@ -239,7 +244,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                   onClick={(e) => { e.stopPropagation(); onMoreClick(e) }}
                   onMouseEnter={() => setMoreIconHovered(true)}
                   onMouseLeave={() => setMoreIconHovered(false)}
-                  style={headerActionButtonStyle(isHovered, moreIconHovered)}
+                  style={headerActionButtonStyle(showActions, moreIconHovered)}
                 >
                   <MoreHorizontalIcon size={16} />
                 </button>
@@ -253,13 +258,13 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                   onClick={(e) => { e.stopPropagation(); onHeaderIconClick(e) }}
                   onMouseEnter={() => setHeaderIconHovered(true)}
                   onMouseLeave={() => setHeaderIconHovered(false)}
-                  style={headerActionButtonStyle(isHovered, headerIconHovered)}
+                  style={headerActionButtonStyle(showActions, headerIconHovered)}
                 >
                   {headerIcon}
                 </button>
               </Tooltip>
             ) : (
-              <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms' }}>
+              <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', opacity: showActions ? 1 : 0, transition: 'opacity 150ms' }}>
                 {headerIcon}
               </span>
             ))}
@@ -271,7 +276,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                   onClick={(e) => { e.stopPropagation(); item.onClick(e) }}
                   onMouseEnter={() => setExtraIconHovered(i)}
                   onMouseLeave={() => setExtraIconHovered(null)}
-                  style={headerActionButtonStyle(isHovered, extraIconHovered === i)}
+                  style={headerActionButtonStyle(showActions, extraIconHovered === i)}
                 >
                   {item.icon}
                 </button>
@@ -285,7 +290,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                   onClick={(e) => { e.stopPropagation(); onAddClick(e) }}
                   onMouseEnter={() => setAddIconHovered(true)}
                   onMouseLeave={() => setAddIconHovered(false)}
-                  style={headerActionButtonStyle(isHovered, addIconHovered)}
+                  style={headerActionButtonStyle(showActions, addIconHovered)}
                 >
                   <PlusSignIcon size={16} />
                 </button>

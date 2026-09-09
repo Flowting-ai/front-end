@@ -485,7 +485,14 @@ export async function pollConnectorUntilActive(
   while (Date.now() < deadline) {
     if (signal?.aborted) throw new DOMException('Polling aborted', 'AbortError')
     const entry = await getConnector(slug)
-    if (entry.linked) return entry
+    // `entry.linked` is org-wide — true the instant ANY org member has a
+    // shared connection, regardless of who's actually running this poll. A
+    // caller polling after their own connect attempt needs to know whether
+    // THEY now have a working account, not whether the connector is usable
+    // by someone else — otherwise this resolves immediately (before the
+    // popup's OAuth flow even finishes) whenever a shared account already
+    // exists, closing the popup and reporting false success.
+    if (entry.connections.some(row => row.owned && row.connected)) return entry
     await new Promise<void>((resolve, reject) => {
       const t = setTimeout(resolve, intervalMs)
       signal?.addEventListener('abort', () => {

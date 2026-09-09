@@ -65,9 +65,15 @@ export function SetupModal({
   onConnected: (result: SetupFlowResult) => void
 }) {
   const reconnecting = mode === 'reconnect'
+  // The backend allows only one private (personal) account per connector per
+  // user — linking a second one overwrites the first in place (and drops its
+  // tool permissions) instead of adding a new one. Until the backend supports
+  // real multi-account, offering "Private" here when one already exists would
+  // just walk the user into silently clobbering their existing account.
+  const hasPrivateAccount = !reconnecting && catalog.connections.some(a => a.owned && a.isPrivate)
   const [name, setName] = useState(reconnecting ? (initialAccount?.nickname ?? '') : '')
   const [visibility, setVisibility] = useState<AccountVisibility>(
-    reconnecting ? (initialAccount?.visibility ?? 'private') : 'private',
+    reconnecting ? (initialAccount?.visibility ?? 'private') : (hasPrivateAccount && orgId ? 'shared' : 'private'),
   )
   const [values, setValues] = useState<Record<string, string>>({})
 
@@ -131,7 +137,18 @@ export function SetupModal({
 
       {!reconnecting && (
         <fieldset style={{ border: 0, padding: 0, margin: `${SPACE.xxl}px 0 0` }}>
-          <legend style={{ marginBottom: SPACE.md }}>Who can use it?</legend>
+          <legend style={{
+            display:      'block',
+            padding:      0,
+            marginBottom: SPACE.md,
+            fontFamily:   'var(--font-body)',
+            fontWeight:   'var(--font-weight-regular)',
+            fontSize:     'var(--font-size-body)',
+            lineHeight:   'var(--line-height-body)',
+            color:        'var(--text-field-label)',
+          }}>
+            Who can use it?
+          </legend>
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
             <VisibilityRow
               label="Shared"
@@ -143,8 +160,13 @@ export function SetupModal({
             />
             <VisibilityRow
               label="Private"
-              description="Only you can use it."
+              description={
+                hasPrivateAccount
+                  ? "You already have a private account for this connector — reconnect it from the account's page instead of adding another."
+                  : 'Only you can use it.'
+              }
               selected={visibility === 'private'}
+              disabled={hasPrivateAccount}
               onClick={() => setVisibility('private')}
             />
           </div>
@@ -193,7 +215,7 @@ export function SetupModal({
         <Button variant="ghost" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
         <Button
           size="sm"
-          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled)}
+          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled) || (hasPrivateAccount && visibility === 'private')}
           loading={busy}
           onClick={submit}
         >

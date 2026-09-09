@@ -650,6 +650,7 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
             label: 'All tasks',
           },
         ]}
+        actionsAlwaysVisible
       />
       {shownAll && (
         isLoading ? (

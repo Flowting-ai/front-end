@@ -10,13 +10,20 @@
 
 import React from 'react'
 import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
-import { AccountRow } from '@/components/AccountRow'
+import { AccountRow, AccountRowHeader } from '@/components/AccountRow'
 import { Button } from '@/components/Button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
 import { ConnectorsShell } from './ConnectionsView'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
+
+function formatConnectedOn(iso: string): string | undefined {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 32, fontWeight: 400, lineHeight: 1.2 }
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
@@ -66,6 +73,7 @@ function AccountPanel({ accounts, tools, tone, open, reconnect }: { accounts: Co
             visibility={item.visibility}
             state={item.connectionState}
             permission={item.permissionSummary(tools)}
+            connectedOn={formatConnectedOn(item.createdAt)}
             onManage={() => open(item)}
             onReconnect={() => reconnect(item)}
           />
@@ -109,7 +117,10 @@ export function ConnectorDetailView({
         {catalog.connections.length === 0 ? (
           <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No accounts connected yet.</p>
         ) : (
-          <AccountGroups accounts={catalog.connections} tools={catalog.tools} open={openAccount} reconnect={reconnectAccount} />
+          <>
+            <AccountRowHeader />
+            <AccountGroups accounts={catalog.connections} tools={catalog.tools} open={openAccount} reconnect={reconnectAccount} />
+          </>
         )}
       </div>
     </ConnectorsShell>

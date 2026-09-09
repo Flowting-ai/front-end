@@ -1,8 +1,10 @@
 'use client'
 
-import React from 'react'
-import { PlusSignIcon } from '@strange-huge/icons'
+import React, { useState } from 'react'
+import { PlusSignIcon, SearchOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
+import { InputField } from '@/components/InputField'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -72,6 +74,17 @@ export function ScheduleListView({
   onCreateNew,
 }: ScheduleListViewProps) {
   const isEmpty = schedules.length === 0
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const trimmedQuery = query.trim().toLowerCase()
+  const visibleSchedules = trimmedQuery
+    ? schedules.filter(s =>
+        s.name.toLowerCase().includes(trimmedQuery)
+        || (s.description ?? '').toLowerCase().includes(trimmedQuery),
+      )
+    : schedules
+  const noSearchResults = !isEmpty && trimmedQuery !== '' && visibleSchedules.length === 0
 
   return (
     <div style={{
@@ -107,19 +120,58 @@ export function ScheduleListView({
           </p>
         </div>
         {!isEmpty && (
-          <Button
-            variant="default"
-            size="sm"
-            leftIcon={<PlusSignIcon />}
-            onClick={onCreateNew}
-          >
-            New schedule
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {searchOpen && (
+              <div style={{ width: 220 }}>
+                <InputField
+                  label="Search schedules"
+                  showLabel={false}
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search schedules…"
+                  leftIcon={<SearchOneIcon size={16} />}
+                  size="small"
+                  fluid
+                  autoFocus
+                />
+              </div>
+            )}
+            <IconButton
+              variant={searchOpen ? 'secondary' : 'outline'}
+              size="sm"
+              icon={searchOpen ? <CancelOneIcon size={16} /> : <SearchOneIcon size={16} />}
+              aria-label={searchOpen ? 'Close search' : 'Search schedules'}
+              onClick={() => {
+                setSearchOpen(open => !open)
+                setQuery('')
+              }}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              leftIcon={<PlusSignIcon />}
+              onClick={onCreateNew}
+            >
+              New schedule
+            </Button>
+          </div>
         )}
       </div>
 
       {isEmpty ? (
         <EmptyState onCreateNew={onCreateNew} />
+      ) : noSearchResults ? (
+        <p style={{
+          margin:     0,
+          padding:    '48px 24px',
+          textAlign:  'center',
+          fontFamily: 'var(--font-body)',
+          fontSize:   14,
+          lineHeight: '22px',
+          color:      'var(--neutral-500)',
+        }}>
+          No schedules match &ldquo;{query.trim()}&rdquo;.
+        </p>
       ) : (
         <>
           {/* Schedule grid */}
@@ -128,7 +180,7 @@ export function ScheduleListView({
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap:                 24,
           }}>
-            {schedules.map(s => (
+            {visibleSchedules.map(s => (
               <ScheduleCard
                 key={s.id}
                 {...s}

@@ -1940,6 +1940,7 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
             label: 'All chats',
           },
         ]}
+        actionsAlwaysVisible
       />
       <m.div
         animate={shown ? "open" : "closed"}
@@ -2157,6 +2158,7 @@ function FlatProjectsSection({
         headerIcon={headerIcon}
         onHeaderIconClick={headerIcon ? () => push(PROJECTS_ROUTE) : undefined}
         headerIconLabel="All Projects"
+        actionsAlwaysVisible
       />
       <m.div
         animate={shown ? "open" : "closed"}
@@ -2206,6 +2208,7 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
         }
         onHeaderIconClick={() => push(PROJECTS_ROUTE)}
         headerIconLabel="All Projects"
+        actionsAlwaysVisible
       />
       <m.div
         animate={shown ? "open" : "closed"}

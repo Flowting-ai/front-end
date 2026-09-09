@@ -84,9 +84,13 @@ const Search = React.forwardRef<HTMLInputElement, { value: string; onChange: (va
 type CatalogView = 'all' | 'connected' | 'not-connected'
 const VIEW_LABELS: [CatalogView, string][] = [['all', 'All'], ['connected', 'Connected'], ['not-connected', 'Not connected']]
 
-type SortMode = 'recommended' | 'name'
+// Plain alphabetical, both directions — no "Recommended" mode: the backend
+// has no curation field to rank by (GET /connectors just orders by slug),
+// so a "Recommended" option was really just an alias for "however the
+// backend happened to return them," not a real ranking.
+type SortMode = 'name-asc' | 'name-desc'
 type TypeFilter = 'all' | 'trending' | 'new'
-const SORT_LABELS: [SortMode, string][] = [['recommended', 'Recommended'], ['name', 'Name A–Z']]
+const SORT_LABELS: [SortMode, string][] = [['name-asc', 'Name A–Z'], ['name-desc', 'Name Z–A']]
 const TYPE_LABELS: [TypeFilter, string][] = [['all', 'All'], ['trending', 'Trending'], ['new', 'New']]
 
 // No backend field curates "trending"/"new" (Gap #12 in the plan doc) —
@@ -223,7 +227,7 @@ export function Catalog({
   const [view, setView] = useState<CatalogView>('all')
   const [ownQuery, setOwnQuery] = useState(query)
   const [type, setType] = useState<TypeFilter>('all')
-  const [sort, setSort] = useState<SortMode>('recommended')
+  const [sort, setSort] = useState<SortMode>('name-asc')
   const [page, setPage] = useState(1)
   const cursorsRef = useRef<(string | undefined)[]>([undefined])
   const [browseItems, setBrowseItems] = useState<ConnectorCatalog[]>([])
@@ -274,6 +278,9 @@ export function Catalog({
     return () => { cancelled = true }
   }, [debouncedQuery, view, page, onRows])
 
+  const byName = (a: ConnectorCatalog, b: ConnectorCatalog) =>
+    sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+
   const searching = Boolean(debouncedQuery)
   const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
   const source = searching || view !== 'connected' ? browseItems : linkedRows
@@ -284,9 +291,15 @@ export function Catalog({
     return true
   })
   const items = typeMembers(type, pool)
-  const sorted = sort === 'name' ? [...items].sort((a, b) => a.name.localeCompare(b.name)) : items
-  const connectedItems = searching || view === 'all'
-    ? (searching ? sorted.filter(summary => summary.connections.length > 0 || summary.linked) : linkedRows)
+  const sorted = [...items].sort(byName)
+  // The default "All" view's `pool` (unlike search results) is fetched with
+  // `linked: false`, so it structurally never contains connected rows —
+  // `sorted.filter(...connected)` would always be empty there. `linkedRows`
+  // (from the full `catalog` prop, not `pool`) is the only source with them
+  // in that branch, so it needs its own sort rather than reusing `sorted`.
+  const connectedItems = searching
+    ? sorted.filter(summary => summary.connections.length > 0 || summary.linked)
+    : view === 'all' ? [...linkedRows].sort(byName)
     : view === 'connected' ? sorted : []
   const availableItems = view === 'connected' && !searching
     ? []
