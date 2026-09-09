@@ -210,10 +210,15 @@ export interface ToolProgressEvent {
 }
 
 export interface ToolConnectPromptEvent {
-  connector_slug:  string
-  display_name:    string
+  /** Slug, name and logo as one resolved identity — built with `toConnector`
+   *  from the raw event so no call site re-derives them. Copying the fields
+   *  out one by one is what dropped the logo and rendered a grey initial. */
+  connector:       import('@/lib/connector').Connector
   auth_mode:       string
   provider?:       'pipedream' | 'mcp' | 'zapier'
+  /** The action that needs the app. Empty when the run is binding the app
+   *  itself rather than calling one operation — the card says so instead of
+   *  naming a tool. */
   tool_name:       string
   request_id:      string
   /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */

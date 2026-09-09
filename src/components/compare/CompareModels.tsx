@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallba
 import Image from "next/image";
 import { m, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/springs";
+import { toConnector } from "@/lib/connector";
 import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
 import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
@@ -1085,11 +1086,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           case "tool_connect_prompt": {
             const prompt: ConnectorConnectPrompt = {
               request_id:     typeof payload.prompt_id      === "string" ? payload.prompt_id      : `ccp-${Date.now()}`,
-              connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
-              display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
+              connector:      toConnector(payload),
               auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
               tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
-              icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
             };
             setConnectPromptsPerModel((prev) => ({
               ...prev,

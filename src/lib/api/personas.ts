@@ -37,6 +37,7 @@ import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
 import type { ExternalOutputAction, GeneratedFile } from "@/hooks/use-chat-state";
+import { toConnector } from "@/lib/connector";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
   PERSONAS_ENDPOINT,
@@ -979,15 +980,9 @@ export interface PersonaActivityItem {
   results?:         { title: string; url?: string; domain?: string }[]
 }
 
-export interface PersonaConnectPrompt {
-  request_id:     string
-  connector_slug: string
-  display_name:   string
-  auth_mode:      'oauth2' | 'api_key'
-  tool_name:      string
-  api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
-  icon_url?:      string
-}
+/** Canonical connect-prompt shape — aliased so persona stream consumers keep
+ *  their existing import. */
+export type PersonaConnectPrompt = import('@/hooks/use-chat-state').ConnectorConnectPrompt
 
 /** Canonical permission-prompt shape, zod-parsed in lib/api/prompts.ts —
  *  aliased so persona stream consumers keep their existing import. */
@@ -1240,12 +1235,10 @@ async function readPersonaSSEStream(
                 : undefined
               callbacks.onConnectPrompt?.({
                 request_id:     typeof parsed.prompt_id === 'string' ? parsed.prompt_id : `ccp-${Date.now()}`,
-                connector_slug: str(parsed.connector_slug),
-                display_name:   str(parsed.display_name) || str(parsed.connector_slug),
+                connector:      toConnector(parsed),
                 auth_mode:      (str(parsed.auth_mode) || 'oauth2') as 'oauth2' | 'api_key',
                 tool_name:      str(parsed.tool_slug),
                 api_key_fields: apiKeyFields,
-                icon_url:       str(parsed.icon_url) || undefined,
               })
               break
             }

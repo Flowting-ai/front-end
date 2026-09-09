@@ -17,15 +17,16 @@ import type { ReasoningTimelineItem } from "@/lib/reasoning"
 export interface ConnectorConnectPrompt {
   /** Unique request ID from the backend (for deduplication). */
   request_id:      string
-  connector_slug:  string
-  display_name:    string
+  /** Slug, name and logo as one resolved identity — built with `toConnector`
+   *  from the raw event so no call site re-derives them. */
+  connector:       import('@/lib/connector').Connector
   auth_mode:       'oauth2' | 'api_key'
   provider?:       'pipedream' | 'mcp' | 'zapier'
+  /** The action that needs the app. Empty when the run is binding the app
+   *  itself rather than calling one operation. */
   tool_name:       string
   /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */
   api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
-  /** Optional icon URL for the connector. */
-  icon_url?:       string
 }
 
 /** Emitted when the LLM tries to call a connector tool whose policy is "ask". */

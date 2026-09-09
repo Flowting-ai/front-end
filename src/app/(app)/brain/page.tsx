@@ -631,7 +631,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   // For api_key connectors without fields in the SSE payload, fetch from catalog
   useEffect(() => {
     if (event.auth_mode !== 'api_key' || fields !== null) return
-    getConnector(event.connector_slug)
+    getConnector(event.connector.slug)
       .then((entry) => {
         if (!abortedRef.current) {
           setFields(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
@@ -640,7 +640,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       .catch(() => {
         if (!abortedRef.current) setFields([DEFAULT_API_KEY_FIELD])
       })
-  }, [event.auth_mode, event.connector_slug, fields])
+  }, [event.auth_mode, event.connector.slug, fields])
 
   const handleOAuth = useCallback(async (initData?: Record<string, string>) => {
     if (busy || done) return
@@ -649,7 +649,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     try {
       // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
       // undefined for plain OAuth.
-      const { redirectUrl } = await initiateLink(event.connector_slug, initData)
+      const { redirectUrl } = await initiateLink(event.connector.slug, initData)
       const hosted = Boolean(redirectUrl && isZapierProviderConnector(null, redirectUrl))
       const openUrl = hosted && redirectUrl ? zapierConnectHref(redirectUrl) : redirectUrl
       const popup = openUrl
@@ -657,23 +657,23 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         : null
       if (hosted) {
         const connectionId = await waitForZapierAuthId()
-        await completeZapierLink(event.connector_slug, connectionId)
+        await completeZapierLink(event.connector.slug, connectionId)
         popup?.close()
       } else {
-        await pollConnectorUntilActive(event.connector_slug)
+        await pollConnectorUntilActive(event.connector.slug)
         popup?.close()
       }
       if (abortedRef.current) return
       setDone(true)
-      onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — continuing your request.`)
+      onConnected?.(event.connector.slug)
+      toast.success(`${event.connector.name} connected — continuing your request.`)
     } catch (e) {
       if (abortedRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to connect.')
     } finally {
       setBusy(false)
     }
-  }, [busy, done, event.connector_slug, event.display_name, onConnected])
+  }, [busy, done, event.connector.slug, event.connector.name, onConnected])
 
   // API-key connectors are linked through the same hosted Connect flow as
   // OAuth ones — the fields ride along as init_data. There is no separate
@@ -717,7 +717,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     backgroundColor: 'var(--neutral-white)',
   }
 
-  const logoSrc = toConnector(event).logo
+  const logoSrc = event.connector.logo
 
   return (
     <div style={cardStyle}>
@@ -748,7 +748,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
             textTransform:   'uppercase',
             userSelect:      'none',
           }}>
-            {(event.display_name || event.connector_slug || '?').charAt(0)}
+            {(event.connector.name || event.connector.slug || '?').charAt(0)}
           </span>
         )}
         <span style={{
@@ -757,7 +757,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
           fontWeight: 'var(--font-weight-medium)',
           color:      'var(--neutral-800)',
         }}>
-          Connect {event.display_name} to continue
+          Connect {event.connector.name} to continue
         </span>
       </div>
       <span style={{
@@ -766,7 +766,9 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         lineHeight: 'var(--line-height-caption)',
         color:      'var(--neutral-500)',
       }}>
-        Task needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name}.
+        {event.tool_name
+          ? <>Task needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.connector.name}.</>
+          : <>Task needs access to {event.connector.name} to keep going.</>}
       </span>
 
       {error && (
@@ -799,7 +801,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
               disabled={done || !allFilled}
               onClick={() => void (event.auth_mode === 'api_key' ? handleApiKey() : handleOAuth(creds))}
             >
-              {done ? 'Connected' : `Connect ${event.display_name}`}
+              {done ? 'Connected' : `Connect ${event.connector.name}`}
             </Button>
           </div>
         </div>
@@ -812,7 +814,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
             disabled={done}
             onClick={() => void handleOAuth()}
           >
-            {done ? 'Connected' : `Connect ${event.display_name}`}
+            {done ? 'Connected' : `Connect ${event.connector.name}`}
           </Button>
         </div>
       )}
@@ -1468,7 +1470,7 @@ function BrainPageInner() {
 
   // Connector permission card appeared — always scroll into view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (toolConnectPrompt) scrollToBottom(true) }, [toolConnectPrompt?.connector_slug])
+  useEffect(() => { if (toolConnectPrompt) scrollToBottom(true) }, [toolConnectPrompt?.connector.slug])
 
   // Permission prompt card appeared — always scroll into view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2096,8 +2098,9 @@ function BrainPageInner() {
       }
 
       case 'tool_connect_prompt': {
-        const slug         = typeof d.connector_slug === 'string' ? d.connector_slug : ''
-        const display_name = typeof d.display_name   === 'string' ? d.display_name   : slug
+        // The whole event goes to toConnector: slug, name and logo resolve
+        // together from whichever fields the wire used.
+        const connector    = toConnector(d)
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
         const provider     = (['pipedream', 'mcp', 'zapier'] as const).find(value => value === d.provider)
         const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
@@ -2105,17 +2108,18 @@ function BrainPageInner() {
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can
         // render the credential form inline instead of a bare OAuth popup.
         const api_key_fields = Array.isArray(d.api_key_fields) ? (d.api_key_fields as ApiKeyField[]) : undefined
-        if (slug) {
+        if (connector.slug) {
           setToolConnectPrompt({
-            connector_slug: slug,
-            display_name,
+            connector,
             auth_mode,
             provider,
             tool_name,
             request_id,
             api_key_fields,
           })
-          setTimeline((prev) => [...prev, { kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug }])
+          setTimeline((prev) => [...prev, {
+            kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug: connector.slug,
+          }])
         }
         break
       }
@@ -3618,7 +3622,7 @@ function BrainPageInner() {
           )
           : null
       case 'connect':
-        return toolConnectPrompt?.connector_slug === item.slug
+        return toolConnectPrompt?.connector.slug === item.slug
           ? (
             <ToolConnectCard
               key={item.id}
