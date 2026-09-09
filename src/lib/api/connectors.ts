@@ -243,6 +243,11 @@ export class ConnectorCatalog {
     return this.authMode === 'oauth2' && this.apiKeyFields.length > 0
   }
 
+  /** The one account this viewer owns here, or null when they own none. */
+  get ownedConnection(): ConnectorConnection | null {
+    return this.connections.find(row => row.owned) ?? null
+  }
+
   get privateConnections(): ConnectorConnection[] {
     return this.connections.filter(row => row.isPrivate)
   }

@@ -40,6 +40,9 @@ function Back({ onClick, children }: { onClick: () => void; children: React.Reac
 // to its own tinted panel with Reconnect as its only action, then the healthy
 // accounts split by visibility. Empty groups render nothing. Ported from the
 // story's Figma-sourced AccountGroups (163:22383).
+//
+// Several rows can still appear here — one the viewer owns plus any their
+// co-workers shared — but at most one of them is theirs.
 function AccountGroups({ accounts, tools, open, reconnect }: { accounts: ConnectorConnection[]; tools: ConnectorCatalog['tools']; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void }) {
   const attention = accounts.filter(a => a.needsReconnect)
   const healthy = accounts.filter(a => !a.needsReconnect)
@@ -105,7 +108,13 @@ export function ConnectorDetailView({
               </h1>
             </div>
           </div>
-          <Button size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
+          {/* A person runs each app through exactly one account, so there is
+              nothing to add once they own one — linking again would only
+              re-authorize the row they already have. Sharing and renaming it
+              live on that account's own Access tab. */}
+          {catalog.ownedConnection === null && (
+            <Button size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
+          )}
         </div>
         <p style={{ ...muted, margin: `${SPACE.xxl}px 0`, maxWidth: 680 }}>{catalog.description}</p>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SPACE.lg, marginBottom: SPACE.lg }}>

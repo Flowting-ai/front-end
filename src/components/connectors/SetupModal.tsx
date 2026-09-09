@@ -7,6 +7,10 @@
 // Anyone can connect an account and anyone can share their own: sharing is a
 // flag on the row you own, so the choice here is just the flag's starting
 // value, and it stays changeable afterwards from the Access tab.
+//
+// That choice is offered only to someone who owns no account here yet. Once
+// they do, this modal can only re-authorize it, and the flag is the Access
+// tab's to change.
 
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -65,15 +69,9 @@ export function SetupModal({
   onConnected: (result: SetupFlowResult) => void
 }) {
   const reconnecting = mode === 'reconnect'
-  // The backend allows only one private (personal) account per connector per
-  // user — linking a second one overwrites the first in place (and drops its
-  // tool permissions) instead of adding a new one. Until the backend supports
-  // real multi-account, offering "Private" here when one already exists would
-  // just walk the user into silently clobbering their existing account.
-  const hasPrivateAccount = !reconnecting && catalog.connections.some(a => a.owned && a.isPrivate)
   const [name, setName] = useState(reconnecting ? (initialAccount?.nickname ?? '') : '')
   const [visibility, setVisibility] = useState<AccountVisibility>(
-    reconnecting ? (initialAccount?.visibility ?? 'private') : (hasPrivateAccount && orgId ? 'shared' : 'private'),
+    reconnecting ? (initialAccount?.visibility ?? 'private') : 'private',
   )
   const [values, setValues] = useState<Record<string, string>>({})
 
@@ -85,9 +83,18 @@ export function SetupModal({
   })
 
   const existingNames = catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
-  // Every account carries a nickname now, private or shared — it is what the
-  // model picks between when you hold several of the same connector.
-  const showAccountName = mode === 'connect'
+  // The viewer's own row, if they have one. The backend holds exactly one
+  // account per (owner, connector), so linking again re-authorizes that same
+  // row rather than making a second — and naming or sharing are therefore not
+  // part of this link, they are edits to an account that already exists, and
+  // they belong on its Access tab. Offering them here PATCHed the row the
+  // viewer already had, which turned a connected private account shared.
+  //
+  // This covers a private *and* a shared account of one's own; neither can be
+  // added to. Only the picker's whole absence is safe: when a row already
+  // exists there is no visibility this link may legitimately set.
+  const ownedAlready = catalog.ownedConnection !== null
+  const showAccountName = mode === 'connect' && !ownedAlready
   const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(catalog)
   const needsInitFields = catalog.needsOAuthInitFields
@@ -107,9 +114,8 @@ export function SetupModal({
     }
     flow.connect({
       initData: needsForm ? values : undefined,
-      shared: !reconnecting && visibility === 'shared',
+      shared: !reconnecting && !ownedAlready && visibility === 'shared',
       accountLabel: showAccountName ? name.trim() || undefined : undefined,
-      knownAccountIds: catalog.connections.map(row => row.id),
     })
   }
 
@@ -126,7 +132,7 @@ export function SetupModal({
       {showAccountName && (
         <InputField
           label="Account name (optional)"
-          subtitle={duplicate ? 'That account name is already used.' : 'Helps the model pick between several accounts on the same app.'}
+          subtitle={duplicate ? 'That account name is already used.' : 'Shown wherever this account appears.'}
           error={duplicate}
           value={name}
           onChange={setName}
@@ -135,7 +141,7 @@ export function SetupModal({
         />
       )}
 
-      {!reconnecting && (
+      {!reconnecting && !ownedAlready && (
         <fieldset style={{ border: 0, padding: 0, margin: `${SPACE.xxl}px 0 0` }}>
           <legend style={{
             display:      'block',
@@ -160,13 +166,8 @@ export function SetupModal({
             />
             <VisibilityRow
               label="Private"
-              description={
-                hasPrivateAccount
-                  ? "You already have a private account for this connector — reconnect it from the account's page instead of adding another."
-                  : 'Only you can use it.'
-              }
+              description="Only you can use it."
               selected={visibility === 'private'}
-              disabled={hasPrivateAccount}
               onClick={() => setVisibility('private')}
             />
           </div>
@@ -215,7 +216,7 @@ export function SetupModal({
         <Button variant="ghost" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
         <Button
           size="sm"
-          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled) || (hasPrivateAccount && visibility === 'private')}
+          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled)}
           loading={busy}
           onClick={submit}
         >

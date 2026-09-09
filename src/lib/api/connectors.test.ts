@@ -118,6 +118,21 @@ describe('ConnectorCatalog', () => {
     expect(theirs.ownerId).toBe('auth0|editor')
   })
 
+  it('resolves the one account the viewer owns, never a shared one', () => {
+    const entry = ConnectorCatalog.parse(GMAIL_LIST)
+    // Both rows are usable; only one is theirs. Anything that writes to an
+    // account — naming it, sharing it — must land on this row and no other.
+    expect(entry.ownedConnection?.nickname).toBe('Personal Gmail')
+
+    // Owning none is the only case where connecting a new account applies.
+    const sharedOnly = ConnectorCatalog.parse({
+      ...GMAIL_LIST,
+      connections: GMAIL_LIST.connections.filter(row => !row.owned),
+    })
+    expect(sharedOnly.ownedConnection).toBeNull()
+    expect(sharedOnly.connections).toHaveLength(1)
+  })
+
   it('parses a bare connector with no connections', () => {
     const entry = ConnectorCatalog.parse({
       slug: 'notion',

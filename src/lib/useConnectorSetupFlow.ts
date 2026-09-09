@@ -61,15 +61,13 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
   }, [])
 
   const connect = useCallback((
-    { initData, shared, accountLabel, knownAccountIds }: {
+    { initData, shared, accountLabel }: {
       initData?: Record<string, string>
       shared?: boolean
       /** Renames the row this link produces; the backend seeds a default. */
       accountLabel?: string
-      knownAccountIds?: string[]
     } = {},
   ) => {
-    const known = new Set(knownAccountIds ?? [])
     const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
     // Opened without noopener deliberately — noopener leaves the popup stuck
     // at about:blank in some browsers once we later assign popup.location.
@@ -111,24 +109,21 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
         const { signal } = pollAbortRef.current
         let settled = false
 
-        // The row the authorization just produced: the one owned account that
-        // was not there when this started. Falls back to the newest owned row
-        // when the caller did not say what it already had.
-        const linkedRow = (entry: ConnectorCatalog) => {
-          const mine = entry.connections.filter(row => row.owned)
-          return mine.find(row => !known.has(row.id)) ?? mine[mine.length - 1]
-        }
-
         const finish = (entry: ConnectorCatalog) => {
           if (settled || abortedRef.current) return
           settled = true
           popup?.close()
-          const row = linkedRow(entry)
+          // The row the authorization just produced. A person holds exactly
+          // one account per connector, so the account they own *is* the one
+          // just linked — no diffing against what was there before, which
+          // could never tell them apart anyway: linking re-authorizes the
+          // same row and its id does not change.
+          const row = entry.ownedConnection
           const wanted = {
             ...(shared ? { shared: true } : {}),
             ...(accountLabel ? { accountLabel } : {}),
           }
-          if (!row || Object.keys(wanted).length === 0) {
+          if (row === null || Object.keys(wanted).length === 0) {
             setState('idle')
             toast.success(`${connectorName} connected`)
             onConnected({ entry })
