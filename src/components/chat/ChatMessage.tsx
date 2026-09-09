@@ -319,6 +319,10 @@ interface ChatMessageProps {
   hidePinAction?: boolean;
   /** When true, disables text selection highlighting (SelectionPopover + highlight marks). */
   disableHighlight?: boolean;
+  /** When true, hides the hover action bar on both user (edit/copy/retry) and
+   *  assistant (pin/copy/regenerate) messages — this chat is archived and can
+   *  no longer be edited or added to. */
+  archived?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -338,6 +342,7 @@ export function ChatMessage({
   pinned: pinnedProp = false,
   hidePinAction = false,
   disableHighlight = false,
+  archived = false,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -732,6 +737,7 @@ export function ChatMessage({
             onRetry={onRegenerate}
             onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
             maxWidth={566}
+            hideActions={archived}
           />
         </div>
       ) : (
@@ -1163,8 +1169,9 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Content actions require an actual answer; errors can still regenerate. */}
-        {(canUseContentActions || (isLast && onRegenerate)) && <m.div
+        {/* Content actions require an actual answer; errors can still regenerate.
+            Hidden entirely on an archived chat — nothing here should be actionable. */}
+        {!archived && (canUseContentActions || (isLast && onRegenerate)) && <m.div
           animate={{ opacity: !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
@@ -1243,6 +1250,7 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     prev.showReasoning === next.showReasoning &&
     prev.pinned === next.pinned &&
     prev.hidePinAction === next.hidePinAction &&
+    prev.archived === next.archived &&
     // onEdit is a stable ref-backed callback (same identity for the component's
     // lifetime), so we only check null-ness to gate assistant regen button.
     (prev.onEdit == null) === (next.onEdit == null) &&

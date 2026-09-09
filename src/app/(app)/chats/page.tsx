@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } fr
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, CancelOneIcon, PlusSignIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, PlusSignIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { toast } from 'sonner'
@@ -24,7 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
-import { LibraryFilterButton, type LibraryMode } from '@/components/LibraryFilterButton'
+import type { LibraryMode } from '@/components/LibraryFilterButton'
 import {
   listBrainChats,
   renameBrainChat,
@@ -87,7 +87,11 @@ function ChatsPageInner() {
   const [libraryMode, setLibraryMode] = useState<LibraryMode>(
     () => (searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'),
   )
-  const [chatsTab, setChatsTab] = useState<ChatsTab>('all')
+  // `?tab=archived` — used by the archived-chat page's own back button
+  // (TopBar) to land directly on the Archived tab instead of "All chats".
+  const [chatsTab, setChatsTab] = useState<ChatsTab>(
+    () => (searchParams.get('tab') === 'archived' ? 'archived' : 'all'),
+  )
 
   const pinCountMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -259,6 +263,7 @@ function ChatsPageInner() {
   const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
   const [tasksLoading, setTasksLoading] = useState(true)
   const [tasksSearchQuery, setTasksSearchQuery] = useState('')
+  const [tasksTab, setTasksTab] = useState<'all' | 'scheduled'>('all')
   // Chat ids that are linked to a still-existing schedule — drives the
   // "Scheduled" tag on each thread row. Cross-referenced against the live
   // task list since scheduleLinks is a local-only map that isn't cleaned up
@@ -304,10 +309,11 @@ function ChatsPageInner() {
   }, [])
 
   const filteredThreads = useMemo(() => {
-    if (!tasksSearchQuery.trim()) return threads
+    const scoped = tasksTab === 'scheduled' ? threads.filter(t => scheduledChatIds.has(t.id)) : threads
+    if (!tasksSearchQuery.trim()) return scoped
     const q = tasksSearchQuery.toLowerCase()
-    return threads.filter(t => (t.chat_title || '').toLowerCase().includes(q))
-  }, [threads, tasksSearchQuery])
+    return scoped.filter(t => (t.chat_title || '').toLowerCase().includes(q))
+  }, [threads, tasksSearchQuery, tasksTab, scheduledChatIds])
 
   const handleTaskRename = useCallback((id: string, title: string) => {
     setThreads(prev => prev.map(t => t.id === id ? { ...t, chat_title: title } : t))
@@ -358,13 +364,32 @@ function ChatsPageInner() {
           keeps the scrollbar flush with the container's edge. */}
       <div style={{ width: '100%', maxWidth: 884, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
 
+        {/* ── Task/Chat tab strip — same Tabs used on the new-chat landing page
+            (src/app/(app)/chat/page.tsx, Figma 136:53294), reused here in place
+            of the old LibraryFilterButton dropdown. */}
+        {!selectionMode && (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 20 }}>
+            <div style={{ width: 171 }}>
+              <Tabs
+                value={libraryMode === 'chats' ? 'chat' : 'task'}
+                onValueChange={(v) => handleLibraryModeChange(v === 'task' ? 'tasks' : 'chats')}
+              >
+                <TabsList fluid>
+                  <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
+                  <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
+        )}
+
         {/* ── Page header ─────────────────────────────────────────────────── */}
         <div
           style={{
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'space-between',
-            padding:        '20px 0 14px',
+            padding:        '16px 0 14px',
             minHeight:      60,
           }}
         >
@@ -462,27 +487,76 @@ function ChatsPageInner() {
                 </TabsList>
               </Tabs>
             ) : (
-              <Tabs value="all">
+              <Tabs value={tasksTab} onValueChange={(v) => setTasksTab(v as 'all' | 'scheduled')}>
                 <TabsList>
                   <TabsTrigger value="all">All tasks</TabsTrigger>
+                  <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <Tooltip content={searchOpen ? 'Close search' : 'Search'} side="bottom">
-                <IconButton
-                  variant="secondary"
-                  size="sm"
-                  icon={searchOpen ? <CancelOneIcon size={20} /> : <SearchOneIcon size={20} />}
-                  aria-label={searchOpen ? 'Close search' : 'Search'}
-                  onClick={() => {
-                    setSearchOpen((open) => !open)
-                    setSearchQuery('')
-                    setTasksSearchQuery('')
-                  }}
-                />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: searchOpen ? '1 0 0' : undefined, minWidth: 0 }}>
+              {/* Search — same morph-in-place pattern as PinboardHeader's own
+                  search button: a ghost IconButton that turns into an inline
+                  InputField (with its close icon embedded in the field
+                  itself), not a separate button that swaps icon/opens a
+                  second search bar elsewhere on the page. */}
+              <Tooltip content="Search" disabled={searchOpen} side="bottom">
+                <div style={{ display: 'flex', alignItems: 'center', flex: searchOpen ? '1 0 0' : undefined, minWidth: 0 }}>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {!searchOpen ? (
+                      <m.span
+                        key="search-btn"
+                        layout
+                        initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                        exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                        style={{ display: 'inline-flex', flexShrink: 0 }}
+                      >
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={<SearchOneIcon size={20} />}
+                          aria-label="Open search"
+                          onClick={() => setSearchOpen(true)}
+                        />
+                      </m.span>
+                    ) : (
+                      <m.div
+                        key="search-input"
+                        initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                        exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                        style={{ flex: '1 0 0', minWidth: 0 }}
+                      >
+                        <InputField
+                          label="Search"
+                          showLabel={false}
+                          leftIcon={<SearchOneIcon size={16} />}
+                          rightIcon={
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label="Close search"
+                              onClick={() => { setSearchOpen(false); setSearchQuery(''); setTasksSearchQuery('') }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setSearchQuery(''); setTasksSearchQuery('') } }}
+                              className="kds-icon-in-field"
+                              style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                            >
+                              <CancelCircleIcon size={16} />
+                            </span>
+                          }
+                          placeholder={libraryMode === 'chats' ? 'Search chats…' : 'Search tasks…'}
+                          value={libraryMode === 'chats' ? searchQuery : tasksSearchQuery}
+                          onChange={libraryMode === 'chats' ? setSearchQuery : setTasksSearchQuery}
+                          fluid
+                          autoFocus
+                          aria-label="Search"
+                        />
+                      </m.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </Tooltip>
-              <LibraryFilterButton value={libraryMode} onChange={handleLibraryModeChange} />
             </div>
           </div>
         )}
@@ -565,8 +639,6 @@ function ChatsPageInner() {
                   starred={chat.starred}
                   archived
                   onClick={() => handleOpenChat(chat.id)}
-                  onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
-                  onDelete={async () => { if (await remove(chat.id)) toast.success('Chat deleted') }}
                 />
               </div>
             ))}
@@ -576,29 +648,6 @@ function ChatsPageInner() {
         {/* ── All chats content (original) ─────────────────────────────────── */}
         {(chatsTab === 'all' || selectionMode) && (
           <>
-
-        {/* ── Search — hidden in selection mode, and unless toggled open via
-             the search button next to the filter button ─────────────────── */}
-        <AnimatePresence initial={false}>
-          {!selectionMode && searchOpen && (
-            <m.div
-              key="search"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: 'hidden', marginBottom: 16, marginTop: 4, padding: '4px' }}
-            >
-              <InputField
-                fluid
-                placeholder="Search chats…"
-                leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </m.div>
-          )}
-        </AnimatePresence>
 
         {/* ── Loading skeleton ─────────────────────────────────────────────── */}
         {isLoading && chats.length === 0 && (
@@ -685,9 +734,14 @@ function ChatsPageInner() {
                         onSelect={() => toggleSelect(chat.id)}
                         onClick={() => handleOpenChat(chat.id)}
                         onRename={(newTitle) => rename(chat.id, newTitle)}
+                        onShare={() => push(`/chat?id=${chat.id}&share=1`)}
                         onStar={() => star(chat.id)}
                         onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
-                        onDelete={async () => { if (await remove(chat.id)) toast.success('Chat deleted') }}
+                        onDelete={() => openDeleteChatDialog({
+                          chatId:    chat.id,
+                          chatTitle: chat.title,
+                          onConfirm: async () => { if (await remove(chat.id)) toast.success('Chat deleted') },
+                        })}
                         onArchive={() => void archive(chat.id)}
                       />
                     </div>
@@ -708,20 +762,6 @@ function ChatsPageInner() {
         {/* ══════════════════════════ Tasks mode ══════════════════════════ */}
         {libraryMode === 'tasks' && (
           <>
-
-            {/* ── Search — only when toggled open via the search button next
-                 to the filter button ── */}
-            {searchOpen && (
-              <div style={{ marginBottom: 16, marginTop: 4, padding: '4px' }}>
-                <InputField
-                  fluid
-                  placeholder="Search tasks…"
-                  leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
-                  value={tasksSearchQuery}
-                  onChange={setTasksSearchQuery}
-                />
-              </div>
-            )}
 
             {/* ── Loading skeleton ── */}
             {tasksLoading && threads.length === 0 && (
@@ -752,6 +792,18 @@ function ChatsPageInner() {
                   <div role="listitem" style={{ padding: '1px 0' }}>
                     <ChatRow isEmpty />
                   </div>
+                )}
+
+                {!tasksSearchQuery && tasksTab === 'scheduled' && filteredThreads.length === 0 && threads.length > 0 && (
+                  <p style={{
+                    margin:     '32px 0',
+                    textAlign:  'center',
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-body)',
+                    color:      'var(--neutral-400)',
+                  }}>
+                    No scheduled tasks yet
+                  </p>
                 )}
 
                 {filteredThreads.map(thread => (

@@ -11,6 +11,7 @@ import { springs } from '@/lib/springs'
 import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
 import { useProjectPanel } from '@/context/project-panel-context'
+import { useChatHistoryContext } from '@/context/chat-history-context'
 import { AgentsPanelContent } from '@/components/AgentsPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
@@ -38,6 +39,12 @@ function FloatingPanelImpl() {
   const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
   const currentChatId = useCurrentChatId()
   const pathname = usePathname()
+  // A read-only chat — not owned by the viewer, or owned but archived (see
+  // chat/page.tsx's `activeChatReadOnly`) — has no live chat state to
+  // mutate, so the whole floating toolbar stays inert on it too.
+  const { chats: chatHistoryChats } = useChatHistoryContext()
+  const currentChat = chatHistoryChats.find(c => c.id === currentChatId)
+  const isReadOnlyChat = !!currentChat && (currentChat.can_edit === false || currentChat.visibility === 'archived')
   // Agents only works on the regular chat page today (new chat + existing
   // chat are the same /chat route, distinguished by ?id= — see
   // useCurrentChatId above). Nowhere else listens for AGENT_SELECT_EVENT
@@ -157,22 +164,25 @@ function FloatingPanelImpl() {
             icon={<PinIcon size={20} />}
             label="Pinboard"
             active={pinboardOpen}
-            onClick={handleTogglePinboard}
-            onMouseEnter={prefetchPinboard}
+            disabled={isReadOnlyChat}
+            onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
+            onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
           />
           {isChatPage && (
             <FloatingMenuItem
               icon={<UserAiIcon size={20} />}
               label="Agents"
               active={agentsOpen}
-              onClick={handleToggleAgents}
+              disabled={isReadOnlyChat}
+              onClick={isReadOnlyChat ? undefined : handleToggleAgents}
             />
           )}
           <FloatingMenuItem
             icon={<QuillWriteOneIcon size={20} />}
             label="Highlights"
             active={highlightOpen}
-            onClick={handleToggleHighlight}
+            disabled={isReadOnlyChat}
+            onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
           />
         </FloatingMenu>
       </div>

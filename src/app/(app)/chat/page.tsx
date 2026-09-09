@@ -732,7 +732,13 @@ function ChatPageInner() {
   const activeChatRecord = activeChatId
     ? chatHistory.find(chat => chat.id === activeChatId)
     : undefined;
-  const activeChatCanManage = activeChatRecord?.can_edit === true;
+  const activeChatArchived = activeChatRecord?.visibility === 'archived';
+  // "readOnly" here means specifically "shared chat the viewer doesn't own" —
+  // that's the only case that should offer a "Create a copy" affordance.
+  // An owned-but-archived chat is disabled the same way but must NOT get
+  // that copy option, so it stays a separate flag (see ChatInterface's and
+  // ChatShareOverlay's own `archived` props) rather than folding into readOnly.
+  const activeChatCanManage = activeChatRecord?.can_edit === true && !activeChatArchived;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
@@ -1201,6 +1207,7 @@ function ChatPageInner() {
               personaConfigLoading={!!selectedPersona && selectedPersona.systemPrompt === null && !!selectedPersona.activeVersionId}
               scrollToMessageId={msgFromUrl}
               readOnly={activeChatReadOnly}
+              archived={activeChatArchived}
               chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
             />
           </m.div>

@@ -21,13 +21,9 @@ const MONO  = "'Geist Mono', ui-monospace, monospace"
 // Matches what the backend actually grants: services/stripe/catalog.py's
 // usageCredits() is a flat 80% of the monthly price, × 1000 for display units
 // (see toDisplayCredits in lib/api/organization.ts, and plans.yaml's comment).
-// $125 isn't a real plan (not in usageCredits' PLAN_IDS) — 100,000 here is
-// just 125 * 0.8 * 1000 for display consistency with the rest of the column,
-// not a number the backend can currently produce.
 const CREDITS_BY_PRICE: Record<number, number> = {
   50:   40_000,
   100:  80_000,
-  125:  100_000,
   250:  200_000,
   500:  400_000,
   1000: 800_000,
@@ -49,11 +45,12 @@ const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: 
 // planId on the backend yet.
 const ANNUAL_MULTIPLIER = 0.75
 
-// Every tier the pricing sheet lists, for the dropdown. $125 has no Stripe
-// price configured yet (services/stripe/catalog.py's PLAN_IDS stops at
-// 50/100/250/500/1000/2000) — shown so the tier isn't a surprise omission,
-// but disabled until the backend actually has a plan for it.
-const DROPDOWN_TIER_PRICES = [50, 100, 125, 250, 500, 1000, 2000]
+// Every tier the pricing sheet lists, for the dropdown. $125 is deliberately
+// omitted — it has no Stripe price configured on the backend
+// (services/stripe/catalog.py's PLAN_IDS stops at 50/100/250/500/1000/2000)
+// and showing it (even disabled) reads as a surprise "coming soon" promise
+// nobody's made. Re-add it once the backend actually has a plan for it.
+const DROPDOWN_TIER_PRICES = [50, 100, 250, 500, 1000, 2000]
 
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US')

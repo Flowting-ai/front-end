@@ -1,18 +1,19 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
+import { useChatHistoryContext } from "@/context/chat-history-context";
 import { Button } from "@/components/Button";
 import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
-import { ArrowDownOneIcon, PenOneIcon } from "@strange-huge/icons";
+import { ArrowDownOneIcon, ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
 import { fetchModelsWithCache, normalizeModels, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import { fetchAllModels } from "@/lib/api/models";
-import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from "@/lib/routes";
+import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, CHATS_ROUTE } from "@/lib/routes";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,12 +26,14 @@ interface TopBarProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
+function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
   const { selectedModel, isOpen, open, museActive, museAdvanced, personaActive } =
     useModelSelectorContext();
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
   const router   = useRouter();
+  const searchParams = useSearchParams();
+  const { chats: chatHistoryChats } = useChatHistoryContext();
 
   // Track the real browser pathname — may differ from Next.js pathname when
   // window.history.replaceState is used (e.g. project chat new→real chatId).
@@ -85,6 +88,15 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   const isPersonaChatPage     = !!personaChatMatch;
   const personaId             = personaChatMatch?.[1] ?? null;
   const isPersonaConfigurePage = actualPathname.startsWith('/agent/configure');
+  // Plain /chat?id=… page only — project/persona chats use their own
+  // ownership model, not the /chats library's can_edit/visibility fields.
+  const isPlainChatPage = !isProjectChatPage && !isProjectDetailPage && !isChatsPage && !isPersonaChatPage && !isPersonaConfigurePage;
+  const activeChatIdFromUrl = isPlainChatPage ? (searchParams.get('id') ?? undefined) : undefined;
+  const activeChatFromUrl = activeChatIdFromUrl ? chatHistoryChats.find(c => c.id === activeChatIdFromUrl) : undefined;
+  const isArchivedChat = activeChatFromUrl?.visibility === 'archived';
+  // Not owned by the viewer, or owned but archived — same read-only
+  // treatment as chat/page.tsx's `activeChatReadOnly`.
+  const isReadOnlyChat = !!activeChatFromUrl && (activeChatFromUrl.can_edit === false || isArchivedChat);
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -135,6 +147,12 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       size="sm"
       rightIcon={<ArrowDownOneIcon />}
       onClick={(e) => {
+        if (isReadOnlyChat) {
+          toast.info("This chat is read-only", {
+            description: "Create your own copy to change its model.",
+          });
+          return;
+        }
         if (personaActive) {
           toast.info("Model locked to agent", {
             description:
@@ -145,9 +163,9 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
         open(e.currentTarget);
       }}
       aria-haspopup="listbox"
-      aria-expanded={isOpen && !personaActive}
+      aria-expanded={isOpen && !personaActive && !isReadOnlyChat}
     >
-      <span style={{ display: "flex", alignItems: "center", gap: "8px", color: personaActive ? "var(--button-default-text-disabled)" : undefined }}>
+      <span style={{ display: "flex", alignItems: "center", gap: "8px", color: (personaActive || isReadOnlyChat) ? "var(--button-default-text-disabled)" : undefined }}>
         {/* Always the Souvenir mark — every model behind this button is one
             of the 3 Souvenir Muse tiers, never a raw third-party brand. */}
         {(museActive || !!selectedModel) && (
@@ -168,6 +186,21 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
         )}
         {label}
       </span>
+    </Button>
+  );
+
+  // Archived chats have no model to select (the composer is disabled — see
+  // ChatInterface's `archived` prop) — the model-selector slot becomes a
+  // back button to the Archived tab on /chats instead of a dead/toast-only
+  // button.
+  const backToArchivedButton = (
+    <Button
+      variant="default"
+      size="sm"
+      leftIcon={<ArrowLeftOneIcon />}
+      onClick={() => router.push(`${CHATS_ROUTE}?tab=archived`)}
+    >
+      Back to Archived
     </Button>
   );
 
@@ -314,10 +347,22 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
         </>
       ) : (
         <>
-          {/* ── Left: model selector (hidden on project detail / chats / persona configure pages) ── */}
-          {!isProjectDetailPage && !isChatsPage && !isPersonaConfigurePage && modelSelectorButton}
+          {/* ── Left: model selector (hidden on project detail / chats / persona configure pages) —
+              swapped for a back-to-Archived button on an archived chat, which has no model to select. ── */}
+          {!isProjectDetailPage && !isChatsPage && !isPersonaConfigurePage && (isArchivedChat ? backToArchivedButton : modelSelectorButton)}
         </>
       )}
     </div>
+  );
+}
+
+// useSearchParams() (added for the archived-chat check above) requires a
+// Suspense boundary — same wrapping pattern as FloatingPanel's own
+// FloatingPanelImpl split (src/components/layout/FloatingPanel.tsx).
+export function TopBar(props: TopBarProps) {
+  return (
+    <Suspense fallback={null}>
+      <TopBarImpl {...props} />
+    </Suspense>
   );
 }

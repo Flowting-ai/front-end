@@ -30,7 +30,9 @@ interface ChatShareOverlayProps {
   chatId:    string | undefined
   /** True when the current user owns this chat and may manage its shares. */
   canManage: boolean
-  /** True when this chat was shared/published to the current user (not owned by them). */
+  /** True when this chat was shared/published to the current user (not owned by them),
+   *  OR when it's archived — an owned-but-archived chat is folded into the same
+   *  read-only treatment (see the `readOnly` computation in chat/page.tsx). */
   readOnly:  boolean
   onCopied:  (copy: { chatId: string; chatTitle: string }) => void
   /** Opens the share modal as soon as `chatId`/`canManage` are ready — e.g. a

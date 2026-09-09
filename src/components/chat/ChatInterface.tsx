@@ -195,6 +195,14 @@ interface ChatInterfaceProps {
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
   /**
+   * This chat's own visibility is "archived" (see Chat.visibility / the
+   * /chats page's Archived tab). Distinct from `readOnly` — an archived chat
+   * is still owned by the current user, so unlike a shared/not-owned chat it
+   * must NOT offer a "Create a copy" affordance; there's no unarchive
+   * endpoint yet either, so the composer just stays disabled.
+   */
+  archived?: boolean;
+  /**
    * True only once the caller has positively confirmed (e.g. via the chat
    * list's own `can_edit` field) that this chat belongs to the current user.
    * `undefined`/omitted means "unknown" (e.g. this chat hasn't loaded into
@@ -239,6 +247,7 @@ export function ChatInterface({
   loadMessages,
   hidePinActions = false,
   readOnly = false,
+  archived = false,
   chatOwnershipConfirmed,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -1185,6 +1194,7 @@ export function ChatInterface({
                     chatId={chatId}
                     showReasoning={enableReasoning}
                     pinned={message.role === 'assistant' ? isPinned(message.id) : false}
+                    archived={archived}
                     onRegenerate={
                       idx === messages.length - 1 &&
                       message.role === "assistant" &&
@@ -1329,9 +1339,11 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={readOnly || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
+            disabled={readOnly || archived || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
-              readOnly
+              archived
+                ? 'This chat is archived and can no longer be edited.'
+                : readOnly
                 ? 'Create your own copy to continue this chat.'
                 : plan?.poolStatus === 'locked'
                 ? 'Workspace locked. Contact your admin.'

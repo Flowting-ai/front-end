@@ -2,13 +2,14 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import { PinIcon, MoreHorizontalIcon, PenOneIcon, StarIcon, FolderOneIcon, DownloadOneIcon } from '@strange-huge/icons'
+import { PinIcon, MoreHorizontalIcon, PenOneIcon, FolderOneIcon, FolderLibraryIcon, ShareOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
+import { Dropdown } from '@/components/Dropdown'
+import { Divider } from '@/components/Divider'
 import { cn } from '@/lib/utils'
 
 // ── Shadows (Figma exact) ─────────────────────────────────────────────────────
@@ -44,7 +45,9 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   starred?: boolean
   /** Called with the new title when user commits an inline rename. */
   onRename?: (title: string) => void
-  /** Called when user toggles star from the context menu. */
+  /** Called when user selects "Share" from the context menu. Omit to hide the item. */
+  onShare?: () => void
+  /** Called when user toggles pin (starred) from the context menu. */
   onStar?: () => void
   /** Called when user selects "Move to project" from the context menu. Omit to hide the item. */
   onMoveToProject?: () => void
@@ -141,46 +144,6 @@ function PinCountChip({ pinCount, pinBoardOpen, rowElevated, title, onClick }: P
   )
 }
 
-// ── MenuItem ─────────────────────────────────────────────────────────────────
-
-interface MenuItemProps {
-  label: string
-  icon?: React.ReactNode
-  destructive?: boolean
-  onSelect: () => void
-}
-
-function MenuItem({ label, icon, destructive, onSelect }: MenuItemProps) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <DropdownMenu.Item
-      onSelect={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             8,
-        padding:         '7px 10px',
-        borderRadius:    8,
-        cursor:          'pointer',
-        background:      hovered ? 'var(--neutral-100)' : 'transparent',
-        color:           destructive ? 'var(--red-500)' : 'var(--neutral-700)',
-        fontFamily:      'var(--font-body)',
-        fontSize:        'var(--font-size-body)',
-        fontWeight:      500,
-        lineHeight:      'var(--line-height-body)',
-        outline:         'none',
-        userSelect:      'none',
-        transition:      'background-color 100ms',
-      }}
-    >
-      {icon}
-      {label}
-    </DropdownMenu.Item>
-  )
-}
-
 // ── ThreeDotButton ────────────────────────────────────────────────────────────
 
 interface ThreeDotButtonOwnProps {
@@ -209,7 +172,11 @@ function ThreeDotButton({ visible, title, readOnly = false, onClick, ref, ...res
         aria-label={`Options for "${title}"`}
         icon={<MoreHorizontalIcon size={20} />}
         disabled={readOnly}
-        onClick={readOnly ? undefined : (e) => { e.stopPropagation(); onClick?.(e) }}
+        // Only stop propagation when there's an onClick to protect. Dropdown.Float
+        // (unlike Radix's old asChild trigger) doesn't clone its toggle handler onto
+        // this button — it lives on an ANCESTOR wrapper span instead — so when no
+        // onClick is passed here, the click must be left alone to bubble up to it.
+        onClick={readOnly ? undefined : onClick ? (e) => { e.stopPropagation(); onClick(e) } : undefined}
         {...rest}
       />
     </span>
@@ -230,6 +197,7 @@ function ChatRowInner(
     onSelect,
     starred       = false,
     onRename,
+    onShare,
     onStar,
     onMoveToProject,
     onDelete,
@@ -256,18 +224,12 @@ function ChatRowInner(
     const [isRenaming,  setIsRenaming]  = useState(false)
     const [renameValue, setRenameValue] = useState('')
     const renameInputRef    = useRef<HTMLInputElement>(null)
-    // Set in every dropdown MenuItem's onSelect — Radix's DropdownMenu.Portal
-    // renders its content elsewhere in the DOM, but React still bubbles the
-    // click as a SYNTHETIC event up the component tree to this row's own
-    // onClick, which would otherwise also navigate to the chat right after
-    // Rename/Star/Move/Delete was selected. The row's onClick checks and
-    // resets this to swallow that one bubbled click.
+    // Set in every dropdown Dropdown.Item's onClick — Dropdown.Float portals its
+    // panel to document.body, but React still bubbles the click as a SYNTHETIC
+    // event up the component tree to this row's own onClick, which would
+    // otherwise also navigate to the chat right after Rename/Pin/Move/Delete was
+    // selected. The row's onClick checks and resets this to swallow that click.
     const pendingMenuActionRef = useRef(false)
-    // Set alongside pendingMenuActionRef in the Rename onSelect, but consumed
-    // separately in onCloseAutoFocus (which fires a tick after the row's own
-    // onClick guard already reset pendingMenuActionRef) — prevents Radix from
-    // yanking focus back to the trigger button right after the input focuses.
-    const renameJustOpenedRef = useRef(false)
     // Set by Enter/Escape so the blur that follows setIsRenaming(false)
     // (removing the focused input from the DOM) is recognized as DOM cleanup
     // rather than a genuine click-away, and isn't double-handled.
@@ -286,11 +248,10 @@ function ChatRowInner(
     useEffect(() => {
       if (isRenaming && renameInputRef.current) {
         renameResolvedRef.current = false
-        // Deferred to a macrotask: Radix's DropdownMenu restores focus to its
-        // trigger when the menu closes, and that restoration can land after
-        // this same commit's effects run — a plain synchronous focus() here
-        // loses that race silently. setTimeout(0) guarantees this runs after
-        // Radix's own cleanup.
+        // Deferred to a macrotask: Dropdown.Float restores focus to its trigger
+        // when the menu closes, and that restoration can land after this same
+        // commit's effects run — a plain synchronous focus() here loses that
+        // race silently. setTimeout(0) guarantees this runs after that cleanup.
         const id = window.setTimeout(() => {
           renameInputRef.current?.focus()
           renameInputRef.current?.select()
@@ -529,8 +490,8 @@ function ChatRowInner(
               }}
             >
               {starred && !selectionMode && (
-                <span aria-label="Starred" style={{ display: 'inline-flex', flexShrink: 0 }}>
-                  <StarIcon size={18} color="var(--color-tag-Yellow-text)" />
+                <span aria-label="Pinned" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                  <PinIcon size={18} color="var(--color-tag-Yellow-text)" />
                 </span>
               )}
               {scheduled && !selectionMode && (
@@ -542,77 +503,74 @@ function ChatRowInner(
               {archived && !selectionMode && (
                 <Badge color="Neutral" label="Archived" />
               )}
-              {!selectionMode && readOnly && (
+              {!selectionMode && !archived && readOnly && (
                 <ThreeDotButton visible={showMenu} title={resolvedTitle} readOnly />
               )}
-              {!selectionMode && !readOnly && (
-                <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-                  <DropdownMenu.Trigger asChild>
-                    <ThreeDotButton visible={showMenu} title={resolvedTitle} />
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content
-                      side="bottom"
-                      align="end"
-                      sideOffset={4}
-                      onCloseAutoFocus={(e) => {
-                        if (renameJustOpenedRef.current) {
-                          e.preventDefault()
-                          renameJustOpenedRef.current = false
-                        }
-                      }}
-                      style={{
-                        background:    'var(--neutral-white)',
-                        borderRadius:  12,
-                        boxShadow:     '0px 4px 16px 0px rgba(26,23,20,0.16), 0px 0px 0px 1px rgba(59,54,50,0.10)',
-                        padding:       4,
-                        minWidth:      160,
-                        zIndex:        5,
-                      }}
-                    >
-                      {!archived && (
-                        <MenuItem
-                          label="Rename"
-                          icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
-                          onSelect={() => { pendingMenuActionRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
+              {!selectionMode && !archived && !readOnly && (
+                <Dropdown.Float
+                  open={menuOpen}
+                  onOpenChange={setMenuOpen}
+                  placement="bottom-end"
+                  // Rows can sit anywhere in this scrollable, virtualized list — a
+                  // row near the bottom of the viewport would otherwise run the
+                  // menu off-screen with a fixed placement. Mirrors the sidebar's
+                  // FlatChatHistoryItem dropdown.
+                  autoFlipVertical
+                  trigger={<ThreeDotButton visible={showMenu} title={resolvedTitle} />}
+                >
+                  <Dropdown>
+                    <Dropdown.Section fluid>
+                      {onShare && (
+                        <Dropdown.Item
+                          fluid
+                          icon={<ShareOneIcon color="var(--neutral-600)" />}
+                          label="Share"
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onShare() }}
                         />
                       )}
                       {!archived && (
-                        <MenuItem
-                          label={starred ? 'Unstar' : 'Star'}
-                          icon={<StarIcon animated size={14} color="var(--neutral-600)" />}
-                          onSelect={() => { pendingMenuActionRef.current = true; onStar?.() }}
+                        <Dropdown.Item
+                          fluid
+                          icon={<PenOneIcon animated color="var(--neutral-600)" />}
+                          label="Rename"
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); setRenameValue(title); setIsRenaming(true) }}
+                        />
+                      )}
+                      {!archived && (
+                        <Dropdown.Item
+                          fluid
+                          icon={<PinIcon animated color="var(--neutral-600)" />}
+                          label={starred ? 'Unpin chat' : 'Pin chat'}
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onStar?.() }}
                         />
                       )}
                       {onMoveToProject && (
-                        <MenuItem
+                        <Dropdown.Item
+                          fluid
+                          icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />}
                           label="Move to project"
-                          icon={<FolderOneIcon size={14} color="var(--neutral-600)" variant="static" />}
-                          onSelect={() => { pendingMenuActionRef.current = true; onMoveToProject() }}
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onMoveToProject() }}
                         />
                       )}
                       {!archived && onArchive && (
-                        <MenuItem
+                        <Dropdown.Item
+                          fluid
+                          icon={<FolderLibraryIcon color="var(--neutral-600)" />}
                           label="Archive"
-                          icon={<DownloadOneIcon size={14} color="var(--neutral-600)" />}
-                          onSelect={() => { pendingMenuActionRef.current = true; onArchive() }}
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onArchive() }}
                         />
                       )}
-                      <DropdownMenu.Separator
-                        style={{
-                          height:          1,
-                          backgroundColor: 'var(--neutral-200)',
-                          margin:          '4px 0',
-                        }}
-                      />
-                      <MenuItem
+                      <Divider decorative />
+                      <Dropdown.Item
+                        fluid
+                        variant="danger"
+                        icon={<DeleteTwoIcon color="var(--red-500)" />}
                         label="Delete"
-                        destructive
-                        onSelect={() => { pendingMenuActionRef.current = true; onDelete?.() }}
+                        onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onDelete?.() }}
                       />
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                    </Dropdown.Section>
+                  </Dropdown>
+                </Dropdown.Float>
               )}
               {onPinClick !== undefined && (
                 <PinCountChip
