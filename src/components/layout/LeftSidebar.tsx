@@ -5,7 +5,7 @@ import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PersonalProjectsIcon, PinIcon, PlusSignIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, ExchangeOneIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { IconWithFallback } from "@/components/IconWithFallback";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
@@ -1909,7 +1909,7 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
   )
 }
 
-function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat }: SectionProps & { onNewChat?: () => void }) {
+function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat, onSwitchToTasks }: SectionProps & { onNewChat?: () => void; onSwitchToTasks?: () => void }) {
   const { push } = useGuardedRouter()
   const { chats, isLoading, hasMore, loadMore, rename, remove, star, archive } = chatHistory
   // Starred chats live in FlatPinnedSection (see its own `.filter(c => c.starred)`
@@ -1928,12 +1928,18 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
       <FlatSidebarRow
         variant="header" label="Recent Chats" shown={shown} onShowClick={() => setShown((s) => !s)}
         onAddClick={onNewChat ? (e) => { e.stopPropagation(); onNewChat() } : undefined} addLabel="New chat"
+        addIcon={<QuillWriteOneIcon size={16} animated />}
         extraHeaderIcons={[
+          {
+            icon: <ExchangeOneIcon size={16} animated />,
+            onClick: () => onSwitchToTasks?.(),
+            label: 'Switch to Recent Tasks',
+          },
           {
             icon: (
               <IconWithFallback
-                icon={<FolderLibraryIcon size={14} animated />}
-                fallback={<FolderThreeIcon size={14} animated />}
+                icon={<FolderLibraryIcon size={16} animated />}
+                fallback={<FolderThreeIcon size={16} animated />}
               />
             ),
             onClick: () => push(CHATS_ROUTE),
@@ -2202,8 +2208,8 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
         onAddClick={isAdmin ? (e) => { e.stopPropagation(); push('/projects/new') } : undefined} addLabel="New Project"
         headerIcon={
           <IconWithFallback
-            icon={<PersonalProjectsIcon size={14} />}
-            fallback={<FolderThreeIcon size={14} animated />}
+            icon={<FolderLibraryIcon size={16} animated />}
+            fallback={<FolderThreeIcon size={16} animated />}
           />
         }
         onHeaderIconClick={() => push(PROJECTS_ROUTE)}
@@ -2343,6 +2349,13 @@ function LeftSidebarImpl({
   // syncs the toggle to this same `?filter=` query param specifically so
   // this reacts to it.
   const isChatsTasksMode = pathname === CHATS_ROUTE && chatSearchParams.get("filter") === "tasks";
+  // Manual override for the sidebar's OWN Recents list, set by the "Switch to
+  // Recent Chats"/"Switch to Recent Tasks" header icons — swaps which list
+  // populates here without navigating the page away from wherever the user
+  // actually is. Route context (isBrainPage/isChatsTasksMode) still decides
+  // the default whenever this hasn't been touched.
+  const [recentsOverride, setRecentsOverride] = useState<"chats" | "tasks" | null>(null);
+  const showTasksRecents = recentsOverride ? recentsOverride === "tasks" : (isBrainPage || isChatsTasksMode);
 
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
@@ -2639,8 +2652,8 @@ function LeftSidebarImpl({
               label="Projects"
               headerIcon={
                 <IconWithFallback
-                  icon={<PersonalProjectsIcon size={14} />}
-                  fallback={<FolderThreeIcon size={14} animated />}
+                  icon={<FolderLibraryIcon size={16} animated />}
+                  fallback={<FolderThreeIcon size={16} animated />}
                 />
               }
             />
@@ -2652,19 +2665,21 @@ function LeftSidebarImpl({
                   <SidebarMenuSkeleton key={i} index={i} fluid />
                 ))}
               </div>
-            ) : isBrainPage || isChatsTasksMode ? (
+            ) : showTasksRecents ? (
               // Task side of the Task/Chat tab (src/templates/Brain/index.tsx,
               // src/app/(app)/chat/page.tsx, and /chats in Tasks mode) —
               // Recents shows Brain threads instead of regular chats while on
-              // a Brain page OR /chats?filter=tasks.
+              // a Brain page OR /chats?filter=tasks, or when the user manually
+              // switched via the header icon (recentsOverride).
               <FlatBrainSidebarSections
                 activeChatId={chatSearchParams.get('id') ?? null}
                 onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}
+                onSwitchToChats={() => setRecentsOverride('chats')}
               />
             ) : (
               <>
                 <FlatPinnedSection {...sectionProps} />
-                <FlatRecentsSection {...sectionProps} onNewChat={handleNewChat} />
+                <FlatRecentsSection {...sectionProps} onNewChat={handleNewChat} onSwitchToTasks={() => setRecentsOverride('tasks')} />
               </>
             )
           }

@@ -4,7 +4,9 @@ import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } fr
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelOneIcon, PlusSignIcon } from '@strange-huge/icons'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { toast } from 'sonner'
 import { ChatRow } from '@/components/ChatRow'
 import { ChatSelectionBar } from '@/components/ChatSelectionBar'
@@ -99,6 +101,9 @@ function ChatsPageInner() {
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
+  // Shared by both Chats and Tasks mode — only one of their search inputs is
+  // ever mounted at a time (gated by `libraryMode`), so one toggle is enough.
+  const [searchOpen,    setSearchOpen]    = useState(false)
   const [isMoving,      setIsMoving]      = useState(false)
   const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
   const [sharedLoading, setSharedLoading] = useState(false)
@@ -463,7 +468,22 @@ function ChatsPageInner() {
                 </TabsList>
               </Tabs>
             )}
-            <LibraryFilterButton value={libraryMode} onChange={handleLibraryModeChange} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <Tooltip content={searchOpen ? 'Close search' : 'Search'} side="bottom">
+                <IconButton
+                  variant="secondary"
+                  size="sm"
+                  icon={searchOpen ? <CancelOneIcon size={20} /> : <SearchOneIcon size={20} />}
+                  aria-label={searchOpen ? 'Close search' : 'Search'}
+                  onClick={() => {
+                    setSearchOpen((open) => !open)
+                    setSearchQuery('')
+                    setTasksSearchQuery('')
+                  }}
+                />
+              </Tooltip>
+              <LibraryFilterButton value={libraryMode} onChange={handleLibraryModeChange} />
+            </div>
           </div>
         )}
 
@@ -557,9 +577,10 @@ function ChatsPageInner() {
         {(chatsTab === 'all' || selectionMode) && (
           <>
 
-        {/* ── Search — hidden in selection mode ───────────────────────────── */}
+        {/* ── Search — hidden in selection mode, and unless toggled open via
+             the search button next to the filter button ─────────────────── */}
         <AnimatePresence initial={false}>
-          {!selectionMode && (
+          {!selectionMode && searchOpen && (
             <m.div
               key="search"
               initial={{ opacity: 0, height: 0 }}
@@ -688,16 +709,19 @@ function ChatsPageInner() {
         {libraryMode === 'tasks' && (
           <>
 
-            {/* ── Search ── */}
-            <div style={{ marginBottom: 16, marginTop: 4, padding: '4px' }}>
-              <InputField
-                fluid
-                placeholder="Search tasks…"
-                leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
-                value={tasksSearchQuery}
-                onChange={setTasksSearchQuery}
-              />
-            </div>
+            {/* ── Search — only when toggled open via the search button next
+                 to the filter button ── */}
+            {searchOpen && (
+              <div style={{ marginBottom: 16, marginTop: 4, padding: '4px' }}>
+                <InputField
+                  fluid
+                  placeholder="Search tasks…"
+                  leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
+                  value={tasksSearchQuery}
+                  onChange={setTasksSearchQuery}
+                />
+              </div>
+            )}
 
             {/* ── Loading skeleton ── */}
             {tasksLoading && threads.length === 0 && (

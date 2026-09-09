@@ -47,6 +47,8 @@ export interface FlatSidebarRowProps extends Omit<React.HTMLAttributes<HTMLDivEl
   onAddClick?: React.MouseEventHandler<HTMLButtonElement>
   /** header variant only — aria-label for the add action, e.g. "New project". Defaults to `Add to ${label}`. */
   addLabel?: string
+  /** header variant only — icon for the add action. Defaults to PlusSignIcon. */
+  addIcon?: React.ReactNode
   /** header variant only — persistent leading icon rendered just left of the add button (e.g. section identity icon). Omit to hide. */
   headerIcon?: React.ReactNode
   /** header variant only — makes headerIcon clickable (e.g. navigate to the section's own page). Omit for a purely decorative icon. */
@@ -121,6 +123,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       onShowClick,
       onAddClick,
       addLabel,
+      addIcon,
       headerIcon,
       onHeaderIconClick,
       headerIconLabel,
@@ -235,7 +238,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
             </span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             {onMoreClick && (
               <Tooltip content={`${label} options`} side="top" delayDuration={300}>
                 <button
@@ -247,6 +250,20 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                   style={headerActionButtonStyle(showActions, moreIconHovered)}
                 >
                   <MoreHorizontalIcon size={16} />
+                </button>
+              </Tooltip>
+            )}
+            {onAddClick && (
+              <Tooltip content={addLabel ?? `Add to ${label}`} side="top" delayDuration={300}>
+                <button
+                  type="button"
+                  aria-label={addLabel ?? `Add to ${label}`}
+                  onClick={(e) => { e.stopPropagation(); onAddClick(e) }}
+                  onMouseEnter={() => setAddIconHovered(true)}
+                  onMouseLeave={() => setAddIconHovered(false)}
+                  style={headerActionButtonStyle(showActions, addIconHovered)}
+                >
+                  {addIcon ?? <PlusSignIcon size={16} />}
                 </button>
               </Tooltip>
             )}
@@ -268,7 +285,12 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                 {headerIcon}
               </span>
             ))}
-            {extraHeaderIcons?.map((item, i) => (
+            {/* Rendered in reverse — see FlatSidebarRowProps.extraHeaderIcons: callers
+                list these "left to right" as they'd read top-to-bottom in a menu
+                (e.g. [Switch, All chats]), but the desired visual order here is
+                New/All/Switch, so the array itself is reversed at render time
+                rather than asking every caller to pass it backwards. */}
+            {extraHeaderIcons && [...extraHeaderIcons].reverse().map((item, i) => (
               <Tooltip key={i} content={item.label} side="top" delayDuration={300}>
                 <button
                   type="button"
@@ -282,20 +304,6 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                 </button>
               </Tooltip>
             ))}
-            {onAddClick && (
-              <Tooltip content={addLabel ?? `Add to ${label}`} side="top" delayDuration={300}>
-                <button
-                  type="button"
-                  aria-label={addLabel ?? `Add to ${label}`}
-                  onClick={(e) => { e.stopPropagation(); onAddClick(e) }}
-                  onMouseEnter={() => setAddIconHovered(true)}
-                  onMouseLeave={() => setAddIconHovered(false)}
-                  style={headerActionButtonStyle(showActions, addIconHovered)}
-                >
-                  <PlusSignIcon size={16} />
-                </button>
-              </Tooltip>
-            )}
           </div>
         </div>
       )

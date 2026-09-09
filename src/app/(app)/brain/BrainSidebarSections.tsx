@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { FlatSidebarRow } from '@/components/FlatSidebarRow'
-import { FolderLibraryIcon, FolderThreeIcon } from '@strange-huge/icons'
+import { ExchangeOneIcon, FolderLibraryIcon, FolderThreeIcon, QuillWriteOneIcon } from '@strange-huge/icons'
 import { IconWithFallback } from '@/components/IconWithFallback'
 import {
   listBrainChats,
@@ -209,6 +209,10 @@ function BrainThreadItem({
 interface BrainThreadsSectionProps {
   activeChatId:  string | null
   onThreadClick: (id: string) => void
+  /** Flat sidebar only — switches the sidebar's own recents list back to
+   *  chats, without navigating away from the current page. Omit to hide
+   *  the "Switch to recent chats" header icon. */
+  onSwitchToChats?: () => void
 }
 
 function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectionProps) {
@@ -406,6 +410,10 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
 export interface BrainSidebarSectionsProps {
   activeChatId:  string | null
   onThreadClick: (id: string) => void
+  /** Flat sidebar only — switches the sidebar's own recents list back to
+   *  chats, without navigating away from the current page. Omit to hide
+   *  the "Switch to recent chats" header icon. */
+  onSwitchToChats?: () => void
 }
 
 export function BrainSidebarSections({
@@ -516,13 +524,15 @@ function FlatBrainThreadItem({
   )
 }
 
-function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectionProps) {
+function FlatBrainThreadsSection({ activeChatId, onThreadClick, onSwitchToChats }: BrainThreadsSectionProps) {
   const { push } = useRouter()
 
   const [threads,      setThreads]      = useState<BrainChatListItem[]>([])
   const [isLoading,    setIsLoading]    = useState(true)
   const [shownStarred, setShownStarred] = useState(true)
   const [shownAll,     setShownAll]     = useState(true)
+  const [overflowStar, setOverflowStar] = useState<'visible' | 'hidden'>('visible')
+  const [overflowAll,  setOverflowAll]  = useState<'visible' | 'hidden'>('visible')
 
   useEffect(() => {
     setIsLoading(true)
@@ -618,17 +628,34 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
       {starredThreads.length > 0 && (
         <>
           <FlatSidebarRow variant="header" label="Pinned Tasks" shown={shownStarred} onShowClick={() => setShownStarred(s => !s)} />
-          {shownStarred && starredThreads.map(thread => (
-            <FlatBrainThreadItem
-              key={thread.id}
-              thread={thread}
-              isActive={thread.id === activeChatId}
-              onSelect={() => onThreadClick(thread.id)}
-              onRename={handleRename}
-              onStar={handleStar}
-              onDelete={handleDelete}
-            />
-          ))}
+          <m.div
+            animate={shownStarred ? 'open' : 'closed'}
+            initial={false}
+            variants={sectionHeightVariants}
+            style={{ overflow: overflowStar }}
+            onAnimationStart={(def) => { if (def === 'closed') setOverflowStar('hidden') }}
+            onAnimationComplete={(def) => { if (def === 'open') setOverflowStar('visible') }}
+          >
+            <m.div
+              animate={shownStarred ? 'open' : 'closed'}
+              initial="closed"
+              variants={sectionStaggerVariants}
+              style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+            >
+              {starredThreads.map(thread => (
+                <m.div key={thread.id} variants={sectionItemVariants}>
+                  <FlatBrainThreadItem
+                    thread={thread}
+                    isActive={thread.id === activeChatId}
+                    onSelect={() => onThreadClick(thread.id)}
+                    onRename={handleRename}
+                    onStar={handleStar}
+                    onDelete={handleDelete}
+                  />
+                </m.div>
+              ))}
+            </m.div>
+          </m.div>
         </>
       )}
 
@@ -638,12 +665,18 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
         // active thread's state, the Brain page does (see its own `?new=1`
         // handling, BrainPage's onNewBrainThread comment).
         onAddClick={() => push(`${BRAIN_ROUTE}?new=1`)} addLabel="New task"
+        addIcon={<QuillWriteOneIcon size={16} animated />}
         extraHeaderIcons={[
+          {
+            icon: <ExchangeOneIcon size={16} animated />,
+            onClick: () => onSwitchToChats?.(),
+            label: 'Switch to Recent Chats',
+          },
           {
             icon: (
               <IconWithFallback
-                icon={<FolderLibraryIcon size={14} animated />}
-                fallback={<FolderThreeIcon size={14} animated />}
+                icon={<FolderLibraryIcon size={16} animated />}
+                fallback={<FolderThreeIcon size={16} animated />}
               />
             ),
             onClick: () => push(`${CHATS_ROUTE}?filter=tasks`),
@@ -652,27 +685,42 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
         ]}
         actionsAlwaysVisible
       />
-      {shownAll && (
-        isLoading ? (
-          <>
-            <SidebarMenuSkeleton index={0} fluid />
-            <SidebarMenuSkeleton index={1} fluid />
-            <SidebarMenuSkeleton index={2} fluid />
-          </>
-        ) : recentThreads.length === 0 ? emptyRow : (
-          recentThreads.map(thread => (
-            <FlatBrainThreadItem
-              key={thread.id}
-              thread={thread}
-              isActive={thread.id === activeChatId}
-              onSelect={() => onThreadClick(thread.id)}
-              onRename={handleRename}
-              onStar={handleStar}
-              onDelete={handleDelete}
-            />
-          ))
-        )
-      )}
+      <m.div
+        animate={shownAll ? 'open' : 'closed'}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow: overflowAll }}
+        onAnimationStart={(def) => { if (def === 'closed') setOverflowAll('hidden') }}
+        onAnimationComplete={(def) => { if (def === 'open') setOverflowAll('visible') }}
+      >
+        <m.div
+          animate={shownAll ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
+          {isLoading ? (
+            <>
+              <SidebarMenuSkeleton index={0} fluid />
+              <SidebarMenuSkeleton index={1} fluid />
+              <SidebarMenuSkeleton index={2} fluid />
+            </>
+          ) : recentThreads.length === 0 ? emptyRow : (
+            recentThreads.map(thread => (
+              <m.div key={thread.id} variants={sectionItemVariants}>
+                <FlatBrainThreadItem
+                  thread={thread}
+                  isActive={thread.id === activeChatId}
+                  onSelect={() => onThreadClick(thread.id)}
+                  onRename={handleRename}
+                  onStar={handleStar}
+                  onDelete={handleDelete}
+                />
+              </m.div>
+            ))
+          )}
+        </m.div>
+      </m.div>
     </>
   )
 }
@@ -680,10 +728,11 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSe
 export function FlatBrainSidebarSections({
   activeChatId,
   onThreadClick,
+  onSwitchToChats,
 }: BrainSidebarSectionsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <FlatBrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} />
+      <FlatBrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} onSwitchToChats={onSwitchToChats} />
     </div>
   )
 }
