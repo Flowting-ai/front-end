@@ -18,6 +18,8 @@ export interface AccountRowProps extends Omit<React.HTMLAttributes<HTMLElement>,
   email: string
   /** Drives the badge in the Type column: Shared is Blue, Private is Green. */
   visibility: AccountRowVisibility
+  /** The account its app runs through. Only one of a person's can be. */
+  inUse?: boolean
   /** @default 'connected' */
   state?: AccountRowState
   /**
@@ -99,6 +101,7 @@ export function AccountRow({
   name,
   email,
   visibility,
+  inUse = true,
   state = 'connected',
   permission = 'custom',
   onManage,
@@ -159,11 +162,15 @@ export function AccountRow({
       </div>
 
       {/* Type */}
-      <div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Badge
           label={visibility === 'shared' ? 'Shared' : 'Private'}
           color={visibility === 'shared' ? 'Blue' : 'Green'}
         />
+        {/* Which of several accounts this app actually runs through. Said on
+            the row itself, because it is the difference between an account
+            that acts and one that is merely connected. */}
+        {!inUse && <Badge label="Not in use" color="Neutral" />}
       </div>
 
       {/* Permissions */}

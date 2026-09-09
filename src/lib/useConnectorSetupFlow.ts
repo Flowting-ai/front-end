@@ -61,13 +61,19 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
   }, [])
 
   const connect = useCallback((
-    { initData, shared, accountLabel }: {
+    { initData, shared, accountLabel, knownAccountIds, reconnecting }: {
       initData?: Record<string, string>
       shared?: boolean
       /** Renames the row this link produces; the backend seeds a default. */
       accountLabel?: string
+      /** The accounts already on file, so a new one can be told apart. */
+      knownAccountIds?: string[]
+      /** Re-authorizing this account rather than adding one. */
+      reconnecting?: string
     } = {},
   ) => {
+    const known = knownAccountIds ?? []
+    const target = reconnecting ? { healthy: reconnecting } : { known }
     const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
     // Opened without noopener deliberately — noopener leaves the popup stuck
     // at about:blank in some browsers once we later assign popup.location.
@@ -113,19 +119,30 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           if (settled || abortedRef.current) return
           settled = true
           popup?.close()
-          // The row the authorization just produced. A person holds exactly
-          // one account per connector, so the account they own *is* the one
-          // just linked — no diffing against what was there before, which
-          // could never tell them apart anyway: linking re-authorizes the
-          // same row and its id does not change.
-          const row = entry.ownedConnection
+          // The row the authorization produced: the owned account that was not
+          // on file when this started. Each remote account is its own row, so
+          // a genuinely new one is identifiable — and re-authorizing an
+          // account already held produces none, in which case there is nothing
+          // this link may name or share. Guessing a row here is what turned a
+          // private account shared.
+          const held = new Set(known)
+          const row = entry.ownedConnections.find(a => !held.has(a.id)) ?? null
           const wanted = {
             ...(shared ? { shared: true } : {}),
             ...(accountLabel ? { accountLabel } : {}),
           }
-          if (row === null || Object.keys(wanted).length === 0) {
+          if (Object.keys(wanted).length === 0) {
             setState('idle')
             toast.success(`${connectorName} connected`)
+            onConnected({ entry })
+            return
+          }
+          if (row === null) {
+            setState('idle')
+            // Said plainly rather than applied to whichever row was handy.
+            toast.info(
+              `${connectorName} re-authorized the account you already had. Set its name and sharing from that account's settings.`,
+            )
             onConnected({ entry })
             return
           }
@@ -177,6 +194,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
             initialIntervalMs: 1_000,
             maxIntervalMs: 2_000,
             timeoutMs: 12_000,
+            target,
           })
             .then(finish)
             .catch((err: unknown) => {
@@ -190,7 +208,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
 
         const pending = hosted
           ? waitForZapierAuthId(signal).then(id => completeZapierLink(connectorSlug, id))
-          : pollConnectorUntilActive(connectorSlug, { signal })
+          : pollConnectorUntilActive(connectorSlug, { signal, target })
 
         return pending.then(entry => {
           clearInterval(closedCheck)

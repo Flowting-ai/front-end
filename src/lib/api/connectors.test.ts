@@ -14,6 +14,7 @@ import {
   connectorsListUrl,
   listConnectors,
   listLinkedConnectors,
+  pollConnectorUntilActive,
 } from './connectors'
 
 const GMAIL_LIST = {
@@ -40,6 +41,7 @@ const GMAIL_LIST = {
       version: 1,
       owner_id: 'auth0|me',
       owned: true,
+      in_use: true,
       permissions: [{ key: 'gmail-send-email', permission: 'allowed' }],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
@@ -56,6 +58,7 @@ const GMAIL_LIST = {
       version: 1,
       owner_id: 'auth0|editor',
       owned: false,
+      in_use: true,
       permissions: [],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
@@ -118,19 +121,35 @@ describe('ConnectorCatalog', () => {
     expect(theirs.ownerId).toBe('auth0|editor')
   })
 
-  it('resolves the one account the viewer owns, never a shared one', () => {
+  it('separates the accounts the viewer owns from the one in use', () => {
     const entry = ConnectorCatalog.parse(GMAIL_LIST)
-    // Both rows are usable; only one is theirs. Anything that writes to an
-    // account — naming it, sharing it — must land on this row and no other.
-    expect(entry.ownedConnection?.nickname).toBe('Personal Gmail')
+    // A shared account is usable but never one of yours, so it can neither be
+    // written to nor stand as the account this app runs through for you.
+    expect(entry.ownedConnections.map(row => row.nickname)).toEqual(['Personal Gmail'])
+    expect(entry.connectionInUse?.nickname).toBe('Personal Gmail')
 
-    // Owning none is the only case where connecting a new account applies.
     const sharedOnly = ConnectorCatalog.parse({
       ...GMAIL_LIST,
       connections: GMAIL_LIST.connections.filter(row => !row.owned),
     })
-    expect(sharedOnly.ownedConnection).toBeNull()
-    expect(sharedOnly.connections).toHaveLength(1)
+    expect(sharedOnly.ownedConnections).toEqual([])
+    expect(sharedOnly.connectionInUse).toBeNull()
+  })
+
+  it('holds several owned accounts with one of them in use', () => {
+    const [mine, theirs] = GMAIL_LIST.connections
+    const entry = ConnectorCatalog.parse({
+      ...GMAIL_LIST,
+      connections: [
+        { ...mine, in_use: false, nickname: 'Old Gmail' },
+        { ...mine, id: '2b0b8f8e-0000-4000-8000-000000000003', nickname: 'Work Gmail' },
+        theirs,
+      ],
+    })
+
+    expect(entry.ownedConnections.map(row => row.nickname)).toEqual(['Old Gmail', 'Work Gmail'])
+    // The parked account is listed and switchable, never the one resolved.
+    expect(entry.connectionInUse?.nickname).toBe('Work Gmail')
   })
 
   it('parses a bare connector with no connections', () => {
@@ -216,6 +235,7 @@ describe('listConnectors', () => {
         connected: true,
         owner_id: 'auth0|me',
         owned: true,
+        in_use: true,
         created_at: '2026-06-18T00:00:00Z',
         updated_at: '2026-06-18T00:00:00Z',
       }],
@@ -229,5 +249,72 @@ describe('listConnectors', () => {
         body: JSON.stringify({ connection_id: 'conn-77' }),
       }),
     )
+  })
+})
+
+
+describe('pollConnectorUntilActive', () => {
+  beforeEach(() => {
+    apiFetchJson.mockReset()
+    bustConnectorCatalogCache()
+  })
+
+  const [MINE, THEIRS] = GMAIL_LIST.connections
+  const SECOND = {
+    ...MINE,
+    id: '2b0b8f8e-0000-4000-8000-000000000009',
+    nickname: 'Second Gmail',
+    in_use: false,
+  }
+  const fast = { initialIntervalMs: 1, maxIntervalMs: 1, timeoutMs: 60 }
+
+  it('does not settle on the account the caller already had', async () => {
+    // The whole catalog, unchanged: the viewer's connected Gmail is present
+    // throughout, and a person may hold several accounts — so "I own a
+    // connected one" is no evidence this authorization produced anything.
+    apiFetchJson.mockResolvedValue(GMAIL_DETAIL)
+
+    await expect(
+      pollConnectorUntilActive('gmail', { ...fast, target: { known: [MINE.id, THEIRS.id] } }),
+    ).rejects.toThrow(/did not become linked/)
+  })
+
+  it('settles on an account that was not on file when it started', async () => {
+    apiFetchJson
+      .mockResolvedValueOnce(GMAIL_DETAIL)
+      .mockResolvedValue({ ...GMAIL_DETAIL, connections: [MINE, THEIRS, SECOND] })
+
+    const entry = await pollConnectorUntilActive('gmail', {
+      ...fast,
+      target: { known: [MINE.id, THEIRS.id] },
+    })
+
+    expect(entry.ownedConnections.map(row => row.nickname)).toContain('Second Gmail')
+  })
+
+  it('settles on one named account coming back healthy when reconnecting', async () => {
+    // No new row ever appears on a reconnect, so waiting for one would time
+    // out and report the reconnect as cancelled.
+    apiFetchJson
+      .mockResolvedValueOnce({
+        ...GMAIL_DETAIL,
+        connections: [{ ...MINE, status: 'expired' }, THEIRS],
+      })
+      .mockResolvedValue(GMAIL_DETAIL)
+
+    const entry = await pollConnectorUntilActive('gmail', {
+      ...fast,
+      target: { healthy: MINE.id },
+    })
+
+    expect(entry.connections.find(row => row.id === MINE.id)?.needsReconnect).toBe(false)
+  })
+
+  it('never settles on a shared account somebody else connected', async () => {
+    apiFetchJson.mockResolvedValue({ ...GMAIL_DETAIL, connections: [THEIRS] })
+
+    await expect(
+      pollConnectorUntilActive('gmail', { ...fast, target: { known: [] } }),
+    ).rejects.toThrow(/did not become linked/)
   })
 })

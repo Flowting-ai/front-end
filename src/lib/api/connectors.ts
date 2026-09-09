@@ -102,6 +102,7 @@ export class ConnectorConnection {
   readonly version: number
   readonly ownerId: string
   readonly owned: boolean
+  readonly inUse: boolean
   readonly permissions: ToolPermissionEntryWire[]
   readonly createdAt: string
   readonly updatedAt: string
@@ -117,6 +118,7 @@ export class ConnectorConnection {
     this.version = wire.version
     this.ownerId = wire.owner_id
     this.owned = wire.owned
+    this.inUse = wire.in_use
     this.permissions = wire.permissions
     this.createdAt = wire.created_at
     this.updatedAt = wire.updated_at
@@ -243,9 +245,14 @@ export class ConnectorCatalog {
     return this.authMode === 'oauth2' && this.apiKeyFields.length > 0
   }
 
-  /** The one account this viewer owns here, or null when they own none. */
-  get ownedConnection(): ConnectorConnection | null {
-    return this.connections.find(row => row.owned) ?? null
+  /** Every account this viewer owns here. A person may hold several. */
+  get ownedConnections(): ConnectorConnection[] {
+    return this.connections.filter(row => row.owned)
+  }
+
+  /** The one of them this app runs through, or null when they own none. */
+  get connectionInUse(): ConnectorConnection | null {
+    return this.ownedConnections.find(row => row.inUse) ?? null
   }
 
   get privateConnections(): ConnectorConnection[] {
@@ -299,6 +306,9 @@ export interface UpdateAccountRequest {
   accountIdentifier?: string
   /** Open it to everyone sharing an organization with you, or close it again. */
   shared?:            boolean
+  /** Switch this app onto this account. True only — you move the flag by
+      raising another account, never by lowering this one. */
+  inUse?:             true
   permissions?:       { key: string; permission: ConnectorToolPermission }[]
   credentials?:       Record<string, string>
   status?:            ConnectorAccountStatus
@@ -476,6 +486,28 @@ export function fieldPlaceholder(name: string): string | undefined {
   return FIELD_PLACEHOLDERS[name]
 }
 
+/** The accounts a poll is allowed to settle on. */
+export interface PollTarget {
+  /** Ids the caller already held. A new account is one that is not among them. */
+  known?: string[]
+  /** Reconnecting: settle when THIS account comes back healthy, not on a new one. */
+  healthy?: string
+}
+
+/** Whether this catalog carries the account the caller is waiting for. */
+function pollSatisfied(entry: ConnectorCatalog, target: PollTarget): boolean {
+  if (target.healthy) {
+    const row = entry.connections.find(a => a.id === target.healthy)
+    return row != null && !row.needsReconnect
+  }
+  const known = new Set(target.known ?? [])
+  // A person can hold several accounts per app, so "I own a connected one" is
+  // not evidence that the authorization just now produced anything — it is
+  // true of the account they already had. Only a row that was not there when
+  // this started settles the poll.
+  return entry.ownedConnections.some(row => row.connected && !known.has(row.id))
+}
+
 export async function pollConnectorUntilActive(
   slug: string,
   {
@@ -483,21 +515,24 @@ export async function pollConnectorUntilActive(
     maxIntervalMs     = 30_000,
     timeoutMs         = 120_000,
     signal,
-  }: { initialIntervalMs?: number; maxIntervalMs?: number; timeoutMs?: number; signal?: AbortSignal } = {},
+    target            = {},
+  }: {
+    initialIntervalMs?: number
+    maxIntervalMs?: number
+    timeoutMs?: number
+    signal?: AbortSignal
+    target?: PollTarget
+  } = {},
 ): Promise<ConnectorCatalog> {
   const deadline = Date.now() + timeoutMs
   let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
     if (signal?.aborted) throw new DOMException('Polling aborted', 'AbortError')
     const entry = await getConnector(slug)
-    // `entry.linked` is org-wide — true the instant ANY org member has a
-    // shared connection, regardless of who's actually running this poll. A
-    // caller polling after their own connect attempt needs to know whether
-    // THEY now have a working account, not whether the connector is usable
-    // by someone else — otherwise this resolves immediately (before the
-    // popup's OAuth flow even finishes) whenever a shared account already
-    // exists, closing the popup and reporting false success.
-    if (entry.connections.some(row => row.owned && row.connected)) return entry
+    // Never `entry.linked`: that is org-wide, true the instant ANY org member
+    // has a shared connection, so it settled before the popup's OAuth flow
+    // even finished whenever a shared account already existed.
+    if (pollSatisfied(entry, target)) return entry
     await new Promise<void>((resolve, reject) => {
       const t = setTimeout(resolve, intervalMs)
       signal?.addEventListener('abort', () => {

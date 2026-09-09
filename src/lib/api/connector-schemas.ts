@@ -36,6 +36,10 @@ export const connectionResponseSchema = z.object({
   // usable, but only the owner can change or unlink it.
   owner_id:            z.string(),
   owned:               z.boolean(),
+  // The one account of this connector its owner runs. A person can hold
+  // several; the parked ones are listed and switched to, never resolved into
+  // a turn on their own.
+  in_use:              z.boolean(),
   // Sparse — a tool with no entry is 'ask'.
   permissions:         z.array(toolPermissionEntrySchema).default([]),
   created_at:          z.string(),

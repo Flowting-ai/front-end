@@ -289,11 +289,30 @@ function PermissionsTab({
   )
 }
 
-function AccessTab({ account, onChanged }: { account: ConnectorConnection; onChanged: () => void }) {
+function AccessTab({ account, catalog, onChanged }: { account: ConnectorConnection; catalog: ConnectorCatalog; onChanged: () => void }) {
   const [visibility, setVisibility] = useState(account.visibility)
   const [saving, setSaving] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const owned = account.owned
   const changed = visibility !== account.visibility
+  // The account this app currently runs through, when it is not this one.
+  const inUseElsewhere = catalog.connectionInUse
+  const canSwitch = owned && !account.inUse && !account.needsReconnect
+
+  async function switchToThis() {
+    setSwitching(true)
+    try {
+      // One flag moves: the account in use stands down as this one is raised.
+      // Nothing re-authorizes, and no permission decision is disturbed.
+      await updateAccount(account.id, { inUse: true, expectedVersion: account.version })
+      toast.success(`${account.nickname} is now the account ${catalog.name} runs through`)
+      onChanged()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to switch account')
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   async function save() {
     if (!changed || !owned) return
@@ -317,6 +336,46 @@ function AccessTab({ account, onChanged }: { account: ConnectorConnection; onCha
 
   return (
     <section>
+      <h2 style={{ ...heading, fontSize: 18, marginBottom: SPACE.lg }}>
+        Is this the account {catalog.name} runs through?
+      </h2>
+      <div style={{ ...panel, padding: SPACE.xl, marginBottom: SPACE.xxl }}>
+        {account.inUse ? (
+          <p style={{ ...muted, margin: 0 }}>
+            Yes. Every chat, automation and trigger that reaches {catalog.name} uses
+            this account.
+          </p>
+        ) : (
+          <>
+            <p style={{ ...muted, margin: 0 }}>
+              No — {catalog.name} currently runs through{' '}
+              {inUseElsewhere?.nickname ?? 'another account'}. This account stays
+              connected and ready, and nothing uses it until you switch.
+            </p>
+            {account.needsReconnect && (
+              <p style={{ ...muted, marginTop: SPACE.md }}>
+                Reconnect it first — an account that needs re-authorizing cannot take over.
+              </p>
+            )}
+            {owned ? (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: SPACE.lg }}>
+                <Button
+                  size="sm"
+                  disabled={!canSwitch || switching}
+                  loading={switching}
+                  onClick={() => void switchToThis()}
+                >
+                  Use this account
+                </Button>
+              </div>
+            ) : (
+              <p style={{ ...muted, marginTop: SPACE.md }}>
+                Only the person who connected it can switch to it.
+              </p>
+            )}
+          </>
+        )}
+      </div>
       <h2 style={{ ...heading, fontSize: 18, marginBottom: SPACE.lg }}>Who can use this account?</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
         <VisibilityRow
@@ -429,13 +488,14 @@ export function AccountDetailView({
             <p style={{ ...muted, marginTop: SPACE.xs }}>
               {account.email || account.nickname} · {account.isShared ? 'Shared' : 'Private'}
               {account.owned ? '' : ' · shared with you'}
+              {account.owned && !account.inUse ? ' · not in use' : ''}
             </p>
           </div>
         </div>
         <AccountTabs active={active} change={change} />
         <div>
           {active === 'permissions' && <PermissionsTab account={account} catalog={catalog} onChanged={onChanged} />}
-          {active === 'access' && <AccessTab account={account} onChanged={onChanged} />}
+          {active === 'access' && <AccessTab account={account} catalog={catalog} onChanged={onChanged} />}
           {active === 'settings' && <SettingsTab account={account} onChanged={onChanged} onRemove={onRemove} />}
         </div>
       </div>

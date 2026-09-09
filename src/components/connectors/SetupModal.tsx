@@ -8,9 +8,9 @@
 // flag on the row you own, so the choice here is just the flag's starting
 // value, and it stays changeable afterwards from the Access tab.
 //
-// That choice is offered only to someone who owns no account here yet. Once
-// they do, this modal can only re-authorize it, and the flag is the Access
-// tab's to change.
+// A person may hold several accounts per app. An account added while one is
+// already in use is parked: it does not take over what automations already
+// run through, and switching is its own deliberate act on the Access tab.
 
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -83,18 +83,12 @@ export function SetupModal({
   })
 
   const existingNames = catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
-  // The viewer's own row, if they have one. The backend holds exactly one
-  // account per (owner, connector), so linking again re-authorizes that same
-  // row rather than making a second — and naming or sharing are therefore not
-  // part of this link, they are edits to an account that already exists, and
-  // they belong on its Access tab. Offering them here PATCHed the row the
-  // viewer already had, which turned a connected private account shared.
-  //
-  // This covers a private *and* a shared account of one's own; neither can be
-  // added to. Only the picker's whole absence is safe: when a row already
-  // exists there is no visibility this link may legitimately set.
-  const ownedAlready = catalog.ownedConnection !== null
-  const showAccountName = mode === 'connect' && !ownedAlready
+  // What this link may name and share is whatever row it produces, and only a
+  // row it produces: authorizing a remote account already on file re-uses that
+  // row, and the flow leaves it alone rather than PATCHing whichever account
+  // was handy — which is what turned a connected private account shared.
+  const addingToExisting = catalog.ownedConnections.length > 0
+  const showAccountName = mode === 'connect'
   const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(catalog)
   const needsInitFields = catalog.needsOAuthInitFields
@@ -114,8 +108,10 @@ export function SetupModal({
     }
     flow.connect({
       initData: needsForm ? values : undefined,
-      shared: !reconnecting && !ownedAlready && visibility === 'shared',
+      shared: !reconnecting && visibility === 'shared',
       accountLabel: showAccountName ? name.trim() || undefined : undefined,
+      knownAccountIds: catalog.connections.map(row => row.id),
+      reconnecting: reconnecting ? initialAccount?.id : undefined,
     })
   }
 
@@ -141,7 +137,7 @@ export function SetupModal({
         />
       )}
 
-      {!reconnecting && !ownedAlready && (
+      {!reconnecting && (
         <fieldset style={{ border: 0, padding: 0, margin: `${SPACE.xxl}px 0 0` }}>
           <legend style={{
             display:      'block',
@@ -172,7 +168,9 @@ export function SetupModal({
             />
           </div>
           <p style={{ ...muted, marginTop: SPACE.sm }}>
-            You can change this later from the account&apos;s Access tab.
+            {addingToExisting
+              ? 'This account is added alongside the one you already use. Nothing switches over until you say so from its Access tab.'
+              : 'You can change this later from the account\u2019s Access tab.'}
           </p>
         </fieldset>
       )}
