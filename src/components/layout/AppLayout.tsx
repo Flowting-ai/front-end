@@ -61,18 +61,22 @@ export function AppLayout({
   const isProjectPage    = isAnyProjectPage && !pathname.includes('/chat/')
   // Only the projects listing page has no panel support at all.
   const isProjectsListPage = pathname === PROJECTS_ROUTE
+  const isChatsListPage = pathname.startsWith(CHATS_ROUTE)
 
   // Close the highlight panel on every page transition.
   useEffect(() => {
     closeHighlight()
   }, [pathname, closeHighlight])
 
-  // Force-close both panels on the projects listing page and project detail pages.
+  // Force-close both panels on the projects listing page, project detail
+  // pages, and the /chats library — none of these have the floating toggle
+  // to close it themselves (highlight already auto-closes on every
+  // navigation via the effect above).
   useEffect(() => {
-    if (isProjectsListPage || isProjectPage) {
+    if (isProjectsListPage || isProjectPage || isChatsListPage) {
       closePinboard()
     }
-  }, [isProjectsListPage, isProjectPage, closePinboard])
+  }, [isProjectsListPage, isProjectPage, isChatsListPage, closePinboard])
   const isPersonaPage    = pathname.startsWith(AGENTS_ROUTE) || pathname.startsWith(AGENT_BASE_ROUTE)
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
@@ -97,7 +101,6 @@ export function AppLayout({
   // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
   // their scrollbar sits close to the rounded border instead of 12px inset.
   const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
-  const isChatsListPage = pathname.startsWith(CHATS_ROUTE)
   const isChatSharesPage = pathname.startsWith('/chat-shares')
   // Every route below already owns a full-height inner scroll container that
   // does the real scrolling (projects list/new, project detail, the team
@@ -304,7 +307,7 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && !isProjectPage && !isPersonaChatPage && (
+            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && !isProjectPage && !isPersonaChatPage && !isChatsListPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>

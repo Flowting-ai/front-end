@@ -40,6 +40,13 @@ export interface FlatSidebarProps {
   onCollapse?: () => void
   defaultCollapsed?: boolean
   /**
+   * When true, the sidebar is pinned collapsed and the toggle (both the
+   * button and the ⌘B/Ctrl+B shortcut) is disabled — used by pages like
+   * Agent Configure where the sidebar rail would otherwise crowd a
+   * deliberately full-width editing surface.
+   */
+  forceCollapsed?: boolean
+  /**
    * Fixed, non-scrolling block rendered directly under the header (New /
    * Agents / Schedules / Connectors / Slack) — the scrollable area starts
    * right after this, below "Souvenir in Slack" (Figma 136:53072). Receives
@@ -56,11 +63,11 @@ export interface FlatSidebarProps {
 
 export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
   function FlatSidebar(
-    { onSearch, searchActive, onCollapse, defaultCollapsed = false, destinationsItems, projectItems, recentItems, accountMenu },
+    { onSearch, searchActive, onCollapse, defaultCollapsed = false, forceCollapsed = false, destinationsItems, projectItems, recentItems, accountMenu },
     ref,
   ) {
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
-    const effectiveCollapsed = isCollapsed
+    const effectiveCollapsed = forceCollapsed || isCollapsed
     const [collapseHovered, setCollapseHovered] = useState(false)
     const [atScrollTop, setAtScrollTop] = useState(true)
     const [atScrollBottom, setAtScrollBottom] = useState(false)
@@ -104,9 +111,10 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
     }
 
     const handleCollapse = useCallback(() => {
+      if (forceCollapsed) return
       setIsCollapsed(v => !v)
       onCollapse?.()
-    }, [onCollapse])
+    }, [forceCollapsed, onCollapse])
 
     // Ported: ⌘B / Ctrl+B, suppressed while typing.
     useEffect(() => {
@@ -164,12 +172,13 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
                   </div>
                 </Tooltip>
               )}
-              <Tooltip content={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" delayDuration={300}>
+              <Tooltip content={forceCollapsed ? 'Sidebar locked on this page' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" delayDuration={300}>
                 <div>
                   <IconButton
                     variant="ghost"
                     size="sm"
-                    aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    disabled={forceCollapsed}
+                    aria-label={forceCollapsed ? 'Sidebar locked on this page' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     icon={<SidebarLeftIcon size={20} variant={effectiveCollapsed ? 'open' : 'close'} triggered={collapseHovered} />}
                     onClick={handleCollapse}
                     onMouseEnter={() => setCollapseHovered(true)}

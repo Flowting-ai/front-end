@@ -300,10 +300,14 @@ function ChatPageInner() {
   // composer's own "+" menu, where the chip appearing is the feedback.
   useEffect(() => {
     if (!cameFromPendingPersonaRef.current) return;
-    cameFromPendingPersonaRef.current = false;
     toast.info('Model locked to agent', {
       description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
     });
+    // NOTE: does not reset cameFromPendingPersonaRef here — the chatIdFromUrl
+    // effect below (declared after this one, so it runs later in the same
+    // mount commit) still needs to see it be true, to know NOT to immediately
+    // clear the persona this same effect just announced via the toast. It
+    // consumes/resets the ref itself once it's done checking.
   }, []);
   const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
@@ -323,6 +327,13 @@ function ChatPageInner() {
       // with a fall-back to s.persona.id for entries saved before that change.
       const restoredVersionId = s?.persona?.activeVersionId ?? s?.persona?.id;
       if (restoredVersionId) personaChatIds.current.set(chatIdFromUrl, restoredVersionId);
+    } else if (cameFromPendingPersonaRef.current) {
+      // Blank /chat, but the persona lazy-initializer above just populated
+      // selectedPersona from agents/published's "Use this Agent" handoff —
+      // don't immediately stomp it back to null. Consume the flag so any
+      // LATER navigation back to a blank /chat (not from that handoff) still
+      // resets normally.
+      cameFromPendingPersonaRef.current = false;
     } else {
       setWebSearchEnabled(false);
       setSelectedPersona(null);

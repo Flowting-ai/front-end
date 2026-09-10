@@ -53,6 +53,7 @@ import {
   ORG_ANALYTICS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
   AGENT_CHAT_ROUTE,
+  AGENT_CONFIGURE_BASE_ROUTE,
   AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
@@ -2336,6 +2337,10 @@ function LeftSidebarImpl({
   const [reportBugOpen, setReportBugOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
+  // All 5 Agent Configure tabs (Instructions/Profile/Knowledge/Connectors/
+  // Sharing) are a deliberately full-width editing surface — the sidebar
+  // stays collapsed and its toggle disabled so it can't be re-expanded.
+  const isAgentConfigurePage = pathname?.startsWith(AGENT_CONFIGURE_BASE_ROUTE) ?? false;
   // Trailing slash matters: bare "/project" also prefix-matches "/projects"
   // and "/projects/new" (the listing pages), which must NOT be treated as a
   // project detail page here (unlike AppLayout's own, intentionally broader
@@ -2644,6 +2649,7 @@ function LeftSidebarImpl({
           searchActive={searchOpen}
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
+          forceCollapsed={isAgentConfigurePage}
           destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />
