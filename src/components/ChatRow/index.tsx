@@ -61,6 +61,11 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   readOnly?: boolean
   /** When true, shows a "Scheduled" badge — this chat was started from (or is linked to) a schedule. */
   scheduled?: boolean
+  /** When true, this row represents a Brain task rather than a chat — the
+   *  context menu's Pin item reads "Pin task"/"Unpin task" instead of
+   *  "Pin chat"/"Unpin chat". Purely a label swap; `starred`/`onStar` stay
+   *  the same underlying field either way. */
+  taskMode?: boolean
   /**
    * When true, shows a neutral "Archived" badge and hides Rename/Star (the
    * backend 403s both on an archived chat — services/chat/router.py's
@@ -206,6 +211,7 @@ function ChatRowInner(
     asChild       = false,
     readOnly      = false,
     scheduled     = false,
+    taskMode      = false,
     archived      = false,
     onArchive,
     className,
@@ -540,7 +546,9 @@ function ChatRowInner(
                         <Dropdown.Item
                           fluid
                           icon={<PinIcon animated color="var(--neutral-600)" />}
-                          label={starred ? 'Unpin chat' : 'Pin chat'}
+                          label={taskMode
+                            ? (starred ? 'Unpin task' : 'Pin task')
+                            : (starred ? 'Unpin chat' : 'Pin chat')}
                           onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onStar?.() }}
                         />
                       )}

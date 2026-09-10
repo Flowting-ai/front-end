@@ -25,20 +25,9 @@ import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
 import type { LibraryMode } from '@/components/LibraryFilterButton'
-import {
-  listBrainChats,
-  renameBrainChat,
-  starBrainChat,
-  deleteBrainChat,
-  type BrainChatListItem,
-} from '@/lib/api/brain'
+import { useBrainThreadContext } from '@/context/brain-thread-context'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
-import {
-  BRAIN_NEW_THREAD_EVENT,
-  BRAIN_THREAD_DELETED_EVENT,
-  emitBrainThreadDeleted,
-  type BrainThreadDeletedEventDetail,
-} from '@/hooks/use-sidebar-events'
+import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
 import { listAutomations } from '@/lib/api/automations'
 import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 
@@ -258,10 +247,12 @@ function ChatsPageInner() {
     push(CHAT_SHARE_ROUTE(item.shareId))
   }, [push])
 
-  // ── Tasks mode state (brain/threads' content, inlined verbatim) ─────────────
-
-  const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
-  const [tasksLoading, setTasksLoading] = useState(true)
+  // ── Tasks mode state ─────────────────────────────────────────────────────────
+  // Brain threads are shared app-wide via BrainThreadContext (mounted in
+  // (app)/layout.tsx) — the same state the left sidebar's Tasks section reads
+  // (src/app/(app)/brain/BrainSidebarSections.tsx), so a rename/pin/delete on
+  // either surface is reflected on the other immediately, no reload needed.
+  const { threads, isLoading: tasksLoading, rename: renameTask, star: starTask, remove: removeTask } = useBrainThreadContext()
   const [tasksSearchQuery, setTasksSearchQuery] = useState('')
   const [tasksTab, setTasksTab] = useState<'all' | 'scheduled'>('all')
   // Chat ids that are linked to a still-existing schedule — drives the
@@ -269,18 +260,13 @@ function ChatsPageInner() {
   // task list since scheduleLinks is a local-only map that isn't cleaned up
   // when a schedule is deleted.
   const [scheduledChatIds, setScheduledChatIds] = useState<Set<string>>(new Set())
-  const tasksLoadedRef = useRef(false)
+  const scheduleLinksLoadedRef = useRef(false)
 
-  // Lazily load tasks the first time Tasks mode is actually opened, matching
-  // how the Shared tab above lazy-loads on first visit.
+  // Lazily load schedule-link info the first time Tasks mode is actually
+  // opened, matching how the Shared tab above lazy-loads on first visit.
   useEffect(() => {
-    if (libraryMode !== 'tasks' || tasksLoadedRef.current) return
-    tasksLoadedRef.current = true
-    setTasksLoading(true)
-    listBrainChats()
-      .then(setThreads)
-      .catch(() => toast.error('Failed to load tasks'))
-      .finally(() => setTasksLoading(false))
+    if (libraryMode !== 'tasks' || scheduleLinksLoadedRef.current) return
+    scheduleLinksLoadedRef.current = true
     listAutomations()
       .then(tasks => {
         const links = getAllScheduleLinks()
@@ -297,17 +283,6 @@ function ChatsPageInner() {
     return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
   }, [push])
 
-  // Keep the list in sync when a thread is deleted elsewhere (e.g. the sidebar),
-  // so it disappears here without a manual refresh.
-  useEffect(() => {
-    const handleDeleted = (e: Event) => {
-      const { chatId } = (e as CustomEvent<BrainThreadDeletedEventDetail>).detail
-      setThreads(prev => prev.filter(t => t.id !== chatId))
-    }
-    window.addEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
-    return () => window.removeEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
-  }, [])
-
   const filteredThreads = useMemo(() => {
     const scoped = tasksTab === 'scheduled' ? threads.filter(t => scheduledChatIds.has(t.id)) : threads
     if (!tasksSearchQuery.trim()) return scoped
@@ -315,30 +290,13 @@ function ChatsPageInner() {
     return scoped.filter(t => (t.chat_title || '').toLowerCase().includes(q))
   }, [threads, tasksSearchQuery, tasksTab, scheduledChatIds])
 
-  const handleTaskRename = useCallback((id: string, title: string) => {
-    setThreads(prev => prev.map(t => t.id === id ? { ...t, chat_title: title } : t))
-    void renameBrainChat(id, title).catch(() => toast.error('Failed to rename thread'))
-  }, [])
-
-  const handleTaskStar = useCallback((id: string) => {
-    setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
-    void starBrainChat(id).catch(() => {
-      setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
-    })
-  }, [])
-
   const handleTaskDelete = useCallback((id: string, title: string) => {
     openDeleteChatDialog({
       chatId:    id,
       chatTitle: title,
-      onConfirm: async () => {
-        await deleteBrainChat(id)
-        setThreads(prev => prev.filter(t => t.id !== id))
-        emitBrainThreadDeleted({ chatId: id })
-        toast.success('Task deleted')
-      },
+      onConfirm: async () => { await removeTask(id) },
     })
-  }, [])
+  }, [removeTask])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -440,7 +398,7 @@ function ChatsPageInner() {
                   <>
                     {chatsTab === 'all' && (
                       <Button variant="outline" onClick={enterSelection}>
-                        Select
+                        Move to project
                       </Button>
                     )}
                     <Button
@@ -464,6 +422,21 @@ function ChatsPageInner() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ── Selection-mode helper copy — guides the user into the flow the
+            "Move to project" button above just started. */}
+        {selectionMode && (
+          <p
+            style={{
+              margin:     '0 0 12px',
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-body)',
+              color:      'var(--neutral-400)',
+            }}
+          >
+            Select the chats you&rsquo;d like to move to a project.
+          </p>
+        )}
 
         {/* ── Tabs + filter button ─────────────────────────────────────────── */}
         {!selectionMode && (
@@ -812,10 +785,11 @@ function ChatsPageInner() {
                       title={thread.chat_title || 'Untitled'}
                       timestamp={formatTaskTimestamp(thread.updated_at ?? thread.created_at)}
                       starred={thread.starred}
+                      taskMode
                       scheduled={scheduledChatIds.has(thread.id)}
                       onClick={() => push(`${BRAIN_ROUTE}?id=${thread.id}`)}
-                      onRename={(title) => handleTaskRename(thread.id, title)}
-                      onStar={() => handleTaskStar(thread.id)}
+                      onRename={(title) => renameTask(thread.id, title)}
+                      onStar={() => starTask(thread.id)}
                       onDelete={() => handleTaskDelete(thread.id, thread.chat_title)}
                     />
                   </div>

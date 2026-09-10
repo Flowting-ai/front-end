@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 import { m } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { springs } from '@/lib/springs'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -239,15 +240,66 @@ function ChangePlanSkeleton() {
   )
 }
 
-export default function OrgChangePlanPage() {
+// `?plan=core|pro` mirrors which card the user last acted on; `&price=` and
+// `&billing=` only mean anything for `plan=core` (Pro/Enterprise has no
+// tier or billing-interval selection of its own — it's a single fixed
+// "Get in touch" offer). Kept as a plain query-string sync (like the /chats
+// page's `?tab=`/`?filter=` params) rather than driving routing — this page
+// never navigates on selection, so the URL is purely a shareable/bookmarkable
+// mirror of on-screen state, not the source of truth for anything server-side.
+type PlanParam = 'core' | 'pro'
+
+function isValidPrice(n: number): boolean {
+  return DROPDOWN_TIER_PRICES.includes(n)
+}
+
+function OrgChangePlanPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const { org, orgId, orgRole, orgReady, refreshMembers, plan } = useOrg()
-  const [workspaceIdx,     setWorkspaceIdx]     = useState(1)
-  const [billing,          setBilling]          = useState<'monthly' | 'annual'>('monthly')
+
+  const initialPriceParam   = Number(searchParams.get('price'))
+  const initialWorkspaceIdx = isValidPrice(initialPriceParam)
+    ? WORKSPACE_PLANS.findIndex(p => p.price === initialPriceParam)
+    : -1
+
+  const [workspaceIdx,     setWorkspaceIdx]     = useState(initialWorkspaceIdx >= 0 ? initialWorkspaceIdx : 1)
+  const [billing,          setBilling]          = useState<'monthly' | 'annual'>(
+    searchParams.get('billing') === 'annual' ? 'annual' : 'monthly',
+  )
+  const [planParam,        setPlanParam]        = useState<PlanParam>(
+    searchParams.get('plan') === 'pro' ? 'pro' : 'core',
+  )
   const [tierMenuOpen,     setTierMenuOpen]     = useState(false)
   const [changingTo,       setChangingTo]       = useState<CheckoutPlan | null>(null)
   const [contactSalesOpen, setContactSalesOpen] = useState(false)
+
+  // Sliding pill behind the Monthly/Yearly buttons — same measure-then-animate
+  // technique as TabsList's own active-tab pill (src/components/Tabs/index.tsx),
+  // scoped locally since this toggle is hand-rolled rather than built on Tabs.
+  const billingRowRef     = useRef<HTMLDivElement>(null)
+  const monthlyBtnRef     = useRef<HTMLButtonElement>(null)
+  const annualBtnRef      = useRef<HTMLButtonElement>(null)
+  const [billingPill, setBillingPill] = useState<{ x: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const active = (billing === 'monthly' ? monthlyBtnRef : annualBtnRef).current
+    if (!active) return
+    setBillingPill({ x: active.offsetLeft, width: active.offsetWidth })
+  }, [billing])
+
+  // Mirror the current selection into the URL — query-only (no new history
+  // entry per change) so back/forward doesn't step through every tier click.
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('plan', planParam)
+    if (planParam === 'core') {
+      params.set('price', String(WORKSPACE_PLANS[workspaceIdx]?.price ?? WORKSPACE_PLANS[1]!.price))
+      params.set('billing', billing)
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [planParam, workspaceIdx, billing, router])
 
   const currentPlan        = user?.planType ?? null
   const selectedWorkspace  = WORKSPACE_PLANS[workspaceIdx]!
@@ -316,6 +368,7 @@ export default function OrgChangePlanPage() {
 
   const handleSelectTier = (idx: number) => {
     setWorkspaceIdx(idx)
+    setPlanParam('core')
     setTierMenuOpen(false)
     const p = WORKSPACE_PLANS[idx]!
     const detail = `${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`
@@ -426,45 +479,68 @@ export default function OrgChangePlanPage() {
           </div>
 
           {/* ── Monthly / Yearly tab ── */}
-          <div style={{
+          <div ref={billingRowRef} style={{
+            position: 'relative',
             display: 'flex', alignItems: 'center', gap: 4, padding: 4,
             borderRadius: 10, backgroundColor: 'rgba(247,242,237,0.5)',
             boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px #ede1d7, inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
           }}>
+            {/* Sliding active pill — same measure-then-animate technique as
+                TabsList's own pill (springs.fast), slid behind whichever
+                button is transparent instead of instantly swapping bg. */}
+            {billingPill && (
+              <m.div
+                aria-hidden
+                initial={false}
+                animate={{ x: billingPill.x, width: billingPill.width }}
+                transition={springs.fast}
+                style={{
+                  position: 'absolute', top: 4, bottom: 4, left: 0,
+                  borderRadius: 10,
+                  background: 'linear-gradient(to bottom, #524b47, #26211e)',
+                  boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             <button
+              ref={monthlyBtnRef}
               type="button"
               onClick={() => setBilling('monthly')}
               style={{
+                position: 'relative',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                backgroundColor: 'transparent',
                 fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                      boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
                       color: '#f7f2ed',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
-                  : { backgroundColor: 'transparent', color: '#827a74' }),
+                  : { color: '#827a74' }),
               }}
             >
               Monthly
             </button>
             <button
+              ref={annualBtnRef}
               type="button"
               onClick={() => setBilling('annual')}
               style={{
+                position: 'relative',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '6px 8px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                backgroundColor: 'transparent',
                 fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                      boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
                       color: '#f7f2ed',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
-                  : { backgroundColor: 'transparent', color: '#827a74' }),
+                  : { color: '#827a74' }),
               }}
             >
               Yearly
@@ -490,7 +566,7 @@ export default function OrgChangePlanPage() {
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
-                      Workspace
+                      Core
                     </p>
                     <Badge label="Recommended" color="brown" />
                   </div>
@@ -654,7 +730,7 @@ export default function OrgChangePlanPage() {
 
                 <m.button
                   type="button"
-                  onClick={() => { if (!changingTo && org.plan !== 'enterprise') setContactSalesOpen(true) }}
+                  onClick={() => { if (!changingTo && org.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
                   disabled={!!changingTo || org.plan === 'enterprise'}
                   whileTap={(!!changingTo || org.plan === 'enterprise') ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.1, ease: 'easeOut' }}
@@ -706,5 +782,16 @@ export default function OrgChangePlanPage() {
 
       {contactSalesOpen && <ContactSalesModal onClose={() => setContactSalesOpen(false)} />}
     </>
+  )
+}
+
+// useSearchParams() (added for the plan/price/billing URL sync above) needs a
+// Suspense boundary — reuses the page's own loading skeleton as the fallback
+// so there's no flash of blank content during the static-shell render.
+export default function OrgChangePlanPage() {
+  return (
+    <Suspense fallback={<ChangePlanSkeleton />}>
+      <OrgChangePlanPageInner />
+    </Suspense>
   )
 }
