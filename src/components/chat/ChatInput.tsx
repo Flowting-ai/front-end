@@ -11,7 +11,7 @@ import {
 } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { Button } from "@/components/Button";
-import { Dropdown } from "@/components/Dropdown";
+import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
 import SpeechRecognition, {
   useSpeechRecognition,
@@ -52,6 +52,14 @@ export interface ChatInputProps
    * switch rows and a "More models" submenu.
    */
   modelMenu?: React.ReactNode;
+  /**
+   * Overrides the model-menu Dropdown.Float's placement — defaults to
+   * "top-end" (a dropup, right for a composer anchored to the bottom of the
+   * viewport). Pages that instead center this composer vertically (e.g. the
+   * project pages' "new chat" state) don't have room above the trigger for a
+   * dropup and need it opening downward instead.
+   */
+  modelMenuPlacement?: DropdownPlacement;
   chips?: React.ReactNode;
   /**
    * Pin chips (@-mention pins and pin-folder selections) rendered in their
@@ -135,6 +143,7 @@ export function ChatInput(
     onModelClick,
     addMenu,
     modelMenu,
+    modelMenuPlacement = "top-end",
     chips,
     pinChips,
     attachmentsSlot,
@@ -786,7 +795,7 @@ export function ChatInput(
               <Dropdown.Float
                 open={modelMenuOpen}
                 onOpenChange={setModelMenuOpen}
-                placement="top-end"
+                placement={modelMenuPlacement}
                 trigger={
                   <Button
                     variant="ghost"

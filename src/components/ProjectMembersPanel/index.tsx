@@ -1,20 +1,15 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { PlusSignIcon, ArrowDownOneIcon, ManageTeamsIcon } from '@strange-huge/icons'
+import { PlusSignIcon, ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
-import { Dropdown } from '@/components/Dropdown'
 import { toast } from 'sonner'
-import { useOrg } from '@/context/org-context'
-import { listMembers } from '@/lib/api/organization'
 import {
   fetchProjectMembers,
-  inviteProjectMember,
   removeProjectMemberFromProject,
   type ApiProjectMember,
 } from '@/lib/api/projects'
-import type { OrgMember } from '@/types/teams'
 
 export interface ProjectMembersPanelProps {
   projectId:   string
@@ -23,6 +18,16 @@ export interface ProjectMembersPanelProps {
    *  mutations for anyone but the project owner, so the controls are hidden
    *  entirely for everyone else rather than rendering a dead-end action. */
   canManage:   boolean
+  /** Bump this (e.g. a counter) to force the member list to refetch. Adding a
+   *  member now happens through the project's Sharing modal (ProjectAddMembersList),
+   *  a separate component with its own state, so this panel has no other way
+   *  to learn a member was just added while it's open. */
+  refreshKey?: number | string
+  /** Called when "Add member" is clicked. This panel no longer has its own
+   *  inline add-member picker — adding now goes through the same Sharing
+   *  modal the page's "Share" button opens, so this just asks the parent to
+   *  open that instead of duplicating that flow here. */
+  onAddMember?: () => void
 }
 
 // Same card shell PersonaCard/PersonaCardSkeleton use in the sibling Agents
@@ -70,18 +75,14 @@ function EmptyState({ text }: { text: string }) {
   )
 }
 
-export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: ProjectMembersPanelProps) {
-  const { orgId } = useOrg()
+export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refreshKey, onAddMember }: ProjectMembersPanelProps) {
   const [members,    setMembers]    = useState<ApiProjectMember[]>([])
   const [loading,    setLoading]    = useState(true)
-  const [addOpen,    setAddOpen]    = useState(false)
-  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([])
-  const [selected,   setSelected]   = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     fetchProjectMembers(projectId)
       .then(list => {
         if (!cancelled) setMembers(list)
@@ -91,56 +92,20 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [projectId])
-
-  const handleOpenAdd = () => {
-    if (!orgId) return
-    setAddOpen(true)
-    setPickerOpen(false)
-    const memberIds = new Set(members.map(m => m.userId))
-    listMembers(orgId)
-      .then(all => {
-        setOrgMembers(all.filter(m => m.inviteStatus !== 'invite_sent' && !memberIds.has(m.id)))
-      })
-      .catch(() => toast.error('Failed to load workspace members'))
-  }
-
-  const handleCancelAdd = () => {
-    setAddOpen(false)
-    setSelected('')
-  }
-
-  const handleAdd = async () => {
-    if (!selected) return
-    const candidate = orgMembers.find(m => m.id === selected)
-    setSaving(true)
-    try {
-      await inviteProjectMember(projectId, selected)
-      if (candidate) {
-        setMembers(prev => [...prev, { userId: candidate.id, name: candidate.name, email: candidate.email }])
-      }
-      setSelected('')
-      setAddOpen(false)
-      toast.success('Member added to project')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add member')
-    } finally {
-      setSaving(false)
-    }
-  }
+  }, [projectId, refreshKey])
 
   const handleRemove = async (userId: string) => {
+    setRemovingId(userId)
     try {
       await removeProjectMemberFromProject(projectId, userId)
       setMembers(prev => prev.filter(m => m.userId !== userId))
       toast.success('Member removed from project')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+    } finally {
+      setRemovingId(null)
     }
   }
-
-  const selectedMember      = orgMembers.find(m => m.id === selected)
-  const selectedMemberLabel = selectedMember ? (selectedMember.name || selectedMember.email) : 'Select member...'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
@@ -156,6 +121,7 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
             ) : (
               members.map(m => {
                 const isOwner = m.userId === ownerUserId
+                const removing = removingId === m.userId
                 return (
                   <div key={m.userId} style={ROW_CARD_STYLE}>
                     <Avatar name={m.name || m.email || m.userId} size="sm" />
@@ -172,7 +138,13 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
                     {isOwner ? (
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', flexShrink: 0 }}>Owner</span>
                     ) : canManage ? (
-                      <Button variant="danger" size="sm" onClick={() => handleRemove(m.userId)}>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        loading={removing}
+                        disabled={removing}
+                        onClick={() => void handleRemove(m.userId)}
+                      >
                         Remove
                       </Button>
                     ) : null}
@@ -184,62 +156,15 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
         </div>
       </div>
 
-      {/* Add-member — inline picker replaces the footer button while open,
-          same footer position/weight as the sibling Agents panel's own
-          Create New / Manage Agents row. */}
+      {/* Add member — opens the project's Sharing modal (ProjectAddMembersList)
+          instead of a separate inline picker here, so there's one add-member
+          flow instead of two independently-maintained ones. */}
       {canManage && (
-        addOpen ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12, flexShrink: 0 }}>
-            {orgMembers.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0 }}>
-                Everyone eligible is already in this project.
-              </p>
-            ) : (
-              <Dropdown.Float
-                open={pickerOpen}
-                onOpenChange={setPickerOpen}
-                placement="top-start"
-                trigger={
-                  <Button variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
-                    {selectedMemberLabel}
-                  </Button>
-                }
-              >
-                <Dropdown maxHeight={false}>
-                  <Dropdown.Section>
-                    <div
-                      className="kaya-scrollbar"
-                      style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
-                    >
-                      {orgMembers.map(m => (
-                        <Dropdown.Item
-                          key={m.id}
-                          label={m.name || m.email}
-                          subLabel={m.name && m.email ? m.email : undefined}
-                          selected={selected === m.id}
-                          onClick={() => { setSelected(m.id); setPickerOpen(false) }}
-                          fluid
-                        />
-                      ))}
-                    </div>
-                  </Dropdown.Section>
-                </Dropdown>
-              </Dropdown.Float>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="outline" size="md" fluid onClick={handleCancelAdd}>Cancel</Button>
-              <Button size="md" fluid disabled={!selected || saving} onClick={handleAdd}>
-                {saving ? 'Adding…' : 'Add member'}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ paddingTop: 12, flexShrink: 0 }}>
-            <Button variant="secondary" size="md" fluid leftIcon={<PlusSignIcon size={16} />} onClick={handleOpenAdd}>
-              Add member
-            </Button>
-          </div>
-        )
+        <div style={{ paddingTop: 12, flexShrink: 0 }}>
+          <Button variant="secondary" size="md" fluid leftIcon={<PlusSignIcon size={16} />} onClick={onAddMember}>
+            Add member
+          </Button>
+        </div>
       )}
     </div>
   )

@@ -158,6 +158,10 @@ export default function ProjectPage() {
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
   const [shareOpen,        setShareOpen]        = useState(false)
+  // Bumped whenever a member is added via the Sharing modal (ProjectAddMembersList),
+  // which manages its own separate state — this forces the "Members" side
+  // panel's own list (ProjectMembersPanel) to refetch if it's open at the time.
+  const [memberListVersion, setMemberListVersion] = useState(0)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<Chat[]>([])
   const [teamChatsLoading, setTeamChatsLoading] = useState(true)
@@ -317,13 +321,30 @@ export default function ProjectPage() {
       setProjectPanel({
         title:       'Members',
         onClose:     () => setMembersPanelOpen(false),
-        content:     <ProjectMembersPanel projectId={project.id} ownerUserId={project.ownerUserId} canManage={canManageProjectMembers} />,
+        content:     (
+          <ProjectMembersPanel
+            projectId={project.id}
+            ownerUserId={project.ownerUserId}
+            canManage={canManageProjectMembers}
+            refreshKey={memberListVersion}
+            onAddMember={() => setShareOpen(true)}
+          />
+        ),
         // Same flush 8px layout as the sibling Agents panel — ProjectMembersPanel
         // no longer renders its own 24px-padded title/header internally.
         sidePadding: 8,
       })
     }
-  }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
+    // NOTE: intentionally not depending on handleOpenShare — it's a plain
+    // function declaration recreated on every render (not memoized), so
+    // including it here re-ran this effect (and its setProjectPanel call)
+    // on every render, which re-rendered the panel-context subtree, which
+    // created a new handleOpenShare... an infinite update loop ("Maximum
+    // update depth exceeded", surfaced as ref-churn deep in Radix's Slot
+    // composeRefs for whatever's nested inside the panel content). Calling
+    // setShareOpen directly above sidesteps the need for that dependency
+    // entirely — it's a stable state setter, not a per-render closure.
+  }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile, memberListVersion])
 
   useEffect(() => () => setProjectPanel(null), [setProjectPanel])
 
@@ -641,7 +662,7 @@ export default function ProjectPage() {
               ownerName && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-                    Created by {ownerName}
+                    Created by {ownerName} · {project.visibility === 'workspace' ? 'Workspace' : 'Shared'} Project
                   </span>
                 </div>
               )
@@ -722,6 +743,12 @@ export default function ProjectPage() {
               modelName={modelButtonLabel}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
+              // This composer sits vertically centered on the page rather than
+              // pinned to the bottom of the viewport, so the model menu's
+              // default dropup (placement="top-end") has nowhere to open into
+              // and gets clipped by the top of the layout — open it downward
+              // here instead.
+              modelMenuPlacement="bottom-end"
               disabledModelSelector={!!selectedPersona}
               addMenu={
                 <ChatAddMenu
@@ -1148,7 +1175,7 @@ export default function ProjectPage() {
               // header/badge/footer leave (bounded by the card's own
               // maxHeight above) and scroll internally once it overflows.
               <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-                <ProjectAddMembersList projectId={project.id} />
+                <ProjectAddMembersList projectId={project.id} onAdded={() => setMemberListVersion(v => v + 1)} />
               </div>
             )}
 

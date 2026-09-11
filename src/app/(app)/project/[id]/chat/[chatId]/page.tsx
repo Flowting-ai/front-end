@@ -744,6 +744,11 @@ function ProjectChatPageInner() {
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
+                      // Same reasoning as project/[id]/page.tsx's own new-chat
+                      // composer — this one is vertically centered on the
+                      // page too (isNewChatState), so the model menu's
+                      // default dropup gets clipped by the top of the layout.
+                      modelMenuPlacement="bottom-end"
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
                       attachmentsSlot={
