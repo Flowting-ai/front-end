@@ -107,7 +107,7 @@ function RoleSelect({ value, onChange }: { value: OnboardingRole | null; onChang
         </button>
       }
     >
-      <Dropdown style={{ width: 403 }}>
+      <Dropdown style={{ width: 403 }} maxHeight={false}>
         <Dropdown.Section fluid>
           {ROLES.map((role) => (
             <Dropdown.Item
@@ -180,7 +180,7 @@ function ToneSelect({ value, onChange }: { value: OnboardingTone; onChange: (v: 
         </button>
       }
     >
-      <Dropdown style={{ width: 280 }}>
+      <Dropdown style={{ width: 280 }} maxHeight={false}>
         <Dropdown.Section fluid>
           {TONES.map((t) => (
             <Dropdown.Item

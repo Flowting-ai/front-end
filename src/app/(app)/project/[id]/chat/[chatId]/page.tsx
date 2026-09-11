@@ -17,6 +17,7 @@ import { pickDefaultModel }                                from '@/lib/ai-models
 import { useWorkspaceCreditNotice }                        from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice }                              from '@/components/InlineCreditNotice'
 import { useProjects }                                     from '@/context/projects-context'
+import { PROJECT_NEW_CHAT_EVENT, type ProjectNewChatEventDetail } from '@/hooks/use-sidebar-events'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
@@ -143,7 +144,7 @@ type ChatMode = 'write' | 'research' | 'think' | 'build'
 
 const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
   { mode: 'write',    label: 'Write',    icon: <QuillWriteOneIcon       size={16} animated /> },
-  { mode: 'research', label: 'Research', icon: <NeuralNetworkIcon       size={16} animated />, disabled: true },
+  { mode: 'research', label: 'Research', icon: <NeuralNetworkIcon       size={16} animated /> },
   { mode: 'think',    label: 'Think',    icon: <AiVisionRecognitionIcon size={16} animated /> },
   { mode: 'build',    label: 'Build',    icon: <AiWebBrowsingIcon       size={16} animated /> },
 ]
@@ -407,7 +408,7 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, setPersonaActive } = useModelSelectorContext()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   // Reset to the default model tier on a genuinely blank "new chat" landing —
@@ -424,9 +425,7 @@ function ProjectChatPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const modelButtonLabel = museActive
-    ? museAdvanced ? 'Souvenir AI Muse (Auto)' : 'Souvenir AI Muse (Basic)'
-    : selectedModel?.modelName
+  const modelButtonLabel = selectedModel?.modelName
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 
@@ -911,9 +910,28 @@ function ProjectChatPageInner() {
 }
 
 export default function ProjectChatPage() {
+  const params = useParams<{ id: string }>()
+  // Forces a genuinely fresh mount of ProjectChatPageInner on "New chat" from
+  // the sidebar's per-project quick-add — see PROJECT_NEW_CHAT_EVENT. A chat
+  // created earlier this session (new → real id via the URL-swap trick in
+  // ProjectChatPageInner) leaves the router believing it never left
+  // `/project/[id]/chat/new`, so a plain push() there again is a no-op and
+  // the page keeps showing the old conversation. A key change is the one
+  // thing React always honors regardless of what the router did underneath —
+  // same reasoning as chat/page.tsx's own newChatEpoch.
+  const [resetEpoch, setResetEpoch] = useState(0)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<ProjectNewChatEventDetail>).detail
+      if (detail?.projectId === params.id) setResetEpoch(n => n + 1)
+    }
+    window.addEventListener(PROJECT_NEW_CHAT_EVENT, handler)
+    return () => window.removeEventListener(PROJECT_NEW_CHAT_EVENT, handler)
+  }, [params.id])
+
   return (
     <Suspense fallback={null}>
-      <ProjectChatPageInner />
+      <ProjectChatPageInner key={`project-chat-${resetEpoch}`} />
     </Suspense>
   )
 }

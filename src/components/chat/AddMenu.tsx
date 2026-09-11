@@ -77,7 +77,7 @@ export function ChatAddMenu({
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
 
   return (
-    <Dropdown style={{ width: 200 }}>
+    <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
         <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
         {!hideWebSearch && (

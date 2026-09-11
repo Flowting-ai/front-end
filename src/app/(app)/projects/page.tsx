@@ -113,7 +113,7 @@ function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v:
         </Button>
       }
     >
-      <Dropdown size="md">
+      <Dropdown size="md" maxHeight={false}>
         <Dropdown.Section fluid>
           <Dropdown.Item
             label="Grid"
@@ -169,7 +169,7 @@ function ScopeFilterDropdown({ value, onChange }: { value: ScopeFilter; onChange
         </Button>
       }
     >
-      <Dropdown size="md">
+      <Dropdown size="md" maxHeight={false}>
         <Dropdown.Section fluid>
           {SCOPE_VALUES.map(v => (
             <Dropdown.Item
@@ -299,7 +299,7 @@ function ProjectListRow({
                 />
               }
             >
-              <Dropdown size="md">
+              <Dropdown size="md" maxHeight={false}>
                 {onEdit && (
                   <Dropdown.Section fluid>
                     <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
@@ -665,7 +665,7 @@ function ProjectsPageInner() {
                 </Button>
               }
             >
-              <Dropdown>
+              <Dropdown maxHeight={false}>
                 <Dropdown.Section>
                   {(['recent', 'az', 'za', 'active'] as SortKey[]).map((k) => (
                     <Dropdown.Item

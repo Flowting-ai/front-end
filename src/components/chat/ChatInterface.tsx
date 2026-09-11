@@ -5,7 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { ArrowDownOneIcon } from "@strange-huge/icons";
+import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -332,8 +332,7 @@ export function ChatInterface({
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
-  // Muse framework state — consumed from context to compute algorithm for API calls
-  const { museActive, museAdvanced, selectedModel: contextModel } = useModelSelectorContext();
+  const { selectedModel: contextModel } = useModelSelectorContext();
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -384,35 +383,21 @@ export function ChatInterface({
 
   // Seed model logo + name on assistant messages that have thinking content but no
   // model identity when the history API does not return model_name.
-  // When Muse is active, contextModel is null (it is not an AIModel), so we derive
-  // the identity from museActive/museAdvanced instead.
   useEffect(() => {
-    const isMuse = museActive && !contextModel;
-    if (!isMuse && !contextModel) return;
+    if (!contextModel) return;
     setMessages(prev => {
       const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
       if (!needsPatch) return prev;
-      let modelName: string;
-      let modelId: string;
-      let company: string;
-      let complexity: string | undefined;
-      if (isMuse) {
-        complexity = museAdvanced ? 'advanced' : 'basic';
-        modelName  = museAdvanced ? 'Souvenir Muse (Auto)' : 'Souvenir Muse (Basic)';
-        modelId    = `muse-${complexity}`;
-        company    = 'Souvenir';
-      } else {
-        modelName = contextModel!.modelName;
-        company   = contextModel!.companyName;
-        modelId   = String(contextModel!.modelId ?? contextModel!.id ?? '');
-      }
+      const modelName = contextModel.modelName;
+      const company   = contextModel.companyName;
+      const modelId   = String(contextModel.modelId ?? contextModel.id ?? '');
       return prev.map(m => {
         if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company, ...(complexity ? { complexity } : {}) } };
+        return { ...m, modelName, modelMeta: { modelId, modelName, company } };
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel, museActive, museAdvanced]);
+  }, [messages, contextModel]);
 
   // Estimate how much of the model's context window is currently in use.
   // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
@@ -554,16 +539,14 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
       const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
-      fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
+      fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -867,8 +850,8 @@ export function ChatInterface({
     // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
     trackBrowserEvent("chat_message_sent", {
       has_agent: !!selectedPersonaId,
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_pick: "manual",
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       web_search: webSearchEnabled,
       reasoning: enableReasoning,
       attachment_count: allFiles.length,
@@ -876,12 +859,10 @@ export function ChatInterface({
     });
 
     try {
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
-      await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: allFiles.length > 0 ? allFiles : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -935,17 +916,16 @@ export function ChatInterface({
     const loadingId = addLoadingAssistantMessage();
     // Analytics: part of the override rate (earliest answer-quality warning).
     trackFeature("regenerate", {
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_pick: "manual",
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       reasoning: enableReasoning,
     });
-    const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
     fetchAiResponse(
       lastUserMsg.content,
       chatId ?? null,
       loadingId,
-      algorithm ? null : selectedModelId,
-      { ...(algorithm ? { algorithm } : {}), enableReasoning, chatOwnershipConfirmed },
+      selectedModelId,
+      { enableReasoning, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -1009,12 +989,10 @@ export function ChatInterface({
         .slice(0, idx + 1)
     })
     const loadingId = addLoadingAssistantMessage()
-    const algorithm = museActive ? (museAdvanced ? "pro" : "base") : null
 
-    fetchAiResponse(newContent, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
-      algorithm: algorithm ?? undefined,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
       temperature: selectedPersonaTemperature ?? undefined,
@@ -1287,6 +1265,38 @@ export function ChatInterface({
             ref={inputWrapperRef}
             style={{ width: "100%", position: "relative", zIndex: 1 }}
           >
+          {archived ? (
+            // Archived chats can't be edited at all — a disabled composer
+            // with an explanatory placeholder still looks like a text field
+            // you could try typing into. A plain info banner says outright
+            // that this chat is read-only instead.
+            <div
+              style={{
+                display:         "flex",
+                alignItems:      "center",
+                gap:             10,
+                padding:         "12px 16px",
+                borderRadius:    "var(--toast-radius, 12px)",
+                backgroundColor: "var(--neutral-100)",
+                boxShadow:       "inset 0 0 0 1px var(--neutral-200)",
+              }}
+            >
+              <InformationCircleIcon size={16} color="var(--neutral-500)" />
+              <p
+                style={{
+                  margin:     0,
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--font-weight-medium)",
+                  fontSize:   "var(--font-size-body)",
+                  lineHeight: "var(--line-height-body)",
+                  color:      "var(--neutral-600)",
+                }}
+              >
+                This is an archived chat. It&apos;s read-only.
+              </p>
+            </div>
+          ) : (
+            <>
           {!hidePinActions && (
             <PinMentionDropdown
               isOpen={showPinDropdown}
@@ -1341,9 +1351,7 @@ export function ChatInterface({
             isStreaming={isStreaming}
             disabled={readOnly || archived || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
-              archived
-                ? 'This chat is archived and can no longer be edited.'
-                : readOnly
+              readOnly
                 ? 'Create your own copy to continue this chat.'
                 : plan?.poolStatus === 'locked'
                 ? 'Workspace locked. Contact your admin.'
@@ -1358,6 +1366,8 @@ export function ChatInterface({
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
             contextUsedPct={contextUsedPct}
           />
+            </>
+          )}
           </div>
           </ExhaustionBanner>
         </div>

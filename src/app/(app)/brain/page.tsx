@@ -37,6 +37,7 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { useBrainThreadContext } from '@/context/brain-thread-context'
 import { shouldCompleteStreamOnClose } from '@/templates/Brain/lib/phase'
 import type { AgentStep, Phase, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -1029,6 +1030,11 @@ function BrainPageInner() {
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
   const newThreadRequested = searchParams.get('new') === '1'
+  // Live-synced with the sidebar and /chats Tasks tab — a rename from either
+  // surface (or the backend's own async auto-title) updates this immediately,
+  // same shared state, same pattern as the regular chat name in TopBar.
+  const { threads: brainThreads } = useBrainThreadContext()
+  const activeThreadTitle = chatIdFromUrl ? brainThreads.find(t => t.id === chatIdFromUrl)?.chat_title : undefined
 
   const [homeSchedules, setHomeSchedules] = useState<ActiveSchedule[]>([])
   const [homeDigest, setHomeDigest] = useState<DigestItem[]>([])
@@ -4108,6 +4114,7 @@ function BrainPageInner() {
       />
     <BrainShell
       defaultPhase={phase}
+      title={activeThreadTitle}
       onSend={handleSend}
       contextRailData={contextRailData}
       threadRef={threadRef}

@@ -205,7 +205,7 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage }: Proje
                   </Button>
                 }
               >
-                <Dropdown>
+                <Dropdown maxHeight={false}>
                   <Dropdown.Section>
                     <div
                       className="kaya-scrollbar"

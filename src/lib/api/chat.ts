@@ -11,7 +11,7 @@ import {
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
-  CHAT_VISIBILITY_ENDPOINT,
+  CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
@@ -30,7 +30,7 @@ interface BackendChat {
   id: string;
   owner_user_id?: string;
   can_edit?: boolean;
-  // Backend's real value is "shared", not "org" — see setChatVisibility's comment.
+  // Backend's real value is "shared", not "org" — see publishProjectChat's comment.
   // "archived" is a genuine third value (POST /chats/{id}/archive sets it) —
   // see normalizeChat's own comment on why this must not collapse to "private".
   visibility?: "private" | "shared" | "archived";
@@ -515,31 +515,29 @@ export async function respondToChatPrompt(
   }
 }
 
-/** PATCH /chats/{chat_id}/visibility */
-export async function setChatVisibility(
-  chatId: string,
-  visibility: "private" | "team",
-  teamId?: string,
-): Promise<void> {
-  // Backend's real enum (services/organizations/schemas.py VISIBILITY_VALUES,
-  // shared_visibility_arm) is "private" | "shared" — not "org". Same wire-format
-  // bug as personas (lib/api/personas.ts) — every call with "org" 400s, so
-  // publishing/sharing a chat to the team has never worked against this backend.
-  const body: Record<string, unknown> = { visibility: visibility === "team" ? "shared" : "private" };
-  if (visibility === "team" && teamId) body.organizationId = teamId;
-  const response = await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
-    method: "PATCH",
-    body:   JSON.stringify(body),
-  });
-  // This route no longer exists on the backend at all (confirmed by reading
-  // chat/router.py's full route list) — every call 404s. Checking response.ok
-  // doesn't fix that, but it stops the caller from optimistically updating
-  // and showing a false success toast for an action that never happened.
-  if (!response.ok) {
+/**
+ * POST /chats/{chat_id}/share — publishes a chat to its project so every
+ * member of that project (shared or workspace visibility) can see it.
+ *
+ * There used to be a PATCH .../visibility call here that could set an
+ * arbitrary "private"|"team" value plus a team id — that route never actually
+ * existed on this backend (confirmed by reading chat/router.py's full route
+ * list), so every call 404'd. The real route is this one-way, no-body action:
+ * the backend looks up the chat's EXISTING project link itself and sets
+ * visibility to "shared" — there's no visibility value or team/project id to
+ * pass. It 400s if the chat has no project link, or if it's archived.
+ *
+ * No corresponding "unshare"/unpublish route exists yet on this backend —
+ * callers should not offer an unpublish action that silently no-ops or
+ * pretends to succeed.
+ */
+export async function publishProjectChat(chatId: string): Promise<void> {
+  const response = await apiFetch(CHAT_PUBLISH_ENDPOINT(chatId), { method: "POST" });
+  if (!response.ok && response.status !== 204) {
     throw new ApiError(
       response.status,
-      "set_chat_visibility_failed",
-      friendlyApiError(`Failed to update chat visibility (${response.status})`, response.status),
+      "publish_project_chat_failed",
+      friendlyApiError(`Failed to publish chat (${response.status})`, response.status),
     );
   }
 }

@@ -138,6 +138,10 @@ export interface BrainShellProps {
   /** Called when the user selects the "Chat" tab in the Task/Chat strip (Figma
    *  136:53294) — the page owns navigation, this shell only owns the tab UI. */
   onSwitchToChat?: () => void
+  /** Active thread's name — shown top-left once a thread exists (phase !== 'idle').
+   *  Mirrors TopBar's chat-name pill for /chat?id=… pages. Omit/undefined on a
+   *  brand-new (idle) thread, where the Task/Chat tab strip occupies this row instead. */
+  title?: string
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -170,6 +174,7 @@ export function BrainShell({
   dropDisabled,
   homeProps,
   onSwitchToChat,
+  title,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
@@ -271,8 +276,14 @@ export function BrainShell({
             isolation:       'isolate',
         }}>
 
-          {/* Top Bar — Task/Chat tab strip, new-thread (idle) only (Figma 136:53294) */}
-          {isIdle && (
+          {/* Top Bar — Task/Chat tab strip, genuinely new/blank thread only (Figma
+              136:53294). `phase` alone isn't enough: reopening an existing, already-
+              finished thread never moves `phase` off its initial 'idle' value (nothing
+              sets it unless a stream is actively running), so `isIdle` is also true for
+              a fully loaded past thread. `title` (present once a real thread is loaded/
+              named) is what actually distinguishes "new" from "existing but not
+              currently streaming". */}
+          {isIdle && !title && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: 44, flexShrink: 0 }}>
               <div style={{ width: 171 }}>
                 <Tabs
@@ -292,6 +303,45 @@ export function BrainShell({
                   </TabsList>
                 </Tabs>
               </div>
+            </div>
+          )}
+
+          {/* Top Bar — active thread name, once a thread exists (mirrors TopBar's
+              chat-name pill on /chat?id=… pages). Same 44px row the idle tab strip
+              uses, so switching from a fresh thread to a loaded one doesn't shift
+              the content below. Shown whenever a title is known — including while
+              idle (a reopened, already-finished thread), not just while streaming. */}
+          {title && (
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: 44, flexShrink: 0, padding: '0 12px' }}>
+              <span
+                style={{
+                  display:         'inline-flex',
+                  alignItems:      'center',
+                  padding:         '5px 8px',
+                  borderRadius:    '8px',
+                  backgroundColor: 'var(--neutral-white, #fff)',
+                  boxShadow:       'inset 0 0 0 1px var(--button-outline-border)',
+                  pointerEvents:   'none',
+                  minWidth:        0,
+                  maxWidth:        '100%',
+                  overflow:        'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily:   'var(--font-body)',
+                    fontWeight:   'var(--font-weight-medium)',
+                    fontSize:     'var(--font-size-body)',
+                    lineHeight:   'var(--line-height-body)',
+                    color:        'var(--button-outline-text)',
+                    whiteSpace:   'nowrap',
+                    overflow:     'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {title}
+                </span>
+              </span>
             </div>
           )}
 

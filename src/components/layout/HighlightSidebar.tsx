@@ -15,7 +15,12 @@ function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
-  if (m) return m[1]
+  // `new` is the project-chat route's own "no chat yet" sentinel (see isNewChat
+  // in project/[id]/chat/[chatId]/page.tsx), not a real chat id — passing it
+  // straight to loadForChat sends `chat_id=new` to the backend, which 422s
+  // (not a valid UUID) and surfaces as the panel's generic error state instead
+  // of the correct "Nothing highlighted in this chat yet" empty state.
+  if (m) return m[1] === 'new' ? undefined : m[1]
   return searchParams.get('id') ?? undefined
 }
 

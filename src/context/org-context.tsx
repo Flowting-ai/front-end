@@ -144,31 +144,62 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       setRoleResolved(true)
       return
     }
+    // Guards against an out-of-order response: switching orgs quickly (e.g.
+    // via TeamSwitcherDropdown) starts a new getOrg() before the previous
+    // org's call has resolved. Without this, a slow response for the OLD org
+    // can land after the new org's fetch already resolved, silently
+    // overwriting the new org's correct role/name with the old org's — the
+    // sidebar's admin-only "+ New Project" button (and anything else gated on
+    // currentUserRole) would then read the wrong org's permissions until the
+    // next unrelated re-render happened to fix it.
+    let cancelled = false
     setRoleResolved(false)
     setRoleError(false)
-    getOrg(orgId)
-      .then(data => {
-        setOrgName(data.name)
-        if (data.planType) setOrgPlanType(data.planType)
-        // isTeamPlan is a guess for when the backend role is unknown (my_role
-        // came back null) — it must NOT override a definitive 'member' answer,
-        // or every real member whose own onboarding roleFit happened to be
-        // small_team/large_team gets silently promoted to 'admin' (this broke
-        // the clone-before-chat logic gated on currentUserRole !== 'admin'
-        // throughout the app, since a definitively-confirmed member was
-        // treated as an admin).
-        const roleDefinitive = data.role !== null
-        const resolvedRole: OrgRole = data.role ?? (isTeamPlan ? 'admin' : 'member')
-        setOrgRole(resolvedRole)
-        setOrgRoleResolved(roleDefinitive)
-        setCurrentUserRole(resolvedRole === 'admin' ? 'admin' : 'member')
-      })
-      .catch(err => {
-        console.error(err)
-        setOrgRoleResolved(false)
-        setRoleError(true) // role is unknown — orgRole stays at default 'member'
-      })
-      .finally(() => setRoleResolved(true))
+
+    const applyOrg = (data: Awaited<ReturnType<typeof getOrg>>) => {
+      setOrgName(data.name)
+      if (data.planType) setOrgPlanType(data.planType)
+      // isTeamPlan is a guess for when the backend role is unknown (my_role
+      // came back null) — it must NOT override a definitive 'member' answer,
+      // or every real member whose own onboarding roleFit happened to be
+      // small_team/large_team gets silently promoted to 'admin' (this broke
+      // the clone-before-chat logic gated on currentUserRole !== 'admin'
+      // throughout the app, since a definitively-confirmed member was
+      // treated as an admin).
+      const roleDefinitive = data.role !== null
+      const resolvedRole: OrgRole = data.role ?? (isTeamPlan ? 'admin' : 'member')
+      setOrgRole(resolvedRole)
+      setOrgRoleResolved(roleDefinitive)
+      setCurrentUserRole(resolvedRole === 'admin' ? 'admin' : 'member')
+    }
+
+    // A single automatic retry on failure: a transient network blip otherwise
+    // leaves currentUserRole permanently stuck at its default 'member' for
+    // the rest of the session (nothing else re-triggers this fetch), silently
+    // hiding admin-only UI — e.g. the sidebar's "+ New Project" button — for
+    // a real admin with no way to recover short of a full page reload.
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    const attempt = (isRetry: boolean) => {
+      getOrg(orgId)
+        .then(data => {
+          if (cancelled) return
+          applyOrg(data)
+          setRoleResolved(true)
+        })
+        .catch(err => {
+          if (cancelled) return
+          if (!isRetry) {
+            retryTimer = setTimeout(() => { if (!cancelled) attempt(true) }, 1000)
+            return
+          }
+          console.error(err)
+          setOrgRoleResolved(false)
+          setRoleError(true) // role is unknown — orgRole stays at default 'member'
+          setRoleResolved(true)
+        })
+    }
+    attempt(false)
+    return () => { cancelled = true; clearTimeout(retryTimer) }
   }, [orgId, orgIdResolved, isTeamPlan])
 
   // Fetch plan (credit pool) and the authoritative member list. Members come

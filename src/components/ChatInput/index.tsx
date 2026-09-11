@@ -296,7 +296,7 @@ function DefaultAddMenu({
   onSelectedPersonaChange,
 }: DefaultAddMenuProps) {
   return (
-    <Dropdown style={{ width: 200 }}>
+    <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
         <Dropdown.Item label="Add files or photos" icon={<FileAddIcon />} fluid />
         <Dropdown.Item
@@ -398,7 +398,7 @@ const DEFAULT_RECENT_MODELS = [
 
 function DefaultModelMenu() {
   return (
-    <Dropdown size="md">
+    <Dropdown size="md" maxHeight={false}>
       <Dropdown.Section fluid>
         <Dropdown.Item
           label="Souvenir : Advance"
@@ -630,6 +630,14 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   attachmentsSlot?: React.ReactNode
   /** When true, hides the model-selector button entirely. */
   hideModelSelector?: boolean
+  /**
+   * When true, the model is locked (e.g. an agent/persona chip is active —
+   * that chat always uses the agent's own configured model). Renders the
+   * button greyed-out and non-interactive, showing `modelName` with no
+   * dropdown at all; a click surfaces an explanatory toast instead of
+   * opening `modelMenu` or firing `onModelClick`.
+   */
+  disabledModelSelector?: boolean
   /** When true, hides the leading + add button entirely. */
   hideAddButton?: boolean
   /**
@@ -682,6 +690,7 @@ export function ChatInput({
       onSelectedPersonaChange,
       attachmentsSlot,
       hideModelSelector = false,
+      disabledModelSelector = false,
       hideAddButton = false,
       isStreaming = false,
       chips,
@@ -1178,7 +1187,27 @@ export function ChatInput({
 
           {/* Right: model selector + mic/send button */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {!hideModelSelector && (modelMenu != null ? (
+            {!hideModelSelector && (disabledModelSelector ? (
+              // Agent/persona chip active — that chat always uses the
+              // agent's own configured model, so no menu at all. Same
+              // "greyed-out button + explanatory toast" treatment as the
+              // TopBar's own locked model button.
+              <span
+                style={{ display: 'inline-flex', cursor: 'pointer' }}
+                onClick={() => toast.info('Model locked to agent', {
+                  description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
+                })}
+              >
+                <Button
+                  variant="ghost"
+                  size="md"
+                  rightIcon={<ArrowDownOneIcon size={16} />}
+                  style={{ opacity: 0.45, pointerEvents: 'none' }}
+                >
+                  {modelName}
+                </Button>
+              </span>
+            ) : modelMenu != null ? (
               // Inline Dropdown - opens above the trigger (top-start) since
               // ChatInput typically lives at the bottom of its scroll
               // container. Figma 3208:32989.
@@ -1196,7 +1225,16 @@ export function ChatInput({
                   </Button>
                 }
               >
-                {modelMenu}
+                {/* Picking a model or toggling adaptive thinking isn't a reason
+                    to keep this dropdown open — clone in an onClose that closes
+                    it. `modelMenu` is always a <ModelMenu/> in practice, which
+                    reads this prop; a caller-supplied node without it just
+                    ignores the prop. */}
+                {React.isValidElement(modelMenu)
+                  ? React.cloneElement(modelMenu as React.ReactElement<{ onClose?: () => void }>, {
+                      onClose: () => setModelMenuOpen(false),
+                    })
+                  : modelMenu}
               </Dropdown.Float>
             ) : (
               <Button

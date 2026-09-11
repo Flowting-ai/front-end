@@ -230,7 +230,7 @@ function RoleDropdown({
             own 8px-padded wrapper (PillSelect's own dropdown does the same)
             — without it they sit flush against the popover's edges, with
             no matching margin top/bottom/left/right. */}
-        <Dropdown style={{ width: 240 }}>
+        <Dropdown style={{ width: 240 }} maxHeight={false}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
             {ROLES_INFO.map(o => (
               <DropdownMenuItem

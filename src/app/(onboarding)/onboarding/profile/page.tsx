@@ -100,7 +100,7 @@ function RoleSelect({
         </button>
       }
     >
-      <Dropdown style={{ width: 403 }}>
+      <Dropdown style={{ width: 403 }} maxHeight={false}>
         <Dropdown.Section fluid>
           {ROLES.map((role) => (
             <Dropdown.Item
@@ -177,7 +177,7 @@ function ToneSelect({
         </button>
       }
     >
-      <Dropdown style={{ width: 403 }}>
+      <Dropdown style={{ width: 403 }} maxHeight={false}>
         <Dropdown.Section fluid>
           {TONES.map((tone) => (
             <Dropdown.Item

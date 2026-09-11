@@ -124,9 +124,11 @@ export function ProjectChatRow(
     }
 
     // ⋮ menu only visible on hover/menu-open, and only when there's an action
-    // to offer (read-only shared/view-only rows pass no handlers).
+    // to offer (read-only shared/view-only rows pass no handlers). No
+    // "Unpublish" entry — see the menu section below — so a published chat's
+    // publish state alone no longer justifies showing the menu.
     const showMoreMenu = hovered || menuOpen
-    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy || (!!canPublish && isPublished))
+    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy)
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
@@ -268,8 +270,8 @@ export function ProjectChatRow(
               }}
             >
               {publishState === 'unpublishing'
-                ? 'This chat would be unpublished from this team'
-                : 'This chat would be published to this team'}
+                ? 'This chat would be unpublished from all members of this project'
+                : 'This chat would be published to all members of this project'}
             </span>
             <Button
               variant="ghost"
@@ -317,7 +319,7 @@ export function ProjectChatRow(
                 />
               }
             >
-              <Dropdown size="sm">
+              <Dropdown size="sm" maxHeight={false}>
                 <Dropdown.Section fluid>
                   {onRename && (
                     <Dropdown.Item
@@ -326,13 +328,11 @@ export function ProjectChatRow(
                       fluid
                     />
                   )}
-                  {canPublish && isPublished && (
-                    <Dropdown.Item
-                      label="Unpublish from team"
-                      onClick={() => { setMenuOpen(false); setPublishState('unpublishing') }}
-                      fluid
-                    />
-                  )}
+                  {/* No "Unpublish" action — the backend has no unshare route
+                      for a chat yet (only POST .../share, which is one-way).
+                      Offering this would optimistically flip the row to
+                      "unpublished" locally with no way to actually make that
+                      true server-side. */}
                   {onCreateCopy && (
                     <Dropdown.Item
                       label="Create a copy"

@@ -134,7 +134,7 @@ function ProjectCardInner(
                   />
                 }
               >
-                <Dropdown size="md">
+                <Dropdown size="md" maxHeight={false}>
                   {onEdit && (
                     <Dropdown.Section fluid>
                       <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />

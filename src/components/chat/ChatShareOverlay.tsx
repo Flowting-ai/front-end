@@ -9,7 +9,6 @@ import { Checkbox } from '@/components/Checkbox'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
-import { Tooltip } from '@/components/Tooltip'
 import { copyChat } from '@/lib/api/chat'
 import { createChatShare, listChatShares, deleteChatShare, type ChatShare } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
@@ -182,14 +181,15 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
     <>
       {chatId && canManage && !chatShareOpen && !!orgId && (
         <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
-          <Tooltip content="Share" side="bottom">
-            <IconButton
-              variant="ghost"
-              aria-label="Share chat"
-              icon={<ShareOneIcon animated />}
-              onClick={handleOpenChatShare}
-            />
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Share chat"
+            leftIcon={<ShareOneIcon animated />}
+            onClick={handleOpenChatShare}
+          >
+            Share
+          </Button>
         </div>
       )}
       {chatId && readOnly && (

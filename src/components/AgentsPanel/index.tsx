@@ -198,7 +198,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                   </Button>
                 }
               >
-                <Dropdown size="md">
+                <Dropdown size="md" maxHeight={false}>
                   <Dropdown.Section fluid>
                     {VISIBLE_FILTERS.map(f => (
                       <Dropdown.Item

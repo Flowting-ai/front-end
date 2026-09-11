@@ -213,7 +213,7 @@ interface ProjectsContextValue {
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
   removeFile:       (projectId: string, fileId: string) => Promise<void>
   addChat:          (projectId: string, chatId: string, title: string, options?: { skipLink?: boolean }) => void
-  removeChat:       (projectId: string, chatId: string) => void
+  removeChat:       (projectId: string, chatId: string) => Promise<void>
   renameChat:       (projectId: string, chatId: string, title: string) => void
   loadProjectChats: (projectId: string) => Promise<void>
   getProject:       (id: string) => Project | undefined
@@ -497,8 +497,15 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     setProjects(prev => prev.map(p =>
       p.id === projectId ? { ...p, chatCount: Math.max(0, p.chatCount - 1) } : p,
     ))
-    // Best-effort API call — non-fatal if the chat was never linked (e.g. addChatToProject failed)
-    removeChatFromProject(projectId, chatId).catch(() => {})
+    // Returns the request so a caller that cares when the delete actually
+    // completes (e.g. the sidebar's confirm-delete dialog, which drives its
+    // Delete button's loading state off this) can await/catch it. The extra
+    // .catch here keeps it from surfacing as an unhandled rejection for the
+    // other, fire-and-forget callers that don't — non-fatal if the chat was
+    // never linked in the first place (e.g. addChatToProject failed).
+    const request = removeChatFromProject(projectId, chatId)
+    request.catch(() => {})
+    return request
   }, [])
 
   const renameChat = useCallback((projectId: string, chatId: string, title: string) => {

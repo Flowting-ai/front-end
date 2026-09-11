@@ -524,7 +524,7 @@ function ChatRowInner(
                   autoFlipVertical
                   trigger={<ThreeDotButton visible={showMenu} title={resolvedTitle} />}
                 >
-                  <Dropdown>
+                  <Dropdown maxHeight={false}>
                     <Dropdown.Section fluid>
                       {onShare && (
                         <Dropdown.Item

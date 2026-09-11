@@ -14,7 +14,6 @@ import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
-import { toSouvenirModelLabel } from '@/lib/ai-models'
 
 function SharedChatContent() {
   const params   = useParams()
@@ -212,11 +211,6 @@ function SharedChatContent() {
                 {msg.output && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
                     <MarkdownRenderer content={msg.output} />
-                    {msg.modelName && (
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)' }}>
-                        {toSouvenirModelLabel(msg.modelName)}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>

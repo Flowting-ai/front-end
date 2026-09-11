@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
-import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
+import { useBrainThreadContext } from "@/context/brain-thread-context";
 import { Button } from "@/components/Button";
 import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
-import { ArrowDownOneIcon, ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
+import { ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
 import { fetchModelsWithCache, normalizeModels, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
@@ -27,13 +26,12 @@ interface TopBarProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
-  const { selectedModel, isOpen, open, museActive, museAdvanced, personaActive } =
-    useModelSelectorContext();
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
   const router   = useRouter();
   const searchParams = useSearchParams();
   const { chats: chatHistoryChats } = useChatHistoryContext();
+  const { threads: brainThreads } = useBrainThreadContext();
 
   // Track the real browser pathname — may differ from Next.js pathname when
   // window.history.replaceState is used (e.g. project chat new→real chatId).
@@ -88,15 +86,21 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   const isPersonaChatPage     = !!personaChatMatch;
   const personaId             = personaChatMatch?.[1] ?? null;
   const isPersonaConfigurePage = actualPathname.startsWith('/agent/configure');
-  // Plain /chat?id=… page only — project/persona chats use their own
+  // Brain/Task pages source their title from the separate BrainThreadContext,
+  // not the regular chat-history one — excluded from isPlainChatPage so the
+  // two never get looked up against the wrong list.
+  const isBrainPage = actualPathname.startsWith('/brain');
+  // Plain /chat?id=… page only — project/persona/brain chats use their own
   // ownership model, not the /chats library's can_edit/visibility fields.
-  const isPlainChatPage = !isProjectChatPage && !isProjectDetailPage && !isChatsPage && !isPersonaChatPage && !isPersonaConfigurePage;
+  const isPlainChatPage = !isProjectChatPage && !isProjectDetailPage && !isChatsPage && !isPersonaChatPage && !isPersonaConfigurePage && !isBrainPage;
   const activeChatIdFromUrl = isPlainChatPage ? (searchParams.get('id') ?? undefined) : undefined;
   const activeChatFromUrl = activeChatIdFromUrl ? chatHistoryChats.find(c => c.id === activeChatIdFromUrl) : undefined;
+  // Same idea for the active Brain thread's title, live-synced via
+  // BrainThreadContext (a rename/pin from the sidebar or /chats Tasks mode
+  // updates this same shared state, so this label updates immediately too).
+  const activeBrainThreadIdFromUrl = isBrainPage ? (searchParams.get('id') ?? undefined) : undefined;
+  const activeBrainThreadFromUrl = activeBrainThreadIdFromUrl ? brainThreads.find(t => t.id === activeBrainThreadIdFromUrl) : undefined;
   const isArchivedChat = activeChatFromUrl?.visibility === 'archived';
-  // Not owned by the viewer, or owned but archived — same read-only
-  // treatment as chat/page.tsx's `activeChatReadOnly`.
-  const isReadOnlyChat = !!activeChatFromUrl && (activeChatFromUrl.can_edit === false || isArchivedChat);
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -135,59 +139,11 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
     return () => { cancelled = true; window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, resolve); };
   }, [personaId]);
 
-  const label = museActive
-    ? museAdvanced
-      ? "Souvenir Muse (Auto)"
-      : "Souvenir Muse (Basic)"
-    : selectedModel?.modelName ?? "Souvenir AI · Muse";
-
-  const modelSelectorButton = (
-    <Button
-      variant="default"
-      size="sm"
-      rightIcon={<ArrowDownOneIcon />}
-      onClick={(e) => {
-        if (isReadOnlyChat) {
-          toast.info("This chat is read-only", {
-            description: "Create your own copy to change its model.",
-          });
-          return;
-        }
-        if (personaActive) {
-          toast.info("Model locked to agent", {
-            description:
-              "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
-          });
-          return;
-        }
-        open(e.currentTarget);
-      }}
-      aria-haspopup="listbox"
-      aria-expanded={isOpen && !personaActive && !isReadOnlyChat}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: "8px", color: (personaActive || isReadOnlyChat) ? "var(--button-default-text-disabled)" : undefined }}>
-        {/* Always the Souvenir mark — every model behind this button is one
-            of the 3 Souvenir Muse tiers, never a raw third-party brand. */}
-        {(museActive || !!selectedModel) && (
-          <span
-            style={{
-              width:          "16px",
-              height:         "16px",
-              borderRadius:   "4px",
-              overflow:       "hidden",
-              flexShrink:     0,
-              display:        "flex",
-              alignItems:     "center",
-              justifyContent: "center",
-            }}
-          >
-            <SouvenirModelIcon size={16} variant="light" />
-          </span>
-        )}
-        {label}
-      </span>
-    </Button>
-  );
+  // The primary (TopBar) model selector button has been removed — ChatInput's
+  // own embedded ModelMenu (the "secondary" selector) now covers the same 3
+  // models everywhere a composer exists, so keeping a second, redundant
+  // trigger up here just duplicated it. See docs v1.5/dropdown-scrollbar-gutter-fix.md
+  // for the ModelMenu changes that made this the single source of truth.
 
   // Archived chats have no model to select (the composer is disabled — see
   // ChatInterface's `archived` prop) — the model-selector slot becomes a
@@ -222,9 +178,9 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
     >
       {isProjectChatPage && projectChatMatch ? (
         <>
-          {/* ── Left: model selector, then project + chat name ── */}
+          {/* ── Left: project + chat name — model selector lives in the composer
+              itself now (ChatInput's own ModelMenu covers the same 3 models). ── */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 0" }}>
-            <div style={{ flexShrink: 0 }}>{modelSelectorButton}</div>
             <span
               style={{
                 display:         "inline-flex",
@@ -307,7 +263,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                   disabled
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    {/* Always the Souvenir mark — see modelSelectorButton above. */}
+                    {/* Always the Souvenir mark — every model is one of the 3 Souvenir tiers. */}
                     {personaModel && (
                       <span
                         style={{
@@ -347,9 +303,54 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
         </>
       ) : (
         <>
-          {/* ── Left: model selector (hidden on project detail / chats / persona configure pages) —
-              swapped for a back-to-Archived button on an archived chat, which has no model to select. ── */}
-          {!isProjectDetailPage && !isChatsPage && !isPersonaConfigurePage && (isArchivedChat ? backToArchivedButton : modelSelectorButton)}
+          {/* ── Left: current chat/task name — sourced from the shared
+              ChatHistoryContext / BrainThreadContext, so a rename or the
+              backend's async auto-title (via listBrainChats/listChats) from
+              ANY surface (sidebar, /chats) is reflected here immediately,
+              same live state, no extra event wiring needed. ── */}
+          <div style={{ display: "flex", alignItems: "center", minWidth: 0, flex: "1 1 0" }}>
+            {(() => {
+              const name = isBrainPage ? activeBrainThreadFromUrl?.chat_title : activeChatFromUrl?.title;
+              if (!name) return null;
+              return (
+                <span
+                  style={{
+                    display:         "inline-flex",
+                    alignItems:      "center",
+                    padding:         "5px 8px",
+                    borderRadius:    "8px",
+                    backgroundColor: "var(--neutral-white, #fff)",
+                    boxShadow:       "inset 0 0 0 1px var(--button-outline-border)",
+                    pointerEvents:   "none",
+                    minWidth:        0,
+                    maxWidth:        "100%",
+                    overflow:        "hidden",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily:   "var(--font-body)",
+                      fontWeight:   "var(--font-weight-medium)",
+                      fontSize:     "var(--font-size-body)",
+                      lineHeight:   "var(--line-height-body)",
+                      color:        "var(--button-outline-text)",
+                      whiteSpace:   "nowrap",
+                      overflow:     "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {name}
+                  </span>
+                </span>
+              );
+            })()}
+          </div>
+
+          {/* ── Right: back-to-Archived button on an archived chat. The model
+              selector itself no longer shows here — ChatInput's own ModelMenu
+              (in the composer) covers the same 3 models everywhere this
+              TopBar's button used to. ── */}
+          {!isProjectDetailPage && !isChatsPage && !isPersonaConfigurePage && isArchivedChat && backToArchivedButton}
         </>
       )}
     </div>

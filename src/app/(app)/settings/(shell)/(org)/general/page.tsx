@@ -237,7 +237,7 @@ function VisibilitySelect({
         </button>
       }
     >
-      <Dropdown style={{ width: 327 }}>
+      <Dropdown style={{ width: 327 }} maxHeight={false}>
         {VISIBILITY_OPTIONS.map(o => (
           <DropdownMenuItem
             key={o.value}

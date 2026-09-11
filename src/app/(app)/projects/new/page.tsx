@@ -172,7 +172,7 @@ function NewProjectPageInner() {
                   </Button>
                 }
               >
-                <Dropdown size="md">
+                <Dropdown size="md" maxHeight={false}>
                   <Dropdown.Section fluid>
                     {visibilityOptions.map(opt => (
                       <Dropdown.Item

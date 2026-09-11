@@ -75,7 +75,7 @@ function UrgencyDropdown({ value, onChange }: { value: ConnectorRequestUrgency; 
         </button>
       }
     >
-      <Dropdown>
+      <Dropdown maxHeight={false}>
         <Dropdown.Section fluid>
           {URGENCY_OPTIONS.map(opt => (
             <Dropdown.Item key={opt.value} fluid label={opt.label} selected={value === opt.value}

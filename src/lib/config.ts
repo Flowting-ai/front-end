@@ -135,8 +135,14 @@ export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
-export const CHAT_VISIBILITY_ENDPOINT = (chatId: string) =>
-  withBase(`/chats/${chatId}/visibility`);
+// PATCH .../visibility never existed on this backend's chat router (confirmed
+// by reading services/chat/router.py's full route list) — every call 404s.
+// The real mechanism is this one-way, no-body action route: it looks up the
+// chat's existing project link server-side and sets visibility to "shared" —
+// there's no way to pass an explicit visibility value or team/project id, and
+// no corresponding "unshare" route exists yet either.
+export const CHAT_PUBLISH_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/share`);
 export const CHAT_COPY_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/copy`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>

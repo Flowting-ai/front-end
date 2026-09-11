@@ -217,7 +217,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
                         </Button>
                       }
                     >
-                      <Dropdown>
+                      <Dropdown maxHeight={false}>
                         <Dropdown.Section>
                           {TEAM_SIZE_OPTIONS.map(o => (
                             <Dropdown.Item

@@ -280,7 +280,7 @@ function DefaultFilterMenu({
   onToggleContentType,
 }: DefaultFilterMenuProps) {
   return (
-    <Dropdown>
+    <Dropdown maxHeight={false}>
       <Dropdown.Section fluid>
         {tags.length > 0 && (
           <Dropdown.Submenu
@@ -351,7 +351,7 @@ function DefaultSortMenu({
   onSelect:   (id: string) => void
 }) {
   return (
-    <Dropdown size="md">
+    <Dropdown size="md" maxHeight={false}>
       <Dropdown.Section fluid>
         {options.map((o) => (
           <Dropdown.Item
@@ -1357,7 +1357,7 @@ export function Pinboard(
                 </Button>
               }
             >
-              <Dropdown size="md">
+              <Dropdown size="md" maxHeight={false}>
                 <Dropdown.Section fluid>
                   {views.map(v => (
                     <Dropdown.Item

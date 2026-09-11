@@ -1731,7 +1731,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 onOpenChange={setFilterOpen}
                 placement="bottom-end"
               >
-                <Dropdown size="sm">
+                <Dropdown size="sm" maxHeight={false}>
                   <Dropdown.Section label="Tier" fluid>
                     {([
                       { id: "starter", label: "Starter" },

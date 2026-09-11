@@ -101,7 +101,7 @@ function PillSelect<T extends string>({
         <ChevronDownIcon />
       </button>
     }>
-      <Dropdown>
+      <Dropdown maxHeight={false}>
         {/* Not Dropdown.Section — its item wrapper hardcodes width:100% (fluid)
             or width:217px on every nested div, a percentage/fixed chain that
             left a few px of slack between the widest item and the popover's

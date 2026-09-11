@@ -446,7 +446,7 @@ export function PinboardExpanded(
                           />
                         }
                       >
-                        <Dropdown>
+                        <Dropdown maxHeight={false}>
                           <Dropdown.Section fluid>
                             <Dropdown.Item
                               label="Rename"
@@ -533,7 +533,7 @@ export function PinboardExpanded(
                           />
                         }
                       >
-                        <Dropdown>
+                        <Dropdown maxHeight={false}>
                           <Dropdown.Section fluid>
                             <Dropdown.Item
                               label="Rename"

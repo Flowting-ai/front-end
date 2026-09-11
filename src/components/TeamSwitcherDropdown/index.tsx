@@ -204,7 +204,7 @@ function ActionPanel({
 }) {
   const [activeId, setActiveId] = useState<string>('')
   return (
-    <Dropdown style={{ width: '160px' }}>
+    <Dropdown style={{ width: '160px' }} maxHeight={false}>
       <Dropdown.Section fluid>
         {actions.map((action) => (
           <Dropdown.Item
@@ -259,7 +259,7 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
 
     return (
       <Comp ref={ref} className={className} style={style} {...props}>
-        <Dropdown style={{ width: '283px' }}>
+        <Dropdown style={{ width: '283px' }} maxHeight={false}>
           {/* Teams list */}
           <Dropdown.Section label={teamsLabel} divider fluid>
             {(() => {

@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } fr
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, CancelCircleIcon, PlusSignIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, PlusSignIcon, AiWebBrowsingIcon, BubbleChatIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { toast } from 'sonner'
@@ -13,6 +13,7 @@ import { ChatSelectionBar } from '@/components/ChatSelectionBar'
 import { MoveToProjectModal } from '@/components/MoveToProjectModal'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
+import { Dropdown } from '@/components/Dropdown'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
@@ -40,6 +41,120 @@ import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 // /brain/threads is now a redirect stub into Tasks mode (?filter=tasks).
 
 type ChatsTab = 'all' | 'shared' | 'archived'
+type TasksTab = 'all' | 'scheduled'
+
+// ── Chats/Tasks filter — Dropdown.Float instead of a Tabs bar, same pattern
+// as ScopeFilterDropdown on the /projects page (Dropdown.Float + Button
+// trigger + Dropdown.Section/Dropdown.Item, see projects/page.tsx). ──
+
+const CHATS_TAB_LABEL: Record<ChatsTab, string> = {
+  all:      'All chats',
+  shared:   'Shared with me',
+  archived: 'Archived chats',
+}
+// Same wording style as ScopeFilterDropdown's SCOPE_DESCRIPTION on /projects.
+const CHATS_TAB_DESCRIPTION: Record<ChatsTab, string> = {
+  all:      'Every chat you’ve created.',
+  shared:   'Chats other people have shared with you.',
+  archived: 'Chats you’ve archived.',
+}
+const CHATS_TAB_VALUES: readonly ChatsTab[] = ['all', 'shared', 'archived']
+
+function ChatsTabDropdown({ value, onChange }: { value: ChatsTab; onChange: (v: ChatsTab) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-start"
+      trigger={
+        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
+          {/* In-place text swap — same transition ScopeFilterDropdown's own
+              trigger label uses. */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            <m.span
+              key={value}
+              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              style={{ display: 'block', transformOrigin: 'left center' }}
+            >
+              {CHATS_TAB_LABEL[value]}
+            </m.span>
+          </AnimatePresence>
+        </Button>
+      }
+    >
+      <Dropdown size="md" maxHeight={false}>
+        <Dropdown.Section fluid>
+          {CHATS_TAB_VALUES.map(v => (
+            <Dropdown.Item
+              key={v}
+              label={CHATS_TAB_LABEL[v]}
+              subLabel={CHATS_TAB_DESCRIPTION[v]}
+              selected={value === v}
+              onClick={() => { onChange(v); setOpen(false) }}
+              fluid
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+}
+
+const TASKS_TAB_LABEL: Record<TasksTab, string> = {
+  all:       'All tasks',
+  scheduled: 'Scheduled',
+}
+const TASKS_TAB_DESCRIPTION: Record<TasksTab, string> = {
+  all:       'Every task you’ve created.',
+  scheduled: 'Tasks with an active schedule.',
+}
+const TASKS_TAB_VALUES: readonly TasksTab[] = ['all', 'scheduled']
+
+function TasksTabDropdown({ value, onChange }: { value: TasksTab; onChange: (v: TasksTab) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-start"
+      trigger={
+        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <m.span
+              key={value}
+              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              style={{ display: 'block', transformOrigin: 'left center' }}
+            >
+              {TASKS_TAB_LABEL[value]}
+            </m.span>
+          </AnimatePresence>
+        </Button>
+      }
+    >
+      <Dropdown size="md" maxHeight={false}>
+        <Dropdown.Section fluid>
+          {TASKS_TAB_VALUES.map(v => (
+            <Dropdown.Item
+              key={v}
+              label={TASKS_TAB_LABEL[v]}
+              subLabel={TASKS_TAB_DESCRIPTION[v]}
+              selected={value === v}
+              onClick={() => { onChange(v); setOpen(false) }}
+              fluid
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+}
 
 function formatTaskTimestamp(iso: string | undefined | null): string {
   if (!iso) return ''
@@ -254,7 +369,7 @@ function ChatsPageInner() {
   // either surface is reflected on the other immediately, no reload needed.
   const { threads, isLoading: tasksLoading, rename: renameTask, star: starTask, remove: removeTask } = useBrainThreadContext()
   const [tasksSearchQuery, setTasksSearchQuery] = useState('')
-  const [tasksTab, setTasksTab] = useState<'all' | 'scheduled'>('all')
+  const [tasksTab, setTasksTab] = useState<TasksTab>('all')
   // Chat ids that are linked to a still-existing schedule — drives the
   // "Scheduled" tag on each thread row. Cross-referenced against the live
   // task list since scheduleLinks is a local-only map that isn't cleaned up
@@ -452,20 +567,9 @@ function ChatsPageInner() {
             }}
           >
             {libraryMode === 'chats' ? (
-              <Tabs value={chatsTab} onValueChange={(v) => handleChatsTabChange(v as ChatsTab)}>
-                <TabsList>
-                  <TabsTrigger value="all">All chats</TabsTrigger>
-                  <TabsTrigger value="shared">Shared with me</TabsTrigger>
-                  <TabsTrigger value="archived">Archived chats</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <ChatsTabDropdown value={chatsTab} onChange={handleChatsTabChange} />
             ) : (
-              <Tabs value={tasksTab} onValueChange={(v) => setTasksTab(v as 'all' | 'scheduled')}>
-                <TabsList>
-                  <TabsTrigger value="all">All tasks</TabsTrigger>
-                  <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <TasksTabDropdown value={tasksTab} onChange={setTasksTab} />
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: searchOpen ? '1 0 0' : undefined, minWidth: 0 }}>
               {/* Search — same morph-in-place pattern as PinboardHeader's own

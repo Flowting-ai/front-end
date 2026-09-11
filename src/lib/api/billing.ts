@@ -20,11 +20,11 @@ import {
   type UpcomingInvoiceWire,
   type UsageResponseWire,
 } from "./billing-schemas";
-export type CheckoutPlan = "50" | "100" | "250" | "500" | "1000" | "2000";
+export type CheckoutPlan = "50" | "100" | "125" | "250" | "500" | "1000" | "2000";
 
 export const CREDITS_PER_USD = 1000;
 const USAGE_RATIO = 0.8;
-const TEAMS_PLAN_IDS = ["50", "100", "250", "500", "1000", "2000"] as const;
+const TEAMS_PLAN_IDS = ["50", "100", "125", "250", "500", "1000", "2000"] as const;
 
 // Enterprise orgs are funded with this explicit "never runs out" sentinel
 // (back-end/services/users/enterprise_pricing.py's ENTERPRISE_INTERMAX) as

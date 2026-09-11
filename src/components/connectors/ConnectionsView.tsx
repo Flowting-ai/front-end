@@ -117,7 +117,7 @@ function RefineMenu({ value, change, pool }: { value: TypeFilter; change: (value
       onOpenChange={setOpen}
       placement="bottom-end"
     >
-      <Dropdown size="sm">
+      <Dropdown size="sm" maxHeight={false}>
         <Dropdown.Section label="Type" fluid>
           {TYPE_LABELS.map(([id, label]) => (
             <Dropdown.Item
@@ -145,7 +145,7 @@ function SortMenu({ value, change }: { value: SortMode; change: (value: SortMode
       onOpenChange={setOpen}
       placement="bottom-end"
     >
-      <Dropdown size="sm">
+      <Dropdown size="sm" maxHeight={false}>
         <Dropdown.Section fluid>
           {SORT_LABELS.map(([id, label]) => (
             <Dropdown.Item key={id} label={label} selected={id === value} fluid onClick={() => { change(id); setOpen(false) }} />

@@ -45,6 +45,12 @@ function FloatingPanelImpl() {
   const { chats: chatHistoryChats } = useChatHistoryContext()
   const currentChat = chatHistoryChats.find(c => c.id === currentChatId)
   const isReadOnlyChat = !!currentChat && (currentChat.can_edit === false || currentChat.visibility === 'archived')
+  // Archived specifically (not just any read-only chat) hides the toolbar
+  // outright instead of showing it disabled — ChatInterface already replaces
+  // the composer itself with a plain "this chat is read-only" banner for
+  // archived chats, so a grayed-out Pinboard/Agents/Highlights toolbar next
+  // to it would be redundant clutter, not a real affordance.
+  const isArchivedChat = currentChat?.visibility === 'archived'
   // Agents only works on the regular chat page today (new chat + existing
   // chat are the same /chat route, distinguished by ?id= — see
   // useCurrentChatId above). Nowhere else listens for AGENT_SELECT_EVENT
@@ -149,43 +155,46 @@ function FloatingPanelImpl() {
         )}
       </AnimatePresence>
 
-      {/* Floating toolbar - vertically centered */}
-      <div
-        style={{
-          position:  'absolute',
-          right:     26,
-          top:       '50%',
-          transform: 'translateY(-50%)',
-          zIndex:    10,
-        }}
-      >
-        <FloatingMenu aria-label="Chat tools">
-          <FloatingMenuItem
-            icon={<PinIcon size={20} />}
-            label="Pinboard"
-            active={pinboardOpen}
-            disabled={isReadOnlyChat}
-            onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
-            onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
-          />
-          {isChatPage && (
+      {/* Floating toolbar - vertically centered. Hidden entirely (not just
+          disabled) on an archived chat — see isArchivedChat above. */}
+      {!isArchivedChat && (
+        <div
+          style={{
+            position:  'absolute',
+            right:     26,
+            top:       '50%',
+            transform: 'translateY(-50%)',
+            zIndex:    10,
+          }}
+        >
+          <FloatingMenu aria-label="Chat tools">
             <FloatingMenuItem
-              icon={<UserAiIcon size={20} />}
-              label="Agents"
-              active={agentsOpen}
+              icon={<PinIcon size={20} />}
+              label="Pinboard"
+              active={pinboardOpen}
               disabled={isReadOnlyChat}
-              onClick={isReadOnlyChat ? undefined : handleToggleAgents}
+              onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
+              onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
             />
-          )}
-          <FloatingMenuItem
-            icon={<QuillWriteOneIcon size={20} />}
-            label="Highlights"
-            active={highlightOpen}
-            disabled={isReadOnlyChat}
-            onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
-          />
-        </FloatingMenu>
-      </div>
+            {isChatPage && (
+              <FloatingMenuItem
+                icon={<UserAiIcon size={20} />}
+                label="Agents"
+                active={agentsOpen}
+                disabled={isReadOnlyChat}
+                onClick={isReadOnlyChat ? undefined : handleToggleAgents}
+              />
+            )}
+            <FloatingMenuItem
+              icon={<QuillWriteOneIcon size={20} />}
+              label="Highlights"
+              active={highlightOpen}
+              disabled={isReadOnlyChat}
+              onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
+            />
+          </FloatingMenu>
+        </div>
+      )}
     </>
   )
 }

@@ -798,7 +798,16 @@ export function ChatInput(
                   </Button>
                 }
               >
-                {modelMenu}
+                {/* Picking a model or toggling adaptive thinking isn't a reason
+                    to keep this dropdown open — clone in an onClose that closes
+                    it. `modelMenu` is always a <ModelMenu/> in practice, which
+                    reads this prop; a caller-supplied node without it just
+                    ignores the prop. */}
+                {React.isValidElement(modelMenu)
+                  ? React.cloneElement(modelMenu as React.ReactElement<{ onClose?: () => void }>, {
+                      onClose: () => setModelMenuOpen(false),
+                    })
+                  : modelMenu}
               </Dropdown.Float>
             ) : (
               <Button

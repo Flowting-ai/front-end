@@ -25,6 +25,7 @@ const MONO  = "'Geist Mono', ui-monospace, monospace"
 const CREDITS_BY_PRICE: Record<number, number> = {
   50:   40_000,
   100:  80_000,
+  125:  100_000,
   250:  200_000,
   500:  400_000,
   1000: 800_000,
@@ -34,6 +35,7 @@ const CREDITS_BY_PRICE: Record<number, number> = {
 const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: CheckoutPlan }[] = [
   { price: 50,   credits: CREDITS_BY_PRICE[50],   label: '$50',  planId: '50'   },
   { price: 100,  credits: CREDITS_BY_PRICE[100],  label: '$100', planId: '100'  },
+  { price: 125,  credits: CREDITS_BY_PRICE[125],  label: '$125', planId: '125'  },
   { price: 250,  credits: CREDITS_BY_PRICE[250],  label: '$250', planId: '250'  },
   { price: 500,  credits: CREDITS_BY_PRICE[500],  label: '$500', planId: '500'  },
   { price: 1000, credits: CREDITS_BY_PRICE[1000], label: '$1k',  planId: '1000' },
@@ -46,12 +48,9 @@ const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: 
 // planId on the backend yet.
 const ANNUAL_MULTIPLIER = 0.75
 
-// Every tier the pricing sheet lists, for the dropdown. $125 is deliberately
-// omitted — it has no Stripe price configured on the backend
-// (services/stripe/catalog.py's PLAN_IDS stops at 50/100/250/500/1000/2000)
-// and showing it (even disabled) reads as a surprise "coming soon" promise
-// nobody's made. Re-add it once the backend actually has a plan for it.
-const DROPDOWN_TIER_PRICES = [50, 100, 250, 500, 1000, 2000]
+// Every tier the pricing sheet lists, for the dropdown — mirrors
+// services/stripe/catalog.py's PLAN_IDS exactly (50/100/125/250/500/1000/2000).
+const DROPDOWN_TIER_PRICES = [50, 100, 125, 250, 500, 1000, 2000]
 
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US')
@@ -82,36 +81,50 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
   )
 }
 
-function FeatureDot() {
+// Multi-color Slack mark, same geometry as onboarding/plans/page.tsx's own
+// SlackLogo — reused here (scaled down to inline-icon size) for the "Souvenir
+// in Slack" line item, per Figma 85:22114.
+function SlackMark() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: 2, flexShrink: 0 }}>
-      <div style={{
-        width: 8, height: 8, borderRadius: 19,
-        backgroundColor: '#ede1d7',
-        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-      }} />
-    </div>
+    <svg width="12" height="12" viewBox="0 0 54 54" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="#36C5F0"/>
+      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="#2EB67D"/>
+      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="#ECB22E"/>
+      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="#E01E5A"/>
+    </svg>
   )
 }
 
-function FeatureLine({ text }: { text: string }) {
+// A plan-card line item is either a plain label, or a label with a trailing
+// inline icon (only "Souvenir in Slack" needs the latter, per Figma 85:22112).
+type FeatureItemDef = string | { label: string; icon: React.ReactNode }
+
+function FeatureLine({ item }: { item: FeatureItemDef }) {
+  const label = typeof item === 'string' ? item : item.label
+  const icon  = typeof item === 'string' ? null : item.icon
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <FeatureDot />
-      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
-        {text}
-      </p>
+      {/* Checkmark, not a dot — Figma 85:22111's tick-01 glyph, matching the
+          TickTwoIcon already used elsewhere in this app as a selected/included
+          indicator (e.g. ModelMenu's own selected-row tick). */}
+      <TickTwoIcon size={16} color="#3b3632" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+          {label}
+        </p>
+        {icon}
+      </div>
     </div>
   )
 }
 
-function FeatureGroup({ title, items }: { title: string; items: string[] }) {
+function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#827a74', margin: 0 }}>
         {title}
       </p>
-      {items.map(item => <FeatureLine key={item} text={item} />)}
+      {items.map(item => <FeatureLine key={typeof item === 'string' ? item : item.label} item={item} />)}
     </div>
   )
 }
@@ -135,7 +148,9 @@ function Bone({ w, h = 14, r = 6, style: extra }: { w?: number | string; h?: num
 function FeatureLineSkeleton({ w }: { w: number | string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <Bone w={8} h={8} r={19} />
+      {/* Matches the real row's 16px checkmark footprint (was a small round
+          dot before the Figma-driven switch to checkmarks). */}
+      <Bone w={16} h={16} r={4} />
       <Bone w={w} h={14} />
     </div>
   )
@@ -198,11 +213,7 @@ function ChangePlanSkeleton() {
                 </div>
                 <Hairline />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <FeatureGroupSkeleton items={['80%', '75%', '90%', '70%']} />
-                  <Hairline />
-                  <FeatureGroupSkeleton items={['60%', '85%', '75%']} />
-                  <Hairline />
-                  <FeatureGroupSkeleton items={['70%', '55%', '65%']} />
+                  <FeatureGroupSkeleton items={['70%', '55%', '85%', '80%', '75%', '65%', '80%', '60%']} />
                 </div>
               </div>
               <Bone w="100%" h={36} r={10} />
@@ -223,13 +234,7 @@ function ChangePlanSkeleton() {
               <Bone w="100%" h={36} r={10} />
               <Hairline />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
-                <FeatureGroupSkeleton items={['65%', '85%']} />
-                <Hairline />
-                <FeatureGroupSkeleton items={['30%', '50%', '75%']} />
-                <Hairline />
-                <FeatureGroupSkeleton items={['70%', '80%', '60%']} />
-                <Hairline />
-                <FeatureGroupSkeleton items={['75%', '70%']} />
+                <FeatureGroupSkeleton items={['65%', '85%', '70%', '60%', '80%', '55%']} />
               </div>
             </div>
           </div>
@@ -283,11 +288,20 @@ function OrgChangePlanPageInner() {
   const annualBtnRef      = useRef<HTMLButtonElement>(null)
   const [billingPill, setBillingPill] = useState<{ x: number; width: number } | null>(null)
 
+  // `orgReady` gates whether ChangePlanSkeleton or the real Monthly/Yearly
+  // buttons are mounted (see the `if (!orgReady) return <ChangePlanSkeleton
+  // />` below). This effect already runs on first mount regardless of its dep
+  // array, but that first run happens while still on the skeleton — both
+  // refs are null, so it bails out via the guard below and sets nothing.
+  // `billing` itself never changes between that skeleton render and the real
+  // content mounting, so without `orgReady` here the effect never re-ran and
+  // the pill just stayed absent until the user actually clicked a tab (which
+  // does change `billing`, triggering the first successful measurement).
   useLayoutEffect(() => {
     const active = (billing === 'monthly' ? monthlyBtnRef : annualBtnRef).current
     if (!active) return
     setBillingPill({ x: active.offsetLeft, width: active.offsetWidth })
-  }, [billing])
+  }, [billing, orgReady])
 
   // Mirror the current selection into the URL — query-only (no new history
   // entry per change) so back/forward doesn't step through every tier click.
@@ -632,7 +646,7 @@ function OrgChangePlanPageInner() {
                           </button>
                         }
                       >
-                        <Dropdown size="md">
+                        <Dropdown size="md" maxHeight={false}>
                           <Dropdown.Section>
                             {DROPDOWN_TIER_PRICES.map(price => {
                               const i = WORKSPACE_PLANS.findIndex(p => p.price === price)
@@ -670,21 +684,20 @@ function OrgChangePlanPageInner() {
 
                   <Hairline />
 
-                  {/* Features — everything Individual used to cover, now baseline on Workspace */}
+                  {/* Features — per Figma 85:22108 */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <FeatureGroup
                       title="Plan includes:"
-                      items={['Cross-model memory that compounds', 'Unlimited Pins & Project folders', 'Every major AI model, auto-routed or manual', 'Unlimited web search · 250+ connectors']}
-                    />
-                    <Hairline />
-                    <FeatureGroup
-                      title="Team collaboration"
-                      items={['Slack manager bot', 'Unlimited members · no per-seat', 'Shared agents, Pins & Project folders']}
-                    />
-                    <Hairline />
-                    <FeatureGroup
-                      title="Governance & control"
-                      items={['Admin controls + per-member caps', 'Approval gates', 'Full audit trail']}
+                      items={[
+                        { label: 'Souvenir in Slack', icon: <SlackMark /> },
+                        'No-code custom AI agents',
+                        'AI manager to coordinate your agents',
+                        'Scheduled multi-agent automations',
+                        'Browser automation and scraping',
+                        'Shared agents and workflows',
+                        'Unlimited seats and governance',
+                        'Team usage monitoring',
+                      ]}
                     />
                   </div>
                 </div>
@@ -723,9 +736,6 @@ function OrgChangePlanPageInner() {
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
                     Pro
                   </p>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
-                    $250/month with $125 of provider usage included.
-                  </p>
                 </div>
 
                 <m.button
@@ -752,25 +762,18 @@ function OrgChangePlanPageInner() {
 
                 <Hairline />
 
+                {/* Features — per Figma 85:22149 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
                   <FeatureGroup
-                    title="Everything in Workspace, plus"
-                    items={['Unlimited usage', 'Overage billed at exact provider cost']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Enterprise security"
-                    items={['SSO', 'DPA & SLA', 'Private deployment options']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="White-glove service"
-                    items={['Onboarding & training', 'Dedicated success manager', 'Monthly strategy review']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Support"
-                    items={['Priority email support', 'Online meeting support']}
+                    title="Everything in Core, plus"
+                    items={[
+                      'Discounted credits',
+                      'White-glove onboarding',
+                      'Live team training',
+                      'Custom workflows',
+                      'Cost-optimization reports',
+                      'Dedicated Slack support',
+                    ]}
                   />
                 </div>
               </div>

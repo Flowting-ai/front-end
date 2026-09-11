@@ -44,7 +44,7 @@ export function LibraryFilterButton({ value, onChange }: LibraryFilterButtonProp
         </Tooltip>
       }
     >
-      <Dropdown style={{ width: 220 }}>
+      <Dropdown style={{ width: 220 }} maxHeight={false}>
         <Dropdown.Section fluid>
           {MODE_OPTIONS.map((opt) => (
             <Dropdown.Item

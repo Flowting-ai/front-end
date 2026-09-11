@@ -97,7 +97,7 @@ function RoleSelect({
         </button>
       }
     >
-      <Dropdown style={{ width: 403 }}>
+      <Dropdown style={{ width: 403 }} maxHeight={false}>
         {ROLES.map((role) => (
           <Dropdown.Item
             key={role}

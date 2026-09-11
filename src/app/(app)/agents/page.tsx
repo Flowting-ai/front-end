@@ -1170,7 +1170,7 @@ function PersonasPageInner() {
                       </Button>
                     }
                   >
-                    <Dropdown>
+                    <Dropdown maxHeight={false}>
                       <Dropdown.Section>
                         <Dropdown.Item label="All"    selected={filterStatus === 'all'}    onClick={() => { setFilterStatus('all');    setAllOpen(false) }} fluid />
                         <Dropdown.Item label="Active" selected={filterStatus === 'active'} onClick={() => { setFilterStatus('active'); setAllOpen(false) }} fluid />
@@ -1245,7 +1245,7 @@ function PersonasPageInner() {
                       </Button>
                     }
                   >
-                    <Dropdown>
+                    <Dropdown maxHeight={false}>
                       <Dropdown.Section>
                         {(['activity', 'az', 'za'] as SortKey[]).map(k => (
                           <Dropdown.Item

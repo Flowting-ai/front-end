@@ -23,7 +23,7 @@ import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
 import { listAutomations, getAutomation } from "@/lib/api/automations";
 import type { Automation, AutomationRun } from "@/lib/api/automations";
-import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections, FlatBrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -1794,6 +1794,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
     setIsEditing(false)
   }
   const handleDelete = () => {
+    setMenuOpen(false)
     openDeleteChatDialog({ chatId: chat.id, chatTitle: chat.title, onConfirm: () => onDelete(chat.id) })
   }
   // Same flow as the old ChatHistoryItem.tsx's "Move to project".
@@ -1842,14 +1843,14 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
         autoFlipVertical
         trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
       >
-        <Dropdown>
+        <Dropdown maxHeight={false}>
           <Dropdown.Section fluid>
-            <Dropdown.Item fluid icon={<ShareOneIcon color="var(--neutral-600)" />} label="Share" onClick={() => push(`/chat?id=${chat.id}&share=1`)} />
-            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => setIsEditing(true)} />
+            <Dropdown.Item fluid icon={<ShareOneIcon color="var(--neutral-600)" />} label="Share" onClick={() => { setMenuOpen(false); push(`/chat?id=${chat.id}&share=1`) }} />
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
             {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
-            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} onClick={() => void onStar(chat.id)} />
-            <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => setMoveModalOpen(true)} />
-            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => void onArchive(chat.id)} />
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} onClick={() => { setMenuOpen(false); void onStar(chat.id) }} />
+            <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => { setMenuOpen(false); setMoveModalOpen(true) }} />
+            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => { setMenuOpen(false); void onArchive(chat.id) }} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>
@@ -1999,7 +2000,7 @@ interface FlatProjectChatItemProps {
   href?: string
   onSelect: () => void
   onRename: (chatId: string, title: string) => Promise<void>
-  onDelete: (chatId: string) => void
+  onDelete: (chatId: string) => Promise<void>
 }
 
 function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: FlatProjectChatItemProps) {
@@ -2012,7 +2013,22 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
     setIsEditing(false)
   }
   const handleDelete = () => {
-    openDeleteChatDialog({ chatId: chat.id, chatTitle: chat.title, onConfirm: async () => onDelete(chat.id) })
+    setMenuOpen(false)
+    openDeleteChatDialog({
+      chatId: chat.id,
+      chatTitle: chat.title,
+      // Awaiting the real delete (not just firing it) is what makes the
+      // dialog's Delete button show a loading state for the actual duration
+      // of the request, instead of resolving instantly.
+      onConfirm: async () => {
+        try {
+          await onDelete(chat.id)
+          toast.success("Chat deleted")
+        } catch {
+          toast.error("Failed to delete chat")
+        }
+      },
+    })
   }
 
   return (
@@ -2035,11 +2051,11 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
         placement="right-start"
         trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
       >
-        <Dropdown>
+        <Dropdown maxHeight={false}>
           <Dropdown.Section fluid>
-            <Dropdown.Item fluid label="Rename" onClick={() => setIsEditing(true)} />
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
             <Divider decorative />
-            <Dropdown.Item fluid variant="danger" label="Delete" onClick={handleDelete} />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>
         </Dropdown>
       </Dropdown.Float>
@@ -2115,7 +2131,16 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
               active={isActive || isExpanded}
               expanded={isExpanded}
               onExpandedChange={(v) => toggleExpand(project.id, v)}
-              onNewChat={() => push(PROJECT_CHAT_NEW_ROUTE(project.id))}
+              onNewChat={() => {
+                // Belt-and-suspenders alongside the push: if a chat in this
+                // project was already created this session (new → real id via
+                // the URL-swap trick), the router thinks it never left
+                // `/project/[id]/chat/new`, so pushing that same URL again is a
+                // no-op — see PROJECT_NEW_CHAT_EVENT. The project chat page
+                // listens for this and force-remounts itself instead.
+                emitProjectNewChat({ projectId: project.id })
+                push(PROJECT_CHAT_NEW_ROUTE(project.id))
+              }}
               onOpen={() => push(PROJECT_ROUTE(project.id))}
             >
               {chats.slice(0, CHAT_LIMIT).map(chat => (
@@ -2128,12 +2153,15 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
               ))}
               {project.chatCount === 0 ? (
                 <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
-              ) : (
+              ) : project.chatCount > CHAT_LIMIT ? (
+                // Only when there's more to see than the CHAT_LIMIT rows already
+                // listed above — a project with CHAT_LIMIT or fewer chats has
+                // nothing left for this link to reveal.
                 <FlatSidebarRow
                   variant="default" icon={<MoreHorizontalIcon size={20} animated />} label="See all chats"
                   selected={pathname === PROJECT_ROUTE(project.id)} href={PROJECT_ROUTE(project.id)} onClick={() => push(PROJECT_ROUTE(project.id))}
                 />
-              )}
+              ) : null}
             </FlatSidebarProjectGroup>
           </m.div>
         )

@@ -15,11 +15,9 @@ import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
-import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
 import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
 import { Badge, type BadgeColor } from "@/components/Badge";
-import { Divider } from "@/components/Divider";
 import { sortModelsByTier } from "@/lib/ai-models";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -106,13 +104,6 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
-  /** Whether the Muse auto-router is the active selection — drives both the
-   *  Muse card's own selected state and suppresses "selected" on every
-   *  manual tier row below it. */
-  museActive: boolean;
-  /** Activates Muse in Auto mode (sets museActive + museAdvanced, closes the
-   *  dialog) — fired by the big Muse card at the top of the list. */
-  onSelectMuseAuto: () => void;
   /** Flip info tooltips to open leftward — set when the anchor trigger sits
    * near the right edge of the viewport (e.g. the project page's top-right
    * model button), leaving no room for them to open to the right. */
@@ -123,8 +114,6 @@ function PresetModelSelectorContent({
   models,
   selectedModel,
   onSelect,
-  museActive,
-  onSelectMuseAuto,
   preferLeftTooltips,
 }: PresetModelSelectorContentProps) {
   // Tracks the panel's own rendered width so each row's info tooltip can be
@@ -160,25 +149,6 @@ function PresetModelSelectorContent({
           // the model list itself (MODEL_LIST_MAX_HEIGHT below).
         }}
       >
-        {/* ── Muse: Auto card — hidden for now (kept out of view only; the
-             underlying museActive/onSelectMuseAuto plumbing is untouched so
-             re-showing this is a one-line revert). ── */}
-        {false && (
-          <>
-            <div style={{ width: "100%", flexShrink: 0 }}>
-              <ModelFeaturedCard
-                subtitle="Souvenir Muse"
-                title="Auto"
-                description="Automatically routes each message to the best-fit tier — Basic, Standard, or Advanced."
-                selected={museActive}
-                onSelectedChange={(next) => { if (next) onSelectMuseAuto(); }}
-              />
-            </div>
-
-            <Divider decorative />
-          </>
-        )}
-
         {/* ── Model list ── */}
         <div
           style={{
@@ -211,7 +181,6 @@ function PresetModelSelectorContent({
                 >
                   {filtered.map((model) => {
                     const isSelected =
-                      !museActive &&
                       selectedModel?.id === model.id &&
                       selectedModel?.modelId === model.modelId;
                     return (
@@ -275,10 +244,9 @@ function PresetModelSelectorContent({
 // Worst-case rendered height of PresetModelSelectorContent, used only to decide
 // whether to flip the dropdown above the anchor when there isn't enough room
 // below. The dialog itself is fluid (no fixed height) — this is a conservative
-// upper estimate (outer padding + Muse featured card + divider + gaps +
-// MODEL_LIST_MAX_HEIGHT), so it stays safe even though the actual rendered
-// height is usually shorter.
-const DROPDOWN_HEIGHT = 16 /* outer padding */ + 110 /* Muse card */ + 16 /* gap */ + 9 /* divider */ + 16 /* gap */ + MODEL_LIST_MAX_HEIGHT;
+// upper estimate (outer padding + MODEL_LIST_MAX_HEIGHT), so it stays safe
+// even though the actual rendered height is usually shorter.
+const DROPDOWN_HEIGHT = 16 /* outer padding */ + MODEL_LIST_MAX_HEIGHT;
 const DROPDOWN_WIDTH = 360;
 const GAP = 8;
 
@@ -290,17 +258,7 @@ export function PresetModelSelectorDialog() {
     isOpen,
     anchorEl,
     close,
-    museActive,
-    setMuseAdvanced,
   } = useModelSelectorContext();
-
-  // Auto is the only Muse mode reachable from this dialog — museAdvanced
-  // just means "Muse is in its one and only mode", not a separate tier.
-  const selectMuseAuto = () => {
-    trackFeature("model_selector_manual", { model_id: "muse-auto", model_type: "muse" });
-    setMuseAdvanced(true);
-    close();
-  };
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -411,8 +369,6 @@ export function PresetModelSelectorDialog() {
               models={models}
               selectedModel={selectedModel}
               onSelect={selectModel}
-              museActive={museActive}
-              onSelectMuseAuto={selectMuseAuto}
               preferLeftTooltips={preferLeftTooltips}
             />
           </Popover>

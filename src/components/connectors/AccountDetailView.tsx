@@ -124,7 +124,7 @@ function GroupPermissionDropdown({ value, label, change, disabled }: { value?: P
   }
   return (
     <Dropdown.Float trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-end">
-      <Dropdown size="sm">
+      <Dropdown size="sm" maxHeight={false}>
         <Dropdown.Section fluid>
           {(Object.keys(PERMISSION_LABELS) as PermissionMode[]).map(mode => (
             <Dropdown.Item key={mode} label={PERMISSION_LABELS[mode]} icon={PERMISSION_ICONS[mode]} selected={mode === value} fluid onClick={() => { change(mode); setOpen(false) }} />

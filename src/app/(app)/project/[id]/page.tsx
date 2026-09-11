@@ -5,12 +5,12 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
 import { Badge } from '@/components/Badge'
 import { useProjects } from '@/context/projects-context'
+import { emitProjectNewChat } from '@/hooks/use-sidebar-events'
 import { useAuth } from '@/context/auth-context'
 import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
@@ -22,6 +22,7 @@ import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
+import { Skeleton } from '@/components/Skeleton'
 import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
@@ -29,7 +30,7 @@ import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
-import { setChatVisibility, listChats } from '@/lib/api/chat'
+import { publishProjectChat, listChats } from '@/lib/api/chat'
 import { useOrg } from '@/context/org-context'
 import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
@@ -78,6 +79,25 @@ function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
   return rows.flatMap((row, i) => (i === 0 ? [row] : [<Divider key={`divider-${i}`} />, row]))
 }
 
+// Shown in place of "Your chats"/"Published chats" while teamChats is still
+// paging in (see the listChats effect) — same padding/shape as a real
+// ProjectChatRow so there's no layout jump once the rows swap in, and no
+// "No chats yet" flash for a project that genuinely has chats.
+function TeamChatRowSkeleton({ w }: { w: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Skeleton width={w} height={14} />
+        <Skeleton width="30%" height={12} />
+      </div>
+    </div>
+  )
+}
+
+function teamChatsLoadingRows() {
+  return withDividers(['70%', '45%', '58%'].map((w, i) => <TeamChatRowSkeleton key={i} w={w} />))
+}
+
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
@@ -85,7 +105,7 @@ export default function ProjectPage() {
   const { pins, isLoading: pinsLoading, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { panel: sharedPanel, setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
   const { orgId, org, caps, members } = useOrg()
@@ -140,6 +160,7 @@ export default function ProjectPage() {
   const [shareOpen,        setShareOpen]        = useState(false)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<Chat[]>([])
+  const [teamChatsLoading, setTeamChatsLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -151,8 +172,9 @@ export default function ProjectPage() {
   // backend stamps organizationId on org members' Personal projects too, so
   // teamId alone can't tell Personal apart from Workspace/Shared.
   useEffect(() => {
-    if (!project || project.visibility === 'personal') { setTeamChats([]); return }
+    if (!project || project.visibility === 'personal') { setTeamChats([]); setTeamChatsLoading(false); return }
     let cancelled = false
+    setTeamChatsLoading(true)
     ;(async () => {
       const collected: Chat[] = []
       let cursor: string | undefined
@@ -165,6 +187,7 @@ export default function ProjectPage() {
       }
       if (!cancelled) setTeamChats(collected.filter(c => c.project_id === params.id))
     })().catch(() => { if (!cancelled) setTeamChats([]) })
+      .finally(() => { if (!cancelled) setTeamChatsLoading(false) })
     return () => { cancelled = true }
   }, [project?.visibility, params.id])
 
@@ -352,6 +375,12 @@ export default function ProjectPage() {
       setNewChatAttachments([])
     }
     const q = text.trim()
+    // Belt-and-suspenders alongside the push — see PROJECT_NEW_CHAT_EVENT: if a
+    // project chat page for this project is already mounted (rare from this
+    // entry point, but defends the same class of bug), a plain push to the
+    // same "new" URL it's internally stuck believing it's already on would
+    // otherwise no-op.
+    emitProjectNewChat({ projectId })
     push(PROJECT_CHAT_NEW_ROUTE(projectId) + (q ? `?q=${encodeURIComponent(q)}` : ''))
     setChatInputValue('')
   }
@@ -378,17 +407,26 @@ export default function ProjectPage() {
     }
   }
 
-  // Publish / unpublish a single chat to the project's team. Optimistic — the
-  // row's "Published" badge follows `teamChats`; revert on failure.
+  // Publish a single chat to the project so every project member can see it.
+  // Optimistic — the row's "Published" badge follows `teamChats`; revert on
+  // failure. There's no backend route to unpublish/unshare yet (see
+  // publishProjectChat's comment) — ProjectChatRow no longer offers an
+  // "Unpublish" action for that reason, so `next` should always be `true`
+  // here; the `false` branch is a defensive guard against that prop ever
+  // being wired up again before the backend actually supports it.
   async function handlePublishToggle(chatId: string, next: boolean) {
-    const teamId = project?.teamId
-    setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: next ? 'team' : 'private' } : c))
+    if (!next) {
+      toast.error("Unpublishing isn't supported yet")
+      return
+    }
+    setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: 'team' } : c))
     try {
-      await setChatVisibility(chatId, next ? 'team' : 'private', next ? teamId ?? undefined : undefined)
-      toast.success(next ? 'Chat published to team' : 'Chat unpublished from team')
+      await publishProjectChat(chatId)
+      toast.success(`Chat published — visible in ${publishedTabLabel}`)
+      setActiveTab('publish')
     } catch (err) {
-      setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: next ? 'private' : 'team' } : c))
-      toast.error(err instanceof Error ? err.message : 'Failed to update chat')
+      setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: 'private' } : c))
+      toast.error(err instanceof Error ? err.message : 'Failed to publish chat')
     }
   }
 
@@ -408,6 +446,12 @@ export default function ProjectPage() {
   // Workspace one — this whole tab strip only renders when visibility isn't
   // 'personal', so it's one or the other here.
   const publishedTabLabel = project.visibility === 'workspace' ? 'Workspace chats' : 'Shared chats'
+  // Who actually gets to see a published chat — a Workspace project's audience
+  // is the whole org (no member list of its own, per canManageProjectMembers's
+  // comment above), a Shared project's is only the specific people added to
+  // that project. Used by the tabs' "About these tabs" tooltip so it states
+  // the real audience instead of a one-size-fits-all "the workspace".
+  const publishedAudienceLabel = project.visibility === 'workspace' ? 'all workspace members' : 'the members of this project'
 
   // A chat row for the team-project tab (Your chats / Published chats).
   function teamChatRow(chat: Chat) {
@@ -544,29 +588,39 @@ export default function ProjectPage() {
                     />
                   }
                 >
-                  <Dropdown size="md">
-                    {canEditProjectContent && <Dropdown.Section fluid>
-                      <Dropdown.Item
-                        label="Edit"
-                        onClick={() => { setMenuOpen(false); setEditOpen(true) }}
-                        fluid
-                      />
-                    </Dropdown.Section>}
-                    {canLeaveProject && <Dropdown.Section fluid>
-                      <Dropdown.Item
-                        label="Leave project"
-                        onClick={() => { setMenuOpen(false); setLeaveOpen(true) }}
-                        fluid
-                      />
-                    </Dropdown.Section>}
-                    {canDeleteProject && <Dropdown.Section fluid>
-                      <Dropdown.Item
-                        label="Delete"
-                        variant="danger"
-                        onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true) }}
-                        fluid
-                      />
-                    </Dropdown.Section>}
+                  <Dropdown size="md" maxHeight={false}>
+                    {/* One shared section — each item used to get its own
+                        Dropdown.Section, which stacks that section's own 8px
+                        padding on both sides of every single item, reading as
+                        an oversized gap between Edit and Delete instead of
+                        normal row spacing. */}
+                    <Dropdown.Section fluid>
+                      {canEditProjectContent && (
+                        <Dropdown.Item
+                          label="Edit"
+                          onClick={() => { setMenuOpen(false); setEditOpen(true) }}
+                          fluid
+                        />
+                      )}
+                      {canLeaveProject && (
+                        <Dropdown.Item
+                          label="Leave project"
+                          onClick={() => { setMenuOpen(false); setLeaveOpen(true) }}
+                          fluid
+                        />
+                      )}
+                      {canDeleteProject && (
+                        <>
+                          {(canEditProjectContent || canLeaveProject) && <Divider decorative />}
+                          <Dropdown.Item
+                            label="Delete"
+                            variant="danger"
+                            onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true) }}
+                            fluid
+                          />
+                        </>
+                      )}
+                    </Dropdown.Section>
                   </Dropdown>
                 </Dropdown.Float>}
 
@@ -577,33 +631,9 @@ export default function ProjectPage() {
                   aria-label="Sharing"
                   onClick={handleOpenShare}
                 />}
-
-                <Button
-                  variant="default"
-                  size="sm"
-                  rightIcon={<ArrowDownOneIcon />}
-                  onClick={(e) => {
-                    if (personaActive) {
-                      toast.info('Model locked to agent', {
-                        description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
-                      })
-                      return
-                    }
-                    openModelSelector(e.currentTarget)
-                  }}
-                  aria-haspopup="listbox"
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
-                    {/* Always the Souvenir mark — every model behind this
-                        button is one of the 3 Souvenir Muse tiers. */}
-                    {(museActive || !!selectedModel) && (
-                      <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <SouvenirModelIcon size={16} variant="light" />
-                      </span>
-                    )}
-                    {modelButtonLabel ?? 'Souvenir AI · Muse'}
-                  </span>
-                </Button>
+                {/* Primary model-selector button removed — ChatInput's own
+                    embedded ModelMenu (the composer, further down this page)
+                    covers the same 3 models now. */}
               </div>
             </div>
 
@@ -843,9 +873,9 @@ export default function ProjectPage() {
                     maxWidth={280}
                     content={
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div><b>Your chats</b> — your own chats here, plus what&apos;s published to the workspace.</div>
+                        <div><b>Your chats</b> — your own chats here, plus what&apos;s published to {publishedAudienceLabel}.</div>
                         <div style={tooltipDividerStyle} />
-                        <div><b>{publishedTabLabel}</b> — just the chats published to the workspace.</div>
+                        <div><b>{publishedTabLabel}</b> — chats published here are visible to {publishedAudienceLabel}.</div>
                       </div>
                     }
                   >
@@ -862,18 +892,20 @@ export default function ProjectPage() {
                     chats plus published-to-workspace ones (blue "Published" badge). */}
                 <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
-                    {personalChats.length === 0 ? <ProjectChatEmptyRow /> : withDividers(personalChats.map(teamChatRow))}
+                    {teamChatsLoading
+                      ? teamChatsLoadingRows()
+                      : personalChats.length === 0 ? <ProjectChatEmptyRow /> : withDividers(personalChats.map(teamChatRow))}
                   </div>
                 </TabsContent>
 
                 {/* Published chats — the published-only subset, visible to and manageable by editor+ */}
                 <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
-                    {publishedChats.length === 0 ? (
+                    {teamChatsLoading ? teamChatsLoadingRows() : publishedChats.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
                         <AlertCircleIcon size={16} />
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>
-                          {canPublishChat ? 'Hover a chat under “Your chats” to publish it to the workspace.' : 'No chats have been published to the workspace yet.'}
+                          {canPublishChat ? `Hover a chat under “Your chats” to publish it to ${publishedAudienceLabel}.` : `No chats have been published to ${publishedAudienceLabel} yet.`}
                         </span>
                       </div>
                     ) : withDividers(publishedChats.map(teamChatRow))}

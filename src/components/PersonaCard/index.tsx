@@ -807,7 +807,7 @@ function PersonaCardInner({
                               zIndex:   20,
                             }}
                           >
-                            <Dropdown size="sm">
+                            <Dropdown size="sm" maxHeight={false}>
                               <Dropdown.Section fluid>
                                 {onMenuEdit && (
                                   <Dropdown.Item

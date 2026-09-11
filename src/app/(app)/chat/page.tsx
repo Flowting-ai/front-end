@@ -667,8 +667,6 @@ function ChatPageInner() {
     selectedModel,
     selectModel,
     open: openModelSelector,
-    museActive,
-    museAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -733,11 +731,7 @@ function ChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  const modelButtonLabel = museActive
-    ? museAdvanced
-      ? "Souvenir AI Muse (Auto)"
-      : "Souvenir AI Muse (Basic)"
-    : selectedModel?.modelName;
+  const modelButtonLabel = selectedModel?.modelName;
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId

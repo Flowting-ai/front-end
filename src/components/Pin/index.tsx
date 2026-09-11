@@ -1013,7 +1013,7 @@ export function Pin({
                   />
                 }
               >
-                <Dropdown size="sm">
+                <Dropdown size="sm" maxHeight={false}>
                   <Dropdown.Section fluid>
                     <Dropdown.Item
                       label="Duplicate"

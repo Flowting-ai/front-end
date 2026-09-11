@@ -97,7 +97,7 @@ interface PermissionMenuProps {
 
 function PermissionMenu({ current, onSelect, onRemove, onClose }: PermissionMenuProps) {
   return (
-    <Dropdown>
+    <Dropdown maxHeight={false}>
       <Dropdown.Section fluid>
         {PERMISSION_OPTIONS.map((opt) => (
           <Dropdown.Item

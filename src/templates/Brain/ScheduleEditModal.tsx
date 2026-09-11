@@ -427,7 +427,7 @@ export function ScheduleEditModal({
                         </Button>
                       }
                     >
-                      <Dropdown>
+                      <Dropdown maxHeight={false}>
                         <Dropdown.Section>
                           {DAYS.map(d => (
                             <Dropdown.Item

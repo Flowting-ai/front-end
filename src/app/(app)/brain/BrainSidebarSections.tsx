@@ -475,13 +475,13 @@ function FlatBrainThreadItem({
         autoFlipVertical
         trigger={<span aria-hidden style={{ position: 'absolute', right: '8px', top: '50%', width: 1, height: 1, pointerEvents: 'none' }} />}
       >
-        <Dropdown>
+        <Dropdown maxHeight={false}>
           <Dropdown.Section fluid>
-            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => setIsEditing(true)} />
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
             {/* User-facing "Pin task"/"Unpin task" — starred/star stays the field name internally to match the API contract, same convention as chats' "Pin chat". */}
-            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={thread.starred ? 'Unpin task' : 'Pin task'} onClick={() => void onStar(thread.id)} />
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={thread.starred ? 'Unpin task' : 'Pin task'} onClick={() => { setMenuOpen(false); void onStar(thread.id) }} />
             <Divider decorative />
-            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={() => onDelete(thread.id, stripDocumentBlocks(thread.chat_title) || thread.chat_title)} />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={() => { setMenuOpen(false); onDelete(thread.id, stripDocumentBlocks(thread.chat_title) || thread.chat_title) }} />
           </Dropdown.Section>
         </Dropdown>
       </Dropdown.Float>
@@ -562,6 +562,10 @@ function FlatBrainThreadsSection({ activeChatId, onThreadClick, onSwitchToChats 
               ))}
             </m.div>
           </m.div>
+          {/* Gap before Recent Tasks — same as FlatPinnedSection's gap before
+              Recent Chats (LeftSidebar.tsx), only takes up space when Pinned
+              actually rendered (see the starredThreads.length > 0 guard above). */}
+          <div aria-hidden style={{ height: 12 }} />
         </>
       )}
 
