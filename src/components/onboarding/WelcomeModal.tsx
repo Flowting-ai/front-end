@@ -9,6 +9,9 @@ import { apiFetch } from "@/lib/api/client";
 import { toast } from "sonner";
 import { STRIPE_TRIAL_ENDPOINT } from "@/lib/config";
 import { SETTINGS_BILLING_CHANGE_PLAN_ROUTE } from "@/lib/routes";
+import { creditsFromUsage } from "@/lib/credits";
+import { formatCredits } from "@/lib/plan-config";
+import type { UserUsage } from "@/lib/api/user";
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
@@ -350,22 +353,19 @@ function WelcomeModalImpl() {
     try {
       const res = await apiFetch(STRIPE_TRIAL_ENDPOINT, { method: "POST" });
       if (res.ok) {
-        // Parse the billing/usage response to extract trial credits immediately
-        const body = await res.json();
-        const credits = body?.credits;
-        if (credits && user) {
-          const totalCredits = Math.round((credits.total_credits ?? 0) * 1000);
-          const remaining = credits.trial
-            ? Math.round((credits.trial.remaining ?? 0) * 1000)
-            : totalCredits;
+        // /stripe/trial returns the same usage shape /users/me nests under
+        // `usage`, so the sidebar shows the new balance before refreshUser lands.
+        const usage: UserUsage = await res.json();
+        if (user) {
+          const balance = creditsFromUsage(usage);
           setUser({
             ...user,
-            isTrial: true,
-            creditsTotal: totalCredits,
-            creditsRemaining: remaining,
-            creditsUsed: Math.round(((credits.trial?.used ?? 0)) * 1000),
-            creditsDisplay: totalCredits.toLocaleString("en-US"),
-            creditsRemainingDisplay: remaining.toLocaleString("en-US"),
+            isTrial: balance.isTrial,
+            creditsTotal: balance.total,
+            creditsRemaining: balance.remaining,
+            creditsUsed: balance.used,
+            creditsDisplay: formatCredits(balance.total),
+            creditsRemainingDisplay: formatCredits(balance.remaining),
           });
         }
         // Also refresh full profile in background
