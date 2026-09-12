@@ -376,7 +376,23 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 20px' }}>
                     {sharesLoading ? (
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>
+                      [0, 1].map(i => (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 12px', borderRadius: '10px',
+                            backgroundColor: 'var(--neutral-50)', boxShadow: '0px 0px 0px 1px var(--neutral-100)',
+                            gap: '8px', opacity: 1 - i * 0.25,
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div className="kaya-skeleton" style={{ width: 110, height: 13, borderRadius: 4 }} />
+                            <div className="kaya-skeleton" style={{ width: 140, height: 11, borderRadius: 4 }} />
+                          </div>
+                          <div className="kaya-skeleton" style={{ width: 64, height: 28, borderRadius: 8 }} />
+                        </div>
+                      ))
                     ) : existingShares.length === 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 8px', textAlign: 'center' }}>
                         <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

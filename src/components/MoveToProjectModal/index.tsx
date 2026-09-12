@@ -33,6 +33,13 @@ export interface MoveToProjectModalProps {
   projects?:  Project[]
   /** How many chats are being moved — shown in the header + warning copy */
   chatCount?: number
+  /**
+   * True while the caller's `onConfirm` is in flight. Keeps the modal open
+   * (rather than the caller hiding it via its own `open` expression) and
+   * shows a spinner on "Move to project" instead of the modal just
+   * vanishing mid-request.
+   */
+  loading?:   boolean
   className?: string
 }
 
@@ -164,6 +171,7 @@ export function MoveToProjectModal({
   onConfirm,
   projects  = EMPTY_PROJECTS,
   chatCount = 1,
+  loading   = false,
   className,
 }: MoveToProjectModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -172,12 +180,12 @@ export function MoveToProjectModal({
   const mounted = useMounted()
 
   const handleConfirm = () => {
-    if (!selectedId) return
+    if (!selectedId || loading) return
     onConfirm(selectedId)
-    setSelectedId(null)
   }
 
   const handleClose = () => {
+    if (loading) return
     setSelectedId(null)
     onClose()
   }
@@ -284,6 +292,7 @@ export function MoveToProjectModal({
                   aria-label="Close"
                   icon={<CancelOneIcon size={16} />}
                   onClick={handleClose}
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -363,6 +372,9 @@ export function MoveToProjectModal({
                   overscrollBehaviorY: 'contain',
                   padding:             3,
                   paddingBottom:       12,
+                  opacity:             loading ? 0.5 : 1,
+                  pointerEvents:       loading ? 'none' : undefined,
+                  transition:          'opacity 150ms',
                 }}
               >
                 {projects.length === 0 ? (
@@ -423,10 +435,10 @@ export function MoveToProjectModal({
               padding:        '12px 16px 16px',
               borderTop:      '1px solid var(--neutral-100)',
             }}>
-              <Button variant="ghost" onClick={handleClose}>
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button variant="default" disabled={!selectedId} onClick={handleConfirm}>
+              <Button variant="default" disabled={!selectedId || loading} loading={loading} onClick={handleConfirm}>
                 Move to project
               </Button>
             </div>

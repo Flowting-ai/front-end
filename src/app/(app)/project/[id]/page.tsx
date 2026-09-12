@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { Badge } from '@/components/Badge'
@@ -22,6 +22,7 @@ import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
+import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import { Skeleton } from '@/components/Skeleton'
 import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
@@ -350,9 +351,22 @@ export default function ProjectPage() {
 
   if (!project) {
     if (projectsLoading || projectLoading) {
+      // Mirrors the real page's own shell (title block + chat-row list) —
+      // same TeamChatRowSkeleton rows the team-chat tabs already use below
+      // — so the project page never flashes bare "Loading…" text.
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Loading…</p>
+        <div style={{ position: 'relative', display: 'flex', width: '100%', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 16px 8px', boxSizing: 'border-box', gap: '12px', height: '100%' }}>
+              <div style={{ width: '100%', maxWidth: '679px', marginBottom: '27px', flexShrink: 0 }}>
+                <Skeleton width="40%" height={28} style={{ marginBottom: 12 }} />
+                <Skeleton width="60%" height={14} />
+              </div>
+              <div style={{ width: '100%', maxWidth: '679px' }}>
+                {teamChatsLoadingRows()}
+              </div>
+            </div>
+          </div>
         </div>
       )
     }
@@ -491,10 +505,14 @@ export default function ProjectPage() {
           void chatHistory.rename(chat.id, newTitle)
           setTeamChats(prev => prev.map(c => c.id === chat.id ? { ...c, title: newTitle } : c))
         } : undefined}
-        onDelete={chat.can_edit ? () => {
-          removeChat(projectId, chat.id)
-          setTeamChats(prev => prev.filter(c => c.id !== chat.id))
-        } : undefined}
+        onDelete={chat.can_edit ? () => openDeleteChatDialog({
+          chatId:    chat.id,
+          chatTitle: chat.title,
+          onConfirm: async () => {
+            await removeChat(projectId, chat.id)
+            setTeamChats(prev => prev.filter(c => c.id !== chat.id))
+          },
+        }) : undefined}
       />
     )
   }
@@ -515,7 +533,11 @@ export default function ProjectPage() {
           renameChat(projectId, chat.id, newTitle)
           void chatHistory.rename(chat.id, newTitle)
         } : undefined}
-        onDelete={chat.canEdit ? () => removeChat(projectId, chat.id) : undefined}
+        onDelete={chat.canEdit ? () => openDeleteChatDialog({
+          chatId:    chat.id,
+          chatTitle: chat.title,
+          onConfirm: async () => { await removeChat(projectId, chat.id) },
+        }) : undefined}
       />
     )))
   )
@@ -618,6 +640,7 @@ export default function ProjectPage() {
                     <Dropdown.Section fluid>
                       {canEditProjectContent && (
                         <Dropdown.Item
+                          icon={<PenOneIcon color="var(--neutral-600)" />}
                           label="Edit"
                           onClick={() => { setMenuOpen(false); setEditOpen(true) }}
                           fluid
@@ -625,6 +648,7 @@ export default function ProjectPage() {
                       )}
                       {canLeaveProject && (
                         <Dropdown.Item
+                          icon={<UnlinkOneIcon color="var(--neutral-600)" />}
                           label="Leave project"
                           onClick={() => { setMenuOpen(false); setLeaveOpen(true) }}
                           fluid
@@ -634,6 +658,7 @@ export default function ProjectPage() {
                         <>
                           {(canEditProjectContent || canLeaveProject) && <Divider decorative />}
                           <Dropdown.Item
+                            icon={<DeleteTwoIcon color="var(--red-500)" />}
                             label="Delete"
                             variant="danger"
                             onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true) }}

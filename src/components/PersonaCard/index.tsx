@@ -327,6 +327,12 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   onMenuDuplicate?:     () => void
   /** ··· menu → Pause / Resume (toggles based on `paused`) */
   onMenuPauseToggle?:   () => void
+  /**
+   * True while a pause/resume request for this persona is in flight — shows
+   * a spinner on the Resume action-bar button and the ··· menu's Pause/Resume
+   * item, and blocks re-triggering either while pending.
+   */
+  pausePending?:        boolean
   /** ··· menu → Delete */
   onMenuDelete?:        () => void
 
@@ -354,6 +360,7 @@ function ActionBar({
   onUseInChat,
   useInChatLabel = 'Use in chat',
   onResume,
+  resumePending,
   onTry,
   onOpen,
 }: {
@@ -366,6 +373,7 @@ function ActionBar({
   onUseInChat?:     () => void
   useInChatLabel?:  string
   onResume?:        () => void
+  resumePending?:   boolean
   onTry?:           () => void
   onOpen?:          () => void
 }) {
@@ -411,7 +419,7 @@ function ActionBar({
       )}
 
       {type === 'resume' && onResume && (
-        <Button variant="outline" size="sm" style={{ flex: 1 }} onClick={onResume}>Resume</Button>
+        <Button variant="outline" size="sm" style={{ flex: 1 }} loading={resumePending} disabled={resumePending} onClick={onResume}>Resume</Button>
       )}
 
       {type === 'draft' && (
@@ -515,6 +523,7 @@ function PersonaCardInner({
       onMenuShare,
       onMenuDuplicate,
       onMenuPauseToggle,
+      pausePending    = false,
       onMenuDelete,
       asChild        = false,
       className,
@@ -635,6 +644,9 @@ function PersonaCardInner({
           cursor:          modelUnavailable ? 'default' : 'pointer',
           boxSizing:       'border-box' as const,
           zIndex:          menuOpen ? 100 : undefined,
+          opacity:         pausePending ? 0.6 : 1,
+          pointerEvents:   pausePending ? 'none' : undefined,
+          transition:      'opacity 150ms',
           ...style,
         }}
         {...props}
@@ -830,6 +842,7 @@ function PersonaCardInner({
                                     label={paused ? 'Resume' : 'Pause'}
                                     icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
                                     fluid
+                                    loading={pausePending}
                                     onClick={() => { setMenuOpen(false); onMenuPauseToggle() }}
                                   />
                                 )}
@@ -1052,6 +1065,7 @@ function PersonaCardInner({
               onUseInChat={onUseInChat}
               useInChatLabel={useInChatLabel}
               onResume={onResume}
+              resumePending={pausePending}
               onTry={onTry}
               onOpen={onOpen}
             />

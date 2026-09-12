@@ -14,6 +14,8 @@ import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { Skeleton } from '@/components/Skeleton'
+import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 
 function SharedChatContent() {
   const params   = useParams()
@@ -53,9 +55,15 @@ function SharedChatContent() {
   }
 
   if (loading) {
+    // Mirrors the real shared-chat layout below — header block + message
+    // bubbles — instead of flashing plain "Loading…" text.
     return (
-      <div style={{ padding: 48, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>
-        Loading…
+      <div style={{ maxWidth: 760, margin: '0 auto', width: '100%', padding: '24px 24px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Skeleton width="45%" height={26} />
+          <Skeleton width="25%" height={14} />
+        </div>
+        <ChatMessagesSkeleton />
       </div>
     )
   }

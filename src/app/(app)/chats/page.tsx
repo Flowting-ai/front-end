@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { ChatRow } from '@/components/ChatRow'
 import { ChatSelectionBar } from '@/components/ChatSelectionBar'
 import { MoveToProjectModal } from '@/components/MoveToProjectModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
@@ -208,6 +209,7 @@ function ChatsPageInner() {
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   const [moveModalOpen, setMoveModalOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
   // Shared by both Chats and Tasks mode — only one of their search inputs is
   // ever mounted at a time (gated by `libraryMode`), so one toggle is enough.
@@ -311,12 +313,15 @@ function ChatsPageInner() {
 
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
+    const count = selectedIds.size
     try {
       await Promise.all([...selectedIds].map((id) => remove(id)))
-      toast.success(`Deleted ${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''}`)
+      toast.success(`Deleted ${count} chat${count > 1 ? 's' : ''}`)
       exitSelection()
     } catch {
       toast.error('Failed to delete some chats')
+    } finally {
+      setBulkDeleteOpen(false)
     }
   }, [selectedIds, remove, exitSelection])
 
@@ -496,7 +501,7 @@ function ChatsPageInner() {
                   totalCount={activeChats.length}
                   onToggleAll={toggleAll}
                   onMoveToProject={() => setMoveModalOpen(true)}
-                  onDelete={handleDelete}
+                  onDelete={() => setBulkDeleteOpen(true)}
                   onCancel={exitSelection}
                 />
               </m.div>
@@ -909,12 +914,25 @@ function ChatsPageInner() {
 
       {/* ── Move to project modal ───────────────────────────────────────────── */}
       <MoveToProjectModal
-        open={moveModalOpen && !isMoving}
+        open={moveModalOpen}
+        loading={isMoving}
         onClose={() => setMoveModalOpen(false)}
         onConfirm={handleMoveToProject}
         projects={projects.map((p) => ({ id: p.id, name: p.name, description: p.description }))}
         chatCount={selectedIds.size}
       />
+
+      {/* ── Bulk delete confirm — mirrors the single-chat DeleteChatDialog's
+          copy, just pluralized for the selection count. ── */}
+      {bulkDeleteOpen && (
+        <ConfirmModal
+          title={`Delete ${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''}?`}
+          description="This can't be undone."
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+          onClose={() => setBulkDeleteOpen(false)}
+        />
+      )}
 
     </div>
   )

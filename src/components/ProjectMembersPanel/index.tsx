@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { PlusSignIcon, ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from 'sonner'
 import {
   fetchProjectMembers,
@@ -76,9 +77,9 @@ function EmptyState({ text }: { text: string }) {
 }
 
 export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refreshKey, onAddMember }: ProjectMembersPanelProps) {
-  const [members,    setMembers]    = useState<ApiProjectMember[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [members,      setMembers]      = useState<ApiProjectMember[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [removeTarget, setRemoveTarget] = useState<ApiProjectMember | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -94,19 +95,6 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refresh
     return () => { cancelled = true }
   }, [projectId, refreshKey])
 
-  const handleRemove = async (userId: string) => {
-    setRemovingId(userId)
-    try {
-      await removeProjectMemberFromProject(projectId, userId)
-      setMembers(prev => prev.filter(m => m.userId !== userId))
-      toast.success('Member removed from project')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
-    } finally {
-      setRemovingId(null)
-    }
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {/* Scrollable member list — same flush region + kaya-scrollbar treatment
@@ -121,7 +109,6 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refresh
             ) : (
               members.map(m => {
                 const isOwner = m.userId === ownerUserId
-                const removing = removingId === m.userId
                 return (
                   <div key={m.userId} style={ROW_CARD_STYLE}>
                     <Avatar name={m.name || m.email || m.userId} size="sm" />
@@ -141,9 +128,7 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refresh
                       <Button
                         variant="danger"
                         size="sm"
-                        loading={removing}
-                        disabled={removing}
-                        onClick={() => void handleRemove(m.userId)}
+                        onClick={() => setRemoveTarget(m)}
                       >
                         Remove
                       </Button>
@@ -165,6 +150,20 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refresh
             Add member
           </Button>
         </div>
+      )}
+
+      {removeTarget && (
+        <ConfirmModal
+          title={`Remove ${removeTarget.name ?? removeTarget.email ?? 'this member'}?`}
+          description="They'll lose access to this project immediately."
+          confirmLabel="Remove"
+          onConfirm={async () => {
+            await removeProjectMemberFromProject(projectId, removeTarget.userId)
+            setMembers(prev => prev.filter(m => m.userId !== removeTarget.userId))
+            toast.success('Member removed from project')
+          }}
+          onClose={() => setRemoveTarget(null)}
+        />
       )}
     </div>
   )

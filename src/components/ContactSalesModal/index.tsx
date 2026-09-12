@@ -275,27 +275,9 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
 
               {/* Footer */}
               <div style={{ padding: '24px 0 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <button
-                  type="submit"
-                  disabled={state.submitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 20px',
-                    borderRadius: 10,
-                    border: 'none',
-                    background: 'var(--neutral-900)',
-                    color: 'white',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize: 14,
-                    lineHeight: '22px',
-                    cursor: state.submitting ? 'not-allowed' : 'pointer',
-                    opacity: state.submitting ? 0.6 : 1,
-                    transition: 'opacity 150ms',
-                  }}
-                >
-                  {state.submitting ? 'Sending…' : 'Contact sales'}
-                </button>
+                <Button variant="default" fluid type="submit" loading={state.submitting} disabled={state.submitting}>
+                  Contact sales
+                </Button>
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                   Response within one business day.
                 </p>

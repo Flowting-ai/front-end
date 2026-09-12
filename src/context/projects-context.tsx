@@ -206,7 +206,7 @@ interface ProjectsContextValue {
   projects:         Project[]
   chats:            ProjectChat[]
   loading:          boolean
-  createProject:    (name: string, description: string, teamId?: string, visibility?: ProjectVisibility) => Promise<Project>
+  createProject:    (name: string, description: string, teamId?: string, visibility?: ProjectVisibility, tags?: ProjectTag[]) => Promise<Project>
   updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
   loadProject:      (id: string) => Promise<void>
@@ -294,8 +294,9 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     description: string,
     teamId?: string,
     visibility?: ProjectVisibility,
+    tags?: ProjectTag[],
   ): Promise<Project> => {
-    const api = await createProjectApi({ title: name, description, teamId, visibility }, currentUserId)
+    const api = await createProjectApi({ title: name, description, teamId, visibility, tags: tags?.map(t => t.label) }, currentUserId)
     const project = apiToProject(api)
     setProjects(prev => [project, ...prev])
     // Analytics: shared-context adoption — team-shared vs personal project.

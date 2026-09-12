@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, m, Reorder } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
+import { Spinner } from '@/components/Spinner'
 import { OptionBadge } from '@/components/OptionBadge'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { OptionRow } from '@/components/OptionRow'
@@ -54,6 +55,9 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   tabProgress?: { tabs: string[]; currentIndex: number }
   /** Slot rendered at the very top of the card, above the tabProgress stepper (info mode only) */
   topSlot?: React.ReactNode
+  /** True while `onSend`/`onSkip`'s response is in flight — disables both
+   *  buttons and shows a spinner in place of Send's arrow. */
+  pending?: boolean
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -62,11 +66,12 @@ const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba
 
 // ── SkipButton ────────────────────────────────────────────────────────────────
 
-function SkipButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonElement> }) {
+function SkipButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<HTMLButtonElement>; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -79,7 +84,8 @@ function SkipButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonE
         border:       'none',
         boxShadow:    hovered ? '0px 0px 0px 1px rgba(59,54,50,0.5)' : '0px 0px 0px 1px rgba(59,54,50,0.3)',
         background:   hovered ? 'var(--neutral-50, #f7f2ed)' : 'transparent',
-        cursor:       'pointer',
+        cursor:       disabled ? 'not-allowed' : 'pointer',
+        opacity:      disabled ? 0.6 : 1,
         fontFamily:   'var(--font-body)',
         fontWeight:   'var(--font-weight-medium)',
         fontSize:     'var(--font-size-body, 14px)',
@@ -96,12 +102,14 @@ function SkipButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonE
 
 // ── SendButton ────────────────────────────────────────────────────────────────
 
-function SendButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonElement> }) {
+function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<HTMLButtonElement>; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
       type="button"
       aria-label="Send"
+      disabled={disabled}
+      aria-busy={disabled || undefined}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -116,7 +124,8 @@ function SendButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonE
         padding:        '7px 8px 9px',
         borderRadius:   10,
         border:         'none',
-        cursor:         'pointer',
+        cursor:         disabled ? 'not-allowed' : 'pointer',
+        opacity:        disabled ? 0.6 : 1,
         overflow:       'hidden',
         boxShadow:      '0px 0px 0px 1px var(--neutral-black, black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
       }}
@@ -140,7 +149,7 @@ function SendButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonE
         }}
       />
       <div style={{ position: 'relative', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <ArrowUpTwoIcon size={20} color="var(--neutral-white, white)" />
+        {disabled ? <Spinner size={18} color="var(--neutral-white, white)" /> : <ArrowUpTwoIcon size={20} color="var(--neutral-white, white)" />}
       </div>
     </button>
   )
@@ -328,6 +337,7 @@ export function QuestionCard(
     titleBadge,
     tabProgress,
     topSlot,
+    pending = false,
     className,
     style,
     ref,
@@ -681,8 +691,9 @@ export function QuestionCard(
 
             {/* Skip + Send - always present, always visible */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <SkipButton onClick={onSkip} />
+              <SkipButton onClick={onSkip} disabled={pending} />
               <SendButton
+                disabled={pending}
                 onClick={isOpenEndedOpen
                   ? () => { onOpenEndedSubmit?.(openEndedText); onSend?.() }
                   : onSend

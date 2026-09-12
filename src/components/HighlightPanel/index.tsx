@@ -6,7 +6,6 @@ import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMai
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
-import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { trackFeature } from '@/lib/analytics/events'
 import { Dropdown } from '@/components/Dropdown'
@@ -368,29 +367,30 @@ export function HighlightPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            style={{
-              display:        'flex',
-              flexDirection:  'column',
-              alignItems:     'center',
-              justifyContent: 'center',
-              gap:            12,
-              padding:        '48px 24px',
-              textAlign:      'center',
-            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            aria-hidden
           >
-            <Spinner size={24} color="var(--neutral-400)" />
-            <p
-              style={{
-                margin:     0,
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   'var(--font-size-caption)',
-                lineHeight: '1.5',
-                color:      'var(--neutral-500)',
-              }}
-            >
-              Loading highlights…
-            </p>
+            {/* Same sticky-note footprint as a real HighlightCard (dog-ear
+                corner + quote-text padding), just neutral instead of colored
+                and with shimmer bars instead of real text. */}
+            {[3, 2, 1].map((lines, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: 'var(--neutral-100)',
+                  borderRadius:    '3px 3px 3px 0',
+                  padding:         '12px',
+                  display:         'flex',
+                  flexDirection:   'column',
+                  gap:             8,
+                  opacity:         1 - i * 0.25,
+                }}
+              >
+                {Array.from({ length: lines }).map((_, li) => (
+                  <div key={li} className="kaya-skeleton" style={{ width: li === lines - 1 ? '55%' : '90%', height: 16, borderRadius: 4 }} />
+                ))}
+              </div>
+            ))}
           </m.div>
         ) : hasError ? (
           <m.div

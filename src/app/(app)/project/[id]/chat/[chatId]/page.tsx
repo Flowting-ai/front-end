@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
+import { ChatMessagesSkeleton }                            from '@/components/chat/ChatMessagesSkeleton'
 import { ChatInput }                                       from '@/components/chat/ChatInput'
 import { ModelMenu }                                        from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment }       from '@/components/chat/AttachmentManager'
@@ -182,6 +183,19 @@ function CentredMessage({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
       <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>{children}</p>
+    </div>
+  )
+}
+
+// Same shape the real chat interface settles into once the project/chat data
+// arrives — reused instead of a bare "Loading…" message so the route guard's
+// wait doesn't flash empty text.
+function LoadingChatSkeleton() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', height: '100%', overflow: 'hidden', padding: '32px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 679 }}>
+        <ChatMessagesSkeleton />
+      </div>
     </div>
   )
 }
@@ -613,7 +627,7 @@ function ProjectChatPageInner() {
 
   if (!project) {
     if (projectsContextLoading || projectLoading) {
-      return <CentredMessage>Loading…</CentredMessage>
+      return <LoadingChatSkeleton />
     }
     return <CentredMessage>Project not found.</CentredMessage>
   }
@@ -622,7 +636,7 @@ function ProjectChatPageInner() {
     const isJustCreated = params.chatId === justCreatedChatIdRef.current
     if (!chat && !isJustCreated) {
       if (chatsLoading) {
-        return <CentredMessage>Loading…</CentredMessage>
+        return <LoadingChatSkeleton />
       }
       return <CentredMessage>Chat not found.</CentredMessage>
     }

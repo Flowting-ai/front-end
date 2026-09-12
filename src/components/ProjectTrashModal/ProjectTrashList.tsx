@@ -1,9 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { DeleteTwoIcon } from '@strange-huge/icons'
+import { DeleteTwoIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { Spinner } from '@/components/Spinner'
 import { toast } from 'sonner'
 import { fetchDeletedProjects, restoreProjectApi, type ApiProjectSummary } from '@/lib/api/projects'
 
@@ -66,16 +65,32 @@ export function ProjectTrashList({ currentUserId, onRestored }: ProjectTrashList
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-        Workspace and shared projects stay recoverable for 30 days after
-        deletion. Personal projects delete instantly and never appear here.
-      </p>
+      {/* Info banner — same boxed-hint convention as InviteModal's InfoNote. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', backgroundColor: 'var(--neutral-100)', borderRadius: 10 }}>
+        <InformationCircleIcon size={16} color="var(--neutral-500)" style={{ flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-700)', margin: 0 }}>
+          Workspace and shared projects stay recoverable for 30 days after
+          deletion. Personal projects delete instantly and never appear here.
+        </p>
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-            <Spinner size={20} />
-          </div>
+          [0, 1, 2].map(i => (
+            <div
+              key={i}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                border: '1px solid var(--neutral-200)', borderRadius: 10, opacity: 1 - i * 0.25,
+              }}
+            >
+              <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="kaya-skeleton" style={{ width: '50%', height: 14, borderRadius: 4 }} />
+                <div className="kaya-skeleton" style={{ width: '30%', height: 12, borderRadius: 4 }} />
+              </div>
+              <div className="kaya-skeleton" style={{ width: 64, height: 28, borderRadius: 8, flexShrink: 0 }} />
+            </div>
+          ))
         ) : loadFailed ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', textAlign: 'center', margin: 0 }}>
@@ -101,10 +116,10 @@ export function ProjectTrashList({ currentUserId, onRestored }: ProjectTrashList
               <DeleteTwoIcon size={22} color="var(--neutral-400)" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-700)' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)' }}>
                 Nothing here
               </p>
-              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)' }}>
                 No projects have been deleted recently.
               </p>
             </div>

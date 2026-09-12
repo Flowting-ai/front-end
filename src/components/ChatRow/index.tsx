@@ -47,8 +47,9 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   onRename?: (title: string) => void
   /** Called when user selects "Share" from the context menu. Omit to hide the item. */
   onShare?: () => void
-  /** Called when user toggles pin (starred) from the context menu. */
-  onStar?: () => void
+  /** Called when user toggles pin (starred) from the context menu. May return
+   *  a Promise — the row shows a spinner on the menu item while it's pending. */
+  onStar?: () => void | Promise<void>
   /** Called when user selects "Move to project" from the context menu. Omit to hide the item. */
   onMoveToProject?: () => void
   /** Called when user selects Delete from the context menu. */
@@ -76,8 +77,10 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
    * chat still gets one, just a reduced one.
    */
   archived?: boolean
-  /** Called when user selects Archive from the context menu. Omit to hide the item. */
-  onArchive?: () => void
+  /** Called when user selects Archive from the context menu. Omit to hide the
+   *  item. May return a Promise — the row shows a spinner on the menu item
+   *  while it's pending. */
+  onArchive?: () => void | Promise<void>
 }
 
 // ── PinCountChip ─────────────────────────────────────────────────────────────
@@ -229,6 +232,17 @@ function ChatRowInner(
     const [menuOpen,    setMenuOpen]    = useState(false)
     const [isRenaming,  setIsRenaming]  = useState(false)
     const [renameValue, setRenameValue] = useState('')
+    const [isStarring,  setIsStarring]  = useState(false)
+    const [isArchiving, setIsArchiving] = useState(false)
+
+    const handleStarClick = async () => {
+      setIsStarring(true)
+      try { await onStar?.() } finally { setIsStarring(false) }
+    }
+    const handleArchiveClick = async () => {
+      setIsArchiving(true)
+      try { await onArchive?.() } finally { setIsArchiving(false) }
+    }
     const renameInputRef    = useRef<HTMLInputElement>(null)
     // Set in every dropdown Dropdown.Item's onClick — Dropdown.Float portals its
     // panel to document.body, but React still bubbles the click as a SYNTHETIC
@@ -345,8 +359,8 @@ function ChatRowInner(
               ? '1.5px dashed var(--blue-400)'
               : 'none',
           outlineOffset:   -1,
-          opacity:         disabled ? 0.5 : 1,
-          pointerEvents:   disabled ? 'none' : undefined,
+          opacity:         disabled || isArchiving ? 0.5 : 1,
+          pointerEvents:   disabled || isArchiving ? 'none' : undefined,
           cursor:          isEmpty ? 'default' : isRenaming ? 'text' : 'pointer',
           userSelect:      'none',
           transition:      'background-color 120ms, box-shadow 150ms',
@@ -549,7 +563,8 @@ function ChatRowInner(
                           label={taskMode
                             ? (starred ? 'Unpin task' : 'Pin task')
                             : (starred ? 'Unpin chat' : 'Pin chat')}
-                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onStar?.() }}
+                          loading={isStarring}
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); void handleStarClick() }}
                         />
                       )}
                       {onMoveToProject && (
@@ -565,7 +580,8 @@ function ChatRowInner(
                           fluid
                           icon={<FolderLibraryIcon color="var(--neutral-600)" />}
                           label="Archive"
-                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); onArchive() }}
+                          loading={isArchiving}
+                          onClick={() => { pendingMenuActionRef.current = true; setMenuOpen(false); void handleArchiveClick() }}
                         />
                       )}
                       <Divider decorative />

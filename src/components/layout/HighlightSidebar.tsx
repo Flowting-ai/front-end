@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from '@/components/Toast'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
@@ -41,6 +42,7 @@ function HighlightSidebarImpl() {
 
   const { push }      = useRouter()
   const currentChatId = useCurrentChatId()
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   // Defensive chat-id filter (mirrors FloatingPanel's gutter) — the context's
   // `highlights` list is expected to already be scoped to currentChatId via
   // loadForChat, but this keeps a previous chat's entries from ever bleeding
@@ -183,12 +185,22 @@ function HighlightSidebarImpl() {
             onRetry={handleRetry}
             onJump={handleJump}
             onCopy={copyHighlight}
-            onDelete={deleteHighlight}
+            onDelete={setDeleteTargetId}
             onClose={closeHighlight}
             filterMode={filterMode}
             onFilterChange={setFilterMode}
           />
         </m.div>
+      )}
+
+      {deleteTargetId && (
+        <ConfirmModal
+          title="Delete highlight?"
+          description="This highlight will be permanently removed."
+          confirmLabel="Delete"
+          onConfirm={async () => { await deleteHighlight(deleteTargetId) }}
+          onClose={() => setDeleteTargetId(null)}
+        />
       )}
     </AnimatePresence>
   )

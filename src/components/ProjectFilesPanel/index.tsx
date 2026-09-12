@@ -5,6 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { toast } from 'sonner'
 import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { ProjectDocumentCard } from '@/components/ProjectDocumentCard'
 import { FILE_ACCEPT, FILE_CONSTRAINTS, isAllowedType } from '@/hooks/use-file-upload'
 import type { ProjectFile } from '@/context/projects-context'
@@ -34,6 +35,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     const inputRef   = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
     const [dragging,  setDragging]  = useState(false)
+    const [removeTarget, setRemoveTarget] = useState<ProjectFile | null>(null)
 
     const hasPending  = (pendingFiles?.length ?? 0) > 0
     const isUploading = uploading || hasPending
@@ -253,7 +255,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
                   sizeLabel={file.sizeLabel || undefined}
                   fileType={file.type}
                   url={file.url || undefined}
-                  onRemove={onRemove ? () => onRemove(file.id) : undefined}
+                  onRemove={onRemove ? () => setRemoveTarget(file) : undefined}
                 />
               ))}
               {pendingFiles?.map((file) => (
@@ -321,6 +323,16 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           <div style={{ display: 'flex', flex: '1 1 0', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: 12 }}>
             No files yet.
           </div>
+        )}
+
+        {removeTarget && (
+          <ConfirmModal
+            title={`Remove "${removeTarget.name}"?`}
+            description="This file will no longer be shared with chats in this project."
+            confirmLabel="Remove"
+            onConfirm={async () => { onRemove?.(removeTarget.id) }}
+            onClose={() => setRemoveTarget(null)}
+          />
         )}
       </div>
     )

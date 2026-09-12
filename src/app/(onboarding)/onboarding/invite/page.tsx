@@ -46,7 +46,11 @@ export default function OnboardingInvitePage() {
   const emailList = data.inviteEmailList;
   const setEmailInput = setInviteEmailDraft;
   const setEmailList = setInviteEmailList;
-  const [submitting, setSubmitting] = useState(false);
+  // Which of Skip/Send is in flight — Skip and Next both call setSubmitting,
+  // and sharing one boolean made clicking Skip show its spinner on the Next
+  // button instead (the button the user didn't click).
+  const [submittingAction, setSubmittingAction] = useState<"skip" | "send" | null>(null);
+  const submitting = submittingAction !== null;
   const hasUnsavedChanges = emailList.length > 0 || emailInput.trim().length > 0;
   const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
@@ -153,17 +157,17 @@ export default function OnboardingInvitePage() {
 
   const handleSkip = async () => {
     if (submitting) return;
-    setSubmitting(true);
+    setSubmittingAction("skip");
     try {
       await goToWelcome();
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
   const handleNext = async () => {
     if (submitting) return;
-    setSubmitting(true);
+    setSubmittingAction("send");
     try {
       // Fold in whatever's still sitting in the input (typed but not yet
       // committed via Enter/comma/blur) so clicking Next doesn't silently
@@ -218,7 +222,7 @@ export default function OnboardingInvitePage() {
       console.error("Onboarding completion failed", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -318,10 +322,11 @@ export default function OnboardingInvitePage() {
         onBack={() => push(ONBOARDING_PROFILE_ROUTE)}
         onSkip={() => void handleSkip()}
         skipDisabled={submitting}
+        skipLoading={submittingAction === "skip"}
         onNext={() => void handleNext()}
         nextLabel={`Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
-        nextDisabled={emailList.length === 0 && emailInput.trim().length === 0}
-        nextLoading={submitting}
+        nextDisabled={submitting || (emailList.length === 0 && emailInput.trim().length === 0)}
+        nextLoading={submittingAction === "send"}
       />
       <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />
     </StepCanvas>

@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { MoreVerticalIcon } from '@strange-huge/icons'
+import { MoreVerticalIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
+import { Divider } from '@/components/Divider'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { ProjectCardBody, type ProjectCardBodyProps } from './ProjectCardBody'
 import type { ProjectVisibility } from '@/lib/api/projects'
@@ -135,21 +136,20 @@ function ProjectCardInner(
                 }
               >
                 <Dropdown size="md" maxHeight={false}>
-                  {onEdit && (
-                    <Dropdown.Section fluid>
-                      <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
-                    </Dropdown.Section>
-                  )}
-                  {onLeave && (
-                    <Dropdown.Section fluid>
-                      <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
-                    </Dropdown.Section>
-                  )}
-                  {onDelete && (
-                    <Dropdown.Section fluid>
-                      <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
-                    </Dropdown.Section>
-                  )}
+                  <Dropdown.Section fluid>
+                    {onEdit && (
+                      <Dropdown.Item icon={<PenOneIcon color="var(--neutral-600)" />} label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
+                    )}
+                    {onLeave && (
+                      <Dropdown.Item icon={<UnlinkOneIcon color="var(--neutral-600)" />} label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
+                    )}
+                    {onDelete && (
+                      <>
+                        {(onEdit || onLeave) && <Divider decorative />}
+                        <Dropdown.Item icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
+                      </>
+                    )}
+                  </Dropdown.Section>
                 </Dropdown>
               </Dropdown.Float>
             </div>}

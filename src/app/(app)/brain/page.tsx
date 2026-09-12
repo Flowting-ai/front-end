@@ -4169,6 +4169,7 @@ function BrainPageInner() {
         onOpenEndedSubmit: handleClarificationOpenEnded,
         onSend:           handleClarificationSend,
         onSkip:           handleClarificationSkip,
+        pending:          clarificationInFlight,
       } : undefined}
       chatInputProps={{
         isStreaming: brainIsStreaming,

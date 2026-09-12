@@ -24,7 +24,7 @@ import {
   type AutomationRun,
 } from '@/lib/api/automations'
 import type { ScheduleRunRecord } from '@/templates/Brain'
-import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
+import { getAllScheduleLinks, getChatForSchedule, linkScheduleToChat, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
 import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
 import { BRAIN_ROUTE } from '@/lib/routes'
@@ -48,6 +48,13 @@ export default function BrainSchedulesPage() {
 function scheduleDescription(json: Record<string, unknown>): string {
   const description = json?.description
   return typeof description === 'string' && description ? description : 'On a schedule'
+}
+
+// True when the deployed Pipedream timer disagrees with what's stored — see
+// services/automations/schedule.py :: driftBetween. Surfaced as a warning
+// banner in the detail view rather than left invisible.
+function scheduleDrift(json: Record<string, unknown>): boolean {
+  return json?.drift === true
 }
 
 function timeOfDay(date: Date): string {
@@ -95,6 +102,10 @@ function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
     isActive:    task.is_active,
     createdAt:   task.created_at ? formatCreatedAt(task.created_at) : undefined,
     chatId,
+    runCount:    task.run_count,
+    successRate: task.success_rate,
+    isRunning:   task.is_running,
+    drift:       scheduleDrift(task.schedule_json),
   }
 }
 
@@ -121,16 +132,28 @@ function runToRecord(run: AutomationRun): ScheduleRunRecord {
 }
 
 function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDetailItem {
+  // Backend just told us the real link — mirror it into the local store so
+  // the list view (whose GET /automations rows don't carry chat_id) can
+  // still resolve "open chat" without a full detail fetch per card.
+  if (task.chat_id) linkScheduleToChat(task.id, task.chat_id)
   return {
     id:           task.id,
     name:         task.name,
     instructions: task.summary ?? '',
     frequency:    scheduleDescription(task.schedule_json),
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
+    lastRun:      task.last_run_at ? formatRunTime(task.last_run_at) : undefined,
     isActive:     task.is_active,
     createdAt:    formatCreatedAt(task.created_at ?? ''),
     runHistory:   (task.runs ?? []).map(runToRecord),
-    chatId,
+    // Backend's own chat_id is authoritative — only fall back to the local
+    // link-store mapping (localStorage) for schedules the backend doesn't
+    // know a chat for yet (e.g. a just-created local placeholder row).
+    chatId:       task.chat_id ?? chatId,
+    runCount:     task.run_count,
+    successRate:  task.success_rate,
+    isRunning:    task.is_running,
+    drift:        scheduleDrift(task.schedule_json),
   }
 }
 
@@ -301,28 +324,41 @@ function BrainSchedulesPageInner() {
 
   // ── Delete (DELETE /automations/{id}; local-only items just drop from state) ──
 
+  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false)
+
   const handleDeleteConfirm = useCallback(() => {
     const id = selectedId
     if (!id) return
-    setDeleteModalOpen(false)
-    const removed = schedules.find(s => s.id === id)
-    // Optimistically drop it and return to the list.
-    setSchedules(prev => prev.filter(s => s.id !== id))
-    setSelectedId(null)
-    setSelectedDetail(null)
-    // Never persisted to the backend — nothing to delete server-side.
+    // Never persisted to the backend — nothing to delete server-side, so the
+    // instant local removal below isn't misleading (there's no request to
+    // wait for). A real delete keeps the modal (and detail view) open with a
+    // spinner until deleteAutomation resolves, instead of clearing
+    // selectedId/selectedDetail up front — doing that first would unmount
+    // this very modal (gated on `detailToShow`) mid-request.
     if (localIdsRef.current.has(id)) {
       localIdsRef.current.delete(id)
+      setSchedules(prev => prev.filter(s => s.id !== id))
+      setSelectedId(null)
+      setSelectedDetail(null)
+      setDeleteModalOpen(false)
       return
     }
+    setIsDeletingSchedule(true)
     deleteAutomation(id)
-      .then(() => toast.success('Schedule deleted'))
+      .then(() => {
+        toast.success('Schedule deleted')
+        setSchedules(prev => prev.filter(s => s.id !== id))
+        setSelectedId(null)
+        setSelectedDetail(null)
+      })
       .catch(() => {
-        // Restore the row so the user isn't left thinking it's gone.
-        if (removed) setSchedules(prev => [...prev, removed])
         toast.error('Failed to delete schedule')
       })
-  }, [selectedId, schedules])
+      .finally(() => {
+        setIsDeletingSchedule(false)
+        setDeleteModalOpen(false)
+      })
+  }, [selectedId])
 
   // ── Toggle active (PATCH /automations/{id} — pause/resume; optimistic) ────────
 
@@ -343,12 +379,15 @@ function BrainSchedulesPageInner() {
 
   // ── Run now ────────────────────────────────────────────────────────────────
 
+  const [isRunningNow, setIsRunningNow] = useState(false)
+
   const handleRunNow = useCallback(() => {
     if (!selectedId || localIdsRef.current.has(selectedId)) {
       toast.info('This schedule has not been saved to the server yet.')
       return
     }
     const id = selectedId
+    setIsRunningNow(true)
     runAutomationNow(id)
       .then(() => {
         toast.success('Schedule triggered', { description: 'This task will start shortly.' })
@@ -357,6 +396,7 @@ function BrainSchedulesPageInner() {
       })
       .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => toast.error('Failed to run schedule'))
+      .finally(() => setIsRunningNow(false))
   }, [selectedId])
 
   // ── Derived: what to show in the center ───────────────────────────────────
@@ -418,6 +458,7 @@ function BrainSchedulesPageInner() {
                   onEdit={handleEdit}
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={handleRunNow}
+                  runningNow={isRunningNow}
                   onToggleActive={handleToggleActive}
                   onOpenChat={(chatId) => push(`${BRAIN_ROUTE}?id=${chatId}`)}
                 />
@@ -449,6 +490,7 @@ function BrainSchedulesPageInner() {
           scheduleName={detailToShow.name}
           onConfirm={handleDeleteConfirm}
           onClose={() => setDeleteModalOpen(false)}
+          deleting={isDeletingSchedule}
         />
       )}
     </>

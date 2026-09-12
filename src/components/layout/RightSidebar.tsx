@@ -17,6 +17,7 @@ import { toSouvenirModelLabel } from "@/lib/ai-models"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
 import { InputField } from "@/components/InputField"
+import { ConfirmModal } from "@/components/ConfirmModal"
 import { toast } from "sonner"
 import type { BadgeColor } from "@/components/Badge"
 
@@ -198,15 +199,23 @@ function RightSidebarImpl() {
     [pins, updatePinFolder],
   )
 
-  const handleDeleteSelected = useCallback(
-    (pinIds: string[]) => {
-      for (const id of pinIds) removePin(id, { silent: true })
-      const count = pinIds.length
-      toast(count === 1 ? "Pin deleted" : `Deleted ${count} pins`)
-      setLastActivityAt(new Date())
-    },
-    [removePin],
-  )
+  // Two-step, same as folder delete just below: the "Delete" action in
+  // organize mode only stages the pin IDs; performBulkDelete (wired to the
+  // confirm modal's onConfirm) is what actually removes them.
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<string[] | null>(null)
+
+  const handleDeleteSelected = useCallback((pinIds: string[]) => {
+    setBulkDeleteTarget(pinIds)
+  }, [])
+
+  const performBulkDelete = useCallback(() => {
+    if (!bulkDeleteTarget) return
+    for (const id of bulkDeleteTarget) removePin(id, { silent: true })
+    const count = bulkDeleteTarget.length
+    toast(count === 1 ? "Pin deleted" : `Deleted ${count} pins`)
+    setLastActivityAt(new Date())
+    setBulkDeleteTarget(null)
+  }, [removePin, bulkDeleteTarget])
 
   const handleExportSelected = useCallback(
     (pinIds: string[]) => {
@@ -346,6 +355,11 @@ function RightSidebarImpl() {
     new Map<string, { onExport: () => void; onDelete: () => void; onDuplicate: () => void; onShowInChat: () => void; onSaveComment: (text: string) => void }>(),
   )
 
+  // Single-pin delete confirm — the cached per-pin `onDelete` below just
+  // stages the id; `setDeletePinTarget` is a stable setState so the
+  // ref-cached closure never goes stale across re-renders.
+  const [deletePinTarget, setDeletePinTarget] = useState<string | null>(null)
+
   const router = useRouter()
 
   const getHandlers = useCallback(
@@ -356,7 +370,7 @@ function RightSidebarImpl() {
             const p = filteredRawRef.current.find((x) => x.id === pinId)
             if (p) exportSinglePin(p, chatNameByIdRef.current)
           },
-          onDelete:    () => removePin(pinId),
+          onDelete:    () => setDeletePinTarget(pinId),
           onDuplicate: () => {
             const p = filteredRawRef.current.find((x) => x.id === pinId)
             if (p) clonePin(p)
@@ -733,6 +747,29 @@ function RightSidebarImpl() {
         )}
       </AnimatePresence>,
       document.body
+    )}
+
+    {/* ── Delete pin / delete selected pins confirm — ConfirmModal portals to
+        document.body itself. ── */}
+    {deletePinTarget && (
+      <ConfirmModal
+        title="Delete pin?"
+        description="This pin will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          removePin(deletePinTarget)
+        }}
+        onClose={() => setDeletePinTarget(null)}
+      />
+    )}
+    {bulkDeleteTarget && (
+      <ConfirmModal
+        title={`Delete ${bulkDeleteTarget.length} pin${bulkDeleteTarget.length > 1 ? "s" : ""}?`}
+        description="This can't be undone."
+        confirmLabel="Delete"
+        onConfirm={async () => { performBulkDelete() }}
+        onClose={() => setBulkDeleteTarget(null)}
+      />
     )}
     </>
   )

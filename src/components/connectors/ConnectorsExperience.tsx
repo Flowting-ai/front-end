@@ -37,6 +37,10 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
   const [removeBusy, setRemoveBusy] = useState(false)
+  // Slug whose catalog card is mid-fetch (selectFromCatalog's cold-start
+  // path) — lets the card show a spinner instead of staying clickable while
+  // it silently loads connector details before the setup modal opens.
+  const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
   const mergeRows = useCallback((rows: ConnectorCatalog[]) => {
     setCatalog(prev => {
@@ -97,6 +101,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       return
     }
     setActiveSlug(row.slug)
+    setPendingSlug(row.slug)
     void getConnector(row.slug)
       .then(detail => {
         mergeRows([detail])
@@ -109,6 +114,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         setSetupAccount(undefined)
         setSetupOpen(true)
       })
+      .finally(() => setPendingSlug(null))
   }, [mergeRows, openConnectorDetail])
 
   const addAccount = useCallback(() => {
@@ -182,7 +188,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   return (
     <>
       {view === 'connections' && (
-        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} initialSearch={initialSearch} onRows={mergeRows} />
+        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} pendingSlug={pendingSlug} initialSearch={initialSearch} onRows={mergeRows} />
       )}
 
       {view === 'connector' && active && (

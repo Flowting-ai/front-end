@@ -199,7 +199,7 @@ function CatalogSectionLabel({ label }: { label: string }) {
   )
 }
 
-function CatalogCell({ summary, select, highlight }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog) => void; highlight?: string }) {
+function CatalogCell({ summary, select, highlight, pendingSlug }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog) => void; highlight?: string; pendingSlug?: string | null }) {
   const state = catalogCardState(summary)
   return (
     <ConnectorCatalogCard
@@ -211,18 +211,20 @@ function CatalogCell({ summary, select, highlight }: { summary: ConnectorCatalog
       action={state === 'available' ? 'icon-add' : state === 'reconnect-required' ? 'reconnect' : state === 'connected' ? 'manage' : 'none'}
       accountCount={summary.connections.length}
       highlight={highlight}
+      actionPending={pendingSlug === summary.slug}
       onAction={() => select(summary)}
     />
   )
 }
 
 export function Catalog({
-  catalog, query, select, onRows,
+  catalog, query, select, onRows, pendingSlug,
 }: {
   catalog: ConnectorCatalog[]
   query: string
   select: (summary: ConnectorCatalog) => void
   onRows?: (rows: ConnectorCatalog[]) => void
+  pendingSlug?: string | null
 }) {
   const [view, setView] = useState<CatalogView>('all')
   const [ownQuery, setOwnQuery] = useState(query)
@@ -318,7 +320,7 @@ export function Catalog({
             <div style={{ marginBottom: availableItems.length > 0 ? SPACE.xxl : 0 }}>
               {showConnectedLabel && <CatalogSectionLabel label="Connected" />}
               <div style={CATALOG_GRID}>
-                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} />)}
+                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
               </div>
             </div>
           )}
@@ -326,7 +328,7 @@ export function Catalog({
             <div>
               {showConnectedLabel && <CatalogSectionLabel label="All connectors" />}
               <div style={CATALOG_GRID}>
-                {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} />)}
+                {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
               </div>
               <div style={{ marginTop: SPACE.xl }}>
                 <Pagination page={page} hasMore={browseHasMore} onChange={setPage} />
@@ -340,7 +342,7 @@ export function Catalog({
 }
 
 export function ConnectionsView({
-  catalog, loading, select, initialSearch = '', onRows,
+  catalog, loading, select, initialSearch = '', onRows, pendingSlug,
 }: {
   catalog: ConnectorCatalog[]
   loading: boolean
@@ -348,6 +350,8 @@ export function ConnectionsView({
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
   onRows?: (rows: ConnectorCatalog[]) => void
+  /** Slug whose card should show a pending spinner (mid-fetch before its setup modal opens). */
+  pendingSlug?: string | null
 }) {
   const attention = useMemo(() => ConnectorCatalog.needingAttention(catalog), [catalog])
 
@@ -382,7 +386,7 @@ export function ConnectionsView({
           </Button>
         </div>
       )}
-      <Catalog catalog={catalog} query={initialSearch} select={select} onRows={onRows} />
+      <Catalog catalog={catalog} query={initialSearch} select={select} onRows={onRows} pendingSlug={pendingSlug} />
     </ConnectorsShell>
   )
 }

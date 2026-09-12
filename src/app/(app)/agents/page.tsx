@@ -556,6 +556,8 @@ function PersonasPageInner() {
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [isDeletingPersona, setIsDeletingPersona] = useState(false)
+  const [pausingIds, setPausingIds] = useState<Set<string>>(new Set())
   const [changeModelTarget, setChangeModelTarget] = useState<Persona | null>(null)
   const [fixModelsOpen,     setFixModelsOpen]     = useState(false)
   const mounted = useMounted()
@@ -1036,6 +1038,7 @@ function PersonasPageInner() {
         return
       }
     }
+    setPausingIds(prev => new Set(prev).add(id))
     try {
       await togglePause(id)
       setPersonas(prev => prev.map(p => {
@@ -1059,6 +1062,8 @@ function PersonasPageInner() {
     } catch (err) {
       console.error('Failed to toggle pause:', err)
       toast.error(`Failed to ${currentlyPaused ? 'resume' : 'pause'} agent. Please try again.`)
+    } finally {
+      setPausingIds(prev => { const next = new Set(prev); next.delete(id); return next })
     }
   }
 
@@ -1527,6 +1532,7 @@ function PersonasPageInner() {
                               onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
                               onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
                               onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
+                              pausePending:      pausingIds.has(persona.id),
                               onMenuDelete:      () => setDeleteTarget(persona),
                             }
                           })()}
@@ -1983,16 +1989,17 @@ function PersonasPageInner() {
       <SuperLinkDrawer
         link={selectedDrawerLink}
         onClose={() => setSelectedShareId(null)}
-        onStatusChange={(next) => {
+        onStatusChange={async (next) => {
           if (next === 'revoked' && selectedShareId) {
             const id = selectedShareId
-            revokeShare(id)
-              .then(() => {
-                setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
-                setSelectedShareId(null)
-                toast.success('Super Link revoked')
-              })
-              .catch(() => toast.error('Failed to revoke link'))
+            try {
+              await revokeShare(id)
+              setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
+              setSelectedShareId(null)
+              toast.success('Super Link revoked')
+            } catch {
+              toast.error('Failed to revoke link')
+            }
           }
         }}
       />
@@ -2106,7 +2113,7 @@ function PersonasPageInner() {
                     >
                       Delete agent?
                     </p>
-                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} />
+                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} disabled={isDeletingPersona} />
                   </div>
 
                   {/* Body */}
@@ -2174,8 +2181,22 @@ function PersonasPageInner() {
                       flexShrink:     0,
                     }}
                   >
-                    <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-                    <Button variant="danger" onClick={() => { handleDelete(deleteTarget.id, deleteTarget.name); setDeleteTarget(null) }}>Delete</Button>
+                    <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={isDeletingPersona}>Cancel</Button>
+                    <Button
+                      variant="danger"
+                      loading={isDeletingPersona}
+                      onClick={async () => {
+                        setIsDeletingPersona(true)
+                        try {
+                          await handleDelete(deleteTarget.id, deleteTarget.name)
+                          setDeleteTarget(null)
+                        } finally {
+                          setIsDeletingPersona(false)
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </m.div>
               </div>

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
+import { Spinner } from '@/components/Spinner'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import {
   SettingsTable,
@@ -92,12 +93,14 @@ function IconActionButton({
   label,
   onClick,
   disabled,
+  loading,
   danger,
   children,
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
+  loading?: boolean
   danger?: boolean
   children: React.ReactNode
 }) {
@@ -106,7 +109,7 @@ function IconActionButton({
       type="button"
       aria-label={label}
       title={label}
-      disabled={disabled}
+      disabled={disabled || loading}
       onClick={onClick}
       style={{
         display: 'inline-flex',
@@ -116,15 +119,15 @@ function IconActionButton({
         height: 30,
         borderRadius: 8,
         border: 'none',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
+        cursor: (disabled || loading) ? 'not-allowed' : 'pointer',
+        opacity: (disabled || loading) ? 0.5 : 1,
         backgroundColor: 'white',
         boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
         color: danger ? 'var(--red-600, #dc2626)' : 'var(--neutral-600)',
         flexShrink: 0,
       }}
     >
-      {children}
+      {loading ? <Spinner size={14} /> : children}
     </button>
   )
 }
@@ -235,7 +238,7 @@ function ProjectSlackRow({
                 <IconActionButton label="Rename channel" disabled={busy} onClick={onEditStart}>
                   <QuillWriteOneIcon size={15} />
                 </IconActionButton>
-                <IconActionButton label="Delete channel" disabled={busy} danger onClick={onDelete}>
+                <IconActionButton label="Delete channel" disabled={busy} loading={deleting} danger onClick={onDelete}>
                   <DeleteTwoIcon size={15} color="var(--red-600, #dc2626)" />
                 </IconActionButton>
               </div>
@@ -496,7 +499,29 @@ export default function SouvenirSlackPage() {
       )}
 
       {!orgReady || statusLoading ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>Loading...</p>
+        // Shape of the connected/table state — the most common outcome once
+        // this settles — so the page shimmers into its real layout instead
+        // of flashing plain "Loading..." text.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="kaya-skeleton" style={{ width: 220, height: 24, borderRadius: 8 }} />
+          <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
+            <SettingsTableToolbar title="Project channels" />
+            <SettingsTableHeader>
+              <SettingsTableHeaderCell>Project</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell>Slack channel</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell>Visibility</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
+            </SettingsTableHeader>
+            {[0, 1, 2].map(i => (
+              <SettingsTableRow key={i} divider={i < 2}>
+                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 140, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 110, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 60, height: 20, borderRadius: 6, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                <SettingsTableCell align="end"><div className="kaya-skeleton" style={{ width: 70, height: 28, borderRadius: 8, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+              </SettingsTableRow>
+            ))}
+          </SettingsTable>
+        </div>
       ) : !isAdmin ? (
         <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
@@ -534,9 +559,14 @@ export default function SouvenirSlackPage() {
               </SettingsTableHeader>
 
               {projectsLoading ? (
-                <div style={{ padding: '24px', textAlign: 'center' }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading projects...</p>
-                </div>
+                [0, 1, 2].map(i => (
+                  <SettingsTableRow key={i} divider={i < 2}>
+                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 140, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 110, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 60, height: 20, borderRadius: 6, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                    <SettingsTableCell align="end"><div className="kaya-skeleton" style={{ width: 70, height: 28, borderRadius: 8, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                  </SettingsTableRow>
+                ))
               ) : projects.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center' }}>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>

@@ -134,12 +134,23 @@ function DrawerSettings({
   link, onStatusChange, onLimitChange,
 }: {
   link: SuperLinkDrawerLink
-  onStatusChange?: (next: SuperLinkStatus) => void
+  onStatusChange?: (next: SuperLinkStatus) => void | Promise<void>
   onLimitChange?:  (next: number) => void
 }) {
   const [limitDraft, setLimitDraft] = React.useState(String(link.tokenLimit))
   const [editing, setEditing]       = React.useState(false)
   const [showRevoke, setShowRevoke] = React.useState(false)
+  const [revoking, setRevoking]     = React.useState(false)
+
+  const handleRevoke = async () => {
+    setRevoking(true)
+    try {
+      await onStatusChange?.('revoked')
+      setShowRevoke(false)
+    } finally {
+      setRevoking(false)
+    }
+  }
 
   const avgDaily = link.dailyTokens.reduce((s, n) => s + n, 0) / Math.max(link.dailyTokens.length, 1)
   const daysLeft = avgDaily > 0 ? Math.max(0, Math.round((link.tokenLimit - link.tokenUsed) / avgDaily)) : null
@@ -254,11 +265,13 @@ function DrawerSettings({
               <Button
                 size="sm"
                 variant="danger"
-                onClick={() => { onStatusChange?.('revoked'); setShowRevoke(false) }}
+                loading={revoking}
+                disabled={revoking}
+                onClick={() => void handleRevoke()}
               >
                 Yes, revoke
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowRevoke(false)}>
+              <Button size="sm" variant="ghost" disabled={revoking} onClick={() => setShowRevoke(false)}>
                 Cancel
               </Button>
             </div>

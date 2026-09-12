@@ -6,6 +6,7 @@ import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { Spinner } from '@/components/Spinner'
 import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from '@/lib/api/user'
 import { useNavGuard } from '@/context/nav-guard-context'
 import { toast } from 'sonner'
@@ -66,18 +67,23 @@ function PillSelect<T extends string>({
   options,
   onChange,
   descriptions,
+  pending = false,
 }: {
   value: T
   options: readonly T[]
   onChange: (value: T) => void
   /** Optional one-line "what this means" caption shown under each option's label. */
   descriptions?: Partial<Record<T, string>>
+  /** True while the change request is in flight — dims the trigger, blocks reopening. */
+  pending?: boolean
 }) {
   const [open, setOpen] = useState(false)
   return (
-    <Dropdown.Float open={open} onOpenChange={setOpen} placement="bottom-end" offset={4} trigger={
+    <Dropdown.Float open={open && !pending} onOpenChange={(v) => { if (!pending) setOpen(v) }} placement="bottom-end" offset={4} trigger={
       <button
         type="button"
+        disabled={pending}
+        aria-busy={pending || undefined}
         style={{
           display:         'flex',
           alignItems:      'center',
@@ -89,7 +95,8 @@ function PillSelect<T extends string>({
           border:          'none',
           backgroundColor: 'var(--neutral-white,#fff)',
           boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7)',
-          cursor:          'pointer',
+          cursor:          pending ? 'not-allowed' : 'pointer',
+          opacity:         pending ? 0.6 : 1,
           fontFamily:      'var(--font-body)',
           fontWeight:      500,
           fontSize:        14,
@@ -98,7 +105,7 @@ function PillSelect<T extends string>({
         }}
       >
         {value}
-        <ChevronDownIcon />
+        {pending ? <Spinner size={14} /> : <ChevronDownIcon />}
       </button>
     }>
       <Dropdown maxHeight={false}>
@@ -750,7 +757,7 @@ function AccountPageContent({
             </p>
           </CardSection>
           <SettingsRow title="Style" subtitle="How the interface should feel" divider>
-            <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} />
+            <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
           </SettingsRow>
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
             <PillSelect value={modelTier} options={MODEL_TIER_OPTIONS} onChange={handleModelTierChange} descriptions={MODEL_TIER_DESCRIPTIONS} />

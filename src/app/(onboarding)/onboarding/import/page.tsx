@@ -27,7 +27,11 @@ export default function OnboardingImportPage() {
   const { data, setAiContext } = useOnboarding();
   const { user, refreshUser, logout } = useAuth();
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Which button triggered submitOnboarding — "Import and continue" and "Skip
+  // for now" both call it, and sharing one boolean made clicking either one
+  // show the spinner on "Import and continue" regardless of which was clicked.
+  const [pendingAction, setPendingAction] = useState<"import" | "skip" | null>(null);
+  const loading = pendingAction !== null;
 
   // Teams skip the import page entirely. Check both the onboarding context
   // (set during the current flow) and user.roleFit from auth (persisted across
@@ -50,7 +54,7 @@ export default function OnboardingImportPage() {
   };
 
   const submitOnboarding = async (skipContext = false) => {
-    setLoading(true);
+    setPendingAction(skipContext ? "skip" : "import");
     try {
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
@@ -95,7 +99,7 @@ export default function OnboardingImportPage() {
       console.error("Onboarding submission failed", err);
       toast.error("Something went wrong — please try again.");
     } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   };
 
@@ -386,15 +390,16 @@ export default function OnboardingImportPage() {
         </Button>
         <Button
           size="sm"
-          loading={loading}
+          loading={pendingAction === "import"}
           onClick={() => void submitOnboarding(false)}
-          disabled={data.aiContext.trim().length === 0}
+          disabled={loading || data.aiContext.trim().length === 0}
         >
           Import and continue
         </Button>
         <Button
           variant="secondary"
           size="sm"
+          loading={pendingAction === "skip"}
           disabled={loading}
           onClick={() => void submitOnboarding(true)}
         >

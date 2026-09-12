@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard, VISIBILITY_LABEL, VISIBILITY_COLOR } from '@/components/ProjectCard'
@@ -12,6 +12,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
+import { Divider } from '@/components/Divider'
 import { Tooltip } from '@/components/Tooltip'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { LeaveProjectModal } from '@/components/LeaveProjectModal'
@@ -25,17 +26,24 @@ import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'az' | 'za' | 'active'
-// Same 3 values as ProjectVisibility, plus a 4th 'trash' tab that isn't a
-// real visibility — it lists soft-deleted Workspace/Shared projects instead
-// of filtering `projects` by visibility (see the render below).
-type ScopeFilter = ProjectVisibility | 'trash'
-const SCOPE_VALUES: readonly ScopeFilter[] = ['personal', 'workspace', 'shared', 'trash']
+const SORT_VALUES: readonly SortKey[] = ['recent', 'az', 'za', 'active']
+function parseSort(raw: string | null): SortKey {
+  return (SORT_VALUES as readonly string[]).includes(raw ?? '') ? (raw as SortKey) : 'recent'
+}
+// 'all' isn't a real visibility either — it skips the visibility filter
+// entirely (see scopedProjects below) — plus the 3 ProjectVisibility values,
+// plus a 'trash' tab that isn't a real visibility — it lists soft-deleted
+// Workspace/Shared projects instead of filtering `projects` by visibility
+// (see the render below).
+type ScopeFilter = 'all' | ProjectVisibility | 'trash'
+const SCOPE_VALUES: readonly ScopeFilter[] = ['all', 'personal', 'workspace', 'shared', 'trash']
 // Same label/color mapping ProjectCard/ProjectListRow already use for a
 // project's own visibility Badge (VISIBILITY_LABEL/VISIBILITY_COLOR) — the
-// filter reuses those directly and only adds the one extra 'trash' entry.
-const SCOPE_LABEL: Record<ScopeFilter, string> = { ...VISIBILITY_LABEL, trash: 'Recently Deleted' }
+// filter reuses those directly and only adds the 'all' and 'trash' entries.
+const SCOPE_LABEL: Record<ScopeFilter, string> = { all: 'All Projects', ...VISIBILITY_LABEL, trash: 'Recently Deleted' }
 // Same wording as the visibility picker on the New Project page (projects/new/page.tsx).
 const SCOPE_DESCRIPTION: Record<ScopeFilter, string> = {
+  all:       'Everything you can see.',
   personal:  'Just you.',
   workspace: 'Everyone in the workspace.',
   shared:    'You choose who to invite.',
@@ -50,6 +58,9 @@ function parseScope(raw: string | null): ScopeFilter {
   return (SCOPE_VALUES as readonly string[]).includes(raw ?? '') ? (raw as ScopeFilter) : 'personal'
 }
 type ViewMode = 'grid' | 'list'
+function parseViewMode(raw: string | null): ViewMode {
+  return raw === 'list' ? 'list' : 'grid'
+}
 
 // Gradient palette seeded by team name — shared with TeamChip/TeamSwitcherRow/
 // TeamSwitcherDropdown/ProjectCard/etc via src/lib/team-gradients.ts, so a
@@ -228,8 +239,13 @@ function ProjectListRow({
         boxSizing:       'border-box',
       }}
     >
-      {/* Visibility badge */}
-      <Badge color={VISIBILITY_COLOR[project.visibility]} label={VISIBILITY_LABEL[project.visibility]} />
+      {/* Visibility badge — fixed width so Personal/Workspace/Shared rows all
+          line up instead of each badge hugging its own label's width. */}
+      <Badge
+        color={VISIBILITY_COLOR[project.visibility]}
+        label={VISIBILITY_LABEL[project.visibility]}
+        style={{ width: 84, flexShrink: 0 }}
+      />
 
       {/* Title + meta */}
       <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -300,21 +316,20 @@ function ProjectListRow({
               }
             >
               <Dropdown size="md" maxHeight={false}>
-                {onEdit && (
-                  <Dropdown.Section fluid>
-                    <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
-                  </Dropdown.Section>
-                )}
-                {onLeave && (
-                  <Dropdown.Section fluid>
-                    <Dropdown.Item label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
-                  </Dropdown.Section>
-                )}
-                {onDelete && (
-                  <Dropdown.Section fluid>
-                    <Dropdown.Item label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
-                  </Dropdown.Section>
-                )}
+                <Dropdown.Section fluid>
+                  {onEdit && (
+                    <Dropdown.Item icon={<PenOneIcon color="var(--neutral-600)" />} label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
+                  )}
+                  {onLeave && (
+                    <Dropdown.Item icon={<UnlinkOneIcon color="var(--neutral-600)" />} label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
+                  )}
+                  {onDelete && (
+                    <>
+                      {(onEdit || onLeave) && <Divider decorative />}
+                      <Dropdown.Item icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
+                    </>
+                  )}
+                </Dropdown.Section>
               </Dropdown>
             </Dropdown.Float>
           </div>
@@ -380,32 +395,57 @@ function ProjectsPageInner() {
     syncedRef.current = true
     Promise.allSettled(projects.map(p => loadProjectChats(p.id)))
   }, [loading, projects, loadProjectChats])
-  const [viewMode,       setViewMode]       = useState<ViewMode>('grid')
-  const [query,          setQuery]          = useState('')
-  const [searchOpen,     setSearchOpen]     = useState(false)
-  const [sort,           setSort]           = useState<SortKey>('recent')
+  // Every filter below is seeded from its own URL param (e.g. the sidebar's
+  // "Personal projects" link lands here with ?scope=personal pre-applied) and
+  // written back to that param on every change via updateParam, so the full
+  // filter set — scope, view, sort, search — survives a reload/back-nav and a
+  // link to this page can point at an exact filtered view. The effect below
+  // re-syncs all four any time the URL changes out from under them (e.g.
+  // browser Back/Forward), so the visible filters never drift from the
+  // address bar.
+  const [viewMode,       setViewMode]       = useState<ViewMode>(() => parseViewMode(searchParams.get('view')))
+  const [query,          setQuery]          = useState(() => searchParams.get('q') ?? '')
+  const [searchOpen,     setSearchOpen]     = useState(() => !!searchParams.get('q'))
+  const [sort,           setSort]           = useState<SortKey>(() => parseSort(searchParams.get('sort')))
   const [sortOpen,       setSortOpen]       = useState(false)
-  // Seeded from ?scope= (e.g. the sidebar's "Personal projects" link lands
-  // here with scope=personal pre-applied). handleScopeChange below writes back
-  // to ?scope= on every tab switch so the URL stays in sync, and the effect
-  // further down re-syncs this state whenever the URL's ?scope= changes out
-  // from under it (e.g. browser Back/Forward), so the visible tab never
-  // drifts from the address bar.
   const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() => parseScope(searchParams.get('scope')))
-  // Re-sync the tab any time the URL's ?scope= changes — including via
-  // popstate (Back/Forward), not just the initial mount.
   useEffect(() => {
     const urlScope = parseScope(searchParams.get('scope'))
     setScopeFilter(prev => (prev === urlScope ? prev : urlScope))
+    const urlView = parseViewMode(searchParams.get('view'))
+    setViewMode(prev => (prev === urlView ? prev : urlView))
+    const urlSort = parseSort(searchParams.get('sort'))
+    setSort(prev => (prev === urlSort ? prev : urlSort))
+    const urlQuery = searchParams.get('q') ?? ''
+    setQuery(prev => (prev === urlQuery ? prev : urlQuery))
+    if (urlQuery) setSearchOpen(true)
   }, [searchParams])
-  // Keep the URL's ?scope= in sync with the tab so the current scope survives
-  // a reload/back-nav and links to this page can point at a specific tab.
-  // replace (not push) — switching tabs shouldn't pile up history entries.
+  // Shared writer — patches one param onto the current URL while preserving
+  // the rest (e.g. changing ?sort= doesn't clobber ?scope=). replace (not
+  // push) — switching a filter shouldn't pile up history entries. An empty
+  // value removes the param instead of writing it out (keeps the URL clean
+  // when the search box is cleared/closed).
+  function updateParam(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value) params.set(key, value)
+    else params.delete(key)
+    replace(`${PROJECTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
   function handleScopeChange(next: ScopeFilter) {
     setScopeFilter(next)
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('scope', next)
-    replace(`${PROJECTS_ROUTE}?${params.toString()}`, { scroll: false })
+    updateParam('scope', next)
+  }
+  function handleViewModeChange(next: ViewMode) {
+    setViewMode(next)
+    updateParam('view', next)
+  }
+  function handleSortChange(next: SortKey) {
+    setSort(next)
+    updateParam('sort', next)
+  }
+  function handleQueryChange(next: string) {
+    setQuery(next)
+    updateParam('q', next)
   }
 
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
@@ -483,6 +523,7 @@ function ProjectsPageInner() {
   const sharedCount    = useMemo(() => projects.filter(p => p.visibility === 'shared').length, [projects])
 
   const scopedProjects = useMemo(() => {
+    if (scopeFilter === 'all') return projects
     return projects.filter(p => p.visibility === scopeFilter)
   }, [projects, scopeFilter])
 
@@ -510,11 +551,13 @@ function ProjectsPageInner() {
     active: 'Most chats first.',
   }
 
-  const emptyLabel = scopeFilter === 'personal'
-    ? 'No personal projects yet. Create your first one to get started.'
-    : scopeFilter === 'workspace'
-      ? 'No workspace projects yet.'
-      : 'No shared projects yet.'
+  const emptyLabel = scopeFilter === 'all'
+    ? 'No projects yet. Create your first one to get started.'
+    : scopeFilter === 'personal'
+      ? 'No personal projects yet. Create your first one to get started.'
+      : scopeFilter === 'workspace'
+        ? 'No workspace projects yet.'
+        : 'No shared projects yet.'
 
   return (
     <div
@@ -629,8 +672,8 @@ function ProjectsPageInner() {
                             role="button"
                             tabIndex={0}
                             aria-label="Close search"
-                            onClick={() => { setSearchOpen(false); setQuery('') }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setQuery('') } }}
+                            onClick={() => { setSearchOpen(false); handleQueryChange('') }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); handleQueryChange('') } }}
                             className="kds-icon-in-field"
                             style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
                           >
@@ -639,7 +682,7 @@ function ProjectsPageInner() {
                         }
                         placeholder="Search projects…"
                         value={query}
-                        onChange={setQuery}
+                        onChange={handleQueryChange}
                         fluid
                         // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
                         autoFocus
@@ -652,7 +695,7 @@ function ProjectsPageInner() {
             </Tooltip>
 
             {/* Grid/List view toggle */}
-            <ProjectViewToggle value={viewMode} onChange={setViewMode} />
+            <ProjectViewToggle value={viewMode} onChange={handleViewModeChange} />
 
             {/* Sort dropdown */}
             <Dropdown.Float
@@ -673,7 +716,7 @@ function ProjectsPageInner() {
                       label={sortLabels[k]}
                       subLabel={sortDescriptions[k]}
                       selected={sort === k}
-                      onClick={() => { setSort(k); setSortOpen(false) }}
+                      onClick={() => { handleSortChange(k); setSortOpen(false) }}
                       fluid
                     />
                   ))}
@@ -807,7 +850,8 @@ function ProjectsPageInner() {
         description={editTarget?.description ?? ''}
         tags={editTarget?.tags ?? []}
         onSave={(name, description, tags) => {
-          if (editTarget) updateProject(editTarget.id, { name, description, tags })
+          if (!editTarget) return
+          return updateProject(editTarget.id, { name, description, tags })
         }}
         onClose={() => setEditTarget(null)}
       />

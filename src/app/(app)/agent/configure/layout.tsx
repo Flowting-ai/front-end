@@ -19,6 +19,7 @@ import {
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
+import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
@@ -1018,8 +1019,9 @@ function VersionsPanel() {
                     <button
                       onClick={() => handleDeleteVersion(v.id)}
                       disabled={!!deletingId || !!restoringId}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
                     >
+                      {deletingId === v.id && <Spinner size={14} color="var(--red-600, #dc2626)" />}
                       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-600, #dc2626)', whiteSpace: 'nowrap' }}>
                         {deletingId === v.id ? 'Deleting…' : 'Delete'}
                       </span>
@@ -1027,8 +1029,9 @@ function VersionsPanel() {
                     <button
                       onClick={() => handleRestoreVersion(v.id)}
                       disabled={!!restoringId || !!deletingId}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (restoringId || deletingId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: (restoringId || deletingId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (restoringId || deletingId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: (restoringId || deletingId) ? 0.5 : 1, transition: 'opacity 150ms' }}
                     >
+                      {restoringId === v.id && <Spinner size={14} color="var(--neutral-700)" />}
                       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
                         {restoringId === v.id ? 'Restoring…' : 'Restore'}
                       </span>

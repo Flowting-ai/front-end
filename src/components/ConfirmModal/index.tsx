@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 
@@ -33,6 +35,7 @@ export function ConfirmModal({
   onClose,
 }: ConfirmModalProps) {
   const [submitting, setSubmitting] = useState(false)
+  const mounted = useMounted()
 
   const handleConfirm = async () => {
     setSubmitting(true)
@@ -45,7 +48,13 @@ export function ConfirmModal({
     }
   }
 
-  return (
+  if (!mounted) return null
+
+  // Portaled to document.body — a caller nested inside an animated
+  // (transformed) ancestor would otherwise have this `position: fixed`
+  // overlay clipped/mispositioned relative to that ancestor instead of the
+  // viewport.
+  return createPortal(
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
       onClick={() => { if (!submitting) onClose() }}
@@ -79,7 +88,8 @@ export function ConfirmModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

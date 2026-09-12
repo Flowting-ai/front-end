@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import NextImage from "next/image";
 import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/Spinner";
 import { ATTRIBUTE_HEADER_STYLE } from "@/app/(app)/agent/configure/components/AttributeTrackerRail";
 
 async function compressImage(file: File, maxW: number, maxH: number, quality: number): Promise<string> {
@@ -179,6 +180,10 @@ export default function ProfileTab({
               onClick={() => avatarInputRef.current?.click()}
               disabled={isCompressing}
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
                 height: 30,
                 padding: "0 12px",
                 fontFamily: "var(--font-body)",
@@ -188,9 +193,11 @@ export default function ProfileTab({
                 backgroundColor: "transparent",
                 border: "1px solid rgba(59,54,50,0.3)",
                 borderRadius: 8,
-                cursor: "pointer",
+                cursor: isCompressing ? "not-allowed" : "pointer",
+                opacity: isCompressing ? 0.7 : 1,
               }}
             >
+              {isCompressing && <Spinner size={14} color="#524b47" />}
               {isCompressing ? "Processing…" : avatarUrl ? "Change Image" : "Upload Image"}
             </button>
             {!avatarUrl && (

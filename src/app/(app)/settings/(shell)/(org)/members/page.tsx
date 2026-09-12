@@ -8,6 +8,7 @@ import { RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
 import { Button }           from '@/components/Button'
 import { IconButton }       from '@/components/IconButton'
 import { Avatar }           from '@/components/Avatar'
+import { Spinner }          from '@/components/Spinner'
 import { InputField }       from '@/components/InputField'
 import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
@@ -47,7 +48,7 @@ function RemoveButton({
   icon,
 }: {
   memberName:    string
-  onConfirm:     () => void
+  onConfirm:     () => void | Promise<void>
   /** Idle button text (e.g. "Remove" or "Revoke"). */
   label?:        string
   /** Confirmation button text (e.g. "Confirm remove" or "Revoke invite"). */
@@ -57,6 +58,17 @@ function RemoveButton({
 }) {
   const [hov,        setHov]        = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
+  const [busy,       setBusy]       = React.useState(false)
+
+  const handleConfirmClick = async () => {
+    setBusy(true)
+    try {
+      await onConfirm()
+    } finally {
+      setBusy(false)
+      setConfirming(false)
+    }
+  }
 
   return (
     <AnimatePresence mode="popLayout" initial={false}>
@@ -98,13 +110,15 @@ function RemoveButton({
           exit={{    opacity: 0, filter: 'blur(4px)', transition: REVEAL }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
         >
-          <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} style={{ flexShrink: 0 }}>
+          <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={busy} style={{ flexShrink: 0 }}>
             Cancel
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setConfirming(false); onConfirm() }}
+            loading={busy}
+            disabled={busy}
+            onClick={() => void handleConfirmClick()}
             style={{ color: 'var(--red-500)', flexShrink: 0 }}
           >
             {confirmLabel}
@@ -162,7 +176,7 @@ function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: bo
       }}
     >
       {label}
-      {!disabled && <ArrowDownOneIcon size={12} color="var(--neutral-400)" />}
+      {disabled ? <Spinner size={12} color="var(--neutral-400)" /> : <ArrowDownOneIcon size={12} color="var(--neutral-400)" />}
     </button>
   )
 }
@@ -358,8 +372,8 @@ function MembersTable({
   currentUserEmail?:    string | null
   loading?:             boolean
   onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member') => Promise<boolean>
-  onRemove:             (id: string) => void
-  onRevokeInvite:       (id: string) => void
+  onRemove:             (id: string) => Promise<void>
+  onRevokeInvite:       (id: string) => Promise<void>
   onInviteClick:        () => void
 }) {
   const adminCount = members.filter(m => displayRoleFor(m) === 'admin').length

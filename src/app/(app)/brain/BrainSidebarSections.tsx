@@ -445,11 +445,17 @@ function FlatBrainThreadItem({
 }: BrainThreadItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen,  setMenuOpen]  = useState(false)
+  const [isStarring, setIsStarring] = useState(false)
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim()
     if (trimmed && trimmed !== thread.chat_title) void onRename(thread.id, trimmed)
     setIsEditing(false)
+  }
+
+  const handleStarClick = async () => {
+    setIsStarring(true)
+    try { await onStar(thread.id) } finally { setIsStarring(false) }
   }
 
   return (
@@ -479,7 +485,7 @@ function FlatBrainThreadItem({
           <Dropdown.Section fluid>
             <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
             {/* User-facing "Pin task"/"Unpin task" — starred/star stays the field name internally to match the API contract, same convention as chats' "Pin chat". */}
-            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={thread.starred ? 'Unpin task' : 'Pin task'} onClick={() => { setMenuOpen(false); void onStar(thread.id) }} />
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={thread.starred ? 'Unpin task' : 'Pin task'} loading={isStarring} onClick={() => { setMenuOpen(false); void handleStarClick() }} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={() => { setMenuOpen(false); onDelete(thread.id, stripDocumentBlocks(thread.chat_title) || thread.chat_title) }} />
           </Dropdown.Section>

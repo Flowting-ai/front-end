@@ -12,6 +12,7 @@ import { TeamsTier } from '@/lib/api/billing'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
+import { Spinner } from '@/components/Spinner'
 import { Dropdown } from '@/components/Dropdown'
 import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
@@ -706,7 +707,7 @@ function OrgChangePlanPageInner() {
                   onClick={() => { void handleSelectWorkspace() }}
                   disabled={workspaceButtonDisabled}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     cursor: workspaceButtonDisabled ? 'default' : 'pointer',
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
@@ -716,6 +717,7 @@ function OrgChangePlanPageInner() {
                     textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                   }}
                 >
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#f7f2ed" />}
                   {workspaceButtonLabel}
                 </button>
               </div>

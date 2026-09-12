@@ -57,7 +57,7 @@ export interface EditProjectModalProps {
   name:        string
   description: string
   tags?:       ProjectTag[]
-  onSave:      (name: string, description: string, tags: ProjectTag[]) => void
+  onSave:      (name: string, description: string, tags: ProjectTag[]) => void | Promise<void>
   onClose:     () => void
 }
 
@@ -70,6 +70,7 @@ export function EditProjectModal({
   const [draftDesc, setDraftDesc]   = useState(description)
   const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
   const [tagInput,  setTagInput]    = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
@@ -105,11 +106,18 @@ export function EditProjectModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  function handleSave() {
-    if (!draftName.trim()) return
-    onSave(draftName.trim(), draftDesc.trim(), draftTags)
-    toast.success('Project updated')
-    onClose()
+  async function handleSave() {
+    if (!draftName.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await onSave(draftName.trim(), draftDesc.trim(), draftTags)
+      toast.success('Project updated')
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update project')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function focusInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -193,7 +201,7 @@ export function EditProjectModal({
               >
                 Edit
               </p>
-              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} />
+              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
             </div>
 
             <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
@@ -325,8 +333,8 @@ export function EditProjectModal({
                 flexShrink:     0,
               }}
             >
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button variant="default" onClick={handleSave} disabled={!draftName.trim()}>
+              <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
+              <Button variant="default" onClick={() => void handleSave()} loading={submitting} disabled={!draftName.trim() || submitting}>
                 Save changes
               </Button>
             </div>

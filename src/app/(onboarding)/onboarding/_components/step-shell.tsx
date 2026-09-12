@@ -356,6 +356,7 @@ export function StepFooter({
   onSkip,
   skipLabel = "Skip for now",
   skipDisabled = false,
+  skipLoading = false,
   onNext,
   nextLabel = "Next",
   nextDisabled = false,
@@ -368,6 +369,7 @@ export function StepFooter({
   onSkip?: () => void;
   skipLabel?: string;
   skipDisabled?: boolean;
+  skipLoading?: boolean;
   /** Omit to hide the primary Next/action button entirely — e.g. a screen whose
    *  only action lives elsewhere on the page (a card's own embedded button). */
   onNext?: () => void;
@@ -386,7 +388,7 @@ export function StepFooter({
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         {onSkip && (
-          <Button variant="ghost" size="sm" onClick={onSkip} disabled={skipDisabled}>
+          <Button variant="ghost" size="sm" onClick={onSkip} disabled={skipDisabled} loading={skipLoading}>
             {skipLabel}
           </Button>
         )}

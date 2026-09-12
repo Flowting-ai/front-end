@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
+import { Spinner } from '@/components/Spinner'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
@@ -429,7 +430,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                         transition: 'opacity 150ms',
                       }}
                     >
-                      <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                      {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
                       {isRevoking ? 'Revoking…' : 'Revoke link'}
                     </button>
                     <Button variant="secondary" size="sm" onClick={handleCopy}>
@@ -719,7 +720,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                       transition: 'opacity 150ms',
                     }}
                   >
-                    <CancelOneIcon size={14} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                    {isRevoking ? <Spinner size={14} color="var(--neutral-400)" /> : <CancelOneIcon size={14} color="#ee3030" />}
                     {isRevoking ? 'Revoking…' : 'Revoke'}
                   </button>
                 </div>

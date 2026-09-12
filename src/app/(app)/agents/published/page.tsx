@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, LinkSixIcon, CancelOneIcon, BubbleChatAddIcon, ShareOneIcon } from '@strange-huge/icons'
+import { Spinner } from '@/components/Spinner'
 import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
@@ -174,7 +175,7 @@ function SuperLinkSection({
               transition: 'opacity 150ms',
             }}
           >
-            <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+            {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
             {isRevoking ? 'Revoking…' : 'Revoke link'}
           </button>
           <Button variant="secondary" size="sm" onClick={handleCopy}>

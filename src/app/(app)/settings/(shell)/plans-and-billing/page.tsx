@@ -479,6 +479,7 @@ function OrgBillingView() {
   const [showCancelDialog,  setShowCancelDialog]  = useState(false)
   const [isCanceling,       setIsCanceling]       = useState(false)
   const [isResuming,        setIsResuming]        = useState(false)
+  const [openingPortal,     setOpeningPortal]     = useState(false)
 
   const isAdmin = orgRole === 'admin'
   const effectivePlan = plan
@@ -603,9 +604,16 @@ function OrgBillingView() {
       toast.error('Pro billing is managed manually.')
       return
     }
-    const url = await openBillingPortal()
-    if (url) window.open(url, '_blank')
-    else toast.error('Could not open billing portal.')
+    setOpeningPortal(true)
+    try {
+      const url = await openBillingPortal()
+      if (url) window.open(url, '_blank')
+      else toast.error('Could not open billing portal.')
+    } catch {
+      toast.error('Could not open billing portal.')
+    } finally {
+      setOpeningPortal(false)
+    }
   }
 
   const handleExportAllInvoices = () => {
@@ -936,7 +944,7 @@ function OrgBillingView() {
                 </p>
               </div>
               {!isManualBilling && (
-                <Button variant="secondary" onClick={handleStripePortal}>Manage on Stripe</Button>
+                <Button variant="secondary" loading={openingPortal} onClick={() => void handleStripePortal()}>Manage on Stripe</Button>
               )}
             </div>
           </SectionCard>
@@ -1056,6 +1064,7 @@ function PersonalBillingView() {
   const [isCanceling,      setIsCanceling]      = useState(false)
   const [isResuming,       setIsResuming]       = useState(false)
   const [isClaimingTrial,  setIsClaimingTrial]  = useState(false)
+  const [openingPortal,    setOpeningPortal]    = useState(false)
 
   const didInit = useRef(false)
 
@@ -1160,9 +1169,16 @@ function PersonalBillingView() {
   const resetDate     = nextBilling !== '—' ? nextBilling : fmtDate(nextMonthStart.toISOString())
 
   const handleStripePortal = async () => {
-    const url = await openBillingPortal()
-    if (url) window.open(url, '_blank')
-    else toast.error('Could not open billing portal.')
+    setOpeningPortal(true)
+    try {
+      const url = await openBillingPortal()
+      if (url) window.open(url, '_blank')
+      else toast.error('Could not open billing portal.')
+    } catch {
+      toast.error('Could not open billing portal.')
+    } finally {
+      setOpeningPortal(false)
+    }
   }
 
   const handleExportAllInvoices = () => {
@@ -1331,7 +1347,7 @@ function PersonalBillingView() {
                 {pm?.expiry ?? 'Add a card to continue.'}
               </p>
             </div>
-            <Button variant="secondary" onClick={() => { void handleStripePortal() }}>Manage on Stripe</Button>
+            <Button variant="secondary" loading={openingPortal} onClick={() => { void handleStripePortal() }}>Manage on Stripe</Button>
           </div>
         </SectionCard>
 

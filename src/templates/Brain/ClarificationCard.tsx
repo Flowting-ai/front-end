@@ -35,6 +35,9 @@ export interface ClarificationCardProps {
   onSend?:            () => void
   onPrev?:            () => void
   onNext?:            () => void
+  /** True while the current answer's response is in flight — disables
+   *  Send/Skip and shows a spinner on Send. */
+  pending?:           boolean
 }
 
 export function ClarificationCard({
@@ -53,6 +56,7 @@ export function ClarificationCard({
   onSend,
   onPrev,
   onNext,
+  pending,
 }: ClarificationCardProps) {
   // Only render pagination when the caller knows both numerator and
   // denominator. Showing "1/3" when only one question will ever be asked
@@ -78,6 +82,7 @@ export function ClarificationCard({
       onSkip={onSkip}
       onSend={onSend}
       onClose={onSkip}
+      pending={pending}
     />
   )
 }

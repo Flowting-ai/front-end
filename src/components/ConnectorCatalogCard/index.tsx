@@ -32,6 +32,10 @@ export interface ConnectorCatalogCardProps extends Omit<React.HTMLAttributes<HTM
   /** Search query to bold within `name` (e.g. the catalog's active search box). */
   highlight?: string
   onAction?: () => void
+  /** True while `onAction`'s request is in flight (e.g. fetching connector
+   *  details before opening its setup modal) — shows a spinner on the
+   *  action button/icon and blocks re-triggering it. */
+  actionPending?: boolean
 }
 
 const allowedActions: Record<ConnectorCatalogCardState, ConnectorCatalogCardAction[]> = {
@@ -91,6 +95,7 @@ export function ConnectorCatalogCard({
   accountCount = 1,
   highlight,
   onAction,
+  actionPending = false,
   className,
   style,
   ...props
@@ -235,6 +240,8 @@ export function ConnectorCatalogCard({
           aria-label={`Connect ${name}`}
           icon={<PlusSignIcon size={16} />}
           onClick={onAction}
+          loading={actionPending}
+          disabled={actionPending}
         />
       ) : resolvedAction !== 'none' ? (
         <Button
@@ -242,6 +249,8 @@ export function ConnectorCatalogCard({
           size="sm"
           aria-label={`${actionCopy(state, resolvedAction)} ${name}`}
           onClick={onAction}
+          loading={actionPending}
+          disabled={actionPending}
         >
           {actionCopy(state, resolvedAction)}
         </Button>

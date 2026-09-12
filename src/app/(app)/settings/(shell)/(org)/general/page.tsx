@@ -494,6 +494,9 @@ export default function OrgGeneralPage() {
   const [defaultPersonaVisibility, setDefaultPersonaVisibility] = useState('private')
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsSaving,  setSettingsSaving]  = useState(false)
+  // Separate from settingsSaving (shared by Save instructions/domains/defaults)
+  // so clicking Clear doesn't flip "Save instructions"' own label/spinner too.
+  const [clearingInstructions, setClearingInstructions] = useState(false)
   const [showAddDomain,   setShowAddDomain]   = useState(false)
   const [addDomainInput,  setAddDomainInput]  = useState('')
 
@@ -696,7 +699,7 @@ export default function OrgGeneralPage() {
 
   const handleClearInstructions = async () => {
     if (!orgId) return
-    setSettingsSaving(true)
+    setClearingInstructions(true)
     try {
       const updated = await updateOrgSettings(orgId, { orgInstructions: '' })
       setAiInstructions(updated.orgInstructions ?? '')
@@ -704,7 +707,7 @@ export default function OrgGeneralPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to clear instructions')
     } finally {
-      setSettingsSaving(false)
+      setClearingInstructions(false)
     }
   }
 
@@ -897,10 +900,11 @@ export default function OrgGeneralPage() {
                 <Button
                   variant="secondary"
                   size="sm"
+                  loading={avatarUploading}
                   disabled={avatarUploading || !isEditingIdentity}
                   onClick={() => logoInputRef.current?.click()}
                 >
-                  {avatarUploading ? 'Processing…' : (logoPreview ?? logoUrl) ? 'Change Logo' : 'Upload Logo'}
+                  {(logoPreview ?? logoUrl) ? 'Change Logo' : 'Upload Logo'}
                 </Button>
                 <input
                   ref={logoInputRef}
@@ -1093,7 +1097,8 @@ export default function OrgGeneralPage() {
               variant="secondary"
               size="sm"
               onClick={handleClearInstructions}
-              disabled={!aiInstructions || settingsSaving || settingsLoading}
+              loading={clearingInstructions}
+              disabled={!aiInstructions || settingsSaving || clearingInstructions || settingsLoading}
             >
               Clear
             </Button>
@@ -1101,9 +1106,10 @@ export default function OrgGeneralPage() {
               variant="default"
               size="sm"
               onClick={handleSaveInstructions}
-              disabled={settingsSaving || settingsLoading}
+              loading={settingsSaving}
+              disabled={settingsSaving || clearingInstructions || settingsLoading}
             >
-              {settingsSaving ? 'Saving…' : 'Save instructions'}
+              Save instructions
             </Button>
           </div>
         </Card>

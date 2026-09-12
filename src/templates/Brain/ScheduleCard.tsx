@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { CalendarThreeIcon } from '@strange-huge/icons'
+import { CalendarThreeIcon, AlertTwoIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,6 +19,19 @@ export interface ScheduleCardProps {
   createdAt?:   string
   /** Brain chat permanently bound to this schedule (set once on create). */
   chatId?:      string
+  /** Total times this schedule has fired. Omit/0 hides the stats segment —
+   *  a schedule that's never run has nothing to report yet. */
+  runCount?:    number
+  /** Fraction of finished runs that succeeded (0-1). `null`/undefined until
+   *  at least one run has finished. */
+  successRate?: number | null
+  /** A run is executing right now — distinct from `isActive` (a paused
+   *  schedule can still have a run in flight from before it was paused). */
+  isRunning?:   boolean
+  /** True when the backend's deployed timer has drifted from what's stored
+   *  (services/automations/schedule.py's `drift` flag) — the last edit may
+   *  not have fully taken effect. */
+  drift?:       boolean
   onClick?:     (id: string) => void
 }
 
@@ -32,6 +45,10 @@ export function ScheduleCard({
   frequency,
   isActive,
   createdAt,
+  runCount,
+  successRate,
+  isRunning,
+  drift,
   onClick,
 }: ScheduleCardProps) {
   const [hovered, setHovered] = useState(false)
@@ -91,7 +108,15 @@ export function ScheduleCard({
             </span>
           )}
         </div>
-        <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {drift && (
+            <span title="This schedule's last edit may not have fully synced">
+              <AlertTwoIcon size={14} color="var(--yellow-600, #ca8a04)" />
+            </span>
+          )}
+          {isRunning && <Badge color="Blue" label="Running" />}
+          <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
+        </div>
       </div>
 
       {/* Title */}
@@ -155,6 +180,27 @@ export function ScheduleCard({
             {frequency}
           </span>
         </div>
+
+        {/* Run stats — omitted entirely until the schedule has actually fired
+            at least once, rather than showing a misleading "0 runs". */}
+        {!!runCount && (
+          <>
+            <span style={{ width: 1, height: 12, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
+            <span style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   400,
+              fontSize:     '12px',
+              lineHeight:   '16px',
+              color:        'var(--neutral-500)',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {runCount} {runCount === 1 ? 'run' : 'runs'}
+              {successRate != null && ` · ${Math.round(successRate * 100)}% success`}
+            </span>
+          </>
+        )}
       </div>
     </button>
   )

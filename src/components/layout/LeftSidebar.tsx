@@ -1787,6 +1787,9 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
+  const [isMoving,      setIsMoving]      = useState(false)
+  const [isStarring,    setIsStarring]    = useState(false)
+  const [isArchiving,   setIsArchiving]   = useState(false)
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim()
@@ -1797,17 +1800,28 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
     setMenuOpen(false)
     openDeleteChatDialog({ chatId: chat.id, chatTitle: chat.title, onConfirm: () => onDelete(chat.id) })
   }
+  const handleStar = async () => {
+    setIsStarring(true)
+    try { await onStar(chat.id) } finally { setIsStarring(false) }
+  }
+  const handleArchive = async () => {
+    setIsArchiving(true)
+    try { await onArchive(chat.id) } finally { setIsArchiving(false) }
+  }
   // Same flow as the old ChatHistoryItem.tsx's "Move to project".
   const handleMoveToProject = async (projectId: string) => {
-    setMoveModalOpen(false)
+    setIsMoving(true)
     try {
       await addChatToProject(projectId, chat.id)
       addChat(projectId, chat.id, chat.title, { skipLink: true })
       removeLocal(chat.id)
       const project = projects.find((p) => p.id === projectId)
       toast.success(`Moved to "${project?.name ?? "project"}"`)
+      setMoveModalOpen(false)
     } catch {
       toast.error("Failed to move chat — please try again.")
+    } finally {
+      setIsMoving(false)
     }
   }
 
@@ -1817,7 +1831,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
         inline it generates a line box (--line-height-body, 22px) under the 32px
         row — the row's own height plus a phantom second line. The brain-thread
         row dodges this by using a raw absolutely-positioned Radix trigger. */}
-    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", opacity: isArchiving ? 0.5 : 1, transition: "opacity 150ms", pointerEvents: isArchiving ? "none" : undefined }}>
       <FlatSidebarRow
         variant={isEditing ? "chat-item-edit" : "chat-item"}
         label={chat.title}
@@ -1826,7 +1840,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
         badge={!isEditing && chat.can_edit === false && chat.visibility === 'team' ? <Badge color="Red" label="Read only" /> : undefined}
         onClick={() => { if (!isEditing) onSelect(chat.id) }}
         onMoreClick={isReadOnly ? undefined : (e) => { e.stopPropagation(); setMenuOpen(true) }}
-        onPinClick={(e) => { e.stopPropagation(); void onStar(chat.id) }}
+        onPinClick={(e) => { e.stopPropagation(); void handleStar() }}
         pinned={chat.starred}
         onRename={isReadOnly ? undefined : () => setIsEditing(true)}
         onCommit={handleCommit}
@@ -1848,9 +1862,9 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
             <Dropdown.Item fluid icon={<ShareOneIcon color="var(--neutral-600)" />} label="Share" onClick={() => { setMenuOpen(false); push(`/chat?id=${chat.id}&share=1`) }} />
             <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
             {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
-            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} onClick={() => { setMenuOpen(false); void onStar(chat.id) }} />
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} loading={isStarring} onClick={() => { setMenuOpen(false); void handleStar() }} />
             <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => { setMenuOpen(false); setMoveModalOpen(true) }} />
-            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" onClick={() => { setMenuOpen(false); void onArchive(chat.id) }} />
+            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" loading={isArchiving} onClick={() => { setMenuOpen(false); void handleArchive() }} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>
@@ -1859,6 +1873,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
     </div>
     <MoveToProjectModal
       open={moveModalOpen}
+      loading={isMoving}
       onClose={() => setMoveModalOpen(false)}
       onConfirm={handleMoveToProject}
       projects={projects.map((p) => ({ id: p.id, name: p.name, description: p.description }))}
@@ -2191,7 +2206,7 @@ function FlatProjectsSection({
         variant="header" label={label} shown={shown} onShowClick={() => setShown(s => !s)}
         onAddClick={showNewProject ? (e) => { e.stopPropagation(); push(newProjectHref) } : undefined} addLabel="New Project"
         headerIcon={headerIcon}
-        onHeaderIconClick={headerIcon ? () => push(PROJECTS_ROUTE) : undefined}
+        onHeaderIconClick={headerIcon ? () => push(`${PROJECTS_ROUTE}?scope=all`) : undefined}
         headerIconLabel="All Projects"
         actionsAlwaysVisible
       />
@@ -2241,7 +2256,7 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
             fallback={<FolderThreeIcon size={16} animated />}
           />
         }
-        onHeaderIconClick={() => push(PROJECTS_ROUTE)}
+        onHeaderIconClick={() => push(`${PROJECTS_ROUTE}?scope=all`)}
         headerIconLabel="All Projects"
         actionsAlwaysVisible
       />
