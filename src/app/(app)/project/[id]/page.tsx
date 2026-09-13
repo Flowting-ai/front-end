@@ -493,11 +493,10 @@ export default function ProjectPage() {
   // that `teamChats` can include chats owned by other project members (the
   // whole point of the fix — see the fetch effect above), rows not owned by
   // the viewer get an `author` attribution (same member lookup as `ownerName`
-  // above) instead of looking indistinguishable from the viewer's own chats;
-  // pin counts aren't available from this endpoint (unlike the old global
-  // chats listing), so `pinCount` is left unknown (renders a neutral
-  // placeholder — see ProjectChatRow's own doc comment on that prop) rather
-  // than showing a stale/wrong number.
+  // above) instead of looking indistinguishable from the viewer's own chats.
+  // Pin counts come from the pinboard context (same source the private-chat
+  // list below uses), not from the chat-list endpoint itself, so switching
+  // endpoints doesn't affect them.
   function teamChatRow(chat: ApiProjectChat) {
     const isMine = chat.ownerUserId === user?.auth0Id
     return (
@@ -505,7 +504,7 @@ export default function ProjectPage() {
         key={chat.id}
         title={chat.chatTitle}
         timestamp={formatRelativeTime(chat.updatedAt)}
-        pinCount={null}
+        pinCount={pinsLoading ? null : pins.filter(p => p.chatId === chat.id).length}
         author={isMine ? undefined : (members.find(m => m.id === chat.ownerUserId)?.name ?? undefined)}
         canPublish={canPublishChat}
         published={chat.visibility === 'team'}
