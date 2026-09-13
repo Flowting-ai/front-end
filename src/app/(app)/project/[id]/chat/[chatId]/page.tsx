@@ -38,9 +38,6 @@ import {
   NeuralNetworkIcon,
   AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
-  CalendarFoldIcon,
-  StickyNoteTwoIcon,
-  AuctionIcon,
 } from '@strange-huge/icons'
 import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
@@ -157,11 +154,6 @@ const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
   build:    'What would you like to build?',
 }
 
-const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: string }> = [
-  { icon: <CalendarFoldIcon  size={24} color="var(--yellow-500)" animated />, label: 'Prep me for an upcoming meeting',    prompt: 'Help me prepare for an upcoming meeting' },
-  { icon: <StickyNoteTwoIcon size={24} color="#141B34"           animated />, label: 'Help me draft and structure my notes', prompt: 'Help me draft and structure my notes' },
-  { icon: <AuctionIcon       size={24} color="var(--green-500)"  animated />, label: 'Compare and evaluate my options',     prompt: 'Help me compare and evaluate my options' },
-]
 
 // ── Per-chat settings persistence ────────────────────────────────────────────
 
@@ -201,12 +193,16 @@ function LoadingChatSkeleton() {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+import { useRecommendations } from '@/hooks/use-recommendations'
+import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
+
 
 function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
+  const recommendations = useRecommendations('chat')
 
   const {
     loading: projectsContextLoading,
@@ -803,26 +799,36 @@ function ProjectChatPageInner() {
                     ))}
                   </div>
 
-                  {/* Template cards */}
-                  <div style={{ marginTop: '28px' }}>
-                    <p
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize:   '13px',
-                        fontWeight: 500,
-                        color:      'var(--neutral-500)',
-                        margin:     '0 0 10px',
-                        textAlign:  'left',
-                      }}
-                    >
-                      Not sure where to start?
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      {TEMPLATE_CARDS.map((card) => (
-                        <TemplateCard key={card.label} icon={card.icon} label={card.label} onClick={() => handleSend(card.prompt)} />
-                      ))}
+                  {/* Starter cards — generated per user by /recommendations. */}
+                  {recommendations && (
+                    <div style={{ marginTop: '28px' }}>
+                      <p
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontSize:   '13px',
+                          fontWeight: 500,
+                          color:      'var(--neutral-500)',
+                          margin:     '0 0 10px',
+                          textAlign:  'left',
+                        }}
+                      >
+                        Not sure where to start?
+                      </p>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {recommendations.cards.map((card) => {
+                          const { Icon, color } = RECOMMENDATION_ICONS[card.icon]
+                          return (
+                            <TemplateCard
+                              key={card.label}
+                              icon={<Icon size={24} color={color} animated />}
+                              label={card.label}
+                              onClick={() => handleSend(card.prompt)}
+                            />
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </m.div>
               </div>
             </div>

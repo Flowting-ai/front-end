@@ -45,9 +45,6 @@ import {
   BubbleChatIcon,
   AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
-  CalendarFoldIcon,
-  StickyNoteTwoIcon,
-  AuctionIcon,
   FolderOneIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
@@ -178,6 +175,8 @@ const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
   think:    "What would you like to think through?",
   build:    "What would you like to build?",
 };
+import { useRecommendations } from "@/hooks/use-recommendations";
+import { RECOMMENDATION_ICONS } from "@/lib/recommendation-icons";
 
 const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
   write:    "Write",
@@ -186,25 +185,6 @@ const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
   build:    "Build",
 };
 
-// ── Template cards config ─────────────────────────────────────────────────────
-
-const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: string }> = [
-  {
-    icon:   <CalendarFoldIcon size={24} color="var(--yellow-500)" animated />,
-    label:  "Prep me for an upcoming meeting",
-    prompt: "Help me prepare for an upcoming meeting",
-  },
-  {
-    icon:   <StickyNoteTwoIcon size={24} color="#141B34" animated />,
-    label:  "Help me draft and structure my notes",
-    prompt: "Help me draft and structure my notes",
-  },
-  {
-    icon:   <AuctionIcon size={24} color="var(--green-500)" animated />,
-    label:  "Compare and evaluate my options",
-    prompt: "Help me compare and evaluate my options",
-  },
-];
 
 // ── Per-chat settings helpers ─────────────────────────────────────────────────
 // Settings (webSearch, persona) are stored per-chatId so each chat remembers
@@ -267,6 +247,7 @@ function ChatPageInner() {
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
   const [selectedMode, setSelectedMode] = useState<ChatMode | null>(null);
+  const recommendations = useRecommendations("chat");
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -1145,31 +1126,37 @@ function ChatPageInner() {
                     ))}
                   </div>
 
-                  {/* ── Template cards ──────────────────────────────────────── */}
-                  <div style={{ marginTop: "28px" }}>
-                    <p
-                      style={{
-                        fontFamily: "var(--font-body)",
-                        fontSize:   "13px",
-                        fontWeight: 500,
-                        color:      "var(--neutral-500)",
-                        margin:     "0 0 10px",
-                        textAlign:  "left",
-                      }}
-                    >
-                      Not sure where to start?
-                    </p>
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      {TEMPLATE_CARDS.map((card) => (
-                        <TemplateCard
-                          key={card.label}
-                          icon={card.icon}
-                          label={card.label}
-                          onClick={() => handleNewChatSend(card.prompt)}
-                        />
-                      ))}
+                  {/* ── Starter cards ───────────────────────────────────────── */}
+                  {/* Generated per user by /recommendations; absent until it lands. */}
+                  {recommendations && (
+                    <div style={{ marginTop: "28px" }}>
+                      <p
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "13px",
+                          fontWeight: 500,
+                          color:      "var(--neutral-500)",
+                          margin:     "0 0 10px",
+                          textAlign:  "left",
+                        }}
+                      >
+                        Not sure where to start?
+                      </p>
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        {recommendations.cards.map((card) => {
+                          const { Icon, color } = RECOMMENDATION_ICONS[card.icon];
+                          return (
+                            <TemplateCard
+                              key={card.label}
+                              icon={<Icon size={24} color={color} animated />}
+                              label={card.label}
+                              onClick={() => handleNewChatSend(card.prompt)}
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </m.div>
               </div>
             </div>

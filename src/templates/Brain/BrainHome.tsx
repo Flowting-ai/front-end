@@ -1,51 +1,17 @@
 'use client'
 
-import React, { useId } from 'react'
+import React from 'react'
 import { m } from 'framer-motion'
 import {
-  SearchOneIcon,
-  QuillWriteOneIcon,
-  AtomOneIcon,
   CalendarThreeIcon,
   ArrowRightOneIcon,
   CheckmarkCircleTwoIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { useRecommendations } from '@/hooks/use-recommendations'
+import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
 import type { DigestItem } from './BrainDigestCard'
 
-// ── Rotating headlines ─────────────────────────────────────────────────────
-// Each headline is a three-beat capability chain — one per Brain workflow.
-// Random per session so every visit surfaces a different angle.
-
-const ROTATING_HEADLINES = [
-  'Research. Draft. Ship.',
-  'Scan. Summarise. Report.',
-  'Plan. Execute. Deliver.',
-  'Brief. Write. Launch.',
-  'Analyse. Decide. Act.',
-  'Outline. Build. Export.',
-]
-
-// ── Suggestion cards ───────────────────────────────────────────────────────
-// Prompt starters that fill the ChatInput — Brain-specific workflows only.
-
-const SUGGESTION_CARDS = [
-  {
-    id:    'sc-0',
-    Icon:  SearchOneIcon,
-    label: 'Research a topic in depth and deliver a clear, sourced summary',
-  },
-  {
-    id:    'sc-1',
-    Icon:  QuillWriteOneIcon,
-    label: 'Draft long-form content from scratch and refine until it\'s ready to ship',
-  },
-  {
-    id:    'sc-2',
-    Icon:  AtomOneIcon,
-    label: 'Plan a multi-step project, then execute each step and report back',
-  },
-]
 
 // ── SuggestionCard ─────────────────────────────────────────────────────────
 
@@ -251,9 +217,7 @@ export function BrainHome({
   activeSchedules,
   onViewSchedules,
 }: BrainHomeProps) {
-  const headlineSeed = useId()
-  const headlineIndex = Array.from(headlineSeed).reduce((sum, character) => sum + character.charCodeAt(0), 0)
-  const headline = ROTATING_HEADLINES[headlineIndex % ROTATING_HEADLINES.length]
+  const recommendations = useRecommendations('brain')
 
   const hasDigest    = digestItems && digestItems.length > 0
   const hasSchedules = activeSchedules && activeSchedules.length > 0
@@ -282,8 +246,8 @@ export function BrainHome({
         alignItems:    'center',
         gap:           '12px',
       }}>
-        {/* Rotating headline */}
-        <p style={{
+        {/* Headline — generated with the cards by /recommendations. */}
+        {recommendations?.headline && <p style={{
           margin:        0,
           fontFamily:    'var(--font-title)',
           fontSize:      'var(--font-size-display)',
@@ -294,8 +258,8 @@ export function BrainHome({
           textAlign:     'center',
           whiteSpace:    'nowrap',
         }}>
-          {headline}
-        </p>
+          {recommendations.headline}
+        </p>}
 
         {/* Subtitle */}
         <p style={{
@@ -355,14 +319,17 @@ export function BrainHome({
             alignItems: 'flex-start',
             width:      '100%',
           }}>
-            {SUGGESTION_CARDS.map(card => (
-              <SuggestionCard
-                key={card.id}
-                Icon={card.Icon}
-                label={card.label}
-                onClick={() => onSuggestion?.(card.label)}
-              />
-            ))}
+            {recommendations?.cards.map(card => {
+              const { Icon } = RECOMMENDATION_ICONS[card.icon]
+              return (
+                <SuggestionCard
+                  key={card.label}
+                  Icon={Icon}
+                  label={card.label}
+                  onClick={() => onSuggestion?.(card.prompt)}
+                />
+              )
+            })}
           </div>
         </div>
       )}
