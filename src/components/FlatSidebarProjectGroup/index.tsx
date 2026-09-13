@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FolderOneIcon, PlusSignIcon, QuillWriteTwoIcon, SettingsOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
@@ -59,6 +59,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
     const isControlled = expandedProp !== undefined
     const [internalExpanded, setInternalExpanded] = useState(false)
     const isExpanded = isControlled ? expandedProp! : internalExpanded
+    const rowRef = useRef<HTMLDivElement>(null)
     const [isHovered, setIsHovered] = useState(false)
     const isActive = isHovered || active
     const [overflow, setOverflow] = useState<'visible' | 'hidden'>('hidden')
@@ -67,6 +68,33 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
     // the row-level hover that only controls reveal (opacity), matching FlatSidebarRow.
     const [newChatIconHovered, setNewChatIconHovered] = useState(false)
     const [openIconHovered, setOpenIconHovered] = useState(false)
+
+    // The sidebar re-sorts projects by recency, so a background update (a
+    // chat's updatedAt bumping, etc.) can reorder this row out from under the
+    // cursor while its key stays stable — React moves the DOM node instead of
+    // remounting it. Browsers only fire mouseenter/mouseleave on real pointer
+    // motion, not on a layout move, so a stale `isHovered` can otherwise stick
+    // (buttons left visible/clickable on a row the cursor isn't over anymore).
+    // Re-validate against the live cursor on the next pointer movement so it
+    // self-heals instead of staying wrong until the row happens to be
+    // re-entered/left directly.
+    useEffect(() => {
+      if (!isHovered) return
+      const recheck = (e: MouseEvent) => {
+        const rect = rowRef.current?.getBoundingClientRect()
+        const inside = !!rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+        if (!inside) setIsHovered(false)
+      }
+      window.addEventListener('mousemove', recheck)
+      return () => window.removeEventListener('mousemove', recheck)
+    }, [isHovered])
+
+    useEffect(() => {
+      if (!isHovered) {
+        setNewChatIconHovered(false)
+        setOpenIconHovered(false)
+      }
+    }, [isHovered])
 
     const toggle = () => {
       const next = !isExpanded
@@ -77,6 +105,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
     return (
       <div ref={ref} className={cn(className)} style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }} {...props}>
         <div
+          ref={rowRef}
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}
@@ -142,7 +171,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   style={{
                     display: 'inline-flex', lineHeight: 0, cursor: 'pointer',
                     color: newChatIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
-                    opacity: isActive ? 0.7 : 0, transition: 'opacity 150ms, color 150ms',
+                    opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
                   <QuillWriteTwoIcon size={16} animated />
@@ -163,7 +192,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   style={{
                     display: 'inline-flex', lineHeight: 0, cursor: 'pointer',
                     color: openIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
-                    opacity: isActive ? 0.7 : 0, transition: 'opacity 150ms, color 150ms',
+                    opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
                   <SettingsOneIcon size={16} />
@@ -178,7 +207,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                 aria-label={addLabel ?? `Add to ${label}`}
                 onClick={(e) => { e.stopPropagation(); onAddClick() }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onAddClick() } }}
-                style={{ display: 'inline-flex', lineHeight: 0, cursor: 'pointer', color: 'var(--sidebar-menu-item-text)', opacity: isActive ? 0.7 : 0, transition: 'opacity 150ms' }}
+                style={{ display: 'inline-flex', lineHeight: 0, cursor: 'pointer', color: 'var(--sidebar-menu-item-text)', opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms' }}
               >
                 <PlusSignIcon size={16} />
               </span>
