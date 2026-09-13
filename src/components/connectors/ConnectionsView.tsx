@@ -11,7 +11,6 @@ import {
   ArrowDownOneIcon,
   ArrowUpDownIcon,
   SearchOneIcon,
-  SettingsOneIcon,
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -89,52 +88,10 @@ const VIEW_LABELS: [CatalogView, string][] = [['all', 'All'], ['connected', 'Con
 // so a "Recommended" option was really just an alias for "however the
 // backend happened to return them," not a real ranking.
 type SortMode = 'name-asc' | 'name-desc'
-type TypeFilter = 'all' | 'trending' | 'new'
-const SORT_LABELS: [SortMode, string][] = [['name-asc', 'Name A–Z'], ['name-desc', 'Name Z–A']]
-const TYPE_LABELS: [TypeFilter, string][] = [['all', 'All'], ['trending', 'Trending'], ['new', 'New']]
-
-// No backend field curates "trending"/"new" (Gap #12 in the plan doc) —
-// featured_weight is Pipedream's own sync weight, an approximate proxy only.
-function typeMembers(type: TypeFilter, pool: ConnectorCatalog[]) {
-  if (type === 'all') return pool
-  const weighted = pool.map(row => ({ row, weight: row.featuredWeight }))
-  if (type === 'trending') {
-    return weighted.filter(x => x.weight != null).sort((a, b) => (b.weight as number) - (a.weight as number)).map(x => x.row)
-  }
-  return weighted.filter(x => x.weight == null).map(x => x.row)
-}
-
-function CountHint({ value }: { value: number }) {
-  return <span style={{ color: 'var(--color-text-placeholder)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)' }}>{value}</span>
-}
-
-function RefineMenu({ value, change, pool }: { value: TypeFilter; change: (value: TypeFilter) => void; pool: ConnectorCatalog[] }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dropdown.Float
-      trigger={<IconButton type="button" aria-label="Filter connectors by type" variant="outline" size="sm" icon={<SettingsOneIcon size={18} />} />}
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom-end"
-    >
-      <Dropdown size="sm" maxHeight={false}>
-        <Dropdown.Section label="Type" fluid>
-          {TYPE_LABELS.map(([id, label]) => (
-            <Dropdown.Item
-              key={id}
-              label={label}
-              badge={<CountHint value={typeMembers(id, pool).length} />}
-              rightIcon={id === value ? <TickTwoIcon /> : undefined}
-              selected={id === value}
-              fluid
-              onClick={() => { change(id); setOpen(false) }}
-            />
-          ))}
-        </Dropdown.Section>
-      </Dropdown>
-    </Dropdown.Float>
-  )
-}
+const SORT_LABELS: [SortMode, string, string][] = [
+  ['name-asc', 'Name A–Z', 'Alphabetical, A to Z'],
+  ['name-desc', 'Name Z–A', 'Alphabetical, Z to A'],
+]
 
 function SortMenu({ value, change }: { value: SortMode; change: (value: SortMode) => void }) {
   const [open, setOpen] = useState(false)
@@ -147,8 +104,16 @@ function SortMenu({ value, change }: { value: SortMode; change: (value: SortMode
     >
       <Dropdown size="sm" maxHeight={false}>
         <Dropdown.Section fluid>
-          {SORT_LABELS.map(([id, label]) => (
-            <Dropdown.Item key={id} label={label} selected={id === value} fluid onClick={() => { change(id); setOpen(false) }} />
+          {SORT_LABELS.map(([id, label, description]) => (
+            <Dropdown.Item
+              key={id}
+              label={label}
+              subLabel={description}
+              rightIcon={id === value ? <TickTwoIcon /> : undefined}
+              selected={id === value}
+              fluid
+              onClick={() => { change(id); setOpen(false) }}
+            />
           ))}
         </Dropdown.Section>
       </Dropdown>
@@ -157,12 +122,10 @@ function SortMenu({ value, change }: { value: SortMode; change: (value: SortMode
 }
 
 function CatalogToolbar({
-  view, changeView, query, setQuery, type, setType, pool, sort, setSort,
+  view, changeView, query, setQuery, sort, setSort,
 }: {
   view: CatalogView; changeView: (value: CatalogView) => void
   query: string; setQuery: (value: string) => void
-  type: TypeFilter; setType: (value: TypeFilter) => void
-  pool: ConnectorCatalog[]
   sort: SortMode; setSort: (value: SortMode) => void
 }) {
   return (
@@ -174,7 +137,6 @@ function CatalogToolbar({
       </TabsRoot>
       <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
         <Search value={query} onChange={setQuery} />
-        <RefineMenu value={type} change={setType} pool={pool} />
         <SortMenu value={sort} change={setSort} />
       </div>
     </div>
@@ -228,7 +190,6 @@ export function Catalog({
 }) {
   const [view, setView] = useState<CatalogView>('all')
   const [ownQuery, setOwnQuery] = useState(query)
-  const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortMode>('name-asc')
   const [page, setPage] = useState(1)
   const cursorsRef = useRef<(string | undefined)[]>([undefined])
@@ -292,8 +253,7 @@ export function Catalog({
     if (view === 'not-connected' && connected) return false
     return true
   })
-  const items = typeMembers(type, pool)
-  const sorted = [...items].sort(byName)
+  const sorted = [...pool].sort(byName)
   // The default "All" view's `pool` (unlike search results) is fetched with
   // `linked: false`, so it structurally never contains connected rows —
   // `sorted.filter(...connected)` would always be empty there. `linkedRows`
@@ -311,7 +271,7 @@ export function Catalog({
 
   return (
     <section id="all-connectors">
-      <CatalogToolbar view={view} changeView={setView} query={ownQuery} setQuery={setOwnQuery} type={type} setType={setType} pool={pool} sort={sort} setSort={setSort} />
+      <CatalogToolbar view={view} changeView={setView} query={ownQuery} setQuery={setOwnQuery} sort={sort} setSort={setSort} />
       {empty ? (
         <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No connectors found.</p>
       ) : (

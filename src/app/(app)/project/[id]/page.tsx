@@ -31,12 +31,12 @@ import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
-import { publishProjectChat, listChats } from '@/lib/api/chat'
+import { publishProjectChat } from '@/lib/api/chat'
+import { fetchProjectChats, type ApiProjectChat } from '@/lib/api/projects'
 import { useOrg } from '@/context/org-context'
 import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
 import { AlertCircleIcon } from '@strange-huge/icons'
-import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { LeaveProjectModal } from '@/components/LeaveProjectModal'
 import { DeleteProjectModal } from '@/components/DeleteProjectModal'
@@ -81,7 +81,7 @@ function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
 }
 
 // Shown in place of "Your chats"/"Published chats" while teamChats is still
-// paging in (see the listChats effect) — same padding/shape as a real
+// loading (see the fetchProjectChats effect) — same padding/shape as a real
 // ProjectChatRow so there's no layout jump once the rows swap in, and no
 // "No chats yet" flash for a project that genuinely has chats.
 function TeamChatRowSkeleton({ w }: { w: string }) {
@@ -164,37 +164,38 @@ export default function ProjectPage() {
   // panel's own list (ProjectMembersPanel) to refetch if it's open at the time.
   const [memberListVersion, setMemberListVersion] = useState(0)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
-  const [teamChats,        setTeamChats]        = useState<Chat[]>([])
+  const [teamChats,        setTeamChats]        = useState<ApiProjectChat[]>([])
   const [teamChatsLoading, setTeamChatsLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
-  // Workspace/Shared projects source their chat list from the global /chats
-  // endpoint (which carries visibility/team_id/pins_count), filtered to this
-  // project. "Your chats" = all of these; "Publish to team" = the
-  // visibility==='team' subset. Personal projects keep useProjects().getChats()
-  // (see render). Keyed on project.visibility, NOT project.teamId — the
-  // backend stamps organizationId on org members' Personal projects too, so
-  // teamId alone can't tell Personal apart from Workspace/Shared.
+  // Workspace/Shared projects source their chat list from the project-scoped
+  // GET /projects/{id}/chats endpoint (services/projects/project.py :: chats),
+  // which already returns "your own chats, plus anyone's chat published to
+  // this project" for any real project member. "Your chats" = all of these;
+  // "Publish to team" = the visibility==='team' subset.
+  //
+  // This used to reuse the personal GET /chats listing (global, filtered
+  // client-side to this project's id) — but that endpoint is unconditionally
+  // scoped to the CALLER's own chats (services/chat/repository.py's
+  // get_chats: `Chatboard.user_id == user_id`, no exception for published
+  // visibility). So a project member other than whoever published a chat
+  // could never see it: the publisher saw their own optimistic local update,
+  // but a fresh fetch — by the publisher or anyone else — never included it.
+  // Personal projects keep useProjects().getChats() (see render). Keyed on
+  // project.visibility, NOT project.teamId — the backend stamps
+  // organizationId on org members' Personal projects too, so teamId alone
+  // can't tell Personal apart from Workspace/Shared.
   useEffect(() => {
-    if (!project || project.visibility === 'personal') { setTeamChats([]); setTeamChatsLoading(false); return }
+    if (!project || project.visibility === 'personal' || !user?.auth0Id) { setTeamChats([]); setTeamChatsLoading(false); return }
     let cancelled = false
     setTeamChatsLoading(true)
-    ;(async () => {
-      const collected: Chat[] = []
-      let cursor: string | undefined
-      // Page through; cap to avoid an unbounded loop on a misbehaving cursor.
-      for (let page = 0; page < 20; page++) {
-        const { chats: batch, next_cursor, has_more } = await listChats(cursor)
-        collected.push(...batch)
-        if (!has_more || !next_cursor) break
-        cursor = next_cursor
-      }
-      if (!cancelled) setTeamChats(collected.filter(c => c.project_id === params.id))
-    })().catch(() => { if (!cancelled) setTeamChats([]) })
+    fetchProjectChats(params.id, user.auth0Id)
+      .then(list => { if (!cancelled) setTeamChats(list) })
+      .catch(() => { if (!cancelled) setTeamChats([]) })
       .finally(() => { if (!cancelled) setTeamChatsLoading(false) })
     return () => { cancelled = true }
-  }, [project?.visibility, params.id])
+  }, [project?.visibility, params.id, user?.auth0Id])
 
   // Lock the model selector context while an agent chip is active on the project page.
   useEffect(() => {
@@ -488,26 +489,36 @@ export default function ProjectPage() {
   // the real audience instead of a one-size-fits-all "the workspace".
   const publishedAudienceLabel = project.visibility === 'workspace' ? 'all workspace members' : 'the members of this project'
 
-  // A chat row for the team-project tab (Your chats / Published chats).
-  function teamChatRow(chat: Chat) {
+  // A chat row for the team-project tab (Your chats / Published chats). Now
+  // that `teamChats` can include chats owned by other project members (the
+  // whole point of the fix — see the fetch effect above), rows not owned by
+  // the viewer get an `author` attribution (same member lookup as `ownerName`
+  // above) instead of looking indistinguishable from the viewer's own chats;
+  // pin counts aren't available from this endpoint (unlike the old global
+  // chats listing), so `pinCount` is left unknown (renders a neutral
+  // placeholder — see ProjectChatRow's own doc comment on that prop) rather
+  // than showing a stale/wrong number.
+  function teamChatRow(chat: ApiProjectChat) {
+    const isMine = chat.ownerUserId === user?.auth0Id
     return (
       <ProjectChatRow
         key={chat.id}
-        title={chat.title}
-        timestamp={formatRelativeTime(chat.updated_at)}
-        pinCount={chat.pins_count ?? 0}
+        title={chat.chatTitle}
+        timestamp={formatRelativeTime(chat.updatedAt)}
+        pinCount={null}
+        author={isMine ? undefined : (members.find(m => m.id === chat.ownerUserId)?.name ?? undefined)}
         canPublish={canPublishChat}
         published={chat.visibility === 'team'}
         onPublishToggle={(next) => void handlePublishToggle(chat.id, next)}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}
-        onRename={chat.can_edit ? (newTitle) => {
+        onRename={chat.canEdit ? (newTitle) => {
           void chatHistory.rename(chat.id, newTitle)
-          setTeamChats(prev => prev.map(c => c.id === chat.id ? { ...c, title: newTitle } : c))
+          setTeamChats(prev => prev.map(c => c.id === chat.id ? { ...c, chatTitle: newTitle } : c))
         } : undefined}
-        onDelete={chat.can_edit ? () => openDeleteChatDialog({
+        onDelete={chat.canEdit ? () => openDeleteChatDialog({
           chatId:    chat.id,
-          chatTitle: chat.title,
+          chatTitle: chat.chatTitle,
           onConfirm: async () => {
             await removeChat(projectId, chat.id)
             setTeamChats(prev => prev.filter(c => c.id !== chat.id))

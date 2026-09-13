@@ -85,6 +85,10 @@ export interface ProjectChatSummary {
   id:            string
   ownerUserId:   string
   chatTitle:     string
+  /** Backend's real value is "shared" (not "team") — see ApiProjectChat.visibility's
+   *  comment and normalizeProjectChat, which translates it. "archived" is a
+   *  genuine third value. */
+  visibility?:   string
   starred:       boolean
   createdAt:     string
   updatedAt:     string
@@ -137,6 +141,10 @@ export interface ApiProjectChat {
   ownerUserId:  string
   canEdit:      boolean
   chatTitle:    string
+  /** "team" means published/visible to the whole project (the backend's own
+   *  value is "shared" — normalizeProjectChat translates it, same convention
+   *  as normalizeChat in lib/api/chat.ts). */
+  visibility:   'private' | 'team' | 'archived'
   starred:      boolean
   updatedAt:    string
   messageCount: number
@@ -208,6 +216,9 @@ function normalizeProjectChat(c: ProjectChatSummary, currentUserId: string): Api
     ownerUserId:  c.ownerUserId,
     canEdit:      c.ownerUserId === currentUserId,
     chatTitle:    c.chatTitle,
+    // Same translation as normalizeChat (lib/api/chat.ts) — the backend's
+    // real stored value is "shared", not "team".
+    visibility:   c.visibility === 'shared' ? 'team' : c.visibility === 'archived' ? 'archived' : 'private',
     starred:      c.starred,
     updatedAt:    c.updatedAt,
     messageCount: c.messageCount,

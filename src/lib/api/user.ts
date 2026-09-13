@@ -449,9 +449,9 @@ export function roleDisplayLabel(value: string | null | undefined): string {
   return ROLE_DISPLAY_MAP[value] ?? value;
 }
 
-/** Backend tone enum → display label (e.g. "concise" → "Direct"). */
+/** Backend tone enum → display label (e.g. "concise" → "Direct"). Unset defaults to "Balanced". */
 export function toneDisplayLabel(value: string | null | undefined): string {
-  if (!value) return "";
+  if (!value) return "Balanced";
   return TONE_DISPLAY_MAP[value] ?? value;
 }
 
