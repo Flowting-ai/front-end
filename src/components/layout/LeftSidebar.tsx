@@ -5,70 +5,70 @@ import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTwoIcon, BubbleChatAddIcon, CircleIcon, FolderAddIcon, FolderOneIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
-import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
+import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, ExchangeOneIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { IconWithFallback } from "@/components/IconWithFallback";
+import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
+import { Dropdown } from "@/components/Dropdown";
+import { Divider } from "@/components/Divider";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
+import { MoveToProjectModal } from "@/components/MoveToProjectModal";
+import { addChatToProject } from "@/lib/api/projects";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
-import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
+import { resolveViewerUserId } from "@/lib/api/teams";
+import { usePersonas } from "@/lib/queries/personas";
 import { listAutomations, getAutomation } from "@/lib/api/automations";
 import type { Automation, AutomationRun } from "@/lib/api/automations";
-import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
-import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
+import { BrainSidebarSections, FlatBrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { Project, ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
 import { useOrg } from "@/context/org-context";
-import { TeamSwitcherDropdown } from "@/components/TeamSwitcherDropdown";
-import type { Team as SwitcherTeam } from "@/components/TeamSwitcherDropdown";
-import { DropdownFloat } from "@/components/Dropdown";
-import { TeamSwitcherRow } from "@/components/TeamSwitcherRow";
+import { getOrgSlackStatus } from "@/lib/api/slack";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
 import { Tooltip } from "@/components/Tooltip";
-import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
-import type { SidebarAdminGroup } from "@/components/Sidebar";
 import type { ChipColor } from "@/components/Chip";
 import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
 import {
   PROJECT_ROUTE,
   PROJECT_CHAT_ROUTE,
+  PROJECT_CHAT_NEW_ROUTE,
   PROJECTS_ROUTE,
-  PROJECTS_PERSONAL_ROUTE,
   PROJECTS_NEW_ROUTE,
-  ORG_TEAM_ROUTE,
-  TEAM_ROUTE,
   ORG_MEMBERS_ROUTE,
   ORG_ACTIVITY_ROUTE,
   ORG_PLANS_ROUTE,
-  ORG_TEAMS_ROUTE,
   ORG_GENERAL_ROUTE,
+  ORG_ANALYTICS_ROUTE,
+  ORG_SOUVENIR_SLACK_ROUTE,
   AGENT_CHAT_ROUTE,
+  AGENT_CONFIGURE_BASE_ROUTE,
   AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
   BRAIN_ROUTE,
-  BRAIN_THREADS_ROUTE,
   BRAIN_SCHEDULES_ROUTE,
   CHAT_ROUTE,
   CHATS_ROUTE,
   SETTINGS_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
-  SETTINGS_BILLING_ROUTE,
   SETTINGS_HELP_ROUTE,
-  SETTINGS_CONNECTORS_ROUTE,
+  ORG_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
 import { ReportBugModal } from "@/components/ReportBugModal";
+import type { Chat } from "@/types/chat";
 
 // -- Collapse state persistence ------------------------------------------------
 
@@ -102,31 +102,31 @@ function personaAvatarUrl(persona: Persona): string | null {
 // onAdminSectionClick. The `id`s below are those default item ids.
 //
 // Items with a real destination navigate there; the rest surface a "coming soon"
-// toast so nothing is ever a dead click.
+// toast so nothing is ever a dead click. Reference the route constants (not
+// literal strings) so this can never drift out of sync with an actual route
+// move again — general/members/teams/plans-usage/analytics/activity-log live
+// under /settings/* now; connectors/souvenir-slack stay under /org/*.
 const ADMIN_SECTION_ROUTES: Record<string, string> = {
-  // Organization ? /org/*
-  general:           "/org/general",
-  members:           "/org/members",
-  teams:             "/org/teams",
-  "plans-usage":     "/org/plans",
-  analytics:         "/org/analytics",
-  connectors:        "/org/connectors",
-  "souvenir-slack":  "/org/souvenir-slack",
-  "activity-log":    "/org/activity",
+  general:           ORG_GENERAL_ROUTE,
+  members:           ORG_MEMBERS_ROUTE,
+  "plans-usage":     ORG_PLANS_ROUTE,
+  analytics:         ORG_ANALYTICS_ROUTE,
+  connectors:        ORG_CONNECTORS_ROUTE,
+  "souvenir-slack":  ORG_SOUVENIR_SLACK_ROUTE,
+  "activity-log":    ORG_ACTIVITY_ROUTE,
 };
 
 // Items with no page yet — surfaced as "coming soon" (id ? toast label).
 const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
 
-// Default admin groups without the "Company Data" section.
-const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS.filter(g => g.id !== 'company-data');
+// Default admin groups without the "Company Data" section, and without the
+// "Teams" item — Team is fully removed from the product model (Workspace
+// Model v2: Teams entity gone, Projects are the org unit), and its page was
+// already deleted (commit 2c8c1dcb) leaving this nav row a 404.
+const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS
+  .filter(g => g.id !== 'company-data')
+  .map(g => g.id === 'organization' ? { ...g, items: g.items.filter(i => i.id !== 'teams') } : g);
 
-const TEAM_SETTINGS_SECTIONS = new Set([
-  'team-projects',
-  'team-connectors',
-  'team-requests',
-  'team-activity',
-])
 
 // -- Section show/hide animation - matches Sidebar design system ---------------
 
@@ -472,13 +472,29 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
 
 // -- Projects section - reads from ProjectsContext ------------------------------
 
-const PROJECT_LIMIT = 2
+const PROJECT_LIMIT = 5
 // Sidebar folders only ever surface a quick-glance slice of a project's
 // chats — "See all chats" is the entry point for the rest.
-const CHAT_LIMIT    = 2
+const CHAT_LIMIT    = 5
 
 function sortChatsByRecency(chats: ProjectChat[]): ProjectChat[] {
   return [...chats].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+}
+
+// Sits where "See all chats" would — same 32px row height and 8px inset —
+// for a project whose `chatCount` is genuinely 0, not just still loading.
+const NO_CHATS_YET_STYLE: React.CSSProperties = {
+  height:     32,
+  display:    'flex',
+  alignItems: 'center',
+  padding:    '0 8px',
+  fontFamily: 'var(--font-body)',
+  fontSize:   'var(--font-size-caption)',
+  color:      'var(--neutral-400)',
+}
+
+function sortProjectsByRecency(projects: Project[]): Project[] {
+  return [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 }
 
 interface ProjectsSectionProps {
@@ -487,6 +503,8 @@ interface ProjectsSectionProps {
   projectsFilter?: (project: Project) => boolean
   newProjectHref?: string
   emptyLabel?: string
+  /** FlatProjectsSection only — persistent icon in the header row, left of the add button. */
+  headerIcon?: React.ReactNode
 }
 
 function ProjectsSection({
@@ -635,15 +653,19 @@ function ProjectsSection({
                       onDelete={(chatId) => removeChat(project.id, chatId)}
                     />
                   ))}
-                  <SidebarMenuItem
-                    fluid
-                    variant="default"
-                    icon={<MoreHorizontalIcon size={20} animated />}
-                    label="See all chats"
-                    selected={pathname === PROJECT_ROUTE(project.id)}
-                    href={PROJECT_ROUTE(project.id)}
-                    onClick={() => push(PROJECT_ROUTE(project.id))}
-                  />
+                  {project.chatCount === 0 ? (
+                    <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
+                  ) : (
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      icon={<MoreHorizontalIcon size={20} animated />}
+                      label="See all chats"
+                      selected={pathname === PROJECT_ROUTE(project.id)}
+                      href={PROJECT_ROUTE(project.id)}
+                      onClick={() => push(PROJECT_ROUTE(project.id))}
+                    />
+                  )}
                 </SidebarProjectsSection>
               </m.div>
             )
@@ -668,258 +690,35 @@ function ProjectsSection({
 }
 
 // -- Teams sidebar components --------------------------------------------------
-
-function SidebarDivider() {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '2px 0' }}>
-      <div style={{ height: 1, width: 272, backgroundColor: 'rgba(59,54,50,0.15)' }} />
-    </div>
-  )
-}
-
-// Only the first 2 chats show inline per personal project — deliberately
-// tighter than CHAT_LIMIT (team projects), since this list already nests
-// inside the "Personal projects" folder above WorkspaceSwitcher.
-const PERSONAL_PROJECT_CHAT_LIMIT = 2
-
-// ── PersonalProjectsMenu — inline expandable folder for personal (non-team)
-//    projects, rendered directly above WorkspaceSwitcher. Same expand/collapse
-//    tree pattern as a regular project folder — entirely unrelated to team
-//    state. Each project is itself an expandable folder showing its first 2
-//    chats + a "See all" link, mirroring ProjectsSection's team-project rows. ─
-
-function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
-  const { push } = useGuardedRouter()
-  const pathname = usePathname()
-  const chatHistory = useChatHistoryContext()
-  const { getChats, loadProjectChats, removeChat, renameChat } = useProjects()
-  const [expanded, setExpanded] = useState(false)
-  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set())
-
-  const personalProjects = useMemo(
-    () => projects.filter(p => p.teamId === null).slice(0, 5),
-    [projects],
-  )
-
-  useEffect(() => {
-    personalProjects.forEach(project => {
-      if (project.chatCount > 0 && getChats(project.id).length === 0) {
-        void loadProjectChats(project.id)
-      }
-    })
-  }, [personalProjects, getChats, loadProjectChats])
-
-  function toggleProjectExpand(id: string, next: boolean) {
-    setExpandedProjectIds(prev => {
-      const nextSet = new Set(prev)
-      next ? nextSet.add(id) : nextSet.delete(id)
-      return nextSet
-    })
-  }
-
-  return (
-    <SidebarProjectsSection
-      fluid
-      label="Personal projects"
-      expanded={expanded}
-      onExpandedChange={setExpanded}
-      onClick={() => push(PROJECTS_PERSONAL_ROUTE)}
-    >
-      <SidebarMenuItem
-        fluid
-        variant="default"
-        label="New project"
-        icon={<FolderAddIcon size={20} />}
-        href={PROJECTS_NEW_ROUTE}
-        onClick={() => push(PROJECTS_NEW_ROUTE)}
-      />
-
-      {personalProjects.length === 0 ? (
-        <div style={{
-          padding:    '8px 6px',
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-400)',
-        }}>
-          No personal projects yet
-        </div>
-      ) : (
-        personalProjects.map(project => {
-          const chats = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
-          const isActive = pathname.startsWith(PROJECT_ROUTE(project.id))
-          const isExpanded = expandedProjectIds.has(project.id)
-
-          return (
-            <SidebarProjectsSection
-              key={project.id}
-              fluid
-              label={project.name}
-              active={isActive || isExpanded}
-              expanded={isExpanded}
-              onClick={() => push(PROJECT_ROUTE(project.id))}
-              onExpandedChange={(v) => toggleProjectExpand(project.id, v)}
-            >
-              {chats.length === 0 && (
-                <div style={{
-                  padding:    '4px 6px',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-caption)',
-                  color:      'var(--neutral-400)',
-                }}>
-                  No chats yet
-                </div>
-              )}
-              {chats.slice(0, PERSONAL_PROJECT_CHAT_LIMIT).map(chat => (
-                <ProjectChatItem
-                  key={chat.id}
-                  chat={chat}
-                  isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                  href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                  onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
-                  onRename={async (chatId, title) => {
-                    renameChat(project.id, chatId, title)
-                    await chatHistory.rename(chatId, title)
-                  }}
-                  onDelete={(chatId) => removeChat(project.id, chatId)}
-                />
-              ))}
-              <SidebarMenuItem
-                fluid
-                variant="default"
-                icon={<MoreHorizontalIcon size={20} animated />}
-                label="See all chats"
-                selected={pathname === PROJECT_ROUTE(project.id)}
-                href={PROJECT_ROUTE(project.id)}
-                onClick={() => push(PROJECT_ROUTE(project.id))}
-              />
-            </SidebarProjectsSection>
-          )
-        })
-      )}
-    </SidebarProjectsSection>
-  )
-}
-
-// ── WorkspaceSwitcher — TeamSwitcherRow trigger + portaled TeamSwitcherDropdown ─
-
-interface WorkspaceSwitcherProps {
-  teams: Team[]
-  projects: Project[]
-  activeTeamId: string | null
-  role: WorkspaceRole
-  onTeamSelect: (id: string | null) => void
-}
-
-function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }: WorkspaceSwitcherProps) {
-  const { push }    = useGuardedRouter()
-  const [open, setOpen] = useState(false)
-
-  // Only show active (non-archived) teams — mirrors the /org/teams page filter.
-  // Archived teams have archived=true set via PATCH and may still appear in the
-  // API response until their deleted_at is set by a subsequent hard-delete.
-  const activeTeams = teams.filter(t => !t.archived)
-
-  if (activeTeams.length === 0) return null
-
-  // No selection (or a stale/invalid one) falls back to the first active
-  // team — the switcher always shows a real team by default, never a
-  // "Personal Projects" state (that's a separate, unrelated nav section now).
-  const activeTeam    = activeTeamId === null ? null : (activeTeams.find(t => t.id === activeTeamId) ?? null)
-  const displayTeam   = activeTeam ?? activeTeams[0]!
-  const triggerName   = displayTeam.name
-  const triggerTeamId = displayTeam.id
-  const triggerRole   = (displayTeam.myRole ?? role) as WorkspaceRole
-
-  const switcherTeams: SwitcherTeam[] = activeTeams.map(t => ({
-    id:           t.id,
-    name:         t.name,
-    projectCount: projects.filter(p => p.teamId === t.id).length,
-    userRole:     t.myRole as WorkspaceRole,
-  }))
-
-  const handleActionSelect = (teamId: string, action: string) => {
-    const isAdminRole = role === 'admin'
-    switch (action) {
-      case 'manage':     push(isAdminRole ? ORG_TEAM_ROUTE(teamId) : TEAM_ROUTE(teamId)); break
-      case 'projects':   push(`${TEAM_ROUTE(teamId)}?section=projects`); break
-      case 'connectors': push(`${TEAM_ROUTE(teamId)}?section=connectors`); break
-      case 'request':    push(isAdminRole ? ORG_MEMBERS_ROUTE : `${TEAM_ROUTE(teamId)}?section=requests`); break
-      case 'activity':   push(isAdminRole ? ORG_ACTIVITY_ROUTE : `${TEAM_ROUTE(teamId)}?section=activity`); break
-      case 'usage':      push(ORG_PLANS_ROUTE); break
-    }
-    setOpen(false)
-  }
-
-  return (
-    <DropdownFloat
-      trigger={
-        <TeamSwitcherRow
-          teamName={triggerName}
-          teamId={triggerTeamId}
-          projectCount={projects.filter(p => p.teamId === displayTeam.id).length}
-          currentUserRole={triggerRole}
-          isOpen={open}
-        />
-      }
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom-start"
-    >
-      <TeamSwitcherDropdown
-        teams={switcherTeams}
-        activeTeamId={activeTeamId ?? undefined}
-        currentUserRole={role}
-        onSelectTeam={(teamId) => { onTeamSelect(teamId); setOpen(false) }}
-        onActionSelect={handleActionSelect}
-        onManageTeams={() => { push(ORG_TEAMS_ROUTE); setOpen(false) }}
-      />
-    </DropdownFloat>
-  )
-}
+// Team no longer exists as a backend entity — "workspace projects" here means
+// every project visible to the organization (visibility 'workspace' or
+// 'shared'). NOT project.teamId !== null — an org member's own Personal
+// project also carries the org's teamId server-side (project.py sets
+// organizationId on every project a member creates, regardless of
+// visibility), so a teamId check would wrongly pull personal projects into
+// this list. Keyed off visibility to match /projects' own scope tabs.
 
 interface TeamsSidebarContentProps {
-  role: 'admin' | 'editor' | 'member'
-  teams: Team[]
-  activeTeamId: string | null
-  setActiveTeamId: (id: string | null) => void  // teamId | null (falls back to the first team)
+  role: 'admin' | 'member'
 }
 
-function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: TeamsSidebarContentProps) {
-  const { projects } = useProjects()
-  const nonArchivedTeams = teams.filter(t => !t.archived)
-  // No selection (or a stale one) falls back to the first active team — the
-  // same default WorkspaceSwitcher displays, so the panel and the trigger
-  // stay in sync. Personal projects are a separate, unrelated nav section now.
-  const activeTeam = nonArchivedTeams.find(team => team.id === activeTeamId) ?? nonArchivedTeams[0] ?? null
-  const effectiveActiveTeamId = activeTeam?.id ?? null
-  // Design rule (DefaultProjectItems): "New project" shows for non-members.
-  // Org admins/owners (role !== 'member') always can; a plain org member who
-  // is an editor on a team can create within a team they can edit.
+// Stable references so they don't defeat memoization in ProjectsSection/
+// FlatProjectItemsList, which key their own useMemo off these functions.
+const isOrgSharedProject = (project: Project) => project.visibility === 'workspace' || project.visibility === 'shared'
+// FlatTeamsSidebarContent merges the viewer's personal and org-shared
+// projects into one list — no team layer left to filter by.
+const includeAllProjects = () => true
+
+function TeamsSidebarContent({ role }: TeamsSidebarContentProps) {
   const isAdmin = role !== 'member'
-  const showNewTeamProject = isAdmin || Boolean(activeTeam?.canEdit)
-  const teamProjectsLabel = activeTeam ? `${activeTeam.name} team projects` : 'Workspace projects'
-  const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'
-  const teamProjectFilter = useCallback(
-    (project: Project) => project.teamId !== null && (effectiveActiveTeamId ? project.teamId === effectiveActiveTeamId : true),
-    [effectiveActiveTeamId],
-  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
-      <PersonalProjectsMenu projects={projects} />
-      <WorkspaceSwitcher
-        teams={teams}
-        projects={projects}
-        activeTeamId={activeTeamId}
-        role={role as WorkspaceRole}
-        onTeamSelect={setActiveTeamId}
-      />
       <ProjectsSection
-        key={effectiveActiveTeamId ?? 'team'}
-        label={teamProjectsLabel}
-        showNewProject={showNewTeamProject}
-        projectsFilter={teamProjectFilter}
-        newProjectHref={teamNewProjectHref}
-        emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
+        label="Workspace projects"
+        showNewProject={isAdmin}
+        projectsFilter={isOrgSharedProject}
+        newProjectHref="/projects/new"
+        emptyLabel="No team projects yet"
       />
     </div>
   )
@@ -1101,11 +900,18 @@ function goToAgentsLibrary(pathname: string | null, push: (href: string) => void
   push(AGENTS_ROUTE)
 }
 
+// Team has no backend route left at all, so there's no way to resolve a
+// shared persona's real owner any more — isPersonaOwnedByViewer falls back to
+// the coarse currentUserRole check for every org-shared persona (accepted
+// capability gap). Module-level so its reference stays stable across renders
+// instead of invalidating memoized values that depend on it every time.
+const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
+
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
-  const { orgId, teams, currentUserRole, members } = useOrg()
+  const { currentUserRole, members } = useOrg()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
   // viewer's internal id via the org member list instead (see resolveViewerUserId).
@@ -1115,32 +921,25 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const activePersonaId = personaMatch?.[1] ?? null
   const activeChatId    = personaSearchParams.get("chatId")
 
-  const [rawPersonas,     setRawPersonas]     = useState<Persona[]>([])
-  const [isLoading,       setIsLoading]       = useState(true)
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [personaChatsMap, setPersonaChatsMap] = useState<
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
-  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
-
-  // Load personas on mount; filter to team-shared only when teamId is provided.
-  useEffect(() => {
-    fetchPersonas()
-      .then(list => setRawPersonas(personasForTeamContext(list, teamId ?? null)))
-      .catch(console.error)
-      .finally(() => setIsLoading(false))
-  }, [teamId])
-
   // Real per-persona ownership (not an org-role guess) — needed so the sidebar
   // never surfaces a team-shared agent this viewer doesn't own. Its "New chat"
   // button skips the clone-before-chat step the chat chip picker and Team
   // panel use, so an un-owned team-shared agent here would 404 on first send.
-  useEffect(() => {
-    if (!orgId || teams.length === 0) return
-    let cancelled = false
-    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
-    return () => { cancelled = true }
-  }, [orgId, teams])
+  const personaOwnerMap = EMPTY_PERSONA_OWNER_MAP
+
+  // Shared cache/subscription across every usePersonas() consumer — still backed
+  // by fetchPersonas() (same TTL, dedupe); filter to team-shared only when
+  // teamId is provided, same as the old mount-effect did.
+  const { data: allPersonas, isLoading } = usePersonas()
+
+  const rawPersonas = useMemo(
+    () => personasForTeamContext(allPersonas ?? [], teamId ?? null),
+    [allPersonas, teamId],
+  )
 
   const personas = useMemo(
     () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
@@ -1216,16 +1015,8 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
     }
   }, [])
 
-  // Re-fetch the persona list whenever a publish/delete/update busts the cache
-  useEffect(() => {
-    const handleListUpdated = () => {
-      fetchPersonas()
-        .then(list => setRawPersonas(personasForTeamContext(list, teamId ?? null)))
-        .catch(console.error)
-    }
-    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
-    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
-  }, [teamId])
+  // Re-fetch on publish/delete/update is now handled inside usePersonas() itself
+  // (it invalidates the shared query on the same PERSONAS_LIST_UPDATED_EVENT).
 
   const handleExpand = useCallback((personaId: string, expanded: boolean) => {
     setExpandedIds(prev => {
@@ -1415,19 +1206,12 @@ function PersonasSectionIndividual() {
   const activePersonaId = personaMatch?.[1] ?? null
   const activeChatId    = personaSearchParams.get("chatId")
 
-  const [personas,        setPersonas]        = useState<Persona[]>([])
-  const [isLoading,       setIsLoading]       = useState(true)
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [personaChatsMap, setPersonaChatsMap] = useState<
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
 
-  useEffect(() => {
-    fetchPersonas()
-      .then(list => setPersonas(list))
-      .catch(console.error)
-      .finally(() => setIsLoading(false))
-  }, [])
+  const { data: personas, isLoading } = usePersonas()
 
   const loadPersonaChats = useCallback((personaId: string) => {
     setPersonaChatsMap(prev => {
@@ -1493,16 +1277,8 @@ function PersonasSectionIndividual() {
     }
   }, [])
 
-  // Re-fetch the persona list whenever a publish/delete/update busts the cache
-  useEffect(() => {
-    const handleListUpdated = () => {
-      fetchPersonas()
-        .then(list => setPersonas(list))
-        .catch(console.error)
-    }
-    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
-    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
-  }, [])
+  // Re-fetch on publish/delete/update is now handled inside usePersonas() itself
+  // (it invalidates the shared query on the same PERSONAS_LIST_UPDATED_EVENT).
 
   const handleExpand = useCallback((personaId: string, expanded: boolean) => {
     setExpandedIds(prev => {
@@ -1541,8 +1317,8 @@ function PersonasSectionIndividual() {
     })
   }, [])
 
-  const sharedPersonas = personas.filter(p => p.sourceShareId !== null)
-  const ownedPersonas  = personas.filter(p => p.sourceShareId === null)
+  const sharedPersonas = (personas ?? []).filter(p => p.sourceShareId !== null)
+  const ownedPersonas  = (personas ?? []).filter(p => p.sourceShareId === null)
 
   const [shownShared, setShownShared] = useState(true)
   const [shownOwned,  setShownOwned]  = useState(true)
@@ -1979,6 +1755,592 @@ function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: B
   );
 }
 
+// ── Flat sidebar (Souvenir V1.5) — new render layer, same data/hooks ──────────
+// Everything below renders onto the new FlatSidebar primitives instead of the
+// old Sidebar/SidebarMenuItem/SidebarProjectsSection. It deliberately reuses the
+// exact same hooks, constants (PROJECT_LIMIT, CHAT_LIMIT...), and business logic
+// as the section components above — only the container components differ, per
+// docs/features/sidebar-current-state-audit.md's migration checklist. The
+// components above this line are UNTOUCHED and keep serving Brain/Admin/
+// team-settings pages via the old <Sidebar>.
+
+// -- FlatChatHistoryItem — rename/star/delete dropdown, onto FlatSidebarRow ----
+// Deliberately scoped down vs. ChatHistoryItem: "Move to project" is deferred
+// for this first pass (not in the locked v1.5 destinations/projects/recents
+// scope) — flagged here rather than silently dropped.
+
+interface FlatChatHistoryItemProps {
+  chat: Chat
+  isActive: boolean
+  onSelect: (id: string) => void
+  onRename: (chatId: string, title: string) => Promise<void>
+  onDelete: (chatId: string) => Promise<void>
+  onStar: (chatId: string) => Promise<void>
+  onArchive: (chatId: string) => Promise<void>
+}
+
+function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onStar, onArchive }: FlatChatHistoryItemProps) {
+  const { push } = useGuardedRouter()
+  const { projects, addChat } = useProjects()
+  const { removeLocal } = useChatHistoryContext()
+  const isReadOnly = chat.can_edit === false && chat.visibility === 'team'
+  const [isEditing, setIsEditing] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [moveModalOpen, setMoveModalOpen] = useState(false)
+  const [isMoving,      setIsMoving]      = useState(false)
+  const [isStarring,    setIsStarring]    = useState(false)
+  const [isArchiving,   setIsArchiving]   = useState(false)
+
+  const handleCommit = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== chat.title) void onRename(chat.id, trimmed)
+    setIsEditing(false)
+  }
+  const handleDelete = () => {
+    setMenuOpen(false)
+    openDeleteChatDialog({ chatId: chat.id, chatTitle: chat.title, onConfirm: () => onDelete(chat.id) })
+  }
+  const handleStar = async () => {
+    setIsStarring(true)
+    try { await onStar(chat.id) } finally { setIsStarring(false) }
+  }
+  const handleArchive = async () => {
+    setIsArchiving(true)
+    try { await onArchive(chat.id) } finally { setIsArchiving(false) }
+  }
+  // Same flow as the old ChatHistoryItem.tsx's "Move to project".
+  const handleMoveToProject = async (projectId: string) => {
+    setIsMoving(true)
+    try {
+      await addChatToProject(projectId, chat.id)
+      addChat(projectId, chat.id, chat.title, { skipLink: true })
+      removeLocal(chat.id)
+      const project = projects.find((p) => p.id === projectId)
+      toast.success(`Moved to "${project?.name ?? "project"}"`)
+      setMoveModalOpen(false)
+    } catch {
+      toast.error("Failed to move chat — please try again.")
+    } finally {
+      setIsMoving(false)
+    }
+  }
+
+  return (
+    <>
+    {/* display:flex blockifies Dropdown.Float's inline-flex trigger wrapper. Left
+        inline it generates a line box (--line-height-body, 22px) under the 32px
+        row — the row's own height plus a phantom second line. The brain-thread
+        row dodges this by using a raw absolutely-positioned Radix trigger. */}
+    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", opacity: isArchiving ? 0.5 : 1, transition: "opacity 150ms", pointerEvents: isArchiving ? "none" : undefined }}>
+      <FlatSidebarRow
+        variant={isEditing ? "chat-item-edit" : "chat-item"}
+        label={chat.title}
+        selected={isActive}
+        href={isEditing ? undefined : `/chat?id=${chat.id}`}
+        badge={!isEditing && chat.can_edit === false && chat.visibility === 'team' ? <Badge color="Red" label="Read only" /> : undefined}
+        onClick={() => { if (!isEditing) onSelect(chat.id) }}
+        onMoreClick={isReadOnly ? undefined : (e) => { e.stopPropagation(); setMenuOpen(true) }}
+        onPinClick={(e) => { e.stopPropagation(); void handleStar() }}
+        pinned={chat.starred}
+        onRename={isReadOnly ? undefined : () => setIsEditing(true)}
+        onCommit={handleCommit}
+        onCancel={() => setIsEditing(false)}
+      />
+      <Dropdown.Float
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        placement="right-start"
+        // Chat rows can sit anywhere in a scrollable, arbitrary-length list —
+        // a chat near the bottom of the sidebar had this menu run off the
+        // bottom of the viewport with the fixed placement every other
+        // Dropdown.Float uses. Flips to open upward instead when it would.
+        autoFlipVertical
+        trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
+      >
+        <Dropdown maxHeight={false}>
+          <Dropdown.Section fluid>
+            <Dropdown.Item fluid icon={<ShareOneIcon color="var(--neutral-600)" />} label="Share" onClick={() => { setMenuOpen(false); push(`/chat?id=${chat.id}&share=1`) }} />
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
+            {/* User-facing "Pin chat"/"Unpin chat" — the underlying field/API stays `starred` (see chat.starred, chatHistory.star). */}
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} loading={isStarring} onClick={() => { setMenuOpen(false); void handleStar() }} />
+            <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => { setMenuOpen(false); setMoveModalOpen(true) }} />
+            <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" loading={isArchiving} onClick={() => { setMenuOpen(false); void handleArchive() }} />
+            <Divider decorative />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    </div>
+    <MoveToProjectModal
+      open={moveModalOpen}
+      loading={isMoving}
+      onClose={() => setMoveModalOpen(false)}
+      onConfirm={handleMoveToProject}
+      projects={projects.map((p) => ({ id: p.id, name: p.name, description: p.description }))}
+      chatCount={1}
+    />
+    </>
+  )
+}
+
+// -- FlatPinnedSection / FlatRecentsSection — same self-hide + hydration guard as originals.
+// "Pinned" is the user-facing name for chat.starred — kept as `starred`/`star` internally
+// to match the API contract (src/lib/api/chat.ts), mirroring the agent/persona split. --
+
+function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
+  const [shown, setShown] = useState(true)
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
+  const pinnedChats = chatHistory.chats.filter((c) => c.starred)
+  if (pinnedChats.length === 0) return null
+  return (
+    <>
+      <FlatSidebarRow variant="header" label="Pinned" shown={shown} onShowClick={() => setShown((s) => !s)} />
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: "flex", flexDirection: "column", gap: 4 }}
+        >
+          {pinnedChats.map((chat) => (
+            <m.div key={chat.id} variants={sectionItemVariants}>
+              <FlatChatHistoryItem
+                chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
+                onRename={chatHistory.rename} onDelete={async (chatId) => { await chatHistory.remove(chatId) }} onStar={chatHistory.star}
+                onArchive={async (chatId) => { await chatHistory.archive(chatId) }}
+              />
+            </m.div>
+          ))}
+        </m.div>
+      </m.div>
+      {/* Gap before Recent Chats — only takes up space when Pinned actually rendered (see the early return above). */}
+      <div aria-hidden style={{ height: 12 }} />
+    </>
+  )
+}
+
+function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat, onSwitchToTasks }: SectionProps & { onNewChat?: () => void; onSwitchToTasks?: () => void }) {
+  const { push } = useGuardedRouter()
+  const { chats, isLoading, hasMore, loadMore, rename, remove, star, archive } = chatHistory
+  // Starred chats live in FlatPinnedSection (see its own `.filter(c => c.starred)`
+  // above) — excluded here too, or a newly-pinned chat kept showing in both
+  // places instead of moving out of Recent, and unpinning had nothing to
+  // "return" since it never left.
+  const recentChats = useMemo(() => chats.filter((c) => !c.starred), [chats])
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const loading = mounted && isLoading
+  const [shown, setShown] = useState(true)
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
+
+  return (
+    <>
+      <FlatSidebarRow
+        variant="header" label="Recent Chats" shown={shown} onShowClick={() => setShown((s) => !s)}
+        onAddClick={onNewChat ? (e) => { e.stopPropagation(); onNewChat() } : undefined} addLabel="New chat"
+        addIcon={<QuillWriteOneIcon size={16} animated />}
+        extraHeaderIcons={[
+          {
+            icon: <ExchangeOneIcon size={16} animated />,
+            onClick: () => onSwitchToTasks?.(),
+            label: 'Switch to Recent Tasks',
+          },
+          {
+            icon: (
+              <IconWithFallback
+                icon={<FolderLibraryIcon size={16} animated />}
+                fallback={<FolderThreeIcon size={16} animated />}
+              />
+            ),
+            onClick: () => push(CHATS_ROUTE),
+            label: 'All chats',
+          },
+        ]}
+        actionsAlwaysVisible
+      />
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: "flex", flexDirection: "column", gap: 4 }}
+        >
+          {loading && chats.length === 0 ? (
+            Array.from({ length: 5 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)
+          ) : recentChats.length === 0 ? (
+            <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>No chats yet</div>
+          ) : (
+            <>
+              {recentChats.map((chat) => (
+                <m.div key={chat.id} variants={sectionItemVariants}>
+                  <FlatChatHistoryItem
+                    chat={chat} isActive={chat.id === activeChatId} onSelect={onSelectChat}
+                    onRename={rename} onDelete={async (chatId) => { await remove(chatId) }} onStar={star}
+                    onArchive={async (chatId) => { await archive(chatId) }}
+                  />
+                </m.div>
+              ))}
+              {hasMore && (
+                <m.div variants={sectionItemVariants}>
+                  <FlatSidebarRow variant="default" label="Load more" onClick={loadMore} />
+                </m.div>
+              )}
+            </>
+          )}
+        </m.div>
+      </m.div>
+    </>
+  )
+}
+
+// -- FlatProjectChatItem — onto FlatSidebarProjectGroup's nested children -----
+
+interface FlatProjectChatItemProps {
+  chat: ProjectChat
+  isActive: boolean
+  href?: string
+  onSelect: () => void
+  onRename: (chatId: string, title: string) => Promise<void>
+  onDelete: (chatId: string) => Promise<void>
+}
+
+function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: FlatProjectChatItemProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const handleCommit = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== chat.title) void onRename(chat.id, trimmed)
+    setIsEditing(false)
+  }
+  const handleDelete = () => {
+    setMenuOpen(false)
+    openDeleteChatDialog({
+      chatId: chat.id,
+      chatTitle: chat.title,
+      // Awaiting the real delete (not just firing it) is what makes the
+      // dialog's Delete button show a loading state for the actual duration
+      // of the request, instead of resolving instantly.
+      onConfirm: async () => {
+        try {
+          await onDelete(chat.id)
+          toast.success("Chat deleted")
+        } catch {
+          toast.error("Failed to delete chat")
+        }
+      },
+    })
+  }
+
+  return (
+    // display:flex for the same reason as FlatChatHistoryItem — see the note there.
+    <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column" }}>
+      <FlatSidebarRow
+        variant={isEditing ? "chat-item-edit" : "chat-item"}
+        label={chat.title}
+        selected={isActive}
+        href={isEditing ? undefined : href}
+        onClick={() => { if (!isEditing) onSelect() }}
+        onMoreClick={(e) => { e.stopPropagation(); setMenuOpen(true) }}
+        onRename={() => setIsEditing(true)}
+        onCommit={handleCommit}
+        onCancel={() => setIsEditing(false)}
+      />
+      <Dropdown.Float
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        placement="right-start"
+        trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
+      >
+        <Dropdown maxHeight={false}>
+          <Dropdown.Section fluid>
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
+            <Divider decorative />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    </div>
+  )
+}
+
+// -- FlatProjectItemsList — the reusable body of a project section (loading
+// skeleton, empty state, up to `limit` FlatSidebarProjectGroup rows). Shared
+// by FlatProjectsSection (no-org case) and FlatTeamsSidebarContent (org case,
+// personal + active-team projects merged into one filter) so both render off
+// the same list logic. --
+
+interface FlatProjectItemsListProps {
+  projectsFilter: (project: Project) => boolean
+  limit: number
+  emptyLabel: string
+}
+
+function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProjectItemsListProps) {
+  const { push } = useGuardedRouter()
+  const pathname = usePathname()
+  const chatHistory = useChatHistoryContext()
+  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
+
+  // Sorted by recency so "top `limit`" means most-recently-updated, not just
+  // whatever order the API happened to return — matters most for
+  // FlatTeamsSidebarContent, which merges personal + active-team projects
+  // into one filtered pool before slicing.
+  const projects = useMemo(() => sortProjectsByRecency(allProjects.filter(projectsFilter)), [allProjects, projectsFilter])
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
+  const visibleProjects = useMemo(() => projects.slice(0, limit), [projects, limit])
+
+  React.useEffect(() => {
+    visibleProjects.forEach(project => {
+      if (project.chatCount > 0 && getChats(project.id).length === 0) void loadProjectChats(project.id)
+    })
+  }, [visibleProjects, getChats, loadProjectChats])
+
+  React.useEffect(() => {
+    const active = projects.find(p => pathname.startsWith(PROJECT_ROUTE(p.id)))
+    if (!active) return
+    setExpandedIds(prev => {
+      if (prev.has(active.id)) return prev
+      const next = new Set(prev)
+      next.add(active.id)
+      return next
+    })
+  }, [pathname, projects])
+
+  function toggleExpand(id: string, expanded: boolean) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      expanded ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
+
+  return (
+    <>
+      {projectsLoading && projects.length === 0 && Array.from({ length: 2 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)}
+      {!projectsLoading && projects.length === 0 && (
+        <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>{emptyLabel}</div>
+      )}
+      {!projectsLoading && visibleProjects.map(project => {
+        const chats = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
+        const isActive = pathname.startsWith(PROJECT_ROUTE(project.id))
+        const isExpanded = expandedIds.has(project.id)
+        return (
+          <m.div key={project.id} variants={sectionItemVariants}>
+            <FlatSidebarProjectGroup
+              label={project.name}
+              active={isActive || isExpanded}
+              expanded={isExpanded}
+              onExpandedChange={(v) => toggleExpand(project.id, v)}
+              onNewChat={() => {
+                // Belt-and-suspenders alongside the push: if a chat in this
+                // project was already created this session (new → real id via
+                // the URL-swap trick), the router thinks it never left
+                // `/project/[id]/chat/new`, so pushing that same URL again is a
+                // no-op — see PROJECT_NEW_CHAT_EVENT. The project chat page
+                // listens for this and force-remounts itself instead.
+                emitProjectNewChat({ projectId: project.id })
+                push(PROJECT_CHAT_NEW_ROUTE(project.id))
+              }}
+              onOpen={() => push(PROJECT_ROUTE(project.id))}
+            >
+              {chats.slice(0, CHAT_LIMIT).map(chat => (
+                <FlatProjectChatItem
+                  key={chat.id} chat={chat} isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                  href={PROJECT_CHAT_ROUTE(project.id, chat.id)} onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
+                  onRename={async (chatId, title) => { renameChat(project.id, chatId, title); await chatHistory.rename(chatId, title) }}
+                  onDelete={(chatId) => removeChat(project.id, chatId)}
+                />
+              ))}
+              {project.chatCount === 0 ? (
+                <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
+              ) : project.chatCount > CHAT_LIMIT ? (
+                // Only when there's more to see than the CHAT_LIMIT rows already
+                // listed above — a project with CHAT_LIMIT or fewer chats has
+                // nothing left for this link to reveal.
+                <FlatSidebarRow
+                  variant="default" icon={<MoreHorizontalIcon size={20} animated />} label="See all chats"
+                  selected={pathname === PROJECT_ROUTE(project.id)} href={PROJECT_ROUTE(project.id)} onClick={() => push(PROJECT_ROUTE(project.id))}
+                />
+              ) : null}
+            </FlatSidebarProjectGroup>
+          </m.div>
+        )
+      })}
+    </>
+  )
+}
+
+// -- FlatProjectsSection — same PROJECT_LIMIT/CHAT_LIMIT/canEdit/auto-expand logic as ProjectsSection --
+
+function FlatProjectsSection({
+  label = "Projects",
+  showNewProject = true,
+  projectsFilter,
+  newProjectHref = PROJECTS_NEW_ROUTE,
+  emptyLabel = "No projects yet",
+  headerIcon,
+}: ProjectsSectionProps) {
+  const { push } = useGuardedRouter()
+  const [shown, setShown] = useState(true)
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
+  const filter = useCallback((p: Project) => (projectsFilter ? projectsFilter(p) : true), [projectsFilter])
+
+  return (
+    <>
+      <FlatSidebarRow
+        variant="header" label={label} shown={shown} onShowClick={() => setShown(s => !s)}
+        onAddClick={showNewProject ? (e) => { e.stopPropagation(); push(newProjectHref) } : undefined} addLabel="New Project"
+        headerIcon={headerIcon}
+        onHeaderIconClick={headerIcon ? () => push(`${PROJECTS_ROUTE}?scope=all`) : undefined}
+        headerIconLabel="All Projects"
+        actionsAlwaysVisible
+      />
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: "flex", flexDirection: "column", gap: 4 }}
+        >
+          <FlatProjectItemsList projectsFilter={filter} limit={PROJECT_LIMIT} emptyLabel={emptyLabel} />
+        </m.div>
+      </m.div>
+    </>
+  )
+}
+
+// -- FlatTeamsSidebarContent — one "Projects" header, one combined list:
+// the viewer's personal projects and the active team's projects merged
+// together, top PROJECT_LIMIT shown, one "See all projects" link. Team
+// switching lives in the AccountMenu; switching teams here only changes
+// which team's projects are merged in (key= remounts the list, resetting
+// its expand state). --
+
+function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
+  const { push } = useGuardedRouter()
+  const isAdmin = role !== 'member'
+
+  const [shown, setShown] = useState(true)
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <FlatSidebarRow
+        variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)}
+        onAddClick={isAdmin ? (e) => { e.stopPropagation(); push('/projects/new') } : undefined} addLabel="New Project"
+        headerIcon={
+          <IconWithFallback
+            icon={<FolderLibraryIcon size={16} animated />}
+            fallback={<FolderThreeIcon size={16} animated />}
+          />
+        }
+        onHeaderIconClick={() => push(`${PROJECTS_ROUTE}?scope=all`)}
+        headerIconLabel="All Projects"
+        actionsAlwaysVisible
+      />
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: "flex", flexDirection: "column", gap: 4 }}
+        >
+          <FlatProjectItemsList
+            projectsFilter={includeAllProjects}
+            limit={PROJECT_LIMIT}
+            emptyLabel="No projects yet"
+          />
+        </m.div>
+      </m.div>
+    </div>
+  )
+}
+
+// -- FlatDestinations — New / Agents / Schedules / Connectors / Slack ---------
+// Plain nav rows per the Figma scan (no expand arrows) — Agents/Schedules
+// navigate straight to their pages rather than expanding an inline tree; see
+// the open question in docs/features/sidebar-current-state-audit.md and the
+// migration plan about confirming this against design before this ships.
+
+interface FlatDestinationsProps {
+  onNewChat: () => void
+  /** New chat, or an idle (no thread loaded) Brain page — either counts as "New". */
+  newChatSelected: boolean
+  collapsed?: boolean
+}
+
+function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: FlatDestinationsProps) {
+  const { push } = useGuardedRouter()
+  const pathname = usePathname()
+  const { orgId } = useOrg()
+  const [slackConnected, setSlackConnected] = useState(false)
+
+  useEffect(() => {
+    if (!orgId) { setSlackConnected(false); return }
+    let cancelled = false
+    getOrgSlackStatus(orgId).then(status => { if (!cancelled) setSlackConnected(status.connected) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [orgId])
+
+  return (
+    <>
+      <FlatSidebarRow collapsed={collapsed} variant="default" icon={<QuillWriteTwoIcon size={20} animated />} label="New" selected={newChatSelected} onClick={onNewChat} />
+      <FlatSidebarRow
+        collapsed={collapsed} variant="default" icon={<UserAiIcon size={20} />} label="Agents"
+        selected={pathname.startsWith(AGENTS_ROUTE) || pathname.startsWith('/agent/')}
+        href={AGENTS_ROUTE} onClick={() => push(AGENTS_ROUTE)}
+      />
+      <FlatSidebarRow
+        collapsed={collapsed} variant="default" icon={<CalendarThreeIcon size={20} animated />} label="Schedules"
+        selected={pathname.startsWith(BRAIN_SCHEDULES_ROUTE)} href={BRAIN_SCHEDULES_ROUTE} onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
+      />
+      <FlatSidebarRow
+        collapsed={collapsed} variant="default" icon={<LinkSixIcon size={20} animated />} label="Connectors"
+        selected={pathname.startsWith(ORG_CONNECTORS_ROUTE)}
+        href={ORG_CONNECTORS_ROUTE} onClick={() => push(ORG_CONNECTORS_ROUTE)}
+      />
+      {/* "Souvenir in Slack" — own dedicated top-level page (moved from
+          /org/souvenir-slack to /souvenir-slack). */}
+      <FlatSidebarSlackConnector
+        collapsed={collapsed}
+        connected={slackConnected}
+        selected={pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)}
+        onAdd={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+        onClick={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+      />
+    </>
+  )
+}
+
 // -- LeftSidebar ---------------------------------------------------------------
 
 // Orgs are auto-named "<X>'s Organisation" / "<X>'s Workspace" at provisioning.
@@ -2008,8 +2370,8 @@ function LeftSidebarImpl({
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
-  const { chats: projectChats, getProject } = useProjects();
-  const { orgId, org, plan, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
+  const { chats: projectChats } = useProjects();
+  const { orgId, org, plan, orgRole, currentUserRole, orgPlanSettled } = useOrg();
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -2018,49 +2380,47 @@ function LeftSidebarImpl({
   const [reportBugOpen, setReportBugOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
+  // All 5 Agent Configure tabs (Instructions/Profile/Knowledge/Connectors/
+  // Sharing) are a deliberately full-width editing surface — the sidebar
+  // stays collapsed and its toggle disabled so it can't be re-expanded.
+  const isAgentConfigurePage = pathname?.startsWith(AGENT_CONFIGURE_BASE_ROUTE) ?? false;
   // Trailing slash matters: bare "/project" also prefix-matches "/projects"
   // and "/projects/new" (the listing pages), which must NOT be treated as a
   // project detail page here (unlike AppLayout's own, intentionally broader
   // isAnyProjectPage check).
   const isProjectPage = pathname?.startsWith("/project/") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
+  // /chats merged the old /brain/threads page into a Chats/Tasks toggle (see
+  // src/app/(app)/chats/page.tsx) — Tasks mode shows the exact same brain
+  // threads a Brain page does, so the sidebar's Recents should swap to
+  // "Recent Tasks" there too, not just on /brain*. handleLibraryModeChange
+  // syncs the toggle to this same `?filter=` query param specifically so
+  // this reacts to it.
+  const isChatsTasksMode = pathname === CHATS_ROUTE && chatSearchParams.get("filter") === "tasks";
+  // Manual override for the sidebar's OWN Recents list, set by the "Switch to
+  // Recent Chats"/"Switch to Recent Tasks" header icons — swaps which list
+  // populates here without navigating the page away from wherever the user
+  // actually is. Route context (isBrainPage/isChatsTasksMode) still decides
+  // the default whenever this hasn't been touched.
+  const [recentsOverride, setRecentsOverride] = useState<"chats" | "tasks" | null>(null);
+  const showTasksRecents = recentsOverride ? recentsOverride === "tasks" : (isBrainPage || isChatsTasksMode);
 
-  // Detect team project context: extract the project id from the path and look
-  // up its teamId so the agents tab can show only team-shared agents.
-  const currentProjectId   = isProjectPage ? (pathname?.match(/^\/project\/([^/]+)/)?.[1] ?? null) : null
-  const currentProject     = currentProjectId ? getProject(currentProjectId) : undefined
-  const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
-  const isTeamSettingsPage = pathname?.startsWith("/teams/") ?? false;
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
-  const routeTeamId = isTeamSettingsPage ? pathname?.split('/')[2] : undefined
-  const routeTeam = teams.find(team => team.id === routeTeamId)
-  const requestedTeamSection = `team-${chatSearchParams.get('section') ?? 'projects'}`
-  const teamSectionId = TEAM_SETTINGS_SECTIONS.has(requestedTeamSection)
-    ? requestedTeamSection
-    : 'team-projects'
-  const teamSettingsGroups: SidebarAdminGroup[] = [{
-    id: 'team-settings',
-    label: routeTeam?.name ?? 'Team settings',
-    items: [
-      { id: 'team-projects', label: 'Projects' },
-      { id: 'team-connectors', label: 'Connectors' },
-      { id: 'team-requests', label: 'Requests' },
-      { id: 'team-activity', label: 'Activity' },
-    ],
-  }]
+  // Flat sidebar's "New" row highlights for either flavor of "blank slate" —
+  // a new chat or an idle (no thread loaded) Brain page — same condition the
+  // old sidebar's newChatButtonSelected already used for the Brain case. Must
+  // be an exact match on BRAIN_ROUTE, not the isBrainPage prefix check — that
+  // also matches /brain/schedules and /brain/threads, which lit up "New"
+  // alongside "Schedules" incorrectly.
+  const isNewChatOrBrainThreadPage = isNewChatPage || (pathname === BRAIN_ROUTE && !chatSearchParams.get('id'));
 
   // Map the current /org/* path to its admin-section item id so the sidebar
-  // can highlight the correct row on initial mount / page refresh.
-  const adminItemId = isTeamSettingsPage ? teamSectionId
-    : !isAdminPage ? undefined
-    : pathname?.startsWith('/org/members')    ? 'members'
-    : pathname?.startsWith('/org/teams')      ? 'teams'
-    : pathname?.startsWith('/org/plans')      ? 'plans-usage'
-    : pathname?.startsWith('/org/analytics')  ? 'analytics'
-    : pathname?.startsWith('/org/connectors') ? 'connectors'
-    : pathname?.startsWith('/org/souvenir-slack') ? 'souvenir-slack'
-    : pathname?.startsWith('/org/activity')   ? 'activity-log'
+  // can highlight the correct row on initial mount / page refresh. Connectors
+  // and Souvenir-in-Slack moved to their own top-level routes (no longer under
+  // /org/*), so everything actually left here is a transient redirect stub —
+  // this id only needs a harmless fallback while that stub briefly renders.
+  const adminItemId = !isAdminPage ? undefined
     : 'general'
 
   // Determines which Sidebar key to use (triggers remount on section change).
@@ -2069,7 +2429,6 @@ function LeftSidebarImpl({
   const sidebarSectionKey = isPersonaPage ? 'persona'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
-    : isTeamSettingsPage ? `team-settings-${teamSectionId}`
     : isAdminPage   ? `admin-${adminItemId}`
     : isNewChatPage ? 'new-chat'
     : 'chat-board';
@@ -2078,7 +2437,7 @@ function LeftSidebarImpl({
     isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
-    : isAdminPage || isTeamSettingsPage ? 'admin'
+    : isAdminPage ? 'admin'
     : isNewChatPage ? 'new-chat'
     : 'chats'
   ) as 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects';
@@ -2140,7 +2499,7 @@ function LeftSidebarImpl({
   // workspace). Only project-linked chats are excluded, since those already
   // surface inside the Projects section.
   const filteredChatHistory = useMemo(() => {
-    const chats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id));
+    const chats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id) && c.visibility !== 'archived');
     return { ...chatHistory, chats };
   }, [chatHistory, projectChatIdSet]);
 
@@ -2177,10 +2536,29 @@ function LeftSidebarImpl({
   };
 
   const handleNewChat = () => {
-    if (isPersonaPage) {
-      push(AGENTS_ROUTE);
+    // NOTE: previously short-circuited to push(AGENTS_ROUTE) when isPersonaPage —
+    // that matched the old tabbed Sidebar, where this handler was never actually
+    // invoked while on the Agents tab (it had its own separate onNewAgentChat).
+    // The new flat sidebar's "New" row calls this unconditionally from every
+    // page, so that branch just made "New" a no-op on /agents and any
+    // /agents/[id]/chat page — removed; "New" now always opens a blank chat.
+    //
+    // Task context is the one exception: on a Brain page or /chats in Tasks
+    // mode, "New" should open a blank task, not a blank chat — same URL
+    // command (`?new=1`) the Recent Tasks header's own add button and the old
+    // tabbed Sidebar's onNewBrainThread use, so Brain's own reset handles it
+    // identically regardless of entry point.
+    if (isBrainPage || isChatsTasksMode) {
+      const isAlreadyOnNewTask = pathname === BRAIN_ROUTE && !new URLSearchParams(window.location.search).get("id");
+      if (isAlreadyOnNewTask) {
+        toast.info("Already on new task");
+        return;
+      }
+      toast.info("Opening new task");
+      push(`${BRAIN_ROUTE}?new=1`);
       return;
     }
+
     const isAlreadyOnNewChat = pathname === CHAT_ROUTE && !new URLSearchParams(window.location.search).get("id");
     if (isAlreadyOnNewChat) {
       toast.info("Already on new chat");
@@ -2215,31 +2593,21 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Role chip next to the wordmark.
-  // admin/owner show their single org-level role — team roles don't add to it.
-  // Members show their highest team role (editor beats member).
-  // Hierarchy: owner > admin > editor > member.
-  const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
-  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+  // Role chip next to the wordmark. admin shows its single org-level role;
+  // anyone else in an org shows 'member' — there's no team-level role to add
+  // to it any more.
+  const displayRole = orgRole === 'admin'
     ? orgRole
-    : teams
-        .map(t => t.myRole)
-        .filter(Boolean)
-        .reduce<string | undefined>(
-          (best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best ?? ''] ?? 0) ? r : best),
-          undefined,
-        ) ?? (orgId ? 'member' : undefined)
+    : (orgId ? 'member' : undefined)
   const orgBadgeSublabel = orgId && displayRole
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
   const orgBadgeChipColor: ChipColor =
-    displayRole === 'owner'  ? 'Purple' :
     displayRole === 'admin'  ? 'Blue'   :
-    displayRole === 'editor' ? 'Green'  :
     'Neutral'
 
   // Fall back to roleFit + billing snapshot to detect team accounts when orgId
-  // hasn't resolved yet (e.g. owner whose profile lacks org_id, or org API failed).
+  // hasn't resolved yet (e.g. an admin whose profile lacks org_id, or org API failed).
   const billingSnap = (() => {
     try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
@@ -2251,16 +2619,46 @@ function LeftSidebarImpl({
     billingSnap?.isTeamAccount
   )
 
-  // Teams ? "Teams | <name>" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
+  // A truthy `plan` object just means the plan API call returned something —
+  // orgs get one populated with zeroes before a real subscription/pool exists.
+  // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
+  const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
+
+  // Distinct from orgHasPlan above: true only once a plan is actually
+  // SELECTED (a real Teams subscription or signed Enterprise contract), not
+  // just because the org has a starting credit balance — the one-time $25
+  // founder org-create grant funds the pool immediately on workspace
+  // creation, before any plan is ever chosen. See OrgPlan.hasSelectedPlan's
+  // own doc comment (types/teams.ts) for the backend signal this reads.
+  const orgHasSelectedPlan = orgId ? !!plan?.hasSelectedPlan : false
+
+  // Workspace identity line — just the org name, independent of plan/billing
+  // status, which now surfaces only via the status tag below. Individuals
+  // have no named workspace, so they get no second line at all.
   const planLabel = isTeamUser
-    ? (orgId ? `Teams | ${orgDisplayName(org?.name) ?? 'Teams'}` : 'Teams')
+    ? (orgId ? (orgDisplayName(org?.name) ?? 'Workspace') : 'Workspace')
+    : undefined
+
+  const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
+
+  // Plan-type label for the status tag ("Core | 250 credits left" /
+  // "Pro | 250 credits left") — distinct from planLabel above, which is now
+  // just the org's own name. Team orgs get "Free Plan" (blue tag, see
+  // planStatusVariant below) until a real plan is selected, then "Core"
+  // (org.plan 'teams') or "Pro" (org.plan 'enterprise').
+  const planTypeLabel = isTeamUser
+    ? (orgHasSelectedPlan ? (org?.plan === 'enterprise' ? 'Pro' : 'Core') : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
-        : 'No Plan Selected'
+        : undefined
 
-  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
+  // Blue tag for "Free Plan" (running on starting credits, no plan selected
+  // yet); default color once a real plan is selected, and always for
+  // individuals. Irrelevant when planWarning is set (that state has its own
+  // look) — AccountMenu itself ignores this prop in that case too.
+  const planStatusVariant: 'neutral' | 'blue' = (isTeamUser && orgHasPlan && !orgHasSelectedPlan) ? 'blue' : 'neutral'
 
   // Credits shown in the account menu, by environment (kept isolated):
   //   • Organization ? the SHARED org pool remaining (org-context / getOrgPlan)
@@ -2268,14 +2666,136 @@ function LeftSidebarImpl({
   // Org and personal balances never mix; we pick the source by environment.
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (plan ? org?.creditPool?.remaining : undefined)
-    : (user?.creditsRemaining ?? undefined);
+    ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
+    : (planWarning ? undefined : (user?.creditsRemaining ?? undefined));
 
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
     onSelectChat: handleSelectChat,
     chatHistory: filteredChatHistory,
   };
+
+  // Souvenir V1.5: Admin pages keep the old tabbed Sidebar completely
+  // unchanged (see docs/features/sidebar-current-state-audit.md and the
+  // migration plan for why); Brain now also gets the flat shell — its
+  // Recents section falls back to the same personal/team chat recents every
+  // other page shows (no inline Brain-thread list or per-schedule run-status
+  // icons in the sidebar anymore; "Schedules" is still reachable as a plain
+  // Destinations nav link to /brain/schedules).
+  const useFlatSidebar = !isAdminPage;
+
+  if (useFlatSidebar) {
+    return (
+      <>
+        <FlatSidebar
+          onSearch={openSearch}
+          searchActive={searchOpen}
+          onCollapse={handleCollapse}
+          defaultCollapsed={collapsedRef.current}
+          forceCollapsed={isAgentConfigurePage}
+          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
+          projectItems={orgId ? (
+            <FlatTeamsSidebarContent role={currentUserRole} />
+          ) : (
+            <FlatProjectsSection
+              label="Projects"
+              headerIcon={
+                <IconWithFallback
+                  icon={<FolderLibraryIcon size={16} animated />}
+                  fallback={<FolderThreeIcon size={16} animated />}
+                />
+              }
+            />
+          )}
+          recentItems={
+            !user ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SidebarMenuSkeleton key={i} index={i} fluid />
+                ))}
+              </div>
+            ) : showTasksRecents ? (
+              // Task side of the Task/Chat tab (src/templates/Brain/index.tsx,
+              // src/app/(app)/chat/page.tsx, and /chats in Tasks mode) —
+              // Recents shows Brain threads instead of regular chats while on
+              // a Brain page OR /chats?filter=tasks, or when the user manually
+              // switched via the header icon (recentsOverride).
+              <FlatBrainSidebarSections
+                activeChatId={chatSearchParams.get('id') ?? null}
+                onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}
+                onSwitchToChats={() => setRecentsOverride('chats')}
+              />
+            ) : (
+              <>
+                <FlatPinnedSection {...sectionProps} />
+                <FlatRecentsSection {...sectionProps} onNewChat={handleNewChat} onSwitchToTasks={() => setRecentsOverride('tasks')} />
+              </>
+            )
+          }
+          accountMenu={(collapsed) => {
+            // Wait for the org's own plan fetch too, not just `user` — for a
+            // team user, `isTeamUser` can go true (via user?.orgId) before
+            // org-context's `plan`/`org.creditPool` load, and planWarning's
+            // `!orgHasPlan` branch reads org-context state. Rendering early
+            // showed "No Plan Selected" for a beat, then flipped to the real
+            // plan tag once org data caught up.
+            if (!user || (isTeamUser && !orgPlanSettled)) {
+              return (
+                <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0 }} />
+                  {!collapsed && (
+                    <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
+                      <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            return (
+              <AccountMenu
+                name={displayName || "Account"}
+                plan={planLabel}
+                planWarning={planWarning}
+                planType={planTypeLabel}
+                credits={accountCredits}
+                planStatusVariant={planStatusVariant}
+                avatarSrc={user?.profilePicture ?? undefined}
+                collapsed={collapsed}
+                panelWidth={274}
+                roleBadge={orgId && displayRole ? (
+                  <Tooltip content={orgBadgeSublabel} side="top" delayDuration={300}>
+                    <span style={{ display: 'inline-flex' }}>
+                      <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+                    </span>
+                  </Tooltip>
+                ) : undefined}
+                placement="top-start"
+                renderTrigger={({ onOpenSettingsClick }) => (
+                  <FlatSidebarProfileRow
+                    name={displayName || "Account"}
+                    sublabel={planLabel}
+                    avatarSrc={user?.profilePicture ?? undefined}
+                    planLabel={!orgId && user?.planType ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1) : undefined}
+                    onOpenSettingsClick={onOpenSettingsClick}
+                    collapsed={collapsed}
+                  />
+                )}
+                onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+                onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
+                onSettings={() => push(SETTINGS_ROUTE)}
+                onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
+                onHelp={() => push(SETTINGS_HELP_ROUTE)}
+                onReportBug={() => setReportBugOpen(true)}
+                onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
+              />
+            )
+          }}
+        />
+        {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
+      </>
+    );
+  }
 
   return (
     <>
@@ -2297,7 +2817,7 @@ function LeftSidebarImpl({
       onChatTabClick={isPersonaPage ? () => push(CHAT_ROUTE) : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
-      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
+      onManageAllThreadsClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(`${CHATS_ROUTE}?filter=tasks`) }}
       // Use a URL command so this works even when the current thread is an
       // unsaved session already at bare `/brain`. The page consumes `?new=1`,
       // performs its complete imperative reset, then cleans the URL.
@@ -2305,13 +2825,13 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onNewAgentChat={() => push(AGENTS_ROUTE)}
-      agentItems={
-        currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} />
-        : isTeamUser         ? <PersonasSectionAll />
-        :                      <PersonasSectionIndividual />
-      }
+      // Shared/team-agent UI hidden app-wide — always the private-only listing
+      // now, regardless of project/org context. `PersonasSectionAll` (the
+      // team-shared variant) stays defined, just unused from this call site,
+      // so it isn't rebuilt from scratch if this is ever re-shown.
+      agentItems={<PersonasSectionIndividual />}
       onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
-      onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push(BRAIN_ROUTE) }}
+      onBrainClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_ROUTE) }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
       onOrganisationClick={() => push(ORG_GENERAL_ROUTE)}
@@ -2321,12 +2841,8 @@ function LeftSidebarImpl({
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
-      adminGroups={isTeamSettingsPage ? teamSettingsGroups : isAdminPage ? ORG_ADMIN_GROUPS : undefined}
+      adminGroups={isAdminPage ? ORG_ADMIN_GROUPS : undefined}
       onAdminSectionClick={(id) => {
-        if (isTeamSettingsPage && TEAM_SETTINGS_SECTIONS.has(id)) {
-          push(`${pathname}?section=${id.replace('team-', '')}`)
-          return
-        }
         const href = ADMIN_SECTION_ROUTES[id]
         if (href) { push(href); return }
         const label = ADMIN_SECTION_COMING_SOON[id] ?? id
@@ -2334,11 +2850,14 @@ function LeftSidebarImpl({
       }}
       orgName={orgId ? orgDisplayName(org.name) : undefined}
       orgId={orgId ?? undefined}
-      showAdmin={Boolean(orgId) && (orgRole === 'owner' || orgRole === 'admin')}
+      showAdmin={Boolean(orgId) && orgRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}
       orgBadgeChipColor={orgBadgeChipColor}
       accountMenu={(collapsed) => {
-        if (!user) {
+        // See the matching comment on the FlatSidebar accountMenu above —
+        // isTeamUser can resolve true before org-context's own plan fetch
+        // settles, which otherwise flashes "No Plan Selected" briefly.
+        if (!user || (isTeamUser && !orgPlanSettled)) {
           return collapsed ? (
             <div style={{ padding: '12px 8px', display: 'flex', justifyContent: 'center' }}>
               <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
@@ -2358,7 +2877,9 @@ function LeftSidebarImpl({
             name={displayName || "Account"}
             plan={planLabel}
             planWarning={planWarning}
+            planType={planTypeLabel}
             credits={accountCredits}
+            planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
             panelWidth={274}
@@ -2371,12 +2892,10 @@ function LeftSidebarImpl({
             ) : undefined}
             placement="top-start"
             onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
-            onUpgradePlan={() => push(SETTINGS_BILLING_ROUTE)}
+            onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
-            onWhatsNew={() => toast.info("What's new — coming soon!")}
+            onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
-            onManageConnectors={() => push(SETTINGS_CONNECTORS_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
           />
@@ -2384,14 +2903,9 @@ function LeftSidebarImpl({
       }}
       onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push(BRAIN_SCHEDULES_ROUTE) }}
       projectItems={orgId ? (
-        <TeamsSidebarContent
-          role={currentUserRole}
-          teams={teams}
-          activeTeamId={activeTeamId}
-          setActiveTeamId={setActiveTeamId}
-        />
+        <TeamsSidebarContent role={currentUserRole} />
       ) : (
-        <ProjectsSection label="Personal Projects" />
+        <ProjectsSection label="Projects" />
       )}
       scheduledTasksItems={isBrainPage ? (
         <BrainScheduledTasksSection

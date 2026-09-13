@@ -7,7 +7,8 @@ import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
-import { personaStarter, createPersonaRepo } from '@/lib/api/personas'
+import { personaStarter, createPersonaRepo, urlToImageFile } from '@/lib/api/personas'
+import { consumePersonaStarterPrefetch } from '@/lib/persona-wizard-prefetch'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
@@ -68,6 +69,13 @@ function starterSoundsToTones(
 }
 
 // ── Tone card ─────────────────────────────────────────────────────────────────
+// Fixed footprint so the grid stays aligned regardless of copy length: label
+// and subtitle are single-line (ellipsis overflow), the example stays
+// 2-line-clamped as before. Selection reads via the border/shadow color swap.
+// Hover adds a lift, matching the other wizard cards (TemplateCard/CustomCard)
+// instead of being static.
+
+const TONE_CARD_HEIGHT = 136
 
 function ToneCard({
   tone,
@@ -78,34 +86,47 @@ function ToneCard({
   selected: boolean
   onSelect: () => void
 }) {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <button
       onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        background: 'var(--neutral-white)',
-        border: selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-100)',
+        position: 'relative',
+        background: hovered && !selected ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        border: selected ? '1px solid var(--blue-400)' : `1px solid ${hovered ? 'var(--neutral-200)' : 'var(--neutral-100)'}`,
         borderRadius: 16,
         padding: 12,
         display: 'flex', flexDirection: 'column', gap: 9,
         boxShadow: selected
-          ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-200)'
-          : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+          ? '0px 4px 8px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--blue-200)'
+          : hovered
+            ? '0px 4px 8px 0px rgba(82,75,71,0.14), 0px 0px 0px 1px var(--neutral-100)'
+            : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         cursor: 'pointer',
         width: 332,
+        height: TONE_CARD_HEIGHT,
+        boxSizing: 'border-box',
         textAlign: 'left',
-        transition: 'border-color 150ms, box-shadow 150ms',
+        transform: hovered && !selected ? 'translateY(-1px)' : 'none',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
       }}
     >
       <div>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
           fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {tone.label}
         </p>
         <p style={{
-          fontFamily: 'var(--font-mono)', fontWeight: 400,
-          fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0,
+          fontFamily: 'var(--font-body)', fontWeight: 400,
+          fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+          color: 'var(--neutral-500)', margin: '2px 0 0',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {tone.subtitle}
         </p>
@@ -130,15 +151,35 @@ function ToneCard({
 
 function ToneCardSkeleton() {
   return (
-    <div style={{
-      background: 'var(--neutral-50)',
-      border: '1px solid var(--neutral-100)',
-      borderRadius: 16,
-      padding: 12,
-      width: 332,
-      height: 108,
-      animation: 'pulse 1.5s ease-in-out infinite',
-    }} />
+    <div
+      aria-hidden
+      aria-busy="true"
+      style={{
+        background: 'var(--neutral-white)',
+        border: '1px solid var(--neutral-100)',
+        borderRadius: 16,
+        padding: 12,
+        display: 'flex', flexDirection: 'column', gap: 9,
+        boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        width: 332,
+        height: TONE_CARD_HEIGHT,
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Label + subtitle */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="kaya-skeleton" style={{ height: 15, width: '55%' }} />
+        <div className="kaya-skeleton" style={{ height: 12, width: '80%' }} />
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(59,54,50,0.15)', width: '100%' }} />
+
+      {/* Example, 2 lines */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="kaya-skeleton" style={{ height: 13, width: '100%' }} />
+        <div className="kaya-skeleton" style={{ height: 13, width: '65%' }} />
+      </div>
+    </div>
   )
 }
 
@@ -208,11 +249,15 @@ function TonePageContent() {
       try { return JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}') } catch { return {} }
     })()
 
-    personaStarter({
-      name:        (draft.name    as string | undefined) ?? '',
-      description: (draft.purpose as string | undefined) ?? '',
-      tone:        undefined,
-    })
+    const draftName    = (draft.name    as string | undefined) ?? ''
+    const draftPurpose = (draft.purpose as string | undefined) ?? ''
+
+    // Reuse the in-flight request kicked off from the Name step's Continue click
+    // if it's still running (the common case) instead of firing a second one.
+    const request = consumePersonaStarterPrefetch(draftName, draftPurpose)
+      ?? personaStarter({ name: draftName, description: draftPurpose, tone: undefined })
+
+    request
       .then(starter => {
         if (cancelled) return
         try { sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter)) } catch { /* quota */ }
@@ -295,12 +340,18 @@ function TonePageContent() {
       // user must choose explicitly — the seeded value is overwritten on first save.
       const chosenModelId = stableKey(firstModel) ?? ''
 
+      // Every agent starts with one of the template avatars. It is uploaded as a
+      // real file so the backend stores it on the persona — Slack, email and the
+      // API all read the avatar from there, not from the FE's static assets.
+      const avatarPath = pickTemplateAvatar()
+
       // Create the repo + initial version
       const repo         = await createPersonaRepo({
         name:        effectiveName,
         modelId:     chosenModelId,
         prompt:      initialPrompt,
         description: wizardPurpose,
+        image:       await urlToImageFile(avatarPath),
       })
       const newRepoId    = repo.id
       const newVersionId = repo.active_version?.id ?? ''
@@ -326,10 +377,9 @@ function TonePageContent() {
       }
 
       // Seed profile draft (avatar + wizard data) so profile tab shows correct data immediately
-      const avatarPath = pickTemplateAvatar()
       try {
         sessionStorage.setItem(personaProfileKey(newRepoId), JSON.stringify({
-          avatarUrl:          avatarPath,
+          avatarUrl:          repo.active_version?.image_url ?? avatarPath,
           personaName:        effectiveName || undefined,
           personaDescription: wizardPurpose || undefined,
           personaTags:        starterPersonaTags.length > 0 ? starterPersonaTags : undefined,

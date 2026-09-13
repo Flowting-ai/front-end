@@ -33,6 +33,13 @@ export interface MoveToProjectModalProps {
   projects?:  Project[]
   /** How many chats are being moved — shown in the header + warning copy */
   chatCount?: number
+  /**
+   * True while the caller's `onConfirm` is in flight. Keeps the modal open
+   * (rather than the caller hiding it via its own `open` expression) and
+   * shows a spinner on "Move to project" instead of the modal just
+   * vanishing mid-request.
+   */
+  loading?:   boolean
   className?: string
 }
 
@@ -164,6 +171,7 @@ export function MoveToProjectModal({
   onConfirm,
   projects  = EMPTY_PROJECTS,
   chatCount = 1,
+  loading   = false,
   className,
 }: MoveToProjectModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -172,12 +180,12 @@ export function MoveToProjectModal({
   const mounted = useMounted()
 
   const handleConfirm = () => {
-    if (!selectedId) return
+    if (!selectedId || loading) return
     onConfirm(selectedId)
-    setSelectedId(null)
   }
 
   const handleClose = () => {
+    if (loading) return
     setSelectedId(null)
     onClose()
   }
@@ -209,7 +217,6 @@ export function MoveToProjectModal({
               position:        'fixed',
               inset:           0,
               backgroundColor: 'rgba(0,0,0,0.28)',
-              backdropFilter:  'blur(2px)',
               zIndex:          20,
             }}
           />
@@ -239,8 +246,11 @@ export function MoveToProjectModal({
             className={cn(className)}
             style={{
               pointerEvents:   'auto',
-              width:           480,
+              width:           560,
               maxWidth:        'calc(100vw - 32px)',
+              maxHeight:       'calc(100dvh - 64px)',
+              display:         'flex',
+              flexDirection:   'column',
               borderRadius:    16,
               backgroundColor: 'var(--neutral-white)',
               boxShadow:       SHADOW_MODAL,
@@ -250,6 +260,7 @@ export function MoveToProjectModal({
 
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div style={{
+              flexShrink:   0,
               padding:      '20px 20px 16px',
               borderBottom: '1px solid var(--neutral-100)',
               position:     'relative',
@@ -281,12 +292,14 @@ export function MoveToProjectModal({
                   aria-label="Close"
                   icon={<CancelOneIcon size={16} />}
                   onClick={handleClose}
+                  disabled={loading}
                 />
               </div>
             </div>
 
             {/* ── Context card — ModelFeaturedCard default (unselected) style ── */}
             <div style={{
+              flexShrink:      0,
               margin:          '16px 16px 0',
               borderRadius:    12,
               position:        'relative',
@@ -339,8 +352,10 @@ export function MoveToProjectModal({
               </div>
             </div>
 
-            {/* ── Project list ───────────────────────────────────────────── */}
-            <div style={{ position: 'relative', padding: '12px 16px 0' }}>
+            {/* ── Project list — the one section that grows/shrinks with the
+                modal's own maxHeight; header/context-card/footer stay fixed
+                size (flexShrink: 0 above/below) ── */}
+            <div style={{ flex: '1 1 auto', minHeight: 0, position: 'relative', padding: '12px 16px 0', display: 'flex', flexDirection: 'column' }}>
               <div
                 role="radiogroup"
                 aria-label="Select a project"
@@ -350,11 +365,16 @@ export function MoveToProjectModal({
                   display:             'flex',
                   flexDirection:       'column',
                   gap:                 4,
-                  maxHeight:           240,
+                  flex:                '1 1 auto',
+                  minHeight:           0,
+                  maxHeight:           420,
                   overflowY:           'auto',
                   overscrollBehaviorY: 'contain',
                   padding:             3,
                   paddingBottom:       12,
+                  opacity:             loading ? 0.5 : 1,
+                  pointerEvents:       loading ? 'none' : undefined,
+                  transition:          'opacity 150ms',
                 }}
               >
                 {projects.length === 0 ? (
@@ -379,26 +399,9 @@ export function MoveToProjectModal({
                 )}
               </div>
 
-              {/* Top blur edge */}
-              {[
-                { height: 32, blur: 2 },
-                { height: 20, blur: 4 },
-                { height: 12, blur: 6 },
-              ].map(({ height, blur }) => (
-                <div key={blur} aria-hidden style={{
-                  position:            'absolute',
-                  top: 12, left: 16, right: 16,
-                  height:              `${height}px`,
-                  backdropFilter:      `blur(${blur}px)`,
-                  WebkitBackdropFilter:`blur(${blur}px)`,
-                  maskImage:           'linear-gradient(to bottom, black 0%, transparent 100%)',
-                  WebkitMaskImage:     'linear-gradient(to bottom, black 0%, transparent 100%)',
-                  pointerEvents:       'none',
-                  zIndex:              10,
-                  opacity:             atTop ? 0 : 1,
-                  transition:          'opacity 150ms ease',
-                }} />
-              ))}
+              {/* Top/bottom scroll-edge fade — plain gradient, no backdrop
+                  blur (the blurred layers made the rows right underneath
+                  the edge unreadable while scrolling). */}
               <div aria-hidden style={{
                 position:      'absolute',
                 top: 12, left: 16, right: 16,
@@ -410,26 +413,6 @@ export function MoveToProjectModal({
                 transition:    'opacity 150ms ease',
               }} />
 
-              {/* Bottom blur edge */}
-              {[
-                { height: 32, blur: 2 },
-                { height: 20, blur: 4 },
-                { height: 12, blur: 6 },
-              ].map(({ height, blur }) => (
-                <div key={blur} aria-hidden style={{
-                  position:            'absolute',
-                  bottom: 0, left: 16, right: 16,
-                  height:              `${height}px`,
-                  backdropFilter:      `blur(${blur}px)`,
-                  WebkitBackdropFilter:`blur(${blur}px)`,
-                  maskImage:           'linear-gradient(to top, black 0%, transparent 100%)',
-                  WebkitMaskImage:     'linear-gradient(to top, black 0%, transparent 100%)',
-                  pointerEvents:       'none',
-                  zIndex:              10,
-                  opacity:             atBottom ? 0 : 1,
-                  transition:          'opacity 150ms ease',
-                }} />
-              ))}
               <div aria-hidden style={{
                 position:      'absolute',
                 bottom: 0, left: 16, right: 16,
@@ -444,6 +427,7 @@ export function MoveToProjectModal({
 
             {/* ── Footer ─────────────────────────────────────────────────── */}
             <div style={{
+              flexShrink:     0,
               display:        'flex',
               justifyContent: 'flex-end',
               alignItems:     'center',
@@ -451,10 +435,10 @@ export function MoveToProjectModal({
               padding:        '12px 16px 16px',
               borderTop:      '1px solid var(--neutral-100)',
             }}>
-              <Button variant="ghost" onClick={handleClose}>
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button variant="default" disabled={!selectedId} onClick={handleConfirm}>
+              <Button variant="default" disabled={!selectedId || loading} loading={loading} onClick={handleConfirm}>
                 Move to project
               </Button>
             </div>

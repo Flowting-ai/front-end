@@ -1,28 +1,13 @@
 'use client'
 
-import { apiFetch, apiFetchJson } from './client'
-import { PERSONAS_LIST_UPDATED_EVENT } from './personas'
+import { apiFetchJson } from './client'
 import {
-  ORG_TEAMS_ENDPOINT,
-  ORG_TEAM_ENDPOINT,
-  ORG_TEAM_EDITORS_ENDPOINT,
-  ORG_TEAM_EDITOR_ENDPOINT,
-  ORG_TEAM_INVITES_ENDPOINT,
-  ORG_TEAM_PROJECT_MEMBERS_ENDPOINT,
-  ORG_TEAM_PROJECT_MEMBER_ENDPOINT,
-  ORG_TEAM_CONNECTORS_ENDPOINT,
-  ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT,
-  ORG_TEAM_CONNECTOR_ENDPOINT,
-  ORG_TEAM_CONNECTIONS_ENDPOINT,
-  ORG_TEAM_CONNECTION_ENDPOINT,
-  ORG_TEAM_PERSONA_SHARES_ENDPOINT,
-  TEAM_INVITE_PREVIEW_ENDPOINT,
-  TEAM_INVITE_ACCEPT_ENDPOINT,
+  ORG_INVITES_ENDPOINT,
+  ORG_INVITE_PREVIEW_ENDPOINT,
+  ORG_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
 import type {
-  Team,
-  TeamEditor,
-  TeamInvite,
+  Invite,
   WorkspaceRole,
   OrgRole,
   InvitedMember,
@@ -30,207 +15,53 @@ import type {
   TeamInviteOnboarding,
   OrgMember,
 } from '@/types/teams'
-import type {
-  ApiKeyField,
-  ConnectorTool,
-  ConnectorCatalogEntry,
-} from './connectors'
-import type { OrgConnectorAccount } from './org-connectors'
 
-// ── Backend shapes (snake_case) ───────────────────────────────────────────────
-
-interface TeamResponse {
-  id: string
-  organization_id: string
-  name: string
-  description: string
-  tags: string[]
-  archived: boolean
-  can_edit: boolean
-  my_role?: 'owner' | 'admin' | 'editor' | 'member'
-  created_at: string
-  updated_at: string
-}
-
-interface PersonResponse {
-  user_id: string
-  name?: string | null
-  email?: string | null
-  can_link_accounts?: boolean
-}
+// ── Backend shapes ──────────────────────────────────────────────────────────
+// InviteResponse (services/organizations/schemas.py) declares a
+// `serialization_alias` on every multi-word field, so POST /organizations/{id}/
+// invites actually replies in camelCase — unlike InvitePreview below, which has
+// no aliases at all and stays genuinely snake_case. See lib/api/organization.ts's
+// equivalent note for the same drift on OrganizationResponse/MemberResponse.
 
 interface InviteResponse {
   id: string
-  team_id: string
-  recipient_emails?: string[] | null
-  expires_at: string
-  invite_url: string
+  organizationId: string
+  recipientEmails?: string[] | null
+  expiresAt: string
+  inviteUrl: string
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
-function normalizeTeam(t: TeamResponse): Team {
-  return {
-    id: t.id,
-    organizationId: t.organization_id,
-    name: t.name,
-    description: t.description,
-    tags: t.tags ?? [],
-    archived: t.archived,
-    canEdit: t.can_edit ?? false,
-    myRole: t.my_role ?? 'member',
-    createdAt: t.created_at,
-    updatedAt: t.updated_at,
-  }
-}
-
-function normalizeEditor(p: PersonResponse): TeamEditor {
-  return {
-    userId: p.user_id,
-    name: p.name ?? null,
-    email: p.email ?? null,
-    canLinkAccounts: p.can_link_accounts ?? false,
-  }
-}
-
-function normalizeInvite(i: InviteResponse): TeamInvite {
+function normalizeInvite(i: InviteResponse): Invite {
   return {
     id: i.id,
-    teamId: i.team_id,
-    recipientEmails: i.recipient_emails ?? [],
-    expiresAt: i.expires_at,
-    inviteUrl: i.invite_url,
+    organizationId: i.organizationId,
+    recipientEmails: i.recipientEmails ?? [],
+    expiresAt: i.expiresAt,
+    inviteUrl: i.inviteUrl,
   }
-}
-
-// ── Per-org cache ─────────────────────────────────────────────────────────────
-
-const _cache = new Map<string, { teams: Team[]; at: number }>()
-const CACHE_TTL = 30_000
-
-export function bustTeamsCache(orgId?: string): void {
-  if (orgId) _cache.delete(orgId)
-  else _cache.clear()
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
-export async function fetchTeams(orgId: string): Promise<Team[]> {
-  const now = Date.now()
-  const cached = _cache.get(orgId)
-  if (cached && now - cached.at < CACHE_TTL) return cached.teams
-
-  const list = await apiFetchJson<TeamResponse[]>(ORG_TEAMS_ENDPOINT(orgId))
-  const teams = list.map(normalizeTeam)
-  _cache.set(orgId, { teams, at: Date.now() })
-  return teams
-}
-
-export async function getTeam(orgId: string, teamId: string): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAM_ENDPOINT(orgId, teamId))
-  return normalizeTeam(data)
-}
-
-export async function createTeam(orgId: string, name: string, description = ''): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAMS_ENDPOINT(orgId), {
-    method: 'POST',
-    body: JSON.stringify({ name, description }),
-  })
-  bustTeamsCache(orgId)
-  return normalizeTeam(data)
-}
-
-export async function updateTeam(
+/**
+ * Flat org-level invite — the backend's InviteRequest is
+ * {emails, role: owner|admin|member, project_id}, no team-grant concept at
+ * all any more.
+ */
+export async function inviteMembers(
   orgId: string,
-  teamId: string,
-  params: { name?: string; description?: string; archived?: boolean },
-): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAM_ENDPOINT(orgId, teamId), {
-    method: 'PATCH',
-    body: JSON.stringify(params),
-  })
-  bustTeamsCache(orgId)
-  return normalizeTeam(data)
-}
-
-export async function archiveTeam(orgId: string, teamId: string): Promise<Team> {
-  return updateTeam(orgId, teamId, { archived: true })
-}
-
-export async function deleteTeam(orgId: string, teamId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_ENDPOINT(orgId, teamId), { method: 'DELETE' })
-  bustTeamsCache(orgId)
-}
-
-export async function listTeamEditors(orgId: string, teamId: string): Promise<TeamEditor[]> {
-  const list = await apiFetchJson<PersonResponse[]>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId))
-  return list.map(normalizeEditor)
-}
-
-export async function addTeamEditor(
-  orgId: string, teamId: string, userId: string, canLinkAccounts = false,
-): Promise<TeamEditor> {
-  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId), {
-    method: 'POST',
-    body: JSON.stringify({ userId, canLinkAccounts }),
-  })
-  return normalizeEditor(data)
-}
-
-export async function removeTeamEditor(orgId: string, teamId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_EDITOR_ENDPOINT(orgId, teamId, memberId), { method: 'DELETE' })
-}
-
-// ── Project members ───────────────────────────────────────────────────────────
-
-export interface ProjectMember {
-  userId: string
-  name: string | null
-  email: string | null
-}
-
-export async function listProjectMembers(orgId: string, teamId: string, projectId: string): Promise<ProjectMember[]> {
-  const list = await apiFetchJson<PersonResponse[]>(ORG_TEAM_PROJECT_MEMBERS_ENDPOINT(orgId, teamId, projectId))
-  return list.map(p => ({ userId: p.user_id, name: p.name ?? null, email: p.email ?? null }))
-}
-
-export async function addProjectMember(orgId: string, teamId: string, projectId: string, userId: string): Promise<ProjectMember> {
-  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_PROJECT_MEMBERS_ENDPOINT(orgId, teamId, projectId), {
-    method: 'POST',
-    body: JSON.stringify({ userId }),
-  })
-  return { userId: data.user_id, name: data.name ?? null, email: data.email ?? null }
-}
-
-export async function removeProjectMember(orgId: string, teamId: string, projectId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_PROJECT_MEMBER_ENDPOINT(orgId, teamId, projectId, memberId), { method: 'DELETE' })
-}
-
-export async function inviteTeamMembers(
-  orgId: string,
-  teamId: string,
   emails: string[],
   role?: WorkspaceRole,
-  creditCap?: number,
   projectId?: string,
-): Promise<TeamInvite> {
-  // Role mapping → org role + team grant flags:
-  //   admin  → orgRole: admin,  no team grant (admins have org-wide access)
-  //   editor → orgRole: member, grantTeamEditor: true   (TeamEditor row on accept)
-  //   member → orgRole: member, no viewer/editor grant. Optional projectId
-  //            is the backend-supported way to attach a plain member to work
-  //            under this team without elevating them to Viewer or Editor.
+): Promise<Invite> {
   const orgRole = role === 'admin' ? 'admin' : 'member'
-  const grantTeamEditor = role === 'editor'
-  const grantTeamViewer = false
-  const data = await apiFetchJson<InviteResponse>(ORG_TEAM_INVITES_ENDPOINT(orgId, teamId), {
+  const data = await apiFetchJson<InviteResponse>(ORG_INVITES_ENDPOINT(orgId), {
     method: 'POST',
     body: JSON.stringify({
       emails,
       role: orgRole,
-      grantTeamEditor,
-      grantTeamViewer,
-      ...(creditCap && creditCap > 0 ? { creditCap } : {}),
       ...(projectId ? { projectId } : {}),
     }),
   })
@@ -246,7 +77,6 @@ interface InvitedMemberResponse {
   email?: string | null
   image?: string | null
   role?: OrgRole | null
-  credit_cap?: number | null
 }
 
 interface InvitedProjectResponse {
@@ -259,9 +89,6 @@ interface InvitedProjectResponse {
 
 interface InviteOnboardingResponse {
   invite_id: string
-  team_id: string
-  team_name?: string | null
-  team_description?: string | null
   organization_id: string
   organization_name?: string | null
   organization_description?: string | null
@@ -270,29 +97,27 @@ interface InviteOnboardingResponse {
   invited_by_email?: string | null
   invited_by_image?: string | null
   role?: OrgRole | null
-  grant_team_editor?: boolean | null
-  grant_team_viewer?: boolean | null
-  credit_cap?: number | null
   project_id?: string | null
   project_name?: string | null
-  member_count?: number | null
-  members?: InvitedMemberResponse[] | null
   project_count?: number | null
   projects?: InvitedProjectResponse[] | null
-  organization_member_count?: number | null
-  organization_members?: InvitedMemberResponse[] | null
+  // Backend's real field names (services/organizations/schemas.py InvitePreview)
+  // are member_count/members — there's no "organization_" prefix on the wire.
+  // The old names here were never populated, so "who's already in this
+  // workspace" always rendered as 0 members / no avatars.
+  member_count?: number | null
+  members?: InvitedMemberResponse[] | null
   expires_at: string
 }
 
 function normalizeInvitedMember(m: InvitedMemberResponse): InvitedMember {
   return {
-    userId:    m.user_id,
-    name:      m.name ?? '',
-    initials:  m.initials ?? '',
-    email:     m.email ?? '',
-    image:     m.image ?? null,
-    role:      m.role ?? 'member',
-    creditCap: m.credit_cap ?? 0,
+    userId:   m.user_id,
+    name:     m.name ?? '',
+    initials: m.initials ?? '',
+    email:    m.email ?? '',
+    image:    m.image ?? null,
+    role:     m.role ?? 'member',
   }
 }
 
@@ -308,13 +133,11 @@ function normalizeInvitedProject(p: InvitedProjectResponse): InvitedProject {
 
 export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInviteOnboarding> {
   // The backend returns the full invite payload from the preview path itself
-  // (GET /team-invite/{id}) — there is no separate /onboarding endpoint.
-  const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
+  // (GET /org-invite/{id}, renamed from /team-invite/{id}) — there is no
+  // separate /onboarding endpoint.
+  const data = await apiFetchJson<InviteOnboardingResponse>(ORG_INVITE_PREVIEW_ENDPOINT(inviteId))
   return {
     inviteId:                data.invite_id,
-    teamId:                  data.team_id,
-    teamName:                data.team_name ?? '',
-    teamDescription:         data.team_description ?? '',
     organizationId:          data.organization_id,
     organizationName:        data.organization_name ?? '',
     organizationDescription: data.organization_description ?? '',
@@ -323,332 +146,26 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
     invitedByEmail:          data.invited_by_email ?? '',
     invitedByImage:          data.invited_by_image ?? null,
     role:                    data.role ?? 'member',
-    grantTeamEditor:         data.grant_team_editor ?? false,
-    grantTeamViewer:         data.grant_team_viewer ?? false,
-    // The backend stores credit caps in thousands (the org members page sends
-    // creditCap / 1000 on invite). Scale back to display credits so e.g. an
-    // assigned 10,000 reads as 10,000 here instead of the raw 10. `null` means
-    // no cap was set — keep it null so the UI can hide the line entirely.
-    creditCap:               data.credit_cap == null ? null : Math.round(data.credit_cap * 1000),
     projectId:               data.project_id ?? null,
     projectName:             data.project_name ?? null,
-    memberCount:             data.member_count ?? (data.members?.length ?? 0),
-    members:                 (data.members ?? []).map(normalizeInvitedMember),
     projectCount:            data.project_count ?? (data.projects?.length ?? 0),
     projects:                (data.projects ?? []).map(normalizeInvitedProject),
-    organizationMemberCount: data.organization_member_count ?? (data.organization_members?.length ?? 0),
-    organizationMembers:     (data.organization_members ?? []).map(normalizeInvitedMember),
+    organizationMemberCount: data.member_count ?? (data.members?.length ?? 0),
+    organizationMembers:     (data.members ?? []).map(normalizeInvitedMember),
     expiresAt:               data.expires_at,
   }
 }
 
-export async function acceptTeamInvite(inviteId: string): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(TEAM_INVITE_ACCEPT_ENDPOINT(inviteId), {
-    method: 'POST',
-  })
-  return normalizeTeam(data)
-}
-
-// ── Team connector approval (§14) ─────────────────────────────────────────────
-
-export type ConnectorRequestStatus = 'pending' | 'approved' | 'denied'
-
-export interface TeamConnectorRequest {
-  teamId:              string
-  connectorSlug:       string
-  status:              ConnectorRequestStatus
-  requestedByUserId:   string
-  requestedByName:     string | null
-  requestedByEmail:    string | null
-  note:                string | null
-  createdAt:           string
-  updatedAt:           string
-}
-
-interface TeamConnectorResponse {
-  team_id:               string
-  connector_slug:        string
-  status:                ConnectorRequestStatus
-  requested_by_user_id:  string
-  requested_by_name:     string | null
-  requested_by_email:    string | null
-  note:                  string | null
-  created_at:            string
-  updated_at:            string
-}
-
-function normalizeTeamConnector(r: TeamConnectorResponse): TeamConnectorRequest {
-  return {
-    teamId:            r.team_id,
-    connectorSlug:     r.connector_slug,
-    status:            r.status,
-    requestedByUserId: r.requested_by_user_id,
-    requestedByName:   r.requested_by_name ?? null,
-    requestedByEmail:  r.requested_by_email ?? null,
-    note:              r.note ?? null,
-    createdAt:         r.created_at,
-    updatedAt:         r.updated_at,
-  }
-}
-
-export async function listTeamConnectors(orgId: string, teamId: string): Promise<TeamConnectorRequest[]> {
-  const list = await apiFetchJson<TeamConnectorResponse[]>(ORG_TEAM_CONNECTORS_ENDPOINT(orgId, teamId))
-  return list.map(normalizeTeamConnector)
-}
-
-export async function listTeamConnectorCatalog(
-  orgId: string,
-  teamId: string,
-): Promise<ConnectorCatalogEntry[]> {
-  return apiFetchJson<ConnectorCatalogEntry[]>(ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT(orgId, teamId))
-}
-
-export async function requestTeamConnector(orgId: string, teamId: string, slug: string, note?: string): Promise<TeamConnectorRequest> {
-  const data = await apiFetchJson<TeamConnectorResponse>(ORG_TEAM_CONNECTORS_ENDPOINT(orgId, teamId), {
-    method: 'POST',
-    body: JSON.stringify({ slug, ...(note ? { note } : {}) }),
-  })
-  return normalizeTeamConnector(data)
-}
-
-export async function setTeamConnectorStatus(
-  orgId: string,
-  teamId: string,
-  slug: string,
-  status: ConnectorRequestStatus,
-): Promise<TeamConnectorRequest> {
-  const data = await apiFetchJson<TeamConnectorResponse>(ORG_TEAM_CONNECTOR_ENDPOINT(orgId, teamId, slug), {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  })
-  return normalizeTeamConnector(data)
-}
-
-// ── Team connections / shared accounts (§15) ──────────────────────────────────
-
-export interface TeamConnectionEntry {
-  slug:              string
-  displayName:       string
-  authMode:          'oauth2' | 'api_key'
-  apiKeyFields:      ApiKeyField[]
-  status:            ConnectorRequestStatus
-  /** Currently attached org shared account id. */
-  sharedAccountId:   string | null
-  /** Admin-friendly label of the attached shared account. */
-  accountLabel:      string | null
-  /** Provider identity of the attached shared account. */
-  accountIdentifier: string | null
-  /** True when a shared account is attached and connected. */
-  workspaceLinked:   boolean
-  /** User id that attached the shared account. */
-  workspaceLinkedBy: string | null
-  /** Available org shared accounts for this connector (picker list). */
-  accounts:          OrgConnectorAccount[]
-  /** Current tool policies for this team connection. */
-  tools:             ConnectorTool[]
-}
-
-// Raw response shape — matches ConnectorCatalogEntry from the backend.
-interface TeamConnectionResponse {
-  slug:                  string
-  display_name?:         string
-  auth_mode?:            'oauth2' | 'api_key'
-  api_key_fields?:       ApiKeyField[]
-  status?:               ConnectorRequestStatus
-  shared_account_id?:    string | null
-  account_label?:        string | null
-  account_identifier?:   string | null
-  workspace_linked?:     boolean
-  workspace_linked_by?:  string | null
-  accounts?:             Array<{
-    id:                string
-    organization_id:   string
-    connector_slug:    string
-    account_label:     string
-    account_identifier: string | null
-    connected:         boolean
-    status:            'active' | 'disabled' | 'expired'
-    version:           number
-    team_ids:          string[]
-    linked_by_user_id: string
-    created_at:        string
-    updated_at:        string
-  }>
-  tools?:                ConnectorTool[]
-}
-
-function normalizeConnection(r: TeamConnectionResponse): TeamConnectionEntry {
-  return {
-    slug:              r.slug,
-    displayName:       r.display_name ?? r.slug,
-    authMode:          r.auth_mode ?? 'api_key',
-    apiKeyFields:      r.api_key_fields ?? [],
-    status:            r.status ?? 'approved',
-    sharedAccountId:   r.shared_account_id ?? null,
-    accountLabel:      r.account_label ?? null,
-    accountIdentifier: r.account_identifier ?? null,
-    workspaceLinked:   r.workspace_linked ?? false,
-    workspaceLinkedBy: r.workspace_linked_by ?? null,
-    accounts:          (r.accounts ?? []).map(a => ({
-      id:               a.id,
-      organizationId:   a.organization_id,
-      connectorSlug:    a.connector_slug,
-      accountLabel:     a.account_label,
-      accountIdentifier: a.account_identifier ?? null,
-      connected:        a.connected,
-      status:           a.status,
-      version:          a.version,
-      teamIds:          a.team_ids ?? [],
-      linkedByUserId:   a.linked_by_user_id,
-      createdAt:        a.created_at,
-      updatedAt:        a.updated_at,
-    })),
-    tools:             r.tools ?? [],
-  }
-}
-
-export async function listTeamConnections(orgId: string, teamId: string): Promise<TeamConnectionEntry[]> {
-  const list = await apiFetchJson<TeamConnectionResponse[]>(ORG_TEAM_CONNECTIONS_ENDPOINT(orgId, teamId))
-  return list.map(normalizeConnection)
-}
-
-export async function createTeamConnectionAccount(
-  orgId: string,
-  teamId: string,
-  slug: string,
-  params: { accountLabel: string; accountIdentifier?: string; initData?: Record<string, string> },
-): Promise<{ connectorSlug: string; redirectUrl: string | null; sharedAccountId: string | null }> {
-  const body: Record<string, unknown> = { accountLabel: params.accountLabel }
-  if (params.accountIdentifier) body.accountIdentifier = params.accountIdentifier
-  if (params.initData)          body.init_data          = params.initData
-  const data = await apiFetchJson<{ connector_slug: string; redirect_url: string | null; shared_account_id: string | null }>(
-    `${ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug)}/link`,
-    { method: 'POST', body: JSON.stringify(body) },
-  )
-  return {
-    connectorSlug:    data.connector_slug,
-    redirectUrl:      data.redirect_url,
-    sharedAccountId:  data.shared_account_id,
-  }
-}
-
-export async function attachSharedAccount(
-  orgId: string,
-  teamId: string,
-  slug: string,
-  sharedAccountId: string,
-): Promise<TeamConnectionEntry> {
-  const data = await apiFetchJson<TeamConnectionResponse>(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), {
-    method: 'PATCH',
-    body: JSON.stringify({ sharedAccountId }),
-  })
-  return normalizeConnection(data)
-}
-
-export async function unlinkTeamConnection(orgId: string, teamId: string, slug: string): Promise<void> {
-  await apiFetch(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), { method: 'DELETE' })
-}
-
-// ── Team persona (agent) shares — who owns each agent deployed to the team ────
-
-export interface TeamPersonaShare {
-  shareId:        string
-  personaRepoId:  string
-  personaName:    string
-  sharedByUserId: string
-  sharedByName:   string | null
-  sharedByEmail:  string | null
-  teamId:         string
-  teamName:       string
-  sharedAt:       string
-}
-
-interface PersonaTeamShareResponse {
-  share_id:         string
-  persona_repo_id:  string
-  persona_name:     string
-  shared_by_user_id: string
-  shared_by_name:   string | null
-  shared_by_email:  string | null
-  team_id:          string
-  team_name:        string
-  shared_at:        string
-}
-
-function normalizeTeamPersonaShare(r: PersonaTeamShareResponse): TeamPersonaShare {
-  return {
-    shareId:        r.share_id,
-    personaRepoId:  r.persona_repo_id,
-    personaName:    r.persona_name,
-    sharedByUserId: r.shared_by_user_id,
-    sharedByName:   r.shared_by_name ?? null,
-    sharedByEmail:  r.shared_by_email ?? null,
-    teamId:         r.team_id,
-    teamName:       r.team_name,
-    sharedAt:       r.shared_at,
-  }
-}
-
-/** Every agent currently deployed to this team, including who owns/shared it. */
-export async function listTeamPersonaShares(orgId: string, teamId: string): Promise<TeamPersonaShare[]> {
-  const list = await apiFetchJson<PersonaTeamShareResponse[]>(ORG_TEAM_PERSONA_SHARES_ENDPOINT(orgId, teamId))
-  return list.map(normalizeTeamPersonaShare)
-}
-
-/**
- * repoId -> creator user id, merged across every team in `teamIds`. This is
- * the only place real per-persona ownership is available on the frontend —
- * `PersonaRepoResponse` carries no owner field, so anything that needs to
- * distinguish "my persona" from "a team-shared persona I don't own" (as
- * opposed to a coarse, wrong org-role guess) should fetch this.
- */
-// 30-second TTL cache + in-flight dedup, same pattern as fetchPersonas() —
-// this was previously hit fresh on every call (every Agents panel open,
-// every /agents page load), even though the underlying team-persona-share
-// data rarely changes. Busted whenever personas' own list cache is busted
-// (sharing changes already trigger that event — see SharingTab.tsx) so it
-// can't go stale across an actual visibility/ownership change.
-const _ownerMapCache = new Map<string, { data: Record<string, string>; time: number }>()
-const _ownerMapInFlight = new Map<string, Promise<Record<string, string>>>()
-const OWNER_MAP_CACHE_TTL = 30_000
-
-if (typeof window !== 'undefined') {
-  window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, () => {
-    _ownerMapCache.clear()
-    _ownerMapInFlight.clear()
-  })
-}
-
-function ownerMapCacheKey(orgId: string, teamIds: string[]): string {
-  return `${orgId}:${[...teamIds].sort().join(',')}`
-}
-
-export function fetchPersonaOwnerMap(orgId: string, teamIds: string[]): Promise<Record<string, string>> {
-  const key = ownerMapCacheKey(orgId, teamIds)
-  const now = Date.now()
-  const cached = _ownerMapCache.get(key)
-  if (cached && now - cached.time < OWNER_MAP_CACHE_TTL) return Promise.resolve(cached.data)
-
-  const inFlight = _ownerMapInFlight.get(key)
-  if (inFlight) return inFlight
-
-  const promise = Promise.all(teamIds.map(id => listTeamPersonaShares(orgId, id).catch(() => [] as TeamPersonaShare[])))
-    .then(results => {
-      const map: Record<string, string> = {}
-      for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
-      _ownerMapCache.set(key, { data: map, time: Date.now() })
-      return map
-    })
-    .finally(() => { _ownerMapInFlight.delete(key) })
-
-  _ownerMapInFlight.set(key, promise)
-  return promise
+export async function acceptTeamInvite(inviteId: string): Promise<void> {
+  // Response is OrganizationResponse, but no caller reads it — accepting
+  // just commits membership; the caller re-fetches org state separately.
+  await apiFetchJson<unknown>(ORG_INVITE_ACCEPT_ENDPOINT(inviteId), { method: 'POST' })
 }
 
 /**
  * The viewer's internal backend user id, in the same id space as
- * `TeamPersonaShare.sharedByUserId` / `OrgMember.id` (both ultimately
- * `user_id` on the backend). `/users/me` never returns this internal id —
+ * `OrgMember.id` (both ultimately `user_id` on the backend). `/users/me`
+ * never returns this internal id —
  * `AuthUser.id` is never populated — so it can't be read directly off
  * `useAuth()`. The org's member list is the only place the current user's
  * internal id is exposed on the frontend, keyed by the one identity we do

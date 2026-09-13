@@ -100,7 +100,7 @@ export function BrainDigestCard({ items, date, onViewRun }: BrainDigestCardProps
           color:      'var(--neutral-600)',
           flex:       '1 0 0',
         }}>
-          Brain ran while you were away
+          Task ran while you were away
         </span>
         {date && (
           <span style={{

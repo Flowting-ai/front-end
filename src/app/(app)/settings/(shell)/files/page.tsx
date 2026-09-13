@@ -212,7 +212,7 @@ function SelectField({
           </Button>
         }
       >
-        <Dropdown>
+        <Dropdown maxHeight={false}>
           <Dropdown.Section>
             {options.map(opt => (
               <Dropdown.Item

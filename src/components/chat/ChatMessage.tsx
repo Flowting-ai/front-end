@@ -24,6 +24,7 @@ import { toSouvenirModelLabel } from "@/lib/ai-models";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
+import { formatDate } from "@/lib/utils/format-utils";
 import {
   PinIcon,
   CopyOneIcon,
@@ -318,6 +319,10 @@ interface ChatMessageProps {
   hidePinAction?: boolean;
   /** When true, disables text selection highlighting (SelectionPopover + highlight marks). */
   disableHighlight?: boolean;
+  /** When true, hides the hover action bar on both user (edit/copy/retry) and
+   *  assistant (pin/copy/regenerate) messages — this chat is archived and can
+   *  no longer be edited or added to. */
+  archived?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -337,6 +342,7 @@ export function ChatMessage({
   pinned: pinnedProp = false,
   hidePinAction = false,
   disableHighlight = false,
+  archived = false,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -415,17 +421,31 @@ export function ChatMessage({
   useEffect(() => {
     if (!isAssistant || disableHighlight) return
 
+    // Mouse-driven selections are finalized on `mouseup` — opening on every
+    // intermediate `selectionchange` while the mouse is still dragging would
+    // make the popover jump around mid-drag. Keyboard selections (Shift+Arrow,
+    // Shift+Home, etc.) have no equivalent "selection finished" event — each
+    // key press IS a discrete, complete selection change — so those are
+    // opened directly from `selectionchange` instead, gated on the mouse not
+    // currently being held down.
+    let mouseIsDown = false
+
+    const showSelectionPopover = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+      const range = sel.getRangeAt(0)
+      if (!contentRef.current?.contains(range.commonAncestorContainer)) return
+      const rect = range.getBoundingClientRect()
+      if (!rect.width) return
+      setSelectionAnchor(rect)
+      setSelectionOpen(true)
+    }
+
+    const handleMouseDown = () => { mouseIsDown = true }
+
     const handleMouseUp = () => {
-      requestAnimationFrame(() => {
-        const sel = window.getSelection()
-        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
-        const range = sel.getRangeAt(0)
-        if (!contentRef.current?.contains(range.commonAncestorContainer)) return
-        const rect = range.getBoundingClientRect()
-        if (!rect.width) return
-        setSelectionAnchor(rect)
-        setSelectionOpen(true)
-      })
+      mouseIsDown = false
+      requestAnimationFrame(showSelectionPopover)
     }
 
     const handleSelectionChange = () => {
@@ -433,12 +453,16 @@ export function ChatMessage({
       if (!sel || sel.isCollapsed) {
         setSelectionOpen(false)
         setSelectionAnchor(null)
+        return
       }
+      if (!mouseIsDown) requestAnimationFrame(showSelectionPopover)
     }
 
+    document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('selectionchange', handleSelectionChange)
     return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
@@ -709,9 +733,11 @@ export function ChatMessage({
           <MessageBubble
             role="user"
             content={message.content}
+            timestamp={formatDate(message.created_at)}
             onRetry={onRegenerate}
             onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
             maxWidth={566}
+            hideActions={archived}
           />
         </div>
       ) : (
@@ -1143,8 +1169,9 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Content actions require an actual answer; errors can still regenerate. */}
-        {(canUseContentActions || (isLast && onRegenerate)) && <m.div
+        {/* Content actions require an actual answer; errors can still regenerate.
+            Hidden entirely on an archived chat — nothing here should be actionable. */}
+        {!archived && (canUseContentActions || (isLast && onRegenerate)) && <m.div
           animate={{ opacity: !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
@@ -1223,6 +1250,7 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     prev.showReasoning === next.showReasoning &&
     prev.pinned === next.pinned &&
     prev.hidePinAction === next.hidePinAction &&
+    prev.archived === next.archived &&
     // onEdit is a stable ref-backed callback (same identity for the component's
     // lifetime), so we only check null-ness to gate assistant regen button.
     (prev.onEdit == null) === (next.onEdit == null) &&

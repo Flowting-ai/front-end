@@ -110,11 +110,12 @@ export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 // ── Stripe ────────────────────────────────────────────────────────────────────
 /** All Stripe operations go through the backend API proxy. */
 export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
+export const STRIPE_PLAN_ENDPOINT = withBase("/stripe/plan");
 export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
 export const STRIPE_SUBSCRIPTION_RESUME_ENDPOINT = withBase("/stripe/subscription/resume");
-export const STRIPE_TOPUP_ENDPOINT = withBase("/stripe/topup");
-export const STRIPE_TOPUP_CHARGE_ENDPOINT = withBase("/stripe/topup/charge");
 export const STRIPE_BILLING_ENDPOINT = withBase("/stripe/billing");
+export const STRIPE_INVOICES_ENDPOINT = withBase("/stripe/invoices");
+export const STRIPE_USAGE_ENDPOINT = withBase("/stripe/usage");
 export const STRIPE_PORTAL_ENDPOINT = withBase("/stripe/portal");
 /** Start a free trial (grants 1000 credits). */
 export const STRIPE_TRIAL_ENDPOINT = withBase("/stripe/trial");
@@ -134,12 +135,20 @@ export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
-export const CHAT_VISIBILITY_ENDPOINT = (chatId: string) =>
-  withBase(`/chats/${chatId}/visibility`);
+// PATCH .../visibility never existed on this backend's chat router (confirmed
+// by reading services/chat/router.py's full route list) — every call 404s.
+// The real mechanism is this one-way, no-body action route: it looks up the
+// chat's existing project link server-side and sets visibility to "shared" —
+// there's no way to pass an explicit visibility value or team/project id, and
+// no corresponding "unshare" route exists yet either.
+export const CHAT_PUBLISH_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/share`);
 export const CHAT_COPY_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/copy`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
+export const CHAT_ARCHIVE_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/archive`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>
   withBase(`/chats/message/${messageId}`);
 export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>
@@ -183,8 +192,6 @@ export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
 export const PERSONA_VERSION_FILES_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/files`);
-export const PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT = (repoId: string, versionId: string) =>
-  withBase(`/persona/${repoId}/versions/${versionId}/connector-hints`);
 export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
 export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>
@@ -236,6 +243,18 @@ export const PROJECT_FILES_ENDPOINT  = (projectId: string) =>
   withBase(`/projects/${projectId}/files`)
 export const PROJECT_FILE_ENDPOINT   = (projectId: string, documentId: string) =>
   withBase(`/projects/${projectId}/files/${documentId}`)
+export const PROJECT_INVITE_ENDPOINT  = (projectId: string) =>
+  withBase(`/projects/${projectId}/invite`)
+export const PROJECT_INVITES_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/invites`)
+export const PROJECT_MEMBERS_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/members`)
+export const PROJECT_MEMBER_ENDPOINT  = (projectId: string, auth0Id: string) =>
+  withBase(`/projects/${projectId}/members/${auth0Id}`)
+export const PROJECT_LEAVE_ENDPOINT   = (projectId: string) =>
+  withBase(`/projects/${projectId}/leave`)
+export const PROJECT_RESTORE_ENDPOINT = (projectId: string) =>
+  withBase(`/projects/${projectId}/restore`)
 
 // ── Persona Shares ─────────────────────────────────────────────────────────
 export const PERSONA_SHARES_ENDPOINT           = withBase('/persona-shares')
@@ -249,6 +268,10 @@ export const PERSONA_SHARE_ACCEPT_ENDPOINT     = (id: string) => withBase(`/pers
 export const CONNECTORS_ENDPOINT            = withBase('/connectors')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
 export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
+export const CONNECTOR_COMPLETE_ENDPOINT    = (slug: string) => withBase(`/connectors/${slug}/complete`)
+// One account, addressed by id. Sharing, renaming, permissions and unlinking
+// all land here — the owner is the only one the backend lets through.
+export const CONNECTOR_ACCOUNT_ENDPOINT     = (accountId: string) => withBase(`/connectors/accounts/${accountId}`)
 
 // ── Workflows ─────────────────────────────────────────────────────────────────
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");
@@ -276,46 +299,22 @@ export const WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT = (
   messageId: string,
 ) => withBase(`/workflow/${workflowId}/chats/${chatId}/message/${messageId}`);
 
-// ── Organizations & Teams ─────────────────────────────────────────────────────
-export const ORG_TEAMS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/teams`)
-export const ORG_TEAM_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}`)
-export const ORG_TEAM_EDITORS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/editors`)
-export const ORG_TEAM_EDITOR_ENDPOINT = (orgId: string, teamId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/editors/${memberId}`)
-export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
-export const ORG_TEAM_INVITE_ENDPOINT = (orgId: string, teamId: string, inviteId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/invites/${inviteId}`)
-export const ORG_TEAM_OVERFLOW_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/overflow`)
-export const ORG_TEAM_PROJECT_MEMBERS_ENDPOINT = (orgId: string, teamId: string, projectId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members`)
-export const ORG_TEAM_PROJECT_MEMBER_ENDPOINT = (orgId: string, teamId: string, projectId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members/${memberId}`)
-export const ORG_TEAM_CONNECTORS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors`)
-export const ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/catalog`)
-export const ORG_TEAM_CONNECTOR_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/${encodeURIComponent(slug)}`)
-export const ORG_TEAM_CONNECTIONS_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connections`)
-export const ORG_TEAM_PERSONA_SHARES_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/persona-shares`)
-export const ORG_TEAM_CONNECTION_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/connections/${encodeURIComponent(slug)}`)
-export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
-  withBase(`/team-invite/${inviteId}`)
-export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
-  withBase(`/team-invite/${inviteId}/accept`)
+// ── Organizations (Workspace) ──────────────────────────────────────────────────
+export const ORG_INVITES_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/invites`)
+export const ORG_INVITE_ENDPOINT = (orgId: string, inviteId: string) =>
+  withBase(`/organizations/${orgId}/invites/${inviteId}`)
+export const ORG_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
+  withBase(`/org-invite/${inviteId}`)
+export const ORG_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
+  withBase(`/org-invite/${inviteId}/accept`)
 
 // ── Organization ──────────────────────────────────────────────────────────────
 export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
 export const ORG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}`)
+export const ORG_LEAVE_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/leave`)
 export const ORG_SETTINGS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/settings`)
 export const ORG_PLAN_ENDPOINT = (orgId: string) =>
@@ -330,30 +329,12 @@ export const ORG_POOL_CAP_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan/pool-cap`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
-export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/transfer-owner`)
-export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
-export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>
-  withBase(`/organizations/${orgId}/connectors/accounts/${accountId}`)
-export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
-export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors/catalog`)
-export const ORG_PERSONAL_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
-  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/personal-request`)
-export const ORG_PERSONAL_REQUESTS_ENDPOINT = (orgId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests`)
-export const ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT = (orgId: string, requestId: string) =>
-  withBase(`/organizations/${orgId}/connectors/personal-requests/${requestId}`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}`)
 export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}/role`)
-export const ORG_MEMBER_CAP_ENDPOINT = (orgId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/members/${memberId}/cap`)
 
 // ── Chat shares ────────────────────────────────────────────────────────────────
 export const CHAT_SHARES_ENDPOINT                = withBase('/chat-shares')
@@ -379,7 +360,3 @@ export const ORG_SLACK_PROJECT_CHANNEL_ENDPOINT = (orgId: string, projectId: str
 // ── Persona visibility ─────────────────────────────────────────────────────────
 export const PERSONA_VISIBILITY_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/visibility`)
-
-// ── Overflow approve ───────────────────────────────────────────────────────────
-export const ORG_OVERFLOW_APPROVE_ENDPOINT = (orgId: string, requestId: string) =>
-  withBase(`/organizations/${orgId}/overflow/${requestId}/approve`)

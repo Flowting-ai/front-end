@@ -62,8 +62,8 @@ export function PauseCard({
         lineHeight: 'var(--line-height-body)',
       }}>
         {pausedAfterStep
-          ? <>Brain finished <strong style={{ fontWeight: 'var(--font-weight-medium)' }}>{pausedAfterStep}</strong> and is waiting for your go-ahead.</>
-          : 'Brain has paused and is waiting for your go-ahead.'
+          ? <>Task finished <strong style={{ fontWeight: 'var(--font-weight-medium)' }}>{pausedAfterStep}</strong> and is waiting for your go-ahead.</>
+          : 'Task has paused and is waiting for your go-ahead.'
         }
       </p>
 

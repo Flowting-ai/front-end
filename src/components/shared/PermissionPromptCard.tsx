@@ -74,7 +74,7 @@ export function PermissionPromptCard({
       {/* Header: connector logo + title + tool slug */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- bundled asset or provider CDN URL
+          // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url
           <img
             src={logoSrc}
             alt=""

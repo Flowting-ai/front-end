@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import { connectorDisplayName } from '@/lib/connectorNames'
 
 // One connector identity — resolved once via toConnector(), rendered anywhere.
 // Never rebuild name/logo fallback chains at a call site: pass whatever raw
@@ -9,9 +9,9 @@ import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 export const connectorSchema = z.object({
   slug:   z.string(),
   name:   z.string(),
-  /** The backend's provider-hosted logo_url/icon_url when present, else a
-   *  bundled brand asset as a fallback, else null — callers render a letter
-   *  fallback. */
+  /** The backend's provider-hosted logo_url/icon_url, or null when the
+   *  catalog entry carries none — callers render a letter fallback. There is
+   *  no bundled-asset fallback: the backend is the only source of logos. */
   logo:   z.string().nullable(),
   status: z.enum(['connected', 'disconnected', 'failed', 'pending']),
 })
@@ -42,9 +42,7 @@ export function toConnector(input: string | object): Connector {
   return connectorSchema.parse({
     slug,
     name,
-    // Prefer the backend-hosted image directly; only fall back to a bundled
-    // local asset when the backend doesn't send one for this connector.
-    logo:   (raw.logo_url || raw.icon_url || null) ?? connectorLogoSrc(slug) ?? connectorLogoSrc(name),
+    logo:   raw.logo_url || raw.icon_url || null,
     status: statusSchema.parse(raw.status || 'connected'),
   })
 }

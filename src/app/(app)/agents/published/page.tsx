@@ -3,13 +3,13 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeftOneIcon, LinkSixIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, LinkSixIcon, CancelOneIcon, BubbleChatAddIcon, ShareOneIcon } from '@strange-huge/icons'
+import { Spinner } from '@/components/Spinner'
 import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
-import { getPersonaRepo } from '@/lib/api/personas'
+import { fetchPersonaRepo, type PersonaRepo } from '@/lib/api/persona-repo'
 import { ApiError } from '@/lib/api/client'
 import {
   createShare,
@@ -18,7 +18,8 @@ import {
   type PersonaShare,
 } from '@/lib/api/persona-shares'
 import { canonicalShareUrl } from '@/lib/share-url'
-import { AGENTS_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ function SuperLinkSection({
               transition: 'opacity 150ms',
             }}
           >
-            <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+            {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
             {isRevoking ? 'Revoking…' : 'Revoke link'}
           </button>
           <Button variant="secondary" size="sm" onClick={handleCopy}>
@@ -224,30 +225,35 @@ function PersonaPublishedContent() {
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [isRevoking,     setIsRevoking]     = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
+  // Kept in full (not just name/imageUrl) so "Use this Agent" can build a
+  // complete SelectedPersonaInfo without a second fetch.
+  const [personaRepo,    setPersonaRepo]    = useState<PersonaRepo | null>(null)
 
   // Fetch the persona's avatar and authoritative name from the API.
   useEffect(() => {
     if (!repoId) return
-    getPersonaRepo(repoId)
+    fetchPersonaRepo(repoId)
       .then(repo => {
-        setPersonaImageUrl(repo.active_version?.image_url ?? null)
+        setPersonaImageUrl(repo.workingVersion?.imageUrl ?? null)
         if (repo.name) setPersonaName(repo.name)
+        setPersonaRepo(repo)
       })
       .catch(() => {})
   }, [repoId])
 
-  // Load existing link share on mount
+  // Load existing link share on mount — shares are repo-scoped, not frozen to
+  // a version, so this matches on persona_repo_id (see SharingTab.tsx).
   useEffect(() => {
-    if (!versionId) return
+    if (!repoId) return
     listShares()
       .then(all => {
         const existing = all.find(
-          s => s.persona_id === versionId && s.share_type === 'link' && s.is_active,
+          s => s.persona_repo_id === repoId && s.share_type === 'link' && s.is_active,
         )
         if (existing) setLinkShare(existing)
       })
       .catch(() => {})
-  }, [versionId])
+  }, [repoId])
 
   async function handleGenerateSuperLink() {
     const limit = parseInt(tokenLimit, 10)
@@ -283,6 +289,36 @@ function PersonaPublishedContent() {
     }
   }
 
+  // "Use this Agent" opens a fresh /chat with the agent pre-attached to the
+  // input (not sent, not the agent's own dedicated /agents/[id]/chat page).
+  // /chat isn't mounted yet when this fires, so the persona is handed across
+  // via sessionStorage (read synchronously in a lazy initializer on /chat, the
+  // same mechanism project/[id]/chat/[chatId]/page.tsx already uses for its
+  // own pending-persona key) rather than the AGENT_SELECT_EVENT used when the
+  // Agents floating panel is opened from a page that's already mounted.
+  function handleUseAgent() {
+    if (!personaRepo) return
+    const v = personaRepo.currentVersion
+    const info: SelectedPersonaInfo = {
+      id:              personaRepo.id,
+      name:            personaRepo.name,
+      handle:          personaRepo.handle,
+      imageUrl:        personaRepo.imageUrl,
+      modelId:         v?.modelId ?? null,
+      activeVersionId: personaRepo.liveVersionId,
+      systemPrompt:    null,
+      temperature:     v?.temperature ?? null,
+      visibility:      personaRepo.visibility,
+      ownedByViewer:   true,
+      description:     personaRepo.description,
+      tags:            personaRepo.tags,
+      paused:          personaRepo.isPaused,
+      shared:          false,
+    }
+    sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(info))
+    push(CHAT_ROUTE)
+  }
+
   return (
     <div
       style={{
@@ -313,20 +349,6 @@ function PersonaPublishedContent() {
           alignItems: 'center',
         }}
       >
-        {/* ── Top nav ─────────────────────────────────────────────────────────── */}
-        <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', height: 36 }}>
-            <IconButton
-              variant="ghost"
-              size="md"
-              icon={<ArrowLeftOneIcon size={20} />}
-              aria-label="Back to library"
-              onClick={() => push(AGENTS_ROUTE)}
-            />
-          </div>
-          <div style={{ height: 8, flexShrink: 0 }} />
-        </div>
-
         {/* ── Scrollable content ────────────────────────────────────────────── */}
         <div
           className="kaya-scrollbar"
@@ -380,7 +402,7 @@ function PersonaPublishedContent() {
                 width: 291,
                 position: 'relative',
                 zIndex: 1,
-                paddingTop: 32,
+                paddingTop: 20,
               }}
             >
               {/* Persona image */}
@@ -436,7 +458,7 @@ function PersonaPublishedContent() {
                 >
                   {isRepublished
                     ? `“${personaName}” is now live with your latest changes.`
-                    : `“${personaName}” is now live for your team. Members can add it from the Add button in any conversation.`}
+                    : `“${personaName}” is now live. Add it from the Add button in any conversation.`}
                 </p>
               </div>
             </div>
@@ -450,159 +472,165 @@ function PersonaPublishedContent() {
                 alignItems:     'center',
                 position:       'relative',
                 zIndex:         1,
+                // Pulls this whole block closer to the description text above —
+                // the outer column's gap:76 (shared with the spacing before the
+                // action-button row further down) is too wide for just this
+                // pairing, so this overrides only its own top offset.
+                marginTop:      -48,
               }}
             >
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-                  What&apos;s next?
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>
-                  {linkShare
-                    ? 'Share this link with anyone — no account needed to chat with your agent.'
-                    : 'Generate a Super Link so anyone can chat with your agent — no account needed.'}
-                </p>
-              </div>
+              {/* Own bordered card — separates "What's next" + Super Link
+                  generation from the page title above and the action-button
+                  row below, instead of all three floating on the same
+                  gradient background with no visual grouping. */}
+              <div
+                style={{
+                  display:         'flex',
+                  flexDirection:   'column',
+                  gap:             14,
+                  alignItems:      'center',
+                  backgroundColor: 'rgba(255,255,255,0.5)',
+                  border:          '1px solid var(--neutral-200)',
+                  borderRadius:    20,
+                  padding:         '24px 28px',
+                }}
+              >
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
+                    What&apos;s next?
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>
+                    {linkShare
+                      ? 'Share this link with anyone — no account needed to chat with your agent.'
+                      : 'Generate a Super Link so anyone can chat with your agent — no account needed.'}
+                  </p>
+                </div>
 
-              {/* Super link section — shown once the link is generated */}
-              {linkShare ? (
-                <SuperLinkSection
-                  share={linkShare}
-                  onRevoke={handleRevokeLink}
-                  isRevoking={isRevoking}
-                />
-              ) : (
-                /* Pre-generation: token limit input + generate button */
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    alignItems: 'center',
-                    width: 242,
-                  }}
-                >
+                {/* Super link section — shown once the link is generated */}
+                {linkShare ? (
+                  <SuperLinkSection
+                    share={linkShare}
+                    onRevoke={handleRevokeLink}
+                    isRevoking={isRevoking}
+                  />
+                ) : (
+                  /* Pre-generation: token limit input + generate button */
                   <div
                     style={{
                       display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
+                      width: 242,
                     }}
                   >
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 400,
-                        fontSize: 13,
-                        color: 'var(--neutral-600)',
-                      }}
-                    >
-                      Credit limit
-                    </span>
                     <div
                       style={{
-                        backgroundColor: 'white',
-                        border: '1px solid var(--neutral-200)',
-                        borderRadius: 8,
-                        padding: '4px 8px',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
                       }}
                     >
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={tokenLimit}
-                        placeholder="Enter a value"
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9]/g, '')
-                          if (raw === '') { setTokenLimit(''); return }
-                          const n = parseInt(raw, 10)
-                          if (Number.isNaN(n)) return
-                          setTokenLimit(String(Math.min(maxTokenLimit, Math.max(1, n))))
-                        }}
+                      <span
                         style={{
-                          width: 72,
-                          border: 'none',
-                          outline: 'none',
-                          backgroundColor: 'transparent',
                           fontFamily: 'var(--font-body)',
                           fontWeight: 400,
-                          fontSize: 12,
-                          lineHeight: 'normal',
-                          color: '#3b3632',
+                          fontSize: 13,
+                          color: 'var(--neutral-600)',
                         }}
-                      />
+                      >
+                        Credit limit
+                      </span>
+                      <div
+                        style={{
+                          backgroundColor: 'white',
+                          border: '1px solid var(--neutral-200)',
+                          borderRadius: 8,
+                          padding: '4px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={tokenLimit}
+                          placeholder="Enter a value"
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '')
+                            if (raw === '') { setTokenLimit(''); return }
+                            const n = parseInt(raw, 10)
+                            if (Number.isNaN(n)) return
+                            setTokenLimit(String(Math.min(maxTokenLimit, Math.max(1, n))))
+                          }}
+                          style={{
+                            width: 72,
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 400,
+                            fontSize: 12,
+                            lineHeight: 'normal',
+                            color: '#3b3632',
+                          }}
+                        />
+                      </div>
                     </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      leftIcon={<LinkSixIcon size={16} />}
+                      fluid
+                      onClick={handleGenerateSuperLink}
+                      loading={isGenerating}
+                      disabled={isGenerating || !tokenLimit}
+                    >
+                      Generate Super Link
+                    </Button>
                   </div>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    leftIcon={<LinkSixIcon size={16} />}
-                    fluid
-                    onClick={handleGenerateSuperLink}
-                    loading={isGenerating}
-                    disabled={isGenerating || !tokenLimit}
-                  >
-                    Generate Super Link
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Use this agent */}
-              {repoId && (
+              {/* Back to Library | Use this Agent | Configure Sharing — side by
+                  side, all three sharing the same secondary/sm Button styling,
+                  each with an inline icon sized a bit above Button's usual
+                  16px default for a bit more visual weight. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <Button
                   variant="secondary"
                   size="sm"
-                  style={{ width: 242, justifyContent: 'center' }}
-                  onClick={() => push(AGENT_CHAT_ROUTE(repoId))}
+                  leftIcon={<ArrowLeftOneIcon size={18} />}
+                  onClick={() => push(AGENTS_ROUTE)}
                 >
-                  Use this agent
+                  Back to Library
                 </Button>
-              )}
 
-              {/* Back to library */}
-              <button
-                onClick={() => push(AGENTS_ROUTE)}
-                style={{
-                  width: 242,
-                  padding: '6px 10px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: 'var(--neutral-700)',
-                  textAlign: 'center',
-                }}
-              >
-                Back to library
-              </button>
+                {repoId && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<BubbleChatAddIcon size={18} />}
+                    disabled={!personaRepo}
+                    onClick={handleUseAgent}
+                  >
+                    Use this Agent
+                  </Button>
+                )}
 
-              {/* Configure sharing shortcut — visible when no super link yet */}
-              {!linkShare && repoId && versionId && (
-                <button
-                  onClick={() => push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { versionId }))}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 400,
-                    fontSize: 13,
-                    lineHeight: '20px',
-                    color: 'var(--neutral-400)',
-                    textAlign: 'center',
-                    padding: 0,
-                    textDecoration: 'underline',
-                    textUnderlineOffset: 2,
-                  }}
-                >
-                  Configure sharing settings →
-                </button>
-              )}
+                {/* Visible when no super link yet — same condition as before. */}
+                {!linkShare && repoId && versionId && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<ShareOneIcon size={18} />}
+                    onClick={() => push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { versionId }))}
+                  >
+                    Configure Sharing
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { ArrowDownOneIcon } from "@strange-huge/icons";
+import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -140,6 +140,15 @@ interface ChatInterfaceProps {
   selectedPersonaSystemPrompt?: string | null;
   /** Temperature override from the selected persona. */
   selectedPersonaTemperature?: number | null;
+  /**
+   * True while a just-selected persona's active version (system prompt,
+   * temperature, model) is still being fetched. Selecting an agent doesn't
+   * arrive with that data — the caller resolves it async right after — so
+   * sending immediately after picking an agent raced that fetch and sent
+   * `systemPrompt: undefined`, breaking only the first turn (subsequent
+   * sends always had it by then). Blocks sending until it resolves instead.
+   */
+  personaConfigLoading?: boolean;
   /** Style/tone ID to send with every message (e.g. "professional", "teaching"). */
   selectedStyleId?: string | null;
   /**
@@ -186,6 +195,14 @@ interface ChatInterfaceProps {
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
   /**
+   * This chat's own visibility is "archived" (see Chat.visibility / the
+   * /chats page's Archived tab). Distinct from `readOnly` — an archived chat
+   * is still owned by the current user, so unlike a shared/not-owned chat it
+   * must NOT offer a "Create a copy" affordance; there's no unarchive
+   * endpoint yet either, so the composer just stays disabled.
+   */
+  archived?: boolean;
+  /**
    * True only once the caller has positively confirmed (e.g. via the chat
    * list's own `can_edit` field) that this chat belongs to the current user.
    * `undefined`/omitted means "unknown" (e.g. this chat hasn't loaded into
@@ -219,6 +236,7 @@ export function ChatInterface({
   selectedPersonaId,
   selectedPersonaSystemPrompt,
   selectedPersonaTemperature,
+  personaConfigLoading = false,
   selectedStyleId,
   scrollToMessageId,
   disabledModelSelector,
@@ -229,6 +247,7 @@ export function ChatInterface({
   loadMessages,
   hidePinActions = false,
   readOnly = false,
+  archived = false,
   chatOwnershipConfirmed,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -313,8 +332,7 @@ export function ChatInterface({
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
-  // Muse framework state — consumed from context to compute algorithm for API calls
-  const { museActive, museAdvanced, selectedModel: contextModel } = useModelSelectorContext();
+  const { selectedModel: contextModel } = useModelSelectorContext();
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -365,35 +383,21 @@ export function ChatInterface({
 
   // Seed model logo + name on assistant messages that have thinking content but no
   // model identity when the history API does not return model_name.
-  // When Muse is active, contextModel is null (it is not an AIModel), so we derive
-  // the identity from museActive/museAdvanced instead.
   useEffect(() => {
-    const isMuse = museActive && !contextModel;
-    if (!isMuse && !contextModel) return;
+    if (!contextModel) return;
     setMessages(prev => {
       const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
       if (!needsPatch) return prev;
-      let modelName: string;
-      let modelId: string;
-      let company: string;
-      let complexity: string | undefined;
-      if (isMuse) {
-        complexity = museAdvanced ? 'advanced' : 'basic';
-        modelName  = museAdvanced ? 'Souvenir Muse (Auto)' : 'Souvenir Muse (Basic)';
-        modelId    = `muse-${complexity}`;
-        company    = 'Souvenir';
-      } else {
-        modelName = contextModel!.modelName;
-        company   = contextModel!.companyName;
-        modelId   = String(contextModel!.modelId ?? contextModel!.id ?? '');
-      }
+      const modelName = contextModel.modelName;
+      const company   = contextModel.companyName;
+      const modelId   = String(contextModel.modelId ?? contextModel.id ?? '');
       return prev.map(m => {
         if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company, ...(complexity ? { complexity } : {}) } };
+        return { ...m, modelName, modelMeta: { modelId, modelName, company } };
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel, museActive, museAdvanced]);
+  }, [messages, contextModel]);
 
   // Estimate how much of the model's context window is currently in use.
   // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
@@ -535,16 +539,14 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
       const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
-      fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
+      fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -569,11 +571,18 @@ export function ChatInterface({
   };
 
   useEffect(() => {
+    // Same race as handleSend's personaConfigLoading check — this is the
+    // path that actually fires for "Use this Agent" and any agent selected
+    // on the blank new-chat screen: the prompt is already staged and this
+    // effect auto-sends it the instant ChatInterface mounts, which is before
+    // the persona's version fetch has had any real time to resolve. Wait for
+    // it instead of sending with systemPrompt missing.
+    if (personaConfigLoading) return;
     if (initialPrompt && !initialPromptSentRef.current) {
       initialPromptSentRef.current = true;
       sendInitialPrompt.current?.(initialPrompt);
     }
-  }, [initialPrompt]);
+  }, [initialPrompt, personaConfigLoading]);
 
   // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
   // We track the previous loading state so we fire exactly once on the
@@ -620,11 +629,11 @@ export function ChatInterface({
     };
   }, [isSettling]);
 
-  // Scroll to bottom as new streaming content arrives — but only when the
-  // user is already at (or near) the bottom. If they scrolled up to read
-  // earlier messages while the model is generating, we must NOT force them
-  // back down. atBottomRef always reflects the latest scroll position without
-  // creating a dependency cycle.
+  // Scroll to the start of a new streaming reply — but only when the user is
+  // already at (or near) the bottom. If they scrolled up to read earlier
+  // messages while the model is generating, we must NOT force them back down;
+  // atBottomRef always reflects the latest scroll position without creating a
+  // dependency cycle.
   useEffect(() => {
     if (!isStreaming) {
       streamingTopMessageIdRef.current = null;
@@ -651,10 +660,29 @@ export function ChatInterface({
     if (!isScrollable) return;
 
     streamingTopMessageIdRef.current = messageId;
+    // A user who had already scrolled away stays exactly where they are —
+    // don't yank them to the new reply's start either. Only the
+    // already-at-bottom case jumps, and only then do we mark it "left the
+    // bottom" (the jump reveals mostly-empty new-message space below).
+    if (!atBottomRef.current) return;
     atBottomRef.current = false;
     setAtBottom(false);
     msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
   }, [isStreaming, messages, isLoadingMessages, msgVirtualizer]);
+
+  // Continuously follow the bottom as streamed content grows — the effect
+  // above only jumps once, to the *start* of a new reply; without this, a
+  // reply that keeps growing past the viewport leaves the user stuck exactly
+  // there instead of tracking new tokens the way ChatGPT-style UIs do. Fires
+  // on every `messages` update (each streamed chunk produces a new array
+  // reference) but only follows while atBottomRef is true, so a manual
+  // scroll-up during generation is never overridden.
+  useEffect(() => {
+    if (!isStreaming) return;
+    if (!atBottomRef.current) return;
+    if (messages.length === 0) return;
+    msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
+  }, [isStreaming, messages, msgVirtualizer]);
 
   // Scroll-to-top for pagination + track whether user is at bottom.
   // We gate setAtBottom behind a threshold comparison against the ref value
@@ -790,6 +818,11 @@ export function ChatInterface({
     // already disabled and the CreditStatusBanner explains why, so block silently.
     if (creditStatus.blocked) return;
 
+    // Same idea: a just-selected persona's system prompt/model is still being
+    // fetched (see personaConfigLoading doc) — the input is disabled for this
+    // too, so block silently rather than send with systemPrompt missing.
+    if (personaConfigLoading) return;
+
     // Reentrancy guard: see isSendingRef declaration above.
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -817,8 +850,8 @@ export function ChatInterface({
     // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
     trackBrowserEvent("chat_message_sent", {
       has_agent: !!selectedPersonaId,
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_pick: "manual",
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       web_search: webSearchEnabled,
       reasoning: enableReasoning,
       attachment_count: allFiles.length,
@@ -826,12 +859,10 @@ export function ChatInterface({
     });
 
     try {
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
-      await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: allFiles.length > 0 ? allFiles : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -885,17 +916,16 @@ export function ChatInterface({
     const loadingId = addLoadingAssistantMessage();
     // Analytics: part of the override rate (earliest answer-quality warning).
     trackFeature("regenerate", {
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_pick: "manual",
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       reasoning: enableReasoning,
     });
-    const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
     fetchAiResponse(
       lastUserMsg.content,
       chatId ?? null,
       loadingId,
-      algorithm ? null : selectedModelId,
-      { ...(algorithm ? { algorithm } : {}), enableReasoning, chatOwnershipConfirmed },
+      selectedModelId,
+      { enableReasoning, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -932,6 +962,7 @@ export function ChatInterface({
   // Update the ref synchronously during render (safe: only read in event handlers)
   _handleEditMessageImpl.current = (messageId: string, newContent: string) => {
     if (isStreaming) return  // never edit while a stream is in-flight
+    if (personaConfigLoading) return  // same race as handleSend — see its comment
 
     // User messages loaded from history have IDs like "{uuid}-prompt" (added by
     // normalizeMessages). The backend requires a bare UUID for replace_message_id,
@@ -958,12 +989,10 @@ export function ChatInterface({
         .slice(0, idx + 1)
     })
     const loadingId = addLoadingAssistantMessage()
-    const algorithm = museActive ? (museAdvanced ? "pro" : "base") : null
 
-    fetchAiResponse(newContent, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
-      algorithm: algorithm ?? undefined,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
       temperature: selectedPersonaTemperature ?? undefined,
@@ -1083,13 +1112,19 @@ export function ChatInterface({
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "24px 16px",
+            paddingTop: "24px",
+            paddingBottom: "24px",
+            paddingRight: "2px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
           }}
         >
-          <div style={{ width: "100%", maxWidth: "720px" }}>
+          {/* 2px right padding on the scrolling element above sits the scrollbar
+              exactly 2px from the layout's edge (same convention as
+              PersonaChatInterface.tsx). Reading-comfort padding lives on the
+              inner wrapper below, not on the scrolling element. */}
+          <div style={{ width: "100%", maxWidth: "720px", padding: "0 16px", boxSizing: "border-box" }}>
           {/* Loading skeleton — shown while fetching AND while the virtualizer
               settles its initial measurements so the first visible frame is jitter-free */}
           {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}
@@ -1106,7 +1141,13 @@ export function ChatInterface({
               const idx     = vRow.index;
               return (
                 <div
-                  key={message.id}
+                  // Keyed by the stable reactKey, not `id` — `id` gets swapped in
+                  // place from a temp id to the real backend UUID once the
+                  // message_saved event arrives (use-streaming-chat.ts), and
+                  // keying by `id` directly made that swap look like a new row
+                  // to React, remounting it and replaying its entrance
+                  // animation on content that was already fully visible.
+                  key={message.reactKey ?? message.id}
                   data-index={vRow.index}
                   ref={msgVirtualizer.measureElement}
                   style={{
@@ -1131,6 +1172,7 @@ export function ChatInterface({
                     chatId={chatId}
                     showReasoning={enableReasoning}
                     pinned={message.role === 'assistant' ? isPinned(message.id) : false}
+                    archived={archived}
                     onRegenerate={
                       idx === messages.length - 1 &&
                       message.role === "assistant" &&
@@ -1223,6 +1265,38 @@ export function ChatInterface({
             ref={inputWrapperRef}
             style={{ width: "100%", position: "relative", zIndex: 1 }}
           >
+          {archived ? (
+            // Archived chats can't be edited at all — a disabled composer
+            // with an explanatory placeholder still looks like a text field
+            // you could try typing into. A plain info banner says outright
+            // that this chat is read-only instead.
+            <div
+              style={{
+                display:         "flex",
+                alignItems:      "center",
+                gap:             10,
+                padding:         "12px 16px",
+                borderRadius:    "var(--toast-radius, 12px)",
+                backgroundColor: "var(--neutral-100)",
+                boxShadow:       "inset 0 0 0 1px var(--neutral-200)",
+              }}
+            >
+              <InformationCircleIcon size={16} color="var(--neutral-500)" />
+              <p
+                style={{
+                  margin:     0,
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--font-weight-medium)",
+                  fontSize:   "var(--font-size-body)",
+                  lineHeight: "var(--line-height-body)",
+                  color:      "var(--neutral-600)",
+                }}
+              >
+                This is an archived chat. It&apos;s read-only.
+              </p>
+            </div>
+          ) : (
+            <>
           {!hidePinActions && (
             <PinMentionDropdown
               isOpen={showPinDropdown}
@@ -1275,7 +1349,7 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={readOnly || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked}
+            disabled={readOnly || archived || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
               readOnly
                 ? 'Create your own copy to continue this chat.'
@@ -1283,13 +1357,17 @@ export function ChatInterface({
                 ? 'Workspace locked. Contact your admin.'
                 : creditStatus.blocked
                   ? 'Credits exhausted. Buy a top-up to continue.'
-                  : 'How can I help you today?'
+                  : personaConfigLoading
+                    ? 'Loading agent…'
+                    : 'How can I help you today?'
             }
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
             contextUsedPct={contextUsedPct}
           />
+            </>
+          )}
           </div>
           </ExhaustionBanner>
         </div>

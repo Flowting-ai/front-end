@@ -11,6 +11,7 @@ import { springs } from '@/lib/springs'
 import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
 import { useProjectPanel } from '@/context/project-panel-context'
+import { useChatHistoryContext } from '@/context/chat-history-context'
 import { AgentsPanelContent } from '@/components/AgentsPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
@@ -38,6 +39,18 @@ function FloatingPanelImpl() {
   const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
   const currentChatId = useCurrentChatId()
   const pathname = usePathname()
+  // A read-only chat — not owned by the viewer, or owned but archived (see
+  // chat/page.tsx's `activeChatReadOnly`) — has no live chat state to
+  // mutate, so the whole floating toolbar stays inert on it too.
+  const { chats: chatHistoryChats } = useChatHistoryContext()
+  const currentChat = chatHistoryChats.find(c => c.id === currentChatId)
+  const isReadOnlyChat = !!currentChat && (currentChat.can_edit === false || currentChat.visibility === 'archived')
+  // Archived specifically (not just any read-only chat) hides the toolbar
+  // outright instead of showing it disabled — ChatInterface already replaces
+  // the composer itself with a plain "this chat is read-only" banner for
+  // archived chats, so a grayed-out Pinboard/Agents/Highlights toolbar next
+  // to it would be redundant clutter, not a real affordance.
+  const isArchivedChat = currentChat?.visibility === 'archived'
   // Agents only works on the regular chat page today (new chat + existing
   // chat are the same /chat route, distinguished by ?id= — see
   // useCurrentChatId above). Nowhere else listens for AGENT_SELECT_EVENT
@@ -84,7 +97,17 @@ function FloatingPanelImpl() {
     }
     closePinboard()
     closeHighlight()
-    setSidePanel({ title: AGENTS_PANEL_TITLE, content: <AgentsPanelContent />, onClose: () => setSidePanel(null) })
+    // Tighter side padding than the shell's default — AgentsPanelContent is
+    // modeled directly on Pinboard's own flush 8px-side layout, not the
+    // wider card-style margin the Instructions/Files/Team panels use. Drives
+    // both the header title's and the content's left edge, so they stay
+    // aligned with each other.
+    setSidePanel({
+      title:   AGENTS_PANEL_TITLE,
+      content: <AgentsPanelContent />,
+      onClose: () => setSidePanel(null),
+      sidePadding: 8,
+    })
   }
 
   const handleJump = (id: string) => {
@@ -132,40 +155,46 @@ function FloatingPanelImpl() {
         )}
       </AnimatePresence>
 
-      {/* Floating toolbar - vertically centered */}
-      <div
-        style={{
-          position:  'absolute',
-          right:     26,
-          top:       '50%',
-          transform: 'translateY(-50%)',
-          zIndex:    10,
-        }}
-      >
-        <FloatingMenu aria-label="Chat tools">
-          <FloatingMenuItem
-            icon={<PinIcon size={20} />}
-            label="Pinboard"
-            active={pinboardOpen}
-            onClick={handleTogglePinboard}
-            onMouseEnter={prefetchPinboard}
-          />
-          {isChatPage && (
+      {/* Floating toolbar - vertically centered. Hidden entirely (not just
+          disabled) on an archived chat — see isArchivedChat above. */}
+      {!isArchivedChat && (
+        <div
+          style={{
+            position:  'absolute',
+            right:     26,
+            top:       '50%',
+            transform: 'translateY(-50%)',
+            zIndex:    10,
+          }}
+        >
+          <FloatingMenu aria-label="Chat tools">
             <FloatingMenuItem
-              icon={<UserAiIcon size={20} />}
-              label="Agents"
-              active={agentsOpen}
-              onClick={handleToggleAgents}
+              icon={<PinIcon size={20} />}
+              label="Pinboard"
+              active={pinboardOpen}
+              disabled={isReadOnlyChat}
+              onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
+              onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
             />
-          )}
-          <FloatingMenuItem
-            icon={<QuillWriteOneIcon size={20} />}
-            label="Highlights"
-            active={highlightOpen}
-            onClick={handleToggleHighlight}
-          />
-        </FloatingMenu>
-      </div>
+            {isChatPage && (
+              <FloatingMenuItem
+                icon={<UserAiIcon size={20} />}
+                label="Agents"
+                active={agentsOpen}
+                disabled={isReadOnlyChat}
+                onClick={isReadOnlyChat ? undefined : handleToggleAgents}
+              />
+            )}
+            <FloatingMenuItem
+              icon={<QuillWriteOneIcon size={20} />}
+              label="Highlights"
+              active={highlightOpen}
+              disabled={isReadOnlyChat}
+              onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
+            />
+          </FloatingMenu>
+        </div>
+      )}
     </>
   )
 }

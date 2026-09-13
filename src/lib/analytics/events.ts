@@ -20,7 +20,6 @@ export type ScreenName =
   | "teams"
   | "org_manage"
   | "settings_profile"
-  | "settings_connectors"
   | "settings_models"
   | "settings_billing"
   | "settings_help"

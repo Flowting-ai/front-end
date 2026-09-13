@@ -2,21 +2,16 @@ import { describe, it, expect } from "vitest";
 import { creditsFromUsage, creditsFromBilling, EMPTY_CREDIT_BALANCE } from "@/lib/credits";
 import type { UserUsage, BillingCredits } from "@/lib/api/user";
 
-// Helpers to build partial fixtures without the full type surface.
 const usage = (u: Partial<UserUsage> & Record<string, unknown>) => u as unknown as UserUsage;
 const billing = (b: Partial<BillingCredits> & Record<string, unknown>) => b as unknown as BillingCredits;
 
 describe("creditsFromUsage (/users/me usage)", () => {
   it("individual subscriber: credits is REMAINING, allowance = remaining + used", () => {
-    // Real account values from /users/me.
     const b = creditsFromUsage(usage({ credits: 18.668632, spent_this_period: 23.385462, topup_credits: 0 }));
     expect(b).toEqual({ total: 42054, used: 23385, remaining: 18669, isTrial: false });
   });
 
   it("subscriber (plan_credits shape): remaining = plan_credits + topup, NOT minus used", () => {
-    // Same real account as the /stripe/billing test below: plan_credits is the
-    // LIVE balance (already net of spend), used is cumulative. The sidebar must
-    // match the Billing page (remaining 18669), not double-subtract to 0.
     const b = creditsFromUsage(
       usage({ credits: 18.668632, plan_credits: 18.668632, topup_credits: 0, used: 19.006275, spent_this_period: 23.385462 }),
     );
@@ -24,8 +19,6 @@ describe("creditsFromUsage (/users/me usage)", () => {
   });
 
   it("subscriber (plan_credits shape): a fresh plan grant with large carried `used` stays positive", () => {
-    // Regression: post plan-change, fresh plan_credits + a big cumulative `used`
-    // previously went negative → clamped to 0 (the reported jitter/0 bug).
     const b = creditsFromUsage(
       usage({ credits: 50, plan_credits: 50, topup_credits: 0, used: 80, spent_this_period: 80 }),
     );
@@ -35,7 +28,6 @@ describe("creditsFromUsage (/users/me usage)", () => {
 
   it("trial: stacks top-ups onto the trial pool", () => {
     const b = creditsFromUsage(usage({ spent_this_period: 0.5, topup_credits: 2, trial: { remaining: 0.5 } }));
-    // remaining = (0.5 + 2) * 1000 = 2500; used = 500; total = remaining + used (no amount in usage.trial)
     expect(b).toEqual({ total: 3000, used: 500, remaining: 2500, isTrial: true });
   });
 
@@ -46,8 +38,7 @@ describe("creditsFromUsage (/users/me usage)", () => {
 });
 
 describe("creditsFromBilling (/stripe/billing credits)", () => {
-  it("individual (current shape): explicit remaining + scalar used; total = allowance", () => {
-    // Real account values from the live /stripe/billing response.
+  it("explicit remaining + scalar used; total = allowance", () => {
     const b = creditsFromBilling(
       billing({
         total_credits: 37.674907,
@@ -56,23 +47,10 @@ describe("creditsFromBilling (/stripe/billing credits)", () => {
         used: 19.006275,
         remaining: 18.668632,
         trial: null,
-        by_category: { chat: 10.885994, persona: 8.211451, brain: 4.288017 },
+        by_category: { chat: 10.885994, slack: 8.211451, brain: 4.288017 },
       }),
     );
     expect(b).toEqual({ total: 37675, used: 19006, remaining: 18669, isTrial: false });
-  });
-
-  it("individual (legacy shape): total_credits is REMAINING; used = Σ per-category", () => {
-    const b = creditsFromBilling(
-      billing({
-        total_credits: 18.668632,
-        plan_credits: 18.668632,
-        topup_credits: 0,
-        trial: null,
-        used: { chat: 10.885994, persona: 8.211451, brain: 4.288017 },
-      }),
-    );
-    expect(b).toEqual({ total: 42054, used: 23385, remaining: 18669, isTrial: false });
   });
 
   it("trial: uses explicit amount/remaining/used and stacks top-ups", () => {

@@ -5,30 +5,40 @@ import {
   UserIcon,
   ArrowUpRightOneIcon,
   SettingsOneIcon,
-  LogoIcon,
   InformationCircleIcon,
   ArrowRightOneIcon,
-  ArrowRightTwoIcon,
   CourtHouseIcon,
-  WorkflowSquareTenIcon,
   AlertCircleIcon,
+  LoginOneIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
-import { Badge } from '@/components/Badge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface AccountMenuProps {
   /** Display name shown in both trigger and identity header. */
   name: string
-  /** Plan label — "Pro", "Free Trial", "Teams", etc. */
+  /** Workspace identity line under the name — e.g. "Acme Corp". Omit for
+   *  an individual account with no workspace context. */
   plan?: string
-  /** When true the plan label renders in amber warning colour (e.g. "No Plan Selected"). */
+  /** True when the viewer has no active plan — renders a "No Plan Selected"
+   *  status tag instead of the credit count. */
   planWarning?: boolean
-  /** Credit count shown in the identity header badge. */
+  /** Plan-type label prefixed onto the credit count in the status tag — e.g.
+   *  "Workspace" or "Pro", giving "Workspace | 250 credits left". Omit to
+   *  show just the credit count with no prefix. Ignored when `planWarning`. */
+  planType?: string
+  /** Credit count shown in the status tag beneath the identity row. Ignored
+   *  when `planWarning` is true. */
   credits?: number
+  /** Status-tag color — 'blue' for a workspace running on its starting
+   *  credit grant with no plan selected yet (e.g. "Free Plan | 25000 credits
+   *  left"); 'neutral' (default) once a real plan is selected, and always
+   *  for individuals. Ignored when `planWarning` (that state has its own
+   *  look). @default 'neutral' */
+  planStatusVariant?: 'neutral' | 'blue'
   /** Avatar image URL. Falls back to initials if absent. */
   avatarSrc?: string
   /** Controlled open state. */
@@ -43,6 +53,23 @@ export interface AccountMenuProps {
   /** Element rendered in the trigger row before the settings icon — pass the
    *  viewer's `<RoleBadge />` so the footer trigger matches the Sidebar. */
   roleBadge?: React.ReactNode
+  /**
+   * Override the trigger row's visual entirely while keeping this component's
+   * dropdown panel/behavior unchanged — e.g. the flat sidebar's "Profile Row"
+   * look instead of the default `account-item` SidebarMenuItem. Receives a
+   * click handler that opens/closes the same dropdown the default trigger uses.
+   */
+  renderTrigger?: (props: { onOpenSettingsClick: () => void }) => React.ReactElement
+  /**
+   * Set false to render a static, non-interactive identity display — the
+   * trigger's visual only, with no click behavior, no dropdown, and no
+   * settings-icon affordance. For a context that already exposes Profile/
+   * Upgrade Plan/Settings/Organization/Help as its own persistent nav (e.g.
+   * the Settings sidebar footer), where this dropdown would just repeat
+   * those same destinations, plus offer "Settings" while already there.
+   * @default true
+   */
+  interactive?: boolean
   /** Show the "Upgrade Plan" item. @default true (gate to individuals in the Sidebar). */
   showUpgradePlan?: boolean
   /** Force-show the "Organization" item (owner/admin). Otherwise it shows whenever `onOrganization` is provided. @default false */
@@ -50,11 +77,9 @@ export interface AccountMenuProps {
   onProfile?:      () => void
   onUpgradePlan?:  () => void
   onSettings?:     () => void
-  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and What's new. */
+  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and Help. */
   onOrganization?:     () => void
-  onWhatsNew?:         () => void
   onHelp?:             () => void
-  onManageConnectors?: () => void
   onReportBug?:        () => void
   onLogOut?:           () => void
 }
@@ -90,35 +115,43 @@ const ShortcutPill = ({ label }: { label: string }) => (
   </div>
 )
 
-// ── Credits badge ──────────────────────────────────────────────────────────────
+// ── Status badge — "No Plan Selected" / "{x} credits left" pill ──────────────────
+// 'blue' variant reuses the same --color-tag-Blue-* tokens the shared Badge
+// component's Blue color uses, for the "Free Plan" (no plan selected yet,
+// still on starting credits) state.
 
-const CreditsBadge = ({ credits }: { credits: number }) => (
-  <div
-    style={{
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      padding:        '2px 4px',
-      borderRadius:   '6px',
-      background:     'var(--neutral-100)',
-      boxShadow:      '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
-      flexShrink:     0,
-    }}
-  >
-    <span
+const StatusBadge = ({ label, variant = 'neutral' }: { label: string; variant?: 'neutral' | 'blue' }) => {
+  const isBlue = variant === 'blue'
+  return (
+    <div
       style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 'var(--font-weight-medium)',
-        fontSize:   'var(--font-size-caption)',
-        lineHeight: 'var(--line-height-caption)',
-        color:      'var(--neutral-700)',
-        whiteSpace: 'nowrap',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        '2px 4px',
+        borderRadius:   '6px',
+        background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
+        boxShadow:      isBlue
+          ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
+          : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+        flexShrink:     0,
       }}
     >
-      {Math.round(credits).toLocaleString()} credits left
-    </span>
-  </div>
-)
+      <span
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontWeight: 'var(--font-weight-medium)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      isBlue ? 'var(--color-tag-Blue-text)' : 'var(--neutral-700)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
 
 // ── Avatar content ─────────────────────────────────────────────────────────────
 
@@ -165,8 +198,8 @@ const AvatarContent = ({ name, avatarSrc }: { name: string; avatarSrc?: string }
 const BODY_LH    = 22  // var(--line-height-body)    = 22px
 const CAPTION_LH = 16  // var(--line-height-caption) = 16px
 
-const IdentityRow = ({ name, plan, planWarning, credits, avatarSrc }: {
-  name: string; plan?: string; planWarning?: boolean; credits?: number; avatarSrc?: string
+const IdentityRow = ({ name, plan, avatarSrc }: {
+  name: string; plan?: string; avatarSrc?: string
 }) => {
   const avatarSize = plan ? BODY_LH + CAPTION_LH : BODY_LH
 
@@ -218,33 +251,40 @@ const IdentityRow = ({ name, plan, planWarning, credits, avatarSrc }: {
           {name}
         </p>
         {plan && (
-          planWarning ? (
-            <Badge color="Yellow" label={plan} style={{ alignSelf: 'flex-start' }} />
-          ) : (
-            <p
-              style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   'var(--font-weight-regular)',
-                fontSize:     'var(--font-size-caption)',
-                lineHeight:   'var(--line-height-caption)',
-                color:        'var(--neutral-500)',
-                whiteSpace:   'nowrap',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                margin:       0,
-              }}
-            >
-              {plan}
-            </p>
-          )
+          <p
+            style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   'var(--font-weight-regular)',
+              fontSize:     'var(--font-size-caption)',
+              lineHeight:   'var(--line-height-caption)',
+              color:        'var(--neutral-500)',
+              whiteSpace:   'nowrap',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              margin:       0,
+            }}
+          >
+            {plan}
+          </p>
         )}
       </div>
 
-      {credits !== undefined && (
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <CreditsBadge credits={credits} />
-        </div>
-      )}
+    </div>
+  )
+}
+
+// ── Plan status row — centered standalone row beneath the identity row.
+// "No Plan Selected" when there's no active plan, otherwise "{planType} |
+// {x} credits left" (e.g. "Workspace | 250 credits left") — the two are
+// mutually exclusive so this always renders exactly one. ──
+
+const PlanStatusRow = ({ planWarning, planType, credits, planStatusVariant = 'neutral' }: { planWarning?: boolean; planType?: string; credits?: number; planStatusVariant?: 'neutral' | 'blue' }) => {
+  if (!planWarning && credits === undefined) return null
+  const creditsLabel = `${Math.round(credits ?? 0).toLocaleString()} credits left`
+  const label = planWarning ? 'No Plan Selected' : (planType ? `${planType} | ${creditsLabel}` : creditsLabel)
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
+      <StatusBadge label={label} variant={planWarning ? 'neutral' : planStatusVariant} />
     </div>
   )
 }
@@ -256,7 +296,9 @@ export function AccountMenu({
   name,
   plan,
   planWarning = false,
+  planType,
   credits,
+  planStatusVariant = 'neutral',
   avatarSrc,
   open: controlledOpen,
   onOpenChange,
@@ -264,15 +306,15 @@ export function AccountMenu({
   panelWidth = 283,
   collapsed = false,
   roleBadge,
+  renderTrigger,
+  interactive = true,
   showUpgradePlan = true,
   showOrganization = false,
   onProfile,
   onUpgradePlan,
   onSettings,
   onOrganization,
-  onWhatsNew,
   onHelp,
-  onManageConnectors,
   onReportBug,
   onLogOut,
 }: AccountMenuProps & { ref?: React.Ref<HTMLDivElement> }) {
@@ -292,7 +334,9 @@ export function AccountMenu({
   // item, which then stretches (align-self:stretch default) to fill the full
   // container width. Without this, fluid SidebarMenuItem's width:100% can't
   // resolve against an indefinite inline-flex containing block.
-  const trigger = (
+  const onOpenSettingsClick = () => handleOpenChange(!open)
+
+  const trigger: React.ReactElement = renderTrigger ? renderTrigger({ onOpenSettingsClick }) : (
     <SidebarMenuItem
       variant="account-item"
       label={name}
@@ -301,9 +345,19 @@ export function AccountMenu({
       avatarSrc={avatarSrc}
       roleBadge={roleBadge}
       {...(collapsed ? { collapsed: true } : { fluid: true })}
-      onSettingsClick={() => handleOpenChange(!open)}
+      onSettingsClick={interactive ? onOpenSettingsClick : undefined}
     />
   )
+
+  // Static mode: just the identity visual, no dropdown wrapper, no click
+  // behavior at all.
+  if (!interactive) {
+    return (
+      <div ref={ref} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+        {trigger}
+      </div>
+    )
+  }
 
   return (
     <div ref={ref} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -315,7 +369,9 @@ export function AccountMenu({
       >
         <Dropdown maxHeight={false} style={{ width: typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth }}>
           <Dropdown.Section fluid>
-            <IdentityRow name={name} plan={plan} planWarning={planWarning} credits={credits} avatarSrc={avatarSrc} />
+            <IdentityRow name={name} plan={plan} avatarSrc={avatarSrc} />
+
+            <PlanStatusRow planWarning={planWarning} planType={planType} credits={credits} planStatusVariant={planStatusVariant} />
 
             <Dropdown.Item
               icon={<UserIcon />}
@@ -326,7 +382,7 @@ export function AccountMenu({
             {showUpgradePlan && (
               <Dropdown.Item
                 icon={<ArrowUpRightOneIcon />}
-                label="Upgrade Plan"
+                label={planWarning ? 'Choose a plan' : 'Upgrade Plan'}
                 fluid
                 onClick={() => { onUpgradePlan?.(); close() }}
               />
@@ -350,18 +406,6 @@ export function AccountMenu({
               />
             )}
             <Dropdown.Item
-              icon={<WorkflowSquareTenIcon />}
-              label="Manage connectors"
-              fluid
-              onClick={() => { onManageConnectors?.(); close() }}
-            />
-            <Dropdown.Item
-              icon={<LogoIcon />}
-              label="What's new"
-              fluid
-              onClick={() => { onWhatsNew?.(); close() }}
-            />
-            <Dropdown.Item
               icon={<InformationCircleIcon />}
               label="Help"
               rightIcon={<ArrowRightOneIcon />}
@@ -378,7 +422,7 @@ export function AccountMenu({
             <Divider decorative />
 
             <Dropdown.Item
-              icon={<ArrowRightTwoIcon />}
+              icon={<LoginOneIcon animated />}
               label="Log out"
               fluid
               onClick={() => { onLogOut?.(); close() }}

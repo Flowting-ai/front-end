@@ -3,61 +3,71 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { toast } from 'sonner'
-import { ShareOneIcon, CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
-import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { Avatar } from '@/components/Avatar'
+import { Checkbox } from '@/components/Checkbox'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
-import { Tooltip } from '@/components/Tooltip'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { copyChat } from '@/lib/api/chat'
-import { createChatShare, listChatShares, deleteChatShare, type ChatShare, type ChatShareMode } from '@/lib/api/chat-shares'
+import { createChatShare, listChatShares, deleteChatShare, type ChatShare } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { useProjects } from '@/context/projects-context'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
+// One card, two tabs: Share (multiselect workspace member list) and Active
+// shares (revoke list).
+// Standalone chat sharing is person-to-person only — the backend dropped
+// project/team targets and the editable/read-only mode entirely (migration
+// c8d1e4f7a2b5): in-project chats inherit the whole project as their
+// audience via a separate mechanism (POST /chats/{id}/share), and every
+// standalone share is now uniformly "view read-only, then optionally fork
+// your own copy" — there's nothing left to toggle for either dimension.
 
 interface ChatShareOverlayProps {
   chatId:    string | undefined
   /** True when the current user owns this chat and may manage its shares. */
   canManage: boolean
-  /** True when this chat was shared/published to the current user (not owned by them). */
+  /** True when this chat was shared/published to the current user (not owned by them),
+   *  OR when it's archived — an owned-but-archived chat is folded into the same
+   *  read-only treatment (see the `readOnly` computation in chat/page.tsx). */
   readOnly:  boolean
   onCopied:  (copy: { chatId: string; chatTitle: string }) => void
+  /** Opens the share modal as soon as `chatId`/`canManage` are ready — e.g. a
+   *  `?share=1` deep link from the sidebar's "Share" menu item. Fires once per
+   *  value change, not on every render (see the effect below), so closing the
+   *  modal doesn't cause it to reopen on an unrelated re-render. */
+  autoOpen?: boolean
 }
 
-export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: ChatShareOverlayProps) {
-  const { orgId, teams: orgTeams, members: orgMembers } = useOrg()
+type ChatShareTab = 'share' | 'manage'
+
+// Modal height is fixed (matching the one other tabbed dialog in this
+// codebase, SuperLinkDrawer) rather than left to size to content — the
+// Share tab (a scrollable member list) and Active shares tab (an empty state
+// or a list) have different natural heights, so letting the card free-size
+// would make it visibly resize on every tab switch. Both tabs' lists scroll
+// internally past this via their own `overflowY: auto`.
+const MODAL_HEIGHT = 640
+
+export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
+  const { orgId, members: orgMembers } = useOrg()
   const { user } = useAuth()
-  const { projects } = useProjects()
 
   const [chatShareOpen,       setChatShareOpen]       = useState(false)
-  const [chatShareVisibility, setChatShareVisibility] = useState<'private' | 'team'>('private')
-  const [chatShareTeamId,     setChatShareTeamId]     = useState('')
-  const [sharesListOpen,      setSharesListOpen]      = useState(true)
-  const [shareTeamDropOpen,   setShareTeamDropOpen]   = useState(false)
+  const [activeTab,           setActiveTab]           = useState<ChatShareTab>('share')
   const [existingShares,      setExistingShares]      = useState<ChatShare[]>([])
   const [sharesLoading,       setSharesLoading]       = useState(false)
   const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null)
-  const [shareTargetType,     setShareTargetType]     = useState<'user' | 'project'>('user')
-  const [shareTargetId,       setShareTargetId]       = useState('')
-  const [shareMode,           setShareMode]           = useState<ChatShareMode>('read_only')
-  const [shareModeDropOpen,   setShareModeDropOpen]   = useState(false)
-  const [shareTargetDropOpen, setShareTargetDropOpen] = useState(false)
+  const [selectedIds,         setSelectedIds]         = useState<Set<string>>(new Set())
   const [creatingShare,       setCreatingShare]       = useState(false)
   const [copyingChat,         setCopyingChat]         = useState(false)
 
-  const editableTeams    = orgTeams.filter(team => !team.archived && team.canEdit)
-  const shareableProjects = projects.filter(project => project.canEdit)
-
   function handleOpenChatShare() {
-    setChatShareVisibility('private')
-    setChatShareTeamId('')
     setExistingShares([])
-    setShareTargetId('')
-    setShareTargetType(orgId ? 'user' : 'project')
-    setSharesListOpen(true)
+    setSelectedIds(new Set())
+    setActiveTab('share')
     setChatShareOpen(true)
     if (chatId) {
       setSharesLoading(true)
@@ -68,24 +78,40 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
     }
   }
 
+  function toggleSelected(userId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  // Fires one createChatShare per selected person — there's no batch-create
+  // endpoint. Partial failures keep only the failed ids selected (so Share
+  // can just be pressed again for those), and the toast reflects exactly
+  // what happened rather than a blanket success/failure.
   async function handleCreateShare() {
-    if (!chatId || !shareTargetId) return
+    if (!chatId || selectedIds.size === 0) return
     setCreatingShare(true)
-    try {
-      const share = await createChatShare({
-        chatId,
-        mode:      shareMode,
-        userId:    shareTargetType === 'user' ? shareTargetId : undefined,
-        projectId: shareTargetType === 'project' ? shareTargetId : undefined,
-      })
-      setExistingShares(prev => [...prev, share])
-      setShareTargetId('')
-      toast.success('Chat shared')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to share chat')
-    } finally {
-      setCreatingShare(false)
+    const ids = Array.from(selectedIds)
+    const settled = await Promise.allSettled(ids.map(id => createChatShare({ chatId, userId: id })))
+    const created: ChatShare[] = []
+    const failedIds = new Set<string>()
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled') created.push(result.value)
+      else failedIds.add(ids[i]!)
+    })
+    if (created.length > 0) setExistingShares(prev => [...prev, ...created])
+    setSelectedIds(failedIds)
+    if (failedIds.size === 0) {
+      toast.success(created.length === 1 ? 'Chat shared' : `Chat shared with ${created.length} people`)
+    } else if (created.length > 0) {
+      toast.error(`Shared with ${created.length}, failed for ${failedIds.size}`)
+    } else {
+      toast.error('Failed to share chat')
     }
+    setCreatingShare(false)
   }
 
   async function handleRevokeShare(shareId: string) {
@@ -121,18 +147,49 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
     return () => document.removeEventListener('keydown', onKey)
   }, [chatShareOpen])
 
+  // Deep-link open — fires once when autoOpen/chatId/canManage settle true
+  // (e.g. canManage flips true once the chat record finishes loading), not on
+  // every render, so dismissing the modal doesn't reopen it on an unrelated
+  // re-render of the parent. This effect's whole purpose is opening the
+  // modal in response to a one-time deep-link signal, not synchronizing
+  // render-derived state — hence the two rule exceptions below.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (autoOpen && chatId && canManage) handleOpenChatShare()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen, chatId, canManage])
+
+  // Eligible for a new share: everyone in the org except me and anyone who
+  // already has an active share of this chat (they're already covered in
+  // the Active shares tab — offering them again here would just 400).
+  const alreadySharedIds = new Set(existingShares.map(s => s.targetUserId))
+  const shareableMembers = orgMembers.filter(
+    member => member.email.toLowerCase() !== user?.email?.toLowerCase() && !alreadySharedIds.has(member.id),
+  )
+
+  const memberRowStyle: React.CSSProperties = {
+    display:      'flex',
+    alignItems:   'center',
+    gap:          10,
+    width:        '100%',
+    padding:      '8px 10px',
+    borderRadius: 10,
+    boxSizing:    'border-box',
+  }
+
   return (
     <>
       {chatId && canManage && !chatShareOpen && !!orgId && (
         <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
-          <Tooltip content="Share" side="bottom">
-            <IconButton
-              variant="ghost"
-              aria-label="Share chat"
-              icon={<ShareOneIcon animated />}
-              onClick={handleOpenChatShare}
-            />
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Share chat"
+            leftIcon={<ShareOneIcon animated />}
+            onClick={handleOpenChatShare}
+          >
+            Share
+          </Button>
         </div>
       )}
       {chatId && readOnly && (
@@ -163,348 +220,252 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
               backdropFilter:  'blur(2px)',
             }}
           >
-            <div
-              style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', maxWidth: 'calc(100vw - 32px)' }}
+            <m.div
+              key="share-chat-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Share chat"
               onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
+              style={{
+                background:    'var(--neutral-white)',
+                borderRadius:  '20px',
+                boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+                width:         '560px',
+                maxWidth:      'calc(100vw - 32px)',
+                height:        MODAL_HEIGHT,
+                maxHeight:     'calc(100vh - 64px)',
+                display:       'flex',
+                flexDirection: 'column',
+                overflow:      'hidden',
+              }}
             >
-              <m.div
-                key="share-chat-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-label="Share chat"
-                initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                animate={{ opacity: 1, scale: 1,    y: 0 }}
-                exit={{    opacity: 0, scale: 0.96, y: 8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-                style={{
-                  background:    'var(--neutral-white)',
-                  borderRadius:  '20px',
-                  boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                  width:         '460px',
-                  display:       'flex',
-                  flexDirection: 'column',
-                  overflow:      'hidden',
-                }}
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', flexShrink: 0 }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: '#1a1714', margin: 0 }}>
+                  Share chat
+                </p>
+                <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setChatShareOpen(false)} />
+              </div>
+
+              <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+
+              <Tabs
+                value={activeTab}
+                onValueChange={(v: string) => setActiveTab(v as ChatShareTab)}
+                style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
               >
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', flexShrink: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: '#1a1714', margin: 0 }}>
-                    Share chat
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      active={sharesListOpen}
-                      onClick={() => setSharesListOpen(prev => !prev)}
-                    >
-                      {existingShares.length > 0 ? `Shared with ${existingShares.length}` : 'View active shares'}
-                    </Button>
-                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setChatShareOpen(false)} />
-                  </div>
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
-
-                {/* Body */}
-                <div className="kaya-scrollbar" style={{ maxHeight: 'min(620px, calc(100vh - 180px))', overflowY: 'auto', paddingTop: '20px', paddingBottom: '20px' }}>
-                  {/* Horizontal padding lives on this inner wrapper, not the
-                      scrolling element above — keeps the scrollbar flush with
-                      the overlay's edge. */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
-
-                  {/* Visibility: Private / Team — side-by-side muse cards */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <ModelFeaturedCard
-                      selected={chatShareVisibility === 'private'}
-                      title="Private"
-                      description="Only you can see this chat."
-                      onClick={() => { setChatShareVisibility('private'); setShareTargetType('user'); setShareTargetId('') }}
-                      style={{ flex: 1 }}
-                    />
-                    <ModelFeaturedCard
-                      selected={chatShareVisibility === 'team'}
-                      title="Team"
-                      description="Editors and admins in this team can access it."
-                      onClick={orgId ? () => { setChatShareVisibility('team'); setShareTargetType('project'); setShareTargetId('') } : undefined}
-                      aria-disabled={!orgId}
-                      style={{ flex: 1, ...(!orgId && { opacity: 0.4, pointerEvents: 'none', cursor: 'not-allowed' }) }}
-                    />
-                  </div>
-
-                  {/* Team selector */}
-                  {chatShareVisibility === 'team' && (
-                    <DropdownFloat
-                      open={shareTeamDropOpen}
-                      onOpenChange={setShareTeamDropOpen}
-                      placement="bottom-start"
-                      offset={4}
-                      trigger={
-                        <button
-                          type="button"
-                          style={{
-                            display:         'flex',
-                            alignItems:      'center',
-                            justifyContent:  'space-between',
-                            gap:             '8px',
-                            width:           '100%',
-                            padding:         '9px 12px',
-                            borderRadius:    '10px',
-                            border:          'none',
-                            backgroundColor: 'var(--neutral-white)',
-                            boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-                            cursor:          'pointer',
-                            outline:         'none',
-                          }}
-                        >
-                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: chatShareTeamId ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                            {chatShareTeamId
-                              ? (orgTeams.find(t => t.id === chatShareTeamId)?.name ?? 'Select team…')
-                              : 'Select team…'}
-                          </span>
-                          <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
-                        </button>
-                      }
-                    >
-                      <Dropdown style={{ width: '420px', padding: '3px' }}>
-                        {editableTeams.length === 0
-                          ? <Dropdown.Item fluid label="No teams available" />
-                          : editableTeams.map(t => (
-                              <Dropdown.Item
-                                key={t.id}
-                                fluid
-                                label={t.name}
-                                selected={chatShareTeamId === t.id}
-                                onClick={() => { setChatShareTeamId(t.id); setShareTargetId(''); setShareTeamDropOpen(false) }}
-                              />
-                            ))
-                        }
-                      </Dropdown>
-                    </DropdownFloat>
-                  )}
-
-                  <div style={{ height: '1px', background: 'var(--neutral-100)' }} />
-
-                  {/* Specific share */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: 0 }}>
-                        {chatShareVisibility === 'team' ? 'Projects' : 'Person'}
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: '2px 0 0' }}>
-                        {chatShareVisibility === 'team'
-                          ? 'Select a project under this team to share the chat with.'
-                          : 'Share this chat directly with a specific person.'}
-                      </p>
-                    </div>
-
-                    {/* Access mode dropdown */}
-                    <DropdownFloat
-                      open={shareModeDropOpen}
-                      onOpenChange={setShareModeDropOpen}
-                      placement="bottom-start"
-                      offset={4}
-                      trigger={
-                        <button
-                          type="button"
-                          style={{
-                            display:         'flex',
-                            alignItems:      'center',
-                            justifyContent:  'space-between',
-                            gap:             '8px',
-                            width:           '100%',
-                            padding:         '9px 12px',
-                            borderRadius:    '10px',
-                            border:          'none',
-                            backgroundColor: 'var(--neutral-white)',
-                            boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-                            cursor:          'pointer',
-                            outline:         'none',
-                          }}
-                        >
-                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: 'var(--neutral-900)' }}>
-                            {shareMode === 'read_only' ? 'Read only' : 'Can create a copy'}
-                          </span>
-                          <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
-                        </button>
-                      }
-                    >
-                      <Dropdown style={{ width: '420px', padding: '3px' }}>
-                        <Dropdown.Item fluid label="Read only"         selected={shareMode === 'read_only'} onClick={() => { setShareMode('read_only'); setShareModeDropOpen(false) }} />
-                        <Dropdown.Item fluid label="Can create a copy" selected={shareMode === 'editable'}  onClick={() => { setShareMode('editable');  setShareModeDropOpen(false) }} />
-                      </Dropdown>
-                    </DropdownFloat>
-
-                    {/* Target selector dropdown */}
-                    <DropdownFloat
-                      open={shareTargetDropOpen}
-                      onOpenChange={setShareTargetDropOpen}
-                      placement="bottom-start"
-                      offset={4}
-                      trigger={
-                        <button
-                          type="button"
-                          style={{
-                            display:         'flex',
-                            alignItems:      'center',
-                            justifyContent:  'space-between',
-                            gap:             '8px',
-                            width:           '100%',
-                            padding:         '9px 12px',
-                            borderRadius:    '10px',
-                            border:          'none',
-                            backgroundColor: 'var(--neutral-white)',
-                            boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-                            cursor:          'pointer',
-                            outline:         'none',
-                          }}
-                        >
-                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: shareTargetId ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
-                            {shareTargetId
-                              ? chatShareVisibility === 'team'
-                                ? (shareableProjects.find(p => p.id === shareTargetId)?.name || 'Project')
-                                : (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || 'Person')
-                              : chatShareVisibility === 'team' ? 'Select project…' : 'Select person…'}
-                          </span>
-                          <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
-                        </button>
-                      }
-                    >
-                      <Dropdown style={{ width: '420px', padding: '3px' }} maxHeight="min(248px, calc(100dvh - 120px))">
-                        {chatShareVisibility === 'team'
-                          ? (() => {
-                              const teamProjects = shareableProjects.filter(p => p.teamId === chatShareTeamId)
-                              return teamProjects.length === 0
-                                ? <Dropdown.Item fluid label={chatShareTeamId ? 'No editable projects in this team' : 'Select a team first'} disabled />
-                                : teamProjects.map(project => (
-                                    <Dropdown.Item
-                                      key={project.id}
-                                      fluid
-                                      label={project.name}
-                                      selected={shareTargetId === project.id}
-                                      onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false) }}
-                                    />
-                                  ))
-                            })()
-                          : orgMembers
-                              .filter(member => member.email.toLowerCase() !== user?.email?.toLowerCase())
-                              .map(member => (
-                                <Dropdown.Item
-                                  key={member.id}
-                                  fluid
-                                  label={member.name || member.email}
-                                  selected={shareTargetId === member.id}
-                                  onClick={() => { setShareTargetId(member.id); setShareTargetDropOpen(false) }}
-                                />
-                              ))
-                        }
-                      </Dropdown>
-                    </DropdownFloat>
-                  </div>
-                  </div>
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
-
-                {/* Footer */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '16px 20px', flexShrink: 0 }}>
-                  <Button variant="ghost" onClick={() => setChatShareOpen(false)}>Cancel</Button>
-                  <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
-                    Share
-                  </Button>
-                </div>
-              </m.div>
-
-              {/* Shares list side panel */}
-              <AnimatePresence>
-                {sharesListOpen && (
-                  <m.div
-                    key="shares-list-panel"
-                    initial={{ opacity: 0, scale: 0.96, x: 8 }}
-                    animate={{ opacity: 1, scale: 1,    x: 0 }}
-                    exit={{    opacity: 0, scale: 0.96, x: 8 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-                    style={{
-                      background:    'var(--neutral-white)',
-                      borderRadius:  '20px',
-                      boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                      width:         '280px',
-                      display:       'flex',
-                      flexDirection: 'column',
-                      overflow:      'hidden',
-                    }}
-                  >
-                    <div style={{ padding: '16px 20px 14px', flexShrink: 0 }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '20px', color: 'var(--neutral-800)', margin: 0 }}>
+                <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
+                  <TabsList size="small">
+                    <TabsTrigger value="share">Share</TabsTrigger>
+                    <TabsTrigger value="manage">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                         Active shares
-                      </p>
-                    </div>
-                    <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
-                    <div className="kaya-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', maxHeight: '480px', overflowY: 'auto', flex: 1 }}>
+                        {existingShares.length > 0 && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
+                            backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
+                            fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
+                          }}>
+                            {existingShares.length}
+                          </span>
+                        )}
+                      </span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                {/* ── Share tab — multiselect everyone in the workspace who
+                    doesn't already have an active share of this chat ── */}
+                <TabsContent
+                  value="share"
+                  style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0, paddingTop: '16px' }}
+                >
+                  {/* Person-to-person only — the backend dropped both the
+                      project/team target and the editable/read-only mode
+                      (see the file header comment). Viewing is always
+                      read-only-in-place; the recipient can always fork
+                      their own copy from there, so there's nothing left
+                      to pick beyond who to share with. */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 20px', flexShrink: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
+                      Share with
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)', margin: '0 0 8px' }}>
+                      They can view this chat and make their own copy of it.
+                    </p>
+                  </div>
+
+                  <div
+                    className="kaya-scrollbar"
+                    style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px 20px' }}
+                  >
+                    {/* padding: 3 — same convention as ProjectMembersPanel/
+                        ProjectAddMembersList's own scrollable row lists: gives
+                        the selected row's box-shadow ring room to breathe so
+                        it doesn't get clipped at the scroll container's edges
+                        (most visibly the top row, flush against the top). */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: 3 }}>
                       {sharesLoading ? (
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>
-                      ) : existingShares.length === 0 ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} aria-hidden style={memberRowStyle}>
+                            <div className="kaya-skeleton" style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0 }} />
+                            <div className="kaya-skeleton" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                              <div className="kaya-skeleton" style={{ height: 13, width: '45%', borderRadius: 6 }} />
+                              <div className="kaya-skeleton" style={{ height: 11, width: '65%', borderRadius: 6 }} />
+                            </div>
+                          </div>
+                        ))
+                      ) : shareableMembers.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 8px', textAlign: 'center' }}>
                           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <ShareOneIcon size={20} color="var(--neutral-400)" />
                           </div>
-                          <div>
-                            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-700)', margin: 0 }}>
-                              No active shares
-                            </p>
-                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '18px', color: 'var(--neutral-400)', margin: '4px 0 0' }}>
-                              Use the form to share this chat with a person or project.
-                            </p>
-                          </div>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-400)', margin: 0 }}>
+                            Everyone in the workspace already has this chat shared with them.
+                          </p>
                         </div>
                       ) : (
-                        existingShares.map(share => {
-                          const label = share.targetTeamId
-                            ? (orgTeams.find(t => t.id === share.targetTeamId)?.name ?? 'Team')
-                            : share.targetProjectId
-                              ? (projects.find(project => project.id === share.targetProjectId)?.name ?? 'Project')
-                              : (share.targetUserName || share.targetUserEmail || 'Person')
-                          const isRevoking = revokingShareId === share.id
+                        shareableMembers.map(member => {
+                          const checked = selectedIds.has(member.id)
                           return (
-                            <div
-                              key={share.id}
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => toggleSelected(member.id)}
                               style={{
-                                display:         'flex',
-                                alignItems:      'center',
-                                justifyContent:  'space-between',
-                                padding:         '10px 12px',
-                                borderRadius:    '10px',
-                                backgroundColor: 'var(--neutral-50)',
-                                boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-                                gap:             '8px',
+                                ...memberRowStyle,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: checked ? 'var(--blue-50, #eef5fc)' : 'var(--neutral-white)',
+                                boxShadow: checked
+                                  ? '0px 0px 0px 1px var(--blue-300, #a8cdec)'
+                                  : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                               }}
                             >
-                              <div style={{ minWidth: 0 }}>
-                                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {label}
+                              <Checkbox checked={checked} onCheckedChange={() => toggleSelected(member.id)} />
+                              <Avatar name={member.name || member.email} size="sm" />
+                              <div style={{ minWidth: 0, flex: '1 0 0', textAlign: 'left' }}>
+                                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {member.name || member.email}
                                 </p>
-                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', textTransform: 'capitalize' }}>
-                                  {share.mode.replace('_', ' ')}
-                                </p>
+                                {member.name && member.email && (
+                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {member.email}
+                                  </p>
+                                )}
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                loading={isRevoking}
-                                disabled={isRevoking}
-                                onClick={() => void handleRevokeShare(share.id)}
-                              >
-                                Revoke
-                              </Button>
-                            </div>
+                            </button>
                           )
                         })
                       )}
                     </div>
-                  </m.div>
+                  </div>
+                </TabsContent>
+
+                {/* ── Active shares tab — manage / revoke ── */}
+                <TabsContent
+                  value="manage"
+                  className="kaya-scrollbar"
+                  style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: '16px', paddingBottom: '20px' }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 20px' }}>
+                    {sharesLoading ? (
+                      [0, 1].map(i => (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 12px', borderRadius: '10px',
+                            backgroundColor: 'var(--neutral-50)', boxShadow: '0px 0px 0px 1px var(--neutral-100)',
+                            gap: '8px', opacity: 1 - i * 0.25,
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div className="kaya-skeleton" style={{ width: 110, height: 13, borderRadius: 4 }} />
+                            <div className="kaya-skeleton" style={{ width: 140, height: 11, borderRadius: 4 }} />
+                          </div>
+                          <div className="kaya-skeleton" style={{ width: 64, height: 28, borderRadius: 8 }} />
+                        </div>
+                      ))
+                    ) : existingShares.length === 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 8px', textAlign: 'center' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <ShareOneIcon size={20} color="var(--neutral-400)" />
+                        </div>
+                        <div>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-700)', margin: 0 }}>
+                            No active shares
+                          </p>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '18px', color: 'var(--neutral-400)', margin: '4px 0 0' }}>
+                            Use the Share tab to share this chat with a person or project.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      existingShares.map(share => {
+                        const label = share.targetUserName || share.targetUserEmail || 'Person'
+                        const isRevoking = revokingShareId === share.id
+                        return (
+                          <div
+                            key={share.id}
+                            style={{
+                              display:         'flex',
+                              alignItems:      'center',
+                              justifyContent:  'space-between',
+                              padding:         '10px 12px',
+                              borderRadius:    '10px',
+                              backgroundColor: 'var(--neutral-50)',
+                              boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
+                              gap:             '8px',
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {label}
+                              </p>
+                              {share.targetUserName && share.targetUserEmail && (
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {share.targetUserEmail}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              loading={isRevoking}
+                              disabled={isRevoking}
+                              onClick={() => void handleRevokeShare(share.id)}
+                            >
+                              Revoke
+                            </Button>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+
+              {/* Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '16px 20px', flexShrink: 0 }}>
+                <Button variant="ghost" onClick={() => setChatShareOpen(false)}>
+                  {activeTab === 'share' ? 'Cancel' : 'Close'}
+                </Button>
+                {activeTab === 'share' && (
+                  <Button variant="secondary" size="sm" loading={creatingShare} disabled={selectedIds.size === 0 || creatingShare} onClick={() => void handleCreateShare()}>
+                    {selectedIds.size > 1 ? `Share (${selectedIds.size})` : 'Share'}
+                  </Button>
                 )}
-              </AnimatePresence>
-            </div>
+              </div>
+            </m.div>
           </m.div>
         )}
       </AnimatePresence>

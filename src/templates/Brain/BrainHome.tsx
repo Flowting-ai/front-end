@@ -126,7 +126,7 @@ interface DigestBannerProps {
 function DigestBanner({ items, onReview }: DigestBannerProps) {
   const label = items.length === 1
     ? `${items[0].scheduleName} ran while you were away`
-    : `Brain ran ${items.length} schedules while you were away`
+    : `Task ran ${items.length} schedules while you were away`
 
   return (
     <div style={{
@@ -307,7 +307,7 @@ export function BrainHome({
           textAlign:  'center',
           maxWidth:   '400px',
         }}>
-          Give Brain a goal. It plans, executes, and delivers - in the world.
+          Give Task a goal. It plans, executes, and delivers - in the world.
         </p>
       </div>
 

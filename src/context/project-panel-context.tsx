@@ -6,6 +6,12 @@ export interface ProjectPanelSlot {
   title:   string
   content: React.ReactNode
   onClose: () => void
+  /** Overrides the shell's default left/right inset (24px) for BOTH the
+   *  header title and the content below it, so the two always share a left
+   *  edge. Use for content designed to sit flush against the panel edges
+   *  (e.g. AgentsPanelContent, modeled on Pinboard's own tight 8px side
+   *  padding) instead of the default's wider card-style margin. */
+  sidePadding?: number
 }
 
 interface ProjectPanelContextValue {

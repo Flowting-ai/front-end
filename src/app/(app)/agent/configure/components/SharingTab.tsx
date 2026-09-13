@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
-import { Checkbox } from '@/components/Checkbox'
-import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
-import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
-import { Dropdown } from '@/components/Dropdown'
+import { Spinner } from '@/components/Spinner'
+import { CancelOneIcon } from '@strange-huge/icons'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 import { toast } from 'sonner'
@@ -27,7 +25,7 @@ import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/A
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Visibility = 'private' | 'team' | 'community'
+type Visibility = 'private' | 'team'
 
 export interface SharingTabProps {
   /** persona REPO id — passed as persona_repo_id when creating shares */
@@ -87,46 +85,34 @@ function UsageBar({ percent }: { percent: number }) {
 
 export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
-  const { orgId, teams } = useOrg()
-  const editableTeams = teams.filter(team => !team.archived && team.canEdit)
+  const { orgId } = useOrg()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
   const [visibility,        setVisibility]        = useState<Visibility>('private')
-  const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
   const [visibilitySaving,  setVisibilitySaving]  = useState(false)
   const [savedVisibility,   setSavedVisibility]   = useState<Visibility>('private')
-  const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
-  const [teamsOpen,         setTeamsOpen]         = useState(false)
 
   // ── Loading gate — true until both the visibility (repo) and shares fetches settle ──
   const [visibilityLoaded, setVisibilityLoaded] = useState(!repoId)
-  const [sharesLoaded,     setSharesLoaded]     = useState(!versionId)
+  const [sharesLoaded,     setSharesLoaded]     = useState(!repoId)
   const isLoading = !visibilityLoaded || !sharesLoaded
 
-  const visibilityChanged =
-    visibility !== savedVisibility ||
-    selectedTeamIds.slice().sort().join(',') !== savedTeamIds.slice().sort().join(',')
+  const visibilityChanged = visibility !== savedVisibility
 
   function handleVisibilitySelect(v: Visibility) {
     if (v === 'team' && panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
     setVisibility(v)
-    setTeamsOpen(v === 'team')
     markFieldTouched('sharing', 'visibility')
   }
 
   async function handleSaveVisibility() {
     if (!repoId) { toast.error('Save the agent first.'); return }
-    if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
+    if (visibility === 'team' && !orgId) { toast.error('Join an organization to share this agent.'); return }
     setVisibilitySaving(true)
     try {
-      await setPersonaVisibility(
-        repoId,
-        visibility === 'private' ? 'private' : 'team',
-        visibility === 'team' ? selectedTeamIds : undefined,
-      )
+      await setPersonaVisibility(repoId, visibility, visibility === 'team' ? orgId ?? undefined : undefined)
       setSavedVisibility(visibility)
-      setSavedTeamIds(selectedTeamIds)
       bustPersonasCache()
       resetTouchedFields('sharing', 'visibility')
       onChanged?.()
@@ -138,7 +124,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     }
   }
 
-  // Team dropdown toggle
   // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
   const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
@@ -153,10 +138,12 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
 
-  const currentLinkShare = linkShare?.persona_id === versionId ? linkShare : null
-  const currentEmailShares = emailShares.filter(share => share.persona_id === versionId)
-  const allEditableTeamsSelected =
-    editableTeams.length > 0 && selectedTeamIds.length === editableTeams.length
+  // Shares are scoped to the repo, not a specific version — the backend always
+  // freezes to whichever version is currently published, and a later publish
+  // moves an existing link/invite with it (see persona-shares API). So once
+  // `linkShare`/`emailShares` are fetched for this repo, they're already "current".
+  const currentLinkShare = linkShare
+  const currentEmailShares = emailShares
 
   // Sync share-link existence to shared progress indicator
   useEffect(() => { setHasShareLink(!!currentLinkShare) }, [currentLinkShare, setHasShareLink])
@@ -168,26 +155,28 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     setEmailTokenLimit(Math.floor(maxTokenLimit / 2))
   }, [maxTokenLimit])
 
-  // ── Load existing shares for the current version ──────────────────────────
+  // ── Load existing shares for this repo ─────────────────────────────────────
+  // Shares are repo-scoped (see currentLinkShare/currentEmailShares above), so
+  // this filters by repoId rather than the version currently open in the editor.
   useEffect(() => {
-    if (!versionId) return
+    if (!repoId) return
     let cancelled = false
     listShares().then(all => {
       if (cancelled) return
-      const mine = all.filter(s => s.persona_id === versionId && s.is_active)
+      const mine = all.filter(s => s.persona_repo_id === repoId && s.is_active)
       const existing = mine.find(s => s.share_type === 'link') ?? null
       setLinkShare(existing)
       setSuperLinkEnabled(existing !== null)
       setEmailShares(mine.filter(s => s.share_type === 'email'))
     }).catch(() => {
       if (cancelled) return
-      // Share state is version-scoped; do not keep a previous version's link visible on failures.
+      // Share state is repo-scoped; do not keep a previous repo's link visible on failures.
       setLinkShare(null)
       setSuperLinkEnabled(false)
       setEmailShares([])
     }).finally(() => { if (!cancelled) setSharesLoaded(true) })
     return () => { cancelled = true }
-  }, [versionId])
+  }, [repoId])
 
   useEffect(() => {
     if (!repoId) return
@@ -195,10 +184,9 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     getPersonaRepo(repoId)
       .then(repo => {
         if (cancelled) return
-        setVisibility(repo.visibility)
-        setSelectedTeamIds(repo.team_ids ?? [])
-        setSavedVisibility(repo.visibility)
-        setSavedTeamIds(repo.team_ids ?? [])
+        const v: Visibility = repo.visibility === 'shared' ? 'team' : 'private'
+        setVisibility(v)
+        setSavedVisibility(v)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setVisibilityLoaded(true) })
@@ -224,12 +212,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         share_type: 'link',
         credit_limit: tokenLimit,
       })
-      if (share.persona_id !== versionId) {
-        setLinkShare(null)
-        setSuperLinkEnabled(false)
-        toast.error('The active version changed. Reopen Sharing and try again.')
-        return
-      }
       setLinkShare(share)
       resetTouchedFields('sharing', 'superlink')
       onChanged?.()
@@ -290,10 +272,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         recipient_emails: [email],
         credit_limit: emailTokenLimit,
       })
-      if (share.persona_id !== versionId) {
-        toast.error('The active version changed. Reopen Sharing and try again.')
-        return
-      }
       setEmailShares(prev => [...prev, share])
       setEmailInput('')
       resetTouchedFields('sharing', 'email')
@@ -356,148 +334,11 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       </h1>
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
-      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        <span style={ATTRIBUTE_HEADER_STYLE}>
-          Visibility
-        </span>
-
-        {/* ── 2 cards, same radio-pair pattern as the Muse/Advanced featured cards ── */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <ModelFeaturedCard
-              title="Private"
-              description="Only you can use this agent"
-              selected={visibility === 'private'}
-              onSelectedChange={next => { if (next) handleVisibilitySelect('private') }}
-            />
-          </div>
-          <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
-            <ModelFeaturedCard
-              title="Team"
-              description={!orgId ? 'Requires a team plan' : editableTeams.length === 0 ? 'No editable teams' : 'Deploy to selected teams'}
-              selected={visibility === 'team'}
-              onSelectedChange={next => { if (next && orgId && editableTeams.length > 0) handleVisibilitySelect('team') }}
-              style={{
-                opacity: !orgId || editableTeams.length === 0 ? 0.45 : 1,
-                cursor:  !orgId || editableTeams.length === 0 ? 'not-allowed' : 'pointer',
-              }}
-            />
-
-            {/* Team-picker dropdown — floats over the card; the trigger itself
-               carries the "Shared to N teams" label, the card above keeps "Team". */}
-            {visibility === 'team' && orgId && editableTeams.length > 0 && (
-              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', maxWidth: 'calc(100% - 24px)' }}>
-                <Dropdown.Float
-                  open={teamsOpen}
-                  onOpenChange={setTeamsOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <button
-                      type="button"
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
-                        maxWidth: '100%', padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        backgroundColor: 'rgba(255,255,255,0.12)',
-                        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)',
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
-                        color: 'var(--neutral-50)',
-                      }}
-                    >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {selectedTeamIds.length > 0
-                          ? `Shared to ${selectedTeamIds.length} team${selectedTeamIds.length === 1 ? '' : 's'}`
-                          : 'Select teams'}
-                      </span>
-                      <div style={{ flexShrink: 0, lineHeight: 0, transform: teamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
-                        <ArrowDownOneIcon size={14} />
-                      </div>
-                    </button>
-                  }
-                >
-                  <Dropdown size="md">
-                    <div
-                      className="kaya-scrollbar"
-                      style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4, maxHeight: 400, overflowY: 'auto' }}
-                    >
-                      {editableTeams.map(team => {
-                        const checked = selectedTeamIds.includes(team.id)
-                        const toggle = () => {
-                          setSelectedTeamIds(current =>
-                            checked ? current.filter(id => id !== team.id) : [...current, team.id]
-                          )
-                          markFieldTouched('sharing', 'visibility')
-                        }
-                        return (
-                          <div
-                            key={team.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={toggle}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
-                            }}
-                          >
-                            <span style={{ pointerEvents: 'none', flexShrink: 0 }}>
-                              <Checkbox checked={checked} />
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontWeight: 400,
-                              fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {team.name}
-                            </span>
-                            {allEditableTeamsSelected && editableTeams[editableTeams.length - 1]?.id === team.id && (
-                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-500)', flexShrink: 0 }}>
-                                All teams
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                      Selected members will have access to this agent.
-                    </p>
-                    <div style={{ padding: '0 4px 4px' }}>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        fluid
-                        disabled={visibilitySaving || selectedTeamIds.length === 0}
-                        loading={visibilitySaving}
-                        onClick={async () => {
-                          await handleSaveVisibility()
-                          setTeamsOpen(false)
-                        }}
-                      >
-                        {visibilitySaving ? 'Saving…' : 'Save'}
-                      </Button>
-                    </div>
-                  </Dropdown>
-                </Dropdown.Float>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Save button — primary, full width, disabled until something changes */}
-        <Button
-          variant="default"
-          fluid
-          disabled={visibilitySaving || !repoId || !visibilityChanged || (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))}
-          loading={visibilitySaving}
-          onClick={handleSaveVisibility}
-        >
-          {visibilitySaving ? 'Saving…' : 'Save visibility'}
-        </Button>
-      </div>
-
-      {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
+      {/* Agents are private-only for now — the team/shared visibility toggle is
+          hidden, not removed: `visibility`/`setPersonaVisibility` and everything
+          that reads `.visibility === 'team'` elsewhere stays intact so this can
+          be re-shown later without rebuilding it. See the "hide, don't delete"
+          instruction this was scoped under. */}
 
       {/* ── Super Link ──────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-superlink" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -589,7 +430,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                         transition: 'opacity 150ms',
                       }}
                     >
-                      <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                      {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
                       {isRevoking ? 'Revoking…' : 'Revoke link'}
                     </button>
                     <Button variant="secondary" size="sm" onClick={handleCopy}>
@@ -879,7 +720,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                       transition: 'opacity 150ms',
                     }}
                   >
-                    <CancelOneIcon size={14} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                    {isRevoking ? <Spinner size={14} color="var(--neutral-400)" /> : <CancelOneIcon size={14} color="#ee3030" />}
                     {isRevoking ? 'Revoking…' : 'Revoke'}
                   </button>
                 </div>

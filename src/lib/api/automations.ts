@@ -21,7 +21,7 @@ export interface AutomationRun {
 export interface Automation {
   id:             string
   name:           string
-  prompt:         string        // what it does each run, in the user's words
+  summary:        string        // what it does each run, in the user's words
   schedule_json:  Record<string, unknown>
   trigger:        Record<string, unknown>
   is_active:      boolean
@@ -30,6 +30,8 @@ export interface Automation {
   run_count:      number
   success_count:  number
   failure_count:  number
+  running_count:  number
+  is_running:     boolean
   success_rate:   number | null
   created_at?:    string | null
   updated_at?:    string | null
@@ -43,12 +45,32 @@ export interface AutomationDetail extends Automation {
 export interface AutomationUpdate {
   is_active?: boolean
   name?:      string
-  prompt?:    string
+  summary?:   string
 }
 
 export interface AutomationDeleteResponse {
   deleted:       boolean
   automation_id: string
+}
+
+/** What a finished run has to say for itself: its answer, or why it failed.
+ *  A run that failed inside a sandbox script carries the whole Python traceback
+ *  in `error` — every line above the last is our own call stack, which nobody
+ *  reading a run history can act on. */
+export function runSummary(run: AutomationRun): string {
+  if (run.answer) return run.answer
+  if (run.status === 'failed') return failureReason(run.error ?? '')
+  if (run.status === 'running') return 'Still running.'
+  return 'This run finished without an answer.'
+}
+
+/** The last line of a traceback — the exception and its message — with the
+ *  module-qualified class name dropped. */
+export function failureReason(error: string): string {
+  const lines = error.split('\n').map(line => line.trim()).filter(Boolean)
+  const last  = lines[lines.length - 1] ?? ''
+  const message = last.replace(/^[A-Za-z_][\w.]*(?:Error|Exception|Interrupt|Timeout|Failure):\s*/, '')
+  return message || last.replace(/:$/, '') || 'The run failed without saying why.'
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
@@ -63,7 +85,7 @@ export function getAutomation(id: string): Promise<AutomationDetail> {
   return apiFetchJson<AutomationDetail>(AUTOMATION_BY_ID(id))
 }
 
-/** PATCH /automations/{id} — pause/resume, rename, or rewrite the prompt. */
+/** PATCH /automations/{id} — pause/resume, rename, or rewrite the summary. */
 export function updateAutomation(id: string, body: AutomationUpdate): Promise<AutomationDetail> {
   return apiFetchJson<AutomationDetail>(AUTOMATION_BY_ID(id), {
     method: 'PATCH',

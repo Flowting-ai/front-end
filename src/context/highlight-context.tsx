@@ -30,6 +30,10 @@ interface HighlightDataValue {
   filterMode:  FilterMode
   /** True while a loadForChat/loadAll fetch is in flight — drives the panel's loading spinner. */
   isLoading:   boolean
+  /** True when the most recent loadForChat/loadAll attempt failed outright —
+   *  distinct from a genuinely empty result, so the panel can show a real
+   *  error state (with retry) instead of a silent "nothing highlighted yet". */
+  hasError:    boolean
 }
 
 interface HighlightActionsValue {
@@ -106,6 +110,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const [isOpen,      setIsOpen]      = useState(false)
   const [filterMode,  setFilterMode]  = useState<FilterMode>('this-chat')
   const [isLoading,   setIsLoading]   = useState(false)
+  const [hasError,    setHasError]    = useState(false)
 
   // Refs kept in sync with state so callbacks can read current values without
   // stale-closure issues. Updated during render so they are always current.
@@ -126,9 +131,10 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     const ctrl = new AbortController()
     loadAbortRef.current = ctrl
     setIsLoading(true)
+    setHasError(false)
     getHighlights(chatId)
       .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
-      .catch(() => {/* silently ignore */})
+      .catch(() => { if (!ctrl.signal.aborted) setHasError(true) })
       .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false) })
   }, [])
 
@@ -137,10 +143,11 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     const ctrl = new AbortController()
     loadAbortRef.current = ctrl
     setIsLoading(true)
+    setHasError(false)
     collectAllChatIds()
       .then(ids => Promise.all(ids.map(id => getHighlights(id).catch(() => [] as HighlightResponse[]))))
       .then(lists => { if (!ctrl.signal.aborted) setHighlights(lists.flat().map(responseToEntry)) })
-      .catch(() => {/* silently ignore */})
+      .catch(() => { if (!ctrl.signal.aborted) setHasError(true) })
       .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false) })
   }, [])
 
@@ -149,6 +156,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     loadAbortRef.current?.abort()
     setHighlights([])
     setIsLoading(false)
+    setHasError(false)
   }, [])
 
   const open   = useCallback(() => setIsOpen(true),    [])
@@ -227,7 +235,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <HighlightActionsContext.Provider value={actions}>
-      <HighlightDataContext.Provider value={{ highlights, isOpen, filterMode, isLoading }}>
+      <HighlightDataContext.Provider value={{ highlights, isOpen, filterMode, isLoading, hasError }}>
         {children}
       </HighlightDataContext.Provider>
     </HighlightActionsContext.Provider>

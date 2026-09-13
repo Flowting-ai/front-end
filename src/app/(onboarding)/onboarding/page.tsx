@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { ONBOARDING_HELLO_ROUTE } from "@/lib/routes";
+import { ONBOARDING_SETUP_ROUTE } from "@/lib/routes";
 
 export default function OnboardingIndexPage() {
-  redirect(ONBOARDING_HELLO_ROUTE);
+  redirect(ONBOARDING_SETUP_ROUTE);
 }

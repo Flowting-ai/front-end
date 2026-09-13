@@ -1,193 +1,44 @@
-"use client"
+'use client'
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson } from './client'
+import { toConnector, type Connector } from '@/lib/connector'
 import {
   CONNECTORS_ENDPOINT,
+  CONNECTOR_ACCOUNT_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
-  ORG_CATALOG_ENDPOINT,
+  CONNECTOR_COMPLETE_ENDPOINT,
 } from '@/lib/config'
+import {
+  connectionResponseSchema,
+  connectorCatalogEntrySchema,
+  connectorListResponseSchema,
+  linkResponseSchema,
+  type ApiKeyField,
+  type ConnectorAccountScope,
+  type ConnectorAccountStatus,
+  type ConnectorCatalogEntryWire,
+  type ConnectorCatalogMetadata,
+  type ConnectorToolPermission,
+  type ConnectionResponseWire,
+  type LinkResponseWire,
+  type ToolEntryWire,
+  type ToolPermissionEntryWire,
+} from './connector-schemas'
 
-// ── Backend response schemas ──────────────────────────────────────────────────
-// These mirror services/connectors/schemas.py exactly: snake_case field names,
-// exact types, and only the `.default()`s the backend itself declares. Responses
-// are validated at the fetch boundary (schema.parse) so the UI renders
-// deterministically from the endpoint's real shape — no guessed defaults, no
-// fabricated fields. See the billing precedent in src/lib/api/organization.ts.
-
-const accountScopeSchema  = z.enum(['personal', 'shared_team'])
-const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
-const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
-
-const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
-
-// Mirrors backend ToolEntry (services/connectors/schemas.py). The readable
-// permission is response-only and derived from the two booleans; parsing derives
-// it again so a stale cached response without the new field still renders.
-const toolEntrySchema = z.object({
-  slug:       z.string(),
-  allowed:    z.boolean().default(false),
-  blocked:    z.boolean().default(false),
-  permission: toolPermissionSchema.optional(),
-}).passthrough().transform(tool => ({
-  ...tool,
-  permission: connectorToolPermission(tool),
-}))
-
-/** Rich descriptor for a single credential field returned by GET /connectors/{slug}.
- *  Mirrors Composio's connected-account initiation field metadata. */
-const apiKeyFieldSchema = z.object({
-  /** Key used in the PATCH credentials payload (e.g. "subdomain", "generic_api_key"). */
-  name:     z.string(),
-  /** Human-readable label shown above the input (e.g. "Store Subdomain"). */
-  label:    z.string(),
-  /** Placeholder / hint text (e.g. "your-store-name", "shpat_..."). */
-  help:     z.string().default(''),
-  /** When true the input should be rendered as type="password". */
-  secret:   z.boolean().default(false),
-  /** When true the Connect button stays disabled until this field has a value. */
-  required: z.boolean().default(true),
-})
-
-/** Org-owned shared account embedded in ConnectorCatalogEntry.accounts — snake_case,
- *  as the backend's OrganizationConnectorAccountResponse serializes it. */
-const orgConnectorAccountSchema = z.object({
-  id:                 z.string(),
-  organization_id:    z.string(),
-  connector_slug:     z.string(),
-  account_label:      z.string(),
-  account_identifier: z.string().nullable().default(null),
-  connected:          z.boolean(),
-  scope:              accountScopeSchema.default('shared_team'),
-  status:             accountStatusSchema.default('active'),
-  version:            z.number().int().default(1),
-  team_ids:           z.array(z.string()).default([]),
-  linked_by_user_id:  z.string().nullable().default(null),
-  created_at:         z.string(),
-  updated_at:         z.string(),
-})
-
-/** A connected account the current user acts through for one connector — personal
- *  (UserConnection) or shared (OrganizationConnectorAccount, surfaced via teams).
- *  Informational: the server picks personal-first, else the team's shared one. */
-const connectorAccountOptionSchema = z.object({
-  connector_slug:     z.string(),
-  scope:              accountScopeSchema,
-  account_label:      z.string(),
-  account_identifier: z.string().nullable().default(null),
-  connected:          z.boolean().default(true),
-  status:             accountStatusSchema.default('active'),
-  team_ids:           z.array(z.string()).default([]),
-  team_names:         z.array(z.string()).default([]),
-  shared_account_id:  z.string().nullable().default(null),
-  linked_by_user_id:  z.string().nullable().default(null),
-  can_manage:         z.boolean().default(false),
-})
-
-/** The Pipedream Apps API row the catalog sync stores per connector — typed
- *  mirror of the backend sync's App model. looseObject keeps any new provider
- *  fields Pipedream adds without failing the parse. */
-const catalogMetadataSchema = z.looseObject({
-  id:                 z.string().optional(),
-  name_slug:          z.string().optional(),
-  name:               z.string().optional(),
-  img_src:            z.string().nullish(),
-  description:        z.string().optional(),
-  /** Provider auth style at Pipedream ("oauth" | "keys" | "none") — the
-   *  catalog's auth_mode stays "oauth2" because linking always goes through
-   *  the hosted Connect flow; this is the underlying truth. */
-  auth_type:          z.string().nullish(),
-  custom_fields_json: z.string().nullish(),
-  categories:         z.array(z.string()).optional(),
-  featured_weight:    z.number().nullish(),
-})
-
-const connectorCatalogEntrySchema = z.object({
-  slug:                z.string(),
-  display_name:        z.string(),
-  auth_mode:           z.enum(['oauth2', 'api_key']),
-  description:         z.string(),
-  /** Provider-hosted brand logo (Pipedream Apps API img_src). Bundled assets
-   *  in CONNECTOR_LOGO_MAP take precedence; this covers the long tail. */
-  logo_url:            z.string().nullable().default(null),
-  /** Provider taxonomy (Pipedream categories, e.g. "Communication"). Distinct
-   *  from the FE's local connectorCategory grouping. */
-  categories:          z.array(z.string()).default([]),
-  catalog_metadata:    catalogMetadataSchema.default({}),
-  tools:               z.array(toolEntrySchema).default([]),
-  api_key_fields:      z.array(apiKeyFieldSchema).default([]),
-  /** True when the current user's personal connector is linked. */
-  linked:              z.boolean(),
-  /** True when a shared team account is attached and connected. */
-  workspace_linked:    z.boolean().default(false),
-  /** User ID that linked the team/shared workspace account. */
-  workspace_linked_by: z.string().nullable().default(null),
-  /** ID of the org shared account currently attached to the team connector. */
-  shared_account_id:   z.string().nullable().default(null),
-  /** Admin-friendly label of the attached org shared account. */
-  account_label:       z.string().nullable().default(null),
-  /** Provider identity (e.g. email/login) of the attached shared account. */
-  account_identifier:  z.string().nullable().default(null),
-  /** Org shared accounts for this connector. Populated for admins/editors. */
-  accounts:            z.array(orgConnectorAccountSchema).default([]),
-  /** Selectable account options the current user can execute under. */
-  account_options:     z.array(connectorAccountOptionSchema).default([]),
-  /** Whether the slug is enabled in the org catalog. null outside org context. */
-  org_enabled:            z.boolean().nullable().default(null),
-  /** Current user's personal access request status, or null. */
-  personal_access_status: accessStatusSchema.nullable().default(null),
-  /** Not in the backend schema — some FE code sets it locally for the avatar. */
-  icon_url:            z.string().optional(),
-})
-
-const connectorListResponseSchema = z.object({
-  connectors: z.array(connectorCatalogEntrySchema).default([]),
-})
-
-const linkResponseSchema = z.object({
-  connector_slug:    z.string(),
-  // Nullable per the backend spec — may be omitted when an OAuth handler can't
-  // produce a URL (misconfigured provider, missing client creds, etc.).
-  redirect_url:      z.string().nullable().default(null),
-  shared_account_id: z.string().nullable().default(null),
-})
-
-// ── Inferred types ─────────────────────────────────────────────────────────────
-
-export type ConnectorTool          = z.infer<typeof toolEntrySchema>
-export type ConnectorToolPermission = z.infer<typeof toolPermissionSchema>
-export type ApiKeyField            = z.infer<typeof apiKeyFieldSchema>
-
-export function connectorToolPermission(tool: {
-  allowed?: boolean
-  blocked?: boolean
-  permission?: ConnectorToolPermission
-}): ConnectorToolPermission {
-  if (tool.blocked) return 'blocked'
-  if (tool.allowed) return 'allowed'
-  return tool.permission ?? 'ask'
+export type {
+  ApiKeyField,
+  ConnectorAccountScope,
+  ConnectorAccountStatus,
+  ConnectorCatalogMetadata,
+  ConnectorToolPermission,
 }
 
-export function connectorToolBooleans(
-  permission: ConnectorToolPermission,
-): { allowed: boolean; blocked: boolean } {
-  return {
-    allowed: permission === 'allowed',
-    blocked: permission === 'blocked',
-  }
-}
+export type AccountVisibility = 'shared' | 'private'
+export type AccountConnectionStatus = 'connected' | 'reconnect-required'
+export type AccountPermissionSummary = 'always' | 'ask' | 'blocked' | 'custom'
 
-/** Snake_case shape of an org shared account as embedded in the catalog entry. */
-export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
-export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>
-export type ConnectorAccountOption = z.infer<typeof connectorAccountOptionSchema>
-export type ConnectorCatalogEntry  = z.infer<typeof connectorCatalogEntrySchema>
-export type ConnectorListResponse  = z.infer<typeof connectorListResponseSchema>
-export type LinkResponse           = z.infer<typeof linkResponseSchema>
-export type PersonalAccessStatus   = z.infer<typeof accessStatusSchema>
-
-/** Fallback field used when the catalog entry omits api_key_fields entirely. */
 export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
   name:     'api_key',
   label:    'API Key',
@@ -196,14 +47,275 @@ export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
   required: true,
 }
 
-/**
- * True for per-tenant OAuth connectors that require init fields up front —
- * e.g. Shopify's bring-your-own-app S2S, which declares `client_id` /
- * `client_secret` in `api_key_fields`. The merchant must submit these so the
- * backend can mint their per-merchant auth config; they're posted in
- * `init_data` on POST /connectors/{slug}/link (NOT PATCHed as credentials).
- * Plain OAuth connectors have no init fields and link with a bare POST.
- */
+/** What a tool is. What an account decided about it is `AccountTool`. */
+export class ConnectorTool {
+  readonly key: string
+  readonly name: string
+  readonly description: string
+  readonly readOnly: boolean | null
+
+  constructor(wire: ToolEntryWire) {
+    this.key = wire.key
+    this.name = wire.name || wire.key
+    this.description = wire.description
+    this.readOnly = wire.read_only
+  }
+
+  get group(): 'read-only' | 'write' {
+    return this.readOnly === true ? 'read-only' : 'write'
+  }
+}
+
+/** One catalog tool as one account decided it. A tool with no stored row is 'ask'. */
+export class AccountTool {
+  readonly tool: ConnectorTool
+  readonly permission: ConnectorToolPermission
+
+  constructor(tool: ConnectorTool, permission: ConnectorToolPermission = 'ask') {
+    this.tool = tool
+    this.permission = permission
+  }
+
+  get key(): string { return this.tool.key }
+  get name(): string { return this.tool.name }
+  get description(): string { return this.tool.description }
+  get readOnly(): boolean | null { return this.tool.readOnly }
+  get group(): 'read-only' | 'write' { return this.tool.group }
+
+  get permissionMode(): Exclude<AccountPermissionSummary, 'custom'> {
+    return this.permission === 'allowed' ? 'always' : this.permission
+  }
+
+  withPermission(permission: ConnectorToolPermission): AccountTool {
+    return new AccountTool(this.tool, permission)
+  }
+}
+
+export class ConnectorConnection {
+  readonly id: string
+  readonly nickname: string
+  readonly scope: ConnectorAccountScope
+  readonly connectorSlug: string
+  readonly accountIdentifier: string | null
+  readonly connected: boolean
+  readonly status: ConnectorAccountStatus
+  readonly version: number
+  readonly ownerId: string
+  readonly owned: boolean
+  readonly inUse: boolean
+  readonly permissions: ToolPermissionEntryWire[]
+  readonly createdAt: string
+  readonly updatedAt: string
+
+  constructor(wire: ConnectionResponseWire) {
+    this.id = wire.id
+    this.nickname = wire.nickname
+    this.scope = wire.scope
+    this.connectorSlug = wire.connector_slug
+    this.accountIdentifier = wire.account_identifier
+    this.connected = wire.connected
+    this.status = wire.status
+    this.version = wire.version
+    this.ownerId = wire.owner_id
+    this.owned = wire.owned
+    this.inUse = wire.in_use
+    this.permissions = wire.permissions
+    this.createdAt = wire.created_at
+    this.updatedAt = wire.updated_at
+  }
+
+  static parse(raw: unknown): ConnectorConnection {
+    return new ConnectorConnection(connectionResponseSchema.parse(raw))
+  }
+
+  static parseList(raw: unknown): ConnectorConnection[] {
+    return z.array(connectionResponseSchema).parse(raw).map(wire => new ConnectorConnection(wire))
+  }
+
+  get visibility(): AccountVisibility {
+    return this.scope === 'shared' ? 'shared' : 'private'
+  }
+
+  get isShared(): boolean {
+    return this.scope === 'shared'
+  }
+
+  get isPrivate(): boolean {
+    return this.scope === 'personal'
+  }
+
+  get email(): string {
+    return this.accountIdentifier ?? ''
+  }
+
+  get needsReconnect(): boolean {
+    return !this.connected || this.status !== 'active'
+  }
+
+  get connectionState(): AccountConnectionStatus {
+    return this.needsReconnect ? 'reconnect-required' : 'connected'
+  }
+
+  /** Sharing grants use, never control — only the owner can change this row. */
+  get canManage(): boolean {
+    return this.owned
+  }
+
+  permissionFor(toolKey: string): ConnectorToolPermission {
+    return this.permissions.find(entry => entry.key === toolKey)?.permission ?? 'ask'
+  }
+
+  /** The connector's catalog as this account decided it. */
+  toolsFrom(tools: ConnectorTool[]): AccountTool[] {
+    return tools.map(tool => new AccountTool(tool, this.permissionFor(tool.key)))
+  }
+
+  permissionSummary(tools: ConnectorTool[]): AccountPermissionSummary {
+    const decided = this.toolsFrom(tools)
+    if (decided.length === 0) return 'custom'
+    const first = decided[0].permissionMode
+    return decided.every(tool => tool.permissionMode === first) ? first : 'custom'
+  }
+}
+
+export class ConnectorCatalog {
+  readonly slug: string
+  readonly displayName: string
+  readonly authMode: 'oauth2' | 'api_key'
+  readonly provider: string
+  readonly description: string
+  readonly logoUrl: string | null
+  readonly categories: string[]
+  readonly catalogMetadata: ConnectorCatalogMetadata
+  readonly tools: ConnectorTool[]
+  readonly apiKeyFields: ApiKeyField[]
+  readonly linked: boolean
+  readonly connections: ConnectorConnection[]
+
+  constructor(wire: ConnectorCatalogEntryWire) {
+    this.slug = wire.slug
+    this.displayName = wire.display_name
+    this.authMode = wire.auth_mode
+    this.provider = wire.provider
+    this.description = wire.description
+    this.logoUrl = wire.logo_url
+    this.categories = wire.categories
+    this.catalogMetadata = wire.catalog_metadata
+    this.tools = wire.tools.map(tool => new ConnectorTool(tool))
+    this.apiKeyFields = wire.api_key_fields
+    this.linked = wire.linked
+    this.connections = wire.connections.map(row => new ConnectorConnection(row))
+  }
+
+  static parse(raw: unknown): ConnectorCatalog {
+    return new ConnectorCatalog(connectorCatalogEntrySchema.parse(raw))
+  }
+
+  static parsePage(raw: unknown): ConnectorListPage {
+    const wire = connectorListResponseSchema.parse(raw)
+    return {
+      connectors: wire.connectors.map(entry => new ConnectorCatalog(entry)),
+      nextCursor: wire.next_cursor,
+      hasMore: wire.has_more,
+    }
+  }
+
+  get name(): string {
+    return this.displayName
+  }
+
+  get identity(): Connector {
+    return toConnector({
+      slug: this.slug,
+      display_name: this.displayName,
+      logo_url: this.logoUrl,
+    })
+  }
+
+  get logo(): string | null {
+    return this.identity.logo
+  }
+
+  get featuredWeight(): number | null {
+    const weight = this.catalogMetadata.featured_weight
+    return typeof weight === 'number' ? weight : null
+  }
+
+  get needsOAuthInitFields(): boolean {
+    return this.authMode === 'oauth2' && this.apiKeyFields.length > 0
+  }
+
+  /** Every account this viewer owns here. A person may hold several. */
+  get ownedConnections(): ConnectorConnection[] {
+    return this.connections.filter(row => row.owned)
+  }
+
+  /** The one of them this app runs through, or null when they own none. */
+  get connectionInUse(): ConnectorConnection | null {
+    return this.ownedConnections.find(row => row.inUse) ?? null
+  }
+
+  get privateConnections(): ConnectorConnection[] {
+    return this.connections.filter(row => row.isPrivate)
+  }
+
+  get sharedConnections(): ConnectorConnection[] {
+    return this.connections.filter(row => row.isShared)
+  }
+
+  get connectedPrivate(): ConnectorConnection[] {
+    return this.privateConnections.filter(row => !row.needsReconnect)
+  }
+
+  get connectedShared(): ConnectorConnection[] {
+    return this.sharedConnections.filter(row => !row.needsReconnect)
+  }
+
+  get hasPrivateAccount(): boolean {
+    return this.privateConnections.length > 0
+  }
+
+  get isAvailable(): boolean {
+    return this.linked
+  }
+
+  get needsAttention(): boolean {
+    return this.connections.some(row => row.needsReconnect)
+  }
+
+  static needingAttention(catalogs: ConnectorCatalog[]): ConnectorConnection[] {
+    return catalogs.flatMap(catalog => catalog.connections.filter(row => row.needsReconnect))
+  }
+}
+
+export type LinkResponse = {
+  connectorSlug: string
+  redirectUrl: string | null
+}
+
+function linkFromWire(wire: LinkResponseWire): LinkResponse {
+  return {
+    connectorSlug: wire.connector_slug,
+    redirectUrl: wire.redirect_url,
+  }
+}
+
+/** Owner-only. Every field is optional; absent means unchanged. */
+export interface UpdateAccountRequest {
+  accountLabel?:      string
+  accountIdentifier?: string
+  /** Open it to everyone sharing an organization with you, or close it again. */
+  shared?:            boolean
+  /** Switch this app onto this account. True only — you move the flag by
+      raising another account, never by lowering this one. */
+  inUse?:             true
+  permissions?:       { key: string; permission: ConnectorToolPermission }[]
+  credentials?:       Record<string, string>
+  status?:            ConnectorAccountStatus
+  /** Stale PATCH 409s when the row has moved on. */
+  expectedVersion?:   number
+}
+
 export function oauthNeedsInitFields(
   c: { auth_mode?: string; api_key_fields?: ApiKeyField[] | null },
 ): boolean {
@@ -212,82 +324,129 @@ export function oauthNeedsInitFields(
     && c.api_key_fields.length > 0
 }
 
-export interface UpdateConnectorRequest {
-  permissions?: { slug: string; allowed: boolean; blocked: boolean }[]
-  credentials?: Record<string, string>
+export type ConnectorListQuery = {
+  q?: string
+  cursor?: string
+  limit?: number
+  linked?: boolean
 }
 
-// ── API functions ─────────────────────────────────────────────────────────────
-
-export async function listConnectors(): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(CONNECTORS_ENDPOINT)
-  return connectorListResponseSchema.parse(raw).connectors
+export type ConnectorListPage = {
+  connectors: ConnectorCatalog[]
+  nextCursor: string | null
+  hasMore: boolean
 }
 
-export async function getConnector(slug: string): Promise<ConnectorCatalogEntry> {
+let catalogBySlug = new Map<string, ConnectorCatalog>()
+const listInFlight = new Map<string, Promise<ConnectorListPage>>()
+
+export function bustConnectorCatalogCache(): void {
+  catalogBySlug = new Map()
+  listInFlight.clear()
+}
+
+function remember(entry: ConnectorCatalog): ConnectorCatalog {
+  catalogBySlug.set(entry.slug, entry)
+  return entry
+}
+
+export function connectorsListUrl(query: ConnectorListQuery = {}): string {
+  const params = new URLSearchParams()
+  const q = query.q?.trim()
+  if (q) params.set('q', q)
+  const cursor = query.cursor?.trim()
+  if (cursor) params.set('cursor', cursor)
+  if (query.limit != null) params.set('limit', String(query.limit))
+  if (query.linked != null) params.set('linked', String(query.linked))
+  const qs = params.toString()
+  return qs ? `${CONNECTORS_ENDPOINT}?${qs}` : CONNECTORS_ENDPOINT
+}
+
+export function listConnectors(query: ConnectorListQuery = {}): Promise<ConnectorListPage> {
+  const url = connectorsListUrl(query)
+  const pending = listInFlight.get(url)
+  if (pending) return pending
+  const request = apiFetchJson<unknown>(url)
+    .then(raw => {
+      const page = ConnectorCatalog.parsePage(raw)
+      for (const entry of page.connectors) remember(entry)
+      return page
+    })
+    .finally(() => { listInFlight.delete(url) })
+  listInFlight.set(url, request)
+  return request
+}
+
+export async function listLinkedConnectors(): Promise<ConnectorCatalog[]> {
+  const out: ConnectorCatalog[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page = await listConnectors({ linked: true, cursor, limit: 100 })
+    out.push(...page.connectors)
+    if (!page.hasMore || !page.nextCursor) return out
+    cursor = page.nextCursor
+  }
+}
+
+export function resolveConnector(slug: string): Connector {
+  const entry = catalogBySlug.get(slug)
+  return entry ? entry.identity : toConnector(slug)
+}
+
+export function resolveConnectors(slugs: string[]): Connector[] {
+  return slugs.map(resolveConnector)
+}
+
+export async function getConnector(slug: string): Promise<ConnectorCatalog> {
   const raw = await apiFetchJson<unknown>(CONNECTOR_DETAIL_ENDPOINT(slug))
-  return connectorCatalogEntrySchema.parse(raw)
+  return remember(ConnectorCatalog.parse(raw))
 }
 
 export async function initiateLink(
   slug: string,
   initData?: Record<string, string>,
 ): Promise<LinkResponse> {
-  // Per-tenant OAuth (Shopify BYOA) submits its app credentials here as
-  // `init_data`; the backend mints a per-merchant auth config from them and
-  // returns the hosted connect link. Plain OAuth sends no body.
   const hasInit = initData != null && Object.keys(initData).length > 0
   const raw = await apiFetchJson<unknown>(CONNECTOR_LINK_ENDPOINT(slug), {
     method: 'POST',
     ...(hasInit ? { body: JSON.stringify({ init_data: initData }) } : {}),
   })
-  return linkResponseSchema.parse(raw)
+  return linkFromWire(linkResponseSchema.parse(raw))
 }
 
-export async function updateConnector(
+export async function completeZapierLink(
   slug: string,
-  body: UpdateConnectorRequest,
-): Promise<ConnectorCatalogEntry> {
-  const raw = await apiFetchJson<unknown>(CONNECTOR_DETAIL_ENDPOINT(slug), {
+  connectionId: string,
+): Promise<ConnectorCatalog> {
+  const raw = await apiFetchJson<unknown>(CONNECTOR_COMPLETE_ENDPOINT(slug), {
+    method: 'POST',
+    body: JSON.stringify({ connection_id: connectionId }),
+  })
+  bustConnectorCatalogCache()
+  return ConnectorCatalog.parse(raw)
+}
+
+/** Rename, share, re-permission or disable one account. Owner only. */
+export async function updateAccount(
+  accountId: string,
+  body: UpdateAccountRequest,
+): Promise<ConnectorConnection> {
+  const raw = await apiFetchJson<unknown>(CONNECTOR_ACCOUNT_ENDPOINT(accountId), {
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
-  return connectorCatalogEntrySchema.parse(raw)
+  bustConnectorCatalogCache()
+  return ConnectorConnection.parse(raw)
 }
 
-export async function unlinkConnector(slug: string): Promise<void> {
-  const res = await apiFetch(CONNECTOR_DETAIL_ENDPOINT(slug), { method: 'DELETE' })
+/** Owner only. Everyone it was shared with loses it. */
+export async function unlinkAccount(accountId: string): Promise<void> {
+  const res = await apiFetch(CONNECTOR_ACCOUNT_ENDPOINT(accountId), { method: 'DELETE' })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`Failed to unlink connector: ${res.status}`)
+    throw new Error(`Failed to unlink account: ${res.status}`)
   }
+  bustConnectorCatalogCache()
 }
-
-// ── Org connector catalog (admin) ─────────────────────────────────────────────
-
-/** GET /organizations/{id}/connectors/catalog — admin-only. */
-export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId))
-  return z.array(connectorCatalogEntrySchema).parse(raw)
-}
-
-/**
- * PUT /organizations/{id}/connectors/catalog — admin-only.
- * Replaces the org allowlist with the provided slug list.
- */
-export async function updateOrgCatalog(
-  orgId: string,
-  connectorSlugs: string[],
-): Promise<ConnectorCatalogEntry[]> {
-  const raw = await apiFetchJson<unknown>(ORG_CATALOG_ENDPOINT(orgId), {
-    method: 'PUT',
-    body: JSON.stringify({ connectorSlugs }),
-  })
-  return z.array(connectorCatalogEntrySchema).parse(raw)
-}
-
-// ── Credential-field metadata ─────────────────────────────────────────────────
-// Human-readable labels, security hints, and placeholder hints for well-known
-// connector fields. Used by all connect forms to pick input type and labels.
 
 const FIELD_LABELS: Record<string, string> = {
   subdomain:       'Store Subdomain',
@@ -311,13 +470,11 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
 
 const SECRET_KEYWORDS = ['key', 'token', 'secret', 'password', 'api'] as const
 
-/** True when a credential field should be rendered as a masked (password) input. */
 export function isSecretField(name: string): boolean {
   const lower = name.toLowerCase()
   return SECRET_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
-/** Human-readable label for a credential field. */
 export function fieldLabel(name: string): string {
   return (
     FIELD_LABELS[name] ??
@@ -325,18 +482,32 @@ export function fieldLabel(name: string): string {
   )
 }
 
-/** Placeholder hint string for a credential field, or undefined. */
 export function fieldPlaceholder(name: string): string | undefined {
   return FIELD_PLACEHOLDERS[name]
 }
 
-/**
- * Poll GET /connectors/{slug} until `linked: true`, or until timeoutMs elapses.
- *
- * Uses exponential backoff (2 s → 4 s → 8 s → … capped at 30 s) so a 2-minute
- * wait generates ~9 requests instead of 60.  The cap prevents the interval from
- * growing so large that a fast OAuth completion goes undetected for too long.
- */
+/** The accounts a poll is allowed to settle on. */
+export interface PollTarget {
+  /** Ids the caller already held. A new account is one that is not among them. */
+  known?: string[]
+  /** Reconnecting: settle when THIS account comes back healthy, not on a new one. */
+  healthy?: string
+}
+
+/** Whether this catalog carries the account the caller is waiting for. */
+function pollSatisfied(entry: ConnectorCatalog, target: PollTarget): boolean {
+  if (target.healthy) {
+    const row = entry.connections.find(a => a.id === target.healthy)
+    return row != null && !row.needsReconnect
+  }
+  const known = new Set(target.known ?? [])
+  // A person can hold several accounts per app, so "I own a connected one" is
+  // not evidence that the authorization just now produced anything — it is
+  // true of the account they already had. Only a row that was not there when
+  // this started settles the poll.
+  return entry.ownedConnections.some(row => row.connected && !known.has(row.id))
+}
+
 export async function pollConnectorUntilActive(
   slug: string,
   {
@@ -344,14 +515,24 @@ export async function pollConnectorUntilActive(
     maxIntervalMs     = 30_000,
     timeoutMs         = 120_000,
     signal,
-  }: { initialIntervalMs?: number; maxIntervalMs?: number; timeoutMs?: number; signal?: AbortSignal } = {},
-): Promise<ConnectorCatalogEntry> {
+    target            = {},
+  }: {
+    initialIntervalMs?: number
+    maxIntervalMs?: number
+    timeoutMs?: number
+    signal?: AbortSignal
+    target?: PollTarget
+  } = {},
+): Promise<ConnectorCatalog> {
   const deadline = Date.now() + timeoutMs
   let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
     if (signal?.aborted) throw new DOMException('Polling aborted', 'AbortError')
     const entry = await getConnector(slug)
-    if (entry.linked) return entry
+    // Never `entry.linked`: that is org-wide, true the instant ANY org member
+    // has a shared connection, so it settled before the popup's OAuth flow
+    // even finished whenever a shared account already existed.
+    if (pollSatisfied(entry, target)) return entry
     await new Promise<void>((resolve, reject) => {
       const t = setTimeout(resolve, intervalMs)
       signal?.addEventListener('abort', () => {
@@ -359,7 +540,6 @@ export async function pollConnectorUntilActive(
         reject(new DOMException('Polling aborted', 'AbortError'))
       }, { once: true })
     })
-    // Double the interval each round, but never exceed the cap.
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }
   throw new Error(`Connector ${slug} did not become linked within ${timeoutMs}ms`)

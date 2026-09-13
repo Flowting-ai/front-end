@@ -8,12 +8,14 @@ import {
   forkChatShare,
   type SharedChatView,
 } from '@/lib/api/chat-shares'
+import { useChatHistoryContext } from '@/context/chat-history-context'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
-import { toSouvenirModelLabel } from '@/lib/ai-models'
+import { Skeleton } from '@/components/Skeleton'
+import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 
 function SharedChatContent() {
   const params   = useParams()
@@ -24,6 +26,7 @@ function SharedChatContent() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [forking, setForking] = useState(false)
+  const { refresh: refreshChatHistory } = useChatHistoryContext()
 
   useEffect(() => {
     if (!shareId) return
@@ -39,6 +42,10 @@ function SharedChatContent() {
     setForking(true)
     try {
       const { chatId } = await forkChatShare(shareId)
+      // forkChatShare only returns the new id, not a full Chat record to
+      // add optimistically — re-fetch instead, so the sidebar shows the
+      // copy without needing a full page reload.
+      refreshChatHistory()
       router.push(`${CHAT_ROUTE}?id=${chatId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
@@ -48,18 +55,52 @@ function SharedChatContent() {
   }
 
   if (loading) {
+    // Mirrors the real shared-chat layout below — header block + message
+    // bubbles — instead of flashing plain "Loading…" text.
     return (
-      <div style={{ padding: 48, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>
-        Loading…
+      <div style={{ maxWidth: 760, margin: '0 auto', width: '100%', padding: '24px 24px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Skeleton width="45%" height={26} />
+          <Skeleton width="25%" height={14} />
+        </div>
+        <ChatMessagesSkeleton />
       </div>
     )
   }
 
   if (error || !view) {
+    // The generic "not found" 404 (client.ts's friendly-error fallback) is what
+    // a revoked share resolves to — the share row is just gone, same as any
+    // other missing resource — so it reads as a dead link rather than telling
+    // the viewer what actually happened and what to do about it.
+    const message = error === 'The requested resource was not found.'
+      ? 'The requested resource was not found. Please ask the user to share it again.'
+      : (error ?? 'This shared chat could not be found.')
     return (
-      <div style={{ padding: 48, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-700)', margin: 0 }}>
-          {error ?? 'This shared chat could not be found.'}
+      <div
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          gap:            20,
+          height:         '100%',
+          padding:        48,
+          textAlign:      'center',
+        }}
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-title)',
+            fontWeight: 400,
+            fontSize:   22,
+            lineHeight: '30px',
+            color:      'var(--neutral-900)',
+            margin:     0,
+            maxWidth:   440,
+          }}
+        >
+          {message}
         </p>
         <Button variant="outline" size="sm" onClick={() => router.back()}>Go back</Button>
       </div>
@@ -122,24 +163,19 @@ function SharedChatContent() {
                 Shared chat
               </span>
               <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>·</span>
-              {view.mode === 'editable'
-                ? <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>You can make a copy</span>
-                : <Badge label="Read only" color="Red" />
-              }
+              <Badge label="Read only" color="Red" />
             </div>
           </div>
-          {view.mode === 'editable' && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => void handleFork()}
-              loading={forking}
-              disabled={forking}
-              style={{ flexShrink: 0 }}
-            >
-              {forking ? 'Copying…' : 'Make a copy'}
-            </Button>
-          )}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => void handleFork()}
+            loading={forking}
+            disabled={forking}
+            style={{ flexShrink: 0 }}
+          >
+            {forking ? 'Copying…' : 'Make a copy'}
+          </Button>
         </div>
 
         {/* Divider */}
@@ -183,11 +219,6 @@ function SharedChatContent() {
                 {msg.output && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
                     <MarkdownRenderer content={msg.output} />
-                    {msg.modelName && (
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)' }}>
-                        {toSouvenirModelLabel(msg.modelName)}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>

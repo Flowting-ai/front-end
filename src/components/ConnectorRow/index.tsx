@@ -86,7 +86,7 @@ function ConnectorIcon({
       }}
     >
       {iconUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- connector logo, dynamic/local brand asset
+        // eslint-disable-next-line @next/next/no-img-element -- connector logo, provider-hosted URL
         <img
           src={iconUrl}
           alt={iconAlt ?? (name ? `${name} logo` : 'Connector logo')}

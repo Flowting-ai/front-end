@@ -12,6 +12,9 @@ export interface ScheduleDeleteModalProps {
   scheduleName: string
   onConfirm:    () => void
   onClose:      () => void
+  /** True while the delete request is in flight — keeps the modal open with
+   *  a spinner on "Delete schedule" instead of it vanishing mid-request. */
+  deleting?:    boolean
 }
 
 // ── ScheduleDeleteModal ───────────────────────────────────────────────────────
@@ -21,6 +24,7 @@ export function ScheduleDeleteModal({
   scheduleName,
   onConfirm,
   onClose,
+  deleting = false,
 }: ScheduleDeleteModalProps) {
 
   return (
@@ -32,7 +36,7 @@ export function ScheduleDeleteModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={springs.fast}
-          onClick={onClose}
+          onClick={deleting ? undefined : onClose}
           style={{
             position:        'fixed',
             inset:           0,
@@ -87,10 +91,10 @@ export function ScheduleDeleteModal({
 
             {/* Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-              <Button variant="ghost" size="sm" onClick={onClose}>
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={deleting}>
                 Cancel
               </Button>
-              <Button variant="danger" size="sm" onClick={onConfirm}>
+              <Button variant="danger" size="sm" loading={deleting} disabled={deleting} onClick={onConfirm}>
                 Delete schedule
               </Button>
             </div>

@@ -57,17 +57,23 @@ import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { Sparkline } from '@/components/Sparkline'
 import { ChangeAgentModelModal } from '@/components/ChangeAgentModelModal'
 import { FixAgentModelsModal, type UnavailableModelAgent } from '@/components/FixAgentModelsModal'
-import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
+import { resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'team-agents' | 'super-links'
-const TAB_IDS: TabId[] = ['my-personas', 'team-agents', 'super-links']
+type TabId = 'my-personas' | 'super-links'
+const TAB_IDS: TabId[] = ['my-personas', 'super-links']
+
+// Team has no backend route left at all, so there's no way to resolve a
+// shared persona's real owner any more — isPersonaOwnedByViewer falls back to
+// the coarse currentUserRole check for every org-shared persona (accepted
+// capability gap). Module-level so its reference stays stable across renders
+// instead of invalidating memoized values that depend on it every time.
+const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
 /** Reads `?tab=` — anything missing or unrecognized falls back to "My Agents". */
 function parseTabParam(value: string | null): TabId {
   return (TAB_IDS as string[]).includes(value ?? '') ? (value as TabId) : 'my-personas'
@@ -77,7 +83,7 @@ type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
   status:     Set<'live' | 'draft' | 'paused'>
-  visibility: Set<'private' | 'team' | 'community'>
+  visibility: Set<'private' | 'team'>
   superLink:  Set<'has-link' | 'no-link'>
   models:     Set<string>
 }
@@ -89,8 +95,7 @@ function modelDisplayName(modelId: string | null): string | null {
   if (!modelId) return null
   const id = modelId.toLowerCase()
   if (id.includes('claude')) {
-    if (id.includes('opus'))  return 'Advanced'
-    if (id.includes('haiku')) return 'Basic'
+    if (id.includes('opus')) return 'Advanced'
     return 'Standard'
   }
   if (id.includes('gpt')) return (id.includes('3.5') || id.includes('3-5')) ? 'GPT-3.5' : 'GPT-4'
@@ -495,26 +500,14 @@ function PersonasPageInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { close: closePinboard } = usePinboard()
-  const { currentUserRole, orgId, teams, members } = useOrg()
+  const { currentUserRole, members } = useOrg()
   const { user } = useAuth()
   // `user?.id` is never populated (see resolveViewerUserId) — resolve the
   // viewer's internal id via the org member list instead, so ownership checks
   // below actually match against `personaOwnerMap`'s id space.
   const viewerUserId = resolveViewerUserId(members, user?.email)
 
-  // repoId -> the persona's actual creator (from the team-persona-shares
-  // endpoint, which already tracks this for the "Shared by X" org/teams panel).
-  // `currentUserRole` is an ORG-WIDE role, not per-persona ownership — using it
-  // alone would treat every admin as if they owned every admin-created
-  // team-shared agent, not just their own. Falls back to that coarse check only
-  // until this authoritative map has loaded, to avoid a flash for real owners.
-  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (!orgId || teams.length === 0) return
-    let cancelled = false
-    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
-    return () => { cancelled = true }
-  }, [orgId, teams])
+  const personaOwnerMap = EMPTY_PERSONA_OWNER_MAP
 
   function isOwnedByMe(persona: Persona): boolean {
     return isPersonaOwnedByViewer(persona, personaOwnerMap, viewerUserId, currentUserRole === 'admin')
@@ -563,6 +556,8 @@ function PersonasPageInner() {
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [isDeletingPersona, setIsDeletingPersona] = useState(false)
+  const [pausingIds, setPausingIds] = useState<Set<string>>(new Set())
   const [changeModelTarget, setChangeModelTarget] = useState<Persona | null>(null)
   const [fixModelsOpen,     setFixModelsOpen]     = useState(false)
   const mounted = useMounted()
@@ -748,7 +743,7 @@ function PersonasPageInner() {
     if (!selectedShareId) return null
     const share = shares.find(s => s.id === selectedShareId)
     if (!share) return null
-    const personaInfo = versionToPersona[share.persona_id]
+    const personaInfo = versionToPersona[share.persona_repo_id]
     const name     = share.persona_name ?? personaInfo?.name     ?? 'Agent'
     const imageUrl = personaInfo?.imageUrl ?? null
     const repoId   = personaInfo?.repoId ?? ''
@@ -768,9 +763,9 @@ function PersonasPageInner() {
     const s = new Set<string>()
     for (const share of allSharesForFilter) {
       if (!share.is_active || share.share_type !== 'link') continue
-      const info = versionToPersona[share.persona_id]
+      const info = versionToPersona[share.persona_repo_id]
       if (info?.repoId) s.add(info.repoId)
-      else s.add(share.persona_id)
+      else s.add(share.persona_repo_id)
     }
     return s
   }, [allSharesForFilter, versionToPersona])
@@ -778,18 +773,9 @@ function PersonasPageInner() {
   // Visibility comes from the persona repo itself. Super Links are a separate
   // sharing surface and are handled by the Super Link filter below.
   const visibilityForPersona = useMemo(() => {
-    const map: Record<string, 'private' | 'team' | 'community'> = {}
+    const map: Record<string, 'private' | 'team'> = {}
     for (const p of personas) {
       map[p.id] = p.visibility
-    }
-    return map
-  }, [personas])
-
-  // Team count for the card's visibility footer badge ("N teams").
-  const teamCountForPersona = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const p of personas) {
-      if (p.visibility === 'team') map[p.id] = p.teamIds.length
     }
     return map
   }, [personas])
@@ -1052,6 +1038,7 @@ function PersonasPageInner() {
         return
       }
     }
+    setPausingIds(prev => new Set(prev).add(id))
     try {
       await togglePause(id)
       setPersonas(prev => prev.map(p => {
@@ -1075,6 +1062,8 @@ function PersonasPageInner() {
     } catch (err) {
       console.error('Failed to toggle pause:', err)
       toast.error(`Failed to ${currentlyPaused ? 'resume' : 'pause'} agent. Please try again.`)
+    } finally {
+      setPausingIds(prev => { const next = new Set(prev); next.delete(id); return next })
     }
   }
 
@@ -1124,7 +1113,6 @@ function PersonasPageInner() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
-                <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
               </Tabs.List>
             </Tabs>
@@ -1139,17 +1127,13 @@ function PersonasPageInner() {
                 color: '#1a1916',
                 margin: 0,
               }}>
-                {activeTab === 'super-links'
-                  ? 'Super Links'
-                  : activeTab === 'team-agents'
-                    ? 'Team Agents'
-                    : 'Agents'}
+                {activeTab === 'super-links' ? 'Super Links' : 'Agents'}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* Super Links' own "Generate link" trigger now lives with the
                     links list section below (where it's contextually useful),
                     instead of being duplicated here too. */}
-                {activeTab === 'super-links' || activeTab === 'team-agents' ? null : (
+                {activeTab === 'super-links' ? null : (
                   <>
                     {/* Only appears when something is actually broken — a
                         standing button here would read as a permanent chore. */}
@@ -1191,7 +1175,7 @@ function PersonasPageInner() {
                       </Button>
                     }
                   >
-                    <Dropdown>
+                    <Dropdown maxHeight={false}>
                       <Dropdown.Section>
                         <Dropdown.Item label="All"    selected={filterStatus === 'all'}    onClick={() => { setFilterStatus('all');    setAllOpen(false) }} fluid />
                         <Dropdown.Item label="Active" selected={filterStatus === 'active'} onClick={() => { setFilterStatus('active'); setAllOpen(false) }} fluid />
@@ -1266,7 +1250,7 @@ function PersonasPageInner() {
                       </Button>
                     }
                   >
-                    <Dropdown>
+                    <Dropdown maxHeight={false}>
                       <Dropdown.Section>
                         {(['activity', 'az', 'za'] as SortKey[]).map(k => (
                           <Dropdown.Item
@@ -1323,23 +1307,11 @@ function PersonasPageInner() {
                         ))}
                       </Dropdown.Section>
 
-                      {/* Visibility */}
-                      <Dropdown.Section label="Visibility">
-                        {([
-                          { id: 'private',   label: 'Private'   },
-                          { id: 'team',      label: 'Team'      },
-                          { id: 'community', label: 'Community' },
-                        ] as const).map(({ id, label }) => (
-                          <Dropdown.Item
-                            key={id}
-                            label={label}
-                            fluid
-                            showCheckbox
-                            checkboxChecked={filters.visibility.has(id)}
-                            onCheckboxChange={() => toggleFilter('visibility', id)}
-                          />
-                        ))}
-                      </Dropdown.Section>
+                      {/* Visibility filter UI hidden along with the rest of the
+                          shared-agent UI — `filters.visibility`/`AgentFilters`
+                          and its application in filterPanelFiltered below stay
+                          intact (always empty now, harmlessly a no-op) so this
+                          section can be re-added without rebuilding it. */}
 
                       {/* Super Link */}
                       <Dropdown.Section label="Super Link">
@@ -1518,7 +1490,10 @@ function PersonasPageInner() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          shared={persona.sourceShareId !== null || (persona.visibility === 'team' && !isOwnedByMe(persona))}
+                          // Super Link-accepted only — the team-visibility half of this
+                          // is hidden along with the rest of the shared-agent UI (see
+                          // SharingTab.tsx), not deleted from `Persona.visibility` itself.
+                          shared={persona.sourceShareId !== null}
                           createdBy={createdByForPersona[persona.id]}
                           useInChatLabel="Chat with agent"
                           // Draft cards already have their own "finish setup" treatment —
@@ -1534,8 +1509,9 @@ function PersonasPageInner() {
                               : undefined
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
-                          visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
-                          teamCount={teamCountForPersona[persona.id]}
+                          // "Team" badge hidden along with the rest of the shared-agent UI —
+                          // every card reads as Private regardless of the underlying value.
+                          visibility={visibilityForPersona[persona.id] ? 'private' : undefined}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the
@@ -1556,6 +1532,7 @@ function PersonasPageInner() {
                               onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
                               onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
                               onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
+                              pausePending:      pausingIds.has(persona.id),
                               onMenuDelete:      () => setDeleteTarget(persona),
                             }
                           })()}
@@ -1568,10 +1545,6 @@ function PersonasPageInner() {
             </div>
           )}
 
-          {/* ── Team Agents tab ── */}
-          {activeTab === 'team-agents' && (
-            <TeamAgentsTab />
-          )}
 
           {/* ── Recommended for you ── (hidden) */}
 
@@ -1616,7 +1589,7 @@ function PersonasPageInner() {
             const topShare = shares.length > 0
               ? [...shares].sort((a, b) => (b.recipients?.length ?? 0) - (a.recipients?.length ?? 0))[0]
               : null
-            const topAgentInfo   = topShare ? versionToPersona[topShare.persona_id] : null
+            const topAgentInfo   = topShare ? versionToPersona[topShare.persona_repo_id] : null
             const topAgentName   = topShare ? (topShare.persona_name ?? topAgentInfo?.name ?? 'Agent') : null
             const topAgentConvos = topShare?.recipients?.length ?? 0
 
@@ -1816,7 +1789,7 @@ function PersonasPageInner() {
                           )}
 
                           {!sharesLoading && shares.map(share => {
-                            const personaInfo = versionToPersona[share.persona_id]
+                            const personaInfo = versionToPersona[share.persona_repo_id]
                             const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
                             const imageUrl    = personaInfo?.imageUrl ?? null
                             const repoId      = personaInfo?.repoId ?? ''
@@ -2016,16 +1989,17 @@ function PersonasPageInner() {
       <SuperLinkDrawer
         link={selectedDrawerLink}
         onClose={() => setSelectedShareId(null)}
-        onStatusChange={(next) => {
+        onStatusChange={async (next) => {
           if (next === 'revoked' && selectedShareId) {
             const id = selectedShareId
-            revokeShare(id)
-              .then(() => {
-                setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
-                setSelectedShareId(null)
-                toast.success('Super Link revoked')
-              })
-              .catch(() => toast.error('Failed to revoke link'))
+            try {
+              await revokeShare(id)
+              setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
+              setSelectedShareId(null)
+              toast.success('Super Link revoked')
+            } catch {
+              toast.error('Failed to revoke link')
+            }
           }
         }}
       />
@@ -2139,7 +2113,7 @@ function PersonasPageInner() {
                     >
                       Delete agent?
                     </p>
-                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} />
+                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} disabled={isDeletingPersona} />
                   </div>
 
                   {/* Body */}
@@ -2207,8 +2181,22 @@ function PersonasPageInner() {
                       flexShrink:     0,
                     }}
                   >
-                    <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-                    <Button variant="danger" onClick={() => { handleDelete(deleteTarget.id, deleteTarget.name); setDeleteTarget(null) }}>Delete</Button>
+                    <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={isDeletingPersona}>Cancel</Button>
+                    <Button
+                      variant="danger"
+                      loading={isDeletingPersona}
+                      onClick={async () => {
+                        setIsDeletingPersona(true)
+                        try {
+                          await handleDelete(deleteTarget.id, deleteTarget.name)
+                          setDeleteTarget(null)
+                        } finally {
+                          setIsDeletingPersona(false)
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </m.div>
               </div>

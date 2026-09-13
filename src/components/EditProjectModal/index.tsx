@@ -43,6 +43,13 @@ const LABEL_STYLE: React.CSSProperties = {
   margin:     0,
 }
 
+// The asterisk is decorative — `aria-required` on the input/textarea itself
+// is what actually announces "required" to assistive tech, regardless of
+// whether a given screen reader vocalizes the "*" glyph.
+function RequiredMark() {
+  return <span aria-hidden="true" style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface EditProjectModalProps {
@@ -50,7 +57,7 @@ export interface EditProjectModalProps {
   name:        string
   description: string
   tags?:       ProjectTag[]
-  onSave:      (name: string, description: string, tags: ProjectTag[]) => void
+  onSave:      (name: string, description: string, tags: ProjectTag[]) => void | Promise<void>
   onClose:     () => void
 }
 
@@ -63,6 +70,7 @@ export function EditProjectModal({
   const [draftDesc, setDraftDesc]   = useState(description)
   const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
   const [tagInput,  setTagInput]    = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
@@ -98,11 +106,18 @@ export function EditProjectModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  function handleSave() {
-    if (!draftName.trim()) return
-    onSave(draftName.trim(), draftDesc.trim(), draftTags)
-    toast.success('Project updated')
-    onClose()
+  async function handleSave() {
+    if (!draftName.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await onSave(draftName.trim(), draftDesc.trim(), draftTags)
+      toast.success('Project updated')
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update project')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function focusInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -146,7 +161,6 @@ export function EditProjectModal({
         >
           <m.div
             key="edit-project-modal"
-            className="kaya-scrollbar"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
             exit={{    opacity: 0, scale: 0.96, y: 8 }}
@@ -156,13 +170,13 @@ export function EditProjectModal({
               background:    'var(--neutral-white)',
               borderRadius:  '20px',
               boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-              width:         '480px',
+              width:         '560px',
               maxWidth:      'calc(100vw - 32px)',
+              height:        '580px',
               maxHeight:     'calc(100dvh - 64px)',
               display:       'flex',
               flexDirection: 'column',
-              overflowY:     'auto',
-              overflowX:     'hidden',
+              overflow:      'hidden',
             }}
           >
             {/* ── Header ── */}
@@ -187,24 +201,29 @@ export function EditProjectModal({
               >
                 Edit
               </p>
-              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} />
+              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
             </div>
 
             <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
 
-            {/* ── Body ── */}
+            {/* ── Body — scrolls on its own so the header/dividers/footer stay
+                fixed and full-width; kaya-scrollbar's permanent gutter only
+                applies within this region, not the whole card. ── */}
             <div
+              className="kaya-scrollbar"
               style={{
                 display:       'flex',
                 flexDirection: 'column',
                 gap:           '20px',
                 padding:       '24px 20px',
-                flexShrink:    0,
+                flex:          '1 1 0',
+                minHeight:     0,
+                overflowY:     'auto',
               }}
             >
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name</label>
+                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name<RequiredMark /></label>
                 <input
                   id="edit-project-name"
                   type="text"
@@ -215,22 +234,24 @@ export function EditProjectModal({
                   onFocus={focusInput}
                   onBlur={blurInput}
                   autoFocus
+                  aria-required="true"
                 />
               </div>
 
               {/* Description */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description</label>
+                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description<RequiredMark /></label>
                 <textarea
                   id="edit-project-desc"
                   className="kaya-chat-textarea"
                   value={draftDesc}
                   onChange={(e) => setDraftDesc(e.target.value)}
                   placeholder="e.g. All discovery and design work for the V2 redesign"
-                  rows={4}
+                  rows={6}
                   style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
                   onFocus={focusInput}
                   onBlur={blurInput}
+                  aria-required="true"
                 />
               </div>
 
@@ -312,8 +333,8 @@ export function EditProjectModal({
                 flexShrink:     0,
               }}
             >
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button variant="default" onClick={handleSave} disabled={!draftName.trim()}>
+              <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
+              <Button variant="default" onClick={() => void handleSave()} loading={submitting} disabled={!draftName.trim() || submitting}>
                 Save changes
               </Button>
             </div>

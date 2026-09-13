@@ -6,12 +6,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { ConnectorRow } from '@/components/ConnectorRow'
-import { listConnectors } from '@/lib/api/connectors'
+import { ConnectorCatalog, listLinkedConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
-import type { ConnectorCatalogEntry, ConnectorAccountOption } from '@/lib/api/connectors'
-import { toConnector } from '@/lib/connector'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
-import { SETTINGS_CONNECTORS_ROUTE } from '@/lib/routes'
+import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -33,57 +31,12 @@ function XIcon() {
   )
 }
 
-// ── Account-grouping helpers ───────────────────────────────────────────────────
-// Workspace connectors are org-owned shared accounts (scope: 'shared_team'); a
-// single connector can expose several. Personal connectors are the viewer's own
-// linked account (scope: 'personal'). Both are surfaced through account_options;
-// we fall back to the entry's scalar fields for older catalog responses.
+// Workspace connectors are org-owned shared accounts (scope: 'shared').
+// Personal connectors are the viewer's own linked account (scope: 'personal').
+// Both live on ConnectorCatalog.connections.
 
-function logoFor(entry: ConnectorCatalogEntry): string | undefined {
-  return toConnector(entry).logo ?? undefined
-}
-
-/** Connected, active shared-team accounts for this connector. */
-function workspaceAccountsOf(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
-  const opts = (entry.account_options ?? []).filter(
-    o => o.scope === 'shared_team' && o.connected && o.status === 'active',
-  )
-  if (opts.length > 0) return opts
-  // Fallback: the single workspace summary on the entry.
-  if (entry.workspace_linked) {
-    return [{
-      connector_slug:     entry.slug,
-      scope:              'shared_team',
-      account_label:      entry.account_label ?? 'Shared',
-      account_identifier: entry.account_identifier,
-      connected:          true,
-      status:             'active',
-      team_ids:           [],
-      team_names:         [],
-      shared_account_id:  entry.shared_account_id,
-      linked_by_user_id:  entry.workspace_linked_by,
-      can_manage:         false,
-    }]
-  }
-  return []
-}
-
-/** True when the viewer has a personal (own) connection for this connector. */
-function hasPersonalAccount(entry: ConnectorCatalogEntry): boolean {
-  const opts = (entry.account_options ?? []).filter(o => o.connected && o.status === 'active')
-  if (opts.length > 0) return opts.some(o => o.scope === 'personal')
-  return entry.linked
-}
-
-/** A connector is usable by this agent when the viewer has any working account
- *  for it (personal or shared) or the org has enabled it. */
-function isAvailable(entry: ConnectorCatalogEntry): boolean {
-  return (
-    entry.linked ||
-    entry.org_enabled === true ||
-    (entry.account_options ?? []).some(o => o.connected && o.status === 'active') ||
-    entry.workspace_linked
-  )
+function logoFor(entry: ConnectorCatalog): string | undefined {
+  return entry.logo ?? undefined
 }
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
@@ -128,7 +81,7 @@ export default function ConnectorsTab({
   const { push } = useRouter()
   const { safeNavigate, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
-  const [connectors,   setConnectors]   = useState<ConnectorCatalogEntry[]>([])
+  const [connectors,   setConnectors]   = useState<ConnectorCatalog[]>([])
   const [blockedSlugs, setBlockedSlugs] = useState<Set<string>>(new Set())
   const [showNavModal, setShowNavModal] = useState(false)
   const [isSavingNav,  setIsSavingNav]  = useState(false)
@@ -142,7 +95,7 @@ export default function ConnectorsTab({
   useEffect(() => { onChangeRef.current = onConnectorsChange })
 
   // Report the current enabled/disabled split (by slug) to the parent.
-  const emitChange = useCallback((available: ConnectorCatalogEntry[], blocked: Set<string>, isInitial = false) => {
+  const emitChange = useCallback((available: ConnectorCatalog[], blocked: Set<string>, isInitial = false) => {
     const enabled  = available.filter(c => !blocked.has(c.slug)).map(c => c.slug)
     const disabled = available.filter(c =>  blocked.has(c.slug)).map(c => c.slug)
     onChangeRef.current?.(enabled, disabled, isInitial)
@@ -154,10 +107,10 @@ export default function ConnectorsTab({
     setLoadError('')
     try {
       const [catalog, version] = await Promise.all([
-        listConnectors(),
+        listLinkedConnectors(),
         getVersion(repoId, versionId),
       ])
-      const available = catalog.filter(isAvailable)
+      const available = catalog.filter(row => row.isAvailable)
       const blocked   = new Set<string>(version.blocked_connectors ?? [])
       setConnectors(available)
       setBlockedSlugs(blocked)
@@ -188,7 +141,7 @@ export default function ConnectorsTab({
     emitChange(connectors, next)
     markFieldTouched('connectors', 'connectors')
 
-    const displayName = connectors.find(c => c.slug === slug)?.display_name ?? slug
+    const displayName = connectors.find(c => c.slug === slug)?.displayName ?? slug
     const agentLabel  = personaName ? ` for ${personaName}` : ''
     try {
       if (enabled) {
@@ -210,11 +163,11 @@ export default function ConnectorsTab({
     }
   }, [repoId, versionId, savingSlug, blockedSlugs, connectors, personaName, emitChange, markFieldTouched, resetTouchedFields])
 
-  const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
+  const matchesSearch = useCallback((c: ConnectorCatalog) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
     return (
-      c.display_name.toLowerCase().includes(q) ||
+      c.displayName.toLowerCase().includes(q) ||
       c.description.toLowerCase().includes(q) ||
       c.slug.toLowerCase().includes(q)
     )
@@ -232,15 +185,15 @@ export default function ConnectorsTab({
   // personal account stays live and toggleable; the workspace account(s)
   // render as a locked, informational row instead of a second active switch.
   const conflictedSlugs = new Set(
-    visible.filter(entry => hasPersonalAccount(entry) && workspaceAccountsOf(entry).length > 0).map(entry => entry.slug),
+    visible.filter(entry => entry.connectedPrivate.length > 0 && entry.connectedShared.length > 0).map(entry => entry.slug),
   )
 
   // Workspace rows: one per connected shared account (a connector may have many).
   const workspaceRows = visible.flatMap(entry =>
-    workspaceAccountsOf(entry).map(account => ({ entry, account, overridden: conflictedSlugs.has(entry.slug) })),
+    entry.connectedShared.map(account => ({ entry, account, overridden: conflictedSlugs.has(entry.slug) })),
   )
   // Personal rows: one per connector the viewer personally linked.
-  const personalRows = visible.filter(hasPersonalAccount)
+  const personalRows = visible.filter(entry => entry.connectedPrivate.length > 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', paddingTop: 3 }}>
@@ -270,10 +223,10 @@ export default function ConnectorsTab({
           }}>
             <div>
               <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>
-                Leave to Settings?
+                Leave to Connectors?
               </p>
               <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
-                You are about to leave the agent editor. You can save a version first before going to Settings.
+                You are about to leave the agent editor. You can save a version first before going to Connectors.
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -293,7 +246,7 @@ export default function ConnectorsTab({
                   setIsSavingNav(true)
                   try {
                     await onSaveVersion?.()
-                    push(SETTINGS_CONNECTORS_ROUTE)
+                    push(ORG_CONNECTORS_ROUTE)
                   } catch {
                     // onSaveVersion shows its own error toast; stay in modal
                   } finally {
@@ -319,7 +272,7 @@ export default function ConnectorsTab({
           rightIcon={<ArrowUpRightOneIcon size={16} animated />}
           onClick={() => setShowNavModal(true)}
         >
-          Manage in Settings
+          Manage Connectors
         </Button>
       </div>
 
@@ -367,10 +320,10 @@ export default function ConnectorsTab({
       ) : connectors.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
-            No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
+            No connectors are available yet. Connect or enable connectors from the Connectors page to use them in this agent.
           </p>
           <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
-            Go to Settings
+            Go to Connectors
           </Button>
         </div>
       ) : workspaceRows.length === 0 && personalRows.length === 0 ? (
@@ -378,11 +331,11 @@ export default function ConnectorsTab({
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
             {searchQuery
               ? <>No connectors match &ldquo;{searchQuery}&rdquo;.</>
-              : 'No connectors are connected yet. Connect accounts in Settings to use them here.'}
+              : 'No connectors are connected yet. Connect accounts from the Connectors page to use them here.'}
           </p>
           {!searchQuery && (
             <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
-              Go to Settings
+              Go to Connectors
             </Button>
           )}
         </div>
@@ -394,14 +347,14 @@ export default function ConnectorsTab({
               <p style={{ ...SECTION_LABEL, marginBottom: 4, paddingLeft: 12 }}>Workspace connectors</p>
               {workspaceRows.map(({ entry, account, overridden }) => (
                 <ConnectorRow
-                  key={`${entry.slug}:${account.shared_account_id ?? 'shared'}`}
-                  name={entry.display_name}
+                  key={`${entry.slug}:${account.id}`}
+                  name={entry.displayName}
                   description={overridden
                     ? 'Your personal account is used instead — disconnect it in Settings to use this workspace account.'
                     : entry.description}
                   iconUrl={logoFor(entry)}
                   status="connected-workspace"
-                  accountLabel={account.account_label}
+                  accountLabel={account.nickname}
                   active={overridden ? false : !blockedSlugs.has(entry.slug)}
                   onActiveChange={overridden ? undefined : enabled => void setEnabled(entry.slug, enabled)}
                   disabled={overridden || savingSlug === entry.slug}
@@ -417,7 +370,7 @@ export default function ConnectorsTab({
               {personalRows.map(entry => (
                 <ConnectorRow
                   key={entry.slug}
-                  name={entry.display_name}
+                  name={entry.displayName}
                   description={entry.description}
                   iconUrl={logoFor(entry)}
                   status="connected-personal"

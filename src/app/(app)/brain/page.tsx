@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment, type CSSProperties } from 'react'
 import { m } from 'framer-motion'
 import { springs } from '@/lib/springs'
-import { BRAIN_ROUTE } from '@/lib/routes'
+import { BRAIN_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
@@ -37,6 +37,7 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { useBrainThreadContext } from '@/context/brain-thread-context'
 import { shouldCompleteStreamOnClose } from '@/templates/Brain/lib/phase'
 import type { AgentStep, Phase, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -54,14 +55,15 @@ import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
 import {
   initiateLink,
-  listConnectors,
+  completeZapierLink,
+  listLinkedConnectors,
   pollConnectorUntilActive,
   getConnector,
-  updateConnector,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
+import { isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 import { toast } from 'sonner'
 import {
   startBrainChat,
@@ -88,7 +90,7 @@ import { ApiError } from '@/lib/api/client'
 import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
-import { getAutomation, listAutomations, type Automation } from '@/lib/api/automations'
+import { getAutomation, listAutomations, runSummary, type Automation } from '@/lib/api/automations'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
@@ -119,9 +121,29 @@ import type { ContextRailData } from '@/templates/Brain/ContextRail'
 export default function BrainPage() {
   return (
     <Suspense fallback={null}>
-      <BrainPageInner />
+      <BrainRemountGate />
     </Suspense>
   )
+}
+
+// Forces a genuinely fresh mount of BrainPageInner across a `?new=1`
+// transition — belt-and-suspenders alongside its own internal
+// newThreadRequested effect (which calls handleNewChat() imperatively).
+// That reset depends on this instance's effects actually re-running for the
+// new URL; if the client router ever serves /brain from its cache instead of
+// a true remount, a key change is the one thing React always honors
+// regardless of what the router did underneath, discarding the old instance
+// (and whichever thread's state it was still carrying) outright — no race
+// possible. Only two key values ('new' / 'thread'), not one per request: the
+// transition into `?new=1` and the subsequent replace() back out of it both
+// need to force a remount, but every other transition (switching between two
+// *existing* threads, or this same new thread acquiring a real id once the
+// user sends its first message) must NOT remount — those still rely on
+// BrainPageInner's own chatIdFromUrl-driven in-place reset, same as today.
+function BrainRemountGate() {
+  const searchParams = useSearchParams()
+  const newThreadRequested = searchParams.get('new') === '1'
+  return <BrainPageInner key={newThreadRequested ? 'new' : 'thread'} />
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -610,16 +632,16 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   // For api_key connectors without fields in the SSE payload, fetch from catalog
   useEffect(() => {
     if (event.auth_mode !== 'api_key' || fields !== null) return
-    getConnector(event.connector_slug)
+    getConnector(event.connector.slug)
       .then((entry) => {
         if (!abortedRef.current) {
-          setFields(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+          setFields(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
         }
       })
       .catch(() => {
         if (!abortedRef.current) setFields([DEFAULT_API_KEY_FIELD])
       })
-  }, [event.auth_mode, event.connector_slug, fields])
+  }, [event.auth_mode, event.connector.slug, fields])
 
   const handleOAuth = useCallback(async (initData?: Record<string, string>) => {
     if (busy || done) return
@@ -628,45 +650,46 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     try {
       // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
       // undefined for plain OAuth.
-      const { redirect_url } = await initiateLink(event.connector_slug, initData)
-      if (redirect_url) window.open(redirect_url, '_blank', 'noopener')
-      await pollConnectorUntilActive(event.connector_slug)
+      const { redirectUrl } = await initiateLink(event.connector.slug, initData)
+      const hosted = Boolean(redirectUrl && isZapierProviderConnector(null, redirectUrl))
+      const openUrl = hosted && redirectUrl ? zapierConnectHref(redirectUrl) : redirectUrl
+      const popup = openUrl
+        ? window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'width=900,height=700')
+        : null
+      if (hosted) {
+        const connectionId = await waitForZapierAuthId()
+        await completeZapierLink(event.connector.slug, connectionId)
+        popup?.close()
+      } else {
+        await pollConnectorUntilActive(event.connector.slug)
+        popup?.close()
+      }
       if (abortedRef.current) return
       setDone(true)
-      onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — continuing your request.`)
+      onConnected?.(event.connector.slug)
+      toast.success(`${event.connector.name} connected — continuing your request.`)
     } catch (e) {
       if (abortedRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to connect.')
     } finally {
       setBusy(false)
     }
-  }, [busy, done, event.connector_slug, event.display_name, onConnected])
+  }, [busy, done, event.connector.slug, event.connector.name, onConnected])
 
+  // API-key connectors are linked through the same hosted Connect flow as
+  // OAuth ones — the fields ride along as init_data. There is no separate
+  // credential endpoint to post them to.
   const handleApiKey = useCallback(async () => {
-    if (busy || done) return
-    setBusy(true)
-    setError(null)
-    try {
-      await updateConnector(event.connector_slug, { credentials: creds })
-      if (abortedRef.current) return
-      setDone(true)
-      onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — continuing your request.`)
-    } catch (e) {
-      if (abortedRef.current) return
-      setError(e instanceof Error ? e.message : 'Failed to save credentials.')
-    } finally {
-      setBusy(false)
-    }
-  }, [busy, done, event.connector_slug, event.display_name, creds, onConnected])
+    await handleOAuth(creds)
+  }, [handleOAuth, creds])
 
   const resolvedFields = fields ?? [DEFAULT_API_KEY_FIELD]
   const allFilled = resolvedFields.filter((f) => f.required).every((f) => (creds[f.name] ?? '').trim())
   // Per-tenant OAuth (Shopify BYOA) declares required init fields; render the
   // same credential form as api_key, but submit via the OAuth path (posts
   // init_data, then opens the hosted connect popup).
-  const showCredentialForm = event.auth_mode === 'api_key' || oauthNeedsInitFields(event)
+  const showCredentialForm = !isZapierProviderConnector(event.provider)
+    && (event.auth_mode === 'api_key' || oauthNeedsInitFields(event))
 
   const cardStyle: CSSProperties = {
     display:         'flex',
@@ -695,13 +718,13 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     backgroundColor: 'var(--neutral-white)',
   }
 
-  const logoSrc = toConnector(event).logo
+  const logoSrc = event.connector.logo
 
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
+          // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url, variable path prevents next/image static analysis
           <img
             src={logoSrc}
             alt=""
@@ -726,7 +749,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
             textTransform:   'uppercase',
             userSelect:      'none',
           }}>
-            {(event.display_name || event.connector_slug || '?').charAt(0)}
+            {(event.connector.name || event.connector.slug || '?').charAt(0)}
           </span>
         )}
         <span style={{
@@ -735,7 +758,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
           fontWeight: 'var(--font-weight-medium)',
           color:      'var(--neutral-800)',
         }}>
-          Connect {event.display_name} to continue
+          Connect {event.connector.name} to continue
         </span>
       </div>
       <span style={{
@@ -744,7 +767,9 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         lineHeight: 'var(--line-height-caption)',
         color:      'var(--neutral-500)',
       }}>
-        Brain needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name}.
+        {event.tool_name
+          ? <>Task needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.connector.name}.</>
+          : <>Task needs access to {event.connector.name} to keep going.</>}
       </span>
 
       {error && (
@@ -777,7 +802,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
               disabled={done || !allFilled}
               onClick={() => void (event.auth_mode === 'api_key' ? handleApiKey() : handleOAuth(creds))}
             >
-              {done ? 'Connected' : `Connect ${event.display_name}`}
+              {done ? 'Connected' : `Connect ${event.connector.name}`}
             </Button>
           </div>
         </div>
@@ -790,7 +815,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
             disabled={done}
             onClick={() => void handleOAuth()}
           >
-            {done ? 'Connected' : `Connect ${event.display_name}`}
+            {done ? 'Connected' : `Connect ${event.connector.name}`}
           </Button>
         </div>
       )}
@@ -977,8 +1002,8 @@ function MessageImages({ images }: { images: { url: string }[] }) {
 
 // ── External-output card ("Done in the world") ────────────────────────────────
 // Adapts the backend ExternalOutputAction (snake_case, view_url/logo_url) to the
-// may-day ExternalOutputCard props: logo falls back to the bundled connector
-// asset, and view_url becomes an onView handler (omitted ⇒ no View button). No
+// may-day ExternalOutputCard props: logo comes from the action's own logo_url,
+// and view_url becomes an onView handler (omitted ⇒ no View button). No
 // `onUndo` — the backend never promises reversibility (see the schema docstring).
 function ExternalOutputBlock({ actions, completedAt }: { actions: ExternalOutputAction[]; completedAt?: string }) {
   if (actions.length === 0) return null
@@ -1005,6 +1030,11 @@ function BrainPageInner() {
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
   const newThreadRequested = searchParams.get('new') === '1'
+  // Live-synced with the sidebar and /chats Tasks tab — a rename from either
+  // surface (or the backend's own async auto-title) updates this immediately,
+  // same shared state, same pattern as the regular chat name in TopBar.
+  const { threads: brainThreads } = useBrainThreadContext()
+  const activeThreadTitle = chatIdFromUrl ? brainThreads.find(t => t.id === chatIdFromUrl)?.chat_title : undefined
 
   const [homeSchedules, setHomeSchedules] = useState<ActiveSchedule[]>([])
   const [homeDigest, setHomeDigest] = useState<DigestItem[]>([])
@@ -1049,7 +1079,7 @@ function BrainPageInner() {
             scheduleId: task.id,
             scheduleName: task.name,
             ranAt: ranAt ? brainHomeTime(ranAt) : 'Recent run',
-            summary: run.answer || run.error || (run.status === 'succeeded' ? 'Run completed.' : 'Run needs review.'),
+            summary: runSummary(run),
             status: run.status === 'succeeded' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
           }]
         }))
@@ -1302,14 +1332,14 @@ function BrainPageInner() {
   const [connectorCatalog, setConnectorCatalog] = useState<ContextConnector[]>([])
   useEffect(() => {
     let cancelled = false
-    void listConnectors()
+    void listLinkedConnectors()
       .then((entries) => {
         if (cancelled) return
         setConnectorCatalog(entries.map((e) => ({
           slug:         e.slug,
-          display_name: e.display_name,
-          status:       e.linked || e.workspace_linked ? 'connected' : 'disconnected',
-          logo_url:     e.logo_url,
+          display_name: e.displayName,
+          status:       e.linked ? 'connected' : 'disconnected',
+          logo_url:     e.logoUrl,
         })))
       })
       .catch(() => {})
@@ -1361,10 +1391,16 @@ function BrainPageInner() {
   const threadRef       = useRef<HTMLDivElement>(null)
   const activeTurnRef   = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
-  const shouldFollowThreadBottom = useCallback(() => {
-    if (!isNearBottomRef.current) return false
-    return ['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phaseRef.current)
-  }, [])
+  // Previously only followed during settled phases (idle/complete/paused/etc)
+  // and explicitly skipped 'thinking'/'streaming'/'executing' — backwards from
+  // what's needed: those active phases are exactly when step cards and
+  // streamed text are growing and following the bottom matters most. Now
+  // follows purely off scroll position, in every phase, so a user sitting at
+  // the bottom stays pinned there through generation, and one who has
+  // scrolled up to read is never yanked back down by content growth alone
+  // (only the explicit force-scrolls below — permission/connector/clarify
+  // cards needing input — still bypass this).
+  const shouldFollowThreadBottom = useCallback(() => isNearBottomRef.current, [])
 
   // Attach scroll listener once on mount to keep isNearBottomRef in sync.
   useEffect(() => {
@@ -1440,7 +1476,7 @@ function BrainPageInner() {
 
   // Connector permission card appeared — always scroll into view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (toolConnectPrompt) scrollToBottom(true) }, [toolConnectPrompt?.connector_slug])
+  useEffect(() => { if (toolConnectPrompt) scrollToBottom(true) }, [toolConnectPrompt?.connector.slug])
 
   // Permission prompt card appeared — always scroll into view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1494,7 +1530,7 @@ function BrainPageInner() {
     fetchPersonas()
       // Only surface personally-owned agents in this context — team-shared personas
       // are scoped to project chat where the copy flow handles them correctly.
-      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, handle: p.handle, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null, visibility: p.visibility, ownedByViewer: true }))))
+      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, handle: p.handle, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null, visibility: p.visibility, ownedByViewer: true, description: p.description, tags: p.tags, paused: p.isPaused, shared: p.sourceShareId !== null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])
@@ -1985,7 +2021,7 @@ function BrainPageInner() {
       case 'title': {
         const title = typeof d.title === 'string' ? d.title : ''
         if (title && typeof document !== 'undefined') {
-          document.title = `${title} — Brain`
+          document.title = `${title} — Task`
         }
         // Reflect the resolved title in the sidebar thread list live.
         if (title && chatIdRef.current) {
@@ -2068,24 +2104,28 @@ function BrainPageInner() {
       }
 
       case 'tool_connect_prompt': {
-        const slug         = typeof d.connector_slug === 'string' ? d.connector_slug : ''
-        const display_name = typeof d.display_name   === 'string' ? d.display_name   : slug
+        // The whole event goes to toConnector: slug, name and logo resolve
+        // together from whichever fields the wire used.
+        const connector    = toConnector(d)
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
+        const provider     = (['pipedream', 'mcp', 'zapier'] as const).find(value => value === d.provider)
         const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
         const request_id   = typeof d.prompt_id      === 'string' ? d.prompt_id      : ''
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can
         // render the credential form inline instead of a bare OAuth popup.
         const api_key_fields = Array.isArray(d.api_key_fields) ? (d.api_key_fields as ApiKeyField[]) : undefined
-        if (slug) {
+        if (connector.slug) {
           setToolConnectPrompt({
-            connector_slug: slug,
-            display_name,
+            connector,
             auth_mode,
+            provider,
             tool_name,
             request_id,
             api_key_fields,
           })
-          setTimeline((prev) => [...prev, { kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug }])
+          setTimeline((prev) => [...prev, {
+            kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug: connector.slug,
+          }])
         }
         break
       }
@@ -2503,7 +2543,7 @@ function BrainPageInner() {
           // else is settled or parked on a card waiting for the user.
           if (controller.signal.aborted) return
           if (!IN_FLIGHT_PHASES.has(phaseRef.current)) return
-          setStreamError('Brain stopped responding before the turn finished. Please try again.')
+          setStreamError('Task stopped responding before the turn finished. Please try again.')
           setPhase('failed')
         },
         onError:  (e) => {
@@ -2891,6 +2931,12 @@ function BrainPageInner() {
         temperature:     null,
         visibility:      'private',
         ownedByViewer:   true,
+        // Not available from the clarification option — only the rail's
+        // avatar/name/id are known here.
+        description:     '',
+        tags:            [],
+        paused:          false,
+        shared:          false,
       })
     }
 
@@ -3574,7 +3620,7 @@ function BrainPageInner() {
               actionType={approvalActionType(activeApprovalPrompt.verb)}
               connectorName={activeApprovalPrompt.displayName}
               targetName={activeApprovalPrompt.target || formatToolSlug(activeApprovalPrompt.toolSlug) || 'this action'}
-              description={`Brain is about to perform this action in the real world via ${activeApprovalPrompt.displayName}. Review before it runs.`}
+              description={`Task is about to perform this action in the real world via ${activeApprovalPrompt.displayName}. Review before it runs.`}
               reversible={false}
               onAccept={() => handleApprovalDecision('approve')}
               onDeny={() => handleApprovalDecision('reject')}
@@ -3582,7 +3628,7 @@ function BrainPageInner() {
           )
           : null
       case 'connect':
-        return toolConnectPrompt?.connector_slug === item.slug
+        return toolConnectPrompt?.connector.slug === item.slug
           ? (
             <ToolConnectCard
               key={item.id}
@@ -4068,6 +4114,7 @@ function BrainPageInner() {
       />
     <BrainShell
       defaultPhase={phase}
+      title={activeThreadTitle}
       onSend={handleSend}
       contextRailData={contextRailData}
       threadRef={threadRef}
@@ -4075,6 +4122,7 @@ function BrainPageInner() {
       initialInputKey={inputSeed.key}
       onFilesDropped={(files) => setBrainAttachments((prev) => processFiles(files, prev))}
       dropDisabled={brainIsStreaming || creditStatus.blocked}
+      onSwitchToChat={() => push(CHAT_ROUTE)}
       homeProps={{
         digestItems: homeDigest,
         activeSchedules: homeSchedules,
@@ -4121,6 +4169,7 @@ function BrainPageInner() {
         onOpenEndedSubmit: handleClarificationOpenEnded,
         onSend:           handleClarificationSend,
         onSkip:           handleClarificationSkip,
+        pending:          clarificationInFlight,
       } : undefined}
       chatInputProps={{
         isStreaming: brainIsStreaming,

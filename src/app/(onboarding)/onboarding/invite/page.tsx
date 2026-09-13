@@ -1,368 +1,334 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, m } from "framer-motion";
+import { CancelOneIcon } from "@strange-huge/icons";
 import { useAuth } from "@/context/auth-context";
-import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
-import { Button } from "@/components/Button";
-import { updateOnboarding, updateUser } from "@/lib/api/user";
-import { fetchTeams, inviteTeamMembers, createTeam } from "@/lib/api/teams";
+import { useWorkspaceOnboarding } from "@/context/workspace-onboarding-context";
+import { updateOnboarding } from "@/lib/api/user";
+import { inviteMembers } from "@/lib/api/teams";
 import { listOrganizations } from "@/lib/api/organization";
-import type { WorkspaceRole } from "@/types/teams";
-import { apiFetch } from "@/lib/api/client";
-import { MEMORY_USER_ENDPOINT } from "@/lib/config";
-import { Dropdown, DropdownFloat } from "@/components/Dropdown";
-import { OnboardingScreen } from "../_components/onboarding-shell";
-import { WELCOME_ROUTE } from "@/lib/routes";
+import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Tooltip } from "@/components/Tooltip";
-import { InformationCircleIcon } from "@strange-huge/icons";
+import { Badge } from "@/components/Badge";
+import { ChipInput } from "@/components/ChipInput";
+import { StepCanvas, StepHeader, StepFooter, FieldLabel, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
+import { ONBOARDING_PROFILE_ROUTE, WELCOME_ROUTE } from "@/lib/routes";
 
-const ROLE_INFO = (
-  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-    <div><strong>Member</strong> — Baseline access through assigned projects. Cannot change organization settings, manage other members, or edit teams.</div>
-    <div><strong>Admin</strong> — Everything an owner can do, except manage billing or payments.</div>
-  </div>
-);
+// Simple format check, not a deliverability check — "secure email verification
+// method" per the spec means catching obviously-malformed entries before they
+// reach the backend, not confirming the mailbox exists.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const INVITE_ROLES = ["Member", "Admin"] as const;
-type InviteRole = (typeof INVITE_ROLES)[number];
+// ── A1 screen 4 — "Invite your team members" ─────────────────────────────────
+// Figma: node 27:1353. No error/field-rules annotation node exists for this
+// screen (unlike workspace/profile) — inviting is optional, hence the "Skip
+// for now" button alongside Next (this is the only one of the 3 form steps
+// with a 3-button footer: Back / Skip for now / Next).
+//
+// This step is also where onboarding completes (mirrors the previous flow's
+// invite page): there is no dedicated route for A1 screen 5 ("Into the app" +
+// "Add Souvenir to Slack" modal, node 55-2475) — that screen is the home/
+// new-chat page with a modal overlay, not a distinct onboarding step, so it's
+// reached by finishing here and landing on /welcome with a flag that shows
+// the Slack modal (see AddSouvenirToSlackModal in ../_components).
 
 export default function OnboardingInvitePage() {
-  const { logout, user } = useAuth();
-  const { data } = useOnboarding();
-  const [emails, setEmails] = useState("");
-  const [role, setRole] = useState<InviteRole>("Member");
-  const [roleOpen, setRoleOpen] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [continuing, setContinuing] = useState(false);
+  const { push } = useRouter();
+  const { user } = useAuth();
+  const { data, setInviteEmailList, setInviteEmailDraft } = useWorkspaceOnboarding();
+  // Held in WorkspaceOnboardingContext (not local state) so typed-in emails —
+  // committed chips and whatever's still sitting in the input — survive
+  // clicking Back to profile/workspace and then Next again; a plain
+  // useState here was wiped on remount, silently dropping anything typed.
+  const emailInput = data.inviteEmailDraft;
+  const emailList = data.inviteEmailList;
+  const setEmailInput = setInviteEmailDraft;
+  const setEmailList = setInviteEmailList;
+  // Which of Skip/Send is in flight — Skip and Next both call setSubmitting,
+  // and sharing one boolean made clicking Skip show its spinner on the Next
+  // button instead (the button the user didn't click).
+  const [submittingAction, setSubmittingAction] = useState<"skip" | "send" | null>(null);
+  const submitting = submittingAction !== null;
+  const hasUnsavedChanges = emailList.length > 0 || emailInput.trim().length > 0;
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
-  const isBusy = inviting || continuing;
-
-  // ── Send invites only ──────────────────────────────────────────────────────
-  const sendInvites = async () => {
-    const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
-    if (parsedEmails.length === 0) return;
-
-    // Block inviting own email
-    if (user?.email && parsedEmails.map(e => e.toLowerCase()).includes(user.email.toLowerCase())) {
-      toast.error("You can't invite yourself to the workspace.");
-      return;
+  // Splits raw comma/newline-separated text against the already-committed
+  // list, sorting each entry into: added (new + well-formed), invalid
+  // (fails the format check), or duplicate (already in `existing`, case-
+  // insensitively — including duplicates within the same paste batch).
+  function partitionEmailInput(raw: string, existing: string[]) {
+    const parts = raw.split(/[\n,]+/).map((e) => e.trim()).filter(Boolean);
+    const seen = new Set(existing.map((e) => e.toLowerCase()));
+    const additions: string[] = [];
+    const invalid: string[] = [];
+    const duplicates: string[] = [];
+    for (const part of parts) {
+      if (!EMAIL_RE.test(part)) { invalid.push(part); continue; }
+      const key = part.toLowerCase();
+      if (seen.has(key)) { duplicates.push(part); continue; }
+      seen.add(key);
+      additions.push(part);
     }
+    return { additions, invalid, duplicates };
+  }
 
-    setInviting(true);
+  function notifyInvalidAndDuplicates(invalid: string[], duplicates: string[]) {
+    if (invalid.length > 0) {
+      toast.error(
+        invalid.length === 1
+          ? `"${invalid[0]}" isn't a valid email address`
+          : `${invalid.length} entries weren't valid email addresses`,
+      );
+    }
+    if (duplicates.length > 0) {
+      toast.error(
+        duplicates.length === 1
+          ? `"${duplicates[0]}" is already added`
+          : `${duplicates.length} emails were already added`,
+      );
+    }
+  }
+
+  // Parses whatever's currently typed (comma/newline-separated), keeps only
+  // well-formed, not-yet-added addresses, and folds them into the committed
+  // list — same trim/dedupe/clear-input shape as EditProjectModal's tag chips.
+  function commitEmails(raw: string) {
+    const { additions, invalid, duplicates } = partitionEmailInput(raw, emailList);
+    if (additions.length > 0) setEmailList([...emailList, ...additions]);
+    notifyInvalidAndDuplicates(invalid, duplicates);
+    setEmailInput("");
+  }
+
+  function removeEmail(email: string) {
+    setEmailList(emailList.filter((e) => e !== email));
+  }
+
+  // Pasting "a@b.com, c@d.com" (or newline-separated) commits immediately —
+  // only bare single-address typing waits for Enter/comma/blur.
+  function handleEmailInputChange(next: string) {
+    if (/[\n,]/.test(next)) { commitEmails(next); return; }
+    setEmailInput(next);
+  }
+
+  const finish = async (toastId?: string | number) => {
+    // Persisting completion is the only call that gates entry to the app (see
+    // the previous flow's equivalent step) — must succeed before navigating.
+    // Role/tone (typed in on the profile step, held in
+    // WorkspaceOnboardingContext since then) are sent here rather than from
+    // the profile page itself: role_fit is already set by that point, so
+    // sending user_role+ai_tone from the profile step would satisfy the
+    // backend's "all three set → auto-complete" rule (update_onboarding)
+    // before the invite step ever ran, skipping it entirely. Sending them
+    // together with onboarding_completed here means completion only ever
+    // happens on this explicit call.
+    const result = await updateOnboarding({
+      ...(data.role ? { user_role: data.role } : {}),
+      ...(data.tone ? { ai_tone: data.tone } : {}),
+      onboarding_completed: true,
+    });
+    if (!result?.completed) {
+      toast.error("Couldn't finish setup. Please try again.", toastId ? { id: toastId } : undefined);
+      return false;
+    }
+    return true;
+  };
+
+  // "Continue" (finish onboarding + hand off to /welcome) always gets its own
+  // loading/success/error toast, separate from whatever the invite send
+  // reported — the two are independent outcomes (invites can fail while
+  // onboarding still completes) and shouldn't share one toast's text.
+  const goToWelcome = async () => {
+    const toastId = toast.loading("Finishing setup…");
     try {
-      let resolvedOrgId = user?.orgId ?? null;
-      if (!resolvedOrgId) {
-        const orgs = await listOrganizations();
-        resolvedOrgId = orgs[0]?.id ?? null;
+      if (await finish(toastId)) {
+        toast.success("You're all set!", { id: toastId });
+        // Intentional full navigation — suppress the leave-guard's
+        // beforeunload prompt for this handoff, not just any unload.
+        leaveGuard.bypass();
+        window.location.href = `${WELCOME_ROUTE}?slack=1`;
       }
-      if (resolvedOrgId) {
-        let teams = await fetchTeams(resolvedOrgId);
-        if (teams.length === 0) {
-          const newTeam = await createTeam(resolvedOrgId, 'General');
-          teams = [newTeam];
-        }
-        const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member';
-        await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole);
-        toast.success(
-          parsedEmails.length === 1
-            ? "Invite sent"
-            : `${parsedEmails.length} invites sent`,
-        );
-        setEmails("");
-      }
-    } catch (inviteErr) {
-      console.error('Team invite failed', inviteErr);
-      toast.error("Couldn't send invites — you can add members later in Org → Members.");
-    } finally {
-      setInviting(false);
+    } catch (err) {
+      console.error("Onboarding completion failed", err);
+      toast.error("Something went wrong. Please try again.", { id: toastId });
     }
   };
 
-  // ── Complete onboarding and navigate to /welcome ───────────────────────────
-  const completeOnboarding = async () => {
-    if (isBusy) return;
-    setContinuing(true);
+  const handleSkip = async () => {
+    if (submitting) return;
+    setSubmittingAction("skip");
     try {
-      // Update the name only when we still have it. The onboarding context is
-      // plain in-memory state, and the team flow's full-page redirect to Stripe
-      // (between /plans and /confirmation) remounts the provider and wipes it —
-      // so by this step data.firstName/lastName are usually "". Sending those
-      // blanks would clobber the real name already saved at the hello step. This
-      // write is best-effort and must never block completion, so don't await it.
-      const namePayload: { first_name?: string; last_name?: string } = {};
-      if (data.firstName.trim()) namePayload.first_name = data.firstName.trim();
-      if (data.lastName.trim())  namePayload.last_name  = data.lastName.trim();
-      if (Object.keys(namePayload).length > 0) void updateUser(namePayload);
+      await goToWelcome();
+    } finally {
+      setSubmittingAction(null);
+    }
+  };
 
-      // Persisting completion is the ONLY call that gates entry to the app — the
-      // (app) OnboardingGuard and the server proxy both require it. Await just
-      // this one and verify it actually persisted; everything else is best-effort.
-      const result = await updateOnboarding({
-        user_role: data.role ?? null,
-        role_fit: deriveRoleFit(data.accountType, data.companySize),
-        onboarding_completed: true,
-      });
-
-      if (!result?.completed) {
-        // Completion didn't persist — navigating now would just bounce off the
-        // onboarding guard. Surface the failure instead of leaving the user stuck.
-        toast.error("Couldn't finish setup. Please try again.");
-        return;
+  const handleNext = async () => {
+    if (submitting) return;
+    setSubmittingAction("send");
+    try {
+      // Fold in whatever's still sitting in the input (typed but not yet
+      // committed via Enter/comma/blur) so clicking Next doesn't silently
+      // drop the last address someone typed.
+      let finalEmails = emailList;
+      const pendingRaw = emailInput.trim();
+      if (pendingRaw) {
+        const { additions, invalid, duplicates } = partitionEmailInput(pendingRaw, emailList);
+        notifyInvalidAndDuplicates(invalid, duplicates);
+        finalEmails = [...emailList, ...additions];
+        setEmailList(finalEmails);
+        setEmailInput("");
       }
-
-      // Persist "Other" role detail as a user memory (fire-and-forget).
-      if (data.role === "Other" && data.roleOther.trim().length > 0) {
-        void apiFetch(MEMORY_USER_ENDPOINT, {
-          method: "POST",
-          body: JSON.stringify({ content: `My role: ${data.roleOther.trim()}` }),
-        });
+      if (finalEmails.length > 0) {
+        const inviteLabel = finalEmails.length === 1 ? "invite" : "invites";
+        const inviteToastId = toast.loading(`Sending ${finalEmails.length} ${inviteLabel}…`);
+        try {
+          let orgId = user?.orgId ?? null;
+          if (!orgId) {
+            const orgs = await listOrganizations();
+            orgId = orgs[0]?.id ?? null;
+          }
+          if (orgId) {
+            await inviteMembers(orgId, finalEmails);
+            toast.success(`Sent ${finalEmails.length} ${inviteLabel}`, { id: inviteToastId });
+          } else {
+            // No org found at all — the workspace step's createOrganization()
+            // call likely failed silently. Surface it instead of the previous
+            // behavior of just dropping the invite with no feedback at all.
+            console.error("Team invite skipped — no organization id resolved");
+            toast.error(
+              "Couldn't send invites — no workspace was found for your account. You can add members later in Settings → Members.",
+              { id: inviteToastId },
+            );
+          }
+        } catch (inviteErr) {
+          // Non-fatal — don't block completion over a failed invite send.
+          // Surface the real reason (e.g. "X is already a member" / "Invite
+          // already sent to X") instead of a generic message that hides why
+          // it failed — ApiError.message is already backend-provided and
+          // safe to show verbatim (see friendlyApiError in lib/api/client.ts).
+          console.error("Team invite failed", inviteErr);
+          const detail = inviteErr instanceof ApiError ? inviteErr.message : null;
+          toast.error(
+            detail ? `Couldn't send invites: ${detail}` : "Couldn't send invites — you can add members later in Settings → Members.",
+            { id: inviteToastId },
+          );
+        }
       }
-
-      // Land on /welcome with a FULL-PAGE navigation, not router.push. A soft
-      // client transition here gets aborted: the setLoading(false) in `finally`
-      // is an urgent update that interrupts the in-flight push, so the URL never
-      // commits — the /welcome RSC is fetched but discarded and the user is left
-      // on /onboarding/invite. A hard navigation can't be interrupted, re-hydrates
-      // auth from the now-persisted onboarding state, and is gated cleanly by the
-      // proxy (which already allows /welcome once onboarding_completed=true).
-      // Prefer the persisted profile name (the onboarding context is wiped by the
-      // team flow's full-page redirect to Stripe).
-      const ownerName = (user?.firstName ?? data.firstName).trim();
-      const ownerParam = ownerName ? `owner=${encodeURIComponent(ownerName)}` : '';
-      const nameParam  = data.companyName.trim() ? `name=${encodeURIComponent(data.companyName.trim())}` : '';
-      const connParam  = `connectors=${data.connectorCount ?? 0}`;
-      const query      = [ownerParam, nameParam, connParam].filter(Boolean).join('&');
-      window.location.href = `${WELCOME_ROUTE}${query ? `?${query}` : ''}`;
+      await goToWelcome();
     } catch (err) {
-      console.error("Team onboarding submission failed", err);
+      console.error("Onboarding completion failed", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
-      setContinuing(false);
+      setSubmittingAction(null);
     }
   };
 
-  const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
-  const parsedEmailCount = parsedEmails.length;
-  const hasEmails = parsedEmailCount > 0;
-  const inviteButtonLabel =
-    parsedEmailCount === 0
-      ? "Send Invite"
-      : parsedEmailCount === 1
-        ? "Send Invite to 1 person"
-        : `Send Invite to ${parsedEmailCount} people`;
-
-  const footer = (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        width: "100%",
-        gap: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
-          Log out
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isBusy}
-          onClick={() => void completeOnboarding()}
-        >
-          Skip for now
-        </Button>
-        <Button
-          size="sm"
-          loading={continuing}
-          disabled={isBusy}
-          onClick={() => void completeOnboarding()}
-        >
-          Complete Onboarding
-        </Button>
-      </div>
-    </div>
-  );
-
   return (
-    <OnboardingScreen
-      title="Invite your team."
-      subtitle="Add your teammates so they can collaborate from day one."
-      width={653}
-      footer={footer}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* Email label */}
-        <p
-          style={{
-            fontFamily: "var(--font-body)",
-            fontWeight: 500,
-            fontSize: 14,
-            lineHeight: "22px",
-            color: "#0a0a0a",
-            letterSpacing: "0.07px",
-            margin: 0,
-          }}
-        >
-          Email addresses :
-        </p>
+    <StepCanvas>
+      <StepHeader total={3} activeIndex={2} title="Invite your team members" />
 
-        {/* Email textarea */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", padding: "24px 0 0" }}>
+        <FieldLabel>Enter their email ids</FieldLabel>
         <div
+          onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus(); }}
+          // Caps at ~10 rows of chips (Badge's 20px min-height + 6px row gap,
+          // ~26px/row) then scrolls internally instead of growing the page
+          // forever — kaya-scrollbar is this design system's standard thin
+          // scrollbar treatment for any element that gets overflow-y: auto.
+          className="kaya-scrollbar"
           style={{
-            backgroundColor: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: "18px",
-            padding: "12px",
-            boxShadow: "0px 1px 1px rgba(0,0,0,0.05)",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 6,
+            width: "100%",
+            minHeight: 122,
+            maxHeight: 260,
+            overflowY: "auto",
+            overscrollBehaviorY: "contain",
+            padding: "7px 10px",
+            borderRadius: 10,
+            backgroundColor: "var(--neutral-white,#fff)",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+            boxSizing: "border-box",
+            alignContent: "flex-start",
+            cursor: "text",
           }}
         >
-          <textarea
-            value={emails}
-            onChange={(e) => setEmails(e.target.value)}
-            placeholder="Enter email addresses of your teammates (separated by commas)"
-            rows={5}
-            style={{
-              width: "100%",
-              border: "none",
-              outline: "none",
-              resize: "vertical",
-              fontFamily: "var(--font-body)",
-              fontWeight: 400,
-              fontSize: 14,
-              lineHeight: "22px",
-              color: "#1e1e1e",
-              backgroundColor: "transparent",
-              padding: 0,
-            }}
-          />
-        </div>
-
-        {/* Role selector + Send Invite button row */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-          <p
-            style={{
-              fontFamily: "var(--font-body)",
-              fontWeight: 400,
-              fontSize: 14,
-              lineHeight: "22px",
-              color: "var(--neutral-700, #524b47)",
-              margin: 0,
-            }}
-          >
-            Role
-          </p>
-
-          <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
-            <DropdownFloat
-              open={roleOpen}
-              onOpenChange={setRoleOpen}
-              placement="bottom-start"
-              offset={4}
-              trigger={
+          <AnimatePresence initial={false}>
+            {emailList.map((email) => (
+              <m.div
+                key={email}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.85 }}
+                transition={{ duration: 0.12 }}
+                style={{ display: "flex", alignItems: "center", gap: 2 }}
+              >
+                <Badge label={email} color="Neutral" />
                 <button
                   type="button"
+                  onClick={() => removeEmail(email)}
+                  aria-label={`Remove ${email}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "7px 10px",
-                    borderRadius: 10,
+                    justifyContent: "center",
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
                     border: "none",
-                    backgroundColor: "white",
-                    boxShadow:
-                      "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100, #ede1d7)",
+                    background: "transparent",
                     cursor: "pointer",
-                    outline: "none",
-                    width: 200,
-                    flexShrink: 0,
+                    padding: 0,
+                    color: "var(--neutral-500)",
                   }}
                 >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontWeight: 400,
-                      fontSize: 14,
-                      lineHeight: "22px",
-                      color: "var(--neutral-600, #6a625d)",
-                    }}
-                  >
-                    {role === "Member" ? "Member (default)" : role}
-                  </span>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
-                    <path
-                      d="M5 8l5 5 5-5"
-                      stroke="var(--neutral-400, #9c938b)"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <CancelOneIcon style={{ width: 10, height: 10 }} />
                 </button>
-              }
-            >
-              <Dropdown style={{ width: 200 }}>
-                {INVITE_ROLES.map((r) => (
-                  <Dropdown.Item
-                    key={r}
-                    fluid
-                    label={r}
-                    selected={r === role}
-                    onClick={() => {
-                      setRole(r);
-                      setRoleOpen(false);
-                    }}
-                  />
-                ))}
-              </Dropdown>
-            </DropdownFloat>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={inviting}
-              disabled={!hasEmails || isBusy}
-              onClick={() => void sendInvites()}
-              style={{ flex: 1 }}
-            >
-              {inviteButtonLabel}
-            </Button>
-          </div>
-
-          <p
-            style={{
-              fontFamily: "var(--font-body)",
-              fontWeight: 400,
-              fontSize: 14,
-              lineHeight: "22px",
-              color: "var(--neutral-700, #524b47)",
-              margin: 0,
+              </m.div>
+            ))}
+          </AnimatePresence>
+          <ChipInput
+            placeholder="Add email id and press enter"
+            // ChipInput's own default cap (30) is sized for short tags. This
+            // field also accepts pasting several comma/newline-separated
+            // emails at once (see handleEmailInputChange), so the cap needs
+            // to cover a whole batch of addresses, not just one RFC-5321
+            // address (254 chars) — otherwise a multi-email paste gets
+            // silently rejected by ChipInput before the splitting logic ever
+            // sees it.
+            maxLength={2000}
+            // ChipInput's own default width is a 64px floor that only grows
+            // with typed content (Figma 3118:32829's tag-sizing) — fine for a
+            // short tag, but it leaves an email field looking like a tiny box
+            // in this much taller container. Let it fill the row instead.
+            style={{ flex: "1 1 240px" }}
+            value={emailInput}
+            onChange={(e) => handleEmailInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitEmails(emailInput); }
             }}
-          >
-            Can use and create privately in conversations.{" "}
-            <Tooltip content={ROLE_INFO} side="top" maxWidth={260}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  cursor: "default",
-                  fontFamily: "var(--font-body)",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: "var(--neutral-700, #524b47)",
-                }}
-              >
-                Know more about Role
-                <InformationCircleIcon size={14} />
-              </span>
-            </Tooltip>
-          </p>
+            onBlur={() => commitEmails(emailInput)}
+            aria-label="New email address"
+          />
         </div>
       </div>
-    </OnboardingScreen>
+
+      <StepFooter
+        onBack={() => push(ONBOARDING_PROFILE_ROUTE)}
+        onSkip={() => void handleSkip()}
+        skipDisabled={submitting}
+        skipLoading={submittingAction === "skip"}
+        onNext={() => void handleNext()}
+        nextLabel={`Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
+        nextDisabled={submitting || (emailList.length === 0 && emailInput.trim().length === 0)}
+        nextLoading={submittingAction === "send"}
+      />
+      <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />
+    </StepCanvas>
   );
 }

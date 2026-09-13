@@ -18,12 +18,13 @@ import {
   runAutomationNow,
   updateAutomation,
   deleteAutomation,
+  runSummary,
   type Automation,
   type AutomationDetail,
   type AutomationRun,
 } from '@/lib/api/automations'
 import type { ScheduleRunRecord } from '@/templates/Brain'
-import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
+import { getAllScheduleLinks, getChatForSchedule, linkScheduleToChat, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
 import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
 import { BRAIN_ROUTE } from '@/lib/routes'
@@ -40,90 +41,52 @@ export default function BrainSchedulesPage() {
 
 // ── Mapping helpers ───────────────────────────────────────────────────────────
 
-// Day-code → display name. Backend `days` are lowercase 3-letter (mon…sun),
-// canonicalised by services/brain/schedule_calc.py (`d.lower()[:3]`).
-const DAY_NAMES: Record<string, string> = {
-  mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
-  fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
-}
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-
-// Format the *real* backend schedule_json:
-//   { time_of_day: "09:00", days: ["mon",…], timezone, starts_on?, ends_on?, max_runs? }
-// (see services/brain/schedule_calc.py). Output stays compatible with the
-// downstream parsers (parseFrequency / ScheduleEditModal): "Daily · HH:MM" and
-// "Weekly · <Day> · HH:MM" round-trip exactly; the weekday/weekend/explicit-list
-// variants pass through as readable chip labels. Legacy payloads (hour/cron/type)
-// fall back to formatLegacyScheduleJson so older rows still render.
-function formatScheduleJson(json: Record<string, unknown>): string {
-  if (!json || typeof json !== 'object') return 'Scheduled'
-
-  const timeOfDay = typeof json.time_of_day === 'string' ? json.time_of_day : null
-  let time: string | null = null
-  if (timeOfDay && /^\d{1,2}:\d{2}/.test(timeOfDay)) {
-    const [hh, mm] = timeOfDay.split(':')
-    time = `${String(parseInt(hh, 10)).padStart(2, '0')}:${mm.slice(0, 2)}`
-  }
-
-  // No `time_of_day` → this isn't the current backend shape; try legacy keys.
-  if (!time) return formatLegacyScheduleJson(json)
-
-  const rawDays = Array.isArray(json.days) ? json.days : []
-  const days = rawDays
-    .map((d) => (typeof d === 'string' ? d.toLowerCase().slice(0, 3) : ''))
-    .filter((d) => d in DAY_NAMES)
-    .sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b))
-
-  // Empty or all-seven → every day.
-  if (days.length === 0 || days.length === 7) return `Daily · ${time}`
-  // Single day round-trips through parseFrequency's weekly path.
-  if (days.length === 1) return `Weekly · ${DAY_NAMES[days[0]]} · ${time}`
-  // Common groupings.
-  if (days.length === 5 && ['mon', 'tue', 'wed', 'thu', 'fri'].every((d) => days.includes(d))) {
-    return `Weekdays · ${time}`
-  }
-  if (days.length === 2 && days.includes('sat') && days.includes('sun')) {
-    return `Weekends · ${time}`
-  }
-  // Explicit list, e.g. "Mon, Wed, Fri · 09:00".
-  return `${days.map((d) => DAY_NAMES[d].slice(0, 3)).join(', ')} · ${time}`
+// The schedule sentence the backend built ("Every 5 minutes", "Every weekday at
+// 9:30 AM (America/Chicago)"). `CronSpec` owns cron — this page formats none of
+// it, so what the user reads is what Pipedream is actually running.
+// See services/automations/schedule.py :: describeSchedule.
+function scheduleDescription(json: Record<string, unknown>): string {
+  const description = json?.description
+  return typeof description === 'string' && description ? description : 'On a schedule'
 }
 
-// Older / alternate schedule_json shapes (hour/minute/cron/type). Retained so
-// pre-existing rows keep rendering; new rows use the time_of_day/days shape above.
-function formatLegacyScheduleJson(json: Record<string, unknown>): string {
-  const type      = typeof json.type === 'string' ? json.type.toLowerCase() : 'daily'
-  const rawHour   = json.hour ?? json.hour_utc ?? json.at_hour
-  const rawMinute = json.minute ?? json.minute_utc ?? json.at_minute
-  const hour      = typeof rawHour   === 'number' ? rawHour   : typeof rawHour   === 'string' ? parseInt(rawHour,   10) : null
-  const minute    = typeof rawMinute === 'number' ? rawMinute : typeof rawMinute === 'string' ? parseInt(rawMinute, 10) : null
+// True when the deployed Pipedream timer disagrees with what's stored — see
+// services/automations/schedule.py :: driftBetween. Surfaced as a warning
+// banner in the detail view rather than left invisible.
+function scheduleDrift(json: Record<string, unknown>): boolean {
+  return json?.drift === true
+}
 
-  if (hour === null) {
-    const cron = json.cron
-    if (typeof cron === 'string') return `Cron: ${cron}`
-    return 'Scheduled'
-  }
+function timeOfDay(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
 
-  const pad  = (n: number) => String(n).padStart(2, '0')
-  const time = `${pad(hour)}:${pad(minute ?? 0)}`
-
-  if (type === 'weekly' || json.day_of_week || json.day) {
-    const day = (json.day ?? json.day_of_week ?? 'Monday') as string
-    return `Weekly · ${day} · ${time}`
-  }
-  return `Daily · ${time}`
+function daysApart(date: Date, now: Date): number {
+  const dayOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  return Math.round((dayOf(date) - dayOf(now)) / 86_400_000)
 }
 
 function formatNextRun(iso: string): string {
-  const date         = new Date(iso)
-  const now          = new Date()
-  const todayStart   = new Date(now.getFullYear(),  now.getMonth(),  now.getDate())
-  const tomorrowStart = new Date(todayStart.getTime() + 86_400_000)
-  const dateStart    = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const timeStr      = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  if (dateStart.getTime() === todayStart.getTime())    return `Today · ${timeStr}`
-  if (dateStart.getTime() === tomorrowStart.getTime()) return `Tomorrow · ${timeStr}`
-  return `${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${timeStr}`
+  const date = new Date(iso)
+  const now  = new Date()
+  const days = daysApart(date, now)
+  if (days === 0) return `Today · ${timeOfDay(date)}`
+  if (days === 1) return `Tomorrow · ${timeOfDay(date)}`
+  return `${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${timeOfDay(date)}`
+}
+
+// A run already happened, so "Tomorrow" can never be the answer — reusing the
+// next-run formatter left yesterday's failures reading as a bare date.
+function formatRunTime(iso: string): string {
+  const date = new Date(iso)
+  const now  = new Date()
+  const days = daysApart(date, now)
+  if (days === 0)  return `Today · ${timeOfDay(date)}`
+  if (days === -1) return `Yesterday · ${timeOfDay(date)}`
+  const sameYear = date.getFullYear() === now.getFullYear()
+  return `${date.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
+  })} · ${timeOfDay(date)}`
 }
 
 function formatCreatedAt(iso: string): string {
@@ -134,45 +97,63 @@ function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
   return {
     id:          task.id,
     name:        task.name,
-    description: task.prompt || undefined,
-    frequency:   formatScheduleJson(task.schedule_json),
+    description: task.summary || undefined,
+    frequency:   scheduleDescription(task.schedule_json),
     isActive:    task.is_active,
+    createdAt:   task.created_at ? formatCreatedAt(task.created_at) : undefined,
     chatId,
+    runCount:    task.run_count,
+    successRate: task.success_rate,
+    isRunning:   task.is_running,
+    drift:       scheduleDrift(task.schedule_json),
   }
 }
 
 /** Map one backend run into a run-history record for the detail view. A run is
- *  one Brain turn rather than a graph, so it becomes a single status row; the
- *  answer (or failure reason) shows when expanded. */
+ *  one turn rather than a graph — there are no steps to list, so the card is a
+ *  status, a time, and what the run has to say when expanded. */
 function runToRecord(run: AutomationRun): ScheduleRunRecord {
   const whenIso  = run.finished_at ?? run.started_at ?? null
   const isFailed = run.status === 'failed'
   const isDone   = run.status === 'succeeded'
-  const stepStatus = isDone ? 'complete' : isFailed ? 'failed' : 'executing'
-  const stepLabel  = isFailed ? (run.error || 'Run failed')
-    : isDone ? 'Run completed'
-    : 'Running…'
+  const summary  = runSummary(run)
+  const raw      = (run.error ?? '').trim()
   return {
     id:          run.id,
-    label:       whenIso ? formatNextRun(whenIso) : 'Run',
+    label:       whenIso ? formatRunTime(whenIso) : 'Run',
     title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
-    summary:     run.answer || (isFailed ? run.error ?? undefined : undefined),
-    steps:       [{ id: run.id, label: stepLabel, isCritical: false, status: stepStatus }],
+    status:      isFailed ? 'failed' : isDone ? 'complete' : 'executing',
+    summary,
+    // Only worth offering when there's more to it than the line above.
+    detail:      raw && raw !== summary ? raw : undefined,
+    steps:       [],
     completedAt: run.finished_at ? new Date(run.finished_at) : undefined,
   }
 }
 
 function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDetailItem {
+  // Backend just told us the real link — mirror it into the local store so
+  // the list view (whose GET /automations rows don't carry chat_id) can
+  // still resolve "open chat" without a full detail fetch per card.
+  if (task.chat_id) linkScheduleToChat(task.id, task.chat_id)
   return {
     id:           task.id,
     name:         task.name,
-    instructions: task.prompt ?? '',
-    frequency:    formatScheduleJson(task.schedule_json),
+    instructions: task.summary ?? '',
+    frequency:    scheduleDescription(task.schedule_json),
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
+    lastRun:      task.last_run_at ? formatRunTime(task.last_run_at) : undefined,
     isActive:     task.is_active,
     createdAt:    formatCreatedAt(task.created_at ?? ''),
     runHistory:   (task.runs ?? []).map(runToRecord),
-    chatId,
+    // Backend's own chat_id is authoritative — only fall back to the local
+    // link-store mapping (localStorage) for schedules the backend doesn't
+    // know a chat for yet (e.g. a just-created local placeholder row).
+    chatId:       task.chat_id ?? chatId,
+    runCount:     task.run_count,
+    successRate:  task.success_rate,
+    isRunning:    task.is_running,
+    drift:        scheduleDrift(task.schedule_json),
   }
 }
 
@@ -183,6 +164,7 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
     instructions: item.description ?? '',
     frequency:    item.frequency,
     isActive:     item.isActive,
+    createdAt:    item.createdAt,
     chatId:       item.chatId,
   }
 }
@@ -342,28 +324,41 @@ function BrainSchedulesPageInner() {
 
   // ── Delete (DELETE /automations/{id}; local-only items just drop from state) ──
 
+  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false)
+
   const handleDeleteConfirm = useCallback(() => {
     const id = selectedId
     if (!id) return
-    setDeleteModalOpen(false)
-    const removed = schedules.find(s => s.id === id)
-    // Optimistically drop it and return to the list.
-    setSchedules(prev => prev.filter(s => s.id !== id))
-    setSelectedId(null)
-    setSelectedDetail(null)
-    // Never persisted to the backend — nothing to delete server-side.
+    // Never persisted to the backend — nothing to delete server-side, so the
+    // instant local removal below isn't misleading (there's no request to
+    // wait for). A real delete keeps the modal (and detail view) open with a
+    // spinner until deleteAutomation resolves, instead of clearing
+    // selectedId/selectedDetail up front — doing that first would unmount
+    // this very modal (gated on `detailToShow`) mid-request.
     if (localIdsRef.current.has(id)) {
       localIdsRef.current.delete(id)
+      setSchedules(prev => prev.filter(s => s.id !== id))
+      setSelectedId(null)
+      setSelectedDetail(null)
+      setDeleteModalOpen(false)
       return
     }
+    setIsDeletingSchedule(true)
     deleteAutomation(id)
-      .then(() => toast.success('Schedule deleted'))
+      .then(() => {
+        toast.success('Schedule deleted')
+        setSchedules(prev => prev.filter(s => s.id !== id))
+        setSelectedId(null)
+        setSelectedDetail(null)
+      })
       .catch(() => {
-        // Restore the row so the user isn't left thinking it's gone.
-        if (removed) setSchedules(prev => [...prev, removed])
         toast.error('Failed to delete schedule')
       })
-  }, [selectedId, schedules])
+      .finally(() => {
+        setIsDeletingSchedule(false)
+        setDeleteModalOpen(false)
+      })
+  }, [selectedId])
 
   // ── Toggle active (PATCH /automations/{id} — pause/resume; optimistic) ────────
 
@@ -384,20 +379,24 @@ function BrainSchedulesPageInner() {
 
   // ── Run now ────────────────────────────────────────────────────────────────
 
+  const [isRunningNow, setIsRunningNow] = useState(false)
+
   const handleRunNow = useCallback(() => {
     if (!selectedId || localIdsRef.current.has(selectedId)) {
       toast.info('This schedule has not been saved to the server yet.')
       return
     }
     const id = selectedId
+    setIsRunningNow(true)
     runAutomationNow(id)
       .then(() => {
-        toast.success('Schedule triggered', { description: 'Brain will start this task shortly.' })
+        toast.success('Schedule triggered', { description: 'This task will start shortly.' })
         // Refresh detail so run_count and run history reflect the new run.
         return getAutomation(id)
       })
       .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => toast.error('Failed to run schedule'))
+      .finally(() => setIsRunningNow(false))
   }, [selectedId])
 
   // ── Derived: what to show in the center ───────────────────────────────────
@@ -416,7 +415,11 @@ function BrainSchedulesPageInner() {
         display:         'flex',
         flexDirection:   'column',
         backgroundColor: 'var(--neutral-50)',
-        padding:         '10px 0',
+        // Right padding restored to match BrainShell's own center container
+        // (src/templates/Brain/index.tsx) and the shared AppLayout — this page
+        // builds its own copy of that container since AppLayout's isBrainPage
+        // branch renders {children} with no padding of its own.
+        padding:         '10px 10px 10px 0',
       }}>
         <div style={{
           position:        'relative',
@@ -439,7 +442,7 @@ function BrainSchedulesPageInner() {
             className="kaya-scrollbar"
           >
             <div style={{
-              maxWidth:      '810px',
+              maxWidth:      991,
               width:         '100%',
               margin:        '0 auto',
               paddingLeft:   28,
@@ -455,6 +458,7 @@ function BrainSchedulesPageInner() {
                   onEdit={handleEdit}
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={handleRunNow}
+                  runningNow={isRunningNow}
                   onToggleActive={handleToggleActive}
                   onOpenChat={(chatId) => push(`${BRAIN_ROUTE}?id=${chatId}`)}
                 />
@@ -486,6 +490,7 @@ function BrainSchedulesPageInner() {
           scheduleName={detailToShow.name}
           onConfirm={handleDeleteConfirm}
           onClose={() => setDeleteModalOpen(false)}
+          deleting={isDeletingSchedule}
         />
       )}
     </>
@@ -494,6 +499,48 @@ function BrainSchedulesPageInner() {
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
+// Mirrors ScheduleCard's own box model exactly (220px, padding 20, top row /
+// title / description / divider / footer) so the loading state doesn't jump
+// when the real cards swap in.
+function ScheduleCardSkeleton({ delay }: { delay: number }) {
+  const fade = { opacity: 1 - delay * 0.15 }
+  return (
+    <div style={{
+      display:        'flex',
+      flexDirection:  'column',
+      height:         220,
+      padding:        20,
+      boxSizing:      'border-box',
+      borderRadius:   12,
+      boxShadow:      '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+    }}>
+      {/* Top row — "Created on" (left), status badge (right) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="kaya-skeleton" style={{ ...fade, width: 96, height: 12 }} />
+        <div className="kaya-skeleton" style={{ ...fade, width: 52, height: 20, borderRadius: 999 }} />
+      </div>
+
+      {/* Title */}
+      <div className="kaya-skeleton" style={{ ...fade, width: '65%', height: 18, marginTop: 12 }} />
+
+      {/* Description — 2 lines */}
+      <div className="kaya-skeleton" style={{ ...fade, width: '100%', height: 12, marginTop: 14 }} />
+      <div className="kaya-skeleton" style={{ ...fade, width: '80%', height: 12, marginTop: 6 }} />
+
+      {/* Spacer — pushes divider/footer to the bottom, matching ScheduleCard */}
+      <div style={{ flex: '1 1 auto', minHeight: 12 }} />
+
+      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)' }} />
+
+      {/* Footer — calendar icon + frequency text */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+        <div className="kaya-skeleton" style={{ ...fade, width: 14, height: 14, borderRadius: 4 }} />
+        <div className="kaya-skeleton" style={{ ...fade, width: 84, height: 12 }} />
+      </div>
+    </div>
+  )
+}
+
 function SchedulesLoadingState() {
   return (
     <div style={{
@@ -501,28 +548,25 @@ function SchedulesLoadingState() {
       flexDirection: 'column',
       gap:           24,
       padding:       '32px 0',
+      width:         '100%',
     }}>
-      {/* Header skeleton */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width:        160,
-          height:       24,
-          borderRadius: 6,
-          backgroundColor: 'var(--neutral-100)',
-        }} />
+      {/* Header skeleton — matches ScheduleListView's title + subtitle +
+          "New schedule" button layout */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ flex: '1 0 0' }}>
+          <div className="kaya-skeleton" style={{ width: 120, height: 24 }} />
+          <div className="kaya-skeleton" style={{ width: 220, height: 14, marginTop: 6 }} />
+        </div>
+        <div className="kaya-skeleton" style={{ width: 128, height: 32, borderRadius: 8 }} />
       </div>
-      {/* Card skeletons */}
+      {/* Card skeletons — same 2-column grid, gap 24, as ScheduleListView */}
       <div style={{
         display:             'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap:                 12,
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap:                 24,
       }}>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="kaya-skeleton"
-            style={{ height: 110, borderRadius: 12 }}
-          />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <ScheduleCardSkeleton key={i} delay={i} />
         ))}
       </div>
     </div>

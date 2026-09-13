@@ -7,13 +7,13 @@ import type { ConnectorConnectPrompt } from '@/hooks/use-chat-state'
 import {
   getConnector,
   initiateLink,
-  updateConnector,
+  completeZapierLink,
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isMcpProviderConnector } from '@/lib/connectorProvider'
+import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -128,16 +128,16 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   // carry them and the form has been opened for the first time.
   useEffect(() => {
     if (prompt.auth_mode !== 'api_key' || fieldDefs !== null || !showApiForm) return
-    getConnector(prompt.connector_slug)
+    getConnector(prompt.connector.slug)
       .then((entry) => {
         if (!abortedRef.current) {
-          setFieldDefs(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+          setFieldDefs(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
         }
       })
       .catch(() => {
         if (!abortedRef.current) setFieldDefs([DEFAULT_API_KEY_FIELD])
       })
-  }, [prompt.auth_mode, prompt.connector_slug, showApiForm, fieldDefs])
+  }, [prompt.auth_mode, prompt.connector.slug, showApiForm, fieldDefs])
 
   useEffect(() => {
     return () => { abortedRef.current = true }
@@ -147,7 +147,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     // Native MCP connectors: the backend's OAuth callback redirects back to
     // our own app domain on success/failure, so this must navigate the
     // current tab rather than a popup. No popup to pre-open in that case.
-    const isMcp = isMcpProviderConnector(prompt.connector_slug)
+    const isMcp = isMcpProviderConnector(prompt.connector.slug, prompt.provider)
 
     // Open WITHOUT noopener/noreferrer so we can navigate popup.location after
     // getting the redirect URL. noopener leaves the popup stuck at about:blank
@@ -158,31 +158,37 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
 
     // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
     // undefined for plain OAuth.
-    initiateLink(prompt.connector_slug, initData)
+    initiateLink(prompt.connector.slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
-        if (!link.redirect_url) {
+        if (!link.redirectUrl) {
           popup?.close()
           throw new Error('No redirect URL returned by server')
         }
         if (isMcp) {
-          window.location.href = link.redirect_url
+          window.location.href = link.redirectUrl
           return
         }
+        const openUrl = isZapierProviderConnector(prompt.provider, link.redirectUrl)
+          ? zapierConnectHref(link.redirectUrl)
+          : link.redirectUrl
         if (popup && !popup.closed) {
-          popup.location.href = link.redirect_url
+          popup.location.href = openUrl
         } else {
           // Popup was blocked — fall back to a new tab
-          window.open(link.redirect_url, '_blank')
+          window.open(openUrl, '_blank')
         }
         setState('polling')
-        return pollConnectorUntilActive(prompt.connector_slug)
+        if (isZapierProviderConnector(prompt.provider, link.redirectUrl)) {
+          return waitForZapierAuthId().then(id => completeZapierLink(prompt.connector.slug, id))
+        }
+        return pollConnectorUntilActive(prompt.connector.slug)
       })
       .then((entry) => {
         if (!entry || abortedRef.current) return
         popup?.close()
         setState('connected')
-        toast.success(`${prompt.display_name} connected`)
+        toast.success(`${prompt.connector.name} connected`)
         onConnected?.()
       })
       .catch((err: unknown) => {
@@ -191,34 +197,23 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         setState('error')
         const msg = err instanceof Error ? err.message : 'Connection failed'
         setErrorMsg(msg)
-        toast.error(`Failed to connect ${prompt.display_name}`)
+        toast.error(`Failed to connect ${prompt.connector.name}`)
       })
   }, [prompt, onConnected])
 
+  // API-key connectors are linked through the same hosted Connect flow as
+  // OAuth ones — the fields ride along as init_data. There is no separate
+  // credential endpoint to post them to.
   const handleApiKey = useCallback(() => {
-    setState('connecting')
-    setErrorMsg('')
-    updateConnector(prompt.connector_slug, { credentials: apiKeyFields as Record<string, string> })
-      .then(() => {
-        if (abortedRef.current) return
-        setState('connected')
-        toast.success(`${prompt.display_name} connected`)
-        onConnected?.()
-      })
-      .catch((err: unknown) => {
-        if (abortedRef.current) return
-        setState('error')
-        const msg = err instanceof Error ? err.message : 'Failed to save credentials'
-        setErrorMsg(msg)
-        toast.error(`Failed to connect ${prompt.display_name}`)
-      })
-  }, [prompt, apiKeyFields, onConnected])
+    handleOAuth(apiKeyFields as Record<string, string>)
+  }, [handleOAuth, apiKeyFields])
 
   // Per-tenant OAuth (Shopify BYOA) declares required init fields in the connect
   // prompt; render the same credential form as api_key, but submit via the OAuth
   // path (posts init_data, then opens the hosted connect popup).
   const needsInitFields = oauthNeedsInitFields(prompt)
-  const showCredentialForm = prompt.auth_mode === 'api_key' || needsInitFields
+  const showCredentialForm = !isZapierProviderConnector(prompt.provider)
+    && (prompt.auth_mode === 'api_key' || needsInitFields)
 
   if (state === 'connected') {
     return (
@@ -229,7 +224,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             <path d="M4.5 8.5L7 11L11.5 6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-            {prompt.display_name} connected
+            {prompt.connector.name} connected
           </span>
         </div>
       </PromptCard>
@@ -240,10 +235,12 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     <PromptCard>
       <div>
         <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-          Connect {prompt.display_name}
+          Connect {prompt.connector.name}
         </p>
         <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
-          To run <code style={{ fontSize: 12, background: 'var(--neutral-100)', padding: '1px 5px', borderRadius: 4 }}>{prompt.tool_name}</code>, you need to link your {prompt.display_name} account first.
+          {prompt.tool_name
+            ? <>To run <code style={{ fontSize: 12, background: 'var(--neutral-100)', padding: '1px 5px', borderRadius: 4 }}>{prompt.tool_name}</code>, you need to link your {prompt.connector.name} account first.</>
+            : <>Link your {prompt.connector.name} account to keep going.</>}
         </p>
       </div>
 
@@ -273,13 +270,13 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
               {(fieldDefs ?? [DEFAULT_API_KEY_FIELD]).map((field) => (
                 <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <label
-                    htmlFor={`cf-${prompt.connector_slug}-${field.name}`}
+                    htmlFor={`cf-${prompt.connector.slug}-${field.name}`}
                     style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}
                   >
                     {field.label}
                   </label>
                   <input
-                    id={`cf-${prompt.connector_slug}-${field.name}`}
+                    id={`cf-${prompt.connector.slug}-${field.name}`}
                     type={field.secret ? 'password' : 'text'}
                     autoComplete="off"
                     placeholder={field.help ?? field.label}
@@ -333,7 +330,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             ) : state === 'connecting' ? (
               'Opening…'
             ) : (
-              `Connect ${prompt.display_name}`
+              `Connect ${prompt.connector.name}`
             )}
           </PromptButton>
           {state === 'polling' && (

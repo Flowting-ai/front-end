@@ -1,237 +1,170 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { PlusSignIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { PlusSignIcon, ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
-import { Dropdown } from '@/components/Dropdown'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from 'sonner'
-import { useOrg } from '@/context/org-context'
-import { listMembers } from '@/lib/api/organization'
-import { listProjectMembers, addProjectMember, removeProjectMember, listTeamEditors, type ProjectMember } from '@/lib/api/teams'
-import type { OrgMember } from '@/types/teams'
-
-// ── Types ──────────────────────────────────────────────────────────────────────
+import {
+  fetchProjectMembers,
+  removeProjectMemberFromProject,
+  type ApiProjectMember,
+} from '@/lib/api/projects'
 
 export interface ProjectMembersPanelProps {
-  teamId:      string
   projectId:   string
   ownerUserId: string
+  /** Whether the viewer can invite/remove members — the backend 404s these
+   *  mutations for anyone but the project owner, so the controls are hidden
+   *  entirely for everyone else rather than rendering a dead-end action. */
+  canManage:   boolean
+  /** Bump this (e.g. a counter) to force the member list to refetch. Adding a
+   *  member now happens through the project's Sharing modal (ProjectAddMembersList),
+   *  a separate component with its own state, so this panel has no other way
+   *  to learn a member was just added while it's open. */
+  refreshKey?: number | string
+  /** Called when "Add member" is clicked. This panel no longer has its own
+   *  inline add-member picker — adding now goes through the same Sharing
+   *  modal the page's "Share" button opens, so this just asks the parent to
+   *  open that instead of duplicating that flow here. */
+  onAddMember?: () => void
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// Same card shell PersonaCard/PersonaCardSkeleton use in the sibling Agents
+// panel (AgentsPanel/index.tsx) — matching it here so the two panels people
+// flip between in this same side-panel slot read as one system.
+const ROW_CARD_STYLE: React.CSSProperties = {
+  display:         'flex',
+  alignItems:      'center',
+  gap:             12,
+  borderRadius:    16,
+  padding:         12,
+  backgroundColor: 'var(--neutral-white)',
+  boxShadow:       '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
+}
 
-export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectMembersPanelProps) {
-  const { orgId } = useOrg()
-  const [members,    setMembers]    = useState<ProjectMember[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [addOpen,    setAddOpen]    = useState(false)
-  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([])
-  const [selected,   setSelected]   = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
+function MemberRowSkeleton() {
+  return (
+    <div aria-hidden style={ROW_CARD_STYLE}>
+      <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+        <div className="kaya-skeleton" style={{ height: 14, width: '45%', borderRadius: 6 }} />
+        <div className="kaya-skeleton" style={{ height: 11, width: '65%', borderRadius: 6 }} />
+      </div>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '32px 16px', textAlign: 'center' }}>
+      <div
+        aria-hidden
+        style={{
+          width: 48, height: 48, borderRadius: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: 'var(--neutral-100)',
+        }}
+      >
+        <ManageTeamsIcon size={22} color="var(--neutral-400)" />
+      </div>
+      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+        {text}
+      </p>
+    </div>
+  )
+}
+
+export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refreshKey, onAddMember }: ProjectMembersPanelProps) {
+  const [members,      setMembers]      = useState<ApiProjectMember[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [removeTarget, setRemoveTarget] = useState<ApiProjectMember | null>(null)
 
   useEffect(() => {
-    if (!orgId) return
     let cancelled = false
-    Promise.all([
-      listProjectMembers(orgId, teamId, projectId),
-      listMembers(orgId),
-      listTeamEditors(orgId, teamId),
-    ])
-      .then(([assigned, all, editors]) => {
-        if (cancelled) return
-        const editorIds = new Set(editors.map(editor => editor.userId))
-        const eligibleIds = new Set(
-          all
-            .filter(member => (
-              member.inviteStatus !== 'invite_sent'
-              && member.orgRole !== 'owner'
-              && member.orgRole !== 'admin'
-              && member.id !== ownerUserId
-              && !editorIds.has(member.id)
-            ))
-            .map(member => member.id),
-        )
-        setMembers(assigned.filter(member => eligibleIds.has(member.userId)))
+    setLoading(true)
+    fetchProjectMembers(projectId)
+      .then(list => {
+        if (!cancelled) setMembers(list)
       })
-      .catch(console.error)
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load project members')
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [orgId, teamId, projectId, ownerUserId])
-
-  const handleOpenAdd = () => {
-    if (!orgId) return
-    setAddOpen(true)
-    setPickerOpen(false)
-    const memberIds = new Set(members.map(m => m.userId))
-    Promise.all([listMembers(orgId), listTeamEditors(orgId, teamId)])
-      .then(([all, editors]) => {
-        const editorIds = new Set(editors.map(editor => editor.userId))
-        setOrgMembers(all.filter(m =>
-          m.inviteStatus !== 'invite_sent' &&
-          m.orgRole !== 'owner' &&
-          m.orgRole !== 'admin' &&
-          m.id !== ownerUserId &&
-          !memberIds.has(m.id) &&
-          !editorIds.has(m.id)
-        ))
-      })
-      .catch(console.error)
-  }
-
-  const handleAdd = async () => {
-    if (!orgId || !selected) return
-    setSaving(true)
-    try {
-      const added = await addProjectMember(orgId, teamId, projectId, selected)
-      setMembers(prev => [...prev, added])
-      setSelected('')
-      setAddOpen(false)
-      toast.success('Member added to project')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add member')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleRemove = async (userId: string) => {
-    if (!orgId) return
-    try {
-      await removeProjectMember(orgId, teamId, projectId, userId)
-      setMembers(prev => prev.filter(m => m.userId !== userId))
-      toast.success('Member removed from project')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
-    }
-  }
-
-  const selectedMember      = orgMembers.find(m => m.id === selected)
-  const selectedMemberLabel = selectedMember ? (selectedMember.name || selectedMember.email) : 'Select member...'
+  }, [projectId, refreshKey])
 
   return (
-    <div style={{ backgroundColor: 'var(--neutral-50)' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 24px 16px',
-      }}>
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-            Project members
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-            Members assigned directly to this project.
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={handleOpenAdd}>
-          Add member
-        </Button>
-      </div>
-
-      {addOpen && (
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {orgMembers.length === 0 ? (
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0 }}>
-              Everyone eligible is already in this project.
-            </p>
-          ) : (
-            <Dropdown.Float
-              open={pickerOpen}
-              onOpenChange={setPickerOpen}
-              placement="bottom-start"
-              trigger={
-                <Button variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
-                  {selectedMemberLabel}
-                </Button>
-              }
-            >
-              <Dropdown>
-                <Dropdown.Section>
-                  <div
-                    className="kaya-scrollbar"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
-                  >
-                    {orgMembers.map(m => (
-                      <Dropdown.Item
-                        key={m.id}
-                        label={m.name || m.email}
-                        subLabel={m.name && m.email ? m.email : undefined}
-                        selected={selected === m.id}
-                        onClick={() => { setSelected(m.id); setPickerOpen(false) }}
-                        fluid
-                      />
-                    ))}
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      {/* Scrollable member list — same flush region + kaya-scrollbar treatment
+          the sibling Agents panel uses for its own list. */}
+      <div style={{ position: 'relative', flex: '1 1 0', minHeight: 0 }}>
+        <div className="kaya-scrollbar" style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', padding: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => <MemberRowSkeleton key={i} />)
+            ) : members.length === 0 ? (
+              <EmptyState text="No project members yet." />
+            ) : (
+              members.map(m => {
+                const isOwner = m.userId === ownerUserId
+                return (
+                  <div key={m.userId} style={ROW_CARD_STYLE}>
+                    <Avatar name={m.name || m.email || m.userId} size="sm" />
+                    <div style={{ minWidth: 0, flex: '1 0 0' }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.name ?? m.userId}
+                      </p>
+                      {m.email && (
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.email}
+                        </p>
+                      )}
+                    </div>
+                    {isOwner ? (
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', flexShrink: 0 }}>Owner</span>
+                    ) : canManage ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setRemoveTarget(m)}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
                   </div>
-                </Dropdown.Section>
-              </Dropdown>
-            </Dropdown.Float>
-          )}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button size="sm" disabled={!selected || saving} onClick={handleAdd}>
-              {saving ? 'Adding...' : 'Add member'}
-            </Button>
+                )
+              })
+            )}
           </div>
         </div>
-      )}
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(240px, 1fr) 140px',
-        alignItems: 'center',
-        padding: '4px 24px 8px',
-        borderTop: '1px solid var(--neutral-100)',
-      }}>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>
-          Member
-        </span>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', textAlign: 'right' }}>
-          Actions
-        </span>
       </div>
 
-      {loading && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
-          Loading members...
-        </p>
-      )}
-      {!loading && members.length === 0 && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
-          No project members yet.
-        </p>
-      )}
-      {members.map(m => (
-        <div key={m.userId} style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(240px, 1fr) 140px',
-          alignItems: 'center',
-          minHeight: 58,
-          padding: '0 24px',
-          borderTop: '1px solid var(--neutral-100)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <Avatar name={m.name || m.email || m.userId} size="sm" />
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {m.name ?? m.userId}
-              </p>
-              {m.email && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.email}
-                </p>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="danger" size="sm" onClick={() => handleRemove(m.userId)}>
-              Remove
-            </Button>
-          </div>
+      {/* Add member — opens the project's Sharing modal (ProjectAddMembersList)
+          instead of a separate inline picker here, so there's one add-member
+          flow instead of two independently-maintained ones. */}
+      {canManage && (
+        <div style={{ paddingTop: 12, flexShrink: 0 }}>
+          <Button variant="secondary" size="md" fluid leftIcon={<PlusSignIcon size={16} />} onClick={onAddMember}>
+            Add member
+          </Button>
         </div>
-      ))}
+      )}
+
+      {removeTarget && (
+        <ConfirmModal
+          title={`Remove ${removeTarget.name ?? removeTarget.email ?? 'this member'}?`}
+          description="They'll lose access to this project immediately."
+          confirmLabel="Remove"
+          onConfirm={async () => {
+            await removeProjectMemberFromProject(projectId, removeTarget.userId)
+            setMembers(prev => prev.filter(m => m.userId !== removeTarget.userId))
+            toast.success('Member removed from project')
+          }}
+          onClose={() => setRemoveTarget(null)}
+        />
+      )}
     </div>
   )
 }

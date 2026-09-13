@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Project & Chat Sharing Model — v2</title>
+<style>
+  :root{
+    --paper:#FAF9F6;
+    --ink:#1B1C1E;
+    --ink-soft:#55585E;
+    --line:#DDDAD2;
+    --line-strong:#B9B5AB;
+    --accent:#2F4B3F;
+    --accent-soft:#E4EAE4;
+    --blue:#3A4A8A;
+    --blue-soft:#E3E6F1;
+    --amber:#9A6B23;
+    --amber-soft:#F3E7D3;
+    --red:#9C3B3B;
+    --red-soft:#F3E1E1;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:780px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:58ch; margin:0 0 16px;}
+  .changelog{
+    font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line);
+    border-radius:6px; padding:12px 16px; margin-bottom:44px;
+  }
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  h2{font-family:var(--serif); font-weight:600; font-size:26px; margin:64px 0 4px; padding-top:24px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h3{font-family:var(--serif); font-weight:600; font-size:18px; margin:34px 0 6px;}
+  p{font-size:15.5px; color:#33353A; max-width:64ch;}
+  ul{padding-left:20px; margin:12px 0;}
+  li{font-size:15.5px; margin-bottom:6px; max-width:60ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13.5px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:18px 0 8px; font-size:14.5px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11.5px; color:var(--ink-soft); padding:8px 12px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 8px; border-radius:20px; font-weight:500;}
+  .tag.personal{background:var(--accent-soft); color:var(--accent);}
+  .tag.workspace{background:var(--blue-soft); color:var(--blue);}
+  .tag.shared{background:var(--amber-soft); color:var(--amber);}
+  .figure{margin:28px 0 8px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:20px 8px;}
+  .figure svg{display:block; width:100%; height:auto;}
+  .fig-caption{font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); margin:8px 4px 40px; text-align:center;}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:12px 16px; font-size:14px; color:#2B3B33; margin:16px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .rule-block{border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin:18px 0; background:#fff;}
+  .rule-block .role{font-family:var(--mono); font-size:11px; color:var(--amber); font-weight:600; margin-bottom:6px; letter-spacing:.02em;}
+  /* FAQ */
+  .faq-section{margin:42px 0;}
+  .faq-cat{font-family:var(--mono); font-size:12px; color:var(--ink-soft); letter-spacing:.03em; margin:36px 0 4px; text-transform:uppercase;}
+  .qa{border-bottom:1px solid var(--line); padding:16px 0;}
+  .qa:last-child{border-bottom:none;}
+  .q{font-family:var(--serif); font-size:16px; font-weight:600; margin:0 0 6px; color:var(--ink);}
+  .a{font-size:14.5px; color:#33353A; margin:0; max-width:62ch;}
+  footer{margin-top:70px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V2</span></div>
+  <h1>Project & Chat Sharing Model</h1>
+  <p class="subtitle">How visibility, ownership, and deletion work for the two entities that get shared: projects and chats.</p>
+
+  <h2><span class="num">00</span>Entities</h2>
+  <p>Two things get shared in Souvenir: <strong>projects</strong>, which hold work and structure, and <strong>chats</strong>, which live inside or outside a project. Both follow the same underlying principle — <strong>one owner per entity, and that owner is never removable by anyone but themselves.</strong></p>
+  <p>Two roles exist: <strong>Member</strong> and <strong>Admin</strong>. Admins carry no special sharing power in this model — the only Admin-specific rule anywhere is that the <em>last</em> Admin in a workspace can't leave without promoting a replacement first, which is a workspace safeguard, not a sharing rule.</p>
+
+  <h2><span class="num">01</span>Projects</h2>
+
+  <h3>Types</h3>
+  <table>
+    <tr><th class="label">Type</th><th>Visible to</th><th>Who can create</th></tr>
+    <tr><td class="label"><span class="tag personal">Personal</span></td><td>Owner only — no collaborators possible</td><td>Any Member or Admin</td></tr>
+    <tr><td class="label"><span class="tag workspace">Workspace</span></td><td>Every workspace member, automatically</td><td>Any Member or Admin</td></tr>
+    <tr><td class="label"><span class="tag shared">Shared</span></td><td>An explicit list of people</td><td>Any Member or Admin</td></tr>
+  </table>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="28" font-family="IBM Plex Mono" font-size="12" fill="#55585E">PROJECTS</text>
+      <line x1="20" y1="40" x2="680" y2="40" stroke="#B9B5AB" stroke-width="1"/>
+      <rect x="20" y="60" width="200" height="180" rx="6" fill="#E4EAE4" stroke="#2F4B3F" stroke-width="1"/>
+      <text x="40" y="88" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#2F4B3F">PERSONAL</text>
+      <rect x="40" y="104" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="52" y="121" font-family="IBM Plex Sans" font-size="11" fill="#33353A">Roadmap draft</text>
+      <rect x="40" y="138" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="52" y="155" font-family="IBM Plex Sans" font-size="11" fill="#33353A">Pricing scratch</text>
+      <text x="40" y="210" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">no collaborators —</text>
+      <text x="40" y="224" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">owner only, ever</text>
+
+      <rect x="250" y="60" width="200" height="180" rx="6" fill="#E3E6F1" stroke="#3A4A8A" stroke-width="1"/>
+      <text x="270" y="88" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#3A4A8A">WORKSPACE</text>
+      <rect x="270" y="104" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="282" y="121" font-family="IBM Plex Sans" font-size="11" fill="#33353A">Onboarding flows</text>
+      <rect x="270" y="138" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="282" y="155" font-family="IBM Plex Sans" font-size="11" fill="#33353A">Connector library</text>
+      <text x="270" y="210" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">membership = whole</text>
+      <text x="270" y="224" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">workspace, not managed</text>
+
+      <rect x="480" y="60" width="200" height="180" rx="6" fill="#F3E7D3" stroke="#9A6B23" stroke-width="1"/>
+      <text x="500" y="88" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#9A6B23">SHARED</text>
+      <rect x="500" y="104" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="512" y="121" font-family="IBM Plex Sans" font-size="11" fill="#33353A">CRO pilot (Heatmap)</text>
+      <rect x="500" y="138" width="160" height="26" rx="4" fill="#fff" stroke="#B9B5AB"/>
+      <text x="512" y="155" font-family="IBM Plex Sans" font-size="11" fill="#33353A">Design review</text>
+      <text x="500" y="210" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">explicit list — any</text>
+      <text x="500" y="224" font-family="IBM Plex Sans" font-size="10.5" fill="#55585E">collaborator can edit it</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 1 — Projects sidebar segregated by type</div>
+
+  <h3>Ownership & membership</h3>
+  <ul>
+    <li>Every project has exactly one <strong>owner</strong>, fixed at creation, holding the only role with power to delete the project or resolve its succession.</li>
+    <li>Everyone else is a <strong>collaborator</strong> — no deletion rights, no successorship, but free to add or remove other collaborators.</li>
+    <li>The owner <strong>cannot be removed by anyone else</strong>, under any circumstance. They can only exit voluntarily, and even that is gated (below).</li>
+    <li>On a Shared project, any collaborator can add or remove any other collaborator — the owner is the one exception nobody can touch.</li>
+    <li>Workspace projects have no manageable member list — access is simply "everyone currently in the workspace."</li>
+  </ul>
+
+  <h3>Leaving & reassignment</h3>
+  <p>Collaborators can leave a Shared or Workspace project at any time, no confirmation needed. Owners cannot — <strong>a project can never be left ownerless</strong>, so exiting is a deliberate handoff, not a departure.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg">
+      <rect x="250" y="10" width="200" height="46" rx="6" fill="#1B1C1E"/>
+      <text x="350" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#FAF9F6">Owner tries to exit</text>
+      <line x1="350" y1="56" x2="350" y2="82" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="345,82 355,82 350,90" fill="#B9B5AB"/>
+
+      <polygon points="350,90 440,145 350,200 260,145" fill="#fff" stroke="#1B1C1E" stroke-width="1.5"/>
+      <text x="350" y="141" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#1B1C1E">others still</text>
+      <text x="350" y="155" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#1B1C1E">on the project?</text>
+
+      <line x1="260" y1="145" x2="130" y2="230" stroke="#B9B5AB" stroke-width="1.5"/>
+      <text x="165" y="190" font-family="IBM Plex Mono" font-size="10.5" fill="#55585E">yes</text>
+      <rect x="30" y="230" width="200" height="80" rx="6" fill="#E3E6F1" stroke="#3A4A8A"/>
+      <text x="130" y="255" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#3A4A8A" font-weight="600">Must name a successor</text>
+      <text x="130" y="272" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">manual pick, no auto-assign</text>
+      <text x="130" y="288" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#3A4A8A">then the exit completes</text>
+
+      <line x1="440" y1="145" x2="570" y2="230" stroke="#B9B5AB" stroke-width="1.5"/>
+      <text x="535" y="190" font-family="IBM Plex Mono" font-size="10.5" fill="#55585E">no — alone</text>
+      <rect x="470" y="230" width="200" height="80" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="570" y="255" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#9A6B23" font-weight="600">Archive or convert</text>
+      <text x="570" y="272" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">to Private — forced modal,</text>
+      <text x="570" y="288" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9A6B23">no third option</text>
+
+      <text x="350" y="330" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C3B3B">Closing the modal without choosing = stays stuck as owner. No timeout, no fallback.</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 2 — Owner exit flow (replaces v1's auto-assignment)</div>
+
+  <div class="rule-block">
+    <div class="role">SAME LOGIC, WORKSPACE-WIDE</div>
+    This applies identically to Workspace projects — there's no role-based fallback (no "give it to an Admin"). The owner always picks a person, manually, from whoever remains.
+  </div>
+
+  <h3>Deletion</h3>
+  <table>
+    <tr><th class="label">Type</th><th>Who can delete</th><th>Effect</th></tr>
+    <tr><td class="label"><span class="tag personal">Personal</span></td><td>Owner, any time</td><td>Instant — no one else was ever affected</td></tr>
+    <tr><td class="label"><span class="tag workspace">Workspace</span></td><td>Owner only, whoever currently holds it</td><td>Soft-deleted, 30-day recovery, then purged</td></tr>
+    <tr><td class="label"><span class="tag shared">Shared</span></td><td>Owner only, whoever currently holds it</td><td>Soft-deleted, 30-day recovery, then purged</td></tr>
+  </table>
+  <p>Deleting a project deletes every chat inside it — Private and Shared alike. Nothing is orphaned back out.</p>
+
+  <h2><span class="num">02</span>Chats</h2>
+
+  <h3>States</h3>
+  <p>A chat has three possible states: <strong>Private</strong>, <strong>Shared</strong>, or <strong>Archived</strong>. There's no "leaving" a chat — that concept doesn't exist here the way it does for projects.</p>
+  <table>
+    <tr><th class="label">State</th><th>Visible to</th><th>Reachable from</th></tr>
+    <tr><td class="label">Private</td><td>Creator only</td><td>Default at creation</td></tr>
+    <tr><td class="label">Shared</td><td>Explicit list, or entire project if created inside one</td><td>Creator shares a Private chat</td></tr>
+    <tr><td class="label">Archived</td><td>Creator only, read-only</td><td>Creator archives a Private chat</td></tr>
+  </table>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg">
+      <rect x="40" y="80" width="140" height="60" rx="6" fill="#E4EAE4" stroke="#2F4B3F"/>
+      <text x="110" y="105" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2F4B3F">Private</text>
+      <text x="110" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2F4B3F">creator only</text>
+
+      <line x1="180" y1="95" x2="260" y2="95" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="256,90 264,95 256,100" fill="#B9B5AB"/>
+      <text x="220" y="85" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#55585E">share</text>
+
+      <rect x="260" y="60" width="160" height="60" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="340" y="85" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9A6B23">Shared</text>
+      <text x="340" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9A6B23">view-only for others</text>
+
+      <line x1="180" y1="125" x2="260" y2="160" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="254,157 264,159 258,167" fill="#B9B5AB"/>
+      <text x="215" y="150" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#55585E">archive</text>
+
+      <rect x="260" y="140" width="160" height="60" rx="6" fill="#EDEDEA" stroke="#B9B5AB"/>
+      <text x="340" y="165" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#55585E">Archived</text>
+      <text x="340" y="182" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#55585E">creator only, read-only</text>
+
+      <line x1="420" y1="90" x2="500" y2="90" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="496,85 504,90 496,95" fill="#B9B5AB"/>
+      <text x="460" y="80" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#55585E">viewer clicks</text>
+
+      <rect x="500" y="60" width="170" height="60" rx="6" fill="#1B1C1E"/>
+      <text x="585" y="83" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#FAF9F6" font-weight="600">Continue</text>
+      <text x="585" y="99" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#DDDAD2">forks a private copy</text>
+
+      <text x="340" y="20" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#9C3B3B">no "leave" state — creator can only Share, Archive, or Delete once shared</text>
+    </svg>
+  </div>
+  <div class="fig-caption">FIG 3 — Chat lifecycle</div>
+
+  <h3>Sharing model</h3>
+  <ul>
+    <li><strong>Inside a project:</strong> a Shared chat is automatically visible to every member of that project and listed on the project's home-page. Its audience is inherited from the project — there's no separate list to manage.</li>
+    <li><strong>Outside a project:</strong> a Shared chat has its own explicit list, same shape as a Shared project's — but unlike projects, only the <strong>creator</strong> can add or remove people from it. No open-collaborator editing here, since chats have no collaborator concept at all.</li>
+    <li>A chat's project association is fixed at creation and can't change — it can't move between projects or move into one later.</li>
+    <li>Once shared, the creator becomes the chat's owner in the same sticky sense as a project owner: <strong>nobody else can remove them</strong>, and there's no successor mechanism — chats don't get handed off.</li>
+  </ul>
+
+  <h3>Viewing & continuing</h3>
+  <p>Anyone a chat is shared with can view it in full, but can't edit or add to it. To keep the conversation going, they hit <strong>Continue</strong>, which forks a private copy into their own account. The original stays exactly as the creator left it.</p>
+
+  <h3>Deletion</h3>
+  <table>
+    <tr><th class="label">State</th><th>Who can delete</th><th>Gating</th></tr>
+    <tr><td class="label">Private</td><td>Creator</td><td>None — instant</td></tr>
+    <tr><td class="label">Shared</td><td>Creator/owner</td><td>None — no successor to resolve, unlike projects</td></tr>
+    <tr><td class="label">Archived</td><td>Creator</td><td>None — instant</td></tr>
+  </table>
+
+  <h2><span class="num">03</span>Edge cases</h2>
+
+  <div class="faq-cat">Ownership & exit</div>
+  <div class="qa">
+    <p class="q">Can an owner be removed by an Admin, or anyone else?</p>
+    <p class="a">No, under any circumstance. The only way ownership changes hands is the owner voluntarily naming a successor.</p>
+  </div>
+  <div class="qa">
+    <p class="q">What if the owner closes the successor/archive modal without choosing?</p>
+    <p class="a">They stay stuck as owner, still in the project, unable to complete the exit. No timeout, no fallback path.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Multiple people are eligible successors — how does the system pick?</p>
+    <p class="a">It doesn't. The outgoing owner picks manually. There's no tiebreaker because there's no auto-assignment left in the model.</p>
+  </div>
+  <div class="qa">
+    <p class="q">The last Admin tries to leave the workspace — what happens?</p>
+    <p class="a">Same pattern as project ownership: a forced modal requires promoting a replacement Admin before the leave completes.</p>
+  </div>
+
+  <div class="faq-cat">Membership</div>
+  <div class="qa">
+    <p class="q">Who can add or remove people from a Shared project?</p>
+    <p class="a">Any collaborator — fully open. The one person nobody can remove is the owner.</p>
+  </div>
+  <div class="qa">
+    <p class="q">A non-owner is removed from a Shared project — what happens to their access?</p>
+    <p class="a">Immediate and total, including any chat history they could previously see in that project.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Can a non-owner just leave a Shared or Workspace project on their own?</p>
+    <p class="a">Yes, self-serve, no confirmation. This only applies to collaborators — owners are gated as described above.</p>
+  </div>
+
+  <div class="faq-cat">Offboarding</div>
+  <div class="qa">
+    <p class="q">Someone is offboarded from the workspace entirely — what happens to what they own?</p>
+    <p class="a">Personal projects are deleted. Any project they own as Shared/Workspace owner must be resolved (successor named, or archived/converted if they're alone) before the offboarding can complete — same gate as a manual exit.</p>
+  </div>
+  <div class="qa">
+    <p class="q">What happens to their Private chats?</p>
+    <p class="a">Deleted, permanently, with no recovery — same treatment as Personal projects.</p>
+  </div>
+  <div class="qa">
+    <p class="q">What happens to chats they'd already shared?</p>
+    <p class="a">They survive. Visibility for a Shared chat lives with its list or its project, not with the creator's continued presence in the workspace.</p>
+  </div>
+
+  <div class="faq-cat">Deletion</div>
+  <div class="qa">
+    <p class="q">Can a collaborator ever delete a project?</p>
+    <p class="a">No. Deletion is owner-only across all three project types, regardless of how the current owner came to hold that role.</p>
+  </div>
+  <div class="qa">
+    <p class="q">What happens to the chats inside a deleted project?</p>
+    <p class="a">Deleted along with it — Private and Shared alike. Nothing is orphaned back out to individual owners.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Is deletion immediate?</p>
+    <p class="a">Soft-delete with a 30-day recovery window, then an automatic purge. Applies to projects; chat deletion is instant with no recovery window.</p>
+  </div>
+
+  <div class="faq-cat">Chats</div>
+  <div class="qa">
+    <p class="q">Can a Private chat exist inside a Workspace or Shared project?</p>
+    <p class="a">Yes — chat visibility is independent of the project it lives in. A Private chat stays creator-only even inside a fully Shared project, and won't appear on the project's home-page.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Can a viewer edit a chat that's been shared with them?</p>
+    <p class="a">No. Shared chats are view-only. To keep chatting, a viewer forks their own copy via Continue.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Can a chat move between projects, or into one after creation?</p>
+    <p class="a">No. Its project association is fixed at creation, same as its sharing state.</p>
+  </div>
+  <div class="qa">
+    <p class="q">Is a Shared chat searchable workspace-wide?</p>
+    <p class="a">No. It's discoverable only via its project's home-page (if inside a project) or directly by the people on its list (if standalone) — never through general workspace search.</p>
+  </div>
+
+  <footer>SOUVENIR — PROJECT &amp; CHAT SHARING MODEL — V2</footer>
+</div>
+</body>
+</html>

@@ -12,7 +12,10 @@ import { Badge } from '@/components/Badge'
 export interface ProjectChatRowProps {
   title:            string
   timestamp:        string
-  pinCount:         number
+  /** Pass `null` while the real count isn't known yet (e.g. the pinboard
+   *  hasn't finished loading) — renders a neutral placeholder instead of
+   *  falsely claiming "No pins". */
+  pinCount:         number | null
   active?:          boolean
   /** Author attribution, appended to the timestamp line (team shared/view-only rows). */
   author?:          string
@@ -121,11 +124,19 @@ export function ProjectChatRow(
     }
 
     // ⋮ menu only visible on hover/menu-open, and only when there's an action
-    // to offer (read-only shared/view-only rows pass no handlers).
+    // to offer (read-only shared/view-only rows pass no handlers). No
+    // "Unpublish" entry — see the menu section below — so a published chat's
+    // publish state alone no longer justifies showing the menu.
     const showMoreMenu = hovered || menuOpen
-    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy || (!!canPublish && isPublished))
+    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy)
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
+
+    // `null` = count not known yet (pinboard still loading) — treated like
+    // "no pins" for layout/interaction purposes, but labelled honestly instead
+    // of claiming zero.
+    const pinCountKnown = pinCount !== null
+    const hasPins       = pinCountKnown && pinCount > 0
 
     // Ghost bg: transparent at rest, ghost-hover fill on hover/menu-open —
     // matches ChatRow's rowActive/bg treatment exactly.
@@ -259,8 +270,8 @@ export function ProjectChatRow(
               }}
             >
               {publishState === 'unpublishing'
-                ? 'This chat would be unpublished from this team'
-                : 'This chat would be published to this team'}
+                ? 'This chat would be unpublished from all members of this project'
+                : 'This chat would be published to all members of this project'}
             </span>
             <Button
               variant="ghost"
@@ -308,7 +319,7 @@ export function ProjectChatRow(
                 />
               }
             >
-              <Dropdown size="sm">
+              <Dropdown size="sm" maxHeight={false}>
                 <Dropdown.Section fluid>
                   {onRename && (
                     <Dropdown.Item
@@ -317,13 +328,11 @@ export function ProjectChatRow(
                       fluid
                     />
                   )}
-                  {canPublish && isPublished && (
-                    <Dropdown.Item
-                      label="Unpublish from team"
-                      onClick={() => { setMenuOpen(false); setPublishState('unpublishing') }}
-                      fluid
-                    />
-                  )}
+                  {/* No "Unpublish" action — the backend has no unshare route
+                      for a chat yet (only POST .../share, which is one-way).
+                      Offering this would optimistically flip the row to
+                      "unpublished" locally with no way to actually make that
+                      true server-side. */}
                   {onCreateCopy && (
                     <Dropdown.Item
                       label="Create a copy"
@@ -366,10 +375,10 @@ export function ProjectChatRow(
         {!isConfirming && <button
           onClick={(e) => {
             e.stopPropagation()
-            if (pinCount > 0) onPinsClick?.(e)
+            if (hasPins) onPinsClick?.(e)
           }}
-          disabled={pinCount === 0}
-          aria-label={pinCount > 0 ? `${pinCount} pins` : 'No pins'}
+          disabled={!hasPins}
+          aria-label={hasPins ? `${pinCount} pins` : pinCountKnown ? 'No pins' : 'Pin count loading'}
           style={{
             position:       'relative',
             display:        'inline-flex',
@@ -381,17 +390,17 @@ export function ProjectChatRow(
             padding:        '6px 8px',
             flexShrink:     0,
             borderRadius:   '8px',
-            cursor:         pinCount > 0 ? 'pointer' : 'default',
-            width:          pinCount === 0 ? '78px' : undefined,
+            cursor:         hasPins ? 'pointer' : 'default',
+            width:          !hasPins ? '78px' : undefined,
             overflow:       'hidden',
-            boxShadow:      (showPinAction && pinCount > 0)
+            boxShadow:      (showPinAction && hasPins)
               ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
               : '0px 0px 0px 1px rgba(59,54,50,0.3)',
             transition:     'box-shadow 120ms ease',
           }}
         >
           {/* Warm fill on hover/active when there are pins */}
-          {pinCount > 0 && showPinAction && (
+          {hasPins && showPinAction && (
             <div
               aria-hidden
               style={{
@@ -404,7 +413,7 @@ export function ProjectChatRow(
             />
           )}
 
-          {pinCount > 0 ? (
+          {hasPins ? (
             <>
               <PinIcon
                 animated
@@ -435,12 +444,12 @@ export function ProjectChatRow(
                 whiteSpace: 'nowrap',
               }}
             >
-              No pins
+              {pinCountKnown ? 'No pins' : '···'}
             </span>
           )}
 
           {/* Inset highlight on hover/active when there are pins */}
-          {pinCount > 0 && showPinAction && (
+          {hasPins && showPinAction && (
             <div
               aria-hidden
               style={{

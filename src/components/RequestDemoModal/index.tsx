@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { z } from 'zod'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { toast } from 'sonner'
@@ -13,6 +14,15 @@ const SHADOW_PILL  = '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3
 const SHADOW_PILL_ACTIVE = '0px 0px 0px 1px var(--neutral-black, #000), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)'
 
 type PreferredTime = 'mornings' | 'afternoons' | 'evenings'
+
+// Old check only required a non-empty email; this also rejects malformed
+// addresses, which nothing here caught before.
+const requestDemoSchema = z.object({
+  email:         z.string().trim().min(1, 'Work email is required.').email('Enter a valid work email.'),
+  name:          z.string().trim(),
+  preferredTime: z.enum(['mornings', 'afternoons', 'evenings']),
+  message:       z.string().trim(),
+})
 
 // ── Labelled input ────────────────────────────────────────────────────────────
 
@@ -121,10 +131,14 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
   const [submitting,    setSubmitting]     = useState(false)
 
   const handleSubmit = async () => {
-    if (!email.trim()) { toast.error('Work email is required.'); return }
+    const result = requestDemoSchema.safeParse({ email, name, preferredTime, message })
+    if (!result.success) {
+      toast.error(result.error.issues[0]?.message ?? 'Please check your details.')
+      return
+    }
     setSubmitting(true)
     try {
-      await onSubmit?.({ email: email.trim(), name: name.trim(), preferredTime, message: message.trim() })
+      await onSubmit?.(result.data)
       toast.success("We'll send you a calendar link shortly.")
       onClose()
     } catch {
@@ -182,7 +196,7 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
           {/* Subtitle */}
           <div style={{ padding: '0 12px 24px' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              A 30-minute walkthrough of the centralized brain, agents, and the Slack bot.
+              A 30-minute walkthrough of Tasks, agents, and the Slack bot.
             </p>
           </div>
 

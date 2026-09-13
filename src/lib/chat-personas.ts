@@ -6,7 +6,6 @@ import {
   type Persona,
   type PersonaRepoResponse,
 } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 
 export interface SelectedPersonaInfo {
   id:              string
@@ -21,6 +20,11 @@ export interface SelectedPersonaInfo {
   visibility:      'private' | 'team'
   /** True when the viewer owns this persona outright (not a team-shared copy). */
   ownedByViewer:   boolean
+  description:     string
+  tags:            string[]
+  paused:          boolean
+  /** True when this card should show the "shared" badge — mirrors /agents page's logic. */
+  shared:          boolean
 }
 
 type CopyPersona = (repoId: string, sourceVersionId?: string | null) => Promise<PersonaRepoResponse>
@@ -39,6 +43,10 @@ function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPe
     temperature: persona.temperature,
     visibility: persona.visibility,
     ownedByViewer,
+    description: persona.description,
+    tags: persona.tags,
+    paused: persona.isPaused,
+    shared: persona.sourceShareId !== null || (persona.visibility === 'team' && !ownedByViewer),
   }
 }
 
@@ -76,6 +84,11 @@ export async function resolveSelectableChatPersonas(
         temperature: version?.temperature ?? persona.temperature,
         visibility: persona.visibility,
         ownedByViewer: false,
+        description: persona.description,
+        tags: persona.tags,
+        paused: persona.isPaused,
+        // Always true here — this branch only runs for personas the viewer doesn't own.
+        shared: true,
       }
       copiedPersonaCache.set(persona.id, selected)
       return selected
@@ -87,10 +100,9 @@ export async function resolveSelectableChatPersonas(
 
 // 30-second TTL cache + in-flight dedup — the Agents floating panel calls
 // fetchSelectableChatPersonas() fresh on every open, which previously re-ran
-// fetchPersonas() + fetchPersonaOwnerMap() + the copy-resolution pass every
-// single time. Busted whenever the personas list itself is busted (create/
-// edit/publish/delete/share), so a real mutation is never masked by a stale
-// cache hit.
+// fetchPersonas() + the copy-resolution pass every single time. Busted
+// whenever the personas list itself is busted (create/edit/publish/delete/
+// share), so a real mutation is never masked by a stale cache hit.
 const _selectableCache = new Map<string, { data: SelectedPersonaInfo[]; time: number }>()
 const _selectableInFlight = new Map<string, Promise<SelectedPersonaInfo[]>>()
 const SELECTABLE_CACHE_TTL = 30_000
@@ -119,15 +131,15 @@ export function fetchSelectableChatPersonas(
 
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
-    const personas = allPersonas.filter(persona => persona.status !== 'draft')
-    const teamIds = [...new Set(
-      personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
-    )]
-    const ownerMap = orgId && teamIds.length > 0
-      ? await fetchPersonaOwnerMap(orgId, teamIds)
-      : {}
-
-    const resolved = await resolveSelectableChatPersonas(personas, ownerMap, viewerUserId, fallbackOwned)
+    // Private-only — the shared-agent UI (and the eager clone-on-open behavior
+    // resolveSelectableChatPersonas runs for anything not owned by the viewer)
+    // is hidden app-wide, so this stays scoped to agents the viewer already
+    // owns outright rather than silently /use-cloning every org-shared agent
+    // into their account on each panel open. Matches brain/page.tsx's chip
+    // list, which was already scoped this way. resolveSelectableChatPersonas
+    // itself is untouched — still callable if this is ever re-widened.
+    const personas = allPersonas.filter(persona => persona.status !== 'draft' && persona.visibility === 'private')
+    const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved
   })().finally(() => { _selectableInFlight.delete(key) })

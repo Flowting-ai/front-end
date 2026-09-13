@@ -446,7 +446,7 @@ export function PinboardExpanded(
                           />
                         }
                       >
-                        <Dropdown>
+                        <Dropdown maxHeight={false}>
                           <Dropdown.Section fluid>
                             <Dropdown.Item
                               label="Rename"
@@ -533,7 +533,7 @@ export function PinboardExpanded(
                           />
                         }
                       >
-                        <Dropdown>
+                        <Dropdown maxHeight={false}>
                           <Dropdown.Section fluid>
                             <Dropdown.Item
                               label="Rename"
@@ -961,7 +961,7 @@ export function PinboardExpanded(
                               leftIcon={<FolderAddIcon size={16} />}
                               disabled={selectedPinIds.size === 0}
                             >
-                              Move to folder
+                              Move to pin folder
                             </Button>
                           }
                         >

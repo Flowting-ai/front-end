@@ -288,7 +288,7 @@ export function EnhancePromptField(
             <textarea
               ref={textareaRef}
               aria-label={ariaLabel}
-              className="kaya-enhance-textarea"
+              className="kaya-enhance-textarea kaya-scrollbar"
               placeholder={placeholder}
               value={value}
               onChange={e => onChange(e.target.value)}

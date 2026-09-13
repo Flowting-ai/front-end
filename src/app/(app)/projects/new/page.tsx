@@ -1,53 +1,64 @@
 'use client'
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { Suspense, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowDownOneIcon, ArrowLeftOneIcon } from '@strange-huge/icons'
-import { useProjects } from '@/context/projects-context'
+import { AnimatePresence, m } from 'framer-motion'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { useProjects, TAG_COLORS, type ProjectTag } from '@/context/projects-context'
+import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
-import { useOrg } from '@/context/org-context'
+import { Badge } from '@/components/Badge'
+import { ChipInput } from '@/components/ChipInput'
+import type { ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
-function NewProjectPageInner() {
-  const { push }                           = useRouter()
-  const searchParams                      = useSearchParams()
-  const { projects, createProject }       = useProjects()
-  const { orgId, teams, teamsLoading } = useOrg()
-  const [name,         setName]           = useState('')
-  const [description,  setDescription]   = useState('')
-  const [loading,      setLoading]        = useState(false)
-  // Defaults to Private. Only pre-set to a team below when this page was
-  // reached via a team-scoped "New project" entry point (?teamId=...) — the
-  // generic /projects and Personal-projects "New project" buttons never pass
-  // that param, so they always land here on Private.
-  const [teamId,       setTeamId]         = useState('')
-  const [teamMenuOpen, setTeamMenuOpen]   = useState(false)
-  const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
-  const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
-  const requestedTeamId = searchParams.get('teamId') ?? ''
-  const requestedTeamWarnedRef = useRef(false)
+const MAX_TAGS = 5
 
-  useEffect(() => {
-    // Wait for teams to finish loading before judging the requested id —
-    // otherwise a still-empty `teams` list would look like a rejection.
-    if (!requestedTeamId || teamsLoading) return
-    if (editableTeams.some(team => team.id === requestedTeamId)) {
-      setTeamId(requestedTeamId)
-    } else if (!requestedTeamWarnedRef.current) {
-      requestedTeamWarnedRef.current = true
-      toast.warning("Couldn't preselect that team", { description: 'The requested team is unavailable or not editable, so this project will default to Private.' })
-    }
-  }, [editableTeams, requestedTeamId, teamsLoading])
+const VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; description: string }[] = [
+  { value: 'personal',  label: 'Personal',  description: 'Just you.' },
+  { value: 'workspace', label: 'Workspace', description: 'Everyone in the workspace.' },
+  { value: 'shared',    label: 'Shared',    description: 'You choose who to invite.' },
+]
+
+function NewProjectPageInner() {
+  const { push }                     = useRouter()
+  const { createProject } = useProjects()
+  const { orgId }                    = useOrg()
+  const [name,        setName]       = useState('')
+  const [description, setDescription] = useState('')
+  const [visibility,  setVisibility]  = useState<ProjectVisibility>('personal')
+  const [tags,        setTags]       = useState<ProjectTag[]>([])
+  const [tagInput,    setTagInput]   = useState('')
+  const [loading,     setLoading]    = useState(false)
+  const [visibilityOpen, setVisibilityOpen] = useState(false)
+
+  // Workspace/Shared require an org — backend 400s otherwise (Project.create()).
+  const visibilityOptions = orgId ? VISIBILITY_OPTIONS : VISIBILITY_OPTIONS.filter(o => o.value === 'personal')
+
+  // Same commit/remove/max-5 logic as EditProjectModal's own tag editor, so a
+  // tag's color/id stay stable whether it was added here or after creation.
+  function commitTag() {
+    const label = tagInput.trim()
+    if (!label || tags.length >= MAX_TAGS || tags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
+    const color = TAG_COLORS[tags.length % TAG_COLORS.length]
+    setTags(prev => [...prev, { id: label, label, color }])
+    setTagInput('')
+  }
+
+  function removeTag(id: string) {
+    setTags(prev => prev.filter(t => t.id !== id))
+  }
 
   async function handleCreate() {
     if (!name.trim()) return
     setLoading(true)
     try {
-      const project = await createProject(name.trim(), description.trim(), teamId || undefined)
+      const project = await createProject(name.trim(), description.trim(), undefined, visibility, tags)
       push(PROJECT_ROUTE(project.id))
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
@@ -120,9 +131,6 @@ function NewProjectPageInner() {
           >
             What&apos;s this project about?
           </h1>
-          <div style={{ alignSelf: 'flex-start' }}>
-            <Badge label={`${projects.length} Projects`} color="Neutral" />
-          </div>
         </div>
 
         {/* Form */}
@@ -150,35 +158,50 @@ function NewProjectPageInner() {
             />
           </div>
 
-          {canCreateTeamProject && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label htmlFor="new-project-team" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47' }}>
-                Access
-              </label>
+          {visibilityOptions.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <label
+                  style={{
+                    fontFamily:  'var(--font-body)',
+                    fontWeight:  'var(--font-weight-medium)',
+                    fontSize:    '14px',
+                    lineHeight:  '22px',
+                    color:       '#524b47',
+                  }}
+                >
+                  Who can see this
+                </label>
+                <Tooltip content="You can't change this once the project is created.">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<InformationCircleIcon size={16} />}
+                    aria-label="About project visibility"
+                  />
+                </Tooltip>
+              </div>
               <Dropdown.Float
-                open={teamMenuOpen}
-                onOpenChange={setTeamMenuOpen}
+                open={visibilityOpen}
+                onOpenChange={setVisibilityOpen}
                 placement="bottom-start"
                 trigger={
-                  <Button id="new-project-team" variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
-                    {teamId ? `Team: ${editableTeams.find(team => team.id === teamId)?.name ?? ''}` : 'Private project'}
+                  <Button variant="secondary" fluid rightIcon={<ArrowDownOneIcon size={16} />}>
+                    <span style={{ flex: '1 0 0', textAlign: 'center' }}>
+                      {visibilityOptions.find(o => o.value === visibility)?.label}
+                    </span>
                   </Button>
                 }
               >
-                <Dropdown>
-                  <Dropdown.Section>
-                    <Dropdown.Item
-                      label="Private project"
-                      selected={teamId === ''}
-                      onClick={() => { setTeamId(''); setTeamMenuOpen(false) }}
-                      fluid
-                    />
-                    {editableTeams.map(team => (
+                <Dropdown size="md" maxHeight={false}>
+                  <Dropdown.Section fluid>
+                    {visibilityOptions.map(opt => (
                       <Dropdown.Item
-                        key={team.id}
-                        label={`Team: ${team.name}`}
-                        selected={teamId === team.id}
-                        onClick={() => { setTeamId(team.id); setTeamMenuOpen(false) }}
+                        key={opt.value}
+                        label={opt.label}
+                        subLabel={opt.description}
+                        selected={visibility === opt.value}
+                        onClick={() => { setVisibility(opt.value); setVisibilityOpen(false) }}
                         fluid
                       />
                     ))}
@@ -247,6 +270,65 @@ function NewProjectPageInner() {
               }}
             >
               This becomes part of your project context.
+            </p>
+          </div>
+
+          {/* Tags — same chip add/remove/max-5 pattern as EditProjectModal's
+              tag editor, so a project's tags look and behave identically
+              whether they were set here or added later. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '22px', color: '#524b47' }}>
+              Tags
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <AnimatePresence initial={false}>
+                {tags.map((tag) => (
+                  <m.div
+                    key={tag.id}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.85 }}
+                    transition={{ duration: 0.12 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
+                  >
+                    <Badge label={tag.label} color={tag.color} />
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag.id)}
+                      aria-label={`Remove tag ${tag.label}`}
+                      style={{
+                        display:        'flex',
+                        alignItems:     'center',
+                        justifyContent: 'center',
+                        width:          16,
+                        height:         16,
+                        borderRadius:   '50%',
+                        border:         'none',
+                        background:     'transparent',
+                        cursor:         'pointer',
+                        padding:        0,
+                        color:          'var(--neutral-500)',
+                      }}
+                    >
+                      <CancelOneIcon style={{ width: 10, height: 10 }} />
+                    </button>
+                  </m.div>
+                ))}
+              </AnimatePresence>
+              {tags.length < MAX_TAGS && (
+                <ChipInput
+                  placeholder="Add tag…"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+                  }}
+                  aria-label="New tag"
+                />
+              )}
+            </div>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: '12px', lineHeight: '16px', color: '#857a72', margin: 0 }}>
+              {tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
             </p>
           </div>
         </div>

@@ -1,8 +1,10 @@
 'use client'
 
-import React from 'react'
-import { PlusSignIcon, CalendarThreeIcon } from '@strange-huge/icons'
+import React, { useState } from 'react'
+import { PlusSignIcon, SearchOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
+import { InputField } from '@/components/InputField'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -24,38 +26,33 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
       flexDirection:  'column',
       alignItems:     'center',
       justifyContent: 'center',
-      gap:            16,
-      padding:        '60px 24px',
-      textAlign:      'center',
+      gap:            24,
+      padding:        '48px 24px',
     }}>
-      <div style={{
-        width:           40,
-        height:          40,
-        borderRadius:    12,
-        backgroundColor: 'var(--neutral-100)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-      }}>
-        <CalendarThreeIcon size={20} color="var(--neutral-400)" />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-700)',
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <p style={{
+          fontFamily: 'var(--font-title)',
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   24,
+          lineHeight: '32px',
+          color:      '#1a1916',
+          margin:     0,
+          whiteSpace: 'nowrap',
         }}>
           No schedules yet
-        </span>
-        <span style={{
+        </p>
+        <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      'var(--neutral-400)',
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   16,
+          lineHeight: '22px',
+          color:      '#1a1916',
+          textAlign:  'center',
+          maxWidth:   427,
+          margin:     0,
         }}>
-          Create a schedule to run Brain automatically on a cadence.
-        </span>
+          Create a schedule to run Task automatically on a cadence.
+        </p>
       </div>
       <Button
         variant="default"
@@ -77,6 +74,17 @@ export function ScheduleListView({
   onCreateNew,
 }: ScheduleListViewProps) {
   const isEmpty = schedules.length === 0
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const trimmedQuery = query.trim().toLowerCase()
+  const visibleSchedules = trimmedQuery
+    ? schedules.filter(s =>
+        s.name.toLowerCase().includes(trimmedQuery)
+        || (s.description ?? '').toLowerCase().includes(trimmedQuery),
+      )
+    : schedules
+  const noSearchResults = !isEmpty && trimmedQuery !== '' && visibleSchedules.length === 0
 
   return (
     <div style={{
@@ -92,47 +100,87 @@ export function ScheduleListView({
         <div style={{ flex: '1 0 0' }}>
           <h2 style={{
             margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body-lg)',
-            fontWeight: 'var(--font-weight-semibold)',
-            lineHeight: 'var(--line-height-body-lg)',
+            fontFamily: 'var(--font-title)',
+            fontSize:   24,
+            fontWeight: 'var(--font-weight-regular)',
+            lineHeight: '32px',
             color:      'var(--neutral-900)',
           }}>
             Schedules
           </h2>
           <p style={{
-            margin:     '2px 0 0',
+            margin:     '4px 0 0',
             fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-400)',
+            fontWeight: 'var(--font-weight-regular)',
+            fontSize:   14,
+            lineHeight: '22px',
+            color:      'var(--neutral-500)',
           }}>
             Automated tasks that run on your behalf
           </p>
         </div>
         {!isEmpty && (
-          <Button
-            variant="default"
-            size="sm"
-            leftIcon={<PlusSignIcon />}
-            onClick={onCreateNew}
-          >
-            New schedule
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {searchOpen && (
+              <div style={{ width: 220 }}>
+                <InputField
+                  label="Search schedules"
+                  showLabel={false}
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search schedules…"
+                  leftIcon={<SearchOneIcon size={16} />}
+                  size="small"
+                  fluid
+                  autoFocus
+                />
+              </div>
+            )}
+            <IconButton
+              variant={searchOpen ? 'secondary' : 'outline'}
+              size="sm"
+              icon={searchOpen ? <CancelOneIcon size={16} /> : <SearchOneIcon size={16} />}
+              aria-label={searchOpen ? 'Close search' : 'Search schedules'}
+              onClick={() => {
+                setSearchOpen(open => !open)
+                setQuery('')
+              }}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              leftIcon={<PlusSignIcon />}
+              onClick={onCreateNew}
+            >
+              New schedule
+            </Button>
+          </div>
         )}
       </div>
 
       {isEmpty ? (
         <EmptyState onCreateNew={onCreateNew} />
+      ) : noSearchResults ? (
+        <p style={{
+          margin:     0,
+          padding:    '48px 24px',
+          textAlign:  'center',
+          fontFamily: 'var(--font-body)',
+          fontSize:   14,
+          lineHeight: '22px',
+          color:      'var(--neutral-500)',
+        }}>
+          No schedules match &ldquo;{query.trim()}&rdquo;.
+        </p>
       ) : (
         <>
           {/* Schedule grid */}
           <div style={{
             display:             'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap:                 12,
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap:                 24,
           }}>
-            {schedules.map(s => (
+            {visibleSchedules.map(s => (
               <ScheduleCard
                 key={s.id}
                 {...s}

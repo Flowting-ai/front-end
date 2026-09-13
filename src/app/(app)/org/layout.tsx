@@ -1,19 +1,18 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useOrg } from '@/context/org-context'
-import { ORG_CONNECTORS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
+import { CHAT_ROUTE } from '@/lib/routes'
 
+// Connectors and Souvenir-in-Slack moved out to their own top-level routes
+// (/connectors, /souvenir-slack — each with its own layout guard); everything
+// still under /org/* is either the root redirect or a stub redirecting to its
+// new /settings/* location, all admin-only.
 export default function OrgAdminLayout({ children }: { children: React.ReactNode }) {
   const { currentUserRole, orgReady } = useOrg()
   const { replace } = useRouter()
-  const pathname = usePathname()
-  // The /org/* section is admin-only (plus members may view /org/connectors).
-  // Editors manage their teams from the editor-scoped /teams/[teamId] page,
-  // which lives outside this layout — so no editor allowance is needed here.
-  const allowMemberConnectors = pathname === ORG_CONNECTORS_ROUTE
-  const canView = currentUserRole === 'admin' || allowMemberConnectors
+  const canView = currentUserRole === 'admin'
 
   useEffect(() => {
     if (orgReady && !canView) {

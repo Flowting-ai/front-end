@@ -21,7 +21,6 @@ function persona(overrides: Partial<Persona>): Persona {
     publishedAt: null,
     versionCount: 1,
     visibility: 'private',
-    teamIds: [],
     hasSystemInstructions: true,
     sourceShareId: null,
     createdAt: '',
@@ -41,8 +40,8 @@ describe('resolveSelectableChatPersonas', () => {
 
     const result = await resolveSelectableChatPersonas([
       persona({ id: 'private', name: 'Private agent' }),
-      persona({ id: 'owned-team', name: 'Owned team agent', visibility: 'team', teamIds: ['team-1'] }),
-      persona({ id: 'other-team', name: 'Other team agent', visibility: 'team', teamIds: ['team-2'] }),
+      persona({ id: 'owned-team', name: 'Owned team agent', visibility: 'team' }),
+      persona({ id: 'other-team', name: 'Other team agent', visibility: 'team' }),
     ], {
       'owned-team': 'viewer',
       'other-team': 'another-user',
@@ -59,9 +58,8 @@ describe('resolveSelectableChatPersonas', () => {
   })
 })
 
-const { fetchPersonasMock, fetchPersonaOwnerMapMock } = vi.hoisted(() => ({
+const { fetchPersonasMock } = vi.hoisted(() => ({
   fetchPersonasMock: vi.fn(),
-  fetchPersonaOwnerMapMock: vi.fn(),
 }))
 
 vi.mock('@/lib/api/personas', async (importOriginal) => {
@@ -69,15 +67,9 @@ vi.mock('@/lib/api/personas', async (importOriginal) => {
   return { ...actual, fetchPersonas: fetchPersonasMock }
 })
 
-vi.mock('@/lib/api/teams', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api/teams')>()
-  return { ...actual, fetchPersonaOwnerMap: fetchPersonaOwnerMapMock }
-})
-
 describe('fetchSelectableChatPersonas', () => {
   beforeEach(() => {
     fetchPersonasMock.mockReset()
-    fetchPersonaOwnerMapMock.mockReset().mockResolvedValue({})
   })
 
   it('excludes draft agents — they are not published/usable yet', async () => {

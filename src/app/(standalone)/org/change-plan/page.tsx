@@ -1,70 +1,131 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+import { m } from 'framer-motion'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { springs } from '@/lib/springs'
+import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { type UserPlanType } from '@/lib/api/user'
-import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
+import { createCheckout, updatePlan, type CheckoutPlan } from '@/lib/api/stripe'
+import { TeamsTier } from '@/lib/api/billing'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
+import { Spinner } from '@/components/Spinner'
+import { Dropdown } from '@/components/Dropdown'
 import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
 const MONO  = "'Geist Mono', ui-monospace, monospace"
 
-// Credits mirror the backend grants (services/users/settings/plans.yaml, USD × 1000).
-const INDIVIDUAL_PLANS: { id: UserPlanType; price: number; credits: number }[] = [
-  { id: 'starter', price: 12,  credits: 4000  },
-  { id: 'pro',     price: 25,  credits: 12000 },
-  { id: 'power',   price: 100, credits: 45000 },
+// Matches what the backend actually grants: services/stripe/catalog.py's
+// usageCredits() is a flat 80% of the monthly price, × 1000 for display units
+// (see toDisplayCredits in lib/api/organization.ts, and plans.yaml's comment).
+const CREDITS_BY_PRICE: Record<number, number> = {
+  50:   40_000,
+  100:  80_000,
+  125:  100_000,
+  250:  200_000,
+  500:  400_000,
+  1000: 800_000,
+  2000: 1_600_000,
+}
+
+const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: CheckoutPlan }[] = [
+  { price: 50,   credits: CREDITS_BY_PRICE[50],   label: '$50',  planId: '50'   },
+  { price: 100,  credits: CREDITS_BY_PRICE[100],  label: '$100', planId: '100'  },
+  { price: 125,  credits: CREDITS_BY_PRICE[125],  label: '$125', planId: '125'  },
+  { price: 250,  credits: CREDITS_BY_PRICE[250],  label: '$250', planId: '250'  },
+  { price: 500,  credits: CREDITS_BY_PRICE[500],  label: '$500', planId: '500'  },
+  { price: 1000, credits: CREDITS_BY_PRICE[1000], label: '$1k',  planId: '1000' },
+  { price: 2000, credits: CREDITS_BY_PRICE[2000], label: '$2k',  planId: '2000' },
 ]
 
-const TEAM_PLANS: { price: number; credits: number; label: string; planType: CheckoutPlan }[] = [
-  { price: 125,  credits: 60000,   label: '$125',  planType: 'team_125'  },
-  { price: 250,  credits: 125000,  label: '$250',  planType: 'team_250'  },
-  { price: 500,  credits: 250000,  label: '$500',  planType: 'team_500'  },
-  { price: 1000, credits: 500000,  label: '$1k',   planType: 'team_1000' },
-  { price: 1500, credits: 750000,  label: '$1.5k', planType: 'team_1500' },
-  { price: 2000, credits: 1000000, label: '$2k',   planType: 'team_2000' },
-]
+// Annual pricing is display-only (matches the 25% discount already shown on
+// settings/plans-and-billing) — checkout still runs through the same
+// monthly `updatePlan`/`createCheckout` call, there's no separate annual
+// planId on the backend yet.
+const ANNUAL_MULTIPLIER = 0.75
+
+// Every tier the pricing sheet lists, for the dropdown — mirrors
+// services/stripe/catalog.py's PLAN_IDS exactly (50/100/125/250/500/1000/2000).
+const DROPDOWN_TIER_PRICES = [50, 100, 125, 250, 500, 1000, 2000]
 
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US')
 }
 
-function FeatureDot() {
+function fmtPrice(price: number): string {
+  return price >= 1000 ? `$${price / 1000}k` : `$${price}`
+}
+
+function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
+  const isBrown = color === 'brown'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: 2, flexShrink: 0 }}>
-      <div style={{
-        width: 8, height: 8, borderRadius: 19,
-        backgroundColor: '#ede1d7',
-        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-      }} />
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative', borderRadius: 6, overflow: 'hidden',
+      boxShadow: isBrown
+        ? '0px 1px 1.5px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)'
+        : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? '#e6d5ca' : '#e9dfc9', borderRadius: 6 }} />
+      <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: isBrown
+        ? 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)'
+        : 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
+      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: isBrown ? '#683d1b' : '#6d5921', position: 'relative', padding: '2px 6px' }}>
+        {label}
+      </span>
     </div>
   )
 }
 
-function FeatureLine({ text }: { text: string }) {
+// Multi-color Slack mark, same geometry as onboarding/plans/page.tsx's own
+// SlackLogo — reused here (scaled down to inline-icon size) for the "Souvenir
+// in Slack" line item, per Figma 85:22114.
+function SlackMark() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 54 54" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="#36C5F0"/>
+      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="#2EB67D"/>
+      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="#ECB22E"/>
+      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="#E01E5A"/>
+    </svg>
+  )
+}
+
+// A plan-card line item is either a plain label, or a label with a trailing
+// inline icon (only "Souvenir in Slack" needs the latter, per Figma 85:22112).
+type FeatureItemDef = string | { label: string; icon: React.ReactNode }
+
+function FeatureLine({ item }: { item: FeatureItemDef }) {
+  const label = typeof item === 'string' ? item : item.label
+  const icon  = typeof item === 'string' ? null : item.icon
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <FeatureDot />
-      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
-        {text}
-      </p>
+      {/* Checkmark, not a dot — Figma 85:22111's tick-01 glyph, matching the
+          TickTwoIcon already used elsewhere in this app as a selected/included
+          indicator (e.g. ModelMenu's own selected-row tick). */}
+      <TickTwoIcon size={16} color="#3b3632" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+          {label}
+        </p>
+        {icon}
+      </div>
     </div>
   )
 }
 
-function FeatureGroup({ title, items }: { title: string; items: string[] }) {
+function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#827a74', margin: 0 }}>
         {title}
       </p>
-      {items.map(item => <FeatureLine key={item} text={item} />)}
+      {items.map(item => <FeatureLine key={typeof item === 'string' ? item : item.label} item={item} />)}
     </div>
   )
 }
@@ -73,69 +134,287 @@ function Hairline() {
   return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
 }
 
-export default function OrgChangePlanPage() {
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+// Shown while org data (orgReady) resolves — mirrors the real layout below
+// (header, billing toggle, the two pricing cards) so there's no layout shift
+// once the real content swaps in. Reuses the app-wide .kaya-skeleton pulse
+// utility (globals.css) rather than the CSS-variable-driven Bone from
+// SettingsSkeleton.tsx — this page is styled with raw hex values throughout,
+// not design tokens.
+
+function Bone({ w, h = 14, r = 6, style: extra }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
+  return <div aria-hidden className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
+}
+
+function FeatureLineSkeleton({ w }: { w: number | string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Matches the real row's 16px checkmark footprint (was a small round
+          dot before the Figma-driven switch to checkmarks). */}
+      <Bone w={16} h={16} r={4} />
+      <Bone w={w} h={14} />
+    </div>
+  )
+}
+
+function FeatureGroupSkeleton({ items }: { items: (number | string)[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Bone w={90} h={13} />
+      {items.map((w, i) => <FeatureLineSkeleton key={i} w={w} />)}
+    </div>
+  )
+}
+
+function ChangePlanSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      className="kaya-scrollbar"
+      style={{
+        minHeight: '100vh', overflowX: 'hidden',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '24px 24px 48px',
+        background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
+          <Bone w={100} h={30} r={10} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <Bone w={90} h={28} r={8} />
+            <Bone w={340} h={16} />
+          </div>
+          <div style={{ width: 100, opacity: 0 }} />
+        </div>
+
+        {/* ── Monthly / Yearly tab ── */}
+        <Bone w={220} h={38} r={10} />
+
+        {/* ── Cards Row ── */}
+        <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+          {/* Workspace card */}
+          <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              backgroundColor: 'white', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
+              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Bone w={110} h={28} r={8} />
+                  <Bone w={90} h={20} r={6} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Bone w={90} h={30} r={10} />
+                  <Bone w={80} h={16} />
+                </div>
+                <Hairline />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <FeatureGroupSkeleton items={['70%', '55%', '85%', '80%', '75%', '65%', '80%', '60%']} />
+                </div>
+              </div>
+              <Bone w="100%" h={36} r={10} />
+            </div>
+          </div>
+
+          {/* Enterprise card */}
+          <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              backgroundColor: 'white', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
+              display: 'flex', flexDirection: 'column', gap: 28,
+              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Bone w={60} h={28} r={8} />
+                <Bone w="80%" h={14} />
+              </div>
+              <Bone w="100%" h={36} r={10} />
+              <Hairline />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
+                <FeatureGroupSkeleton items={['65%', '85%', '70%', '60%', '80%', '55%']} />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// `?plan=core|pro` mirrors which card the user last acted on; `&price=` and
+// `&billing=` only mean anything for `plan=core` (Pro/Enterprise has no
+// tier or billing-interval selection of its own — it's a single fixed
+// "Get in touch" offer). Kept as a plain query-string sync (like the /chats
+// page's `?tab=`/`?filter=` params) rather than driving routing — this page
+// never navigates on selection, so the URL is purely a shareable/bookmarkable
+// mirror of on-screen state, not the source of truth for anything server-side.
+type PlanParam = 'core' | 'pro'
+
+function isValidPrice(n: number): boolean {
+  return DROPDOWN_TIER_PRICES.includes(n)
+}
+
+function OrgChangePlanPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
-  const { org, orgId, orgRole, orgReady } = useOrg()
-  const [individualIdx,    setIndividualIdx]    = useState(1)
-  const [teamIdx,          setTeamIdx]          = useState(1)
+  const { org, orgId, orgRole, orgReady, refreshMembers, plan } = useOrg()
+
+  const initialPriceParam   = Number(searchParams.get('price'))
+  const initialWorkspaceIdx = isValidPrice(initialPriceParam)
+    ? WORKSPACE_PLANS.findIndex(p => p.price === initialPriceParam)
+    : -1
+
+  const [workspaceIdx,     setWorkspaceIdx]     = useState(initialWorkspaceIdx >= 0 ? initialWorkspaceIdx : 1)
+  const [billing,          setBilling]          = useState<'monthly' | 'annual'>(
+    searchParams.get('billing') === 'annual' ? 'annual' : 'monthly',
+  )
+  const [planParam,        setPlanParam]        = useState<PlanParam>(
+    searchParams.get('plan') === 'pro' ? 'pro' : 'core',
+  )
+  const [tierMenuOpen,     setTierMenuOpen]     = useState(false)
   const [changingTo,       setChangingTo]       = useState<CheckoutPlan | null>(null)
   const [contactSalesOpen, setContactSalesOpen] = useState(false)
 
-  const currentPlan      = user?.planType ?? null
-  const firstName        = user?.name?.split(' ')[0] ?? 'there'
-  const selectedIndividual = INDIVIDUAL_PLANS[individualIdx]!
-  const selectedTeam       = TEAM_PLANS[teamIdx]!
+  // Sliding pill behind the Monthly/Yearly buttons — same measure-then-animate
+  // technique as TabsList's own active-tab pill (src/components/Tabs/index.tsx),
+  // scoped locally since this toggle is hand-rolled rather than built on Tabs.
+  const billingRowRef     = useRef<HTMLDivElement>(null)
+  const monthlyBtnRef     = useRef<HTMLButtonElement>(null)
+  const annualBtnRef      = useRef<HTMLButtonElement>(null)
+  const [billingPill, setBillingPill] = useState<{ x: number; width: number } | null>(null)
 
-  const isOnTeamPlan       = Boolean(user?.orgId || orgId)
-  const currentTeamPrice   = isOnTeamPlan ? (org.monthlyPrice ?? 0) : 0
-  const currentTeamTierIdx = TEAM_PLANS.findIndex(p => p.price === currentTeamPrice)
+  // `orgReady` gates whether ChangePlanSkeleton or the real Monthly/Yearly
+  // buttons are mounted (see the `if (!orgReady) return <ChangePlanSkeleton
+  // />` below). This effect already runs on first mount regardless of its dep
+  // array, but that first run happens while still on the skeleton — both
+  // refs are null, so it bails out via the guard below and sets nothing.
+  // `billing` itself never changes between that skeleton render and the real
+  // content mounting, so without `orgReady` here the effect never re-ran and
+  // the pill just stayed absent until the user actually clicked a tab (which
+  // does change `billing`, triggering the first successful measurement).
+  useLayoutEffect(() => {
+    const active = (billing === 'monthly' ? monthlyBtnRef : annualBtnRef).current
+    if (!active) return
+    setBillingPill({ x: active.offsetLeft, width: active.offsetWidth })
+  }, [billing, orgReady])
 
-  // Sync individual slider to user's current plan on load
+  // Mirror the current selection into the URL — query-only (no new history
+  // entry per change) so back/forward doesn't step through every tier click.
   useEffect(() => {
-    if (currentPlan) {
-      const idx = INDIVIDUAL_PLANS.findIndex(p => p.id === currentPlan)
-      if (idx >= 0) setIndividualIdx(idx)
+    const params = new URLSearchParams()
+    params.set('plan', planParam)
+    if (planParam === 'core') {
+      params.set('price', String(WORKSPACE_PLANS[workspaceIdx]?.price ?? WORKSPACE_PLANS[1]!.price))
+      params.set('billing', billing)
     }
-  }, [currentPlan])
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [planParam, workspaceIdx, billing, router])
 
-  // Sync team slider to user's current tier on load
+  const currentPlan        = user?.planType ?? null
+  const selectedWorkspace  = WORKSPACE_PLANS[workspaceIdx]!
+
+  // `org.monthlyPrice` is `TeamsTier.fromCredits(creditPool.total)?.price ?? 0`
+  // — an EXACT match of total credits (which drift off the 6 fixed tier
+  // boundaries the moment there's a topup or mid-cycle usage) against the
+  // Teams tiers, silently falling back to 0 on no match. That falsely read
+  // as "no plan" here, so upgrades went through createCheckout() (new
+  // subscription) instead of updatePlan() (existing subscription), which the
+  // backend correctly rejects with "You already have a plan. Use update plan
+  // to change it." The reliable "does this org have a plan at all" signal is
+  // `plan.hasSelectedPlan` (real backend plan_type != null) — used on its own,
+  // NOT combined with a tier-price match, since that match can independently
+  // fail (e.g. `planCredits` not landing exactly on one of the 6 tiers) and
+  // would silently reintroduce the same bug this is fixing. `currentTier` is
+  // only used below for cosmetics (which tier to preselect/label as current);
+  // it's allowed to come back unknown (-1) without affecting hasWorkspacePlan.
+  const currentTier             = TeamsTier.fromCredits(plan?.planCredits ?? 0)
+  const currentWorkspaceTierIdx = currentTier ? WORKSPACE_PLANS.findIndex(p => p.price === currentTier.price) : -1
+  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org.plan !== 'enterprise'
+  // No backend field distinguishes "org is on a free/trial plan" from "org has
+  // no plan yet" — the only trial mechanism that exists (services/stripe/account.py
+  // startTrial) is individual-only and 403s for org members, so this can never
+  // be true for anything reachable on this page. Hidden until an org-level
+  // trial state actually exists on the backend — see
+  // docs v1.5/free-trial-onboarding-plan.md §3.
+  const isOnFreePlan = false
+
+  // Sync tier picker to the org's current tier on load — only when the tier
+  // was actually identified; hasWorkspacePlan can be true with the tier
+  // unknown (-1), and WORKSPACE_PLANS[-1] is undefined.
   useEffect(() => {
-    if (isOnTeamPlan && currentTeamTierIdx >= 0) {
-      setTeamIdx(currentTeamTierIdx)
+    if (hasWorkspacePlan && currentWorkspaceTierIdx >= 0) {
+      setWorkspaceIdx(currentWorkspaceTierIdx)
     }
-  }, [isOnTeamPlan, currentTeamTierIdx])
+  }, [hasWorkspacePlan, currentWorkspaceTierIdx])
 
   useEffect(() => {
-    if (orgReady && orgRole !== 'owner') {
+    if (orgReady && orgRole !== 'admin') {
       router.replace(ORG_PLANS_ROUTE)
     }
   }, [orgReady, orgRole, router])
 
-  const handleSelectIndividual = async () => {
-    if (changingTo) return
-    const plan = selectedIndividual.id
-    if (plan === currentPlan) return
-    setChangingTo(plan)
-    try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
-      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
-      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
-      try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
-      window.location.href = checkout.checkout_url
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update plan')
-      setChangingTo(null)
+  // Announce the org's current plan once data is ready — only when there's an
+  // actual plan to announce; no toast at all for "nothing selected yet" (see
+  // memory: this toast is explicitly unwanted anywhere in the app). Stays put
+  // until the user closes it themselves (no auto-dismiss).
+  const currentPlanToastShown = useRef(false)
+  useEffect(() => {
+    if (currentPlanToastShown.current || !orgReady) return
+    if (org.plan === 'enterprise') {
+      currentPlanToastShown.current = true
+      toast.success("You're on the Pro (Enterprise) plan", { duration: Infinity })
+    } else if (hasWorkspacePlan) {
+      const p = currentWorkspaceTierIdx >= 0 ? WORKSPACE_PLANS[currentWorkspaceTierIdx] : null
+      currentPlanToastShown.current = true
+      toast.success(
+        p ? `You're on the Workspace plan — ${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits` : "You're on the Workspace plan",
+        { duration: Infinity },
+      )
+    } else {
+      currentPlanToastShown.current = true
+    }
+  }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
+
+  const handleSelectTier = (idx: number) => {
+    setWorkspaceIdx(idx)
+    setPlanParam('core')
+    setTierMenuOpen(false)
+    const p = WORKSPACE_PLANS[idx]!
+    const detail = `${fmtPrice(p.price)}/mo · ${fmtNum(p.credits)} credits`
+    if (!hasWorkspacePlan) {
+      toast.info('Upgrade to Workspace', { description: detail })
+    } else if (idx === currentWorkspaceTierIdx) {
+      toast.info('This is your current plan', { description: detail })
+    } else if (idx < currentWorkspaceTierIdx) {
+      toast.info("Can't downgrade", { description: detail })
+    } else {
+      toast.info('Upgrade Workspace plan', { description: detail })
     }
   }
 
-  const handleSelectTeam = async () => {
-    if (teamButtonDisabled) return
-    const plan = selectedTeam.planType
-    setChangingTo(plan)
+  const handleSelectWorkspace = async () => {
+    if (workspaceButtonDisabled) return
+    const planId = selectedWorkspace.planId
+    setChangingTo(planId)
     try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
-      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
+      if (hasWorkspacePlan) {
+        await updatePlan(planId)
+        trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
+        // See the matching comment in settings/billing/change-plan/page.tsx —
+        // without this the plans-and-billing page would show the OLD tier/price
+        // right after an upgrade, until some unrelated remount refetched it.
+        refreshMembers()
+        router.replace(ORG_PLANS_ROUTE)
+        return
+      }
+      const checkout = await createCheckout({ planId })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
@@ -145,528 +424,359 @@ export default function OrgChangePlanPage() {
     }
   }
 
-  const isCurrent          = selectedIndividual.id === currentPlan
-  const teamIsCurrent      = isOnTeamPlan && teamIdx === currentTeamTierIdx
-  const teamIsDowngrade    = isOnTeamPlan && teamIdx < currentTeamTierIdx
-  const teamButtonDisabled = teamIsCurrent || teamIsDowngrade || !!changingTo
+  const workspaceIsCurrent      = hasWorkspacePlan && workspaceIdx === currentWorkspaceTierIdx
+  const workspaceIsDowngrade    = hasWorkspacePlan && workspaceIdx < currentWorkspaceTierIdx
+  const workspaceButtonDisabled = workspaceIsCurrent || workspaceIsDowngrade || !!changingTo
 
-  const teamButtonLabel = (() => {
-    if (teamIsCurrent)                          return 'Current plan'
-    if (teamIsDowngrade)                        return "Can't downgrade"
-    if (changingTo === selectedTeam.planType)   return 'Redirecting…'
-    if (isOnTeamPlan)                           return 'Upgrade team plan'
-    return 'Start a Team Workspace'
+  const workspaceButtonLabel = (() => {
+    if (workspaceIsCurrent)                       return 'Current plan'
+    if (workspaceIsDowngrade)                     return "Can't downgrade"
+    if (changingTo === selectedWorkspace.planId)  return 'Redirecting…'
+    if (hasWorkspacePlan)                         return 'Upgrade Workspace plan'
+    return 'Upgrade to Workspace'
   })()
 
-  const teamPriceLabel = selectedTeam.price >= 1000
-    ? `$${selectedTeam.price / 1000}k`
-    : `$${selectedTeam.price}`
+  const displayedPrice = billing === 'annual'
+    ? Math.round(selectedWorkspace.price * ANNUAL_MULTIPLIER)
+    : selectedWorkspace.price
+  const workspacePriceLabel = fmtPrice(displayedPrice)
 
-  if (!orgReady || orgRole !== 'owner') return null
+  if (!orgReady) return <ChangePlanSkeleton />
+  if (orgRole !== 'admin') return null
 
   return (
     <>
-      <style>{`
-        .cp-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 4px;
-          border-radius: 2px;
-          outline: none;
-          cursor: pointer;
-          background: white;
-        }
-        .cp-slider.dark { background: rgba(255,255,255,0.25); }
-        .cp-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 12px; height: 12px;
-          border-radius: 50%;
-          background: white;
-          border: 1.5px solid #b6aca4;
-          box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .cp-slider::-moz-range-thumb {
-          width: 12px; height: 12px;
-          border-radius: 50%;
-          background: white;
-          border: 1.5px solid #b6aca4;
-          box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .cp-slider::-webkit-slider-runnable-track { border-radius: 2px; }
-        .cp-slider::-moz-range-track { border-radius: 2px; height: 4px; }
-      `}</style>
-
       <div
         className="kaya-scrollbar"
         style={{
           minHeight: '100vh', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '0 24px 48px',
-          backgroundColor: '#f7f2ed',
+          padding: '24px 24px 48px',
+          background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
         }}
       >
-        {/* Back button */}
-        <div style={{
-          width: '100%', maxWidth: 1200,
-          paddingTop: 24, paddingBottom: 0,
-          flexShrink: 0,
-        }}>
-          <button
-            type="button"
-            onClick={() => router.push(ORG_PLANS_ROUTE)}
-            style={{
-              display:         'inline-flex',
-              alignItems:      'center',
-              gap:             6,
-              padding:         '6px 12px 6px 8px',
-              borderRadius:    8,
-              border:          'none',
-              backgroundColor: 'rgba(0,0,0,0)',
-              cursor:          'pointer',
-              fontFamily:      BODY,
-              fontWeight:      500,
-              fontSize:        13,
-              lineHeight:      '18px',
-              color:           '#7a6e68',
-              transition:      'background-color 120ms ease, color 120ms ease',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#3b3632' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLButtonElement).style.color = '#7a6e68' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Back to Plans
-          </button>
-        </div>
-
-        <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 64, alignItems: 'center', paddingTop: 40 }}>
+        <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
 
           {/* ── Header ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
-            {/* Badge */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              position: 'relative', borderRadius: 6, overflow: 'hidden',
-              boxShadow: '0px 1.476px 2.214px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)',
-            }}>
-              <div style={{ position: 'absolute', inset: 0, backgroundColor: '#e6d5ca', borderRadius: 6 }} />
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: 'inset 0px 1.476px 0px 0px rgba(250,241,235,0.7), inset 0px -1.476px 0px 0px rgba(126,84,53,0.1)' }} />
-              <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#683d1b', position: 'relative', padding: '2.952px 5.904px' }}>
-                Multi-agent workforce
-              </span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => router.push(ORG_PLANS_ROUTE)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 10px 8px 10px', borderRadius: 10,
+                border: 'none', backgroundColor: 'rgba(0,0,0,0)', cursor: 'pointer',
+                fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px',
+                color: '#524b47', transition: 'background-color 120ms ease, color 120ms ease',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.05)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Back to billing
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                Pricing
+              </p>
+              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+                Choose the plan that works for your workspace. Shared credits across unlimited members. No per-seat fees.
+              </p>
             </div>
 
-            {/* Title */}
-            <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 48, lineHeight: '56px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
-              Choose your plan,{' '}
-              <span style={{ color: '#6a625d' }}>{firstName}.</span>
-            </h1>
-
-            {/* Subtitle */}
-            <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
-              Pick a plan to keep your Brain, agents, and automations running.
-            </p>
+            {/* Invisible mirror of the back button, keeps the title centered */}
+            <div style={{ padding: '6px 10px 8px 10px', opacity: 0, pointerEvents: 'none' }}>
+              <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14 }}>Back to billing</span>
+            </div>
           </div>
 
-          {/* ── Plan cards ── */}
-          <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
-
-            {/* ── Individual ── */}
-            <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column', opacity: isOnTeamPlan ? 0.45 : 1, pointerEvents: isOnTeamPlan ? 'none' : undefined }}>
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e5e5',
-                borderRadius: 18,
-                padding: 12,
-                display: 'flex', flexDirection: 'column', gap: 8,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
-              }}>
-                {/* Header */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
-                    Individual
-                  </p>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
-                    For prosumers, creators, and solo operators.
-                  </p>
-                </div>
-
-                {/* Welcome gift card */}
-                <div style={{
-                  backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
-                  display: 'flex', gap: 8, alignItems: 'flex-start',
-                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
-                }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 12, flexShrink: 0,
-                    backgroundColor: '#3b3632',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                      <path d="M8 8h16v4H8zM8 14h8v10H8zM16 14h8v10h-8z" fill="rgba(255,255,255,0.15)" />
-                      <rect x="6" y="6" width="20" height="20" rx="2" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" fill="none" />
-                      <path d="M16 6v20M6 12h20" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
-                    </svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
-                      Welcome gift
-                    </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
-                      1,000 free credits
-                    </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', margin: 0 }}>
-                      No credit card required. Try every feature with real workloads before you pay.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Price slider box */}
-                <div style={{
-                  backgroundColor: '#ede1d7', borderRadius: 16, padding: 16,
-                  display: 'flex', flexDirection: 'column', gap: 8,
-                }}>
-                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
-                    Pick your monthly credits
-                  </p>
-                  <div>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'black' }}>
-                      ${selectedIndividual.price}
-                    </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74' }}>
-                      /mo
-                    </span>
-                  </div>
-
-                  {/* Credits card */}
-                  <div style={{
-                    backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
-                    display: 'flex', alignItems: 'flex-end', gap: 4,
-                  }}>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
-                      {fmtNum(selectedIndividual.credits)}
-                    </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', paddingBottom: 2 }}>
-                      credits / month
-                    </span>
-                  </div>
-
-                  {/* Slider */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ paddingLeft: 4 }}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={INDIVIDUAL_PLANS.length - 1}
-                        step={1}
-                        value={individualIdx}
-                        onChange={e => {
-                          const idx = Number(e.target.value)
-                          setIndividualIdx(idx)
-                          const p = INDIVIDUAL_PLANS[idx]!
-                          const name = p.id.charAt(0).toUpperCase() + p.id.slice(1)
-                          const detail = `$${p.price}/mo · ${fmtNum(p.credits)} credits`
-                          const currentPriceIdx = INDIVIDUAL_PLANS.findIndex(x => x.id === currentPlan)
-                          if (p.id === currentPlan) {
-                            toast.info(`${name} is your current plan — ${detail}`)
-                          } else if (currentPriceIdx >= 0 && idx > currentPriceIdx) {
-                            toast.info(`Upgrade to ${name} — ${detail}`)
-                          } else if (currentPriceIdx >= 0 && idx < currentPriceIdx) {
-                            toast.info(`Downgrade to ${name} — ${detail}`)
-                          } else {
-                            toast.info(`${name} — ${detail}`)
-                          }
-                        }}
-                        className="cp-slider"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      {INDIVIDUAL_PLANS.map(p => (
-                        <span key={p.id} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632' }}>
-                          ${p.price}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
-                  <FeatureGroup
-                    title="Memory & Organization"
-                    items={['Cross-model memory that compounds', 'Unlimited Pins', 'Project folders', 'Highlights from any answer']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Your AI workforce"
-                    items={['Unlimited AI Assistants', 'Unlimited Brain & Automation', 'Scheduled tasks & triggers']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Models & tools"
-                    items={['Every major AI model', 'Auto-route or pick manually', 'Model Compare side-by-side', 'Unlimited web search', '250+ connectors']}
-                  />
-
-                  <button
-                    onClick={() => { void handleSelectIndividual() }}
-                    disabled={isOnTeamPlan || isCurrent || !!changingTo}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
-                      cursor: isOnTeamPlan || isCurrent || changingTo ? 'default' : 'pointer',
-                      opacity: changingTo && changingTo !== selectedIndividual.id ? 0.5 : 1,
-                      backgroundColor: 'white',
-                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
-                    }}
-                  >
-                    {isCurrent
-                      ? 'Current plan'
-                      : changingTo === selectedIndividual.id
-                        ? 'Redirecting…'
-                        : 'Change plan'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Team ── */}
-            <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column' }}>
-              <div style={{
-                backgroundColor: 'white',
-                borderRadius: 18,
-                padding: 12,
-                display: 'flex', flexDirection: 'column', gap: 8,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
-              }}>
-                {/* Header */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
-                      Team
-                    </p>
-                    {/* Most popular badge */}
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      position: 'relative', borderRadius: 6, overflow: 'hidden',
-                      boxShadow: '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
-                    }}>
-                      <div style={{ position: 'absolute', inset: 0, backgroundColor: '#e9dfc9', borderRadius: 6 }} />
-                      <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
-                      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6d5921', position: 'relative', padding: '2px 4px' }}>
-                        Most popular
-                      </span>
-                    </div>
-                  </div>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
-                    Shared credits across unlimited members. No per-seat fees.
-                  </p>
-                </div>
-
-                {/* Team-exclusive card */}
-                <div style={{
-                  backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
-                  display: 'flex', gap: 8, alignItems: 'flex-start',
-                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
-                }}>
-                  <div style={{
-                    width: 60, height: 60, borderRadius: 12, flexShrink: 0,
-                    background: 'linear-gradient(135deg, #4A154B 0%, #2EB67D 50%, #ECB22E 75%, #E01E5A 100%)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
-                  }}>
-                    #
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
-                      Team-exclusive
-                    </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
-                      Souvenir Slack Manager
-                    </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', margin: 0 }}>
-                      Bot in Slack. The entire AI workforce, accessible by @-mention.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dark price slider box */}
-                <div style={{
-                  backgroundColor: '#524b47', borderRadius: 16, padding: 16,
-                  display: 'flex', flexDirection: 'column', gap: 8,
-                }}>
-                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'white', margin: 0 }}>
-                    {"Pick your team's volume"}
-                  </p>
-                  <div>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'white' }}>
-                      {teamPriceLabel}
-                    </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#ede1d7' }}>
-                      /mo
-                    </span>
-                  </div>
-
-                  {/* Credits card */}
-                  <div style={{
-                    backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
-                    display: 'flex', alignItems: 'flex-end', gap: 4,
-                  }}>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
-                      {fmtNum(selectedTeam.credits)}
-                    </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', paddingBottom: 2 }}>
-                      credits / month
-                    </span>
-                  </div>
-
-                  {/* Slider */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ paddingLeft: 4 }}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={TEAM_PLANS.length - 1}
-                        step={1}
-                        value={teamIdx}
-                        onChange={e => {
-                          const idx = Number(e.target.value)
-                          setTeamIdx(idx)
-                          const p = TEAM_PLANS[idx]!
-                          const detail = `${p.label}/mo · ${fmtNum(p.credits)} credits`
-                          if (!isOnTeamPlan) {
-                            toast.info(`Upgrade to teams — ${detail}`)
-                          } else if (idx === currentTeamTierIdx) {
-                            toast.info(`This is your current plan — ${detail}`)
-                          } else if (idx < currentTeamTierIdx) {
-                            toast.info(`Can't downgrade — ${detail}`)
-                          } else {
-                            toast.info(`Upgrade team plan — ${detail}`)
-                          }
-                        }}
-                        className="cp-slider dark"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      {TEAM_PLANS.map(p => (
-                        <span key={p.price} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#f7f2ed' }}>
-                          {p.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
-                  <FeatureGroup
-                    title="Everything in Individual, plus"
-                    items={['Slack & Teams manager bot']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Team collaboration"
-                    items={['Unlimited members · no per-seat', 'Shared AI Assistants', 'Shared Pins & Highlights', 'Shared Project folders']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Governance & control"
-                    items={['Admin controls + per-member caps', 'Approval gates', 'Full audit trail']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Support"
-                    items={['Priority email support', 'Online meeting support']}
-                  />
-
-                  <button
-                    onClick={() => { void handleSelectTeam() }}
-                    disabled={teamButtonDisabled}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
-                      cursor: teamButtonDisabled ? 'default' : 'pointer',
-                      opacity: teamButtonDisabled ? 0.55 : 1,
-                      background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                      boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed',
+          {/* ── Monthly / Yearly tab ── */}
+          <div ref={billingRowRef} style={{
+            position: 'relative',
+            display: 'flex', alignItems: 'center', gap: 4, padding: 4,
+            borderRadius: 10, backgroundColor: 'rgba(247,242,237,0.5)',
+            boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px #ede1d7, inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+          }}>
+            {/* Sliding active pill — same measure-then-animate technique as
+                TabsList's own pill (springs.fast), slid behind whichever
+                button is transparent instead of instantly swapping bg. */}
+            {billingPill && (
+              <m.div
+                aria-hidden
+                initial={false}
+                animate={{ x: billingPill.x, width: billingPill.width }}
+                transition={springs.fast}
+                style={{
+                  position: 'absolute', top: 4, bottom: 4, left: 0,
+                  borderRadius: 10,
+                  background: 'linear-gradient(to bottom, #524b47, #26211e)',
+                  boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            <button
+              ref={monthlyBtnRef}
+              type="button"
+              onClick={() => setBilling('monthly')}
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                backgroundColor: 'transparent',
+                fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                transition: 'color 150ms ease',
+                ...(billing === 'monthly'
+                  ? {
+                      color: '#f7f2ed',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
-                    }}
-                  >
-                    {teamButtonLabel}
-                  </button>
-                </div>
-              </div>
-            </div>
+                    }
+                  : { color: '#827a74' }),
+              }}
+            >
+              Monthly
+            </button>
+            <button
+              ref={annualBtnRef}
+              type="button"
+              onClick={() => setBilling('annual')}
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 8px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                backgroundColor: 'transparent',
+                fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                transition: 'color 150ms ease',
+                ...(billing === 'annual'
+                  ? {
+                      color: '#f7f2ed',
+                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                    }
+                  : { color: '#827a74' }),
+              }}
+            >
+              Yearly
+            </button>
+            <Badge label="Save 25%" color="yellow" />
+          </div>
 
-            {/* ── Custom ── */}
-            <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column' }}>
+          {/* ── Cards Row ── */}
+          <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+            {/* ── Workspace (Core) ── */}
+            <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 backgroundColor: 'white',
-                border: '1px solid #e5e5e5',
-                borderRadius: 18,
-                padding: 12,
-                display: 'flex', flexDirection: 'column', gap: 8,
+                border: '2px solid #683d1b',
+                borderRadius: 24,
+                padding: 32,
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
                 boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
                 height: '100%',
               }}>
-                {/* Header */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                      Core
+                    </p>
+                    <Badge label="Recommended" color="brown" />
+                  </div>
+
+                  {/* Free-plan status — Figma 85:22256. Only renders while
+                      isOnFreePlan is real (currently never, see its definition
+                      above) — never show "$20 free credits" to an org that
+                      isn't actually on a free plan. */}
+                  {isOnFreePlan && (
+                    <div style={{
+                      position: 'relative',
+                      backgroundColor: 'white', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
+                      padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
+                    }}>
+                      <div style={{
+                        position: 'absolute', top: -11, left: 16,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 6, overflow: 'hidden', backgroundColor: '#cadcf1',
+                        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
+                      }}>
+                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#135487', padding: '2px 6px' }}>
+                          FREE PLAN ACTIVE
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: '#524b47' }}>
+                        <p style={{ margin: 0 }}>You have been assigned</p>
+                        <p style={{ margin: 0 }}>$20 worth of free credits</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => router.push(ORG_PLANS_ROUTE)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: '100%', padding: '6px 10px 8px', borderRadius: 10, border: 'none',
+                          backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
+                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                        }}
+                      >
+                        View usage
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Price + tier picker */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <Dropdown.Float
+                        open={tierMenuOpen}
+                        onOpenChange={setTierMenuOpen}
+                        placement="bottom-start"
+                        trigger={
+                          <button
+                            type="button"
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 2,
+                              padding: '6px 10px 8px', borderRadius: 10, border: 'none',
+                              backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
+                              cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                            }}
+                          >
+                            {workspacePriceLabel}
+                            <ArrowDownOneIcon size={16} color="#524b47" />
+                          </button>
+                        }
+                      >
+                        <Dropdown size="md" maxHeight={false}>
+                          <Dropdown.Section>
+                            {DROPDOWN_TIER_PRICES.map(price => {
+                              const i = WORKSPACE_PLANS.findIndex(p => p.price === price)
+                              const available = i !== -1
+                              const p = available ? WORKSPACE_PLANS[i]! : null
+                              const displayPrice = available && billing === 'annual'
+                                ? Math.round(p!.price * ANNUAL_MULTIPLIER)
+                                : price
+                              return (
+                                <Dropdown.Item
+                                  key={price}
+                                  label={fmtPrice(displayPrice)}
+                                  subLabel={available
+                                    ? `${fmtNum(p!.credits)} credits/mo`
+                                    : `${fmtNum(CREDITS_BY_PRICE[price])} credits/mo · Coming soon`}
+                                  selected={available && i === workspaceIdx}
+                                  rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="#524b47" /> : undefined}
+                                  disabled={!available}
+                                  onClick={available ? () => handleSelectTier(i) : undefined}
+                                  fluid
+                                />
+                              )
+                            })}
+                          </Dropdown.Section>
+                        </Dropdown>
+                      </Dropdown.Float>
+                      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                        /month
+                      </p>
+                    </div>
+                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                      {fmtNum(selectedWorkspace.credits)} credits
+                    </p>
+                  </div>
+
+                  <Hairline />
+
+                  {/* Features — per Figma 85:22108 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    <FeatureGroup
+                      title="Plan includes:"
+                      items={[
+                        { label: 'Souvenir in Slack', icon: <SlackMark /> },
+                        'No-code custom AI agents',
+                        'AI manager to coordinate your agents',
+                        'Scheduled multi-agent automations',
+                        'Browser automation and scraping',
+                        'Shared agents and workflows',
+                        'Unlimited seats and governance',
+                        'Team usage monitoring',
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => { void handleSelectWorkspace() }}
+                  disabled={workspaceButtonDisabled}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
+                    cursor: workspaceButtonDisabled ? 'default' : 'pointer',
+                    opacity: workspaceButtonDisabled ? 0.55 : 1,
+                    background: 'linear-gradient(to bottom, #524b47, #26211e)',
+                    boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed',
+                    textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                  }}
+                >
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#f7f2ed" />}
+                  {workspaceButtonLabel}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Enterprise (Pro) ── */}
+            <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
+              <div style={{
+                backgroundColor: 'white',
+                border: '1px solid #e5e5e5',
+                borderRadius: 24,
+                padding: 32,
+                display: 'flex', flexDirection: 'column', gap: 28,
+                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                height: '100%',
+              }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
-                    Enterprise
-                  </p>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
-                    $250/month with $125 of provider usage included.
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                    Pro
                   </p>
                 </div>
 
-                {/* Features */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0', flex: 1 }}>
-                  <FeatureGroup
-                    title="Everything in Team, plus"
-                    items={['Unlimited usage', 'Overage billed at exact provider cost']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Enterprise security"
-                    items={['SSO', 'Shared AI Assistants', 'DPA & SLA', 'Private deployment options']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="White-glove service"
-                    items={['Onboarding & training', 'Dedicated success manager', 'Monthly strategy review', 'Learning workspace']}
-                  />
-                  <Hairline />
-                  <FeatureGroup
-                    title="Support"
-                    items={['Priority email support', 'Online meeting support']}
-                  />
-
-                  <div style={{ flex: 1 }} />
-
-                  <button
-                    type="button"
-                    onClick={() => { if (!changingTo && org.plan !== 'enterprise') setContactSalesOpen(true) }}
-                    disabled={!!changingTo || org.plan === 'enterprise'}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                      width: '100%', padding: '6px 2px 8px', borderRadius: 10, textDecoration: 'none',
-                      backgroundColor: 'white', border: 'none', cursor: changingTo ? 'wait' : 'pointer',
-                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
-                    }}
-                  >
-                    {org.plan === 'enterprise' ? 'Current plan' : 'Contact Sales'}
+                <m.button
+                  type="button"
+                  onClick={() => { if (!changingTo && org.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
+                  disabled={!!changingTo || org.plan === 'enterprise'}
+                  whileTap={(!!changingTo || org.plan === 'enterprise') ? undefined : { scale: 0.98 }}
+                  transition={{ duration: 0.1, ease: 'easeOut' }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
+                    backgroundColor: 'white', cursor: changingTo ? 'wait' : 'pointer',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
+                  }}
+                >
+                  {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
+                  {org.plan !== 'enterprise' && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </button>
+                  )}
+                </m.button>
+
+                <Hairline />
+
+                {/* Features — per Figma 85:22149 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
+                  <FeatureGroup
+                    title="Everything in Core, plus"
+                    items={[
+                      'Discounted credits',
+                      'White-glove onboarding',
+                      'Live team training',
+                      'Custom workflows',
+                      'Cost-optimization reports',
+                      'Dedicated Slack support',
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -677,5 +787,16 @@ export default function OrgChangePlanPage() {
 
       {contactSalesOpen && <ContactSalesModal onClose={() => setContactSalesOpen(false)} />}
     </>
+  )
+}
+
+// useSearchParams() (added for the plan/price/billing URL sync above) needs a
+// Suspense boundary — reuses the page's own loading skeleton as the fallback
+// so there's no flash of blank content during the static-shell render.
+export default function OrgChangePlanPage() {
+  return (
+    <Suspense fallback={<ChangePlanSkeleton />}>
+      <OrgChangePlanPageInner />
+    </Suspense>
   )
 }

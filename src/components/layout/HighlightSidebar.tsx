@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from '@/components/Toast'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
@@ -15,7 +16,12 @@ function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
-  if (m) return m[1]
+  // `new` is the project-chat route's own "no chat yet" sentinel (see isNewChat
+  // in project/[id]/chat/[chatId]/page.tsx), not a real chat id — passing it
+  // straight to loadForChat sends `chat_id=new` to the backend, which 422s
+  // (not a valid UUID) and surfaces as the panel's generic error state instead
+  // of the correct "Nothing highlighted in this chat yet" empty state.
+  if (m) return m[1] === 'new' ? undefined : m[1]
   return searchParams.get('id') ?? undefined
 }
 
@@ -24,6 +30,7 @@ function HighlightSidebarImpl() {
     highlights,
     isOpen,
     isLoading,
+    hasError,
     close:           closeHighlight,
     deleteHighlight,
     copyHighlight,
@@ -35,6 +42,7 @@ function HighlightSidebarImpl() {
 
   const { push }      = useRouter()
   const currentChatId = useCurrentChatId()
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   // Defensive chat-id filter (mirrors FloatingPanel's gutter) — the context's
   // `highlights` list is expected to already be scoped to currentChatId via
   // loadForChat, but this keeps a previous chat's entries from ever bleeding
@@ -63,6 +71,17 @@ function HighlightSidebarImpl() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterMode])
+
+  // Re-runs the same load the effect above would have — same guard against
+  // racing an in-flight cross-chat jump. Wired to the panel's error-state
+  // Retry button.
+  const handleRetry = () => {
+    if (filterMode === 'all') {
+      loadAll()
+    } else if (currentChatId && pendingJumpRef.current === null) {
+      loadForChat(currentChatId)
+    }
+  }
 
   // After a cross-chat navigation currentChatId changes. Poll the DOM for the
   // target message and highlight mark — the chat and its highlights both render
@@ -162,14 +181,26 @@ function HighlightSidebarImpl() {
           <HighlightPanel
             highlights={panelHighlights}
             isLoading={isLoading}
+            hasError={hasError}
+            onRetry={handleRetry}
             onJump={handleJump}
             onCopy={copyHighlight}
-            onDelete={deleteHighlight}
+            onDelete={setDeleteTargetId}
             onClose={closeHighlight}
             filterMode={filterMode}
             onFilterChange={setFilterMode}
           />
         </m.div>
+      )}
+
+      {deleteTargetId && (
+        <ConfirmModal
+          title="Delete highlight?"
+          description="This highlight will be permanently removed."
+          confirmLabel="Delete"
+          onConfirm={async () => { await deleteHighlight(deleteTargetId) }}
+          onClose={() => setDeleteTargetId(null)}
+        />
       )}
     </AnimatePresence>
   )

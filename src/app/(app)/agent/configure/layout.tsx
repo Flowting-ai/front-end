@@ -19,6 +19,7 @@ import {
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
+import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
@@ -39,7 +40,6 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
-import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { ArtifactCard } from '@/templates/Brain/ArtifactCard'
 import { ExternalOutputCard } from '@/templates/Brain/ExternalOutputCard'
@@ -84,7 +84,7 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
       { heading: 'Creativity Level',     description: 'Controls how varied the responses are. Low = precise and consistent. High = imaginative and varied. 0.5 is a good starting point for most agents.',    isRequired: false, highlightId: 'help-temperature'  },
       { heading: 'Example Conversations',description: 'Add sample exchanges to show the agent exactly how it should respond. Even 2–3 good examples dramatically improve response quality.',                   isRequired: false, highlightId: 'help-examples'     },
       { heading: 'Save Version',         description: 'Creates a named checkpoint of your current instruction, model, and settings. Restore any version at any time from the Versions panel on the right.',   highlightId: 'help-save-version'  },
-      { heading: 'Publish',              description: 'Makes this agent live for your team. Once published, teammates can add it from the library or mention it in any conversation.',                         highlightId: 'help-publish'       },
+      { heading: 'Publish',              description: 'Makes this agent live and ready to use. Once published, you can add it from the library or mention it in any conversation.',                             highlightId: 'help-publish'       },
     ],
   },
   profile: {
@@ -121,7 +121,6 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
   sharing: {
     title: 'Sharing',
     items: [
-      { heading: 'Visibility Level', description: 'Controls who can discover and access this agent — private (only you), team (workspace members), or public (anyone with the link). Set this before sharing.', isRequired: false, highlightId: 'help-sharing-visibility' },
       { heading: 'Super Link',       description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.',                      isRequired: false, highlightId: 'help-sharing-superlink' },
       { heading: 'Credit Limit (for Super Link)', description: 'Caps how many credits each Super Link user can consume. Set a limit to prevent unexpected overuse. Super Link must be enabled first.', isRequired: false, highlightId: 'help-sharing-token'     },
       { heading: 'Email Invite',     description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                                               isRequired: false, highlightId: 'help-sharing-email'     },
@@ -545,6 +544,38 @@ function nameInitials(name: string) {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
+// User message bubble shared by the Test persona and AI suggestions panels —
+// same cream (neutral-100) treatment in both, per design.
+function PanelUserBubble({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        // Fixed px, not a %: this div's parent is an auto-sized flex column
+        // (no explicit width of its own) inside a flex row, so a percentage
+        // maxWidth has no definite containing-block width to resolve
+        // against — browsers effectively collapse it toward zero, and
+        // wordBreak: 'break-word' then wraps every single character onto
+        // its own line (e.g. "hi" renders as "h" / "i"). The app's own
+        // MessageBubble (src/components/MessageBubble) already avoids this
+        // the same way — a fixed px cap (566 there; smaller here since this
+        // is a narrow side panel, not the full chat width).
+        maxWidth: 280,
+        padding: '8px 12px',
+        borderRadius: 12,
+        backgroundColor: 'var(--neutral-100)',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 400,
+        fontSize: 14,
+        lineHeight: '22px',
+        color: 'var(--neutral-900)',
+        wordBreak: 'break-word',
+      }}
+    >
+      {text}
+    </div>
+  )
+}
+
 function TestChatPanelContent({ expanded }: { expanded: boolean }) {
   const {
     personaInfo, setTestChatExpanded, setTestChatOpen,
@@ -676,7 +707,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                       ))}
                     </div>
                   )}
-                  <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />
+                  <PanelUserBubble text={msg.text} />
                 </div>
               )}
             </div>
@@ -784,9 +815,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
                     <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
                   </div>
                 ) : (
-                  <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
-                    {msg.text}
-                  </div>
+                  <PanelUserBubble text={msg.text} />
                 )}
               </div>
             ))
@@ -867,7 +896,7 @@ function VersionsPanel() {
       animate={{ width: 400, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', backgroundColor: 'var(--neutral-white)', borderRadius: 16 }}
+      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 16 }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -990,8 +1019,9 @@ function VersionsPanel() {
                     <button
                       onClick={() => handleDeleteVersion(v.id)}
                       disabled={!!deletingId || !!restoringId}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
                     >
+                      {deletingId === v.id && <Spinner size={14} color="var(--red-600, #dc2626)" />}
                       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-600, #dc2626)', whiteSpace: 'nowrap' }}>
                         {deletingId === v.id ? 'Deleting…' : 'Delete'}
                       </span>
@@ -999,8 +1029,9 @@ function VersionsPanel() {
                     <button
                       onClick={() => handleRestoreVersion(v.id)}
                       disabled={!!restoringId || !!deletingId}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (restoringId || deletingId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: (restoringId || deletingId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (restoringId || deletingId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: (restoringId || deletingId) ? 0.5 : 1, transition: 'opacity 150ms' }}
                     >
+                      {restoringId === v.id && <Spinner size={14} color="var(--neutral-700)" />}
                       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
                         {restoringId === v.id ? 'Restoring…' : 'Restore'}
                       </span>
@@ -1104,13 +1135,9 @@ function ConfigureStepNav() {
   return (
     <div
       style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             8,
-        padding:         6,
-        borderRadius:    12,
-        backgroundColor: 'var(--neutral-white)',
-        boxShadow:       '0px 2px 8px rgba(0,0,0,0.10), 0px 0px 0px 1px var(--neutral-200)',
+        display:    'flex',
+        alignItems: 'center',
+        gap:        8,
       }}
     >
       {prevTab && (
@@ -1126,23 +1153,39 @@ function ConfigureStepNav() {
         </Tooltip>
       )}
 
+      {/* White box + blue text — same treatment as the active tab item in the
+          tab section above (same bg, text color, border radius, and layered
+          box-shadow: outer drop shadow + neutral ring + two-sided inner
+          shadow), not the blue info-toast tokens this used before. Height
+          fixed at 32px (not padding-derived) to exactly match the
+          surrounding Back/Continue Button size="sm" — both variants compute
+          to 32px total (5+5px vertical padding + 22px line-height), which is
+          fragile to rely on via padding here since this span's line-height
+          isn't the same token-driven value. */}
       <span
         style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   12,
-          fontWeight: 500,
-          color:      'var(--neutral-500)',
-          whiteSpace: 'nowrap',
-          padding:    '0 2px',
+          display:         'flex',
+          alignItems:      'center',
+          height:          32,
+          boxSizing:       'border-box',
+          fontFamily:      'var(--font-body)',
+          fontSize:        14,
+          fontWeight:      500,
+          color:           'var(--blue-600)',
+          backgroundColor: 'var(--neutral-white)',
+          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)',
+          borderRadius:    10,
+          padding:         '0 10px',
+          whiteSpace:      'nowrap',
         }}
       >
-        {idx + 1} / {ALL_CONFIGURE_TABS.length}
+        {idx + 1} / {ALL_CONFIGURE_TABS.length} — Currently on {ALL_CONFIGURE_LABELS[idx]} tab
       </span>
 
       {nextTab && (
         <Tooltip content={`Go to ${nextLabel} tab`} side="top">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             rightIcon={<ArrowRightOneIcon size={16} />}
             onClick={handleContinue}

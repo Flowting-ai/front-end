@@ -7,10 +7,11 @@ import {
   CHATS_RENAME_ENDPOINT,
   CHAT_MESSAGES_ENDPOINT,
   CHAT_STAR_ENDPOINT,
+  CHAT_ARCHIVE_ENDPOINT,
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
-  CHAT_VISIBILITY_ENDPOINT,
+  CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
@@ -29,8 +30,11 @@ interface BackendChat {
   id: string;
   owner_user_id?: string;
   can_edit?: boolean;
-  visibility?: "private" | "team";
-  team_id?: string | null;
+  // Backend's real value is "shared", not "org" — see publishProjectChat's comment.
+  // "archived" is a genuine third value (POST /chats/{id}/archive sets it) —
+  // see normalizeChat's own comment on why this must not collapse to "private".
+  visibility?: "private" | "shared" | "archived";
+  organization_id?: string | null;
   starred?: boolean;
   is_starred?: boolean;
   isStarred?: boolean;
@@ -53,8 +57,12 @@ function normalizeChat(raw: BackendChat): Chat {
     id: raw.id,
     owner_user_id: raw.owner_user_id,
     can_edit: raw.can_edit ?? false,
-    visibility: raw.visibility ?? "private",
-    team_id: raw.team_id ?? null,
+    // Archived must be preserved as its own value, not collapsed into
+    // "private" — POST /chats/{id}/archive (see archiveChat below) sets the
+    // backend's real visibility to "archived", and the Chats library page's
+    // Archived tab needs to actually see that value to filter on it.
+    visibility: raw.visibility === "shared" ? "team" : raw.visibility === "archived" ? "archived" : "private",
+    team_id: raw.organization_id ?? null,
     title: raw.chat_title ?? raw.title ?? raw.name ?? "Untitled",
     created_at: raw.created_at ?? new Date().toISOString(),
     updated_at: raw.updated_at ?? raw.created_at ?? new Date().toISOString(),
@@ -160,6 +168,20 @@ export async function starChat(chatId: string): Promise<void> {
   await apiFetchJson(CHAT_STAR_ENDPOINT(chatId), {
     method: "PATCH",
   });
+}
+
+export async function archiveChat(chatId: string): Promise<void> {
+  const response = await apiFetch(CHAT_ARCHIVE_ENDPOINT(chatId), {
+    method: "POST",
+  });
+  if (!response.ok && response.status !== 204) {
+    throw new ApiError(
+      response.status,
+      "archive_chat_failed",
+      friendlyApiError("Failed to archive chat", response.status),
+      "Failed to archive chat",
+    );
+  }
 }
 
 export async function copyChat(chatId: string): Promise<{ chatId: string; chatTitle: string }> {
@@ -445,7 +467,14 @@ export async function deleteMessage(messageId: string): Promise<void> {
 
 /** POST /chats/{chat_id}/stop — abort an in-flight stream. */
 export async function stopChat(chatId: string): Promise<void> {
-  await apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" });
+  const response = await apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" });
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      "stop_chat_failed",
+      friendlyApiError(`Failed to stop chat (${response.status})`, response.status),
+    );
+  }
 }
 
 /** POST /chats/files/{attachment_id}/save-to-drive */
@@ -486,16 +515,29 @@ export async function respondToChatPrompt(
   }
 }
 
-/** PATCH /chats/{chat_id}/visibility */
-export async function setChatVisibility(
-  chatId: string,
-  visibility: "private" | "team",
-  teamId?: string,
-): Promise<void> {
-  const body: Record<string, unknown> = { visibility };
-  if (visibility === "team" && teamId) body.teamId = teamId;
-  await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
-    method: "PATCH",
-    body:   JSON.stringify(body),
-  });
+/**
+ * POST /chats/{chat_id}/share — publishes a chat to its project so every
+ * member of that project (shared or workspace visibility) can see it.
+ *
+ * There used to be a PATCH .../visibility call here that could set an
+ * arbitrary "private"|"team" value plus a team id — that route never actually
+ * existed on this backend (confirmed by reading chat/router.py's full route
+ * list), so every call 404'd. The real route is this one-way, no-body action:
+ * the backend looks up the chat's EXISTING project link itself and sets
+ * visibility to "shared" — there's no visibility value or team/project id to
+ * pass. It 400s if the chat has no project link, or if it's archived.
+ *
+ * No corresponding "unshare"/unpublish route exists yet on this backend —
+ * callers should not offer an unpublish action that silently no-ops or
+ * pretends to succeed.
+ */
+export async function publishProjectChat(chatId: string): Promise<void> {
+  const response = await apiFetch(CHAT_PUBLISH_ENDPOINT(chatId), { method: "POST" });
+  if (!response.ok && response.status !== 204) {
+    throw new ApiError(
+      response.status,
+      "publish_project_chat_failed",
+      friendlyApiError(`Failed to publish chat (${response.status})`, response.status),
+    );
+  }
 }

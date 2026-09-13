@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { m } from "framer-motion";
 import { CancelOneIcon } from "@strange-huge/icons";
 import { LeftSidebar } from "./LeftSidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
@@ -24,6 +25,10 @@ import {
   ORG_BASE_ROUTE,
   TEAMS_BASE_ROUTE,
   BRAIN_ROUTE,
+  ORG_CONNECTORS_ROUTE,
+  ORG_SOUVENIR_SLACK_ROUTE,
+  CHAT_ROUTE,
+  CHATS_ROUTE,
   TEMPLATE_BASE_ROUTE,
 } from "@/lib/routes";
 
@@ -56,18 +61,22 @@ export function AppLayout({
   const isProjectPage    = isAnyProjectPage && !pathname.includes('/chat/')
   // Only the projects listing page has no panel support at all.
   const isProjectsListPage = pathname === PROJECTS_ROUTE
+  const isChatsListPage = pathname.startsWith(CHATS_ROUTE)
 
   // Close the highlight panel on every page transition.
   useEffect(() => {
     closeHighlight()
   }, [pathname, closeHighlight])
 
-  // Force-close both panels on the projects listing page and project detail pages.
+  // Force-close both panels on the projects listing page, project detail
+  // pages, and the /chats library — none of these have the floating toggle
+  // to close it themselves (highlight already auto-closes on every
+  // navigation via the effect above).
   useEffect(() => {
-    if (isProjectsListPage || isProjectPage) {
+    if (isProjectsListPage || isProjectPage || isChatsListPage) {
       closePinboard()
     }
-  }, [isProjectsListPage, isProjectPage, closePinboard])
+  }, [isProjectsListPage, isProjectPage, isChatsListPage, closePinboard])
   const isPersonaPage    = pathname.startsWith(AGENTS_ROUTE) || pathname.startsWith(AGENT_BASE_ROUTE)
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
@@ -83,8 +92,31 @@ export function AppLayout({
   // title, and the model selector means nothing here — there is no chat.
   const isTemplatePage = pathname.startsWith(TEMPLATE_BASE_ROUTE)
   const isBrainPage = pathname.startsWith(BRAIN_ROUTE)
+  // Connectors / Souvenir-in-Slack are settings-style pages too (moved off
+  // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
+  // as /org and /teams/[teamId] above.
+  const isConnectorsOrSlackPage = pathname.startsWith(ORG_CONNECTORS_ROUTE) || pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)
+  // Chat surfaces (/chat, /project/[id]/chat/[chatId]) manage their own message-
+  // list scrolling (ChatInterface's own kaya-scrollbar div) — same reasoning as
+  // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
+  // their scrollbar sits close to the rounded border instead of 12px inset.
+  const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
+  const isChatSharesPage = pathname.startsWith('/chat-shares')
+  // Every route below already owns a full-height inner scroll container that
+  // does the real scrolling (projects list/new, project detail, the team
+  // settings shell, chat shares) — same reasoning as isConnectorsOrSlackPage/
+  // isChatPage: this shared main must not ALSO reserve a scrollbar-gutter, and
+  // the card padding should match the tight 3px these already use, or the
+  // page's own scrollbar sits inset by an extra, pointless gap.
+  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
+  // No ErrorBoundary wrap here: `children` is the settings shell (its own
+  // persistent SettingsSidebar + the active page), and the shell owns its own
+  // boundary around just the page slot (settings/(shell)/layout.tsx) so a
+  // caught error — or the pathname-keyed remount that resets it — can't also
+  // tear down and replay the sidebar's entrance animation on every settings
+  // navigation.
   if (isSettingsPage) {
     return (
       <div
@@ -123,7 +155,7 @@ export function AppLayout({
           />
         </Suspense>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </div>
         <AppDialogs />
       </div>
@@ -151,7 +183,7 @@ export function AppLayout({
             onNewChat={onNewChat}
           />
         </Suspense>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
         <AppDialogs />
       </div>
     )
@@ -186,44 +218,46 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {/* Content area — right padding removed (was 10px when no side panel
-            was open): that, plus the rounded container's own 12px, plus each
-            page's own inner scroll padding, was stacking into a much bigger
-            scrollbar-to-edge gap than intended. Each page's own inner content
-            now owns its exact edge spacing instead. */}
+        {/* Content area — right padding restored to match BrainShell's own
+            center container (src/templates/Brain/index.tsx: padding '10px
+            10px 10px 0') so /chat and friends get the same gap to the
+            viewport's right edge that Brain already has. */}
         <div
           style={{
             flex:      "1 0 0",
             minHeight: 0,
             display:   "flex",
-            padding:   "10px 0",
+            padding:   "10px 10px 10px 0",
           }}
         >
         {isPersonaPage && !isPersonaChatPage ? (
-          /* ── Non-chat persona pages (list, configure): plain main, no container ── */
+          /* Non-chat persona pages (list, configure): plain main, no container.
+             Every page under this branch (agents list, agent/configure/*) brings
+             its own inner .kaya-scrollbar element that does the real scrolling —
+             this main never overflows on its own, so it must NOT also carry
+             .kaya-scrollbar (scrollbar-gutter: stable): that reserved a second,
+             always-on gutter stacked on top of the page's own, doubling the gap
+             on the right edge for no reason. This is a plain flex passthrough. */
           <main
-            className="kaya-scrollbar"
             style={{
-              flex:                "1 0 0",
-              minHeight:           0,
-              width:               "100%",
-              overflowY:           "auto",
-              overflowX:           "hidden",
-              overscrollBehaviorY: "contain",
-              display:             "flex",
-              flexDirection:       "column",
+              flex:          "1 0 0",
+              minHeight:     0,
+              width:         "100%",
+              display:       "flex",
+              flexDirection: "column",
             }}
           >
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </main>
         ) : (
           /* ── Inner rounded container (Figma 3220:33871) ──
               border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
               overflow-clip, isolate for FloatingPanel z-index scoping.
-              Right padding removed — it was stacking with the content area's
-              own padding and each page's inner scroll padding into a much
-              bigger scrollbar-to-edge gap than intended. Each page's own
-              inner content now owns its exact right-edge spacing instead. */
+              Uniform 12px padding — matches BrainShell's own glass card
+              (src/templates/Brain/index.tsx: padding '12px' on all sides).
+              Connectors/Souvenir-in-Slack and chat surfaces use the same tight
+              3px padding the agents list's own self-built card uses, so their
+              scrollbar sits the same distance from this border as /agents. */
           <div
             style={{
               position:        "relative",
@@ -233,9 +267,7 @@ export function AppLayout({
               flexDirection:   "column",
               alignItems:      "flex-start",
               gap:             "2px",
-              paddingTop:      "12px",
-              paddingBottom:   "12px",
-              paddingLeft:     "12px",
+              padding:         usesTightCard ? "3px" : "12px",
               borderRadius:    "22px",
               border:          "1px solid var(--neutral-200)",
               backgroundColor: "rgba(255, 255, 255, 0.2)",
@@ -244,7 +276,7 @@ export function AppLayout({
             }}
           >
             {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
-            {!isAdminPage && !isTeamPage && (
+            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && (
               <TopBar
                 showCitationsToggle={showCitationsToggle}
                 citationsOpen={citationsOpen}
@@ -252,25 +284,30 @@ export function AppLayout({
               />
             )}
 
-            {/* ── Main content - fills remaining height ── */}
+            {/* ── Main content - fills remaining height ──
+                Every route in the isPersonaChatPage/usesTightCard set manages its
+                own message-list/page scrolling — this main must NOT also carry
+                .kaya-scrollbar (scrollbar-gutter: stable reserves its own gutter
+                unconditionally, stacking with the page's own and pushing its
+                scrollbar further from the border than intended). */}
             <main
-              className={isPersonaChatPage ? undefined : "kaya-scrollbar"}
+              className={(isPersonaChatPage || usesTightCard) ? undefined : "kaya-scrollbar"}
               style={{
                 flex:                "1 0 0",
                 minHeight:           0,
                 width:               "100%",
-                overflowY:           isPersonaChatPage ? "hidden" : "auto",
+                overflowY:           (isPersonaChatPage || usesTightCard) ? "hidden" : "auto",
                 overflowX:           "hidden",
-                overscrollBehaviorY: isPersonaChatPage ? undefined : "contain",
+                overscrollBehaviorY: (isPersonaChatPage || usesTightCard) ? undefined : "contain",
                 display:             "flex",
                 flexDirection:       "column",
               }}
             >
-              {children}
+              <ErrorBoundary>{children}</ErrorBoundary>
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isAdminPage && !isTeamPage && !isProjectPage && !isPersonaChatPage && (
+            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && !isProjectPage && !isPersonaChatPage && !isChatsListPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>
@@ -309,6 +346,7 @@ export function AppLayout({
 // side panels read as one consistent system.
 function ProjectPanelSidebar() {
   const { panel, isOpen } = useProjectPanel();
+  const sidePadding = panel?.sidePadding ?? 24;
 
   return (
     <m.div
@@ -342,7 +380,7 @@ function ProjectPanelSidebar() {
             justifyContent: "space-between",
             gap:            8,
             minHeight:      58,
-            padding:        "22px 16px 0 24px",
+            padding:        `22px 16px 0 ${sidePadding}px`,
             flexShrink:     0,
           }}
         >
@@ -377,7 +415,7 @@ function ProjectPanelSidebar() {
           className="kaya-scrollbar"
           style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
         >
-          <div style={{ padding: "14px 24px 24px", boxSizing: "border-box", height: "100%" }}>
+          <div style={{ padding: `14px ${sidePadding}px ${sidePadding}px`, boxSizing: "border-box", height: "100%" }}>
             {panel?.content}
           </div>
         </div>

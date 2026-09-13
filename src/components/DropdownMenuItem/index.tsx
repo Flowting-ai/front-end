@@ -6,6 +6,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
+import { Spinner } from '@/components/Spinner'
 import { cn } from '@/lib/utils'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
@@ -86,6 +87,13 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    * pointer events. Available on the default variant only.
    */
   disabled?: boolean
+  /**
+   * Shows a small spinner in the trailing slot (replacing `rightIcon`/Switch)
+   * and blocks interaction, for an async `onClick` handler that's in flight.
+   * Unlike `disabled`, the row keeps full opacity - `loading` means "busy",
+   * not "unavailable". Default variant only.
+   */
+  loading?: boolean
   /**
    * When `true`, renders a 2px animated accent bar on the left edge on
    * hover/selected. Use for long lists (>8 items) or command palettes where
@@ -193,6 +201,7 @@ export function DropdownMenuItem(
     rightIcon,
     selected = false,
     disabled = false,
+    loading = false,
     accent = false,
     fluid = false,
     showSwitch = false,
@@ -251,7 +260,7 @@ export function DropdownMenuItem(
       onSwitchChange?.(next)
     }
     const toggleSwitch = () => {
-      if (disabled) return
+      if (disabled || loading) return
       handleSwitchChange(!effectiveSwitchOn)
     }
 
@@ -267,12 +276,12 @@ export function DropdownMenuItem(
       onCheckboxChange?.(next)
     }
     const toggleCheckbox = () => {
-      if (disabled) return
+      if (disabled || loading) return
       handleCheckboxChange(!effectiveCheckboxOn)
     }
     // Header is a label-only row; danger has only Default + Hover (per Figma -
     // no Selected or Disabled). Default supports Hover, Selected, Disabled.
-    const isActive = !isHeader && !disabled && (isHovered || (variant === 'default' && selected))
+    const isActive = !isHeader && !disabled && !loading && (isHovered || (variant === 'default' && selected))
 
     const labelColor = isDanger
       ? 'var(--dropdown-menu-item-danger-text)'
@@ -291,8 +300,9 @@ export function DropdownMenuItem(
       <Comp
         ref={ref}
         role={isHeader ? undefined : 'menuitem'}
-        tabIndex={isHeader || disabled ? undefined : 0}
+        tabIndex={isHeader || disabled || loading ? undefined : 0}
         aria-disabled={disabled || undefined}
+        aria-busy={loading || undefined}
         data-disabled={disabled || undefined}
         className={cn(!isHeader && 'kaya-dropdown-item', className)}
         style={{
@@ -313,13 +323,13 @@ export function DropdownMenuItem(
           backgroundColor: isActive ? hoverBg : 'transparent',
           boxShadow:       isActive ? hoverShadow : undefined,
           opacity:         disabled ? 0.7 : 1,
-          cursor:          isHeader ? 'default' : disabled ? 'not-allowed' : 'pointer',
+          cursor:          isHeader ? 'default' : (disabled || loading) ? 'not-allowed' : 'pointer',
           transition:      'background-color 150ms, box-shadow 150ms, opacity 150ms',
           userSelect:      'none',
           ...style,
         }}
         onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-          if (!disabled) setIsHovered(true)
+          if (!disabled && !loading) setIsHovered(true)
           externalMouseEnter?.(e)
         }}
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
@@ -327,7 +337,7 @@ export function DropdownMenuItem(
           externalMouseLeave?.(e)
         }}
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-          if (!isHeader && !disabled && (e.key === 'Enter' || e.key === ' ')) {
+          if (!isHeader && !disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // When the row carries a Switch / Checkbox, Enter/Space toggles
             // it as well as firing the consumer's onClick - same intent as a
@@ -339,7 +349,7 @@ export function DropdownMenuItem(
           externalKeyDown?.(e)
         }}
         onClick={
-          isHeader || disabled
+          isHeader || disabled || loading
             ? undefined
             : (e: React.MouseEvent<HTMLDivElement>) => {
                 // Click anywhere on the row toggles the Switch / Checkbox.
@@ -546,9 +556,14 @@ export function DropdownMenuItem(
               )}
             </div>
 
-            {/* Trailing slot - Switch OR rightIcon (mutually exclusive). Switch
-                is default-variant-only per Figma 3139:36148. */}
-            {!isDanger && showSwitch ? (
+            {/* Trailing slot - Spinner (when `loading`) OR Switch OR rightIcon,
+                in that priority order. Switch is default-variant-only per
+                Figma 3139:36148. */}
+            {loading ? (
+              <div style={{ width: '16px', height: '16px', flexShrink: 0, display: 'inline-flex', color: 'var(--dropdown-menu-item-muted)' }}>
+                <Spinner size={16} />
+              </div>
+            ) : !isDanger && showSwitch ? (
               // eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
               <div
                 style={{ flexShrink: 0, display: 'inline-flex', lineHeight: 0 }}

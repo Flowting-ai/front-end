@@ -25,6 +25,8 @@ export interface LinksSidePanelProps extends Omit<React.HTMLAttributes<HTMLDivEl
   selectedId?:  string | null
   onSelect?:    (id: string) => void
   onGenerate?:  () => void
+  /** True while `onGenerate`'s request is in flight — shows a spinner on the button. */
+  generating?:  boolean
   onCopyUrl?:   (id: string) => void
   /** Eyebrow at the top of the panel. */
   label?:       string
@@ -34,7 +36,7 @@ export interface LinksSidePanelProps extends Omit<React.HTMLAttributes<HTMLDivEl
 
 export function LinksSidePanel({
     ref,
-    links, selectedId, onSelect, onGenerate, onCopyUrl, label = 'Active links', className, style, ...props
+    links, selectedId, onSelect, onGenerate, generating = false, onCopyUrl, label = 'Active links', className, style, ...props
   }: LinksSidePanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const empty = links.length === 0
     return (
@@ -78,7 +80,7 @@ export function LinksSidePanel({
               {links.length}
             </span>
           </div>
-          <Button size="sm" variant="secondary" onClick={onGenerate} leftIcon={<PlusSignIcon />}>
+          <Button size="sm" variant="secondary" onClick={onGenerate} loading={generating} disabled={generating} leftIcon={<PlusSignIcon />}>
             Generate link
           </Button>
         </div>

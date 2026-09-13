@@ -58,9 +58,10 @@ import { ScheduleDeleteModal, type ScheduleDeleteModalProps } from './ScheduleDe
 export { ScheduleDeleteModal, type ScheduleDeleteModalProps }
 import { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector } from './ContextRail'
 export { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector }
-import { InformationCircleIcon } from '@strange-huge/icons'
+import { InformationCircleIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction } from './ExternalOutputCard'
 export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
 import { BrainDigestCard, type BrainDigestCardProps, type DigestItem } from './BrainDigestCard'
@@ -134,6 +135,13 @@ export interface BrainShellProps {
   dropDisabled?: boolean
   /** Real scheduled-run data for the Mayday idle home. */
   homeProps?: Omit<BrainHomeProps, 'onSuggestion'>
+  /** Called when the user selects the "Chat" tab in the Task/Chat strip (Figma
+   *  136:53294) — the page owns navigation, this shell only owns the tab UI. */
+  onSwitchToChat?: () => void
+  /** Active thread's name — shown top-left once a thread exists (phase !== 'idle').
+   *  Mirrors TopBar's chat-name pill for /chat?id=… pages. Omit/undefined on a
+   *  brand-new (idle) thread, where the Task/Chat tab strip occupies this row instead. */
+  title?: string
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -153,7 +161,7 @@ export interface BrainShellProps {
  */
 export function BrainShell({
   children,
-  disclaimer        = 'Brain can make mistakes. Review important outputs.',
+  disclaimer        = 'Task can make mistakes. Review important outputs.',
   defaultPhase      = 'idle',
   chatInputProps,
   clarificationProps,
@@ -165,6 +173,8 @@ export function BrainShell({
   onFilesDropped,
   dropDisabled,
   homeProps,
+  onSwitchToChat,
+  title,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
@@ -184,6 +194,10 @@ export function BrainShell({
     value:        normalizedInitialInputValue,
   })
   const [userClosed, setUserClosed] = useState(false)
+  // Task/Chat tab strip (Figma 136:53294, "Top Bar") — shown at the top of a new
+  // (idle) Brain thread. "Task" is "new brain" renamed. Per current scope this
+  // only renders the switcher; it doesn't yet change what's shown below it.
+  const [activeTab, setActiveTab] = useState<'task' | 'chat'>('task')
   const phase = optimisticPhase?.basePhase === defaultPhase ? optimisticPhase.phase : defaultPhase
   const inputValue = inputState.initialKey === normalizedInitialInputKey
     ? inputState.value
@@ -261,6 +275,75 @@ export function BrainShell({
             backgroundColor: 'var(--color-surface-glass)',
             isolation:       'isolate',
         }}>
+
+          {/* Top Bar — Task/Chat tab strip, genuinely new/blank thread only (Figma
+              136:53294). `phase` alone isn't enough: reopening an existing, already-
+              finished thread never moves `phase` off its initial 'idle' value (nothing
+              sets it unless a stream is actively running), so `isIdle` is also true for
+              a fully loaded past thread. `title` (present once a real thread is loaded/
+              named) is what actually distinguishes "new" from "existing but not
+              currently streaming". */}
+          {isIdle && !title && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: 44, flexShrink: 0 }}>
+              <div style={{ width: 171 }}>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => {
+                    const next = v as 'task' | 'chat'
+                    // Update first so the pill/label animate to the clicked tab
+                    // immediately — navigation (a side effect) follows, it doesn't
+                    // replace the visual response to the click.
+                    setActiveTab(next)
+                    if (next === 'chat') onSwitchToChat?.()
+                  }}
+                >
+                  <TabsList fluid>
+                    <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
+                    <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+          )}
+
+          {/* Top Bar — active thread name, once a thread exists (mirrors TopBar's
+              chat-name pill on /chat?id=… pages). Same 44px row the idle tab strip
+              uses, so switching from a fresh thread to a loaded one doesn't shift
+              the content below. Shown whenever a title is known — including while
+              idle (a reopened, already-finished thread), not just while streaming. */}
+          {title && (
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: 44, flexShrink: 0, padding: '0 12px' }}>
+              <span
+                style={{
+                  display:         'inline-flex',
+                  alignItems:      'center',
+                  padding:         '5px 8px',
+                  borderRadius:    '8px',
+                  backgroundColor: 'var(--neutral-white, #fff)',
+                  boxShadow:       'inset 0 0 0 1px var(--button-outline-border)',
+                  pointerEvents:   'none',
+                  minWidth:        0,
+                  maxWidth:        '100%',
+                  overflow:        'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily:   'var(--font-body)',
+                    fontWeight:   'var(--font-weight-medium)',
+                    fontSize:     'var(--font-size-body)',
+                    lineHeight:   'var(--line-height-body)',
+                    color:        'var(--button-outline-text)',
+                    whiteSpace:   'nowrap',
+                    overflow:     'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {title}
+                </span>
+              </span>
+            </div>
+          )}
 
           {/* Drag overlay */}
           {isDragging && (
@@ -373,8 +456,8 @@ export function BrainShell({
                     </AnimatePresence>
                     <ExhaustionBanner>
                       <ChatInput
-                        placeholder="Tell Brain what to do"
-                        textareaLabel="Brain instruction"
+                        placeholder="Tell Task what to do"
+                        textareaLabel="Task instruction"
                         value={inputValue}
                         onChange={setInputValue}
                         onSend={handleSend}

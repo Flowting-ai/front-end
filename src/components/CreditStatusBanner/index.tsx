@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRightOneIcon, CancelOneIcon, AlertTwoIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { useCreditStatus } from '@/hooks/use-credit-status'
-import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
+import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
 // Individual credit/topup warning shown above the chat input:
 //   • low       — ≥90% of credits used (dismissible)
@@ -100,7 +100,7 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
 
           <button
             type="button"
-            onClick={() => router.push(SETTINGS_BILLING_ROUTE)}
+            onClick={() => router.push(ORG_PLANS_ROUTE)}
             style={{
               display:      'inline-flex',
               alignItems:   'center',

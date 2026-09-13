@@ -9,7 +9,6 @@ import { CancelOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange
 import { Button } from '@/components/Button'
 import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
-import { formatCredits } from '@/lib/format-credits'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
 
@@ -38,119 +37,25 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   workspaceName?: string
   loading?: boolean
   disabled?: boolean
-  teams?: InviteTeamOption[]
-  projects?: InviteProjectOption[]
   /** Emails already in the workspace (members + pending invites). Compared
    *  case-insensitively so a chip is flagged the instant it's typed, instead
    *  of only after a round trip to the backend. */
   existingEmails?: string[]
   /** When set, restricts (and hints at) which email domains can be invited. */
   allowedDomains?: string[]
-  /** Org-wide credits left this billing period — warns inline if the cap
-   *  entered, multiplied across every pending invite, would exceed it. */
-  poolRemaining?: number
   onClose?: () => void
   onInvite?: (params: {
     emails: string[]
     role: WorkspaceRole
-    creditCap?: number
-    teamId?: string
-    projectId?: string
   }) => Promise<InviteResult> | InviteResult
   asChild?: boolean
 }
 
-export interface InviteTeamOption {
-  id: string
-  name: string
-}
-
-export interface InviteProjectOption {
-  id: string
-  title: string
-  teamId: string
-}
-
-const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'editor', 'admin']
-
-const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
-  member: 'Can chat, use agents, access team projects',
-  editor: 'Everything a Member can do, plus publish to their team',
-  admin:  'Full access excluding billing',
-}
+const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'admin']
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   admin:  'Admin',
-  editor: 'Editor',
   member: 'Member',
-}
-
-// ── Team gradient icons — kept in sync with org/members/page.tsx's and
-//    TeamSwitcher/index.tsx's getTeamGradient so a team keeps the same color
-//    everywhere it shows up. ─────────────────────────────────────────────────
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
-
-function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        position:     'relative',
-        display:      'inline-flex',
-        width:        size,
-        height:       size,
-        borderRadius: 4,
-        background:   getTeamGradient(teamId),
-        flexShrink:   0,
-        overflow:     'hidden',
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          borderRadius:  4,
-          pointerEvents: 'none',
-          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
-        }}
-      />
-      <span
-        style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          fontFamily:     'var(--font-title)',
-          fontWeight:     500,
-          fontSize:       Math.round(size * 0.58),
-          lineHeight:     1,
-          color:          'var(--neutral-white)',
-          userSelect:     'none',
-        }}
-      >
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </span>
-  )
 }
 
 // ── Info note — boxed hint text, matching ManageRoleModal's InfoNote ────────
@@ -226,125 +131,6 @@ function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => vo
   )
 }
 
-// ── Generic dropdown (Team / Project pickers) — same trigger+Popover pattern
-//    as RoleSelector below, just parameterized over a plain option list. ─────
-
-interface SimpleSelectOption {
-  value:    string
-  label:    string
-  subLabel?: string
-  avatar?:  React.ReactNode
-}
-
-function SimpleSelect({
-  value, onChange, options, placeholder, ariaLabel, disabled = false,
-}: {
-  value:        string
-  onChange:     (v: string) => void
-  options:      SimpleSelectOption[]
-  placeholder:  string
-  ariaLabel:    string
-  disabled?:    boolean
-}) {
-  const [open,    setOpen]    = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef   = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', h, { capture: true })
-    return () => document.removeEventListener('mousedown', h, { capture: true })
-  }, [open])
-
-  const selected = options.find(o => o.value === value)
-
-  return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        style={{
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  'space-between',
-          gap:             8,
-          width:           '100%',
-          padding:         '8px 10px',
-          borderRadius:    10,
-          border:          'none',
-          backgroundColor: hovered && !disabled ? 'var(--neutral-50)' : 'var(--neutral-white)',
-          boxShadow:       SHADOW_INPUT,
-          cursor:          disabled ? 'default' : 'pointer',
-          opacity:         disabled ? 0.6 : 1,
-          outline:         'none',
-          boxSizing:       'border-box' as const,
-          transition:      'background-color 120ms ease',
-        }}
-      >
-        <span style={{
-          fontFamily:   'var(--font-body)',
-          fontSize:     'var(--font-size-body)',
-          fontWeight:   400,
-          color:        selected ? 'var(--neutral-900)' : 'var(--neutral-400)',
-          overflow:     'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace:   'nowrap',
-        }}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <ArrowDownOneIcon size={11} color="var(--neutral-400)" />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="simple-select-panel"
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
-            animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scaleY: 0.85, transition: { duration: 0.08 } }}
-            style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100 }}
-          >
-            {/* Padding lives on this inner wrapper, not on <Popover>'s own
-                style prop — that prop only reaches Popover's outer
-                overflow:hidden shell, which sits OUTSIDE the actual
-                scrollable row list (maxHeight engages an inner ScrollArea).
-                Padding on the outer shell never reaches the rows, so they
-                rendered flush against the clipped scroll edges with zero
-                breathing room. */}
-            <Popover ref={panelRef} variant="dropdown" maxHeight={240} role="menu" aria-label={ariaLabel}>
-              <div style={{ padding: 4 }}>
-                {options.map(opt => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    fluid
-                    avatar={opt.avatar}
-                    label={opt.label}
-                    subLabel={opt.subLabel}
-                    selected={value === opt.value}
-                    onClick={() => { onChange(opt.value); setOpen(false) }}
-                  />
-                ))}
-              </div>
-            </Popover>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 // ── Role selector dropdown ────────────────────────────────────────────────────
 
 function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r: WorkspaceRole) => void }) {
@@ -399,7 +185,6 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
                   key={role}
                   fluid
                   label={ROLE_LABELS[role]}
-                  subLabel={ROLE_DESCRIPTIONS[role]}
                   selected={value === role}
                   onClick={() => { onChange(role); setOpen(false) }}
                 />
@@ -456,11 +241,8 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       workspaceName,
       loading = false,
       disabled = false,
-      teams = [],
-      projects = [],
       existingEmails,
       allowedDomains,
-      poolRemaining,
       onClose,
       onInvite,
       asChild = false,
@@ -476,13 +258,9 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [emailChips, setEmailChips] = useState<EmailChip[]>([])
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
-    const [capDraft,   setCapDraft]   = useState('')
-    const [teamId,     setTeamId]     = useState('')
-    const [projectId,  setProjectId]  = useState('')
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => { inputRef.current?.focus() }, [])
-    const effectiveTeamId = teamId || teams[0]?.id || ''
 
     // Classifies one raw token as it's committed to a chip: format, then
     // already-a-member/invited, then domain restriction. Surfacing all three
@@ -542,21 +320,12 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const handleSubmit = useCallback(async () => {
       const pending = emailChips.filter(c => c.status === 'pending').map(c => c.value)
       if (pending.length === 0 || loading || submitting) return
-      if (role === 'editor' && !effectiveTeamId) return
-
-      const capVal = capDraft.trim() === '' ? undefined : parseInt(capDraft.trim(), 10)
-      const project = role === 'member'
-        ? projects.find(option => option.id === projectId)
-        : undefined
 
       setSubmitting(true)
       try {
         const result = await onInvite?.({
           emails: pending,
           role,
-          creditCap: capVal && capVal > 0 ? capVal : undefined,
-          teamId: role === 'editor' ? effectiveTeamId : project?.teamId,
-          projectId: project?.id,
         })
         if (!result) return
 
@@ -572,14 +341,12 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           }))
 
         if (result.failed.length === 0) {
-          setCapDraft('')
-          setProjectId('')
           onClose?.()
         }
       } finally {
         setSubmitting(false)
       }
-    }, [capDraft, effectiveTeamId, emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
+    }, [emailChips, loading, submitting, onInvite, onClose, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -610,9 +377,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [draft, commitTokens])
 
     const pendingCount = emailChips.filter(c => c.status === 'pending').length
-    const capNum = capDraft.trim() === '' ? 0 : parseInt(capDraft.trim(), 10) || 0
-    const totalCommit = capNum * Math.max(pendingCount, 1)
-    const exceedsPool = poolRemaining != null && capNum > 0 && totalCommit > poolRemaining
 
     return (
       <Comp
@@ -714,118 +478,15 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             />
           </div>
           <div style={{ paddingTop: 1 }}>
-            <RoleSelector
-              value={role}
-              onChange={nextRole => {
-                setRole(nextRole)
-                setProjectId('')
-                if (nextRole === 'admin') setCapDraft('')
-              }}
-            />
+            <RoleSelector value={role} onChange={setRole} />
           </div>
           </div>
         </div>
 
-        {/* Role description + domain restriction hints — boxed like ManageRoleModal's InfoNote */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <InfoNote>{ROLE_DESCRIPTIONS[role]}</InfoNote>
-          {allowedDomains && allowedDomains.length > 0 && (
-            <InfoNote>Restricted to: {allowedDomains.map(d => `@${d}`).join(', ')}</InfoNote>
-          )}
-        </div>
-
-        {role === 'editor' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={SECTION_LABEL_STYLE}>Team</span>
-            <SimpleSelect
-              ariaLabel="Team"
-              value={effectiveTeamId}
-              onChange={setTeamId}
-              disabled={teams.length === 0}
-              placeholder="No teams available"
-              options={teams.map(team => ({
-                value:  team.id,
-                label:  team.name,
-                avatar: <TeamAvatar teamId={team.id} name={team.name} size={24} />,
-              }))}
-            />
-          </div>
+        {/* Domain restriction hint — boxed like ManageRoleModal's InfoNote */}
+        {allowedDomains && allowedDomains.length > 0 && (
+          <InfoNote>Restricted to: {allowedDomains.map(d => `@${d}`).join(', ')}</InfoNote>
         )}
-
-        {role === 'member' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={SECTION_LABEL_STYLE}>Project access (optional)</span>
-            <SimpleSelect
-              ariaLabel="Project access"
-              value={projectId}
-              onChange={setProjectId}
-              placeholder="No project access"
-              options={[
-                { value: '', label: 'No project access' },
-                ...projects.map(project => {
-                  const team = teams.find(t => t.id === project.teamId)
-                  return {
-                    value:    project.id,
-                    label:    project.title,
-                    subLabel: team?.name,
-                    avatar:   team && <TeamAvatar teamId={team.id} name={team.name} size={24} />,
-                  }
-                }),
-              ]}
-            />
-          </div>
-        )}
-
-        {/* Credit cap — only for member/editor roles; admins use the workspace pool */}
-        {role !== 'admin' && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={SECTION_LABEL_STYLE}>Credit cap (optional)</span>
-            {poolRemaining != null && (
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                <strong style={{ fontWeight: 600, color: 'var(--neutral-700)' }}>{formatCredits(poolRemaining)}</strong> left in pool
-              </span>
-            )}
-          </div>
-          <div style={{
-            display:         'flex',
-            alignItems:      'center',
-            padding:         '7px 10px',
-            borderRadius:    10,
-            backgroundColor: 'var(--neutral-white)',
-            boxShadow:       SHADOW_INPUT,
-            boxSizing:       'border-box' as const,
-          }}>
-            <input
-              type="number"
-              min={1}
-              aria-label="Credit cap"
-              placeholder="No limit"
-              value={capDraft}
-              onChange={e => setCapDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSubmit() } }}
-              style={{
-                flex:       1,
-                border:     'none',
-                outline:    'none',
-                background: 'transparent',
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                fontWeight: 400,
-                color:      'var(--neutral-900)',
-                minWidth:   0,
-                MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
-              }}
-            />
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', flexShrink: 0, paddingLeft: 6 }}>
-              credits {pendingCount > 1 ? `× ${pendingCount} invites` : ''}
-            </span>
-          </div>
-          {exceedsPool && (
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--color-tag-Red-text)', margin: 0 }}>
-              Exceeds the org&rsquo;s remaining pool — this would commit {formatCredits(totalCommit)} of {formatCredits(poolRemaining)} left.
-            </p>
-          )}
-        </div>}
 
         </div>
 
@@ -836,7 +497,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             variant="default"
             size="sm"
             loading={loading || submitting}
-            disabled={pendingCount === 0 || (role === 'editor' && !effectiveTeamId)}
+            disabled={pendingCount === 0}
             onClick={() => void handleSubmit()}
           >
             {pendingCount > 1 ? `Send ${pendingCount} invites` : 'Send invite'}
@@ -849,8 +510,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
 
 InviteModal.displayName = 'InviteModal'
 
-// ── AppInviteModal — Dialog wrapper for backward compatibility ─────────────────
-// Used in settings/org/teams/[teamId]/page.tsx with onInvite(email, role) API.
+// ── AppInviteModal — Dialog wrapper, used by members/page.tsx ─────────────────
 
 export interface AppInviteModalProps {
   isOpen:         boolean
@@ -858,17 +518,11 @@ export interface AppInviteModalProps {
   onInvite:       (
     emails: string[],
     role: WorkspaceRole,
-    creditCap?: number,
-    teamId?: string,
-    projectId?: string,
   ) => Promise<InviteResult> | InviteResult
   workspaceName?: string
   loading?:       boolean
-  teams?:         InviteTeamOption[]
-  projects?:      InviteProjectOption[]
   existingEmails?: string[]
   allowedDomains?: string[]
-  poolRemaining?: number
 }
 
 export function AppInviteModal({
@@ -877,11 +531,8 @@ export function AppInviteModal({
   onInvite,
   workspaceName,
   loading,
-  teams,
-  projects,
   existingEmails,
   allowedDomains,
-  poolRemaining,
 }: AppInviteModalProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
@@ -911,15 +562,10 @@ export function AppInviteModal({
           <InviteModal
             workspaceName={workspaceName}
             loading={loading}
-            teams={teams}
-            projects={projects}
             existingEmails={existingEmails}
             allowedDomains={allowedDomains}
-            poolRemaining={poolRemaining}
             onClose={onClose}
-            onInvite={({ emails, role, creditCap, teamId, projectId }) => (
-              onInvite(emails, role, creditCap, teamId, projectId)
-            )}
+            onInvite={({ emails, role }) => onInvite(emails, role)}
           />
         </Dialog.Content>
       </Dialog.Portal>

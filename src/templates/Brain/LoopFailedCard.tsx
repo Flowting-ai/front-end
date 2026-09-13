@@ -46,7 +46,7 @@ export function LoopFailedCard({
           lineHeight: 'var(--line-height-body)',
           color:      'var(--neutral-800)',
         }}>
-          Brain couldn't complete this task
+          Couldn't complete this task
         </span>
       </div>
 

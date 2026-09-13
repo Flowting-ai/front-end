@@ -2,10 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon } from '@strange-huge/icons'
+import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
-import { Spinner } from '@/components/Spinner'
+import { Button } from '@/components/Button'
 import { Tooltip } from '@/components/Tooltip'
 import { trackFeature } from '@/lib/analytics/events'
 import { Dropdown } from '@/components/Dropdown'
@@ -31,6 +31,12 @@ export interface HighlightPanelProps {
   highlights: HighlightEntry[]
   /** True while highlights are being (re)fetched — e.g. right after switching filters. Shows a spinner in place of the card list. */
   isLoading?: boolean
+  /** True when the most recent load attempt failed outright — shown as a
+   *  distinct error state (with Retry) instead of the empty state, so a
+   *  failed fetch never looks identical to "nothing highlighted yet". */
+  hasError?:  boolean
+  /** Called when the user clicks Retry in the error state. Omit to hide the button. */
+  onRetry?:   () => void
   /** Forwarded to each card's Jump button. `id` matches HighlightEntry.id. Omit to hide Jump on all cards. */
   onJump?:    (id: string) => void
   /** Forwarded to each card's Copy button. `id` matches HighlightEntry.id. Omit to hide Copy on all cards. */
@@ -52,6 +58,8 @@ export interface HighlightPanelProps {
 export function HighlightPanel({
   highlights,
   isLoading = false,
+  hasError = false,
+  onRetry,
   onJump,
   onCopy,
   onDelete,
@@ -236,7 +244,7 @@ export function HighlightPanel({
               onOpenChange={setFilterDropOpen}
               placement="bottom-end"
             >
-              <Dropdown size="sm">
+              <Dropdown size="sm" maxHeight={false}>
                 <Dropdown.Section fluid>
                   {(['this-chat', 'all'] as FilterMode[]).map(mode => (
                     <Dropdown.Item
@@ -359,6 +367,38 @@ export function HighlightPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            aria-hidden
+          >
+            {/* Same sticky-note footprint as a real HighlightCard (dog-ear
+                corner + quote-text padding), just neutral instead of colored
+                and with shimmer bars instead of real text. */}
+            {[3, 2, 1].map((lines, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: 'var(--neutral-100)',
+                  borderRadius:    '3px 3px 3px 0',
+                  padding:         '12px',
+                  display:         'flex',
+                  flexDirection:   'column',
+                  gap:             8,
+                  opacity:         1 - i * 0.25,
+                }}
+              >
+                {Array.from({ length: lines }).map((_, li) => (
+                  <div key={li} className="kaya-skeleton" style={{ width: li === lines - 1 ? '55%' : '90%', height: 16, borderRadius: 4 }} />
+                ))}
+              </div>
+            ))}
+          </m.div>
+        ) : hasError ? (
+          <m.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             style={{
               display:        'flex',
               flexDirection:  'column',
@@ -369,7 +409,7 @@ export function HighlightPanel({
               textAlign:      'center',
             }}
           >
-            <Spinner size={24} color="var(--neutral-400)" />
+            <AlertCircleIcon size={32} color="var(--red-400, #e08787)" />
             <p
               style={{
                 margin:     0,
@@ -380,8 +420,13 @@ export function HighlightPanel({
                 color:      'var(--neutral-500)',
               }}
             >
-              Loading highlights…
+              Couldn&apos;t load highlights
             </p>
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                Retry
+              </Button>
+            )}
           </m.div>
         ) : (
           <>

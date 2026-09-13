@@ -31,7 +31,11 @@ export function SystemInstructionsModal({
   maxLength = 2000,
 }: SystemInstructionsModalProps) {
   const [draft,   setDraft]   = useState(value ?? '')
-  const [saving,  setSaving]  = useState(false)
+  // Which button triggered the in-flight save, so only that one shows a
+  // spinner — Save and Clear both call onSave, but sharing one boolean made
+  // clicking Clear also flip Save's label/spinner.
+  const [savingAction, setSavingAction] = useState<'save' | 'clear' | null>(null)
+  const saving = savingAction !== null
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
@@ -51,7 +55,7 @@ export function SystemInstructionsModal({
   }, [open])
 
   async function handleSave() {
-    setSaving(true)
+    setSavingAction('save')
     try {
       await onSave(draft.trim())
       toast.success('System instructions saved')
@@ -59,13 +63,13 @@ export function SystemInstructionsModal({
     } catch {
       // error toast already shown by the caller
     } finally {
-      setSaving(false)
+      setSavingAction(null)
     }
   }
 
   async function handleClear() {
     setDraft('')
-    setSaving(true)
+    setSavingAction('clear')
     try {
       await onSave('')
       toast.success('System instructions cleared')
@@ -73,7 +77,7 @@ export function SystemInstructionsModal({
     } catch {
       // error toast already shown by the caller
     } finally {
-      setSaving(false)
+      setSavingAction(null)
     }
   }
 
@@ -193,6 +197,8 @@ export function SystemInstructionsModal({
             <div
               className="kaya-scrollbar"
               style={{
+                display:       'flex',
+                flexDirection: 'column',
                 flex:          '1 1 0',
                 minHeight:     0,
                 overflowY:     'auto',
@@ -202,8 +208,9 @@ export function SystemInstructionsModal({
             >
               {/* Horizontal padding lives on this inner wrapper, not the
                   scrolling element above — keeps the scrollbar flush with the
-                  modal's edge. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px' }}>
+                  modal's edge. Stretches to fill the scroll container so the
+                  textarea below can in turn flex to fill this. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px', flex: '1 1 0', minHeight: 0 }}>
               <p
                 style={{
                   fontFamily:  'var(--font-body)',
@@ -289,8 +296,8 @@ export function SystemInstructionsModal({
               }}
             >
               <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-              <Button variant="secondary" onClick={handleClear} disabled={!value || saving}>Clear</Button>
-              <Button variant="default" onClick={handleSave} loading={saving}>Save instructions</Button>
+              <Button variant="secondary" onClick={handleClear} loading={savingAction === 'clear'} disabled={!value || saving}>Clear</Button>
+              <Button variant="default" onClick={handleSave} loading={savingAction === 'save'} disabled={saving}>Save instructions</Button>
             </div>
           </m.div>
         </m.div>

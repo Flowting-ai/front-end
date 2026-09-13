@@ -5,6 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { toast } from 'sonner'
 import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { ProjectDocumentCard } from '@/components/ProjectDocumentCard'
 import { FILE_ACCEPT, FILE_CONSTRAINTS, isAllowedType } from '@/hooks/use-file-upload'
 import type { ProjectFile } from '@/context/projects-context'
@@ -34,6 +35,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     const inputRef   = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
     const [dragging,  setDragging]  = useState(false)
+    const [removeTarget, setRemoveTarget] = useState<ProjectFile | null>(null)
 
     const hasPending  = (pendingFiles?.length ?? 0) > 0
     const isUploading = uploading || hasPending
@@ -46,6 +48,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     const usedPct      = Math.min(100, totalBytes > 0 ? (totalUsed / totalBytes) * 100 : 0)
     const usedLabel    = formatBytes(totalUsed) || '0 B'
     const totalMB      = Math.round(totalBytes / (1024 * 1024))
+    const usedMB       = Math.round(totalUsed / (1024 * 1024))
 
     // Client-side size/type validation — mirrors the chat-attachment path's
     // constraints (useFileUpload) so oversized/unsupported files are rejected
@@ -206,6 +209,11 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
             {usedLabel} of {totalMB} MB used
           </p>
           <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={totalMB}
+            aria-valuenow={usedMB}
+            aria-label={`${usedLabel} of ${totalMB} MB used`}
             style={{
               height:       '4px',
               borderRadius: '2px',
@@ -245,7 +253,9 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
                   key={file.id}
                   name={file.name}
                   sizeLabel={file.sizeLabel || undefined}
-                  onRemove={onRemove ? () => onRemove(file.id) : undefined}
+                  fileType={file.type}
+                  url={file.url || undefined}
+                  onRemove={onRemove ? () => setRemoveTarget(file) : undefined}
                 />
               ))}
               {pendingFiles?.map((file) => (
@@ -313,6 +323,16 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           <div style={{ display: 'flex', flex: '1 1 0', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: 12 }}>
             No files yet.
           </div>
+        )}
+
+        {removeTarget && (
+          <ConfirmModal
+            title={`Remove "${removeTarget.name}"?`}
+            description="This file will no longer be shared with chats in this project."
+            confirmLabel="Remove"
+            onConfirm={async () => { onRemove?.(removeTarget.id) }}
+            onClose={() => setRemoveTarget(null)}
+          />
         )}
       </div>
     )

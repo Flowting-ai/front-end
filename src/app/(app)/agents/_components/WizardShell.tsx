@@ -1,8 +1,10 @@
 ﻿'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CancelOneIcon } from '@strange-huge/icons'
+import { m } from 'framer-motion'
+import { CancelOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { Tooltip } from '@/components/Tooltip'
 import CancelCreationModal from './CancelCreationModal'
 import { AGENTS_ROUTE } from '@/lib/routes'
 import { trackBrowserEvent } from '@/lib/analytics/events'
@@ -16,30 +18,95 @@ export interface WizardStep {
   state: StepState
 }
 
-// ── Step badge ────────────────────────────────────────────────────────────────
+// ── Stepper ───────────────────────────────────────────────────────────────────
+// Numbered circle + label per step, joined by a connecting line whose fill
+// tracks progress (solid once the step before it is done). Circle reads at a
+// glance: filled+check = done, ringed+number = here, flat+number = not yet.
+// Each transition animates: the circle pops in on every state change, the
+// connector wipes left-to-right when it fills, and the tick draws in
+// TICK_DRAW_DELAY_MS after the circle fill lands — same two-beat pattern as
+// Checkbox (src/components/Checkbox) so a completed step doesn't just snap.
 
-function StepBadge({ label, state }: WizardStep) {
+const TICK_DRAW_DELAY_MS = 120
+
+function StepNode({ index, label, state }: WizardStep & { index: number }) {
+  const isActive    = state === 'active'
+  const isCompleted = state === 'completed'
+
+  const [tickOn, setTickOn] = useState(isCompleted)
+  useEffect(() => {
+    if (isCompleted) {
+      const id = window.setTimeout(() => setTickOn(true), TICK_DRAW_DELAY_MS)
+      return () => window.clearTimeout(id)
+    }
+    setTickOn(false)
+  }, [isCompleted])
+
   return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 2, borderRadius: 6, flexShrink: 0, position: 'relative',
-        background: state === 'completed' ? 'var(--blue-200)' : 'var(--blue-100)',
-        opacity: state === 'future' ? 0.5 : 1,
-        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
-      }}
-    >
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none',
-        boxShadow: 'inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
-      }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <m.div
+        key={state}
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isCompleted ? 'var(--blue-600)' : isActive ? 'var(--neutral-white)' : 'var(--neutral-100)',
+          border: isCompleted ? 'none' : isActive ? '2px solid var(--blue-600)' : '1.5px solid var(--neutral-300)',
+          boxShadow: isActive ? '0px 0px 0px 3px rgba(13,110,178,0.15)' : 'none',
+        }}
+      >
+        {isCompleted ? (
+          <span style={{ lineHeight: 0, opacity: tickOn ? 1 : 0, transition: 'opacity 100ms' }}>
+            <TickTwoIcon size={12} color="var(--neutral-white)" triggered={tickOn} />
+          </span>
+        ) : (
+          <span style={{
+            fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-semibold)',
+            fontSize: 11,
+            // Line-height matches the circle's diameter (not `1`) — flex
+            // centering aligns the line box, and most fonts render a digit
+            // off-center within a tight `lineHeight: 1` box. A line-height
+            // equal to the container size is the reliable way to center it.
+            lineHeight: '22px',
+            color: isActive ? 'var(--blue-700)' : 'var(--neutral-400)',
+            textAlign: 'center',
+          }}>
+            {index}
+          </span>
+        )}
+      </m.div>
       <span style={{
-        padding: '0 2px',
-        fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-        fontSize: 12, lineHeight: '16px', color: 'var(--blue-700)', whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-body)',
+        fontWeight: isActive ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)',
+        fontSize: 13, lineHeight: '16px',
+        color: isActive ? 'var(--blue-700)' : isCompleted ? 'var(--neutral-700)' : 'var(--neutral-400)',
+        whiteSpace: 'nowrap',
+        transition: 'color 200ms',
       }}>
         {label}
       </span>
+    </div>
+  )
+}
+
+function StepConnector({ filled }: { filled: boolean }) {
+  return (
+    <div style={{
+      position: 'relative', width: 32, height: 1.5, flexShrink: 0, margin: '0 12px',
+      background: 'var(--neutral-200)', borderRadius: 1, overflow: 'hidden',
+    }}>
+      <m.div
+        initial={false}
+        animate={{ scaleX: filled ? 1 : 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        style={{
+          position: 'absolute', inset: 0,
+          background: 'var(--blue-600)',
+          transformOrigin: 'left',
+        }}
+      />
     </div>
   )
 }
@@ -81,21 +148,28 @@ export function WizardShell({ steps, children }: WizardShellProps) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           width: '100%', marginBottom: 36, flexShrink: 0,
         }}>
-          <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            {steps.map(step => <StepBadge key={step.label} {...step} />)}
+          <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {steps.map((step, i) => (
+              <React.Fragment key={step.label}>
+                <StepNode index={i + 1} {...step} />
+                {i < steps.length - 1 && <StepConnector filled={step.state === 'completed'} />}
+              </React.Fragment>
+            ))}
           </div>
-          <button
-            onClick={() => setCancelOpen(true)}
-            aria-label="Close"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0)', border: 'none', cursor: 'pointer',
-              boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', padding: 8,
-            }}
-          >
-            <CancelOneIcon size={20} />
-          </button>
+          <Tooltip content="Cancel creation" side="top" delayDuration={300}>
+            <button
+              onClick={() => setCancelOpen(true)}
+              aria-label="Close"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(255,255,255,0)', border: 'none', cursor: 'pointer',
+                boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', padding: 8,
+              }}
+            >
+              <CancelOneIcon size={20} />
+            </button>
+          </Tooltip>
         </div>
 
         {children}

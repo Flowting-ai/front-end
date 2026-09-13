@@ -1,15 +1,13 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useState } from 'react'
+import { z } from 'zod'
 import { Slot } from '@radix-ui/react-slot'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
-import { Popover } from '@/components/Popover'
-import { DropdownMenuItem } from '@/components/DropdownMenuItem'
+import { Dropdown } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
-import { springs } from '@/lib/springs'
-import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Shadows — match ShareModal exactly ───────────────────────────────────────
@@ -34,6 +32,15 @@ const URGENCY_OPTIONS: { value: ConnectorRequestUrgency; label: string }[] = [
   { value: 'blocking',     label: 'Blocking us right now' },
 ]
 
+// url/description stay unconstrained strings — only toolName was ever required,
+// same rule as before, now enforced through zod instead of an inline .trim() check.
+const connectorRequestSchema = z.object({
+  toolName:    z.string().trim().min(1),
+  url:         z.string().trim(),
+  description: z.string().trim(),
+  urgency:     z.enum(['nice-to-have', 'would-help', 'blocking']),
+})
+
 // ── Close button — matches ShareModal ────────────────────────────────────────
 
 function CloseButton({ onClick }: { onClick?: () => void }) {
@@ -49,48 +56,34 @@ function CloseButton({ onClick }: { onClick?: () => void }) {
 // ── Urgency dropdown ──────────────────────────────────────────────────────────
 
 function UrgencyDropdown({ value, onChange }: { value: ConnectorRequestUrgency; onChange: (v: ConnectorRequestUrgency) => void }) {
-  const [open, setOpen]     = useState(false)
-  const [hov,  setHov]      = useState(false)
-  const triggerRef           = useRef<HTMLButtonElement>(null)
-  const panelRef             = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [hov,  setHov]  = useState(false)
   const label = URGENCY_OPTIONS.find(o => o.value === value)?.label ?? 'Select'
 
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', h, { capture: true })
-    return () => document.removeEventListener('mousedown', h, { capture: true })
-  }, [open])
-
   return (
-    <div style={{ position: 'relative' }}>
-      <button ref={triggerRef} type="button" onClick={() => setOpen(o => !o)}
-        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: hov ? 'var(--neutral-50)' : 'var(--neutral-white)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none', transition: 'background-color 120ms' }}>
-        <span>{label}</span>
-        <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
-            animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scaleY: 0.85, transition: { duration: 0.08 } }}
-            style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100 }}
-          >
-            <Popover ref={panelRef} variant="dropdown" maxHeight={false} role="menu" style={{ padding: 4 }}>
-              {URGENCY_OPTIONS.map(opt => (
-                <DropdownMenuItem key={opt.value} fluid label={opt.label} selected={value === opt.value}
-                  onClick={() => { onChange(opt.value); setOpen(false) }} />
-              ))}
-            </Popover>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-start"
+      offset={4}
+      trigger={
+        <button type="button"
+          onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: hov ? 'var(--neutral-50)' : 'var(--neutral-white)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none', transition: 'background-color 120ms' }}>
+          <span>{label}</span>
+          <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
+        </button>
+      }
+    >
+      <Dropdown maxHeight={false}>
+        <Dropdown.Section fluid>
+          {URGENCY_OPTIONS.map(opt => (
+            <Dropdown.Item key={opt.value} fluid label={opt.label} selected={value === opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false) }} />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
   )
 }
 
@@ -108,9 +101,11 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
       if (e.key === 'Escape') onClose?.()
     }, [onClose])
 
+    const validation = connectorRequestSchema.safeParse({ toolName, url, description, urgency })
+
     const handleSubmit = () => {
-      if (!toolName.trim()) return
-      onSubmit?.({ toolName: toolName.trim(), url: url.trim(), description: description.trim(), urgency })
+      if (!validation.success) return
+      onSubmit?.(validation.data)
     }
 
     return (
@@ -182,7 +177,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="What data should the brain read? What actions should it take? Which team needs it?"
+              placeholder="What data should the task read? What actions should it take? Which team needs it?"
               rows={3}
               style={{
                 fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)',
@@ -205,7 +200,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="default" size="sm" loading={loading} disabled={!toolName.trim()} onClick={handleSubmit}>
+          <Button variant="default" size="sm" loading={loading} disabled={!validation.success} onClick={handleSubmit}>
             Submit request
           </Button>
         </div>

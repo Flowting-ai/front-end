@@ -9,58 +9,86 @@ import {
   PROJECT_CHAT_LINK_ENDPOINT,
   PROJECT_FILES_ENDPOINT,
   PROJECT_FILE_ENDPOINT,
+  PROJECT_INVITE_ENDPOINT,
+  PROJECT_INVITES_ENDPOINT,
+  PROJECT_MEMBERS_ENDPOINT,
+  PROJECT_MEMBER_ENDPOINT,
+  PROJECT_LEAVE_ENDPOINT,
+  PROJECT_RESTORE_ENDPOINT,
   directUpload,
 } from '@/lib/config'
 
-// ── Backend shapes (snake_case from FastAPI, matches OpenAPI components) ──────
+// ── Backend shapes ──────────────────────────────────────────────────────────
+// The `services/projects` rewrite replaced the old snake_case, visibility-
+// toggle shape with a class-based `Project` actor whose Pydantic response
+// models serialize by field NAME (camelCase), not the snake_case
+// `validation_alias` they parse from the DB row. `can_edit`/`can_manage_visibility`
+// are gone for good — sharing is real `ProjectMember` rows (GET/DELETE
+// `/projects/{id}/members`, `POST /projects/{id}/invite(s)`), not an org-wide
+// toggle; see `canEdit`'s derivation in the normalizers below for how we make
+// do without a server-supplied signal there.
+//
+// UPDATE: `visibility` itself is back (commit 342b899d, "Enhance project
+// management features with access control and recovery options") — but as a
+// set-ONCE-at-creation field (`personal | workspace | shared`, sent as a
+// `visibility` form field to `POST /projects`), not the old PATCH-toggle.
+// `PATCH /projects/{id}/visibility` (below) genuinely still doesn't exist —
+// don't resurrect it.
 
 export interface ProjectDocumentResponse {
-  id:                string
-  document_filename: string
-  file_link:         string
-  created_at:        string
-  size_bytes?:       number | null
+  id:        string
+  filename:  string
+  fileLink:  string
+  createdAt: string
 }
+
+export type ProjectVisibility = 'personal' | 'workspace' | 'shared'
 
 export interface ProjectSummary {
   id:             string
-  owner_user_id:  string
-  team_id?:       string | null
-  visibility:     'private' | 'team'
-  can_edit:       boolean
-  can_manage_visibility: boolean
+  ownerUserId:    string
+  organizationId?: string | null
+  visibility:     ProjectVisibility
   title:          string
   description:    string
   tags:           string[]
-  updated_at:     string
-  chat_count:     number
-  document_count: number
+  createdAt:      string
+  updatedAt:      string
+  chatCount:      number
+  documentCount:  number
 }
 
 export interface ProjectResponse {
   id:                 string
-  owner_user_id:      string
+  ownerUserId:        string
+  organizationId?:    string | null
+  visibility:         ProjectVisibility
   title:              string
   description:        string
-  system_instruction: string
+  systemInstruction:  string
   tags:               string[]
-  team_id?:           string | null
-  visibility:         'private' | 'team'
-  can_edit:           boolean
-  can_manage_visibility: boolean
-  created_at:         string
-  updated_at:         string
+  createdAt:          string
+  updatedAt:          string
   documents:          ProjectDocumentResponse[]
+}
+
+/** GET /projects/{id}/members — unlike every other response in this file,
+ *  this schema has no camelCase alias declared on the backend, so it's the
+ *  one place in this API that's genuinely snake_case on the wire. */
+export interface ProjectMemberResponse {
+  user_id: string
+  name:    string | null
+  email:   string | null
 }
 
 export interface ProjectChatSummary {
   id:            string
-  owner_user_id: string
-  can_edit:      boolean
-  chat_title:    string
+  ownerUserId:   string
+  chatTitle:     string
   starred:       boolean
-  updated_at:    string
-  message_count: number
+  createdAt:     string
+  updatedAt:     string
+  messageCount:  number
 }
 
 // ── Normalized types (camelCase, used by frontend code) ───────────────────────
@@ -77,7 +105,7 @@ export interface ApiProjectSummary {
   id:            string
   ownerUserId:   string
   teamId:        string | null
-  visibility:    'private' | 'team'
+  visibility:    ProjectVisibility
   canEdit:       boolean
   canManageVisibility: boolean
   title:         string
@@ -96,7 +124,7 @@ export interface ApiProject {
   systemInstruction: string
   tags:              string[]
   teamId:            string | null
-  visibility:        'private' | 'team'
+  visibility:        ProjectVisibility
   canEdit:           boolean
   canManageVisibility: boolean
   createdAt:         string
@@ -114,71 +142,102 @@ export interface ApiProjectChat {
   messageCount: number
 }
 
-// ── Normalizers ───────────────────────────────────────────────────────────────
-
-function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
-  return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at, sizeBytes: d.size_bytes ?? null }
+export interface ApiProjectMember {
+  userId: string
+  name:   string | null
+  email:  string | null
 }
 
-function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
+// ── Normalizers ───────────────────────────────────────────────────────────────
+// `canEdit` has no server-supplied signal any more (see the backend-shape note
+// above), so every normalizer takes the caller's own id and derives it as
+// straight ownership — the one part of the old `can_edit` contract ("can this
+// user change this resource") that's still knowable without calling the new
+// `/members` endpoint. `visibility` now reads the real wire value (set once at
+// creation, see the UPDATE note above). `canManageVisibility` stays fixed at
+// `false` — visibility genuinely can't be changed post-creation (no PATCH
+// endpoint exists), so there's still nothing to manage.
+
+function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
+  return { id: d.id, filename: d.filename, fileLink: d.fileLink, createdAt: d.createdAt, sizeBytes: null }
+}
+
+function normalizeProjectSummary(p: ProjectSummary, currentUserId: string): ApiProjectSummary {
   return {
     id:            p.id,
-    ownerUserId:   p.owner_user_id,
-    teamId:        p.team_id ?? null,
-    visibility:    p.visibility,
-    canEdit:       p.can_edit,
-    canManageVisibility: p.can_manage_visibility,
+    ownerUserId:   p.ownerUserId,
+    teamId:        p.organizationId ?? null,
+    // No `existing` value to fall back to here (unlike apiToProject in
+    // projects-context.tsx) — this is a hard default, not a last-known-value
+    // guard. Still needed: the /projects list filters by exact visibility
+    // match, so a missing/degraded value would otherwise vanish this project
+    // from every scope tab silently instead of just mis-labeling it.
+    visibility:    p.visibility ?? 'personal',
+    canEdit:       p.ownerUserId === currentUserId,
+    canManageVisibility: false,
     title:         p.title,
     description:   p.description,
     tags:          p.tags ?? [],
-    updatedAt:     p.updated_at,
-    chatCount:     p.chat_count,
-    documentCount: p.document_count,
+    updatedAt:     p.updatedAt,
+    chatCount:     p.chatCount,
+    documentCount: p.documentCount,
   }
 }
 
-function normalizeProject(p: ProjectResponse): ApiProject {
+function normalizeProject(p: ProjectResponse, currentUserId: string): ApiProject {
   return {
     id:                p.id,
-    ownerUserId:       p.owner_user_id,
+    ownerUserId:       p.ownerUserId,
     title:             p.title,
     description:       p.description,
-    systemInstruction: p.system_instruction ?? '',
+    systemInstruction: p.systemInstruction ?? '',
     tags:              p.tags ?? [],
-    teamId:            p.team_id ?? null,
-    visibility:        p.visibility,
-    canEdit:           p.can_edit,
-    canManageVisibility: p.can_manage_visibility,
-    createdAt:         p.created_at,
-    updatedAt:         p.updated_at,
+    teamId:            p.organizationId ?? null,
+    visibility:        p.visibility ?? 'personal',
+    canEdit:           p.ownerUserId === currentUserId,
+    canManageVisibility: false,
+    createdAt:         p.createdAt,
+    updatedAt:         p.updatedAt,
     documents:         (p.documents ?? []).map(normalizeDocument),
   }
 }
 
-function normalizeProjectChat(c: ProjectChatSummary): ApiProjectChat {
+function normalizeProjectChat(c: ProjectChatSummary, currentUserId: string): ApiProjectChat {
   return {
     id:           c.id,
-    ownerUserId:  c.owner_user_id,
-    canEdit:      c.can_edit,
-    chatTitle:    c.chat_title,
+    ownerUserId:  c.ownerUserId,
+    canEdit:      c.ownerUserId === currentUserId,
+    chatTitle:    c.chatTitle,
     starred:      c.starred,
-    updatedAt:    c.updated_at,
-    messageCount: c.message_count,
+    updatedAt:    c.updatedAt,
+    messageCount: c.messageCount,
   }
+}
+
+function normalizeProjectMember(m: ProjectMemberResponse): ApiProjectMember {
+  return { userId: m.user_id, name: m.name, email: m.email }
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /** GET /projects */
-export async function fetchProjects(): Promise<ApiProjectSummary[]> {
+export async function fetchProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
   const list = await apiFetchJson<ProjectSummary[]>(PROJECTS_ENDPOINT)
-  return list.map(normalizeProjectSummary)
+  return list.map(p => normalizeProjectSummary(p, currentUserId))
+}
+
+/** GET /projects?deleted=recoverable — the trash view. Only workspace/shared
+ *  projects can ever appear here: personal projects hard-delete instantly
+ *  server-side (`DELETE /projects/{id}`) and are never recoverable. */
+export async function fetchDeletedProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
+  const list = await apiFetchJson<ProjectSummary[]>(`${PROJECTS_ENDPOINT}?deleted=recoverable`)
+  return list.map(p => normalizeProjectSummary(p, currentUserId))
 }
 
 /** GET /projects/{project_id} */
-export async function fetchProject(projectId: string): Promise<ApiProject> {
+export async function fetchProject(projectId: string, currentUserId: string): Promise<ApiProject> {
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 export interface CreateProjectParams {
@@ -188,54 +247,106 @@ export interface CreateProjectParams {
   tags?:              string[]
   files?:             File[]
   teamId?:            string
+  /** 'personal' | 'workspace' | 'shared' — server defaults to 'personal' when
+   *  omitted. 'workspace'/'shared' 400 server-side if the caller has no org. */
+  visibility?:        ProjectVisibility
 }
 
-/** POST /projects (multipart/form-data) */
-export async function createProjectApi(params: CreateProjectParams): Promise<ApiProject> {
+/**
+ * POST /projects (multipart/form-data). `teamId` is no longer sent — the
+ * backend derives `organizationId` itself from the caller's own org
+ * membership (`Project.create()`), it doesn't accept one from the client.
+ */
+export async function createProjectApi(params: CreateProjectParams, currentUserId: string): Promise<ApiProject> {
   const form = new FormData()
   form.append('title', params.title)
   if (params.description)       form.append('description', params.description)
-  if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
+  if (params.systemInstruction) form.append('systemInstruction', params.systemInstruction)
   if (params.tags)             form.append('tags', JSON.stringify(params.tags))
-  if (params.teamId)           form.append('team_id', params.teamId)
+  if (params.visibility)       form.append('visibility', params.visibility)
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
   const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECTS_ENDPOINT), { method: 'POST', body: form })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 export interface UpdateProjectParams {
   title?:             string
   description?:       string
   systemInstruction?: string
-  /** Full replacement tag list — backend expects a JSON-encoded string array. Pass `[]` to clear. */
+  /** Full replacement tag list. */
   tags?:              string[]
 }
 
-/** PATCH /projects/{project_id} (application/x-www-form-urlencoded) */
-export async function updateProjectApi(projectId: string, params: UpdateProjectParams): Promise<ApiProject> {
-  const form = new URLSearchParams()
-  if (params.title !== undefined)             form.append('title', params.title)
-  if (params.description !== undefined)       form.append('description', params.description)
-  if (params.systemInstruction !== undefined) form.append('system_instruction', params.systemInstruction)
-  if (params.tags !== undefined)               form.append('tags', JSON.stringify(params.tags))
+/** PATCH /projects/{project_id} — JSON body (`UpdateProjectFields`), not form-encoded. */
+export async function updateProjectApi(projectId: string, params: UpdateProjectParams, currentUserId: string): Promise<ApiProject> {
+  const body: Record<string, unknown> = {}
+  if (params.title !== undefined)             body.title = params.title
+  if (params.description !== undefined)       body.description = params.description
+  if (params.systemInstruction !== undefined) body.systemInstruction = params.systemInstruction
+  if (params.tags !== undefined)               body.tags = params.tags
 
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
-    method:  'PATCH',
-    body:    form,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: 'PATCH',
+    body:   JSON.stringify(body),
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** DELETE /projects/{project_id} */
 export async function deleteProjectApi(projectId: string): Promise<void> {
-  await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+  const res = await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+  // Never checked res.ok — a rejected delete (e.g. the 404 requireDelete/
+  // requireOwned gives a non-owner, including the still-live client-side
+  // admin-bypass that lets the button render for someone the backend will
+  // reject) resolved silently. The caller's optimistic removal was never
+  // rolled back and no error ever surfaced, so the project just reappeared
+  // on the next full reload having never actually been deleted.
+  if (!res.ok) {
+    let message = `Failed to delete project (${res.status})`
+    try {
+      const data = await res.clone().json() as { detail?: string }
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // non-JSON error body - keep the default message
+    }
+    throw new ApiError(res.status, 'delete_project_failed', message)
+  }
+}
+
+export interface LeaveProjectParams {
+  /** Required when the caller is the owner and other collaborators remain. */
+  successorUserId?: string
+  /** Required when the caller is the owner and no other collaborators remain. */
+  aloneAction?: 'archive' | 'convertPersonal'
+}
+
+/**
+ * POST /projects/{project_id}/leave — `200 { ok: true }`. Branches entirely
+ * server-side on the caller's role (project.py's `Project.leave()`): a plain
+ * collaborator just leaves (body ignored), an owner with other collaborators
+ * must supply `successorUserId`, an owner with nobody else on the project
+ * must supply `aloneAction`. Errors surface via apiFetchJson's own `detail`
+ * extraction (e.g. "Must name a successor", "Must archive or convert to
+ * personal") — real backend messages, not generic ones.
+ */
+export async function leaveProjectApi(projectId: string, params: LeaveProjectParams = {}): Promise<void> {
+  await apiFetchJson<{ ok: boolean }>(PROJECT_LEAVE_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify(params),
+  })
+}
+
+/** POST /projects/{project_id}/restore — only workspace/shared projects,
+ *  only within the 30-day recovery window (see fetchDeletedProjects). */
+export async function restoreProjectApi(projectId: string, currentUserId: string): Promise<ApiProject> {
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_RESTORE_ENDPOINT(projectId), { method: 'POST' })
+  return normalizeProject(project, currentUserId)
 }
 
 /** PUT /projects/{project_id}/files (multipart/form-data) — uploads files. */
-export async function addProjectFilesApi(projectId: string, files: File[]): Promise<ApiProject> {
+export async function addProjectFilesApi(projectId: string, files: File[], currentUserId: string): Promise<ApiProject> {
   const form = new FormData()
   files.forEach(f => form.append('files', f))
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
@@ -243,21 +354,21 @@ export async function addProjectFilesApi(projectId: string, files: File[]): Prom
     method: 'PUT',
     body:   form,
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** DELETE /projects/{project_id}/files/{document_id} */
-export async function removeProjectDocumentApi(projectId: string, documentId: string): Promise<ApiProject> {
+export async function removeProjectDocumentApi(projectId: string, documentId: string, currentUserId: string): Promise<ApiProject> {
   const project = await apiFetchJson<ProjectResponse>(PROJECT_FILE_ENDPOINT(projectId, documentId), {
     method: 'DELETE',
   })
-  return normalizeProject(project)
+  return normalizeProject(project, currentUserId)
 }
 
 /** GET /projects/{project_id}/chats */
-export async function fetchProjectChats(projectId: string): Promise<ApiProjectChat[]> {
+export async function fetchProjectChats(projectId: string, currentUserId: string): Promise<ApiProjectChat[]> {
   const list = await apiFetchJson<ProjectChatSummary[]>(PROJECT_CHATS_ENDPOINT(projectId))
-  return list.map(normalizeProjectChat)
+  return list.map(c => normalizeProjectChat(c, currentUserId))
 }
 
 /** POST /projects/{project_id}/chats/{chat_id} */
@@ -270,17 +381,83 @@ export async function addChatToProject(projectId: string, chatId: string): Promi
 
 /** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
-  await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+  const res = await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'remove_chat_failed', `Failed to unlink chat from project (${res.status})`)
+  }
 }
 
-/** PATCH /projects/{project_id}/visibility */
+/** GET /projects/{project_id}/members */
+export async function fetchProjectMembers(projectId: string): Promise<ApiProjectMember[]> {
+  const list = await apiFetchJson<ProjectMemberResponse[]>(PROJECT_MEMBERS_ENDPOINT(projectId))
+  return list.map(normalizeProjectMember)
+}
+
+/** POST /projects/{project_id}/invite */
+export async function inviteProjectMember(projectId: string, auth0Id: string): Promise<void> {
+  const res = await apiFetch(PROJECT_INVITE_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify({ auth0Id }),
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'invite_failed', `Failed to invite member (${res.status})`)
+  }
+}
+
+/** POST /projects/{project_id}/invites */
+export async function inviteProjectMembers(projectId: string, auth0Ids: string[]): Promise<void> {
+  const res = await apiFetch(PROJECT_INVITES_ENDPOINT(projectId), {
+    method: 'POST',
+    body:   JSON.stringify({ auth0Ids }),
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'invite_failed', `Failed to invite members (${res.status})`)
+  }
+}
+
+/** DELETE /projects/{project_id}/members/{auth0_id} */
+export async function removeProjectMemberFromProject(projectId: string, auth0Id: string): Promise<void> {
+  const res = await apiFetch(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
+  // Same missing-response.ok bug as deleteProjectApi (bug 16) — a rejected
+  // removal (e.g. the backend's 400 "The project owner cannot be removed")
+  // resolved silently. ProjectMembersPanel's handleRemove has a real catch
+  // block that shows an error toast, but it never fired: the member was
+  // optimistically dropped from local state and a false "removed" success
+  // toast shown, then reappeared the next time the panel reloaded.
+  if (!res.ok) {
+    let message = `Failed to remove member (${res.status})`
+    try {
+      const data = await res.clone().json() as { detail?: string }
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // non-JSON error body - keep the default message
+    }
+    throw new ApiError(res.status, 'remove_member_failed', message)
+  }
+}
+
+/**
+ * PATCH /projects/{project_id}/visibility — this route no longer exists on
+ * the backend (dropped along with the visibility column; see the backend-shape
+ * note up top). Nothing calls this any more: `canManageVisibility` is now
+ * fixed at `false` in the normalizers above, so the UI button that used to
+ * trigger this is never rendered. Kept only as a reference for whatever
+ * replaces it once project sharing is rebuilt on top of the new
+ * `/projects/{id}/members` + `/invite(s)` endpoints — delete it once that
+ * lands, or sooner if nothing ends up needing the old wire format.
+ */
 export async function setProjectVisibility(
   projectId: string,
   visibility: 'private' | 'team',
   teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility }
-  if (visibility === 'team' && teamId) body.teamId = teamId
+  // Wire format is SetVisibilityRequest{visibility: "private"|"shared", organizationId?}
+  // — there's only ever one organization now, so `teamId` here is really just
+  // the caller's org id, not a choice among several teams. (This "org" vs.
+  // "shared" value was wrong here for a long time and got copy-pasted into
+  // the still-live personas/chat visibility setters — fixed there too.)
+  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' }
+  if (visibility === 'team' && teamId) body.organizationId = teamId
   const res = await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
     method: 'PATCH',
     body:   JSON.stringify(body),

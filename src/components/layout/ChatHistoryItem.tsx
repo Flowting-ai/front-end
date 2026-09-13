@@ -60,6 +60,7 @@ export function ChatHistoryItem({
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [isMoving,      setIsMoving]      = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // Prevents Radix from stealing focus back to the trigger when rename is clicked.
   // Set to true in the Rename onSelect; cleared in onCloseAutoFocus after e.preventDefault().
@@ -90,22 +91,25 @@ export function ChatHistoryItem({
   };
 
   const handleMoveToProject = async (projectId: string) => {
-    setMoveModalOpen(false);
+    setIsMoving(true);
     try {
       await addChatToProject(projectId, chat.id);
-      addChat(projectId, chat.id, chat.title);
+      addChat(projectId, chat.id, chat.title, { skipLink: true });
       removeLocal(chat.id);
       const project = projects.find((p) => p.id === projectId);
       toast.success(`Moved to "${project?.name ?? "project"}"`);
+      setMoveModalOpen(false);
     } catch {
       toast.error("Failed to move chat — please try again.");
+    } finally {
+      setIsMoving(false);
     }
   };
 
   return (
     <>
     <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div style={{ position: "relative", width: "100%" }}>
+      <div style={{ position: "relative", width: "100%", backgroundColor: "#000000" }}>
         <SidebarMenuItem
           fluid
           variant={isEditing ? "chat-item-edit" : "chat-item"}
@@ -242,6 +246,7 @@ export function ChatHistoryItem({
 
     <MoveToProjectModal
       open={moveModalOpen}
+      loading={isMoving}
       onClose={() => setMoveModalOpen(false)}
       onConfirm={handleMoveToProject}
       projects={projects.map((p) => ({ id: p.id, name: p.name, description: p.description }))}

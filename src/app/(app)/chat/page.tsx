@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { X } from "lucide-react";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { JoinedGreeting, JoinedTodos } from "@/components/onboarding/JoinedLanding";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
@@ -38,12 +37,12 @@ import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import { InlineCreditNotice } from "@/components/InlineCreditNotice";
-import { useOrg } from "@/context/org-context";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
   QuillWriteOneIcon,
   NeuralNetworkIcon,
+  BubbleChatIcon,
   AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
   CalendarFoldIcon,
@@ -53,7 +52,7 @@ import {
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
-import { CHAT_ROUTE } from "@/lib/routes";
+import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -230,9 +229,21 @@ function saveChatSettings(chatId: string, settings: ChatSettings): void {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
+  // Forces a genuinely fresh mount of ChatPageInner on "New chat" from the
+  // sidebar — belt-and-suspenders alongside handleSidebarNewChat's own
+  // synchronous reset inside ChatPageInner. That reset depends on this
+  // instance's effects actually re-running; if the client router ever serves
+  // this route from its cache instead of a true remount, that can lag or get
+  // superseded. A key change is the one thing React always honors regardless
+  // of what the router did underneath — it discards the old instance (and
+  // whatever state/highlights it was still carrying) outright, no race
+  // possible. Lives here, not inside ChatPageInner, so the counter survives
+  // the very remounts it triggers.
+  const [newChatEpoch, setNewChatEpoch] = useState(0);
+  useSidebarEvents({ onNewChat: () => setNewChatEpoch((e) => e + 1) });
   return (
     <Suspense fallback={null}>
-      <ChatPageInner />
+      <ChatPageInner key={`chat-${newChatEpoch}`} />
       <WelcomeModal />
     </Suspense>
   );
@@ -240,30 +251,16 @@ export default function ChatPage() {
 
 function ChatPageInner() {
   const searchParams = useSearchParams();
-  const { replace } = useRouter();
-  const { org, teams: orgTeams, activeTeamId } = useOrg();
+  const { push, replace } = useRouter();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
+
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
-  // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
-  // Swaps the greeting + template cards for the "You just joined" welcome.
-  //
-  // The `joined` value is only a TRIGGER — never rendered verbatim, since the URL
-  // is user-editable and could otherwise spoof an arbitrary name on the landing.
-  // We resolve the display name from trusted org context: honour the param only
-  // when it matches a team/org the user actually belongs to, otherwise fall back
-  // to their real active team (or org) name.
-  const justJoined    = searchParams.get("joined") != null;
-  const joinedTeam    = (() => {
-    if (!justJoined) return null;
-    const requested = searchParams.get("joined")?.trim().toLowerCase() || "";
-    const knownNames = [org.name, ...orgTeams.map((t) => t.name)].filter(Boolean);
-    const matched = knownNames.find((n) => n.toLowerCase() === requested);
-    const activeTeamName = orgTeams.find((t) => t.id === activeTeamId)?.name;
-    return matched ?? activeTeamName ?? org.name ?? null;
-  })();
-
+  // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
+  // "Share" chat-menu item, which navigates here instead of opening the
+  // modal directly since ChatShareOverlay lives on this page, not the sidebar.
+  const shouldAutoOpenShare = searchParams.get("share") != null;
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
@@ -278,7 +275,40 @@ function ChatPageInner() {
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
-  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+  // Read from sessionStorage synchronously in the lazy initializer so
+  // selectedPersona is populated on the FIRST render (same reasoning as
+  // project/[id]/chat/[chatId]/page.tsx's identical pattern for its own
+  // pending-persona key — a useEffect would run one flush too late for the
+  // initial-send path to see it). Set by agents/published's "Use this Agent"
+  // button just before it navigates here.
+  const cameFromPendingPersonaRef = useRef(false);
+  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(() => {
+    if (chatIdFromUrl || typeof window === 'undefined') return null;
+    const stored = sessionStorage.getItem('new-chat-pending-persona');
+    if (!stored) return null;
+    sessionStorage.removeItem('new-chat-pending-persona');
+    try {
+      const parsed = JSON.parse(stored) as SelectedPersonaInfo;
+      cameFromPendingPersonaRef.current = true;
+      return parsed;
+    } catch { return null; }
+  });
+  // Same "Model locked to agent" notice ChatInput/TopBar already show on a
+  // click against the locked model selector — surfaced proactively here since
+  // arriving with the agent pre-attached (from agents/published's "Use this
+  // Agent") is a less visually obvious moment than picking one from the
+  // composer's own "+" menu, where the chip appearing is the feedback.
+  useEffect(() => {
+    if (!cameFromPendingPersonaRef.current) return;
+    toast.info('Model locked to agent', {
+      description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
+    });
+    // NOTE: does not reset cameFromPendingPersonaRef here — the chatIdFromUrl
+    // effect below (declared after this one, so it runs later in the same
+    // mount commit) still needs to see it be true, to know NOT to immediately
+    // clear the persona this same effect just announced via the toast. It
+    // consumes/resets the ref itself once it's done checking.
+  }, []);
   const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
   // Tracks which chatIds were created in this session as persona chats.
@@ -297,6 +327,13 @@ function ChatPageInner() {
       // with a fall-back to s.persona.id for entries saved before that change.
       const restoredVersionId = s?.persona?.activeVersionId ?? s?.persona?.id;
       if (restoredVersionId) personaChatIds.current.set(chatIdFromUrl, restoredVersionId);
+    } else if (cameFromPendingPersonaRef.current) {
+      // Blank /chat, but the persona lazy-initializer above just populated
+      // selectedPersona from agents/published's "Use this Agent" handoff —
+      // don't immediately stomp it back to null. Consume the flag so any
+      // LATER navigation back to a blank /chat (not from that handoff) still
+      // resets normally.
+      cameFromPendingPersonaRef.current = false;
     } else {
       setWebSearchEnabled(false);
       setSelectedPersona(null);
@@ -630,8 +667,6 @@ function ChatPageInner() {
     selectedModel,
     selectModel,
     open: openModelSelector,
-    museActive,
-    museAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -696,17 +731,19 @@ function ChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  const modelButtonLabel = museActive
-    ? museAdvanced
-      ? "Souvenir AI Muse (Auto)"
-      : "Souvenir AI Muse (Basic)"
-    : selectedModel?.modelName;
+  const modelButtonLabel = selectedModel?.modelName;
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId
     ? chatHistory.find(chat => chat.id === activeChatId)
     : undefined;
-  const activeChatCanManage = activeChatRecord?.can_edit === true;
+  const activeChatArchived = activeChatRecord?.visibility === 'archived';
+  // "readOnly" here means specifically "shared chat the viewer doesn't own" —
+  // that's the only case that should offer a "Create a copy" affordance.
+  // An owned-but-archived chat is disabled the same way but must NOT get
+  // that copy option, so it stays a separate flag (see ChatInterface's and
+  // ChatShareOverlay's own `archived` props) rather than folding into readOnly.
+  const activeChatCanManage = activeChatRecord?.can_edit === true && !activeChatArchived;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
@@ -752,12 +789,23 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
+    // Highlights ("jump gutter" markers) otherwise only clear via the
+    // chatIdFromUrl-watching effect above — same unreliable-on-this-path
+    // issue as the rest of this handler exists to work around, so the
+    // previous chat's highlight gutter could still be showing on the new,
+    // blank chat. Cleared directly here for the same reason.
+    clearHighlights();
     const defaultModel = pickDefaultModel(modelsRef.current);
     if (defaultModel) selectModelRef.current(defaultModel);
-  }, []);
+  }, [clearHighlights]);
   useSidebarEvents({ onNewChat: handleSidebarNewChat });
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
+
+  // Task/Chat tab strip (Figma 136:53294) — local state so the pill/label
+  // animate to the clicked tab immediately; navigating to Brain is a side
+  // effect of that state change, not a replacement for the visual response.
+  const [threadTab, setThreadTab] = useState<"task" | "chat">("chat");
 
   // Drag-and-drop on the new-chat landing page
   const { isDragging: isNewChatDragging } = useFileDrop({
@@ -879,6 +927,40 @@ function ChatPageInner() {
         aria-hidden="true"
       />
 
+      {/* Task/Chat tab strip (Figma 136:53294, "Top Bar") — pinned to the top,
+          same row as TopBar's model selector (src/components/layout/TopBar.tsx).
+          TopBar is position:absolute with zIndex:1; this overlay uses zIndex:2
+          so the tab wins the click, and pointerEvents:none on the full-width
+          wrapper (auto only on the tab itself) so TopBar's own model-selector
+          (left) and icon button (right) on either side stay clickable through
+          this same layer. Mirrors BrainShell's strip (src/templates/Brain/index.tsx);
+          "Task" switches to a new Brain thread, "Chat" is where we already are. */}
+      {isNewChat && (
+        <div
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, zIndex: 2,
+            display: "flex", justifyContent: "center", paddingTop: 12,
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ width: 171, pointerEvents: "auto" }}>
+            <Tabs
+              value={threadTab}
+              onValueChange={(v) => {
+                const next = v as "task" | "chat";
+                setThreadTab(next);
+                if (next === "task") push(`${BRAIN_ROUTE}?new=1`);
+              }}
+            >
+              <TabsList fluid>
+                <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
+                <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+      )}
+
       <AnimatePresence mode="sync" initial={false}>
         {isNewChat ? (
           <m.div
@@ -945,7 +1027,7 @@ function ChatPageInner() {
                 <m.div
                   exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
-                  {joinedTeam ? <JoinedGreeting teamName={joinedTeam} /> : <InitialPrompts />}
+                  <InitialPrompts />
                 </m.div>
 
                 {/* Input + action buttons + template cards exit downward */}
@@ -1063,35 +1145,31 @@ function ChatPageInner() {
                     ))}
                   </div>
 
-                  {/* ── Template cards / first-time joined orientation ──────── */}
-                  {joinedTeam ? (
-                    <JoinedTodos teamName={joinedTeam} />
-                  ) : (
-                    <div style={{ marginTop: "28px" }}>
-                      <p
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize:   "13px",
-                          fontWeight: 500,
-                          color:      "var(--neutral-500)",
-                          margin:     "0 0 10px",
-                          textAlign:  "left",
-                        }}
-                      >
-                        Not sure where to start?
-                      </p>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        {TEMPLATE_CARDS.map((card) => (
-                          <TemplateCard
-                            key={card.label}
-                            icon={card.icon}
-                            label={card.label}
-                            onClick={() => handleNewChatSend(card.prompt)}
-                          />
-                        ))}
-                      </div>
+                  {/* ── Template cards ──────────────────────────────────────── */}
+                  <div style={{ marginTop: "28px" }}>
+                    <p
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize:   "13px",
+                        fontWeight: 500,
+                        color:      "var(--neutral-500)",
+                        margin:     "0 0 10px",
+                        textAlign:  "left",
+                      }}
+                    >
+                      Not sure where to start?
+                    </p>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      {TEMPLATE_CARDS.map((card) => (
+                        <TemplateCard
+                          key={card.label}
+                          icon={card.icon}
+                          label={card.label}
+                          onClick={() => handleNewChatSend(card.prompt)}
+                        />
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </m.div>
               </div>
             </div>
@@ -1131,8 +1209,10 @@ function ChatPageInner() {
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
+              personaConfigLoading={!!selectedPersona && selectedPersona.systemPrompt === null && !!selectedPersona.activeVersionId}
               scrollToMessageId={msgFromUrl}
               readOnly={activeChatReadOnly}
+              archived={activeChatArchived}
               chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
             />
           </m.div>
@@ -1152,6 +1232,7 @@ function ChatPageInner() {
         chatId={activeChatId}
         canManage={activeChatCanManage}
         readOnly={activeChatReadOnly}
+        autoOpen={shouldAutoOpenShare}
         onCopied={(copy) => {
           addOptimistic({
             id: copy.chatId,

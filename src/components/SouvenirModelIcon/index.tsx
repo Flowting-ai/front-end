@@ -23,7 +23,7 @@ export interface SouvenirModelIconProps {
 export function SouvenirModelIcon({ size = 16, variant = 'dark' }: SouvenirModelIconProps) {
   return (
     <Image
-      src={variant === 'light' ? '/icons/souvenir-logo-white.svg' : '/icons/logo/souvenir-logo.svg'}
+      src={variant === 'light' ? '/icons/souvenir-logo-white.svg' : '/icons/souvenir-logo.svg'}
       width={size}
       height={size}
       alt=""

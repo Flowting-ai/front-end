@@ -9,6 +9,7 @@ import {
   ONBOARDING_TEAM_BASE_ROUTE,
   SETTINGS_BILLING_CONFIRMATION_ROUTE,
   TEAM_INVITE_BASE_ROUTE,
+  INVITE_LANDING_BASE_ROUTE,
   ROOT_ROUTE,
 } from "@/lib/routes";
 
@@ -29,23 +30,40 @@ let hasLoggedOnboardingFetchFailure = false;
 const ONBOARDING_ENDPOINT_PATH = "/users/me";
 
 /**
- * True when the account already holds an active team subscription. The team
- * onboarding flow takes payment (at /onboarding/plans → Stripe) *before* it
- * persists `role_fit` (only written when the workspace form is submitted), so a
- * paid-but-unfinished team user has an active "teams"/"enterprise" subscription
- * with no `role_fit` yet. Mirrors the backend's own "already subscribed" guard
- * (services/stripe/service.py), which keys off plan_type + active status.
+ * Positive onboarding-gate cache, keyed by Auth0 `sub`.
+ *
+ * Without it, `fetchOnboardingState()` issued one uncached GET /users/me for
+ * *every* request the matcher accepts — including every RSC payload request, so
+ * each `<Link>` Next.js prefetches on hover/viewport cost a backend round-trip.
+ * Hovering a sidebar full of links produced dozens of identical calls.
+ *
+ * Only `allowsMainApp === true` is cached, deliberately: "onboarded" is
+ * monotonic (an account never un-onboards), so a hit can never wrongly let
+ * someone through or wrongly bounce them. The un-onboarded state is *not*
+ * cached, because it changes mid-flow — a user who just submitted the import
+ * step navigates immediately and must be re-read, or they would be bounced back
+ * into onboarding. Un-onboarded users therefore still pay one call per request,
+ * but that is a handful of pages, not the steady-state app.
  */
-function hasActiveTeamSubscription(root: Record<string, unknown>): boolean {
-  const plan =
-    root.plan && typeof root.plan === "object"
-      ? (root.plan as Record<string, unknown>)
-      : root;
-  const planType =
-    typeof plan.plan_type === "string" ? plan.plan_type : null;
-  const status =
-    typeof plan.subscription_status === "string" ? plan.subscription_status : null;
-  return (planType === "teams" || planType === "enterprise") && status === "active";
+const ONBOARDED_TTL = 60_000;
+const onboardedCache = new Map<string, number>();
+
+function isOnboardedCached(sub: string | null): boolean {
+  if (!sub) return false;
+  const at = onboardedCache.get(sub);
+  if (at === undefined) return false;
+  if (Date.now() - at >= ONBOARDED_TTL) {
+    onboardedCache.delete(sub);
+    return false;
+  }
+  return true;
+}
+
+function rememberOnboarded(sub: string | null): void {
+  if (!sub) return;
+  // Bound the map so a long-lived server process cannot grow it without limit.
+  if (onboardedCache.size > 500) onboardedCache.clear();
+  onboardedCache.set(sub, Date.now());
 }
 
 function determineNextOnboardingPath(root: Record<string, unknown>): string {
@@ -64,25 +82,31 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
     return false;
   };
 
-  // Onboarding flow:
-  //   hello (name + role)            → saves user_role
-  //   account-type (just me / team)  → saves role_fit (just_me for individuals)
-  //     ├─ individual → import       (tone is skipped)
-  //     └─ team       → workspace     → saves role_fit (small_team / large_team) → import
-  //   import (bring context)         → marks onboarding complete
-  // Resume keys off the backend fields each step writes; both branches finish
-  // on the import step.
-  if (!filled("user_role", "userRole")) return "/onboarding/hello";
-  if (!filled("role_fit", "roleFit")) {
-    // A team account that has already paid but not yet submitted the workspace
-    // form has no `role_fit` persisted. Sending it back to account-type pushes it
-    // into the plans page again, where re-running checkout hits the backend's
-    // "already subscribed" guard — a dead end. Resume at the workspace step,
-    // which persists `role_fit` and finishes team setup, instead.
-    if (hasActiveTeamSubscription(root)) return "/onboarding/workspace";
-    return "/onboarding/account-type";
-  }
-  return "/onboarding/import";
+  // v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md), case
+  // A1's 5 web-app steps:
+  //   setup (no data written)              → choice screen only
+  //   workspace (name + size)               → saves role_fit
+  //   profile (first/last name + role)      → saves first_name/last_name via
+  //                                            /users/me; user_role only if
+  //                                            the optional role field is set
+  //   invite (emails, optional)             → marks onboarding_completed
+  // There is no account-type/plans/Stripe/tone/import step in this flow —
+  // those belonged to the previous team-onboarding implementation.
+  //
+  // PENDING CONFIRMATION: `user_role` is optional at the profile step now, so
+  // it can't gate "has this person finished profile" the way it used to.
+  // first_name/last_name (top-level /users/me fields, not the onboarding
+  // sub-object) are used instead. That's a real signal, but Auth0 can
+  // auto-populate first_name to the account's email on some signups (see
+  // auth-context.tsx's mapProfileToUser) — this function can't tell a real
+  // name from that placeholder, so a user whose Auth0 profile happens to look
+  // "filled" could be skipped past /onboarding/profile without ever seeing
+  // it. Flagged, not silently assumed correct.
+  if (!filled("role_fit", "roleFit")) return "/onboarding/setup";
+  const firstName = typeof root.first_name === "string" ? root.first_name : "";
+  const lastName = typeof root.last_name === "string" ? root.last_name : "";
+  if (!(firstName.trim().length > 0 && lastName.trim().length > 0)) return "/onboarding/profile";
+  return "/onboarding/invite";
 }
 
 async function fetchOnboardingState(): Promise<OnboardingStateResult> {
@@ -151,6 +175,15 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Component verification harnesses render fixtures only and must stay
+  // reachable without a session while developing. Never in production.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (pathname === "/reasoning-verify" || pathname === "/brain-verify")
+  ) {
+    return NextResponse.next();
+  }
+
   // The organization security page was removed. Redirect before Auth0/session
   // handling so stale client links and logged-out bookmarks cannot preserve
   // /org/security as a post-login return path.
@@ -174,6 +207,14 @@ export default async function proxy(request: NextRequest) {
     return await auth0.middleware(request);
   }
 
+  // B1/B2 pre-login invite landing (/org-invite/<id>) is deliberately public —
+  // it IS the "decide sign in vs sign up" screen for a logged-out invitee, so
+  // it must be reachable before any session check runs. Its own Sign in/Sign
+  // up buttons are what send the visitor into /auth/login.
+  if (pathname.startsWith(`${INVITE_LANDING_BASE_ROUTE}/`)) {
+    return NextResponse.next();
+  }
+
   // Pass the request explicitly so the SDK reads cookies from the incoming
   // request rather than falling back to next/headers (which behaves differently
   // in the proxy runtime vs. App Router route handlers).
@@ -190,7 +231,19 @@ export default async function proxy(request: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  const onboardingResult = await fetchOnboardingState();
+  const sub = typeof session.user?.sub === "string" ? session.user.sub : null;
+
+  // Already known to be onboarded — substitute the cached gate instead of
+  // re-fetching /users/me. `nextPath` is only read when !hasOnboarded, so the
+  // placeholder is never consulted on this path, and every decision below runs
+  // exactly as it would have with a live fetch.
+  const onboardedFromCache = isOnboardedCached(sub);
+  const onboardingResult: OnboardingStateResult = onboardedFromCache
+    ? { data: { allowsMainApp: true, nextPath: ROOT_ROUTE }, requiresReauth: false }
+    : await fetchOnboardingState();
+  if (!onboardedFromCache && onboardingResult.data?.allowsMainApp === true) {
+    rememberOnboarded(sub);
+  }
 
   const onboarding = onboardingResult.data;
   const hasOnboarded = onboarding?.allowsMainApp === true;
@@ -249,8 +302,8 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Exclude framework internals AND any path with a file extension (the
-    // `.*\..*` alternative). Static assets under public/ — connector-logos,
-    // persona-avatars, icons, *.svg/*.png/*.mjs — must NOT pass through the
+    // `.*\..*` alternative). Static assets under public/ — persona-avatars,
+    // icons, *.svg/*.png/*.mjs — must NOT pass through the
     // onboarding/auth gate; otherwise an <img> request gets a 302 to /auth/login
     // (or the next onboarding step) instead of the file, rendering as a broken
     // image. App/API/auth routes have no dot in the path, so they still match.

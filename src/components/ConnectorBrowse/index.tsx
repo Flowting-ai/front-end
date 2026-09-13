@@ -106,13 +106,18 @@ export function CategoryFilter({
 export function Pagination({
   page,
   pageCount,
+  hasMore,
   onChange,
 }: {
   page: number
-  pageCount: number
+  pageCount?: number
+  hasMore?: boolean
   onChange: (page: number) => void
 }) {
-  if (pageCount <= 1) return null
+  const known = pageCount != null
+  const canPrev = page > 1
+  const canNext = known ? page < pageCount : Boolean(hasMore)
+  if (!canPrev && !canNext) return null
   const btn = (disabled: boolean): React.CSSProperties => ({
     display: 'inline-flex',
     alignItems: 'center',
@@ -132,13 +137,13 @@ export function Pagination({
   })
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-      <button type="button" aria-label="Previous connector page" disabled={page <= 1} onClick={() => onChange(page - 1)} style={btn(page <= 1)}>
+      <button type="button" aria-label="Previous connector page" disabled={!canPrev} onClick={() => onChange(page - 1)} style={btn(!canPrev)}>
         <ArrowLeftOneIcon size={14} /> Previous
       </button>
       <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
-        Page {page} of {pageCount}
+        {known ? `Page ${page} of ${pageCount}` : `Page ${page}`}
       </span>
-      <button type="button" aria-label="Next connector page" disabled={page >= pageCount} onClick={() => onChange(page + 1)} style={btn(page >= pageCount)}>
+      <button type="button" aria-label="Next connector page" disabled={!canNext} onClick={() => onChange(page + 1)} style={btn(!canNext)}>
         Next <ArrowRightOneIcon size={14} />
       </button>
     </div>

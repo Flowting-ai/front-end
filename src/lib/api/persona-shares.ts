@@ -30,8 +30,17 @@ export interface ShareRecipientSummary {
 /** Row returned by POST /persona-shares and GET /persona-shares */
 export interface PersonaShare {
   id: string;
-  /** The persona VERSION id that was frozen at share creation time. */
-  persona_id: string;
+  /** The persona repo this share belongs to. Shares are repo-scoped, not
+   *  frozen to a version — a later publish moves an existing link/invite
+   *  with it (backend always resolves the repo's current published version). */
+  persona_repo_id: string;
+  /**
+   * @deprecated The backend no longer returns this field (removed when shares
+   * moved from version-frozen to repo-scoped) — always `undefined`. Use
+   * `persona_repo_id` instead. Kept optional rather than removed so existing
+   * reads don't hard-fail; they should be migrated off it.
+   */
+  persona_id?: string;
   shared_by_user_id: string;
   share_type: ShareType;
   recipient_emails: string[] | null;

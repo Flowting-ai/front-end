@@ -7,12 +7,14 @@ import {
   DeleteTwoIcon,
   ArrowRightOneIcon,
   CalendarThreeIcon,
+  AlertTwoIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { LoopHistoryCard } from './LoopHistoryCard'
-import type { AgentStep } from './lib/phase'
+import type { AgentStep, StepStatus } from './lib/phase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +23,9 @@ export interface ScheduleRunRecord {
   label:         string     // e.g. "Today · 8:00 AM" — shown in run card header
   steps:         AgentStep[]
   title?:        string     // header label — "Completed", "Failed", "Running"
+  status?:       StepStatus // colours the header for a run that has no steps
   summary?:      string     // run result (synthesis) or failure reason, shown when expanded
+  detail?:       string     // the raw text behind the summary — a traceback
   completedAt?:  Date
   onViewThread?: () => void  // navigate to the full thread for this run
 }
@@ -29,14 +33,27 @@ export interface ScheduleRunRecord {
 export interface ScheduleDetailItem {
   id:           string
   name:         string
-  instructions: string
+  instructions: string     // what this automation does each run, in the user's words
   frequency:    string
   nextRun?:     string
+  /** Pre-formatted time of the most recent run, shown when there's no
+   *  upcoming run to display instead (e.g. the schedule is paused). */
+  lastRun?:     string
   isActive:     boolean
   createdAt?:   string
   runHistory?:  ScheduleRunRecord[]
   /** Brain chat permanently bound to this schedule. */
   chatId?:      string
+  /** Total times this schedule has fired. */
+  runCount?:    number
+  /** Fraction of finished runs that succeeded (0-1). `null`/undefined until
+   *  at least one run has finished. */
+  successRate?: number | null
+  /** A run is executing right now — distinct from `isActive`. */
+  isRunning?:   boolean
+  /** True when the backend's deployed timer has drifted from what's stored —
+   *  the last edit may not have fully taken effect. */
+  drift?:       boolean
 }
 
 export interface ScheduleDetailViewProps {
@@ -45,6 +62,8 @@ export interface ScheduleDetailViewProps {
   onEdit?:         () => void
   onDelete?:       () => void
   onRunNow?:       () => void
+  /** True while a "Run now" request is in flight — shows a spinner and blocks re-triggering. */
+  runningNow?:     boolean
   onToggleActive?: (active: boolean) => void
   onOpenChat?:     (chatId: string) => void
 }
@@ -93,6 +112,7 @@ export function ScheduleDetailView({
   onEdit,
   onDelete,
   onRunNow,
+  runningNow = false,
   onToggleActive,
   onOpenChat,
 }: ScheduleDetailViewProps) {
@@ -143,6 +163,8 @@ export function ScheduleDetailView({
             variant="default"
             size="sm"
             rightIcon={<ArrowRightOneIcon />}
+            loading={runningNow}
+            disabled={runningNow}
             onClick={onRunNow}
           >
             Run now
@@ -159,14 +181,17 @@ export function ScheduleDetailView({
         borderRadius:    12,
         border:          '1px solid var(--neutral-200)',
         backgroundColor: 'var(--neutral-white)',
+        flexWrap:        'wrap',
       }}>
         <Toggle checked={isActive} onChange={handleToggle} />
 
         <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
 
+        {schedule.isRunning && <Badge color="Blue" label="Running now" />}
+
         <span style={{ width: 1, height: 14, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
 
-        {schedule.nextRun && isActive && (
+        {schedule.nextRun && isActive ? (
           <span style={{
             fontFamily: 'var(--font-body)',
             fontSize:   'var(--font-size-caption)',
@@ -174,6 +199,27 @@ export function ScheduleDetailView({
             color:      'var(--neutral-500)',
           }}>
             Next run: <strong style={{ color: 'var(--neutral-700)', fontWeight: 'var(--font-weight-medium)' }}>{schedule.nextRun}</strong>
+          </span>
+        ) : schedule.lastRun && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-500)',
+          }}>
+            Last run: <strong style={{ color: 'var(--neutral-700)', fontWeight: 'var(--font-weight-medium)' }}>{schedule.lastRun}</strong>
+          </span>
+        )}
+
+        {!!schedule.runCount && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-500)',
+          }}>
+            {schedule.runCount} {schedule.runCount === 1 ? 'run' : 'runs'}
+            {schedule.successRate != null && ` · ${Math.round(schedule.successRate * 100)}% success`}
           </span>
         )}
 
@@ -191,6 +237,28 @@ export function ScheduleDetailView({
           </span>
         </div>
       </div>
+
+      {/* ── Drift warning — the deployed timer disagrees with what's stored,
+          e.g. an edit that silently failed to redeploy (services/automations/
+          schedule.py's `drift` flag). Surfaced explicitly rather than left
+          invisible, since otherwise a schedule can silently run on its old
+          cadence after being "changed". ── */}
+      {schedule.drift && (
+        <div style={{
+          display:         'flex',
+          alignItems:      'flex-start',
+          gap:             8,
+          padding:         '10px 12px',
+          borderRadius:    10,
+          backgroundColor: 'var(--yellow-50, #fefce8)',
+          boxShadow:       '0px 0px 0px 1px var(--yellow-200, #fef08a)',
+        }}>
+          <AlertTwoIcon size={16} color="var(--yellow-600, #ca8a04)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-700)' }}>
+            This schedule's last change may not have fully synced — the timer that's actually running could still be on the old cadence. Try editing and saving it again.
+          </p>
+        </div>
+      )}
 
       {/* ── Instructions card ── */}
       <div style={{
@@ -213,21 +281,25 @@ export function ScheduleDetailView({
             lineHeight: 'var(--line-height-body)',
             color:      'var(--neutral-700)',
           }}>
-            Instructions
+            What it does
           </span>
         </div>
 
         <div style={{ padding: '16px' }}>
-          <p style={{
-            margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-700)',
-            whiteSpace: 'pre-wrap',
-          }}>
-            {schedule.instructions}
-          </p>
+          {/* Through MarkdownRenderer (same one every chat message uses)
+              instead of a raw <p> — this text is AI-generated (the
+              automation's own summary), so a URL in it should be an actual
+              clickable link, not inert text. --prose-* overrides keep it at
+              this card's normal body size/color rather than MarkdownRenderer's
+              default full chat-prose size. */}
+          <div style={{
+            '--prose-size-body': 'var(--font-size-body)',
+            '--prose-line-body': 'var(--line-height-body)',
+            '--prose-text':      'var(--neutral-700)',
+            '--prose-measure':   'none',
+          } as React.CSSProperties}>
+            <MarkdownRenderer content={schedule.instructions} />
+          </div>
         </div>
 
         <div style={{
@@ -237,23 +309,6 @@ export function ScheduleDetailView({
           flexDirection: 'column',
           gap:           6,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--neutral-400)',
-            }}>
-              Frequency
-            </span>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-body)',
-              lineHeight: 'var(--line-height-body)',
-              color:      'var(--neutral-700)',
-            }}>
-              {schedule.frequency}
-            </span>
-          </div>
           {schedule.createdAt && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{
@@ -348,7 +403,9 @@ export function ScheduleDetailView({
                   completedAt={run.completedAt}
                   runLabel={run.label}
                   title={run.title}
+                  status={run.status}
                   summary={run.summary}
+                  detail={run.detail}
                 />
                 {run.onViewThread && (
                   <button

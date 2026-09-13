@@ -15,26 +15,7 @@ import {
 import { Dropdown } from '@/components/Dropdown'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole, RoleBadgeMode } from '@/components/RoleBadge'
-
-// ── Team gradient (same algorithm as TeamChip / TeamSwitcher) ─────────────────
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',
-]
-
-function getGradient(seed: string): string {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) {
-    h = ((h << 5) - h) + seed.charCodeAt(i)
-    h |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
-}
+import { getGradient } from '@/lib/team-gradients'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,9 +23,9 @@ export interface Team {
   id:           string
   name:         string
   projectCount: number
-  /** This user's role **in this team**. Owner/Admin are org-level (uniform
-   *  across every team); editor/member vary per team. Drives the row's
-   *  RoleBadge and its action flyout (member → no flyout). */
+  /** This user's role **in this team**. Admin is org-level (uniform across
+   *  every team); editor/member vary per team. Drives the row's RoleBadge
+   *  and its action flyout (member → no flyout). */
   userRole:     WorkspaceRole
 }
 
@@ -68,7 +49,7 @@ export interface TeamSwitcherDropdownProps extends React.HTMLAttributes<HTMLDivE
 
 type ActionItem = { id: string; label: string; icon: React.ReactElement }
 
-const OWNER_ADMIN_ACTIONS: ActionItem[] = [
+const ADMIN_ACTIONS: ActionItem[] = [
   { id: 'manage',   label: 'Manage',   icon: <SettingsOneIcon /> },
   { id: 'usage',    label: 'Usage',    icon: <TokenCircleIcon /> },
   { id: 'request',  label: 'Request',  icon: <UserAddOneIcon /> },
@@ -84,7 +65,7 @@ const EDITOR_ACTIONS: ActionItem[] = [
 
 // A **member** team has no action flyout — "just a member" of that team.
 function getActions(role: WorkspaceRole): ActionItem[] {
-  if (role === 'owner' || role === 'admin') return OWNER_ADMIN_ACTIONS
+  if (role === 'admin') return ADMIN_ACTIONS
   if (role === 'editor') return EDITOR_ACTIONS
   return [] // member → no flyout
 }
@@ -223,7 +204,7 @@ function ActionPanel({
 }) {
   const [activeId, setActiveId] = useState<string>('')
   return (
-    <Dropdown style={{ width: '160px' }}>
+    <Dropdown style={{ width: '160px' }} maxHeight={false}>
       <Dropdown.Section fluid>
         {actions.map((action) => (
           <Dropdown.Item
@@ -270,15 +251,15 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
 
-    const isOwnerOrAdmin = currentUserRole === 'owner' || currentUserRole === 'admin'
-    const teamsLabel     = isOwnerOrAdmin ? 'All Teams' : 'Teams'
+    const isAdmin    = currentUserRole === 'admin'
+    const teamsLabel = isAdmin ? 'All Teams' : 'Teams'
 
     // Max 4 rows visible (48px/row + 4px gap + 6px padding = 210px)
     const needsOverflow = teams.length > 4
 
     return (
       <Comp ref={ref} className={className} style={style} {...props}>
-        <Dropdown style={{ width: '283px' }}>
+        <Dropdown style={{ width: '283px' }} maxHeight={false}>
           {/* Teams list */}
           <Dropdown.Section label={teamsLabel} divider fluid>
             {(() => {
@@ -410,8 +391,8 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
             })()}
           </Dropdown.Section>
 
-          {/* Manage teams — shown to owners/admins */}
-          {isOwnerOrAdmin && onManageTeams && (
+          {/* Manage teams — shown to admins */}
+          {isAdmin && onManageTeams && (
             <Dropdown.Section divider fluid>
               <Dropdown.Item
                 fluid

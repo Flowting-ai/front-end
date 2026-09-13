@@ -245,10 +245,11 @@ export async function movePinToFolder(
 }
 
 export async function updatePinTags(pinId: string, tags: string[]): Promise<void> {
-  await apiFetch(PIN_TAGS_ENDPOINT(pinId), {
+  const res = await apiFetch(PIN_TAGS_ENDPOINT(pinId), {
     method: 'PUT',
     body:   JSON.stringify({ tags }),
   })
+  if (!res.ok) throw new ApiError(res.status, "api_error", "Failed to update pin tags")
 }
 
 function normalizeCommentResponse(raw: Record<string, unknown>): PinComment {

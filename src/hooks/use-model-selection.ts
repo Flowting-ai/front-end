@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { fetchModelsWithCache, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
+import { fetchModelsWithCache, pickDefaultModel, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import type { AIModel } from "@/types/ai-model";
 import { logger } from "@/lib/logger";
 
@@ -109,17 +109,20 @@ export function useModelSelection(): UseModelSelectionResult {
           // If no match found at all: keep the current selectedModel (cached partial)
           // rather than clobbering it with an arbitrary fetched[0].
         } else if (!selectedModel) {
-          // No stored selection and no cached model at all — default to first model
-          setSelectedModel(fetched[0]);
-          const key = stableKey(fetched[0]);
+          // No stored selection and no cached model at all — default to the
+          // Standard tier (the mid-tier of the 3 Souvenir models), falling
+          // back to the first model only if Standard isn't present.
+          const defaultModel = pickDefaultModel(fetched)!;
+          setSelectedModel(defaultModel);
+          const key = stableKey(defaultModel);
           if (key) localStorage.setItem(STORAGE_KEY, key);
           localStorage.setItem(
             `${STORAGE_KEY}_cache`,
             JSON.stringify({
-              id: fetched[0].id,
-              modelId: fetched[0].modelId,
-              modelName: fetched[0].modelName,
-              companyName: fetched[0].companyName,
+              id: defaultModel.id,
+              modelId: defaultModel.modelId,
+              modelName: defaultModel.modelName,
+              companyName: defaultModel.companyName,
             }),
           );
         }

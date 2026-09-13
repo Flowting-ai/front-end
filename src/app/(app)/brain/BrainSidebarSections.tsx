@@ -7,6 +7,11 @@ import { m } from 'framer-motion'
 import { toast } from 'sonner'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
+import { FlatSidebarRow } from '@/components/FlatSidebarRow'
+import { Dropdown } from '@/components/Dropdown'
+import { Divider } from '@/components/Divider'
+import { ExchangeOneIcon, FolderLibraryIcon, FolderThreeIcon, QuillWriteOneIcon, PenOneIcon, PinIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { IconWithFallback } from '@/components/IconWithFallback'
 import {
   listBrainChats,
   renameBrainChat,
@@ -24,7 +29,8 @@ import {
   type BrainThreadEventDetail,
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
-import { BRAIN_ROUTE } from '@/lib/routes'
+import { useBrainThreadContext } from '@/context/brain-thread-context'
+import { BRAIN_ROUTE, CHATS_ROUTE } from '@/lib/routes'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
 
@@ -182,7 +188,7 @@ function BrainThreadItem({
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
           >
-            {thread.starred ? 'Unstar' : 'Star'}
+            {thread.starred ? 'Unpin Task' : 'Pin Task'}
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
@@ -206,6 +212,10 @@ function BrainThreadItem({
 interface BrainThreadsSectionProps {
   activeChatId:  string | null
   onThreadClick: (id: string) => void
+  /** Flat sidebar only — switches the sidebar's own recents list back to
+   *  chats, without navigating away from the current page. Omit to hide
+   *  the "Switch to recent chats" header icon. */
+  onSwitchToChats?: () => void
 }
 
 function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectionProps) {
@@ -290,7 +300,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
         emitBrainThreadDeleted({ chatId: id })
-        toast.success('Brain chat deleted')
+        toast.success('Task deleted')
         if (id === activeChatId) push(BRAIN_ROUTE)
       },
     })
@@ -317,7 +327,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
           <SidebarMenuItem
             fluid
             variant="header"
-            label="Starred Threads"
+            label="Pinned Tasks"
             shown={shownStarred}
             onShowClick={() => setShownStarred(s => !s)}
           />
@@ -403,6 +413,10 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
 export interface BrainSidebarSectionsProps {
   activeChatId:  string | null
   onThreadClick: (id: string) => void
+  /** Flat sidebar only — switches the sidebar's own recents list back to
+   *  chats, without navigating away from the current page. Omit to hide
+   *  the "Switch to recent chats" header icon. */
+  onSwitchToChats?: () => void
 }
 
 export function BrainSidebarSections({
@@ -412,6 +426,229 @@ export function BrainSidebarSections({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <BrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} />
+    </div>
+  )
+}
+
+// ── Flat sidebar variant — same data/logic, onto FlatSidebarRow ──────────────
+// Souvenir V1.5: the flat sidebar's Recents area shows "Recent Brain Threads"
+// (+ Starred Threads) instead of regular chats while on a Brain page — see
+// FlatBrainSidebarSections usage in LeftSidebar.tsx.
+
+function FlatBrainThreadItem({
+  thread,
+  isActive,
+  onSelect,
+  onRename,
+  onStar,
+  onDelete,
+}: BrainThreadItemProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [menuOpen,  setMenuOpen]  = useState(false)
+  const [isStarring, setIsStarring] = useState(false)
+
+  const handleCommit = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== thread.chat_title) void onRename(thread.id, trimmed)
+    setIsEditing(false)
+  }
+
+  const handleStarClick = async () => {
+    setIsStarring(true)
+    try { await onStar(thread.id) } finally { setIsStarring(false) }
+  }
+
+  return (
+    // Same structure as FlatChatHistoryItem's own dropdown (LeftSidebar.tsx) —
+    // shared KDS Dropdown/Dropdown.Float, kept in lockstep so chat and task
+    // rows in this same sidebar don't drift into two different menu styles.
+    <div style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <FlatSidebarRow
+        variant={isEditing ? 'chat-item-edit' : 'chat-item'}
+        label={stripDocumentBlocks(thread.chat_title) || 'Untitled'}
+        selected={isActive}
+        href={isEditing ? undefined : `/brain?id=${thread.id}`}
+        onClick={() => { if (!isEditing) onSelect() }}
+        onMoreClick={(e) => { e.stopPropagation(); setMenuOpen(true) }}
+        onRename={() => setIsEditing(true)}
+        onCommit={handleCommit}
+        onCancel={() => setIsEditing(false)}
+      />
+      <Dropdown.Float
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        placement="right-start"
+        autoFlipVertical
+        trigger={<span aria-hidden style={{ position: 'absolute', right: '8px', top: '50%', width: 1, height: 1, pointerEvents: 'none' }} />}
+      >
+        <Dropdown maxHeight={false}>
+          <Dropdown.Section fluid>
+            <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
+            {/* User-facing "Pin task"/"Unpin task" — starred/star stays the field name internally to match the API contract, same convention as chats' "Pin chat". */}
+            <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={thread.starred ? 'Unpin task' : 'Pin task'} loading={isStarring} onClick={() => { setMenuOpen(false); void handleStarClick() }} />
+            <Divider decorative />
+            <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={() => { setMenuOpen(false); onDelete(thread.id, stripDocumentBlocks(thread.chat_title) || thread.chat_title) }} />
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    </div>
+  )
+}
+
+function FlatBrainThreadsSection({ activeChatId, onThreadClick, onSwitchToChats }: BrainThreadsSectionProps) {
+  const { push } = useRouter()
+
+  // Shared with the /chats page's Tasks mode (src/context/brain-thread-context.tsx) —
+  // a rename/pin/delete from either surface updates this same state, so both
+  // stay in sync immediately with no reload.
+  const { threads, isLoading, rename, star, remove } = useBrainThreadContext()
+  const [shownStarred, setShownStarred] = useState(true)
+  const [shownAll,     setShownAll]     = useState(true)
+  const [overflowStar, setOverflowStar] = useState<'visible' | 'hidden'>('visible')
+  const [overflowAll,  setOverflowAll]  = useState<'visible' | 'hidden'>('visible')
+
+  const handleDelete = (id: string, title: string) => {
+    openDeleteChatDialog({
+      chatId:    id,
+      chatTitle: stripDocumentBlocks(title) || title,
+      onConfirm: async () => {
+        const ok = await remove(id)
+        if (ok && id === activeChatId) push(BRAIN_ROUTE)
+      },
+    })
+  }
+
+  const starredThreads = threads.filter(t => t.starred)
+  // Excluded from Recent, same as chats' own FlatRecentsSection — otherwise
+  // pinning a task keeps it listed under Recent Tasks too instead of moving
+  // it out, and unpinning has nothing to "return" since it never left.
+  const recentThreads = threads.filter(t => !t.starred)
+
+  const emptyRow = (
+    <div style={{
+      padding:    '8px 6px',
+      fontFamily: 'var(--font-body)',
+      fontSize:   'var(--font-size-caption)',
+      color:      'var(--neutral-400)',
+    }}>
+      No tasks yet
+    </div>
+  )
+
+  return (
+    <>
+      {starredThreads.length > 0 && (
+        <>
+          <FlatSidebarRow variant="header" label="Pinned Tasks" shown={shownStarred} onShowClick={() => setShownStarred(s => !s)} />
+          <m.div
+            animate={shownStarred ? 'open' : 'closed'}
+            initial={false}
+            variants={sectionHeightVariants}
+            style={{ overflow: overflowStar }}
+            onAnimationStart={(def) => { if (def === 'closed') setOverflowStar('hidden') }}
+            onAnimationComplete={(def) => { if (def === 'open') setOverflowStar('visible') }}
+          >
+            <m.div
+              animate={shownStarred ? 'open' : 'closed'}
+              initial="closed"
+              variants={sectionStaggerVariants}
+              style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+            >
+              {starredThreads.map(thread => (
+                <m.div key={thread.id} variants={sectionItemVariants}>
+                  <FlatBrainThreadItem
+                    thread={thread}
+                    isActive={thread.id === activeChatId}
+                    onSelect={() => onThreadClick(thread.id)}
+                    onRename={rename}
+                    onStar={star}
+                    onDelete={handleDelete}
+                  />
+                </m.div>
+              ))}
+            </m.div>
+          </m.div>
+          {/* Gap before Recent Tasks — same as FlatPinnedSection's gap before
+              Recent Chats (LeftSidebar.tsx), only takes up space when Pinned
+              actually rendered (see the starredThreads.length > 0 guard above). */}
+          <div aria-hidden style={{ height: 12 }} />
+        </>
+      )}
+
+      <FlatSidebarRow
+        variant="header" label="Recent Tasks" shown={shownAll} onShowClick={() => setShownAll(s => !s)}
+        // Use a URL command, not a local reset — this section doesn't own the
+        // active thread's state, the Brain page does (see its own `?new=1`
+        // handling, BrainPage's onNewBrainThread comment).
+        onAddClick={() => push(`${BRAIN_ROUTE}?new=1`)} addLabel="New task"
+        addIcon={<QuillWriteOneIcon size={16} animated />}
+        extraHeaderIcons={[
+          {
+            icon: <ExchangeOneIcon size={16} animated />,
+            onClick: () => onSwitchToChats?.(),
+            label: 'Switch to Recent Chats',
+          },
+          {
+            icon: (
+              <IconWithFallback
+                icon={<FolderLibraryIcon size={16} animated />}
+                fallback={<FolderThreeIcon size={16} animated />}
+              />
+            ),
+            onClick: () => push(`${CHATS_ROUTE}?filter=tasks`),
+            label: 'All tasks',
+          },
+        ]}
+        actionsAlwaysVisible
+      />
+      <m.div
+        animate={shownAll ? 'open' : 'closed'}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow: overflowAll }}
+        onAnimationStart={(def) => { if (def === 'closed') setOverflowAll('hidden') }}
+        onAnimationComplete={(def) => { if (def === 'open') setOverflowAll('visible') }}
+      >
+        <m.div
+          animate={shownAll ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
+          {isLoading ? (
+            <>
+              <SidebarMenuSkeleton index={0} fluid />
+              <SidebarMenuSkeleton index={1} fluid />
+              <SidebarMenuSkeleton index={2} fluid />
+            </>
+          ) : recentThreads.length === 0 ? emptyRow : (
+            recentThreads.map(thread => (
+              <m.div key={thread.id} variants={sectionItemVariants}>
+                <FlatBrainThreadItem
+                  thread={thread}
+                  isActive={thread.id === activeChatId}
+                  onSelect={() => onThreadClick(thread.id)}
+                  onRename={rename}
+                  onStar={star}
+                  onDelete={handleDelete}
+                />
+              </m.div>
+            ))
+          )}
+        </m.div>
+      </m.div>
+    </>
+  )
+}
+
+export function FlatBrainSidebarSections({
+  activeChatId,
+  onThreadClick,
+  onSwitchToChats,
+}: BrainSidebarSectionsProps) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <FlatBrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} onSwitchToChats={onSwitchToChats} />
     </div>
   )
 }

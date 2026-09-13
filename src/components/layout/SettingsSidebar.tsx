@@ -1,31 +1,38 @@
 'use client'
 
 import React, { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { m } from 'framer-motion'
-import { useRouter, usePathname } from 'next/navigation'
-import {
-  ArrowLeftOneIcon,
-  UserAiIcon,
-  AbacusIcon,
-  FolderOneIcon,
-  LinkSixIcon,
-} from '@strange-huge/icons'
+import { usePathname } from 'next/navigation'
+import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
+import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ReportBugModal } from '@/components/ReportBugModal'
-import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { RequestFeatureModal } from '@/components/RequestFeatureModal'
+import { Divider } from '@/components/Divider'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useSettingsGuard } from '@/context/settings-guard-context'
-import { useMounted } from '@/hooks/use-mounted'
-import { toast } from 'sonner'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { useGuardedRouter } from '@/context/nav-guard-context'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
+
+// ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
+// Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
+// Exported as static assets (public/icons/settings-sidebar/) rather than
+// mapped onto existing @strange-huge/icons glyphs — none of the existing set
+// clearly matched these (e.g. General's monitor glyph vs. the gear-shaped
+// SettingsOneIcon used elsewhere), and 1:1 fidelity was the ask. `triggered`
+// is accepted-and-ignored so SidebarMenuItem's `cloneElement(icon, {
+// triggered })` doesn't warn about an unknown prop landing on a plain <img>.
+function SidebarAssetIcon({ src, triggered: _triggered }: { src: string; triggered?: boolean }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- static local icon, Next Image adds no value here
+    <img src={src} width={20} height={20} alt="" aria-hidden style={{ display: 'block' }} />
+  )
+}
 
 // -- Item stagger animation - same three-layer pattern as LeftSidebar/Sidebar --
 const sectionStaggerVariants = {
@@ -42,54 +49,87 @@ const sectionItemVariants = {
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
 }
 
-const MY_SETTINGS_ITEMS = [
-  { id: 'account',       label: 'Account',         href: SETTINGS_ACCOUNT_ROUTE,    icon: <UserAiIcon        size={20} />, disabled: false },
-  { id: 'billing',       label: 'Usage & Billing',  href: SETTINGS_BILLING_ROUTE,    icon: <AbacusIcon        size={20} />, disabled: false },
-  // { id: 'files',         label: 'Files & Data',     href: '/settings/files',         icon: <FolderLibraryIcon size={20} />, disabled: true  },
-  // { id: 'ai',            label: 'AI & Models',      href: SETTINGS_AI_ROUTE,         icon: <NeuralNetworkIcon size={20} />, disabled: false },
-  // { id: 'notifications', label: 'Notifications',    href: '/settings/notifications', icon: <BubbleChatIcon    size={20} />, disabled: true  },
-  // { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
-  // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
-  { id: 'connectors',    label: 'Connectors',       href: SETTINGS_CONNECTORS_ROUTE, icon: <LinkSixIcon       size={20} />, disabled: false },
-  { id: 'help',          label: 'Help & Legal',     href: SETTINGS_HELP_ROUTE,       icon: <FolderOneIcon     size={20} variant="static" />, disabled: false },
+// ── Nav loading skeleton ──────────────────────────────────────────────────────
+// Whether WORKSPACE renders at all depends on org/role data that resolves
+// async (useOrg's orgReady) — rendering the real sections as that data trickles
+// in would mean WORKSPACE popping in underneath PERSONAL after the fact. This
+// bone stands in for the whole nav (PERSONAL + WORKSPACE + HELP shape) as one
+// static block until orgReady, so the swap to the real, fully-resolved menu
+// happens once, atomically, rather than assembling section by section.
+function SettingsNavSkeleton() {
+  const section = (labelWidth: number, rows: number) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '5px 6px' }}>
+        <div className="kaya-skeleton" style={{ width: labelWidth, height: 14, borderRadius: 4 }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {Array.from({ length: rows }).map((_, i) => (
+          <SidebarMenuSkeleton key={i} index={i} fluid showIcon />
+        ))}
+      </div>
+    </div>
+  )
+  return (
+    <>
+      {section(64, 2)}
+      <Divider decorative style={{ margin: '8px 0' }} />
+      {section(90, 3)}
+      <Divider decorative style={{ margin: '8px 0' }} />
+      {section(120, 3)}
+    </>
+  )
+}
+
+// ── Settings v1.5 nav groups ──────────────────────────────────────────────────
+// PERSONAL: node 18:27786. "Connectors" (previously in this group under the
+// old design) has no home in the new Figma frame — the /settings/connectors
+// page it used to point at has been removed entirely; the main app sidebar's
+// own "Connectors" row (ORG_CONNECTORS_ROUTE, /connectors) is now the only
+// entry point, for every account type.
+const PERSONAL_ITEMS = [
+  { id: 'account', label: 'Account', href: SETTINGS_ACCOUNT_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/account.svg" /> },
+  // Was a stand-in pointing at SETTINGS_BILLING_ROUTE until the dedicated
+  // Usage page (node 17-22980) existed — now points at its own route.
+  // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
+  { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+]
+
+// WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
+const WORKSPACE_ITEMS = [
+  { id: 'general', label: 'General',         href: ORG_GENERAL_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/general.svg" /> },
+  { id: 'members', label: 'Members',         href: ORG_MEMBERS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/members.svg" /> },
+  { id: 'plans',   label: 'Plans & Billing', href: ORG_PLANS_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/plans-billing.svg" /> },
+  // "Usage" here maps to the same Analytics page as the old "Analytics" item —
+  // closest existing route to a workspace-level usage view. The old group's
+  // separate "Activity Log" (ORG_ACTIVITY_ROUTE) has no slot in the new design.
+  { id: 'usage',   label: 'Usage',           href: ORG_ANALYTICS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+]
+
+// HELP & SUPPORT: node 18:27804. New group — Help & Legal moves out of
+// PERSONAL; Report a bug moves out of the account-menu dropdown into the main
+// nav; Feature request is new (wired to the existing RequestFeatureModal).
+const HELP_ITEMS = [
+  { id: 'help', label: 'Help & Legal', href: SETTINGS_HELP_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/help-legal.svg" /> },
 ]
 
 
 export function SettingsSidebar() {
-  const { push } = useRouter()
+  // Guarded push — same app-wide "unsaved changes" system LeftSidebar uses
+  // (nav-guard-context), so leaving a dirty Settings page shows the shared
+  // confirmation modal (rendered once in (app)/layout.tsx) regardless of
+  // whether the user clicks a Settings nav item or the main app sidebar.
+  const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, plan, orgRole, currentUserRole } = useOrg()
-  const { isDirty, saveRef } = useSettingsGuard()
-  const portalMounted = useMounted()
-  const [pendingHref,    setPendingHref]    = useState<string | null>(null)
-  const [isSavingGuard,  setIsSavingGuard]  = useState(false)
+  const { user } = useAuth()
+  const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
   const [reportBugOpen,  setReportBugOpen]  = useState(false)
+  const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
 
+  // No-op for a click on the already-active nav item — avoids re-triggering
+  // the guard (or a pointless re-navigation) for a same-page click.
   const safeNavigate = (href: string) => {
-    if (isDirty && pathname !== href) {
-      setPendingHref(href)
-      return
-    }
+    if (pathname === href) return
     push(href)
-  }
-
-  const handleDiscard = () => {
-    const href = pendingHref!
-    setPendingHref(null)
-    push(href)
-  }
-
-  const handleSaveAndContinue = async () => {
-    if (!saveRef.current) { handleDiscard(); return }
-    setIsSavingGuard(true)
-    const ok = await saveRef.current()
-    setIsSavingGuard(false)
-    if (ok) {
-      const href = pendingHref!
-      setPendingHref(null)
-      push(href)
-    }
   }
 
   const displayName = user
@@ -107,25 +147,61 @@ export function SettingsSidebar() {
     billingSnap?.isTeamAccount
   )
 
+  // A truthy `plan` object just means the plan API call returned something —
+  // orgs get one populated with zeroes before a real subscription/pool exists.
+  // Mirrors plans-and-billing/page.tsx's `hasPlan = isEnterprise || totalCredits > 0`.
+  const orgHasPlan = orgId ? (org?.plan === 'enterprise' || (plan?.totalCredits ?? 0) > 0) : false
+
+  // Distinct from orgHasPlan above: true only once a plan is actually
+  // SELECTED (a real Teams subscription or signed Enterprise contract), not
+  // just because the org has a starting credit balance — the one-time $25
+  // founder org-create grant funds the pool immediately on workspace
+  // creation, before any plan is ever chosen. See OrgPlan.hasSelectedPlan's
+  // own doc comment (types/teams.ts) for the backend signal this reads.
+  const orgHasSelectedPlan = orgId ? !!plan?.hasSelectedPlan : false
+
+  // Workspace identity line — just the org name, independent of plan/billing
+  // status, which now surfaces only via the status tag below. Individuals
+  // have no named workspace, so they get no second line at all.
   const planLabel = isTeamUser
-    ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')
+    ? (orgId ? (org?.name ?? 'Workspace') : 'Workspace')
+    : undefined
+
+  const planWarning = isTeamUser ? !orgHasPlan : (!user?.planType && !user?.isTrial)
+
+  // Plan-type label for the status tag ("Core | 250 credits left" /
+  // "Pro | 250 credits left") — distinct from planLabel above, which is now
+  // just the org's own name. Team orgs get "Free Plan" (blue tag, see
+  // planStatusVariant below) until a real plan is selected, then "Core"
+  // (org.plan 'teams') or "Pro" (org.plan 'enterprise').
+  const planTypeLabel = isTeamUser
+    ? (orgHasSelectedPlan ? (org?.plan === 'enterprise' ? 'Pro' : 'Core') : 'Free Plan')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
-        : 'No Plan Selected'
+        : undefined
 
-  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
+  // Blue tag for "Free Plan" (running on starting credits, no plan selected
+  // yet); default color once a real plan is selected, and always for
+  // individuals.
+  const planStatusVariant: 'neutral' | 'blue' = (isTeamUser && orgHasPlan && !orgHasSelectedPlan) ? 'blue' : 'neutral'
 
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (plan ? org?.creditPool?.remaining : undefined)
-    : (user?.creditsRemaining ?? undefined)
+    ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
+    : (planWarning ? undefined : (user?.creditsRemaining ?? undefined))
 
   // Role badge with tooltip — mirrors LeftSidebar's displayRole hierarchy.
-  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
-    ? orgRole
-    : (currentUserRole ?? (orgId ? 'member' : undefined))
+  // Gated on `orgReady`, not just `orgId`: `orgId` resolves before the role
+  // fetch settles, and the old fallback (`currentUserRole ?? (orgId ?
+  // 'member' : undefined)`) guessed 'member' the instant orgId was known —
+  // showing that guess, then correcting to 'admin' once the real role
+  // arrived, is exactly the Member-then-Admin flash this exists to prevent.
+  // `undefined` here means no badge at all until the real role is in.
+  const displayRole = orgReady && orgId
+    ? (orgRole === 'admin' ? orgRole : currentUserRole)
+    : undefined
   const roleTooltip = displayRole
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
@@ -135,6 +211,16 @@ export function SettingsSidebar() {
         <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
       </span>
     </Tooltip>
+  ) : undefined
+
+  // PERSONAL section's inline role chip (node 23:29814) — same role signal as
+  // roleBadge above but with the label shown, matching the Figma "Admin" chip.
+  // Figma's chip uses the blue/editor colour tokens under an "Admin" label —
+  // likely a copy-paste mismatch in the design (this codebase's RoleBadge
+  // consistently uses tan for admin, blue for editor elsewhere) — rendering
+  // the real per-viewer role+colour here rather than hardcoding the mismatch.
+  const personalSectionChip = orgId && displayRole ? (
+    <RoleBadge role={displayRole as WorkspaceRole} showLabel mode="solar" />
   ) : undefined
 
   return (
@@ -196,9 +282,52 @@ export function SettingsSidebar() {
       >
         {/* Horizontal padding lives on this inner wrapper, not the scrolling
             element above — keeps the scrollbar flush with the sidebar's edge. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '0 16px' }}>
-        {/* My Settings section  - Personal Settings */}
-        <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
+
+        {!orgReady ? <SettingsNavSkeleton /> : (
+        <>
+        {/* PERSONAL — node 18:27786 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize:   14,
+              lineHeight: '22px',
+              color:      'var(--neutral-500)',
+              margin:     0,
+              whiteSpace: 'nowrap',
+            }}>
+              PERSONAL
+            </p>
+            {personalSectionChip}
+          </div>
+          <m.div
+            animate="open"
+            initial="closed"
+            variants={sectionStaggerVariants}
+            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+          >
+            {PERSONAL_ITEMS.map(item => (
+              <m.div key={item.id} variants={sectionItemVariants}>
+                <SidebarMenuItem
+                  fluid
+                  variant="default"
+                  icon={item.icon}
+                  label={item.label}
+                  selected={pathname === item.href}
+                  onClick={() => safeNavigate(item.href)}
+                />
+              </m.div>
+            ))}
+          </m.div>
+        </div>
+
+        <Divider decorative style={{ margin: '8px 0' }} />
+
+        {/* WORKSPACE — node 18:27793 (admin only; former /org/* admin pages) */}
+        {orgId && orgRole === 'admin' && (
+          <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <p style={{
@@ -210,9 +339,8 @@ export function SettingsSidebar() {
                 margin:     0,
                 whiteSpace: 'nowrap',
               }}>
-                Personal Settings
+                WORKSPACE
               </p>
-              {/* <Badge label="Individual" color="Blue" /> */}
             </div>
             <m.div
               animate="open"
@@ -220,33 +348,83 @@ export function SettingsSidebar() {
               variants={sectionStaggerVariants}
               style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
             >
-              {MY_SETTINGS_ITEMS.map(item => (
+              {WORKSPACE_ITEMS.map(item => (
                 <m.div key={item.id} variants={sectionItemVariants}>
-                  {item.disabled ? (
-                    <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                      <SidebarMenuItem
-                        fluid
-                        variant="default"
-                        icon={item.icon}
-                        label={item.label}
-                        selected={false}
-                      />
-                    </div>
-                  ) : (
-                    <SidebarMenuItem
-                      fluid
-                      variant="default"
-                      icon={item.icon}
-                      label={item.label}
-                      selected={pathname === item.href}
-                      onClick={() => safeNavigate(item.href)}
-                    />
-                  )}
+                  <SidebarMenuItem
+                    fluid
+                    variant="default"
+                    icon={item.icon}
+                    label={item.label}
+                    selected={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                    onClick={() => safeNavigate(item.href)}
+                  />
                 </m.div>
               ))}
             </m.div>
           </div>
+
+          <Divider decorative style={{ margin: '8px 0' }} />
+          </>
+        )}
+
+        {/* HELP & SUPPORT — node 18:27804 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize:   14,
+              lineHeight: '22px',
+              color:      'var(--neutral-500)',
+              margin:     0,
+              whiteSpace: 'nowrap',
+            }}>
+              HELP & SUPPORT
+            </p>
+          </div>
+          <m.div
+            animate="open"
+            initial="closed"
+            variants={sectionStaggerVariants}
+            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+          >
+            {HELP_ITEMS.map(item => (
+              <m.div key={item.id} variants={sectionItemVariants}>
+                <SidebarMenuItem
+                  fluid
+                  variant="default"
+                  icon={item.icon}
+                  label={item.label}
+                  selected={pathname === item.href}
+                  onClick={() => safeNavigate(item.href)}
+                />
+              </m.div>
+            ))}
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<SidebarAssetIcon src="/icons/settings-sidebar/report-bug.svg" />}
+                label="Report a bug"
+                selected={false}
+                onClick={() => setReportBugOpen(true)}
+              />
+            </m.div>
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<SidebarAssetIcon src="/icons/settings-sidebar/feature-request.svg" />}
+                label="Feature request"
+                selected={false}
+                onClick={() => setRequestFeatureOpen(true)}
+              />
+            </m.div>
+          </m.div>
         </div>
+        </>
+        )}
+
         </div>
 
       </div>
@@ -270,67 +448,30 @@ export function SettingsSidebar() {
             </div>
           </div>
         ) : (
+          // Static — no dropdown. Profile/Upgrade Plan/Settings/Organization/
+          // Help/Report a bug would just repeat this same sidebar's own nav
+          // (and "Settings" makes no sense to offer while already here).
           <AccountMenu
+            interactive={false}
             name={displayName || 'Account'}
             plan={planLabel}
             planWarning={planWarning}
+            planType={planTypeLabel}
             credits={accountCredits}
+            planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={false}
-            panelWidth={274}
             roleBadge={roleBadge}
-            placement="top-start"
-            onProfile={() => safeNavigate(SETTINGS_ACCOUNT_ROUTE)}
-            onUpgradePlan={() => safeNavigate(SETTINGS_BILLING_ROUTE)}
-            onSettings={() => safeNavigate(SETTINGS_ROUTE)}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
-            onWhatsNew={() => toast.info("What's new — coming soon!")}
-            onHelp={() => safeNavigate(SETTINGS_HELP_ROUTE)}
-            onManageConnectors={() => safeNavigate(SETTINGS_CONNECTORS_ROUTE)}
-            onReportBug={() => setReportBugOpen(true)}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )}
       </div>
     </div>
 
-    {/* ── Unsaved changes confirmation modal ── */}
-    {portalMounted && pendingHref && createPortal(
-      // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        onClick={() => { if (!isSavingGuard) setPendingHref(null) }}
-      >
-        {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions */}
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Unsaved account changes"
-          style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)' }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              Unsaved account changes
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
-              Your profile changes will be lost if you leave now.
-            </p>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button variant="secondary" size="sm" disabled={isSavingGuard} onClick={handleDiscard}>
-              Discard changes
-            </Button>
-            <Button variant="default" size="sm" loading={isSavingGuard} onClick={() => { void handleSaveAndContinue() }}>
-              Save & continue
-            </Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    {/* Unsaved-changes confirmation is now the shared NavGuardModal (mounted
+        once app-wide in (app)/layout.tsx) — see useGuardedRouter() above. */}
 
     {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
+    {requestFeatureOpen && <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />}
     </>
   )
 }

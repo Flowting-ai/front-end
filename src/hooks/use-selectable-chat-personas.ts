@@ -20,7 +20,11 @@ export function useSelectableChatPersonas(open: boolean) {
     async function load() {
       setLoading(true)
       try {
-        const list = await fetchSelectableChatPersonas(orgId, viewerUserId, currentUserRole === 'admin')
+        const list = await fetchSelectableChatPersonas(
+          orgId,
+          viewerUserId,
+          currentUserRole === 'admin',
+        )
         if (!cancelled) setPersonas(list)
       } catch {
         if (!cancelled) setPersonas([])

@@ -4,14 +4,11 @@
 // RedirectResponse(`${FRONTEND_BASE_URL}/?connector=...&link=...`)). That
 // flow must run in the CURRENT tab: a popup would just land our own app
 // inside the small popup window instead of returning control to the tab the
-// user started from. Every other provider (pipedream/nango/composio) hosts
-// its OAuth UI on the broker's own domain and is fine to keep in a popup.
+// user started from. Pipedream and Zapier host OAuth on their own domain
+// and stay in a popup. Zapier then postMessages `authenticationSuccess`.
 //
-// The backend does not expose `provider` on any connector API response
-// (`ConnectorCatalogEntry`, `LinkResponse`), so this list is maintained by
-// hand — keep it in sync with `Connector.provider == 'mcp'` rows on the
-// backend (see back-end/alembic/versions/*_native_mcp*.py and
-// *_heatmap_*.py for the current set).
+// Prefer the catalog `provider` field. The slug set is only for payloads
+// that predate that field (SSE connect prompts, cached list rows).
 const MCP_PROVIDER_CONNECTOR_SLUGS = new Set([
   'customerio',
   'heatmap',
@@ -22,7 +19,86 @@ const MCP_PROVIDER_CONNECTOR_SLUGS = new Set([
   'zigpoll',
 ])
 
-export function isMcpProviderConnector(slug: string | null | undefined): boolean {
+export const ZAPIER_CONNECT_ORIGIN = 'https://connect.zapier.com'
+
+export function isMcpProviderConnector(
+  slug: string | null | undefined,
+  provider?: string | null,
+): boolean {
+  if (provider) return provider === 'mcp'
   if (!slug) return false
   return MCP_PROVIDER_CONNECTOR_SLUGS.has(slug.toLowerCase())
+}
+
+export function isZapierProviderConnector(
+  provider?: string | null,
+  redirectUrl?: string | null,
+): boolean {
+  if (provider) return provider === 'zapier'
+  return isZapierConnectUrl(redirectUrl)
+}
+
+export function isZapierConnectUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  try {
+    return new URL(url).origin === ZAPIER_CONNECT_ORIGIN
+  } catch {
+    return false
+  }
+}
+
+/** Encode the connect token so Zapier receives the bytes we were issued.
+ *
+ *  Live tokens are `$AESGCM$…` and include `+`, `/`, `=`. A raw `+` in the
+ *  query string is a space, which Zapier rejects as an invalid token.
+ */
+export function zapierConnectHref(url: string): string {
+  const marker = '?token='
+  const idx = url.indexOf(marker)
+  if (idx === -1) return url
+  const raw = url.slice(idx + marker.length)
+  if (raw.includes('%')) return url
+  const parsed = new URL(url.slice(0, idx))
+  parsed.searchParams.set('token', raw)
+  return parsed.toString()
+}
+
+/** Wait for Connect UI to post the new connection id back to this window. */
+export function waitForZapierAuthId(signal?: AbortSignal): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== ZAPIER_CONNECT_ORIGIN) return
+      const data = event.data as { type?: string; authId?: unknown; connection_id?: unknown; error?: unknown } | null
+      if (!data || typeof data !== 'object') return
+      if (data.type === 'authenticationSuccess') {
+        const id = data.authId ?? data.connection_id
+        if (id == null || id === '') {
+          cleanup()
+          reject(new Error('Zapier did not return a connection id'))
+          return
+        }
+        cleanup()
+        resolve(String(id))
+        return
+      }
+      if (data.type === 'authenticationError') {
+        cleanup()
+        reject(new Error(typeof data.error === 'string' ? data.error : 'Zapier connection failed'))
+      }
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(new DOMException('Polling aborted', 'AbortError'))
+    }
+    const cleanup = () => {
+      window.removeEventListener('message', onMessage)
+      signal?.removeEventListener('abort', onAbort)
+    }
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+    window.addEventListener('message', onMessage)
+    signal?.addEventListener('abort', onAbort)
+  })
 }

@@ -1,13 +1,12 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { listOrgCatalog, updateOrgCatalog } from "@/lib/api/connectors";
-import { listOrganizations } from "@/lib/api/organization";
-import { toast } from "sonner";
 import { Button } from "@/components/Button";
+import { ConnectorGlyph } from "@/components/ConnectorGlyph";
+import { getConnector } from "@/lib/api/connectors";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { ONBOARDING_INVITE_ROUTE, ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
 
@@ -17,30 +16,34 @@ type ConnectorDef = {
   id: string;
   name: string;
   category: string;
-  logoPath: string;
 };
 
-// id = backend connector slug (must match exactly what the API expects).
-// logoPath = local public asset path (independent of the slug format).
+// id = backend connector slug (must match exactly what the API expects). The
+// logo is not listed here — it comes from each entry's catalog logo_url,
+// fetched below, so this screen shows the same image as every other surface.
 const CONNECTORS: ConnectorDef[] = [
-  { id: "slack",        name: "Slack",         category: "Messaging",          logoPath: "/connector-logos/slack.svg"              },
-  { id: "googlesheets", name: "Google Sheets", category: "Productivity",       logoPath: "/connector-logos/google-sheets.svg"      },
-  { id: "notion",       name: "Notion",        category: "Productivity",       logoPath: "/connector-logos/notion.svg"             },
-  { id: "stripe",       name: "Stripe",        category: "Payments",           logoPath: "/connector-logos/stripe.svg"             },
-  { id: "clickup",      name: "ClickUp",       category: "Project Management", logoPath: "/connector-logos/clickup.svg"            },
-  { id: "googledrive",  name: "Google Drive",  category: "Storage",            logoPath: "/connector-logos/google-drive.svg"       },
-  { id: "one_drive",    name: "OneDrive",      category: "Storage",            logoPath: "/connector-logos/microsoft-onedrive.svg" },
-  { id: "gmail",        name: "Gmail",         category: "Messaging",          logoPath: "/connector-logos/gmail.svg"              },
+  { id: "slack",        name: "Slack",         category: "Messaging"          },
+  { id: "googlesheets", name: "Google Sheets", category: "Productivity"       },
+  { id: "notion",       name: "Notion",        category: "Productivity"       },
+  { id: "stripe",       name: "Stripe",        category: "Payments"           },
+  { id: "clickup",      name: "ClickUp",       category: "Project Management" },
+  { id: "googledrive",  name: "Google Drive",  category: "Storage"            },
+  { id: "one_drive",    name: "OneDrive",      category: "Storage"            },
+  { id: "gmail",        name: "Gmail",         category: "Messaging"          },
 ];
 
 // ── Card ────────────────────────────────────────────────────────────────────────
 
 function ConnectorCard({
   connector,
+  logoUrl,
+  logoPending,
   selected,
   onClick,
 }: {
   connector: ConnectorDef;
+  logoUrl: string | null;
+  logoPending: boolean;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -77,14 +80,11 @@ function ConnectorCard({
           flexShrink: 0,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={connector.logoPath}
-          alt={connector.name}
-          width={32}
-          height={32}
-          style={{ display: "block", objectFit: "contain" }}
-        />
+        {logoPending ? (
+          <span className="kaya-skeleton" style={{ display: "block", width: 32, height: 32, borderRadius: 8 }} />
+        ) : (
+          <ConnectorGlyph slug={connector.id} name={connector.name} logoUrl={logoUrl} size={32} />
+        )}
       </div>
 
       {/* Name */}
@@ -130,10 +130,28 @@ function ConnectorCard({
 
 export default function OnboardingConnectorsPage() {
   const { push } = useRouter();
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const { setConnectorCount } = useOnboarding();
   const [selected,   setSelected]   = useState<Set<string>>(new Set());
   const [continuing, setContinuing] = useState(false);
+  const [logos,      setLogos]      = useState<Map<string, string | null> | null>(null);
+
+  // Logos come from the catalog, never from a bundled asset. One detail call
+  // per curated slug, all in flight together; a slug the catalog doesn't carry
+  // resolves to null and ConnectorGlyph renders its letter tile.
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(CONNECTORS.map(async (c) => {
+      try {
+        return [c.id, (await getConnector(c.id)).logoUrl] as const;
+      } catch {
+        return [c.id, null] as const;
+      }
+    })).then((pairs) => {
+      if (!cancelled) setLogos(new Map(pairs));
+    });
+    return () => { cancelled = true };
+  }, []);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -143,38 +161,14 @@ export default function OnboardingConnectorsPage() {
       return next;
     });
 
-  async function handleContinue() {
+  // There is no backend call left that "enables" a connector for a workspace
+  // ahead of time — Workspace Model v2 dropped the per-Team connector-request
+  // approval this used to file against, and connecting one for real requires
+  // credentials this step never collects. So this step is selection-only:
+  // record the pick for onboarding UI copy elsewhere, then let the user set
+  // up each connector for real from Settings → Connectors after onboarding.
+  function handleContinue() {
     setContinuing(true);
-    if (selected.size > 0) {
-      try {
-        // user.orgId is often absent from /users/me — fall back to listOrganizations.
-        let resolvedOrgId = user?.orgId ?? null;
-        if (!resolvedOrgId) {
-          const orgs = await listOrganizations();
-          resolvedOrgId = orgs[0]?.id ?? null;
-        }
-        if (resolvedOrgId) {
-          // Use the org catalog (not GET /connectors which is personal-only and
-          // returns empty for new accounts) to determine which slugs the backend
-          // actually knows about — prevents 400s for inactive/unknown connectors.
-          const orgCatalog = await listOrgCatalog(resolvedOrgId);
-          let validSlugs: string[];
-          if (orgCatalog.length > 0) {
-            const knownSlugs = new Set(orgCatalog.map(c => c.slug));
-            validSlugs = [...selected].filter(s => knownSlugs.has(s));
-          } else {
-            // Org catalog not yet populated — send all selected and let the backend validate.
-            validSlugs = [...selected];
-          }
-          if (validSlugs.length > 0) {
-            await updateOrgCatalog(resolvedOrgId, validSlugs);
-            toast.success("Connectors enabled for your organization");
-          }
-        }
-      } catch {
-        toast.error("Couldn't enable connectors — you can adjust them later in Org → Connectors.");
-      }
-    }
     setConnectorCount(selected.size);
     push(ONBOARDING_INVITE_ROUTE);
   }
@@ -209,6 +203,8 @@ export default function OnboardingConnectorsPage() {
           <ConnectorCard
             key={connector.id}
             connector={connector}
+            logoUrl={logos?.get(connector.id) ?? null}
+            logoPending={logos === null}
             selected={selected.has(connector.id)}
             onClick={() => toggle(connector.id)}
           />

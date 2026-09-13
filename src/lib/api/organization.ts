@@ -1,7 +1,7 @@
 'use client'
 
 import { z } from 'zod'
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
 import {
   ORGANIZATIONS_ENDPOINT,
   ORG_ENDPOINT,
@@ -10,72 +10,84 @@ import {
   ORG_PLAN_POOL_CAP_ENDPOINT,
   ORG_PLAN_USAGE_ENDPOINT,
   ORG_AUDIT_ENDPOINT,
-  ORG_TRANSFER_OWNER_ENDPOINT,
   ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
-  ORG_MEMBER_CAP_ENDPOINT,
-  ORG_TEAM_INVITE_ENDPOINT,
-  ORG_OVERFLOW_APPROVE_ENDPOINT,
+  ORG_INVITE_ENDPOINT,
+  ORG_LEAVE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
-// ── Backend shapes (snake_case) ───────────────────────────────────────────────
+// ── Backend shapes ────────────────────────────────────────────────────────────
+// Unlike MemberBurn/AuditEntry/InvitePreview elsewhere in this file (still
+// genuinely snake_case — no alias declared on those models), OrganizationResponse
+// and OrganizationSettingsResponse in services/organizations/schemas.py both
+// declare a `serialization_alias` on every multi-word field, so — same as
+// MemberResponse above — the actual wire format is camelCase.
 
 interface OrganizationResponse {
   id: string
   name: string
   slug: string
   description: string
-  logo_url: string | null
+  logoUrl: string | null
   archived: boolean
-  my_role: OrgRole | null
-  plan_type: 'teams' | 'enterprise' | null
-  owner_user_id?: string | null
-  owner_email?: string | null
+  // 'owner' is a real value here (the org's creator) — not just 'admin'/'member'
+  // as OrgRole claims. There's no separate Owner capability tier anywhere in
+  // the UI (admin already has full billing/org authority), so it's folded
+  // into 'admin' at the boundary via foldOwnerRole() below rather than
+  // leaking a third value into every OrgRole-typed consumer (org-context's
+  // orgRole/currentUserRole, LeftSidebar, SettingsSidebar, roles.ts...),
+  // which all silently read an unrecognized 'owner' as "not admin".
+  myRole: OrgRole | 'owner' | null
+  planType: 'teams' | 'enterprise' | null
 }
 
-interface AdminBillingPermsResponse {
-  can_top_up: boolean
-  can_manage_payment: boolean
-  can_view_invoices: boolean
+function foldOwnerRole(role: OrgRole | 'owner' | null): OrgRole | null {
+  return role === 'owner' ? 'admin' : role
 }
 
 interface OrganizationSettingsResponse {
-  organization_id: string
-  org_instructions: string | null
-  allowed_email_domains: string[] | null
-  default_chat_visibility: string | null
-  default_persona_visibility: string | null
-  admin_billing_perms?: AdminBillingPermsResponse | null
+  organizationId: string
+  orgInstructions: string | null
+  allowedEmailDomains: string[] | null
+  defaultChatVisibility: string | null
+  defaultPersonaVisibility: string | null
 }
 
 // ── Plan endpoint schema ──────────────────────────────────────────────────────
-// Mirrors services/organizations/schemas.py exactly (MemberResponse / PlanResponse).
+// Mirrors services/organizations/schemas.py's PlanResponse/MemberResponse — but
+// NOT their snake_case field names. Both models declare a `serialization_alias`
+// on every multi-word field (e.g. `user_id: str = Field(serialization_alias=
+// "userId")`), and FastAPI's `response_model_by_alias` defaults to `True`, so
+// the actual wire format for `members[]` is camelCase even though `PlanResponse`
+// itself has no aliases and stays snake_case at the top level (its own fields
+// were never given one). Verified against a live ZodError: `members[0].user_id`
+// came back `undefined` and `members[0].invite_status` failed its enum check —
+// both are actually named `userId`/`inviteStatus` on the wire. `plan_type` is
+// also genuinely nullable server-side (`str | None = None`), not just absent.
 // The response is validated at the boundary so the UI renders deterministically
 // from the endpoint's real shape — no guessed defaults, no fabricated fields.
 // Server-side every field is always present (Pydantic bakes the defaults in), so
 // the only `.default()`s here are the ones the backend itself declares.
 
 const memberResponseSchema = z.object({
-  user_id:          z.string(),
+  userId:           z.string(),
   name:             z.string().nullable().default(null),
   email:            z.string().nullable().default(null),
-  role:             z.enum(['owner', 'admin', 'member']),
-  credit_cap:       z.number().nullable().default(null),
-  credit_extra:     z.number().default(0),
-  credit_used:      z.number().default(0),
-  usage_total:      z.number().default(0),
-  invite_status:    z.enum(['active', 'pending']),
-  invite_id:        z.string().nullable().default(null),
-  team_id:          z.string().nullable().default(null),
-  team_name:        z.string().nullable().default(null),
-  is_pending_invite: z.boolean().default(false),
+  // 'owner' is a real value on the /members and plan-bundled-members responses
+  // (see the listMembers doc comment below) — it was missing here, which made
+  // any org with an owner-tier member throw a hard ZodError out of getOrgPlan.
+  role:             z.enum(['admin', 'member', 'service', 'owner']),
+  usageTotal:       z.number().nullable().transform(v => v ?? 0),
+  inviteStatus:     z.enum(['active', 'pending']),
+  inviteId:         z.string().nullable().default(null),
+  isPendingInvite:  z.boolean().default(false),
 })
 
 const planResponseSchema = z.object({
   organization_id:  z.string(),
-  plan_type:        z.string(),               // backend: str ("teams" | "enterprise")
+  plan_type:        z.string().nullable(),    // backend: str | None ("teams" | "enterprise" | null)
   billing_model:    z.string(),               // backend: str ("prepaid" | "postpaid")
   plan_credits:     z.number(),
   topup_credits:    z.number(),
@@ -93,8 +105,11 @@ const planResponseSchema = z.object({
   projected_invoice_usd:        z.number().default(0),
   input_tokens:     z.number().int().default(0),
   output_tokens:    z.number().int().default(0),
-  reasoning_tokens: z.number().int().default(0),
-  cached_tokens:    z.number().int().default(0),
+  // Backend's real field names (services/organizations/schemas.py PlanResponse)
+  // — the old reasoning_tokens/cached_tokens names here don't exist on the
+  // wire at all, so those stats always silently read 0 via zod's .default(0).
+  cache_read_tokens:  z.number().int().default(0),
+  cache_write_tokens: z.number().int().default(0),
   total_tokens:     z.number().int().default(0),
   usage_event_count: z.number().int().default(0),
 })
@@ -102,15 +117,16 @@ const planResponseSchema = z.object({
 type MemberResponse = z.infer<typeof memberResponseSchema>
 type PlanResponse = z.infer<typeof planResponseSchema>
 
-interface TeamBurnResponse {
-  team_id: string
-  team_name: string
+interface MemberBurnResponse {
+  user_id: string
+  name: string | null
+  email: string | null
   credits_used: number
 }
 
 interface PlanUsageResponse {
   organization_id: string
-  by_team: TeamBurnResponse[]
+  by_member: MemberBurnResponse[]
 }
 
 interface AuditEntryResponse {
@@ -129,18 +145,12 @@ interface AuditEntryResponse {
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
-  const p = s.admin_billing_perms
   return {
-    organizationId:           s.organization_id,
-    orgInstructions:          s.org_instructions,
-    allowedEmailDomains:      s.allowed_email_domains,
-    defaultChatVisibility:    s.default_chat_visibility,
-    defaultPersonaVisibility: s.default_persona_visibility,
-    adminBillingPerms: {
-      canTopUp:         p?.can_top_up         ?? true,
-      canManagePayment: p?.can_manage_payment  ?? true,
-      canViewInvoices:  p?.can_view_invoices   ?? true,
-    },
+    organizationId:           s.organizationId,
+    orgInstructions:          s.orgInstructions,
+    allowedEmailDomains:      s.allowedEmailDomains,
+    defaultChatVisibility:    s.defaultChatVisibility,
+    defaultPersonaVisibility: s.defaultPersonaVisibility,
   }
 }
 
@@ -148,31 +158,27 @@ const toDisplayCredits = (value: number | null | undefined): number =>
   Math.round((value ?? 0) * 1000)
 
 function normalizeMember(m: MemberResponse): OrgMember {
-  const role = (m.role === 'owner' || m.role === 'admin')
-    ? 'admin'
-    : m.invite_status === 'pending' && m.team_id
-      ? 'editor'
-      : 'member'
-  const inviteStatus = m.invite_status === 'pending' ? 'invite_sent' : 'signed_up'
+  // Backend's MemberResponse no longer carries team_id/credit_cap/credit_used
+  // (Team and per-member caps are gone) — 'editor' and a real allocation/cap
+  // were only ever reachable through those fields, so they're hardcoded to
+  // their empty state below rather than parsed from data that doesn't exist.
+  // Owner folds into 'admin' for the UI role control — same fold the backend
+  // applies to the viewer's own role (services/organizations/roles.py), just
+  // not (yet) applied to other members' raw role on this list.
+  const role = (m.role === 'admin' || m.role === 'owner') ? 'admin' : 'member'
+  const inviteStatus = m.inviteStatus === 'pending' ? 'invite_sent' : 'signed_up'
   return {
-    id:              m.user_id,
+    id:              m.userId,
     name:            m.name ?? '',
     email:           m.email ?? '',
     role,
     orgRole:         m.role,
     inviteStatus,
-    teamMemberships: m.team_id ? [{
-      teamId:      m.team_id,
-      teamName:    m.team_name ?? 'Team',
-      isTeamOwner: false,
-    }] : [],
+    teamMemberships: [],
     creditUsed:      inviteStatus === 'invite_sent'
       ? 0
-      : toDisplayCredits(m.usage_total),
-    allocationUsed:  inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
-    creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
-    inviteId:        m.invite_id ?? null,
-    inviteTeamId:    m.team_id   ?? null,
+      : toDisplayCredits(m.usageTotal),
+    inviteId:        m.inviteId ?? null,
   }
 }
 
@@ -184,6 +190,11 @@ function normalizePlan(p: PlanResponse): OrgPlan {
   return {
     organizationId: p.organization_id,
     planType:       p.plan_type === 'enterprise' ? 'enterprise' : 'teams',
+    // Unlike planType above (which always falls back to 'teams'), this
+    // preserves the real null — true only when the backend actually returned
+    // a plan_type at all (a real subscription/contract), not the founder
+    // org-create credit grant alone. See the field's own doc comment.
+    hasSelectedPlan: p.plan_type != null,
     billingModel:   isPostpaid ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),
@@ -203,8 +214,8 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     projectedInvoiceUsd: p.projected_invoice_usd,
     inputTokens: p.input_tokens,
     outputTokens: p.output_tokens,
-    reasoningTokens: p.reasoning_tokens,
-    cachedTokens: p.cached_tokens,
+    cacheReadTokens: p.cache_read_tokens,
+    cacheWriteTokens: p.cache_write_tokens,
     totalTokens: p.total_tokens,
     usageEventCount: p.usage_event_count,
   }
@@ -213,10 +224,11 @@ function normalizePlan(p: PlanResponse): OrgPlan {
 function normalizePlanUsage(u: PlanUsageResponse): OrgPlanUsage {
   return {
     organizationId: u.organization_id,
-    byTeam: u.by_team.map(t => ({
-      teamId:      t.team_id,
-      teamName:    t.team_name,
-      creditsUsed: toDisplayCredits(t.credits_used),
+    byMember: u.by_member.map(m => ({
+      userId:      m.user_id,
+      name:        m.name,
+      email:       m.email,
+      creditsUsed: toDisplayCredits(m.credits_used),
     })),
   }
 }
@@ -240,7 +252,7 @@ function normalizeAuditEntry(e: AuditEntryResponse): AuditLogEntry {
 
 /**
  * Create a new organization (team workspace). The backend makes the calling
- * user the owner and stamps `org_id` on their profile, which unlocks the
+ * user an admin and stamps `org_id` on their profile, which unlocks the
  * Organization settings (members / teams / plans). Used by team onboarding.
  */
 export async function createOrganization(params: {
@@ -257,7 +269,7 @@ export async function createOrganization(params: {
     method: 'POST',
     body:   JSON.stringify(body),
   })
-  return { id: data.id, name: data.name, slug: data.slug, role: data.my_role ?? 'admin' }
+  return { id: data.id, name: data.name, slug: data.slug, role: foldOwnerRole(data.myRole) ?? 'admin' }
 }
 
 /**
@@ -271,22 +283,20 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
     id:   o.id,
     name: o.name,
     slug: o.slug,
-    role: o.my_role ?? 'member',
+    role: foldOwnerRole(o.myRole) ?? 'member',
   }))
 }
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise'; ownerEmail: string | null; ownerUserId: string | null }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise' | null }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
   return {
     id:          data.id,
     name:        data.name,
     slug:        data.slug,
     description: data.description,
-    logoUrl:     data.logo_url,
-    role:        data.my_role,
-    planType:    data.plan_type === 'enterprise' ? 'enterprise' : 'teams',
-    ownerEmail:  data.owner_email ?? null,
-    ownerUserId: data.owner_user_id ?? null,
+    logoUrl:     data.logoUrl,
+    role:        foldOwnerRole(data.myRole),
+    planType:    data.planType === 'enterprise' ? 'enterprise' : data.planType === 'teams' ? 'teams' : null,
   }
 }
 
@@ -305,21 +315,47 @@ export async function updateOrg(
     method: 'PATCH',
     body:   form,
   })
-  return { id: data.id, name: data.name, slug: data.slug, logoUrl: data.logo_url }
+  return { id: data.id, name: data.name, slug: data.slug, logoUrl: data.logoUrl }
 }
 
 export async function deleteOrg(orgId: string, confirmName: string): Promise<void> {
-  await apiFetch(ORG_ENDPOINT(orgId), {
+  const res = await apiFetch(ORG_ENDPOINT(orgId), {
     method: 'DELETE',
     body:   JSON.stringify({ confirmName }),
   })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'delete_org_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
-export async function transferOrgOwnership(orgId: string, newOwnerUserId: string): Promise<void> {
-  await apiFetch(ORG_TRANSFER_OWNER_ENDPOINT(orgId), {
+/**
+ * POST /organizations/{id}/leave — 204 No Content on success. `successorAdminUserId`
+ * is only read server-side when the caller is the last admin (organization.py);
+ * harmless to omit otherwise. Uses `apiFetch` directly (not `apiFetchJson`) since
+ * a 204 body would fail `.json()` parsing on the success path — the error path
+ * below mirrors apiFetchJson's own `detail` extraction so real backend messages
+ * ("Must promote a replacement admin", "The billing admin cannot leave — transfer
+ * billing first", "Successor must be another member of this organization")
+ * surface verbatim instead of a generic status-code string.
+ */
+export async function leaveOrganization(orgId: string, successorAdminUserId?: string): Promise<void> {
+  const res = await apiFetch(ORG_LEAVE_ENDPOINT(orgId), {
     method: 'POST',
-    body:   JSON.stringify({ newOwnerUserId }),
+    body:   JSON.stringify(successorAdminUserId ? { successorAdminUserId } : {}),
   })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'leave_org_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
@@ -334,11 +370,6 @@ export async function updateOrgSettings(
     allowedEmailDomains?:      string[] | null
     defaultChatVisibility?:    string | null
     defaultPersonaVisibility?: string | null
-    adminBillingPerms?: {
-      canTopUp?:         boolean
-      canManagePayment?: boolean
-      canViewInvoices?:  boolean
-    }
   },
 ): Promise<OrgSettings> {
   const data = await apiFetchJson<OrganizationSettingsResponse>(ORG_SETTINGS_ENDPOINT(orgId), {
@@ -367,8 +398,15 @@ export async function setOrgPoolCap(orgId: string, poolCapUsd: number): Promise<
  * render roles on the Members and Activity pages.
  */
 export async function listMembers(orgId: string): Promise<OrgMember[]> {
-  const data = await apiFetchJson<MemberResponse[]>(ORG_MEMBERS_ENDPOINT(orgId))
-  return (data ?? []).map(normalizeMember)
+  // Validate like getOrgPlan/setOrgPoolCap do — this was previously just cast via
+  // the generic (`apiFetchJson<MemberResponse[]>`) with no runtime check, so it
+  // silently read the pre-alias-fix field names (user_id, invite_status, ...)
+  // against a response that's actually camelCase (userId, inviteStatus, ...),
+  // producing members with undefined ids/emails and an always-wrong invite
+  // status instead of throwing — the same drift getOrgPlan's ZodError caught.
+  const raw = await apiFetchJson<unknown>(ORG_MEMBERS_ENDPOINT(orgId))
+  const data = z.array(memberResponseSchema).parse(raw)
+  return data.map(normalizeMember)
 }
 
 export async function getOrgPlanUsage(orgId: string): Promise<OrgPlanUsage> {
@@ -390,81 +428,35 @@ export async function listAudit(
 }
 
 export async function setMemberRole(orgId: string, memberId: string, role: OrgRole): Promise<void> {
-  await apiFetch(ORG_MEMBER_ROLE_ENDPOINT(orgId, memberId), {
+  const res = await apiFetch(ORG_MEMBER_ROLE_ENDPOINT(orgId, memberId), {
     method: 'PATCH',
     body:   JSON.stringify({ role }),
   })
-}
-
-export async function setMemberCap(orgId: string, memberId: string, cap: number | null): Promise<void> {
-  await apiFetch(ORG_MEMBER_CAP_ENDPOINT(orgId, memberId), {
-    method: 'PATCH',
-    body:   JSON.stringify({ creditCap: cap }),
-  })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'set_member_role_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 export async function removeMember(orgId: string, memberId: string): Promise<void> {
-  await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+  const res = await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+  if (!res.ok) {
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'remove_member_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
-export async function revokeTeamInvite(orgId: string, teamId: string, inviteId: string): Promise<void> {
-  const res = await apiFetch(ORG_TEAM_INVITE_ENDPOINT(orgId, teamId, inviteId), { method: 'DELETE' })
+export async function revokeInvite(orgId: string, inviteId: string): Promise<void> {
+  const res = await apiFetch(ORG_INVITE_ENDPOINT(orgId, inviteId), { method: 'DELETE' })
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to revoke invite: ${res.status}`)
   }
-}
-
-// ── Overflow ──────────────────────────────────────────────────────────────────
-
-export interface OverflowResponse {
-  id: string
-  teamId: string
-  requestedByUserId: string
-  requestedByName: string | null
-  requestedByEmail: string | null
-  amount: number
-  note: string | null
-  status: 'open' | 'resolved'
-  createdAt: string
-}
-
-interface OverflowResponseRaw {
-  id: string
-  team_id: string
-  requested_by_user_id: string
-  requested_by_name: string | null
-  requested_by_email: string | null
-  amount: number
-  note: string | null
-  status: 'open' | 'resolved'
-  created_at: string
-}
-
-function normalizeOverflow(r: OverflowResponseRaw): OverflowResponse {
-  return {
-    id:                  r.id,
-    teamId:              r.team_id,
-    requestedByUserId:   r.requested_by_user_id,
-    requestedByName:     r.requested_by_name,
-    requestedByEmail:    r.requested_by_email,
-    amount:              r.amount,
-    note:                r.note,
-    status:              r.status,
-    createdAt:           r.created_at,
-  }
-}
-
-/** POST /organizations/{id}/overflow/{requestId}/approve */
-export async function approveOverflow(
-  orgId: string,
-  requestId: string,
-  amount?: number,
-): Promise<OverflowResponse> {
-  const body: Record<string, unknown> = {}
-  if (amount !== undefined) body.amount = amount
-  const data = await apiFetchJson<OverflowResponseRaw>(
-    ORG_OVERFLOW_APPROVE_ENDPOINT(orgId, requestId),
-    { method: 'POST', body: JSON.stringify(body) },
-  )
-  return normalizeOverflow(data)
 }

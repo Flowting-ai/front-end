@@ -147,6 +147,14 @@ interface PersonaConfigureContextValue {
   // clear on that tab's explicit save, not on tab-switch autosave.
   touchedFieldsByTab: Record<ConfigureTabKey, Set<string>>
 
+  // Which of the 5 tabs have been visited this "editing session" — auto-set
+  // by the provider whenever the pathname lands on a tab, cleared entirely
+  // on publish so a fresh round of edits starts from a blank slate. Purely
+  // "have I looked at this tab" — unrelated to tabDirtyFlags (which tracks
+  // unsaved changes) or touchedFieldsByTab (which tracks specific edited
+  // fields for the track-changes rail).
+  visitedTabs: Record<ConfigureTabKey, boolean>
+
   // Toggles
   toggleTestChat: () => void
   toggleAiSuggest: () => void
@@ -225,6 +233,28 @@ function getTabName(path: string): string {
   if (path.includes('/connectors'))   return 'Connectors'
   if (path.includes('/sharing'))      return 'Sharing'
   return 'Agent'
+}
+
+function getTabKey(path: string): ConfigureTabKey | null {
+  if (path.includes('/instructions')) return 'instructions'
+  if (path.includes('/profile'))      return 'profile'
+  if (path.includes('/knowledge'))    return 'knowledge'
+  if (path.includes('/connectors'))   return 'connectors'
+  if (path.includes('/sharing'))      return 'sharing'
+  return null
+}
+
+// sessionStorage key for visitedTabs — local to this file (only ever read/
+// written here), per storage-keys.ts's own guidance to keep single-file keys
+// out of that shared registry.
+const visitedTabsKey = (repoId: string) => `persona_visited_tabs_${repoId || 'new'}`
+
+const EMPTY_VISITED_TABS: Record<ConfigureTabKey, boolean> = {
+  instructions: false,
+  profile:      false,
+  knowledge:    false,
+  connectors:   false,
+  sharing:      false,
 }
 
 // ── Provider (inner — uses hooks that need Suspense) ─────────────────────────
@@ -374,13 +404,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     onPublishAndLeaveRef.current?.()
   }, [])
 
+  // Temporarily disabled — hide the agent navigation lock for now (same as
+  // the app-wide nav guard below). Leave the wiring in place (leaveConfirmHref/
+  // setLeaveConfirmHref, the dialog in layout.tsx, needsRepublish) so it's a
+  // one-line revert: restore the "prompt to save a version" branch here and
+  // the `if (needsRepublishRef.current)` check in safeBack.
   const safeNavigate = useCallback((href: string) => {
-    const isLeavingConfigure = !href.includes('/agent/configure/')
-    // Prompt to save a version when leaving configure with unsaved changes
-    if (isLeavingConfigure && pendingChangeTagsRef.current.length > 0) {
-      setLeaveConfirmHref(href)
-      return
-    }
     const save = autoSaveRef.current
     if (save) {
       save().catch(() => {}).finally(() => push(href))
@@ -390,7 +419,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [push])
 
   const safeBack = useCallback(() => {
-    if (needsRepublishRef.current) { setLeaveConfirmHref('__back__'); return }
     const save = autoSaveRef.current
     if (save) {
       save().catch(() => {}).finally(() => back())
@@ -417,6 +445,34 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     connectors:   new Set(),
     sharing:      new Set(),
   })
+  // Which tabs have been visited this session — auto-derived from the route,
+  // not something each page has to call in explicitly. Persisted to
+  // sessionStorage (keyed by repo) so it survives a page reload instead of
+  // just living in memory; cleared — both the state and the storage entry —
+  // on publish (see markPublished below).
+  const [visitedTabs, setVisitedTabs] = useState<Record<ConfigureTabKey, boolean>>(() => {
+    if (typeof window === 'undefined') return EMPTY_VISITED_TABS
+    try {
+      const raw = sessionStorage.getItem(visitedTabsKey(personaInfo.repoId))
+      const parsed = raw ? JSON.parse(raw) as Partial<Record<ConfigureTabKey, boolean>> : null
+      return parsed ? { ...EMPTY_VISITED_TABS, ...parsed } : EMPTY_VISITED_TABS
+    } catch {
+      return EMPTY_VISITED_TABS
+    }
+  })
+  useEffect(() => {
+    const key = getTabKey(pathname)
+    if (!key) return
+    setVisitedTabs(prev => (prev[key] ? prev : { ...prev, [key]: true }))
+  }, [pathname])
+  // Mirror every change to sessionStorage — separate effect (not folded into
+  // the one above) so it also fires for markPublished's reset, not just
+  // route-driven visits.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaInfo.repoId) return
+    try { sessionStorage.setItem(visitedTabsKey(personaInfo.repoId), JSON.stringify(visitedTabs)) } catch { /* quota */ }
+  }, [visitedTabs, personaInfo.repoId])
+
   const anyPanelOpen = testChatOpen || aiSuggestOpen || versionsOpen
 
   const markFieldTouched = useCallback((tab: ConfigureTabKey, field: string) => {
@@ -810,6 +866,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setPublishedVersionId(versionId)
     setPanelsUnlocked(true)
     bustPersonasCache()
+    // Fresh editing session starts from a blank slate of visited-tab dots —
+    // the sessionStorage entry gets overwritten to match by the persist
+    // effect above, since it reacts to this same state change.
+    setVisitedTabs(EMPTY_VISITED_TABS)
   }, [])
 
   const [restoringId,       setRestoringId]       = useState<string | null>(null)
@@ -857,9 +917,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   // instead of silently discarding an unpublished version. Cleared on
   // unmount so leaving the configure route entirely doesn't leave the rest
   // of the app permanently guarded.
+  //
+  // Temporarily disabled — hide the agent navigation lock for now. Leave the
+  // wiring in place (just never mark dirty) so it's a one-line revert.
   const { setIsDirty: setGlobalDirty } = useNavGuard()
   useEffect(() => {
-    setGlobalDirty(pendingChangeTags.length > 0 || Object.values(tabDirtyFlags).some(Boolean))
+    setGlobalDirty(false)
   }, [pendingChangeTags, tabDirtyFlags, setGlobalDirty])
   useEffect(() => () => setGlobalDirty(false), [setGlobalDirty])
 
@@ -1006,6 +1069,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     panelsLocked,
     changesTrackerOpen,
     touchedFieldsByTab,
+    visitedTabs,
 
     toggleTestChat,
     toggleAiSuggest,

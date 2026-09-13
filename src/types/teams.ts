@@ -1,5 +1,12 @@
-export type WorkspaceRole = 'admin' | 'editor' | 'member'
-export type OrgRole = 'owner' | 'admin' | 'member'
+export type WorkspaceRole = 'admin' | 'member'
+/** The current viewer's own org-wide standing — never 'service' (a machine
+ *  principal can't be the one loading this UI). */
+export type OrgRole = 'admin' | 'member'
+/** Raw per-member role as the backend can report it on any OTHER member row —
+ *  includes 'owner' (the org's creator; folds into 'admin' for UI purposes,
+ *  same as the viewer-role fold in org-context.tsx) and 'service' (e.g. a
+ *  Slack bot member that never signed up). */
+export type MemberOrgRole = 'admin' | 'member' | 'service' | 'owner'
 export type InviteStatus = 'not_invited' | 'invite_sent' | 'signed_up'
 export type TokenStatus = 'normal' | 'warning_80' | 'warning_95' | 'grace' | 'locked'
 export type ConnectorAuthority = 'workspace_only' | 'member_required' | 'both_possible'
@@ -32,23 +39,17 @@ export interface OrgMember {
   name: string
   email: string
   avatarUrl?: string
-  /** UI role used by the editable role control: owner+admin collapse to 'admin'. */
+  /** UI role used by the editable role control. */
   role: WorkspaceRole
-  /** Raw backend role ('owner' | 'admin' | 'member') — use for display so the
-   *  workspace owner shows as "Owner" rather than "Admin". */
-  orgRole: OrgRole
+  /** Raw backend role for this member row ('admin' | 'member' | 'service'). */
+  orgRole: MemberOrgRole
   inviteStatus: InviteStatus
   teamMemberships: TeamMembership[]
   /** Total product usage for this member during the current org billing period. */
   creditUsed: number
-  /** Portion of usage consumed from this member's assigned workspace allocation. */
-  allocationUsed: number
-  creditCap?: number
   joinedAt?: string
   /** Backend invite ID for pending members — used to call the revoke endpoint. */
   inviteId?: string | null
-  /** Team ID associated with the pending invite, needed for the revoke endpoint. */
-  inviteTeamId?: string | null
 }
 
 export interface TeamMembership {
@@ -57,7 +58,13 @@ export interface TeamMembership {
   isTeamOwner: boolean
 }
 
-/** Matches the API TeamResponse — fields come directly from the backend. */
+/**
+ * Matches the API TeamResponse — fields come directly from the backend.
+ * `org-context.tsx`'s `teams` can never be non-empty any more (the Team
+ * table is dropped), so every consumer of this type is provably dead code
+ * still to be cleaned up — tracked as A5 in backend-alignment-execution-map.md,
+ * not touched here.
+ */
 export interface Team {
   id: string
   organizationId: string
@@ -72,19 +79,10 @@ export interface Team {
   updatedAt: string
 }
 
-/** A person reference returned by editor/member list endpoints (PersonResponse). */
-export interface TeamEditor {
-  userId: string
-  name: string | null
-  email: string | null
-  /** Admin-grantable: editor may link/share connector accounts to the team. */
-  canLinkAccounts: boolean
-}
-
-/** Returned after creating a team invite. */
-export interface TeamInvite {
+/** Returned after creating an org-level invite. */
+export interface Invite {
   id: string
-  teamId: string
+  organizationId: string
   recipientEmails: string[]
   expiresAt: string
   inviteUrl: string
@@ -92,8 +90,10 @@ export interface TeamInvite {
 
 // ── Team-invite onboarding ─────────────────────────────────────────────────────
 // The rich payload the backend returns for an invitee landing in the dedicated
-// team-invite onboarding flow (distinct from the individual onboarding). It
-// describes the org / team / projects and the people the invitee is joining.
+// team-invite onboarding flow (distinct from the individual onboarding). Despite
+// the name (kept for route/flow continuity — `onboarding/team/[inviteId]/*`),
+// there is no Team entity any more: this describes the organization/projects and
+// the people the invitee is joining, straight off the real `InvitePreview` shape.
 
 /** A person reference inside the invite onboarding payload. */
 export interface InvitedMember {
@@ -105,8 +105,6 @@ export interface InvitedMember {
   /** Avatar URL; null when the member has no image. */
   image: string | null
   role: OrgRole
-  /** Per-member monthly credit cap; 0 means uncapped / not set. */
-  creditCap: number
 }
 
 /** A project the invitee will (or may) be a member of. */
@@ -121,11 +119,7 @@ export interface InvitedProject {
 /** Full context for the team-invite onboarding flow. */
 export interface TeamInviteOnboarding {
   inviteId: string
-  // ── Team being joined ─────────────────────────────────────────────────────
-  teamId: string
-  teamName: string
-  teamDescription: string
-  // ── Parent organization ───────────────────────────────────────────────────
+  // ── Organization being joined ─────────────────────────────────────────────
   organizationId: string
   organizationName: string
   organizationDescription: string
@@ -136,21 +130,10 @@ export interface TeamInviteOnboarding {
   invitedByImage: string | null
   // ── What the invite grants ────────────────────────────────────────────────
   role: OrgRole
-  grantTeamEditor: boolean
-  grantTeamViewer: boolean
-  /**
-   * Monthly credit cap applied to the invitee, in display credits.
-   * `null` means no cap was set for this invite (don't surface it at all);
-   * a number is the assigned cap.
-   */
-  creditCap: number | null
   // ── Default project the invite points at (optional) ───────────────────────
   projectId: string | null
   projectName: string | null
-  // ── Team roster ───────────────────────────────────────────────────────────
-  memberCount: number
-  members: InvitedMember[]
-  // ── Team projects ─────────────────────────────────────────────────────────
+  // ── Org's projects (a capped preview; projectCount is the true total) ────
   projectCount: number
   projects: InvitedProject[]
   // ── Organization roster ───────────────────────────────────────────────────
@@ -199,34 +182,38 @@ export interface ActivityEntry {
   detail: string
 }
 
-export interface AdminBillingPerms {
-  /** Admin can see and click "Buy more Credits". */
-  canTopUp: boolean
-  /** Admin can see the Payment section (card details + Stripe portal). */
-  canManagePayment: boolean
-  /** Admin can see Invoice history. */
-  canViewInvoices: boolean
-}
-
 export interface OrgSettings {
   organizationId: string
   orgInstructions: string | null
   allowedEmailDomains: string[] | null
   defaultChatVisibility: string | null
   defaultPersonaVisibility: string | null
-  /** What billing sections admins are permitted to see. Defaults to all-on. */
-  adminBillingPerms: AdminBillingPerms
 }
 
-export interface TeamBurn {
-  teamId: string
-  teamName: string
+export interface MemberBurn {
+  userId: string
+  name: string | null
+  email: string | null
   creditsUsed: number
 }
 
 export interface OrgPlan {
   organizationId: string
   planType: 'teams' | 'enterprise'
+  /**
+   * True only when the org has an actually-selected/subscribed plan (a real
+   * Teams subscription or a signed Enterprise contract) — distinct from
+   * merely having a starting credit balance. The backend's `plan_type` stays
+   * null until a real subscription exists (services/organizations/service.py
+   * get_plan()); the one-time $25 founder-org-create credit grant funds the
+   * pool but is NOT a plan selection, so this is false right after workspace
+   * onboarding even though `totalCredits`/`remaining` are already > 0.
+   * `planType` above can't be used for this distinction — it's normalized to
+   * always fall back to 'teams' when the backend sends null (kept as-is;
+   * many existing consumers depend on that binary 'teams'|'enterprise'
+   * shape), so this is a separate, additive field just for this purpose.
+   */
+  hasSelectedPlan: boolean
   billingModel: 'prepaid' | 'postpaid'
   planCredits: number
   topupCredits: number
@@ -244,15 +231,15 @@ export interface OrgPlan {
   projectedInvoiceUsd: number
   inputTokens: number
   outputTokens: number
-  reasoningTokens: number
-  cachedTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
   totalTokens: number
   usageEventCount: number
 }
 
 export interface OrgPlanUsage {
   organizationId: string
-  byTeam: TeamBurn[]
+  byMember: MemberBurn[]
 }
 
 export interface AuditLogEntry {

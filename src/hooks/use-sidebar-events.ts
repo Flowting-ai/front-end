@@ -15,6 +15,16 @@ export const BRAIN_NEW_THREAD_EVENT = "brain:new-thread";
 export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
 export const BRAIN_THREAD_DELETED_EVENT = "brain:thread-deleted";
 export const CHAT_CREATED_EVENT = "chat:created";
+// Fired by the sidebar's per-project "New chat" quick-add button while a
+// project chat that was created via the new→real-id URL swap (see the
+// window.history.replaceState + __NA comment in project/[id]/chat/[chatId]/
+// page.tsx) is already active. Next's router is left believing it never left
+// `/project/[id]/chat/new` (that swap deliberately skips the usePathname()/
+// params resync to avoid an interrupting mid-stream remount), so pushing that
+// exact same URL again is a no-op — the page never resets. The project chat
+// page listens for this and forces a real remount via a key change instead,
+// same reasoning as chat/page.tsx's own newChatEpoch.
+export const PROJECT_NEW_CHAT_EVENT = "project:new-chat";
 // Fired by the shared LeftSidebar's "See all agents" row while already on
 // /agents — a plain push() to the same URL won't reset tab state on an
 // already-mounted page (same reasoning as BRAIN_NEW_THREAD_EVENT above), so
@@ -43,6 +53,10 @@ export interface ChatCreatedEventDetail {
   updated_at: string;
   starred: boolean;
   can_edit: boolean;
+}
+
+export interface ProjectNewChatEventDetail {
+  projectId: string;
 }
 
 export function emitSidebarOpen() {
@@ -108,6 +122,12 @@ export function emitBrainThreadTitleUpdated(detail: BrainThreadEventDetail) {
 export function emitBrainThreadDeleted(detail: BrainThreadDeletedEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(BRAIN_THREAD_DELETED_EVENT, { detail }));
+  }
+}
+
+export function emitProjectNewChat(detail: ProjectNewChatEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PROJECT_NEW_CHAT_EVENT, { detail }));
   }
 }
 

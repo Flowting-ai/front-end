@@ -37,6 +37,11 @@ const FILTER_LABEL: Record<AgentFilter, string> = {
   superlink: 'Superlink Agents',
 }
 
+// "Team Agents" hidden from the selectable dropdown along with the rest of
+// the shared-agent UI — `AgentFilter`/`FILTER_LABEL.team`/byFilter's 'team'
+// branch below stay intact so this can be re-shown without rebuilding it.
+const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']
+
 // Loading placeholder shaped like a PersonaCard row (65px avatar, name/handle,
 // two description lines, a badge pill) so the list doesn't jump when real
 // cards swap in. Uses the shared .kaya-skeleton pulse utility (globals.css).
@@ -76,7 +81,7 @@ function PersonaCardSkeleton() {
 /** Quick-add-an-agent-to-this-chat panel — same list this app already shows
  *  in the chat input's "Add agent" submenu (useSelectableChatPersonas), just
  *  surfaced as a full Pinboard-style side panel instead of a dropdown. */
-export function AgentsPanelContent() {
+export function AgentsPanelContent({ inProject = false }: { inProject?: boolean } = {}) {
   const [search, setSearch] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [filter, setFilter] = useState<AgentFilter>('mine')
@@ -90,11 +95,10 @@ export function AgentsPanelContent() {
     setSearch('')
   }
 
-  // Active-link Super Link ids, keyed by the persona VERSION they were shared
-  // from — mirrors agents/page.tsx's activeShareRepoIds, but matched directly
-  // against each persona's current activeVersionId instead of resolving back
-  // to a repo id, since that's all we have available in this simpler flow.
-  const [activeSuperlinkVersionIds, setActiveSuperlinkVersionIds] = useState<Set<string>>(new Set())
+  // Active-link Super Link ids, keyed by persona repo id — shares are
+  // repo-scoped (a later publish moves an existing link with it), same as
+  // agents/page.tsx's activeShareRepoIds.
+  const [activeSuperlinkRepoIds, setActiveSuperlinkRepoIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -103,21 +107,20 @@ export function AgentsPanelContent() {
         if (cancelled) return
         const ids = shares
           .filter(share => share.is_active && share.share_type === 'link')
-          .map(share => share.persona_id)
-        setActiveSuperlinkVersionIds(new Set(ids))
+          .map(share => share.persona_repo_id)
+        setActiveSuperlinkRepoIds(new Set(ids))
       })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
-  const isSuperlink = (p: SelectedPersonaInfo) =>
-    !!p.activeVersionId && activeSuperlinkVersionIds.has(p.activeVersionId)
+  const isSuperlink = (p: SelectedPersonaInfo) => activeSuperlinkRepoIds.has(p.id)
 
   const byFilter = useMemo(() => {
     if (filter === 'team') return personas.filter(p => p.visibility === 'team')
     if (filter === 'superlink') return personas.filter(isSuperlink)
     return personas.filter(p => p.ownedByViewer)
-  }, [personas, filter, activeSuperlinkVersionIds])
+  }, [personas, filter, activeSuperlinkRepoIds])
 
   const filtered = search.trim()
     ? byFilter.filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -195,9 +198,9 @@ export function AgentsPanelContent() {
                   </Button>
                 }
               >
-                <Dropdown size="md">
+                <Dropdown size="md" maxHeight={false}>
                   <Dropdown.Section fluid>
-                    {(Object.keys(FILTER_LABEL) as AgentFilter[]).map(f => (
+                    {VISIBLE_FILTERS.map(f => (
                       <Dropdown.Item
                         key={f}
                         label={FILTER_LABEL[f]}
@@ -305,11 +308,20 @@ export function AgentsPanelContent() {
                   variant="default"
                   name={p.name}
                   handle={p.handle}
+                  description={p.description}
+                  tags={p.tags}
+                  paused={p.paused}
+                  // Super Link only — `p.shared` also folds in team-visibility
+                  // sharing, which is hidden from the UI here (isSuperlink(p) is
+                  // already computed independently below for the superlink prop).
+                  shared={isSuperlink(p)}
                   avatarUrl={p.imageUrl ?? undefined}
                   avatarSeed={p.id}
-                  visibility={p.visibility}
+                  // "Team" badge hidden along with the rest of the shared-agent UI.
+                  visibility="private"
                   superlink={isSuperlink(p)}
                   onUseInChat={() => handleSelect(p)}
+                  useInChatLabel={inProject ? 'Use in project chat' : undefined}
                   style={{ width: '100%' }}
                 />
               ))

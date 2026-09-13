@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
 import {
   CHAT_SHARES_ENDPOINT,
   CHAT_SHARES_SHARED_WITH_ME_ENDPOINT,
@@ -10,34 +10,34 @@ import {
 import { trackBrowserEvent } from '@/lib/analytics/events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-export type ChatShareMode = 'read_only' | 'editable'
+// Standalone chat sharing is person-to-person only now — no project/team
+// target, no editable/read-only mode. Both were dropped from the backend in
+// migration c8d1e4f7a2b5 (ChatShare.mode column removed, target_project_id
+// removed; in-project chats use POST /chats/{id}/share instead, which
+// inherits the whole project as its audience). Per spec, every share is
+// uniformly "view read-only, then optionally fork your own copy" — there's
+// no longer a distinguishing mode to gate that on.
 
 export interface ChatShare {
-  id:            string
-  chatId:        string
-  mode:          ChatShareMode
-  sharedByUserId: string
-  sharedByName:  string | null
-  targetUserId:  string | null
-  targetUserName: string | null
+  id:              string
+  chatId:          string
+  sharedByUserId:  string
+  sharedByName:    string | null
+  sharedByEmail:   string | null
+  targetUserId:    string
+  targetUserName:  string | null
   targetUserEmail: string | null
-  targetTeamId:  string | null
-  targetProjectId: string | null
-  createdAt:     string
+  createdAt:       string
 }
 
 export interface SharedChatItem {
-  shareId:         string
-  chatId:          string
-  chatTitle:       string
-  mode:            ChatShareMode
-  sharedByName:    string | null
-  sharedByUserId:  string | null
-  targetTeamId:    string | null
-  targetProjectId: string | null
-  forkedChatId:    string | null
-  createdAt:       string
+  shareId:        string
+  chatId:         string
+  chatTitle:      string
+  sharedByName:   string | null
+  sharedByUserId: string
+  forkedChatId:   string | null
+  createdAt:      string
 }
 
 // ── Backend shapes ─────────────────────────────────────────────────────────────
@@ -45,27 +45,22 @@ export interface SharedChatItem {
 interface ChatShareResponse {
   id:                 string
   chat_id:            string
-  mode:               ChatShareMode
   shared_by_user_id:  string
   shared_by_name:     string | null
-  target_user_id:     string | null
+  shared_by_email:    string | null
+  target_user_id:     string
   target_user_name:   string | null
   target_user_email:  string | null
-  target_team_id:     string | null
-  target_project_id:  string | null
   created_at:         string
 }
 
 interface SharedChatItemResponse {
-  share_id:         string
-  chat_id:          string
-  chat_title:       string
-  mode:             ChatShareMode
-  shared_by:        { user_id?: string | null; name?: string | null } | null
-  target_team_id:   string | null
-  target_project_id: string | null
-  forked_chat_id:   string | null
-  created_at:       string
+  share_id:       string
+  chat_id:        string
+  chat_title:     string
+  shared_by:      { user_id: string; name: string | null; email: string | null }
+  forked_chat_id: string | null
+  created_at:     string
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
@@ -74,55 +69,40 @@ function normalizeShare(r: ChatShareResponse): ChatShare {
   return {
     id:              r.id,
     chatId:          r.chat_id,
-    mode:            r.mode,
     sharedByUserId:  r.shared_by_user_id,
     sharedByName:    r.shared_by_name ?? null,
-    targetUserId:    r.target_user_id ?? null,
+    sharedByEmail:   r.shared_by_email ?? null,
+    targetUserId:    r.target_user_id,
     targetUserName:  r.target_user_name ?? null,
     targetUserEmail: r.target_user_email ?? null,
-    targetTeamId:    r.target_team_id ?? null,
-    targetProjectId: r.target_project_id ?? null,
     createdAt:       r.created_at,
   }
 }
 
 function normalizeSharedItem(r: SharedChatItemResponse): SharedChatItem {
   return {
-    shareId:         r.share_id,
-    chatId:          r.chat_id,
-    chatTitle:       r.chat_title,
-    mode:            r.mode,
-    sharedByName:    r.shared_by?.name ?? null,
-    sharedByUserId:  r.shared_by?.user_id ?? null,
-    targetTeamId:    r.target_team_id ?? null,
-    targetProjectId: r.target_project_id ?? null,
-    forkedChatId:    r.forked_chat_id ?? null,
-    createdAt:       r.created_at,
+    shareId:        r.share_id,
+    chatId:         r.chat_id,
+    chatTitle:      r.chat_title,
+    sharedByName:   r.shared_by.name ?? null,
+    sharedByUserId: r.shared_by.user_id,
+    forkedChatId:   r.forked_chat_id ?? null,
+    createdAt:      r.created_at,
   }
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
-/** POST /chat-shares */
+/** POST /chat-shares — person-to-person only; 400s if the chat is project-linked. */
 export async function createChatShare(params: {
   chatId: string
-  mode?: ChatShareMode
-  userId?: string
-  teamId?: string
-  projectId?: string
+  userId: string
 }): Promise<ChatShare> {
-  const body: Record<string, unknown> = { chatId: params.chatId }
-  if (params.mode)   body.mode   = params.mode
-  if (params.userId) body.userId = params.userId
-  if (params.teamId) body.teamId = params.teamId
-  if (params.projectId) body.projectId = params.projectId
   const data = await apiFetchJson<ChatShareResponse>(CHAT_SHARES_ENDPOINT, {
     method: 'POST',
-    body:   JSON.stringify(body),
+    body:   JSON.stringify({ chatId: params.chatId, userId: params.userId }),
   })
-  // Analytics: shared-context adoption (agent shares tracked separately as agent_shared).
-  const kind = params.projectId ? 'project' : params.teamId ? 'team' : params.userId ? 'user' : 'link'
-  trackBrowserEvent('share_created', { kind })
+  trackBrowserEvent('share_created', { kind: 'user' })
   return normalizeShare(data)
 }
 
@@ -149,10 +129,20 @@ export async function forkChatShare(shareId: string): Promise<{ chatId: string }
 
 /** DELETE /chat-shares/{shareId} */
 export async function deleteChatShare(shareId: string): Promise<void> {
-  await apiFetch(CHAT_SHARE_ENDPOINT(shareId), { method: 'DELETE' })
+  const res = await apiFetch(CHAT_SHARE_ENDPOINT(shareId), { method: 'DELETE' })
+  if (!res.ok) {
+    let detail = `Failed to revoke share (${res.status})`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'revoke_share_failed', friendlyApiError(detail, res.status), detail)
+  }
 }
 
 // ── Shared chat view (§19.4) ──────────────────────────────────────────────────
+// Viewing is always read-only-in-place; forking into your own editable copy
+// is always offered as a separate action — there's no mode to gate either on.
 
 export interface SharedChatMessage {
   id:        string
@@ -166,7 +156,6 @@ export interface SharedChatView {
   shareId:   string
   chatId:    string
   chatTitle: string
-  mode:      ChatShareMode
   messages:  SharedChatMessage[]
 }
 
@@ -174,7 +163,6 @@ interface SharedChatViewResponse {
   share_id:   string
   chat_id:    string
   chat_title: string
-  mode:       ChatShareMode
   messages:   {
     id:         string
     input:      string | null
@@ -192,7 +180,6 @@ export async function getSharedChatView(shareId: string): Promise<SharedChatView
     shareId:   data.share_id,
     chatId:    data.chat_id,
     chatTitle: data.chat_title,
-    mode:      data.mode,
     messages:  data.messages.map(m => ({
       id:        m.id,
       input:     m.input,
