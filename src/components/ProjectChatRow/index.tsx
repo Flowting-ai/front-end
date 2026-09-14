@@ -310,6 +310,10 @@ export function ProjectChatRow(
               open={menuOpen}
               onOpenChange={setMenuOpen}
               placement="bottom-end"
+              // Rows can sit anywhere in this scrollable chat list — a row
+              // near the bottom of the viewport would otherwise run the menu
+              // off-screen with a fixed placement.
+              autoFlipVertical
               trigger={
                 <IconButton
                   variant="ghost"

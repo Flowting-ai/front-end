@@ -437,6 +437,11 @@ export function PinboardExpanded(
                         open={openFolderMenuId === f.id}
                         onOpenChange={(open) => setOpenFolderMenuId(open ? f.id : null)}
                         placement="bottom-end"
+                        // Folders can sit anywhere in this scrollable list — a
+                        // folder near the bottom of the viewport would
+                        // otherwise run the menu off-screen with a fixed
+                        // placement.
+                        autoFlipVertical
                         trigger={
                           <IconButton
                             variant="ghost"
@@ -524,6 +529,11 @@ export function PinboardExpanded(
                         open={openFolderMenuId === f.id}
                         onOpenChange={(open) => setOpenFolderMenuId(open ? f.id : null)}
                         placement="bottom-end"
+                        // Folders can sit anywhere in this scrollable list — a
+                        // folder near the bottom of the viewport would
+                        // otherwise run the menu off-screen with a fixed
+                        // placement.
+                        autoFlipVertical
                         trigger={
                           <IconButton
                             variant="ghost"

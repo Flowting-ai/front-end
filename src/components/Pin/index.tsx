@@ -1004,6 +1004,10 @@ export function Pin({
                 open={menuOpen}
                 onOpenChange={setMenuOpen}
                 placement="bottom-end"
+                // Pins can sit anywhere in this scrollable pinboard — a pin
+                // near the bottom of the viewport would otherwise run the
+                // menu off-screen with a fixed placement.
+                autoFlipVertical
                 trigger={
                   <IconButton
                     variant="ghost"

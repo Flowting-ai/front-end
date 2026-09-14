@@ -228,15 +228,29 @@ export interface DropdownFloatProps {
  *  - Scroll/resize re-anchoring while open
  *  - Per-placement scale/opacity entry & exit (transform-origin = trigger edge)
  */
-// Vertical-flip counterpart per placement — only the 5 placements whose panel
-// extends downward from its anchor have one; horizontal-only anchors don't.
+// Vertical-flip counterpart per placement — bidirectional, so a caller can
+// pass either a bottom-* or top-* default and have it flip to whichever side
+// actually has room. Horizontal-only anchors (left/right without a start/end
+// vertical component) don't have one.
 const VERTICAL_FLIP: Partial<Record<DropdownPlacement, DropdownPlacement>> = {
   'right-start':   'right-end',
+  'right-end':     'right-start',
   'left-start':    'left-end',
+  'left-end':      'left-start',
   'bottom-start':  'top-start',
   'bottom-center': 'top-center',
   'bottom-end':    'top-end',
+  'top-start':     'bottom-start',
+  'top-center':    'bottom-center',
+  'top-end':       'bottom-end',
 }
+
+// Placements whose panel extends DOWNWARD from its anchor point (a "dropdown").
+// Everything else extends upward (a "dropup"). Drives which side of the
+// viewport `autoFlipVertical` checks for overflow.
+const OPENS_DOWNWARD = new Set<DropdownPlacement>([
+  'bottom-start', 'bottom-center', 'bottom-end', 'right-start', 'left-start',
+])
 
 export function DropdownFloat({
   trigger,
@@ -291,10 +305,14 @@ export function DropdownFloat({
     if (autoFlipVertical && flipped) {
       const panelHeight = panelRef.current?.offsetHeight ?? 0
       const vh = document.documentElement.clientHeight
-      const overflowsBelow = isSideways
-        ? rect.top + panelHeight + 8 > vh
-        : rect.bottom + offset + panelHeight + 8 > vh
-      if (panelHeight > 0 && overflowsBelow) effectivePlacement = flipped
+      const opensDownward = OPENS_DOWNWARD.has(placement)
+      // Downward-opening placements (dropdowns) overflow when they'd run past
+      // the viewport BOTTOM; upward-opening ones (dropups) overflow when
+      // they'd run past the viewport TOP. Same rect/height, opposite edge.
+      const overflows = opensDownward
+        ? (isSideways ? rect.top + panelHeight + 8 > vh : rect.bottom + offset + panelHeight + 8 > vh)
+        : (isSideways ? rect.bottom - panelHeight - 8 < 0 : rect.top - offset - panelHeight - 8 < 0)
+      if (panelHeight > 0 && overflows) effectivePlacement = flipped
     }
     setResolvedPlacement(effectivePlacement)
     setPosStyle(computeFloatStyle(rect, effectivePlacement, offset))
