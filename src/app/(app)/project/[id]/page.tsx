@@ -778,13 +778,8 @@ export default function ProjectPage() {
               modelName={modelButtonLabel}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
-              // This composer sits vertically centered on the page rather than
-              // pinned to the bottom of the viewport, so the model menu's
-              // default dropup (placement="top-end") has nowhere to open into
-              // and gets clipped by the top of the layout — open it downward
-              // here instead.
-              modelMenuPlacement="bottom-end"
               disabledModelSelector={!!selectedPersona}
+              textareaMaxHeight="220px"
               addMenu={
                 <ChatAddMenu
                   webSearchEnabled={webSearchEnabled}

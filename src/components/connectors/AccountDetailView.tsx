@@ -123,7 +123,7 @@ function GroupPermissionDropdown({ value, label, change, disabled }: { value?: P
     return <Tooltip content="Saving this permission…" side="top">{trigger}</Tooltip>
   }
   return (
-    <Dropdown.Float trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-end">
+    <Dropdown.Float trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-end" autoFlipVertical>
       <Dropdown size="sm" maxHeight={false}>
         <Dropdown.Section fluid>
           {(Object.keys(PERMISSION_LABELS) as PermissionMode[]).map(mode => (

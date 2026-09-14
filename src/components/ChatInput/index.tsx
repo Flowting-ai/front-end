@@ -1208,13 +1208,11 @@ export function ChatInput({
                 </Button>
               </span>
             ) : modelMenu != null ? (
-              // Inline Dropdown - opens above the trigger (top-start) since
-              // ChatInput typically lives at the bottom of its scroll
-              // container. Figma 3208:32989.
               <Dropdown.Float
                 open={modelMenuOpen}
                 onOpenChange={setModelMenuOpen}
-                placement="top-end"
+                placement="bottom-end"
+                autoFlipVertical
                 trigger={
                   <Button
                     variant="ghost"

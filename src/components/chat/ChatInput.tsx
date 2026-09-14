@@ -60,6 +60,12 @@ export interface ChatInputProps
    * dropup and need it opening downward instead.
    */
   modelMenuPlacement?: DropdownPlacement;
+  /**
+   * Caps how tall the auto-growing textarea gets before it scrolls instead
+   * of growing further. Defaults to 396px (18 lines at the 22px line-height
+   * both text sizes share).
+   */
+  textareaMaxHeight?: string;
   chips?: React.ReactNode;
   /**
    * Pin chips (@-mention pins and pin-folder selections) rendered in their
@@ -143,7 +149,8 @@ export function ChatInput(
     onModelClick,
     addMenu,
     modelMenu,
-    modelMenuPlacement = "top-end",
+    modelMenuPlacement = "bottom-end",
+    textareaMaxHeight = "396px",
     chips,
     pinChips,
     attachmentsSlot,
@@ -636,7 +643,7 @@ export function ChatInput(
             aria-multiline="true"
             style={{
               width: "100%",
-              maxHeight: "396px",
+              maxHeight: textareaMaxHeight,
               background: "transparent",
               border: "none",
               outline: "none",
@@ -796,6 +803,7 @@ export function ChatInput(
                 open={modelMenuOpen}
                 onOpenChange={setModelMenuOpen}
                 placement={modelMenuPlacement}
+                autoFlipVertical
                 trigger={
                   <Button
                     variant="ghost"

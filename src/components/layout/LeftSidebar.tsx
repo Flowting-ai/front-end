@@ -2064,6 +2064,10 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
         open={menuOpen}
         onOpenChange={setMenuOpen}
         placement="right-start"
+        // Same reasoning as FlatChatHistoryItem's identical dropdown above —
+        // these chat rows live inside an expandable, arbitrary-length project
+        // group and can end up anywhere in the sidebar.
+        autoFlipVertical
         trigger={<span aria-hidden style={{ position: "absolute", right: "8px", top: "50%", width: 1, height: 1, pointerEvents: "none" }} />}
       >
         <Dropdown maxHeight={false}>
