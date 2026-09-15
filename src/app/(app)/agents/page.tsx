@@ -38,6 +38,7 @@ import {
   SettingsTableCell,
 } from '@/components/SettingsTable'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
+import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo } from '@/lib/chat-personas'
 import { normalizeModels } from '@/lib/ai-models'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
@@ -48,7 +49,7 @@ import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
-import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import type { SuperLinkStatus } from '@/components/SuperLinkRow'
@@ -1012,16 +1013,58 @@ function PersonasPageInner() {
     }
   }
 
-  // Team-shared originals aren't owned by this account, so the dedicated chat
-  // route 404s on them directly (backend chat-creation is owner-only). Clone
-  // into the member's own account first — same as handleCopyAndEdit — then
-  // land on that copy's chat page instead of the original's.
+  // Team-shared originals aren't owned by this account, and chat execution
+  // only accepts a persona version owned by the caller (same reasoning as
+  // resolveSelectableChatPersonas in lib/chat-personas.ts) — clone into the
+  // member's own account first, same as handleCopyAndEdit, then hand the
+  // clone off to a fresh /chat exactly like the owned-persona path below.
   async function handleUseTeamSharedInChat(persona: Persona) {
     const toastId = toast.loading(`Opening "${persona.name}"…`)
     try {
       const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
-      push(AGENT_CHAT_ROUTE(copy.id))
+      sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(toSelectedPersonaFromCopy(copy, persona)))
+      push(CHAT_ROUTE)
+    } catch {
+      toast.dismiss(toastId)
+      toast.error('Failed to open agent. Please try again.')
+    }
+  }
+
+  // Super Link received shares work on a genuinely different backend contract
+  // than every other "use in chat" path on this page: they're repo-scoped and
+  // credit-metered server-side (see ReceivedShareResponse's persona_repo_id/
+  // persona_id doc comments in lib/api/persona-shares.ts), not an owned
+  // version the caller already has. The main /chat surface's persona-chip
+  // send path requires an OWNED version id (see the comment on
+  // resolveSelectableChatPersonas in lib/chat-personas.ts) — so, same as
+  // team-shared personas above, clone into the viewer's own account first via
+  // the same usePersonaRepoDeduped flow (seeded from the share's frozen
+  // version id), then chip the resulting owned copy onto a fresh /chat.
+  async function handleUseReceivedShareInChat(share: ReceivedShareResponse) {
+    const toastId = toast.loading(`Opening "${share.name}"…`)
+    try {
+      const copy = await usePersonaRepoDeduped(share.persona_repo_id, share.persona_id)
+      const version = copy.published_version ?? copy.active_version
+      toast.dismiss(toastId)
+      const selected: SelectedPersonaInfo = {
+        id:              copy.id,
+        name:            share.name,
+        handle:          version?.handler ? `@${version.handler}` : '',
+        imageUrl:        version?.image_url ?? share.image_url,
+        modelId:         version?.model_id ?? null,
+        activeVersionId: copy.published_version_id ?? null,
+        systemPrompt:    null,
+        temperature:     version?.temperature ?? null,
+        visibility:      'private',
+        ownedByViewer:   false,
+        description:     share.description ?? '',
+        tags:            [],
+        paused:          false,
+        shared:          true,
+      }
+      sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(selected))
+      push(CHAT_ROUTE)
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to open agent. Please try again.')
@@ -1527,7 +1570,15 @@ function PersonasPageInner() {
                             return {
                               onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
                               onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
-                              onUseInChat:       () => push(AGENT_CHAT_ROUTE(persona.id)),
+                              // Same "hand off via sessionStorage, land on a fresh /chat
+                              // with the agent pre-attached" pattern as agents/published's
+                              // "Use this Agent" — this used to push AGENT_CHAT_ROUTE,
+                              // landing on the agent's own dedicated chat thread instead
+                              // of attaching it to a new regular chat.
+                              onUseInChat:       () => {
+                                sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(toSelectedPersona(persona, isOwned)))
+                                push(CHAT_ROUTE)
+                              },
                               onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                               onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
                               onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
@@ -1956,7 +2007,7 @@ function PersonasPageInner() {
                               </SettingsTableCell>
                               <SettingsTableCell align="end">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  <Button size="sm" variant="secondary" onClick={() => push(AGENT_CHAT_ROUTE(share.persona_repo_id))}>
+                                  <Button size="sm" variant="secondary" onClick={() => void handleUseReceivedShareInChat(share)}>
                                     Use in chat
                                   </Button>
                                   <Tooltip content="Remove" side="top">

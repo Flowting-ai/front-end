@@ -31,7 +31,7 @@ type CopyPersona = (repoId: string, sourceVersionId?: string | null) => Promise<
 
 const copiedPersonaCache = new Map<string, SelectedPersonaInfo>()
 
-function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPersonaInfo {
+export function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPersonaInfo {
   return {
     id: persona.id,
     name: persona.name,
@@ -47,6 +47,30 @@ function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPe
     tags: persona.tags,
     paused: persona.isPaused,
     shared: persona.sourceShareId !== null || (persona.visibility === 'team' && !ownedByViewer),
+  }
+}
+
+/** Maps a freshly-copied repo (from the team-shared "/use" clone flow) into
+ *  the same shape — the copy has its own version data, but display fields
+ *  (name/handle/description/tags) still come from the original source persona. */
+export function toSelectedPersonaFromCopy(copy: PersonaRepoResponse, source: Persona): SelectedPersonaInfo {
+  const version = copy.published_version ?? copy.active_version
+  return {
+    id: copy.id,
+    name: source.name,
+    handle: source.handle,
+    imageUrl: version?.image_url ?? source.imageUrl,
+    modelId: version?.model_id ?? source.modelId,
+    activeVersionId: copy.published_version_id ?? null,
+    systemPrompt: null,
+    temperature: version?.temperature ?? source.temperature,
+    visibility: source.visibility,
+    ownedByViewer: false,
+    description: source.description,
+    tags: source.tags,
+    paused: source.isPaused,
+    // Always true here — this path only runs for personas the viewer doesn't own.
+    shared: true,
   }
 }
 
@@ -72,24 +96,7 @@ export async function resolveSelectableChatPersonas(
 
     try {
       const copy = await copyPersona(persona.id, persona.activeVersionId)
-      const version = copy.published_version ?? copy.active_version
-      const selected: SelectedPersonaInfo = {
-        id: copy.id,
-        name: persona.name,
-        handle: persona.handle,
-        imageUrl: version?.image_url ?? persona.imageUrl,
-        modelId: version?.model_id ?? persona.modelId,
-        activeVersionId: copy.published_version_id ?? null,
-        systemPrompt: null,
-        temperature: version?.temperature ?? persona.temperature,
-        visibility: persona.visibility,
-        ownedByViewer: false,
-        description: persona.description,
-        tags: persona.tags,
-        paused: persona.isPaused,
-        // Always true here — this branch only runs for personas the viewer doesn't own.
-        shared: true,
-      }
+      const selected = toSelectedPersonaFromCopy(copy, persona)
       copiedPersonaCache.set(persona.id, selected)
       return selected
     } catch {
