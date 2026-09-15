@@ -30,11 +30,16 @@ function SharedChatContent() {
 
   useEffect(() => {
     if (!shareId) return
+    let cancelled = false
     setLoading(true)
+    setError(null)
     getSharedChatView(shareId)
-      .then(setView)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load shared chat'))
-      .finally(() => setLoading(false))
+      .then(result => { if (!cancelled) setView(result) })
+      // Navigating shareId1 -> shareId2 quickly could otherwise let shareId1's
+      // response land after shareId2's and overwrite the correct content.
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load shared chat') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [shareId])
 
   async function handleFork() {

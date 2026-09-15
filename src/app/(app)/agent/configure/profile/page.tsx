@@ -601,10 +601,27 @@ function PersonaConfigureProfileContent() {
   )
 }
 
+// repoId changes are correctly refetched by the [repoId] effect above, but
+// several local fields (personaHandle, personaTags in particular) are only
+// overwritten from the API response when they're CURRENTLY empty — so
+// switching from an agent that has a handle/tags set to one that doesn't
+// leaves the previous agent's values stuck in the form indefinitely, and
+// avatarUrl/personaName/personaDescription still show a stale flash of the
+// old agent until the fetch resolves. Forcing a remount via `key` on repoId
+// is the same fix already applied to Instructions/Connectors — every
+// `useState(() => loadDraft()...)` initializer re-runs fresh against the new
+// repoId's own sessionStorage draft instead of inheriting the old agent's
+// in-memory state.
+function PersonaConfigureProfileRemountGate() {
+  const searchParams = useSearchParams()
+  const repoId = searchParams.get('repoId') ?? ''
+  return <PersonaConfigureProfileContent key={repoId} />
+}
+
 export default function PersonaConfigureProfilePage() {
   return (
     <Suspense>
-      <PersonaConfigureProfileContent />
+      <PersonaConfigureProfileRemountGate />
     </Suspense>
   )
 }

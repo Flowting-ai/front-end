@@ -23,7 +23,7 @@ import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
 import { listAutomations, getAutomation } from "@/lib/api/automations";
 import type { Automation, AutomationRun } from "@/lib/api/automations";
-import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat, emitPersonaChatNav } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections, FlatBrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -595,7 +595,7 @@ function ProjectsSection({
                 label="New project"
                 icon={<FolderAddIcon size={20} />}
                 href={newProjectHref}
-                onClick={() => push(newProjectHref)}
+                onClick={() => push(pathname === newProjectHref ? `${newProjectHref}?t=${Date.now()}` : newProjectHref)}
               />
             </m.div>
           )}
@@ -1134,7 +1134,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
                         label="New chat"
                         icon={<PlusSignIcon size={20} />}
                         href={`/agents/${persona.id}/chat`}
-                        onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
+                        onClick={() => { emitPersonaChatNav({ personaId: persona.id }); push(AGENT_CHAT_ROUTE(persona.id)) }}
                       />
 
                       {/* Loading skeletons */}
@@ -1149,7 +1149,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
                           personaId={persona.id}
                           chat={chat}
                           isActive={isActive && chat.id === activeChatId}
-                          onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                          onSelect={() => { emitPersonaChatNav({ personaId: persona.id, chatId: chat.id }); push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`) }}
                           onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
                           onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
                         />
@@ -1360,7 +1360,7 @@ function PersonasSectionIndividual() {
                 label="New chat"
                 icon={<BubbleChatAddIcon size={20} />}
                 href={`/agents/${persona.id}/chat`}
-                onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
+                onClick={() => { emitPersonaChatNav({ personaId: persona.id }); push(AGENT_CHAT_ROUTE(persona.id)) }}
               />
               {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
                 <SidebarMenuSkeleton key={i} index={i} fluid />
@@ -1371,7 +1371,7 @@ function PersonasSectionIndividual() {
                   personaId={persona.id}
                   chat={chat}
                   isActive={isActive && chat.id === activeChatId}
-                  onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                  onSelect={() => { emitPersonaChatNav({ personaId: persona.id, chatId: chat.id }); push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`) }}
                   onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
                   onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
                 />
@@ -1593,7 +1593,7 @@ function RecentAgentChatsSection() {
                 personaId={chat.personaId}
                 chat={chat}
                 isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
-                onSelect={() => push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`)}
+                onSelect={() => { emitPersonaChatNav({ personaId: chat.personaId, chatId: chat.id }); push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`) }}
                 onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
                 onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
               />
@@ -2200,6 +2200,7 @@ function FlatProjectsSection({
   headerIcon,
 }: ProjectsSectionProps) {
   const { push } = useGuardedRouter()
+  const pathname = usePathname()
   const [shown, setShown] = useState(true)
   const [overflow, setOverflow] = useState<"visible" | "hidden">("visible")
   const filter = useCallback((p: Project) => (projectsFilter ? projectsFilter(p) : true), [projectsFilter])
@@ -2208,7 +2209,14 @@ function FlatProjectsSection({
     <>
       <FlatSidebarRow
         variant="header" label={label} shown={shown} onShowClick={() => setShown(s => !s)}
-        onAddClick={showNewProject ? (e) => { e.stopPropagation(); push(newProjectHref) } : undefined} addLabel="New Project"
+        onAddClick={showNewProject ? (e) => {
+          e.stopPropagation()
+          // Plain push() to the exact same URL is a no-op when already on
+          // /projects/new (same class of bug as the sidebar's other "New X"
+          // buttons) — a cache-busting query param forces the page's own
+          // remount gate to reset the half-filled draft form.
+          push(pathname === newProjectHref ? `${newProjectHref}?t=${Date.now()}` : newProjectHref)
+        } : undefined} addLabel="New Project"
         headerIcon={headerIcon}
         onHeaderIconClick={headerIcon ? () => push(`${PROJECTS_ROUTE}?scope=all`) : undefined}
         headerIconLabel="All Projects"
@@ -2553,21 +2561,18 @@ function LeftSidebarImpl({
     // tabbed Sidebar's onNewBrainThread use, so Brain's own reset handles it
     // identically regardless of entry point.
     if (isBrainPage || isChatsTasksMode) {
-      const isAlreadyOnNewTask = pathname === BRAIN_ROUTE && !new URLSearchParams(window.location.search).get("id");
-      if (isAlreadyOnNewTask) {
-        toast.info("Already on new task");
-        return;
-      }
+      // NOTE: previously short-circuited to a no-op "Already on new task" toast
+      // when the URL had no `id` yet — but that's also true for the brief
+      // window right after sending the first message in a brand-new task
+      // (the real id only arrives once the backend responds), so a click
+      // during that window looked completely dead. Always push/reset instead;
+      // Brain's own remount-gate handles re-navigating to an already-blank
+      // task harmlessly.
       toast.info("Opening new task");
       push(`${BRAIN_ROUTE}?new=1`);
       return;
     }
 
-    const isAlreadyOnNewChat = pathname === CHAT_ROUTE && !new URLSearchParams(window.location.search).get("id");
-    if (isAlreadyOnNewChat) {
-      toast.info("Already on new chat");
-      return;
-    }
     toast.info("Opening new chat");
     if (onNewChat) {
       onNewChat();

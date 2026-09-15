@@ -30,6 +30,14 @@ export const PROJECT_NEW_CHAT_EVENT = "project:new-chat";
 // already-mounted page (same reasoning as BRAIN_NEW_THREAD_EVENT above), so
 // the agents page listens and switches itself back to the "My Agents" tab.
 export const AGENTS_SEE_ALL_EVENT = "agents:see-all";
+// Fired by the shared LeftSidebar whenever it navigates to a persona/agent
+// chat (new chat with a persona, or selecting one of that persona's existing
+// chats) — /agents/[personaId]/chat's own instanceKey logic derives its reset
+// from useSearchParams()/useParams() reactivity alone, which /chat and /brain's
+// own comments document as unreliable across Suspense transitions. This event
+// fires synchronously from the click itself, independent of that, so the page
+// can force a remount even if the router's reactive params lag or get missed.
+export const PERSONA_CHAT_NAV_EVENT = "persona:chat-nav";
 
 export interface PersonaChatEventDetail {
   personaId: string;
@@ -57,6 +65,12 @@ export interface ChatCreatedEventDetail {
 
 export interface ProjectNewChatEventDetail {
   projectId: string;
+}
+
+export interface PersonaChatNavEventDetail {
+  personaId: string;
+  /** Absent when navigating to a brand-new chat with this persona. */
+  chatId?: string;
 }
 
 export function emitSidebarOpen() {
@@ -128,6 +142,12 @@ export function emitBrainThreadDeleted(detail: BrainThreadDeletedEventDetail) {
 export function emitProjectNewChat(detail: ProjectNewChatEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(PROJECT_NEW_CHAT_EVENT, { detail }));
+  }
+}
+
+export function emitPersonaChatNav(detail: PersonaChatNavEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_NAV_EVENT, { detail }));
   }
 }
 

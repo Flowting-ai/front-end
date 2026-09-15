@@ -1756,10 +1756,33 @@ function PersonaConfigureInstructionsContent() {
 
 // ── Page export ───────────────────────────────────────────────────────────────
 
+// `repoId`/`versionId` are frozen into local state at the top of
+// PersonaConfigureInstructionsContent (and the one-time `initialise()` effect
+// guards itself with `hasInitialisedRef` so it never re-runs) — switching to a
+// different agent's Instructions tab via the sidebar is a same-pathname,
+// different-query-param navigation, which Next's router serves by reusing the
+// mounted component rather than remounting it. Without this, the form (and
+// Save/Publish) would keep operating on the PREVIOUS agent's repoId while the
+// URL claims to show the new one. Forcing a remount via `key` on repoId is the
+// same fix already applied to /chat, /brain, and the Sharing tab.
+//
+// Keyed on repoId ONLY, not versionId: when opened with just `?repoId=X` (no
+// version yet), `initialise()` itself resolves a version and calls
+// `replace(...&versionId=Y)` — keying on versionId too would make that very
+// replace() immediately remount the component it just finished loading.
+// Picking a different version of the SAME repo is handled in-page via
+// registerVersionRestoreCallback, not by a URL navigation, so it doesn't need
+// this remount gate.
+function PersonaConfigureInstructionsRemountGate() {
+  const searchParams = useSearchParams()
+  const repoId = searchParams.get('repoId') ?? ''
+  return <PersonaConfigureInstructionsContent key={repoId} />
+}
+
 export default function PersonaConfigureInstructionsPage() {
   return (
     <Suspense>
-      <PersonaConfigureInstructionsContent />
+      <PersonaConfigureInstructionsRemountGate />
     </Suspense>
   )
 }

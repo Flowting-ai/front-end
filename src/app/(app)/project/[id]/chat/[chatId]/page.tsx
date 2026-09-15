@@ -930,7 +930,7 @@ function ProjectChatPageInner() {
 }
 
 export default function ProjectChatPage() {
-  const params = useParams<{ id: string }>()
+  const params = useParams<{ id: string; chatId: string }>()
   // Forces a genuinely fresh mount of ProjectChatPageInner on "New chat" from
   // the sidebar's per-project quick-add — see PROJECT_NEW_CHAT_EVENT. A chat
   // created earlier this session (new → real id via the URL-swap trick in
@@ -949,9 +949,17 @@ export default function ProjectChatPage() {
     return () => window.removeEventListener(PROJECT_NEW_CHAT_EVENT, handler)
   }, [params.id])
 
+  // Also remount on a genuine route-param change (switching to a DIFFERENT
+  // existing chat, in this project or another) — ProjectChatPageInner froze
+  // activeChatId into a lazy useState initializer with no resync effect, so
+  // without this the chat pane/share overlay/highlights/per-chat settings
+  // kept showing the PREVIOUS chat after clicking a different one in the
+  // sidebar. Safe alongside the event above: the new→real-id URL swap uses
+  // window.history.replaceState (bypassing the router), so params.chatId
+  // stays "new" through that transition and doesn't also trigger this.
   return (
     <Suspense fallback={null}>
-      <ProjectChatPageInner key={`project-chat-${resetEpoch}`} />
+      <ProjectChatPageInner key={`project-chat-${params.id}-${params.chatId}-${resetEpoch}`} />
     </Suspense>
   )
 }

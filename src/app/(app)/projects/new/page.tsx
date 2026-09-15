@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
@@ -352,10 +352,20 @@ function NewProjectPageInner() {
   )
 }
 
+// Clicking "New Project" again while already on this static route is a
+// same-URL push — a no-op that wouldn't reset a half-filled draft. The
+// sidebar appends a `?t=` cache-busting param in that case; keying the
+// remount on it (via a wrapper so useSearchParams' Suspense boundary stays
+// outside the keyed component) forces a fresh, blank form.
+function NewProjectRemountGate() {
+  const searchParams = useSearchParams()
+  return <NewProjectPageInner key={searchParams.get('t') ?? ''} />
+}
+
 export default function NewProjectPage() {
   return (
     <Suspense fallback={null}>
-      <NewProjectPageInner />
+      <NewProjectRemountGate />
     </Suspense>
   )
 }

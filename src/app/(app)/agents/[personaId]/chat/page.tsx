@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { PersonaChatInterface } from "@/components/layout/PersonaChatInterface";
-import { PERSONA_CHAT_CREATED_EVENT } from "@/hooks/use-sidebar-events";
+import { PERSONA_CHAT_CREATED_EVENT, PERSONA_CHAT_NAV_EVENT } from "@/hooks/use-sidebar-events";
 
 function PersonaChatPageInner() {
   const params       = useParams<{ personaId: string }>();
@@ -43,6 +43,20 @@ function PersonaChatPageInner() {
     return () => window.removeEventListener(PERSONA_CHAT_CREATED_EVENT, handler);
   }, []);
 
+  // Belt-and-suspenders alongside the params/searchParams-driven effect below
+  // — LeftSidebar fires this synchronously from the click itself (before
+  // navigation completes) whenever it routes to a persona chat, same
+  // reasoning as PROJECT_NEW_CHAT_EVENT/emitSidebarNewChat elsewhere in this
+  // codebase: useSearchParams() has been found unreliable across Suspense
+  // transitions, so a reactive-params-only reset can lag or get missed. This
+  // guarantees a fresh instanceKey on the next render regardless.
+  const navBumpRef = useRef(0);
+  useEffect(() => {
+    const handler = () => { navBumpRef.current += 1; };
+    window.addEventListener(PERSONA_CHAT_NAV_EVENT, handler);
+    return () => window.removeEventListener(PERSONA_CHAT_NAV_EVENT, handler);
+  }, []);
+
   useEffect(() => {
     const prev = prevRef.current;
     prevRef.current = { personaId: params.personaId, chatId };
@@ -55,8 +69,10 @@ function PersonaChatPageInner() {
     justCreatedRef.current = false;
     const chatIdSwitched   = !!chatId && !!prev.chatId && chatId !== prev.chatId;
     const newChatRequested = !chatId && !!prev.chatId;
+    const navBumped        = navBumpRef.current > 0;
+    navBumpRef.current = 0;
 
-    if (personaChanged || chatIdSwitched || newChatRequested || (!justCreatedChat && !prev.chatId && !!chatId)) {
+    if (personaChanged || chatIdSwitched || newChatRequested || navBumped || (!justCreatedChat && !prev.chatId && !!chatId)) {
       setInstanceKey(`${params.personaId}:${chatId ?? "new"}`);
     }
     // justCreatedChat: keep current key → no remount, stream continues

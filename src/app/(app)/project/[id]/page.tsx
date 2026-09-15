@@ -169,6 +169,28 @@ export default function ProjectPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
+  // Reset the "start a new chat" composer + side-panel state whenever the
+  // project id changes — none of this was previously keyed on params.id, so a
+  // draft message/attachment/persona-or-style pick typed while viewing
+  // Project A carried over unchanged into Project B's composer after
+  // switching projects via the sidebar (same route file, different id, no
+  // remount).
+  useEffect(() => {
+    setChatInputValue('')
+    setNewChatAttachments([])
+    setPendingFiles([])
+    setSelectedPersona(null)
+    setSelectedFolders([])
+    setSelectedStyleId(null)
+    setWebSearchEnabled(false)
+    setStyleChipOpen(false)
+    setPersonaChipOpen(false)
+    setPanelOpen(true)
+    setAgentsPanelOpen(false)
+    setMembersPanelOpen(false)
+    setInstructionsOpen(false)
+  }, [params.id])
+
   // Workspace/Shared projects source their chat list from the project-scoped
   // GET /projects/{id}/chats endpoint (services/projects/project.py :: chats),
   // which already returns "your own chats, plus anyone's chat published to

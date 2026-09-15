@@ -512,6 +512,15 @@ export default function OrgGeneralPage() {
   useEffect(() => {
     if (!orgId) { setIdentityLoading(false); return }
     setIdentityLoading(true)
+    // Defensive reset: a staged-but-unsaved logo change (and the "editing"
+    // toggle) is scoped to whichever org this component was showing before —
+    // if `orgId` ever changes while this page stays mounted, these must clear
+    // alongside the name/slug fields below, or `isIdentityDirty` (which
+    // includes `logoFile !== null`) can get stuck permanently true, wedging
+    // the app-wide nav-guard for every subsequent sidebar click.
+    setLogoFile(null)
+    setLogoPreview(null)
+    setIsEditingIdentity(false)
     getOrg(orgId)
       .then(data => {
         setWorkspaceName(data.name)

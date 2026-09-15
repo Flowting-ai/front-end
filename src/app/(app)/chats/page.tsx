@@ -198,6 +198,20 @@ function ChatsPageInner() {
     () => (searchParams.get('tab') === 'archived' ? 'archived' : 'all'),
   )
 
+  // Re-sync any time the URL's ?filter=/?tab= change from outside this page's
+  // own toggle handlers (sidebar links like onManageAllThreadsClick/onChatsClick
+  // push `?filter=tasks`/no filter while /chats is already mounted — a
+  // query-only same-route navigation Next doesn't remount for). Without this,
+  // the two `useState` initializers above only ever ran once on first mount,
+  // so the URL would update but the displayed Chats/Tasks content wouldn't —
+  // same pattern already fixed correctly in agents/page.tsx.
+  useEffect(() => {
+    const urlMode: LibraryMode = searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'
+    setLibraryMode(prev => (prev === urlMode ? prev : urlMode))
+    const urlTab: ChatsTab = searchParams.get('tab') === 'archived' ? 'archived' : 'all'
+    setChatsTab(prev => (prev === urlTab ? prev : urlTab))
+  }, [searchParams])
+
   const pinCountMap = useMemo(() => {
     const map: Record<string, number> = {}
     for (const pin of pins) {

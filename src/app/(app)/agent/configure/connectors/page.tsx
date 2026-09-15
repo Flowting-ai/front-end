@@ -45,12 +45,28 @@ function PersonaConfigureConnectorsContent() {
   const personaName = searchParams.get('name')      ?? ''
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionIdParam = searchParams.get('versionId') ?? ''
-  const [versionId, setVersionId] = useState(versionIdParam)
+  // Only meaningful while versionIdParam is absent (URL has no version yet) —
+  // once listVersions() resolves one, the URL is stamped via replaceState and
+  // versionIdParam takes over as the source of truth directly. Deriving
+  // `versionId` this way (rather than freezing it into its own useState set
+  // from both branches) means switching to a different agent's Connectors tab
+  // can't leave it pinned to the PREVIOUS agent's version — previously
+  // Save/Publish and the ConnectorsTab child below could end up operating on
+  // a mismatched repoId/versionId pair.
+  const [resolvedVersionId, setResolvedVersionId] = useState('')
+  const versionId = versionIdParam || resolvedVersionId
 
   const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab, visitedTabs } = usePersonaConfigure()
   const connectorsTouchedFields = touchedFieldsByTab.connectors
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
+
+  // Clear a previous agent's resolved (no-versionId-in-URL) fallback the
+  // moment repoId changes, so it can't flash while the new agent's own
+  // listVersions() call below is still in flight.
+  useEffect(() => {
+    setResolvedVersionId('')
+  }, [repoId])
 
   // Resolve versionId from URL; if absent, load the latest saved version.
   useEffect(() => {
@@ -65,7 +81,7 @@ function PersonaConfigureConnectorsContent() {
       )
       const latest = sorted[0]
       if (latest) {
-        setVersionId(latest.id)
+        setResolvedVersionId(latest.id)
         window.history.replaceState(null, '', `?repoId=${repoId}&name=${encodeURIComponent(personaName)}&versionId=${latest.id}`)
         updatePersonaInfo({ repoId, versionId: latest.id })
       } else {
