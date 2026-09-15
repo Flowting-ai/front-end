@@ -866,7 +866,7 @@ function VersionsPanel() {
   const {
     personaInfo, setVersionsOpen,
     versions, versionsLoading, restoringId, handleRestoreVersion,
-    pendingChangeTags, refreshVersions,
+    pendingChangeTags, refreshVersions, publishedVersionId,
   } = usePersonaConfigure()
   const { versionId, personaName, repoId } = personaInfo
   // Read all version tags from localStorage (client-only)
@@ -875,6 +875,15 @@ function VersionsPanel() {
 
   async function handleDeleteVersion(id: string) {
     if (!repoId || deletingId) return
+    // Deleting the currently-published/live version orphans every chat chip
+    // already pointing at it (activeVersionId) — its getVersion() fetch then
+    // 404s with no recovery (see the matching fix in chat/page.tsx). The
+    // Delete button below is already disabled for this case; this is the
+    // belt-and-suspenders guard against any other call site.
+    if (id === publishedVersionId) {
+      toast.error("Can't delete the published version — publish a different version first.")
+      return
+    }
     setDeletingId(id)
     try {
       await deleteVersion(repoId, id)
@@ -947,7 +956,8 @@ function VersionsPanel() {
             No versions yet. Use &ldquo;Save version&rdquo; to create one.
           </p>
         ) : versions.map((v, i) => {
-          const isCurrent = v.id === versionId
+          const isCurrent   = v.id === versionId
+          const isPublished = v.id === publishedVersionId
           const vNum      = versions.length - i
           const vLabel    = `v${String(vNum).padStart(3, '0')}`
           const handle    = v.handler ? `@${v.handler}\u00b7${vLabel}` : vLabel
@@ -1016,16 +1026,18 @@ function VersionsPanel() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <button
-                      onClick={() => handleDeleteVersion(v.id)}
-                      disabled={!!deletingId || !!restoringId}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
-                    >
-                      {deletingId === v.id && <Spinner size={14} color="var(--red-600, #dc2626)" />}
-                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-600, #dc2626)', whiteSpace: 'nowrap' }}>
-                        {deletingId === v.id ? 'Deleting…' : 'Delete'}
-                      </span>
-                    </button>
+                    <Tooltip content="Can't delete the published version — publish a different version first" disabled={!isPublished} side="top" delayDuration={300}>
+                      <button
+                        onClick={() => handleDeleteVersion(v.id)}
+                        disabled={!!deletingId || !!restoringId || isPublished}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId || isPublished) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId || isPublished) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                      >
+                        {deletingId === v.id && <Spinner size={14} color="var(--red-600, #dc2626)" />}
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-600, #dc2626)', whiteSpace: 'nowrap' }}>
+                          {deletingId === v.id ? 'Deleting…' : 'Delete'}
+                        </span>
+                      </button>
+                    </Tooltip>
                     <button
                       onClick={() => handleRestoreVersion(v.id)}
                       disabled={!!restoringId || !!deletingId}

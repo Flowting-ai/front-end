@@ -707,7 +707,23 @@ function ChatPageInner() {
             : prev
         )
       })
-      .catch(() => {})
+      .catch(() => {
+        if (cancelled) return
+        // getVersion() can 404 (e.g. the agent's published version was since
+        // deleted — manually, or auto-evicted by the 5-version cap) or fail
+        // for any other reason. Previously this left systemPrompt stuck at
+        // null forever, and personaConfigLoading (derived from it, below)
+        // permanently disabled Send with no recovery short of removing the
+        // chip. Falling back to an empty prompt unblocks sending instead of
+        // hanging indefinitely; the toast tells the user why the agent might
+        // not behave as configured.
+        toast.error(`Couldn't load "${selectedPersona.name}"'s latest configuration. Sending will use default settings.`)
+        setSelectedPersona(prev =>
+          prev?.id === selectedPersona.id && prev.systemPrompt === null
+            ? { ...prev, systemPrompt: '' }
+            : prev
+        )
+      })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])

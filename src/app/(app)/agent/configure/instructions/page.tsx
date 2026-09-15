@@ -979,7 +979,13 @@ function PersonaConfigureInstructionsContent() {
   }
 
   async function handleProceedWithOverwrite() {
-    const oldest = versions[versions.length - 1]
+    // Never auto-evict the currently-published version — an agent that was
+    // published once and only had draft saves since will have its oldest-
+    // by-date version be exactly the live one; deleting it orphans every
+    // chat chip already pointing at it via activeVersionId (see the
+    // matching fix + comment in chat/page.tsx). `versions` is sorted
+    // newest-first, so walk from the oldest end and skip the published one.
+    const oldest = [...versions].reverse().find(v => v.id !== publishedVersionId)
     if (!oldest || !repoId) return
     setIsDeletingOldest(true)
     try {

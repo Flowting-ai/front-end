@@ -470,7 +470,19 @@ function ProjectChatPageInner() {
             : prev
         )
       })
-      .catch(() => {})
+      .catch(() => {
+        // getVersion() can 404 if the agent's published version was since
+        // deleted (manually or auto-evicted by the version cap) — see the
+        // matching fix + comment in chat/page.tsx. Fall back to a non-null
+        // systemPrompt so a persona chip here can't get silently stuck with
+        // incomplete config.
+        if (cancelled) return
+        setSelectedPersona(prev =>
+          prev?.id === selectedPersona.id && prev.systemPrompt === null
+            ? { ...prev, systemPrompt: '' }
+            : prev
+        )
+      })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
