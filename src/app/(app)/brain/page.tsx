@@ -3190,6 +3190,24 @@ function BrainPageInner() {
       void stopBrainChat(chatId).catch(() => {})
     }
     setReasoningActive(false)
+    // The stream is aborted here rather than run to its natural end, so the
+    // backend's own terminal ('complete'/'failed') events for any tool call
+    // still in flight never arrive to settle it — unlike the normal
+    // complete/failed paths, which only ever set phase after those events
+    // already landed. Without this, a tool call that was mid-flight at the
+    // moment of Stop stayed rendered as "executing" forever (permanent
+    // spinner) in the always-rendered timeline, alongside the cancelled
+    // card. Drop just the still-in-flight entries (not already-settled
+    // complete/failed ones, which should stay visible in the timeline) and
+    // clear the single live progress indicator.
+    setLiveToolCalls((prev) => {
+      const next: typeof prev = {}
+      for (const [key, entry] of Object.entries(prev)) {
+        if (entry.status !== 'streaming' && entry.status !== 'executing') next[key] = entry
+      }
+      return next
+    })
+    setToolProgress(null)
     setPhase('cancelled')
   }, [chatId])
 
@@ -3511,6 +3529,7 @@ function BrainPageInner() {
         <LoopHistoryCard
           steps={turn.rallyRows}
           completedAt={turn.completedAt}
+          status="complete"
         />
       )}
       {turn.cancelled && !turn.output && (
@@ -3754,6 +3773,7 @@ function BrainPageInner() {
               <LoopHistoryCard
                 steps={rallyRows}
                 completedAt={completedAt ?? undefined}
+                status="complete"
               />
             </Rise>
           )}
