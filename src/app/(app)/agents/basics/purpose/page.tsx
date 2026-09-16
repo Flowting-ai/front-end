@@ -6,8 +6,7 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
-import CancelCreationModal from '../../_components/CancelCreationModal'
-import { AGENTS_BASICS_NAME_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
+import { AGENTS_BASICS_NAME_ROUTE, AGENTS_TEMPLATES_ROUTE } from '@/lib/routes'
 
 const MAX_CHARS = 120
 const WIZARD_KEY = 'persona_wizard_draft'
@@ -18,7 +17,6 @@ function PurposePageContent() {
   const { push } = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
-  const [cancelOpen, setCancelOpen] = useState(false)
 
   // Side-effect guard: React 18 StrictMode calls useState initializers twice.
   // All sessionStorage writes/removes live in the useEffect below, not here.
@@ -76,7 +74,6 @@ function PurposePageContent() {
   }
 
   return (
-    <>
     <WizardShell steps={STEPS_BASICS}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
 
@@ -142,7 +139,13 @@ function PurposePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => setCancelOpen(true)}
+              onClick={() => {
+                try {
+                  const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+                  sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, purpose, template: template || undefined }))
+                } catch { /* ignore */ }
+                push(AGENTS_TEMPLATES_ROUTE)
+              }}
             >
               Back
             </Button>
@@ -160,20 +163,6 @@ function PurposePageContent() {
 
       </div>
     </WizardShell>
-
-    {cancelOpen && (
-      <CancelCreationModal
-        onCancel={() => {
-          setCancelOpen(false)
-          try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
-          try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
-          try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-          push(AGENTS_ROUTE)
-        }}
-        onKeep={() => setCancelOpen(false)}
-      />
-    )}
-    </>
   )
 }
 

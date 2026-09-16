@@ -7,7 +7,7 @@ import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
-import { personaStarter, createPersonaRepo, urlToImageFile } from '@/lib/api/personas'
+import { personaStarter, createPersonaRepo, updateVersion, urlToImageFile } from '@/lib/api/personas'
 import { consumePersonaStarterPrefetch } from '@/lib/persona-wizard-prefetch'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
@@ -223,21 +223,13 @@ function TonePageContent() {
     } catch { return null }
   })
 
-  const [displayName, setDisplayName] = useState<string>(() => {
+  const [displayName] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
       return draft.name ?? ''
     } catch { return '' }
   })
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      if (draft.name) setDisplayName(draft.name)
-    } catch { /* ignore */ }
-  }, [])
 
   // Fetch dynamic tone options from the backend on first visit.
   // Skipped when cached sounds are already available (back-navigation case).
@@ -292,16 +284,6 @@ function TonePageContent() {
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
     } catch { /* ignore */ }
 
-    // If repo was already created on a prior Continue (back-nav from instructions),
-    // navigate straight to it — don't create a duplicate.
-    try {
-      const existingRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
-      if (existingRepo?.repoId && existingRepo?.versionId) {
-        push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(existingRepo.repoId, { versionId: existingRepo.versionId }))
-        return
-      }
-    } catch { /* ignore */ }
-
     setIsLoading(true)
     try {
       const draft          = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
@@ -310,8 +292,9 @@ function TonePageContent() {
       const wizardTemplate = (draft.template as string | undefined) || ''
       const templatePreset = wizardTemplate ? (TEMPLATE_PRESETS[wizardTemplate] ?? null) : null
 
-      // Get full starter (personalized instruction + persona tags).
-      // For templates, the preset instruction takes precedence; we still call for tags.
+      // Get full starter (personalized instruction + persona tags) for the
+      // currently selected tone. For templates, the preset instruction takes
+      // precedence; we still call for tags.
       let initialPrompt      = templatePreset?.systemInstruction ?? ''
       let starterPersonaTags: string[] = []
       try {
@@ -324,7 +307,37 @@ function TonePageContent() {
         if (!initialPrompt) initialPrompt = starter.system_instruction ?? ''
         starterPersonaTags = starter.persona_tags ?? []
       } catch {
-        // Non-critical — repo still created with empty instruction
+        // Non-critical — repo still created/updated with empty instruction
+      }
+
+      // If a repo was already created on a prior Continue (back-nav from
+      // instructions), re-apply the current name/tone/purpose to it instead
+      // of creating a duplicate — otherwise a tone/name change made after
+      // that point would be silently discarded.
+      const existingRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
+      if (existingRepo?.repoId && existingRepo?.versionId) {
+        try {
+          await updateVersion({
+            repoId:      existingRepo.repoId,
+            versionId:   existingRepo.versionId,
+            name:        effectiveName,
+            prompt:      initialPrompt,
+            description: wizardPurpose,
+          })
+        } catch {
+          // Non-critical — still navigate through with the existing version
+        }
+        try {
+          const existingProfile = JSON.parse(sessionStorage.getItem(personaProfileKey(existingRepo.repoId)) ?? '{}')
+          sessionStorage.setItem(personaProfileKey(existingRepo.repoId), JSON.stringify({
+            ...existingProfile,
+            personaName:        effectiveName || undefined,
+            personaDescription: wizardPurpose || undefined,
+            personaTags:        starterPersonaTags.length > 0 ? starterPersonaTags : existingProfile.personaTags,
+          }))
+        } catch { /* ignore quota errors */ }
+        push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(existingRepo.repoId, { versionId: existingRepo.versionId }))
+        return
       }
 
       // Fetch models and pick the best one (template hint or first available)

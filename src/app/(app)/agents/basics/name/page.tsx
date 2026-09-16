@@ -16,7 +16,7 @@ const WIZARD_KEY = 'persona_wizard_draft'
 // ── Derive a URL-safe handle slug from name ───────────────────────────────────
 
 function toHandle(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, '')
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
 // ── Inner page ────────────────────────────────────────────────────────────────
