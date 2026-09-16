@@ -102,7 +102,14 @@ export default function ConnectorsTab({
   }, [])
 
   const load = useCallback(async () => {
-    if (!repoId || !versionId) { setLoading(false); return }
+    if (!repoId || !versionId) {
+      // Don't leave a previous agent's rows rendered (and toggleable-looking)
+      // while the new agent's own repoId/versionId are still resolving.
+      setConnectors([])
+      setBlockedSlugs(new Set())
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError('')
     try {
@@ -153,13 +160,14 @@ export default function ConnectorsTab({
       }
     } catch (err) {
       setBlockedSlugs(prev)
-      emitChange(connectors, prev)
+      // A failed toggle is a revert, not a user edit — report it as `isInitial`
+      // so the page doesn't mark the tab dirty / queue a change tag for a no-op.
+      emitChange(connectors, prev, true)
+      // Nothing actually changed, so there's nothing left to save.
+      resetTouchedFields('connectors')
       toast.error(err instanceof Error ? err.message : 'Failed to update connector')
     } finally {
       setSavingSlug(null)
-      // Toggles persist immediately (not batched into Save Version) — the
-      // attempt is over either way, so clear the touched dot now.
-      resetTouchedFields('connectors')
     }
   }, [repoId, versionId, savingSlug, blockedSlugs, connectors, personaName, emitChange, markFieldTouched, resetTouchedFields])
 

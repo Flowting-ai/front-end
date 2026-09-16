@@ -132,11 +132,15 @@ function PersonaConfigureKnowledgeContent() {
   // Tracks blob preview URLs by filename so the eye-icon preview survives
   // the API reload that replaces placeholder entries with server records.
   const fileUrlMapRef  = useRef<Record<string, string>>({})
+  // Doc IDs deleted locally this session — an upload's own reload can resolve
+  // with a server snapshot taken before a concurrent delete lands, otherwise
+  // silently resurrecting the deleted file in the list.
+  const deletedIdsRef  = useRef<Set<string>>(new Set())
 
   function docsToFilesWithSizes(version: PersonaVersionResponse): KnowledgeFile[] {
     return docsToFiles(version).map(f => {
-      const bytes = fileSizeMapRef.current[f.name]
       // Check by doc ID first — survives API filename normalisation (spaces→underscores etc.)
+      const bytes = fileSizeMapRef.current[f.id] ?? fileSizeMapRef.current[f.name]
       const url   = fileUrlMapRef.current[f.id] ?? fileUrlMapRef.current[f.name]
       const withSize = bytes != null ? { ...f, size: formatFileSize(bytes) } : f
       return url ? { ...withSize, url } : withSize
@@ -249,19 +253,28 @@ function PersonaConfigureKnowledgeContent() {
       rawFiles.map(raw => uploadDocument(repoId, versionId, raw))
     )
 
-    // Also key blob URLs by document ID so the lookup works even when the API
-    // normalises filenames (e.g. "My File.pdf" → "my_file.pdf").
+    // Also key blob URLs AND sizes by document ID so the lookup works even when
+    // the API normalises filenames (e.g. "My File.pdf" → "my_file.pdf") — the
+    // name-keyed entries above don't survive that rename.
     results.forEach((result, i) => {
       if (result.status !== 'fulfilled') return
-      const blobUrl = fileUrlMapRef.current[rawFiles[i].name]
-      if (!blobUrl) return
       const rawNameLower = rawFiles[i].name.toLowerCase()
       const match = (result.value.documents ?? []).find(d =>
         d.document_filename.toLowerCase() === rawNameLower ||
         d.document_filename.toLowerCase().replace(/[\s_]/g, '') === rawNameLower.replace(/[\s_]/g, '')
       )
-      if (match) fileUrlMapRef.current[match.id] = blobUrl
+      if (!match) return
+      fileSizeMapRef.current[match.id] = rawFiles[i].size
+      const blobUrl = fileUrlMapRef.current[rawFiles[i].name]
+      if (blobUrl) fileUrlMapRef.current[match.id] = blobUrl
     })
+
+    // Re-persist now that the id-keyed size entries above exist — the earlier
+    // persist (before upload) only had the name-keyed ones.
+    if (typeof window !== 'undefined') {
+      const storageKey = `persona_file_sizes_${repoId}_${versionId}`
+      sessionStorage.setItem(storageKey, JSON.stringify(fileSizeMapRef.current))
+    }
 
     // Reload from API to get the authoritative file list (avoids race-condition with parallel responses)
     try {
@@ -269,7 +282,9 @@ function PersonaConfigureKnowledgeContent() {
       // Use setFiles(prev=>) so placeholder sizes survive even when the API
       // sanitizes filenames and the ref lookup misses.
       setFiles(prev => {
-        const apiFiles = docsToFiles(version)
+        // Drop any doc deleted locally while this reload was in flight — otherwise
+        // a stale server snapshot can resurrect a file the user just removed.
+        const apiFiles = docsToFiles(version).filter(f => !deletedIdsRef.current.has(f.id))
         return apiFiles.map(f => {
           // Restore preview URL — check by doc ID first, then by name, then prev state
           const url = fileUrlMapRef.current[f.id]
@@ -296,7 +311,7 @@ function PersonaConfigureKnowledgeContent() {
       // placeholder row so phantom files don't linger in the UI.
       const last = [...results].reverse().find(r => r.status === 'fulfilled')
       if (last?.status === 'fulfilled') {
-        setFiles(docsToFilesWithSizes(last.value))
+        setFiles(docsToFilesWithSizes(last.value).filter(f => !deletedIdsRef.current.has(f.id)))
       } else {
         setFiles(prev => prev.filter(f => !/^uploading-/.test(f.id)))
       }
@@ -362,6 +377,7 @@ function PersonaConfigureKnowledgeContent() {
     markFieldTouched('knowledge', 'files')
     try {
       await deleteDocument(repoId, versionId, id)
+      deletedIdsRef.current.add(id)
       setFiles(prev => prev.filter(f => f.id !== id))
       toast.success(`Removed "${file.name}"`)
       setIsDirty(true)
@@ -431,7 +447,8 @@ function PersonaConfigureKnowledgeContent() {
 
   const knowledgeAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   knowledgeAutoSaveRef.current = async () => {
-    if (pendingChangeTags.length === 0 || !repoId || !versionId) return
+    const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Knowledge'] === true
+    if (!hasDirty || !repoId || !versionId) return
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
       // Was missing — the tab's traffic light stayed stuck on "Unsaved" forever

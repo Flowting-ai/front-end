@@ -56,7 +56,7 @@ function PersonaConfigureConnectorsContent() {
   const [resolvedVersionId, setResolvedVersionId] = useState('')
   const versionId = versionIdParam || resolvedVersionId
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab, visitedTabs } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab, visitedTabs, resetTouchedFields } = usePersonaConfigure()
   const connectorsTouchedFields = touchedFieldsByTab.connectors
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
@@ -103,6 +103,7 @@ function PersonaConfigureConnectorsContent() {
         setPendingChangeTags([])
       }
       await publishPersonaVersion(repoId, versionId)
+      resetTouchedFields('connectors')
       bustPersonasCache()
       if (typeof window !== 'undefined') {
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
@@ -127,6 +128,7 @@ function PersonaConfigureConnectorsContent() {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
       setVersionTags(versionId, [...pendingChangeTags, 'Connectors'].filter((v, i, a) => a.indexOf(v) === i))
       setPendingChangeTags([])
+      resetTouchedFields('connectors')
       refreshVersions()
       setVersionsOpen(true)
       toast.success('Version saved')
@@ -147,6 +149,7 @@ function PersonaConfigureConnectorsContent() {
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
       setTabDirty('Connectors', false)
+      resetTouchedFields('connectors')
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[ConnectorsPage] auto-save error:', err)

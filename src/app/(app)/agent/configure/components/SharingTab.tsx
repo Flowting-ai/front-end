@@ -364,7 +364,14 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           </div>
           <Switch
             checked={superLinkEnabled}
-            onCheckedChange={v => { setSuperLinkEnabled(v); markFieldTouched('sharing', 'superlink') }}
+            onCheckedChange={v => {
+              // Turning off with a live share must actually revoke it — otherwise
+              // the link keeps working (and billing the org) even though the
+              // panel that could revoke it just disappeared from view.
+              if (!v && currentLinkShare) { void handleRevokeLink(); return }
+              setSuperLinkEnabled(v)
+              markFieldTouched('sharing', 'superlink')
+            }}
             disabled={isGenerating || isRevoking}
           />
         </div>

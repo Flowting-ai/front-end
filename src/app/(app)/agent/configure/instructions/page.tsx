@@ -829,7 +829,11 @@ function PersonaConfigureInstructionsContent() {
       setBackendModelId(isModelIdAvailable(allModels, full.model_id) ? (full.model_id ?? null) : null)
       setExampleConversations(parseExampleConversations(prompt))
       setVersionId(full.id)
-      savedSnapshotRef.current = null
+      // Snapshot the version we just restored TO (not null) — otherwise isDirty's
+      // `!savedSnapshotRef.current` branch makes a freshly-restored version look
+      // unsaved even though nothing has been edited yet.
+      const restoredModelId = model ? (stableKey(model) ?? '') : currentModelId
+      savedSnapshotRef.current = { instruction: prompt, modelId: restoredModelId, temperature: full.temperature ?? 0.5 }
       // Clear draft — version was explicitly restored from history
       try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
     })
@@ -880,7 +884,9 @@ function PersonaConfigureInstructionsContent() {
 
   async function executeSave(openPanel = true): Promise<string | null> {
     const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!repoId || !modelId || !versionId) return null
+    // Save forks a new version while Publish updates the current one in place —
+    // letting both run at once can leave the active/published versions diverged.
+    if (!repoId || !modelId || !versionId || isSaving || isPublishing) return null
     setIsSaving(true)
     try {
       let imageFile: File | null = null
@@ -983,9 +989,12 @@ function PersonaConfigureInstructionsContent() {
     // published once and only had draft saves since will have its oldest-
     // by-date version be exactly the live one; deleting it orphans every
     // chat chip already pointing at it via activeVersionId (see the
-    // matching fix + comment in chat/page.tsx). `versions` is sorted
-    // newest-first, so walk from the oldest end and skip the published one.
-    const oldest = [...versions].reverse().find(v => v.id !== publishedVersionId)
+    // matching fix + comment in chat/page.tsx). Also never evict the version
+    // currently open for editing — executeSave() below still reads its
+    // description/knowledge as the source for the new version, which would
+    // silently fail against a version we just deleted. `versions` is sorted
+    // newest-first, so walk from the oldest end and skip both.
+    const oldest = [...versions].reverse().find(v => v.id !== publishedVersionId && v.id !== versionId)
     if (!oldest || !repoId) return
     setIsDeletingOldest(true)
     try {
@@ -1003,7 +1012,7 @@ function PersonaConfigureInstructionsContent() {
   // ── Publish ───────────────────────────────────────────────────────────────────
 
   async function handlePublish() {
-    if (!repoId || !versionId) return
+    if (!repoId || !versionId || isPublishing || isSaving) return
 
     const wasPublished = !!publishedVersionId
     setIsPublishing(true)
@@ -1132,8 +1141,11 @@ function PersonaConfigureInstructionsContent() {
   const isPublished    = pub.isPublished
   const needsRepublish = pub.needsRepublish && (hasContent || !!publishedVersionId)
 
-  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
-  const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
+  // Save forks a new version while Publish updates/promotes the current one in
+  // place — running both at once can leave the active and published versions
+  // pointing at different content, so each must also be blocked by the other.
+  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isSaving && !isPublished
+  const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving && !isPublishing
 
   const anyDirty     = pendingChangeTags.length > 0 || TABS.some(tab => tabDirtyFlags[tab] === true)
 
@@ -1428,7 +1440,7 @@ function PersonaConfigureInstructionsContent() {
                   aria-label="Save version"
                   onClick={handleSaveVersion}
                   loading={isSaving}
-                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isInitialising}
+                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isPublishing || isInitialising}
                 />
               ) : (
                 <Button
@@ -1437,7 +1449,7 @@ function PersonaConfigureInstructionsContent() {
                   leftIcon={<QuillWriteOneIcon size={16} />}
                   onClick={handleSaveVersion}
                   loading={isSaving}
-                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isInitialising}
+                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isPublishing || isInitialising}
                 >
                   {isSaving ? 'Saving…' : 'Save version'}
                 </Button>

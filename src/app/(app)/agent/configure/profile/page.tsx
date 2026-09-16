@@ -127,6 +127,7 @@ function PersonaConfigureProfileContent() {
     // but ALWAYS load the avatar from the API so it shows in the test chat panel.
     const draft = loadDraft()
     const hasMeaningfulDraft = !!draft && (
+      !!(draft.avatarUrl as string | undefined) ||
       !!(draft.personaHandle as string | undefined) ||
       !!(draft.personaDescription as string | undefined) ||
       ((draft.personaName as string | undefined) ?? 'Agent Name') !== 'Agent Name'
@@ -234,9 +235,10 @@ function PersonaConfigureProfileContent() {
     if (!repoId || !versionId) return
     setIsSaving(true)
     try {
+      const savingAvatarUrl = avatarUrl
       let imageFile: File | undefined
-      if (avatarUrl?.startsWith('data:')) {
-        imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+      if (savingAvatarUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(savingAvatarUrl, 'avatar.jpg')
       }
       const version = await updateVersion({
         repoId,
@@ -245,13 +247,17 @@ function PersonaConfigureProfileContent() {
         description:  personaDescription,
         persona_tags: personaTags,
         image:        imageFile,
-        imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
+        imageUrl:     imageFile ? undefined : (savingAvatarUrl ?? undefined),
       })
-      // Swap the local data: URL for the persisted remote URL — otherwise the
-      // next save would re-upload the same image again (still starts with 'data:').
-      if (version.image_url) setAvatarUrl(version.image_url)
-      isDirtyRef.current = false
-      setIsDirty(false)
+      // Only adopt the persisted URL / clear dirty state if the user hasn't
+      // picked a different avatar while this save was in flight — otherwise
+      // we'd silently discard their newer pick and revert to what was just saved.
+      const avatarUnchangedSinceSave = avatarUrl === savingAvatarUrl
+      if (version.image_url && avatarUnchangedSinceSave) setAvatarUrl(version.image_url)
+      if (avatarUnchangedSinceSave) {
+        isDirtyRef.current = false
+        setIsDirty(false)
+      }
       resetTouchedFields('profile')
       setVersionTags(versionId, pendingChangeTags)
       setPendingChangeTags([])
@@ -276,9 +282,10 @@ function PersonaConfigureProfileContent() {
       // This mirrors the Instructions tab behaviour: no new version is created — unsaved changes
       // are written into the existing version so nothing is lost when the user publishes directly.
       if (isDirty) {
+        const savingAvatarUrl = avatarUrl
         let imageFile: File | undefined
-        if (avatarUrl?.startsWith('data:')) {
-          imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+        if (savingAvatarUrl?.startsWith('data:')) {
+          imageFile = dataUrlToFile(savingAvatarUrl, 'avatar.jpg')
         }
         const version = await updateVersion({
           repoId,
@@ -287,11 +294,16 @@ function PersonaConfigureProfileContent() {
           description:  personaDescription,
           persona_tags: personaTags,
           image:        imageFile,
-          imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
+          imageUrl:     imageFile ? undefined : (savingAvatarUrl ?? undefined),
         })
-        if (version.image_url) setAvatarUrl(version.image_url)
-        isDirtyRef.current = false
-        setIsDirty(false)
+        // See handleSaveVersion — don't clobber a newer avatar pick made while
+        // this publish's save-flush was in flight.
+        const avatarUnchangedSinceSave = avatarUrl === savingAvatarUrl
+        if (version.image_url && avatarUnchangedSinceSave) setAvatarUrl(version.image_url)
+        if (avatarUnchangedSinceSave) {
+          isDirtyRef.current = false
+          setIsDirty(false)
+        }
         resetTouchedFields('profile')
         setVersionTags(versionId, pendingChangeTags)
         setPendingChangeTags([])

@@ -297,6 +297,11 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     if (!repoId || !versionId) return
 
     const isInstructionsTab = pathname.includes('/configure/instructions')
+    // Already resolved (e.g. by a previous run of this effect, or by
+    // Instructions' own initialise() while it was mounted) — nothing left to
+    // bootstrap. Skips the refetch this effect's `pathname` dep now causes on
+    // every tab switch, once a model's actually been resolved.
+    if (personaInfo.guideModelId && !isInstructionsTab) return
 
     let cancelled = false
     ;(async () => {
@@ -352,7 +357,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       } catch { /* version or models fetch failed — guide will rely on pre-fetch in guidePersonaStream */ }
     })()
     return () => { cancelled = true }
-  }, [personaInfo.repoId, personaInfo.versionId])
+    // `personaInfo.guideModelId` is deliberately excluded — it's only read
+    // above as a same-run guard, not a re-trigger (Instructions sets it on
+    // nearly every keystroke while mounted; re-running this fetch each time
+    // would be wasteful and pointless while already on that tab).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaInfo.repoId, personaInfo.versionId, pathname, push])
 
   // ── Help panel state ─────────────────────────────────────────────────────────
 
