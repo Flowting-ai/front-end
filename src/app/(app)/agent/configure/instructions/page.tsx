@@ -40,7 +40,7 @@ import {
 import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
+import { ModelIcon } from '@/components/ModelIcon'
 import { usePersonaConfigure, type ConfigureTabKey } from '@/app/(app)/agent/configure/context'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
@@ -335,9 +335,7 @@ function ModelDropdown({
         aria-invalid={!selectedModel}
         leftIcon={
           selectedModel ? (
-            // Always the Souvenir mark — every model is one of the 3
-            // the model name exactly as the catalog stores it.
-            <SouvenirModelIcon size={16} />
+            <ModelIcon model={selectedModel.companyName ?? selectedModel.modelName} size={16} />
           ) : (
             <AtomOneIcon size={16} />
           )
@@ -412,7 +410,7 @@ function ModelDropdown({
                                 // above (the browser cursors off the topmost element under
                                 // the pointer) — override it directly here instead.
                                 style={disallowed ? { cursor: 'not-allowed' } : undefined}
-                                image={<SouvenirModelIcon size={18} />}
+                                image={<ModelIcon model={m.companyName ?? m.modelName} size={18} />}
                                 label={m.modelName}
                                 icons={
                                   disallowed

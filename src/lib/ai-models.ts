@@ -48,6 +48,33 @@ const normalizeModelType = (
   return "paid";
 };
 
+/**
+ * A catalog provider or model name → an `LlmIcon` id from
+ * `@strange-huge/icons/llm`. Matches by substring so it survives version bumps
+ * ("Claude Opus 5", "Anthropic", "claude-haiku-4.5" all resolve to Claude), and
+ * accepts either field because the surfaces that render a model avatar have one
+ * or the other, not reliably both.
+ *
+ * Returns null when nothing matches, so callers fall back to the Souvenir mark
+ * rather than stamping an unknown model with some other provider's logo.
+ */
+export function toLlmIconId(source: string | null | undefined): string | null {
+  const s = (source ?? "").toLowerCase();
+  if (!s) return null;
+  if (s.includes("anthropic") || s.includes("claude")) return "Claude";
+  if (s.includes("grok") || s.includes("xai")) return "Grok";
+  if (s.includes("openai") || s.includes("gpt")) return "OpenAI";
+  if (s.includes("gemini")) return "Gemini";
+  if (s.includes("google")) return "Google";
+  if (s.includes("meta") || s.includes("llama")) return "Meta";
+  if (s.includes("mistral")) return "Mistral";
+  if (s.includes("deepseek")) return "DeepSeek";
+  if (s.includes("groq")) return "Groq";
+  if (s.includes("cohere")) return "Cohere";
+  if (s.includes("perplexity")) return "Perplexity";
+  return null;
+}
+
 const toNumber = (value: unknown, fallback = 0): number => {
   const parsed =
     typeof value === "number"

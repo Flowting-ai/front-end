@@ -7,7 +7,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import { stableKey } from '@/hooks/use-model-selection'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
+import { ModelIcon } from '@/components/ModelIcon'
 import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 
@@ -273,7 +273,7 @@ export function ModelPickerList({
               role="button"
               tabIndex={0}
               aria-pressed={key === selectedId}
-              image={<SouvenirModelIcon size={18} />}
+              image={<ModelIcon model={model.companyName ?? model.modelName} size={18} />}
               label={model.modelName}
               selected={key === selectedId}
               icons={key === recommendedId ? <Badge label="Recommended" color="Green" /> : undefined}

@@ -6,7 +6,7 @@ import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useBrainThreadContext } from "@/context/brain-thread-context";
 import { Button } from "@/components/Button";
-import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
+import { ModelIcon } from "@/components/ModelIcon";
 import { ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
@@ -263,7 +263,6 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                   disabled
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    {/* Always the Souvenir mark — every model is one of the 3 Souvenir tiers. */}
                     {personaModel && (
                       <span
                         style={{
@@ -277,7 +276,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                           justifyContent: "center",
                         }}
                       >
-                        <SouvenirModelIcon size={16} variant="light" />
+                        <ModelIcon model={personaModel.companyName ?? personaModel.modelName} size={16} variant="light" />
                       </span>
                     )}
                     {modelName}

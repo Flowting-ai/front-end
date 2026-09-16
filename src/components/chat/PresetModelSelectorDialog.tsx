@@ -15,7 +15,7 @@ import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
-import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
+import { ModelIcon } from "@/components/ModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
 import { Badge, type BadgeColor } from "@/components/Badge";
 import { sortModels } from "@/lib/ai-models";
@@ -189,7 +189,7 @@ function PresetModelSelectorContent({
                         role="button"
                         tabIndex={0}
                         aria-pressed={isSelected}
-                        image={<SouvenirModelIcon size={18} />}
+                        image={<ModelIcon model={model.companyName ?? model.modelName} size={18} />}
                         label={model.modelName}
                         icons={<ModelModalityIcons model={model} />}
                         info={modelInfoContent(model)}
