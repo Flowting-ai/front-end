@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Agents — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6;
+    --ink:#1B1C1E;
+    --ink-soft:#55585E;
+    --ink-faint:#93968F;
+    --line:#DDDAD2;
+    --line-strong:#B9B5AB;
+    --accent:#2F4B3F;
+    --accent-soft:#E4EAE4;
+    --blue:#3A4A8A;
+    --blue-soft:#E3E6F1;
+    --amber:#9A6B23;
+    --amber-soft:#F3E7D3;
+    --red:#9C3B3B;
+    --red-soft:#F3E1E1;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:60ch; margin:0 0 16px;}
+  .changelog{
+    font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line);
+    border-radius:6px; padding:12px 16px; margin-bottom:36px;
+  }
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:44px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  p{font-size:15px; color:#33353A; max-width:66ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:70ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:64ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .figure{margin:22px 0 8px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:18px 8px;}
+  .figure svg{display:block; width:100%; height:auto;}
+  .fig-caption{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:8px 4px 8px; text-align:center;}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .page-card{background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px 22px 20px; margin-top:14px;}
+  .page-card + .page-card{margin-top:16px;}
+  .kv{display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13.5px; margin:6px 0;}
+  .kv dt{font-family:var(--mono); font-size:11px; color:var(--ink-soft); padding-top:2px;}
+  .kv dd{margin:0; color:#33353A;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  /* ---------- Wireframes — lo-fi layout sketches, boxes + labels only ---------- */
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  /* 1100px ≈ the left configure panel's own width at a common ~1440px viewport
+     (full width minus the app's left sidebar) — a representative, not exact,
+     outer frame so the REAL fixed content widths below read at true proportion
+     instead of being guessed as a percentage of an arbitrary container. */
+  .w-frame.panel{ min-height:560px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  /* Matches the real pages' `flex, justifyContent:'center'` scroll area + a
+     FIXED maxWidth inner column (714px, or 429px on Profile) — real px, not a
+     guessed percentage, so the gutters on either side read at true scale. */
+  .w-content{ width:714px; max-width:714px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  .w-content.narrow{ width:429px; max-width:429px; }
+  /* True 3-column footer: Help pinned to the far LEFT edge, step-nav in the
+     EXACT horizontal center of the whole row, right side empty — this is
+     flex:1 / auto / flex:1 in the real layout, not space-between (which would
+     incorrectly push step-nav to the far right instead of center). */
+  .w-footer-row{ display:flex; align-items:center; }
+  .w-footer-row .w-side{ flex:1 1 0; display:flex; }
+  .w-footer-row .w-side.left{ justify-content:flex-start; }
+  /* The Test Chat / AI Suggestions / Versions trigger is ONE FloatingMenu
+     pill (position:absolute, right:24 top:50% in the real layout) — a single
+     rounded container holding all 3 icons, not 3 separate floating boxes.
+     It floats over the content; it doesn't share a flex row with it (which
+     would off-center the content column). Identical on all 5 configure tabs. */
+  .w-floating{ position:absolute; right:24px; top:50%; transform:translateY(-50%); }
+  .w-floating-menu{ display:flex; flex-direction:column; gap:4px; border:1px solid var(--ink); border-radius:10px; padding:4px; background:#fff; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:190px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:6px 12px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.btn.optional{ border-style:dashed; color:var(--ink-faint); }
+  .w-box.tab{ border-style:solid; border-color:var(--line-strong); flex:none; width:74px; padding:5px 4px; border-radius:5px; font-size:8px; }
+  .w-box.tab.active{ border-color:var(--ink); font-weight:600; color:var(--ink); background:#fff; }
+  .w-box.dot{ width:9px; height:9px; min-width:9px; padding:0; border-radius:50%; border-style:solid; flex:none; }
+  .w-box.icon{ flex:none; width:32px; min-height:32px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:52px; min-height:52px; border-radius:50%; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Agents — Page-by-Page Reference</h1>
+  <p class="subtitle">Every screen a user (or their teammate, or a Super Link recipient) touches, in the order they touch it — what each page reads on arrival, what can go wrong, and exactly what it hands to the next screen.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Every page now follows the same fixed schema, in this order: <strong>Layout sketch</strong>, <strong>Input</strong>, <strong>Edge cases</strong>, <strong>Navigation</strong> (every way to leave the page and what happens to data on each one — not just the "happy path" forward), <strong>Save &amp; Publish</strong> (how this specific page's data actually gets persisted), <strong>Floating panels &amp; Help</strong> (Test Chat / AI Suggestions / Versions + the per-field help content, where applicable). Pages without a concept (e.g. the wizard has no Save/Publish, no floating panels) say so explicitly rather than omitting the heading. Facts verified against source this session; back-nav and dirty-tracking bugs called out where fixed.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#p01">Templates</a></li>
+      <li><a href="#p02">Purpose</a></li>
+      <li><a href="#p03">Name</a></li>
+      <li><a href="#p04">Tone</a></li>
+      <li><a href="#p05">Repo &amp; v001 created</a></li>
+      <li><a href="#p06">Configure — Instructions</a></li>
+      <li><a href="#p06a">↳ Floating panels (all 5 tabs)</a></li>
+      <li><a href="#p07">Configure — Profile</a></li>
+      <li><a href="#p08">Configure — Knowledge</a></li>
+      <li><a href="#p09">Configure — Connectors</a></li>
+      <li><a href="#p10">Configure — Sharing</a></li>
+      <li><a href="#p11">Super Link — recipient accept page</a></li>
+      <li><a href="#p12">Attaching an agent to a new chat</a></li>
+      <li><a href="#p13">Where else agents appear (reference)</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════════════════ 01 — TEMPLATES ══════════════════════════════════ -->
+  <h2 id="p01"><span class="num">01</span>Templates<span class="page-route">/agents/templates</span></h2>
+  <p class="page-intro">Entry point. Pick a preset (pre-fills Purpose/Name/Tone) or start blank.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel" style="max-width:764px; margin:0 auto;">
+      <div class="w-row center"><div class="w-box tight">Choose a starting point</div></div>
+      <div class="w-row center"><div class="w-box tight">Start with a template or build from scratch</div></div>
+      <!-- Custom card — 764×~76px, padding 16×17, dashed border, radius 16 -->
+      <div class="w-row" style="border:1px dashed var(--line-strong); border-radius:8px; padding:8px 10px; align-items:center; background:#fff;">
+        <div class="w-box icon" style="width:44px; min-height:44px; border-radius:12px;">+</div>
+        <div class="w-col grow" style="gap:2px;">
+          <div class="w-box tight" style="justify-content:flex-start; padding:0;">Custom — 15px label</div>
+          <div class="w-box tight" style="justify-content:flex-start; padding:0; color:var(--ink-faint);">Start from scratch — caption</div>
+        </div>
+        <div class="w-box btn tight" style="border-style:solid; border-radius:8px; padding:6px 12px; font-size:9px;">Start blank</div>
+      </div>
+      <div class="w-content-width">Custom card: 764×~76px · icon 44×44 (radius 12) · "Start blank" pill: padding 6px 12px, radius 8px, 13px label (decorative — the whole row is one button)</div>
+
+      <!-- Template card grid — 179×172px each, 44×44 icon inside -->
+      <div class="w-row">
+        <div class="w-col w-bordered" style="width:179px; min-height:172px; flex:none; align-items:center; justify-content:flex-start; padding:14px 10px; gap:8px;">
+          <div class="w-box icon" style="width:44px; min-height:44px; border-radius:12px;">i</div>
+          <div class="w-note" style="margin:0">Template name (15px, 2-line clamp)</div>
+          <div class="w-note" style="margin:0">description (caption, 2-line clamp)</div>
+        </div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+      </div>
+      <div class="w-row">
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+      </div>
+      <div class="w-row">
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+        <div class="w-box solid" style="width:179px; min-height:172px; flex:none;">Template</div>
+      </div>
+      <div class="w-content-width">Each template card: 179×172px fixed, 44×44 icon (radius 12), 15px title + caption description, both 2-line clamped. 4 per row × 3 full rows + 1 row of 3 = 15 templates, inside the same 764px grid as the Custom card above.</div>
+
+      <div class="w-row between">
+        <div class="w-box btn tight" style="padding:5px 8px;">← Library <span class="w-note">(Button size="sm")</span></div>
+        <div class="w-box btn optional tight" style="padding:5px 8px;">Continue → <span class="w-note">(only if a draft exists)</span></div>
+      </div>
+      <div class="w-content-width">Footer buttons: Button size="sm" — 5px vertical / 8px horizontal padding, ~30px tall</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>No query params read at all.</li>
+    <li>sessionStorage <code>persona_wizard_draft</code> → <code>hasWizardDraft = !!(draft.name || draft.purpose || draft.template)</code>, which conditionally shows a "Continue" button for resuming a wizard already in progress.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><code>hasWizardDraft</code> only checks the draft object — it does <strong>not</strong> check whether <code>persona_wizard_repo</code> (a repo already created) exists. Arriving via back-nav after a repo exists but with no draft text won't show Continue.</li>
+    <li>Picking a template card <em>or</em> clicking Continue both delete <code>persona_wizard_repo</code> first — either path always forces a fresh repo downstream. Only "start blank" (Custom card) leaves an existing repo untouched.</li>
+    <li>"Library" (back) is a plain navigation to <code>/agents</code> — no storage cleanup.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Writes</th><th>Navigates to</th></tr>
+    <tr><td class="label">Template card</td><td>clears <code>persona_wizard_repo</code></td><td><code>/agents/basics/purpose?template=X</code></td></tr>
+    <tr><td class="label">Start blank</td><td>nothing</td><td><code>/agents/basics/purpose</code> (no query)</td></tr>
+    <tr><td class="label">Continue</td><td>clears <code>persona_wizard_repo</code></td><td><code>/agents/basics/purpose</code> (no <code>template</code> — resumes from draft)</td></tr>
+    <tr><td class="label">Library (back)</td><td>nothing</td><td><code>/agents</code> — leaves the app's main library, abandoning any in-progress draft in place (not cleared, just left behind)</td></tr>
+  </table>
+  <p class="na-block">No browser-back guard — leaving via the browser's own Back button behaves exactly like the Library button (no confirmation, no cleanup).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — nothing exists to save yet. This page only writes to the transient <code>persona_wizard_draft</code>/<code>persona_wizard_repo</code> sessionStorage, no backend call happens until Tone's Continue (§04).</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — the Test Chat / AI Suggestions / Versions shell and the per-field Help system only exist inside <code>/agent/configure/*</code> (§06–§10). The wizard has no equivalent.</p>
+
+  <!-- ══════════════════════════════════ 02 — PURPOSE ══════════════════════════════════ -->
+  <h2 id="p02"><span class="num">02</span>Purpose<span class="page-route">/agents/basics/purpose</span></h2>
+  <p class="page-intro">One-sentence description — becomes the card blurb. 120-char cap.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:684px; margin:0 auto;">
+      <div class="w-row center"><div class="w-box tight">What should this agent do?</div></div>
+      <div class="w-row center"><div class="w-box tight">One sentence is perfect — purpose + card description</div></div>
+      <div class="w-box tall w-bordered" style="border-radius:10px;">Textarea — purpose, rows=2 · box padding 12px 10px</div>
+      <div class="w-row between">
+        <div class="w-box tight">Keep it tight — shows on the card</div>
+        <div class="w-box tight">0/120</div>
+      </div>
+      <div class="w-row between">
+        <div class="w-box btn tight" style="padding:5px 8px;">← Back <span class="w-note">(→ Templates, size="sm")</span></div>
+        <div class="w-box btn primary tight" style="padding:5px 8px;">Continue → <span class="w-note">(size="sm")</span></div>
+      </div>
+      <div class="w-content-width">Input block: 684px wide · textarea box: radius 10px, padding 12px 10px, 2 visible rows · footer buttons: Button size="sm" (~30px tall)</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>template</code> (optional).</li>
+    <li>sessionStorage: <code>persona_wizard_draft</code> + a one-shot <code>persona_wizard_going_back</code> flag (set only by Name's Back button) decide whether to restore prior purpose text or start fresh.</li>
+    <li>On a genuinely fresh entry (not going-back, or template mismatch, or no prior purpose) it clears <code>persona_wizard_repo</code>, <code>persona_wizard_starter</code>, and <code>persona_wizard_draft</code> — a full reset.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Back now returns to Templates, preserving purpose+template in the draft <span class="tag fixed">fixed</span> — it used to open a destructive "Cancel creation?" dialog instead of stepping back.</li>
+    <li>If purpose text actually changes from what was saved, Continue clears any already-picked <code>name</code>/<code>tone</code> in the draft (deliberate — a materially different purpose invalidates downstream picks).</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Writes</th><th>Navigates to</th></tr>
+    <tr><td class="label">Continue</td><td><code>{purpose, name, tone, template}</code> → <code>persona_wizard_draft</code> (name/tone kept only if purpose is unchanged from what was saved)</td><td><code>/agents/basics/name?template=X</code></td></tr>
+    <tr><td class="label">Back</td><td><code>{purpose, template}</code> → the draft</td><td><code>/agents/templates</code></td></tr>
+  </table>
+  <p class="na-block">Only Name's Back button sets <code>persona_wizard_going_back</code> for this page to read — arriving here any other way (fresh, or via Templates' Continue) is treated as forward/fresh even if a draft exists.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — still just a sessionStorage draft, no repo exists yet.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — wizard pages have no Test Chat / AI Suggestions / Versions shell and no Help system.</p>
+
+  <!-- ══════════════════════════════════ 03 — NAME ══════════════════════════════════ -->
+  <h2 id="p03"><span class="num">03</span>Name<span class="page-route">/agents/basics/name</span></h2>
+  <p class="page-intro">Name + a live <code>@handle</code> preview.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:436px; margin:0 auto;">
+      <div class="w-row center"><div class="w-box tight">What should we call it?</div></div>
+      <div class="w-row center"><div class="w-box tight">This is how it appears in your library and in chat</div></div>
+      <div class="w-box solid" style="border-radius:10px;">Input — name · box padding 12px 10px</div>
+      <div class="w-row"><div class="w-box tight">@handle01 preview</div></div>
+      <div class="w-row between">
+        <div class="w-box btn tight" style="padding:5px 8px;">← Back <span class="w-note">(→ Purpose, size="sm")</span></div>
+        <div class="w-box btn primary tight" style="padding:5px 8px;">Continue → <span class="w-note">(size="sm")</span></div>
+      </div>
+      <div class="w-content-width">Input block: 436px wide · input box radius 10px, padding 12px 10px · footer buttons: Button size="sm"</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>template</code>.</li>
+    <li>Restores <code>draft.name</code> from <code>persona_wizard_draft</code> if <code>draft.template === template</code>; else prefills from <code>TEMPLATE_PRESETS[template]?.name</code> if a template was picked.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Handle preview now strips punctuation/emoji <span class="tag fixed">fixed</span> — it's cosmetic only regardless (the real handle is server-generated on creation).</li>
+    <li>Continue fires <code>prefetchPersonaStarter(name, purpose)</code> — but only if <code>persona_wizard_starter</code> isn't already cached — so the Tone page's options fetch overlaps this page transition instead of blocking on it.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Writes</th><th>Navigates to</th></tr>
+    <tr><td class="label">Continue</td><td><code>{...draft, name}</code> → <code>persona_wizard_draft</code>; the in-flight starter-prefetch promise carries forward implicitly (module-level, consumed by Tone on mount)</td><td><code>/agents/basics/tone?template=X</code></td></tr>
+    <tr><td class="label">Back</td><td>sets <code>persona_wizard_going_back = '1'</code> (the flag Purpose reads, §02)</td><td><code>/agents/basics/purpose?template=X</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — still a sessionStorage draft only.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════════════════ 04 — TONE ══════════════════════════════════ -->
+  <h2 id="p04"><span class="num">04</span>Tone<span class="page-route">/agents/basics/tone</span></h2>
+  <p class="page-intro">Pick a tone card — seeds the starting system prompt. Continue is the actual creation moment.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:683px; margin:0 auto;">
+      <div class="w-row center"><div class="w-box tight">How should &lt;name&gt; sound?</div></div>
+      <div class="w-row center"><div class="w-box tight">Shapes how it writes, responds, and feels</div></div>
+      <div class="w-row">
+        <div class="w-box solid" style="min-height:136px">Direct &amp; confident<span class="w-note"> Ex — ...</span></div>
+        <div class="w-box solid" style="min-height:136px">Warm &amp; approachable<span class="w-note"> Ex — ...</span></div>
+      </div>
+      <div class="w-row">
+        <div class="w-box solid" style="min-height:136px">Precise &amp; professional<span class="w-note"> Ex — ...</span></div>
+        <div class="w-box solid" style="min-height:136px">Evidence-based &amp; clear<span class="w-note"> Ex — ...</span></div>
+      </div>
+      <div class="w-content-width">4 cards, 332×136px fixed each, 12px gap — grid maxWidth 683px, centered</div>
+      <div class="w-row between">
+        <div class="w-box btn">← Back <span class="w-note">(→ Name)</span></div>
+        <div class="w-box btn primary">Continue → <span class="w-note">(creates repo)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>template</code>.</li>
+    <li>Tone list: cached <code>persona_wizard_starter</code> sessionStorage (from Name's prefetch) if present, else a fresh <code>POST /persona/starter</code> call, else 4 fallback tones while loading. Template flows always use the 4 fixed tones.</li>
+    <li>Prior selection restored from <code>persona_wizard_draft.tone</code> if <code>draft.template === template</code>; else <code>TEMPLATE_PRESETS[template]?.tone</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Re-picking a tone after a repo already exists (back-nav from Instructions) now correctly re-applies via <code>updateVersion</code> <span class="tag fixed">fixed</span> — previously silently discarded, reusing the original creation prompt regardless of the new pick.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Writes</th><th>Navigates to</th></tr>
+    <tr><td class="label">Back</td><td>current tone selection → <code>persona_wizard_draft.tone</code></td><td><code>/agents/basics/name?template=X</code></td></tr>
+    <tr><td class="label">Continue</td><td>see Save &amp; Publish below — this is the creation call, not a plain navigation</td><td><code>/agent/configure/instructions?repoId=&amp;versionId=</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish — the creation call</h3>
+  <div class="page-card">
+    <p style="margin:0 0 8px"><strong>Continue</strong> → <code>POST /persona/starter</code> (final prompt+tags) → <code>fetchModelsWithCache()</code> (pick first model) → <code>POST /persona</code> via <code>createPersonaRepo()</code>, creating the Repo <strong>and</strong> its first Version (v001) atomically. There is no separate "Save" step here — picking a tone and hitting Continue IS the save.</p>
+    <dl class="kv">
+      <dt>writes</dt><dd><code>persona_wizard_repo = {repoId, versionId}</code>, <code>persona_initial_version_&lt;repoId&gt;</code>, <code>persona_wizard_no_model_&lt;repoId&gt; = '1'</code>, <code>persona_wizard_purpose_&lt;repoId&gt;</code> (if set), seeds <code>personaProfileKey(repoId)</code> with avatar/name/description/tags, removes <code>persona_wizard_draft</code></dd>
+    </dl>
+  </div>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — the repo doesn't exist until Continue fires, and by the time it does you've already navigated to Instructions, where the panel shell (§06a) takes over.</p>
+
+  <!-- ══════════════════════════════════ 05 — REPO CREATED ══════════════════════════════════ -->
+  <h2 id="p05"><span class="num">05</span>Repo &amp; v001 created<span class="page-route">POST /persona</span></h2>
+  <p class="page-intro">Not a page — the handoff moment between the wizard and Configure. From here on, every Configure tab is addressed by the same two query params.</p>
+  <div class="note">Every one of the 5 Configure tabs takes the same input shape: <code>?repoId=&amp;versionId=&amp;name=</code>. From here down, "Input" only lists what's <em>additional</em> to that.</div>
+
+  <!-- ══════════════════════════════════ 06 — INSTRUCTIONS ══════════════════════════════════ -->
+  <h2 id="p06"><span class="num">06</span>Configure — Instructions<span class="page-route">/agent/configure/instructions</span></h2>
+  <p class="page-intro">Model, system prompt, temperature, example conversations. The odd one out — self-contained, doesn't share the other tabs' model-bootstrap logic.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-row between">
+        <div class="w-box btn tight">← Back to Agents</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tab active">Instructions</div>
+          <div class="w-box tab">Profile</div>
+          <div class="w-box tab">Knowledge</div>
+          <div class="w-box tab">Connectors</div>
+          <div class="w-box tab">Sharing</div>
+        </div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box btn tight" style="padding:5px 8px;">Save version</div>
+          <div class="w-box btn primary tight" style="padding:5px 8px;">Publish</div>
+        </div>
+      </div>
+      <div class="w-content-width" style="margin-bottom:2px;">Nav bar: each tab pill 132×~36px (padding 9px 10px, radius 10, fixed width to fit "Instructions") · Back/Save/Publish: Button size="sm"</div>
+      <div class="w-content">
+        <div class="w-box solid">Model ▾</div>
+        <div class="w-box xtall">Instruction textarea</div>
+        <div class="w-box solid">Temperature slider</div>
+        <div class="w-box tall">Example conversations</div>
+        <div class="w-content-width">content column — maxWidth: 714px, centered</div>
+      </div>
+      <div class="w-floating">
+        <div class="w-floating-menu">
+          <div class="w-box icon">TC</div>
+          <div class="w-box icon">AI</div>
+          <div class="w-box icon">V</div>
+        </div>
+      </div>
+      <div class="w-footer-row">
+        <div class="w-side left"><div class="w-box tight">ⓘ Help</div></div>
+        <div class="w-box tight" style="flex:none">← Back &nbsp;·&nbsp; Continue →</div>
+        <div class="w-side"></div>
+      </div>
+      <div class="w-content-width">Footer: three flex columns (1fr / auto / 1fr) — Help pins to the far LEFT edge, step-nav sits in the exact horizontal CENTER of the row (not pushed right, as space-between would do), right column is empty</div>
+      <div class="w-note">Floating trigger: one <code>FloatingMenu</code> pill (not 3 separate boxes), ~4px padding/gap, radius 12px, holding three ~32×32px icon buttons (20px icon each) — icon-only, auto-expands to show labels after 2s hover or on keyboard focus, absolutely positioned <code>right:24px</code> within THIS left panel (not the outer page). Identical trigger position on all 5 tabs; clicking an icon opens the matching panel — shown as an actual side-by-side layout, not an overlay, in §06a below.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <table>
+    <tr><th class="label">Case</th><th>Behavior</th></tr>
+    <tr><td class="label"><code>repoId</code> + <code>versionId</code></td><td><code>getPersonaRepo</code> + <code>getVersion</code> → populate prompt/temperature/image/model. Consumes (and deletes) <code>persona_wizard_no_model_&lt;repoId&gt;</code> — if set, forces no model selected instead of resolving one.</td></tr>
+    <tr><td class="label"><code>repoId</code> only</td><td><code>listVersions</code> → <code>pickVersionToEdit</code> (published, else most-recent, else <code>active_version</code>) → same population, then stamps the URL with the resolved <code>versionId</code>.</td></tr>
+    <tr><td class="label">Neither</td><td>Reads <code>persona_wizard_repo</code>; redirects to it if present, else bounces to <code>/agents</code> (cold load with no wizard history).</td></tr>
+  </table>
+  <p style="margin-top:10px">After init, a separate effect applies a sessionStorage draft (<code>persona_instructions_draft_&lt;repoId&gt;</code>) on top if one exists and differs from the just-loaded snapshot — <strong>the draft always wins over the API value</strong> when both exist and differ.</p>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Save and Publish are now mutually exclusive <span class="tag fixed">fixed</span> — previously could race and leave the active/published versions diverged.</li>
+    <li>Restoring a version from history now snapshots the restored content instead of <code>null</code> <span class="tag fixed">fixed</span> — used to instantly (and wrongly) show the page as dirty.</li>
+    <li>The 5-version cap's auto-evict now excludes both the published version <em>and</em> the one currently open <span class="tag fixed">fixed</span> — previously only the published one was protected, so the version you were editing could be deleted out from under you.</li>
+    <li><span class="tag note">note</span> Save always forks a new version here (documented as intentional), but an unused helper (<code>resolveSaveMode</code>) exists specifically to update the first provisional version in place instead — flagged as worth confirming with product, not changed.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Back to Agents</td><td>calls <code>safeNavigate()</code> — fires the registered autosave (best-effort, errors swallowed), <em>then</em> navigates regardless of whether the autosave succeeded</td><td><code>/agents</code></td></tr>
+    <tr><td class="label">Click Profile/Knowledge/Connectors/Sharing tab</td><td>same <code>safeNavigate()</code> — autosave-then-go, no confirmation</td><td><code>/agent/configure/&lt;tab&gt;?repoId=&amp;versionId=&amp;name=</code></td></tr>
+    <tr><td class="label">Browser back</td><td>same pattern via <code>safeBack()</code></td><td>previous history entry</td></tr>
+  </table>
+  <p class="na-block">There is a "Save a version before leaving?" confirmation dialog wired up in <code>layout.tsx</code> (<code>leaveConfirmHref</code>) — but it's currently dead code, explicitly disabled by comment ("Temporarily disabled — hide the agent navigation lock for now"). In practice, every navigation off this page today is silent: autosave fires, then it leaves, no matter what state the draft is in.</p>
+  <p>Continuously pushes <code>personaName</code>, <code>imageUrl</code>, <code>connectorSlugs</code>, <code>guidePrompt</code>, <code>guideModelId</code>, <code>guideTemperature</code> into the shared <code>PersonaConfigureProvider</code> — read by Test Chat, AI Suggestions, and every other tab's header preview, regardless of which navigation path above is used.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <div class="figure">
+    <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="70" width="150" height="60" rx="6" fill="#fff" stroke="#1B1C1E" stroke-width="1.5"/>
+      <text x="95" y="95" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#1B1C1E">Current draft</text>
+      <text x="95" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#55585E">unsaved edits</text>
+      <line x1="170" y1="85" x2="230" y2="45" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="224,44 234,44 230,53" fill="#B9B5AB"/>
+      <text x="200" y="35" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#55585E">Save</text>
+      <rect x="240" y="15" width="190" height="55" rx="6" fill="#E3E6F1" stroke="#3A4A8A"/>
+      <text x="335" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#3A4A8A">forks a new version</text>
+      <text x="335" y="55" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#3A4A8A">other 4 tabs update in place</text>
+      <line x1="170" y1="115" x2="230" y2="155" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="224,150 234,152 228,161" fill="#B9B5AB"/>
+      <text x="200" y="165" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#55585E">Publish</text>
+      <rect x="240" y="130" width="190" height="55" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="335" y="153" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#9A6B23">updates in place, goes live</text>
+      <text x="335" y="170" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9A6B23">sets published_version_id</text>
+      <text x="580" y="45" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#2F4B3F">now mutually</text>
+      <text x="580" y="60" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#2F4B3F">blocked ✓</text>
+      <text x="580" y="155" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#55585E">(both write to shared</text>
+      <text x="580" y="170" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#55585E">version/publish state)</text>
+    </svg>
+  </div>
+  <div class="fig-caption">Save vs. Publish — the asymmetry every other tab inherits</div>
+  <ul>
+    <li><strong>Save</strong>: forks a brand-new version, stamps the URL with the new <code>?versionId=</code>, removes <code>persona_wizard_repo</code>, clears the <code>persona_instructions_draft_&lt;repoId&gt;</code> sessionStorage draft, and — critically — sets <code>localStorage persona_configure_saved_&lt;repoId&gt; = '1'</code>, which permanently unlocks Test Chat/AI Suggestions for this repo (see below).</li>
+    <li><strong>Publish</strong>: updates the current version in place, sets it as <code>published_version_id</code>, removes <code>persona_wizard_repo</code>, clears <code>persona_initial_version_&lt;repoId&gt;</code>. Also unlocks the panels (published implies saved).</li>
+    <li>Auto-saves the draft to <code>persona_instructions_draft_&lt;repoId&gt;</code> continuously while typing — separate from either button, purely a browser-refresh safety net.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Full panel content is detailed once in §06a below (identical shell on all 5 tabs). On <em>this</em> tab specifically:</p>
+  <ul>
+    <li><strong>Unlock condition</strong>: <code>panelsLocked</code> is true until <code>localStorage persona_configure_saved_&lt;repoId&gt;</code> is set <em>or</em> the repo has a <code>published_version_id</code> — the very first Save on <strong>any</strong> of the 5 tabs (not just here) flips this permanently for the repo.</li>
+    <li><strong>Help panel</strong> (bottom-left ⓘ), Instructions' items: <em>Model</em> (optional), <em>Agent Instruction</em> (<strong>required</strong> — the only required field across all 5 tabs), <em>Creativity Level</em>/temperature (optional), <em>Example Conversations</em> (optional), plus static entries for <em>Save Version</em> and <em>Publish</em> themselves. Title badge reads "Required" (blue) here — every other tab's badge reads "Optional" (neutral).</li>
+  </ul>
+
+  <h3 id="p06a">§06a — Floating panels <span class="w-note" style="display:inline">(shared shell — identical on all 5 configure tabs, not just Instructions)</span></h3>
+  <p class="page-intro">One at a time, mutually exclusive, triggered from the same <code>FloatingMenu</code> pill shown above. <strong>Not an overlay</strong> — the opened panel is a real flex sibling of the main configure panel in the SAME outer row, so the left panel actually shrinks to make room (its content column stays fixed at 714px/429px and just re-centers in the smaller space; only the surrounding gutter shrinks). Test Chat and AI Suggestions both show a blurred lock overlay ("Save a version first to unlock...") until at least one version exists — <code>panelsLocked</code> in the shared context. Versions is never locked.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Instructions with Test Chat OPEN (real side-by-side composition, drawn to scale)</div>
+    <div class="w-frame" style="flex-direction:row; align-items:stretch; max-width:1264px; margin:0 auto; min-height:360px;">
+      <div class="w-col" style="flex:1 1 0; min-width:0; gap:8px;">
+        <div class="w-row between">
+          <div class="w-box btn tight" style="padding:4px 6px; font-size:8.5px;">← Back</div>
+          <div class="w-row" style="flex:none; gap:2px;">
+            <div class="w-box tab active" style="width:44px; font-size:6.5px; padding:4px 2px;">Instr.</div>
+            <div class="w-box tab" style="width:44px; font-size:6.5px; padding:4px 2px;">Profile</div>
+            <div class="w-box tab" style="width:44px; font-size:6.5px; padding:4px 2px;">Knowl.</div>
+            <div class="w-box tab" style="width:44px; font-size:6.5px; padding:4px 2px;">Conn.</div>
+            <div class="w-box tab" style="width:44px; font-size:6.5px; padding:4px 2px;">Share</div>
+          </div>
+          <div class="w-row" style="flex:none; gap:4px;">
+            <div class="w-box btn tight" style="padding:4px 6px; font-size:8.5px;">Save</div>
+            <div class="w-box btn primary tight" style="padding:4px 6px; font-size:8.5px;">Publish</div>
+          </div>
+        </div>
+        <div class="w-box xtall" style="min-height:220px;">Instruction textarea — content column still fixed at 714px, just has LESS gutter around it now that the panel is narrower</div>
+        <div class="w-note" style="text-align:center">left configure panel — <code>flex:'1 0 0'</code>, shrinks to fill whatever space is left</div>
+      </div>
+      <div class="w-col w-bordered" style="flex:none; width:448px; padding:10px; gap:8px; margin:3px;">
+        <div class="w-row between">
+          <div class="w-row" style="flex:none"><div class="w-box avatar" style="width:24px; min-height:24px; border-radius:7px; font-size:7px;">av</div><div class="w-box tight" style="font-size:8px;">Agent name</div></div>
+          <div class="w-row" style="flex:none"><div class="w-box icon" style="width:20px; min-height:20px; border-radius:6px; font-size:7px;">⤢</div><div class="w-box icon" style="width:20px; min-height:20px; border-radius:6px; font-size:7px;">✕</div></div>
+        </div>
+        <div class="w-box tall">messages</div>
+        <div class="w-box solid" style="font-size:8px;">Test your agent…</div>
+        <div class="w-note" style="text-align:center">Test Chat panel — <code>flexShrink:0</code>, fixed 448px, <code>margin:3px</code></div>
+      </div>
+    </div>
+    <div class="w-content-width">Combined row ≈ left panel (fills remaining space) + 448px Test Chat, both inside ONE outer flex row — AI Suggestions (400px) and Versions (400px) occupy the exact same slot when opened instead, never simultaneously with each other or Test Chat.</div>
+  </div>
+
+  <p class="page-intro">Each panel's own internal content, at its real fixed width, detailed below:</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Test Chat panel (contents)</div>
+    <div class="w-frame" style="min-height:320px; max-width:448px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-row" style="flex:none"><div class="w-box avatar" style="width:36px; min-height:36px; border-radius:10px;">av</div><div class="w-box tight">Agent name</div></div>
+        <div class="w-row" style="flex:none"><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">⤢</div><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">✕</div></div>
+      </div>
+      <div class="w-box xtall">Messages — "Hi! I'm your agent. Test me here while you configure."</div>
+      <div class="w-box solid">Test your agent… &nbsp; [web search] [send]</div>
+      <div class="w-content-width">Panel: 448px wide · header avatar 36×36 (radius 10) · expand/close: IconButton size="md" (36×36)</div>
+    </div>
+  </div>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — AI Suggestions panel (contents)</div>
+    <div class="w-frame" style="min-height:320px; max-width:400px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-row" style="flex:none"><div class="w-box icon" style="width:20px; min-height:20px; border:none; padding:0;">✨</div><div class="w-box tight">AI suggestions</div></div>
+        <div class="w-row" style="flex:none"><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">⤢</div><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">✕</div></div>
+      </div>
+      <div class="w-box xtall">Messages — "Ask me anything about improving your agent…"</div>
+      <div class="w-box solid">Ask for guidance… &nbsp; [send]</div>
+      <div class="w-content-width">Panel: 400px wide · title icon 20px, plain (no button) · expand/close: IconButton size="md" (36×36)</div>
+    </div>
+  </div>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Versions panel (contents)</div>
+    <div class="w-frame" style="min-height:320px; max-width:400px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-row" style="flex:none"><div class="w-box icon" style="width:20px; min-height:20px; border:none; padding:0;">🗂</div><div class="w-box tight">Versions</div></div>
+        <div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px; flex:none;">✕</div>
+      </div>
+      <div class="w-box solid tight" style="justify-content:flex-start">Unsaved changes: <span class="tag fixed" style="margin-left:6px">Instructions</span><span class="tag note">Model</span></div>
+      <div class="w-row solid" style="align-items:center; gap:8px;"><div class="w-box icon" style="width:37px; min-height:37px; border-radius:8px; flex:none;">av</div><div class="w-note" style="flex:1">@handle·v003 — Sep 16 — [restore] [delete]</div></div>
+      <div class="w-row solid" style="align-items:center; gap:8px;"><div class="w-box icon" style="width:37px; min-height:37px; border-radius:8px; flex:none;">av</div><div class="w-note" style="flex:1">@handle·v002 — Sep 15 — [restore] [delete, disabled — published]</div></div>
+      <div class="w-row solid" style="align-items:center; gap:8px;"><div class="w-box icon" style="width:37px; min-height:37px; border-radius:8px; flex:none;">av</div><div class="w-note" style="flex:1">@handle·v001 — Sep 14 — [restore] [delete]</div></div>
+      <div class="w-content-width">Panel: 400px wide · never locked · row avatar 37×37, radius 8 (square, not circular) · close: IconButton size="md"</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ 07 — PROFILE ══════════════════════════════════ -->
+  <h2 id="p07"><span class="num">07</span>Configure — Profile<span class="page-route">/agent/configure/profile</span></h2>
+  <p class="page-intro">Avatar, name, handle, description, tags.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-row between">
+        <div class="w-box btn tight">← Back to Agents</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tab">Instructions</div>
+          <div class="w-box tab active">Profile</div>
+          <div class="w-box tab">Knowledge</div>
+          <div class="w-box tab">Connectors</div>
+          <div class="w-box tab">Sharing</div>
+        </div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box btn tight" style="padding:5px 8px;">Save version</div>
+          <div class="w-box btn primary tight" style="padding:5px 8px;">Publish</div>
+        </div>
+      </div>
+      <div class="w-content-width" style="margin-bottom:2px;">Nav bar: identical to every tab — 132×~36px pills, Button size="sm" actions</div>
+      <div class="w-content narrow">
+        <div class="w-row center"><div class="w-box avatar">avatar</div></div>
+        <div class="w-box solid">Name</div>
+        <div class="w-box solid">@handle</div>
+        <div class="w-box tall">Description textarea</div>
+        <div class="w-box solid">Tags — add/remove chips</div>
+        <div class="w-content-width">content column — maxWidth: 429px, centered (narrower than the other 4 tabs' 714px)</div>
+      </div>
+      <div class="w-floating">
+        <div class="w-floating-menu">
+          <div class="w-box icon">TC</div>
+          <div class="w-box icon">AI</div>
+          <div class="w-box icon">V</div>
+        </div>
+      </div>
+      <div class="w-footer-row">
+        <div class="w-side left"><div class="w-box tight">ⓘ Help</div></div>
+        <div class="w-box tight" style="flex:none">← Back &nbsp;·&nbsp; Continue →</div>
+        <div class="w-side"></div>
+      </div>
+      <div class="w-note">Footer: same 3-column (Help left / step-nav centered / empty) as Instructions. Floating trigger: same <code>FloatingMenu</code> pill, <code>right:24px</code> within this panel — see §06a for what each panel contains.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>sessionStorage <code>personaProfileKey(repoId)</code> draft (avatarUrl/personaName/personaHandle/personaDescription/personaTags) — seeded by Tone's creation step, or by a prior Profile visit.</li>
+    <li>If the draft isn't "meaningful" (no handle/description/avatar and name is still the placeholder), fetches <code>fetchPersonaRepo(repoId)</code> and overwrites from the API instead.</li>
+    <li>Description falls back to <code>persona_wizard_purpose_&lt;repoId&gt;</code> (wizard purpose) if the draft has none; tags fall back to <code>persona_wizard_starter</code>'s <code>persona_tags</code> if the draft has none.</li>
+    <li>Remounts fully on <code>repoId</code> change (<code>key={repoId}</code> gate) so switching agents can't leave stale in-memory state.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>An unsaved avatar-only change is no longer overwritten by stale API data on reload <span class="tag fixed">fixed</span> — the "meaningful draft" check now considers <code>avatarUrl</code>, not just text fields.</li>
+    <li>Picking a second avatar while an earlier Save/Publish is still in flight no longer gets silently reverted when that earlier save resolves <span class="tag fixed">fixed</span>.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Back to Agents / tab clicks / browser back</td><td>same <code>safeNavigate()</code>/<code>safeBack()</code> autosave-then-go pattern as Instructions — no confirmation dialog</td><td><code>/agents</code> or the clicked tab</td></tr>
+  </table>
+  <p>Every field change also auto-saves to <code>personaProfileKey(repoId)</code> sessionStorage and, for tags, to <code>personaTagsKey(repoId)</code> in localStorage (survives a browser-session change, feeds Library cards) — independent of which navigation path is used to leave.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li>Both call <code>updateVersion()</code> directly on the current version — <strong>no forking</strong>, unlike Instructions' Save. A real backend write of name/description/tags/avatar.</li>
+    <li>The tab-switch autosave (registered via <code>registerAutoSave</code>) uses the same <code>updateVersion()</code> call, so leaving mid-edit persists whatever was last typed.</li>
+    <li>Publish additionally sets <code>published_version_id</code> and clears the wizard session markers, same as every other tab.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <ul>
+    <li>Same shared shell — see §06a. <code>panelsLocked</code> reflects the repo-wide flag set by whichever tab did the first Save, not anything specific to Profile.</li>
+    <li><strong>Help panel</strong> items: <em>Avatar</em> (optional), <em>Name</em> (optional here — only Instructions' prompt is actually required), <em>Handle</em> (optional), <em>Description</em> (optional), <em>Tags</em> (optional). Title badge reads "Optional".</li>
+  </ul>
+
+  <!-- ══════════════════════════════════ 08 — KNOWLEDGE ══════════════════════════════════ -->
+  <h2 id="p08"><span class="num">08</span>Configure — Knowledge<span class="page-route">/agent/configure/knowledge</span></h2>
+  <p class="page-intro">Uploaded files and URLs — version-scoped.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-row between">
+        <div class="w-box btn tight">← Back to Agents</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tab">Instructions</div>
+          <div class="w-box tab">Profile</div>
+          <div class="w-box tab active">Knowledge</div>
+          <div class="w-box tab">Connectors</div>
+          <div class="w-box tab">Sharing</div>
+        </div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box btn tight" style="padding:5px 8px;">Save version</div>
+          <div class="w-box btn primary tight" style="padding:5px 8px;">Publish</div>
+        </div>
+      </div>
+      <div class="w-content-width" style="margin-bottom:2px;">Nav bar: identical to every tab — 132×~36px pills, Button size="sm" actions</div>
+      <div class="w-content">
+        <div class="w-box tall">Upload files / add a URL (dropzone)</div>
+        <div class="w-box solid">report.pdf — 240 KB — preview / remove</div>
+        <div class="w-box solid">notes.docx — 88 KB — preview / remove</div>
+        <div class="w-box solid">docs.example.com — URL — preview / remove</div>
+        <div class="w-content-width">content column — maxWidth: 714px, centered</div>
+      </div>
+      <div class="w-floating">
+        <div class="w-floating-menu">
+          <div class="w-box icon">TC</div>
+          <div class="w-box icon">AI</div>
+          <div class="w-box icon">V</div>
+        </div>
+      </div>
+      <div class="w-footer-row">
+        <div class="w-side left"><div class="w-box tight">ⓘ Help</div></div>
+        <div class="w-box tight" style="flex:none">← Back &nbsp;·&nbsp; Continue →</div>
+        <div class="w-side"></div>
+      </div>
+      <div class="w-note">Footer: same 3-column (Help left / step-nav centered / empty) as Instructions. Floating trigger: same <code>FloatingMenu</code> pill, <code>right:24px</code> within this panel — see §06a for what each panel contains.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>getVersion(repoId, versionId)</code> on mount → the version's <code>documents</code>/<code>links</code>.</li>
+    <li>sessionStorage <code>persona_file_sizes_&lt;repoId&gt;_&lt;versionId&gt;</code> — a client-side cache restoring file sizes the API strips on reload, now keyed by document id as well as filename <span class="tag fixed">fixed</span> (survives the backend renaming files, e.g. spaces → underscores).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Uploads and deletes persist immediately to the API — not batched into Save Version.</li>
+    <li>A delete can no longer be resurrected by a racing upload-reload <span class="tag fixed">fixed</span> — deleted doc IDs are now tracked and filtered out of any stale server snapshot that resolves afterward.</li>
+    <li>Tab-switch autosave dirty check now matches Connectors/Sharing's <code>pendingChangeTags.length &gt; 0 || tabDirtyFlags['Knowledge']</code> <span class="tag fixed">fixed</span> — could previously get stuck dirty on a never-published agent.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Back to Agents / tab clicks / browser back</td><td>same autosave-then-go pattern — but here autosave has little to do, since uploads/deletes already persisted immediately (see below)</td><td><code>/agents</code> or the clicked tab</td></tr>
+  </table>
+  <p>Pushes <code>knowledgeFileCount</code> into shared context (drives the Configure Progress indicator's "Knowledge: done" dot) on every change, independent of navigation. No sessionStorage state is meant for sibling tabs — the file list itself lives entirely on the backend version.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li><strong>Uploads and deletes bypass Save/Publish entirely</strong> — they call <code>uploadDocument</code>/<code>deleteDocument</code> immediately on the current version, no batching, no explicit confirm step.</li>
+    <li>The tab's own "Save version"/"Publish" buttons exist only to stamp the accumulated change tags (e.g. "Knowledge") onto the version history — there's no field-level draft to flush the way Instructions/Profile have.</li>
+    <li>The tab-switch autosave dirty check now matches Connectors/Sharing's <code>pendingChangeTags.length &gt; 0 || tabDirtyFlags['Knowledge']</code> — previously could get stuck dirty forever on a never-published agent.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <ul>
+    <li>Same shared shell — see §06a.</li>
+    <li><strong>Help panel</strong> items: <em>Uploaded Files</em>, <em>Add a URL</em> (both optional), plus static info-only entries — <em>File Limits</em> (30 MB/file, 300 MB total), <em>Supported Types</em>, <em>Version-specific</em> (knowledge is tied to the current version; each saved version can carry its own distinct file set).</li>
+  </ul>
+
+  <!-- ══════════════════════════════════ 09 — CONNECTORS ══════════════════════════════════ -->
+  <h2 id="p09"><span class="num">09</span>Configure — Connectors<span class="page-route">/agent/configure/connectors</span></h2>
+  <p class="page-intro">Per-agent enable/disable of the account's linked connectors.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-row between">
+        <div class="w-box btn tight">← Back to Agents</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tab">Instructions</div>
+          <div class="w-box tab">Profile</div>
+          <div class="w-box tab">Knowledge</div>
+          <div class="w-box tab active">Connectors</div>
+          <div class="w-box tab">Sharing</div>
+        </div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box btn tight" style="padding:5px 8px;">Save version</div>
+          <div class="w-box btn primary tight" style="padding:5px 8px;">Publish</div>
+        </div>
+      </div>
+      <div class="w-content-width" style="margin-bottom:2px;">Nav bar: identical to every tab — 132×~36px pills, Button size="sm" actions</div>
+      <div class="w-content">
+        <div class="w-box solid">🔍 Search connectors…</div>
+        <div class="w-row"><div class="w-box tight">Workspace connectors</div></div>
+        <div class="w-box solid">Gmail (workspace account) &nbsp;&nbsp; ⏻ on</div>
+        <div class="w-box solid">Slack (workspace account) &nbsp;&nbsp; ⏻ off</div>
+        <div class="w-row"><div class="w-box tight">Personal connectors</div></div>
+        <div class="w-box solid">HubSpot (your account) &nbsp;&nbsp; ⏻ on</div>
+        <div class="w-content-width">content column — maxWidth: 714px, centered</div>
+      </div>
+      <div class="w-floating">
+        <div class="w-floating-menu">
+          <div class="w-box icon">TC</div>
+          <div class="w-box icon">AI</div>
+          <div class="w-box icon">V</div>
+        </div>
+      </div>
+      <div class="w-footer-row">
+        <div class="w-side left"><div class="w-box tight">ⓘ Help</div></div>
+        <div class="w-box tight" style="flex:none">← Back &nbsp;·&nbsp; Continue →</div>
+        <div class="w-side"></div>
+      </div>
+      <div class="w-note">Footer: same 3-column (Help left / step-nav centered / empty) as Instructions. Floating trigger: same <code>FloatingMenu</code> pill, <code>right:24px</code> within this panel — see §06a for what each panel contains.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>If <code>versionId</code> is absent from the URL, resolves the latest saved version via <code>listVersions</code> and stamps the URL — same pattern as Instructions' second branch.</li>
+    <li><code>listLinkedConnectors()</code> + <code>getVersion()</code>'s <code>blocked_connectors</code> → which rows render as on/off.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>A failed toggle's revert no longer marks the tab dirty <span class="tag fixed">fixed</span> — the revert is now reported as <code>isInitial</code> so it isn't treated as a real edit.</li>
+    <li>The "unsaved" rail dot no longer clears the instant a toggle's own request settles <span class="tag fixed">fixed</span> — it now only clears on actual Save/Publish/autosave, matching the tooltip's own claim.</li>
+    <li>Switching directly between two agents' Connectors tabs no longer flashes the previous agent's rows <span class="tag fixed">fixed</span>.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Back to Agents / tab clicks / browser back</td><td>autosave-then-go; only flushes the accumulated change-tag stamp, since toggles themselves already persisted</td><td><code>/agents</code> or the clicked tab</td></tr>
+  </table>
+  <p>Pushes <code>connectorSlugs</code>/<code>disabledConnectorSlugs</code> into shared context on every toggle (read by the Configure Progress indicator, and by whatever resolves an agent's available tools at chat time) — independent of navigation.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li><strong>Toggles persist immediately</strong> via <code>unblockVersionConnector</code>/<code>setVersionBlockedConnectors</code> — same "bypasses Save/Publish" pattern as Knowledge's uploads.</li>
+    <li>A failed toggle's revert is reported as <code>isInitial</code> so it no longer marks the tab dirty or queues a spurious change tag for a no-op.</li>
+    <li>The "unsaved" rail dot only clears on actual Save/Publish/autosave now — it used to clear the instant a toggle's own request settled, regardless of outcome.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <ul>
+    <li>Same shared shell — see §06a.</li>
+    <li><strong>Help panel</strong> items: <em>Enabled for this Agent</em>, <em>Disabled for this Agent</em> (both optional), plus static info entries — <em>Connect New Tools</em> ("Manage in Settings" links Gmail/Slack/HubSpot etc.), <em>How Agents Use Connectors</em>, <em>Per-Agent Isolation</em> (disabling a tool here never affects any other agent or the account connection itself).</li>
+  </ul>
+
+  <!-- ══════════════════════════════════ 10 — SHARING ══════════════════════════════════ -->
+  <h2 id="p10"><span class="num">10</span>Configure — Sharing<span class="page-route">/agent/configure/sharing</span></h2>
+  <p class="page-intro">Visibility, Super Link, email invites — the last of the 5 tabs.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-row between">
+        <div class="w-box btn tight">← Back to Agents</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tab">Instructions</div>
+          <div class="w-box tab">Profile</div>
+          <div class="w-box tab">Knowledge</div>
+          <div class="w-box tab">Connectors</div>
+          <div class="w-box tab active">Sharing</div>
+        </div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box btn tight" style="padding:5px 8px;">Save version</div>
+          <div class="w-box btn primary tight" style="padding:5px 8px;">Publish</div>
+        </div>
+      </div>
+      <div class="w-content-width" style="margin-bottom:2px;">Nav bar: identical to every tab — 132×~36px pills, Button size="sm" actions</div>
+      <div class="w-content">
+        <div class="w-row"><div class="w-box tight">Visibility</div></div>
+        <div class="w-box solid">◉ Private — only you can see and use this agent</div>
+        <div class="w-box solid">○ Workspace — everyone in your org can see and chat</div>
+        <div class="w-row between"><div class="w-note">can't revert once Workspace</div><div class="w-box btn tight optional">Save</div></div>
+        <div class="w-row"><div class="w-box tight">Super Link</div></div>
+        <div class="w-row between"><div class="w-box tight">Generate a shareable URL</div><div class="w-box dot solid"></div></div>
+        <div class="w-box solid">yourapp.com/share/abc123 &nbsp; [Revoke] [Copy]</div>
+        <div class="w-row"><div class="w-box tight">Email Invite</div></div>
+        <div class="w-row"><div class="w-box grow solid">colleague@company.com</div><div class="w-box btn tight">Send invite</div></div>
+        <div class="w-content-width">content column — maxWidth: 714px, centered</div>
+      </div>
+      <div class="w-floating">
+        <div class="w-floating-menu">
+          <div class="w-box icon">TC</div>
+          <div class="w-box icon">AI</div>
+          <div class="w-box icon">V</div>
+        </div>
+      </div>
+      <div class="w-footer-row">
+        <div class="w-side left"><div class="w-box tight">ⓘ Help</div></div>
+        <div class="w-box tight" style="flex:none">← Back &nbsp;·&nbsp; Continue →</div>
+        <div class="w-side"></div>
+      </div>
+      <div class="w-note">Footer: same 3-column (Help left / step-nav centered / empty) as Instructions. Floating trigger: same <code>FloatingMenu</code> pill, <code>right:24px</code> within this panel — see §06a for what each panel contains.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>getPersonaRepo(repoId)</code> → current <code>visibility</code>.</li>
+    <li><code>listShares()</code> filtered to this <code>repoId</code> → any existing link/email shares (shares are repo-scoped, not version-scoped).</li>
+  </ul>
+
+  <table>
+    <tr><th class="label">Visibility</th><th>Visible to</th><th>Can revert?</th></tr>
+    <tr><td class="label">Private</td><td>Owner + any explicit <code>PersonaMember</code> invite</td><td>—</td></tr>
+    <tr><td class="label">Workspace</td><td>Every org member — view/chat only</td><td><strong>No</strong> — one-way, hard-blocked server-side (400)</td></tr>
+  </table>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 170" xmlns="http://www.w3.org/2000/svg">
+      <rect x="40" y="55" width="150" height="55" rx="6" fill="#E4EAE4" stroke="#2F4B3F"/>
+      <text x="115" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2F4B3F">Private</text>
+      <text x="115" y="95" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#2F4B3F">default</text>
+      <line x1="190" y1="70" x2="270" y2="70" stroke="#B9B5AB" stroke-width="1.5"/>
+      <polygon points="266,65 274,70 266,75" fill="#B9B5AB"/>
+      <text x="230" y="60" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#55585E">share</text>
+      <rect x="274" y="45" width="170" height="55" rx="6" fill="#F3E7D3" stroke="#9A6B23"/>
+      <text x="359" y="68" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9A6B23">Workspace</text>
+      <text x="359" y="85" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9A6B23">org-wide view/chat</text>
+      <line x1="274" y1="90" x2="200" y2="125" stroke="#9C3B3B" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="480" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C3B3B">400 — "A shared persona</text>
+      <text x="480" y="87" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C3B3B">cannot be made private"</text>
+      <text x="230" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#55585E">no supported path back — API-level, not a UI gap</text>
+    </svg>
+  </div>
+  <div class="fig-caption">Visibility is a one-way promotion</div>
+
+  <table>
+    <tr><th class="label">Super Link</th><th>Gated by</th><th>On accept</th></tr>
+    <tr><td class="label">Link</td><td>Nothing but the credit limit — open bearer URL</td><td>Clones a new repo, permanently locked from config edits</td></tr>
+    <tr><td class="label">Email</td><td>Recipient's account email must match the invite</td><td>Same clone, same lock</td></tr>
+  </table>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Turning the Super Link switch <strong>off</strong> now actually revokes it <span class="tag fixed">fixed</span> — it used to just hide the panel while the link stayed live and kept billing the org.</li>
+    <li><span class="tag note">note</span> Not gated by visibility at all — a fully Private agent can still be Super-Link-shared.</li>
+    <li>Generating a link/invite requires <code>publishedVersionId === versionId</code> — blocked with a toast otherwise ("Publish this agent version before...").</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Back to Agents / tab clicks / browser back</td><td>autosave-then-go, same as every other tab — but visibility/Super Link fields have nothing to flush, they're already saved</td><td><code>/agents</code> or the clicked tab</td></tr>
+  </table>
+  <p>A generated Super Link's URL is what feeds §11 when a recipient opens it — that's this page's real "carries forward," to an entirely different person's session rather than a sibling tab.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li>Visibility and Super Link actions save immediately via their own dedicated API calls (<code>setPersonaVisibility</code>, <code>createShare</code>/<code>revokeShare</code>) — no dirty state to batch into the tab's own Save/Publish buttons, unlike Instructions/Profile's fields.</li>
+    <li>Publishing here (or from any tab) removes <code>persona_wizard_repo</code> and <code>persona_initial_version_&lt;repoId&gt;</code>, then redirects to <code>/agents/published?repoId=&amp;versionId=</code> — the only tab whose Publish causes a redirect away from Configure entirely.</li>
+    <li>Turning the Super Link switch off now actually calls <code>revokeShare</code> instead of just hiding the panel while the link stayed live and kept billing the org.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <ul>
+    <li>Same shared shell — see §06a.</li>
+    <li><strong>Help panel</strong> items: <em>Super Link</em>, <em>Credit Limit (for Super Link)</em>, <em>Email Invite</em> (all optional), plus static entries — <em>Revoking Access</em> (cuts access off immediately), <em>Publish First</em> (the agent must be published before either sharing mechanism works — the only Help item shared verbatim with Instructions' own Publish entry).</li>
+  </ul>
+
+  <!-- ══════════════════════════════════ 11 — SUPER LINK ACCEPT ══════════════════════════════════ -->
+  <h2 id="p11"><span class="num">11</span>Super Link — recipient accept page<span class="page-route">/share/[id]</span></h2>
+  <p class="page-intro">Where a recipient lands after opening a Super Link URL — a different person, a different session, possibly not logged in yet.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:360px; margin:0 auto;">
+      <div class="w-row center"><div class="w-box avatar">avatar</div></div>
+      <div class="w-row center"><div class="w-box tight">Persona name</div></div>
+      <div class="w-row center"><div class="w-box tight">Shared by Jane (jane@co.com)</div></div>
+      <div class="w-box tall">Prompt excerpt…</div>
+      <div class="w-box solid">Model · Temp · Credits remaining · Expires</div>
+      <div class="w-row between">
+        <div class="w-box btn">Decline</div>
+        <div class="w-box btn primary">Accept &amp; copy agent</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Route param <code>id</code> → <code>GET /persona-shares/{id}</code> (<code>getSharePreview</code>) on mount → persona name/description/prompt excerpt/model/temperature/avatar, sharer's name+email, expiry, credit limit + remaining.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Link not found / already used → 404 on preview → "Link not found" state.</li>
+    <li>Expired → 410 on preview <em>or</em> on accept → "This link has expired" state.</li>
+    <li>Credit limit exhausted → 402 on accept → toast, no distinct state (preview shows <code>credit_remaining</code> but doesn't pre-block on it).</li>
+    <li>Not logged in → <code>apiFetch</code>'s global 401 handling logs the user out and redirects to login with <strong>no <code>returnTo</code> back to the share URL</strong> — the recipient isn't guaranteed to land back on this page after signing in.</li>
+    <li>Recipient's email not on an email-type share's invite list, or already-accepted → both fall through to a generic "Something went wrong" error state; neither has a dedicated message.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Accept &amp; copy agent</td><td><code>POST /persona-shares/{id}/accept</code> clones a brand-new repo+version (<code>source_share_id</code> set, permanently read-only for config), owned by the recipient. The new repo/version id is <strong>not persisted anywhere</strong> client-side.</td><td>after a 1.2s success toast, <code>/agents</code> — the generic library, not the new agent directly (there's no edit page to send a read-only copy to)</td></tr>
+    <tr><td class="label">Decline</td><td>nothing — no API call</td><td>root route</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable in the Configure sense — there's exactly one action (Accept) and it's already a full, final API call, not a draft that gets saved separately.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — this page lives outside <code>/agent/configure/*</code> entirely, no shared shell wraps it.</p>
+
+  <!-- ══════════════════════════════════ 12 — NEW CHAT ══════════════════════════════════ -->
+  <h2 id="p12"><span class="num">12</span>Attaching an agent to a new chat<span class="page-route">/chat — "Add agent"</span></h2>
+  <p class="page-intro">How an agent actually gets used, day to day — not a page so much as a sequence inside the chat composer.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame">
+      <div class="w-box xtall">Chat message list</div>
+      <div class="w-row" style="flex:none"><div class="w-box tight solid">🤖 Agent name ✕</div><div class="w-note">chip, attached above the composer</div></div>
+      <div class="w-row">
+        <div class="w-box icon">+</div>
+        <div class="w-box grow solid">Message…</div>
+        <div class="w-box icon">➤</div>
+      </div>
+      <div class="w-note">"+" opens Add-agent submenu → list filtered to owned + already-cloned personas (see §12 edge cases) → click attaches the chip above</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Opening "Add agent" calls <code>fetchSelectableChatPersonas()</code>, which filters to <code>status !== 'draft' && visibility === 'private'</code> — <span class="tag gap">gap</span> this still silently excludes every Workspace-visibility agent from the list, not just from a badge.</li>
+    <li><strong>Copy-on-list, not copy-on-click:</strong> non-owned personas in that list are already cloned into the viewer's own account (via the same <code>/use</code> flow as the Library) by the time the dropdown renders — clicking one just attaches the already-resolved chip, no further clone happens.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Selecting a persona triggers <code>getVersion()</code> to populate <code>systemPrompt</code>; Send is blocked (<code>personaConfigLoading</code>) until that resolves.</li>
+    <li>If that fetch fails (e.g. the version was deleted or auto-evicted) it falls back to <code>systemPrompt: ''</code> plus an error toast instead of hanging Send forever — a previously-fixed bug, still the current behavior.</li>
+    <li>Removing the chip mid-compose clears persona state and unlocks the model selector. Switching personas mid-compose invalidates the previous in-flight <code>getVersion</code> fetch via a cancellation flag, so a stale response can't clobber the new selection.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">Send (first message)</td><td>request includes the persona's <strong>version id, resolved system-prompt text, and temperature directly</strong> — not just a reference the backend re-resolves; model is applied separately as the normal <code>model_id</code> param</td><td>same page — a real chat id is created and stamped into the URL</td></tr>
+    <tr><td class="label">Send (subsequent messages)</td><td>same chip stays attached automatically, no re-selection needed</td><td>same chat</td></tr>
+    <tr><td class="label">Remove chip</td><td>clears persona state, unlocks the model selector</td><td>same page, no navigation</td></tr>
+    <tr><td class="label">Reload the chat later</td><td><code>localStorage souvenir_chat_&lt;chatId&gt;</code> restores the same chip</td><td>same chat</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable in the Configure sense — there's no draft/version concept here. The closest equivalent is the chip persisting to <code>localStorage</code> per chat, described above.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — the Configure shell's Test Chat / AI Suggestions / Versions panels and Help system don't extend to the regular chat surface.</p>
+
+  <!-- ══════════════════════════════════ 13 — REFERENCE ══════════════════════════════════ -->
+  <h2 id="p13"><span class="num">13</span>Where else agents appear<span class="page-route">reference</span></h2>
+  <p class="page-intro">Not part of the linear flow above — surfaces that just display an already-existing agent.</p>
+  <table>
+    <tr><th class="label">Surface</th><th>Depends on</th><th>Notes</th></tr>
+    <tr><td class="label">Agents Library / "Add agent" panel</td><td>Full card</td><td>Visibility badge fixed to show real state this session</td></tr>
+    <tr><td class="label">Brain agent-chip picker</td><td>Separate inline filter</td><td><span class="tag gap">gap</span> hardcodes <code>ownedByViewer:true</code> — needs real work, not a one-line fix, unlike §12's filter</td></tr>
+    <tr><td class="label">Sidebar / TopBar / message attribution</td><td>Name + avatar only</td><td>Visibility-agnostic, no bug surface</td></tr>
+    <tr><td class="label">Configure — Test Chat, Versions panel</td><td>Live draft state</td><td>Source of truth every surface above eventually reflects</td></tr>
+  </table>
+
+  <footer>SOUVENIR — AGENTS: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

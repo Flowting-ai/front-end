@@ -280,11 +280,9 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * Visibility, shown as a badge in the footer's bottom-left slot — not the
    * scrolling tag row, so it's always visible and always in the same place
    * regardless of how many tags there are.
-   * 'private' → "Private" badge · 'team' → "N teams" badge (needs `teamCount`).
+   * 'private' → "Private" badge · 'team' → "Workspace" badge.
    */
   visibility?: 'private' | 'team'
-  /** Number of teams this agent is shared with — drives the "N teams" footer badge when `visibility` is 'team'. */
-  teamCount?: number
   /** Additional Neutral tag badges shown in the badge row (e.g. ["Research"]). */
   tags?: string[]
   /** Shows a Blue "Shared" chip — use for personas accepted from another user's share. */
@@ -503,7 +501,6 @@ function PersonaCardInner({
       onChangeModel,
       createdBy,
       visibility,
-      teamCount,
       tags           = EMPTY_PERSONA_TAGS,
       shared         = false,
       authorHandle,
@@ -1012,16 +1009,12 @@ function PersonaCardInner({
                 borderTop:      '1px solid var(--neutral-100)',
               }}
             >
-              {/* Bottom-left slot: visibility — "N teams" rather than the
-                  team's actual name, so this never depends on a name lookup.
-                  A plain wrapper so a single badge still anchors to this side
-                  under space-between instead of collapsing to flex-start. */}
+              {/* Bottom-left slot: visibility. A plain wrapper so a single
+                  badge still anchors to this side under space-between
+                  instead of collapsing to flex-start. */}
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 {visibility === 'team' ? (
-                  <Badge
-                    color="Neutral"
-                    label={teamCount ? `${teamCount} team${teamCount === 1 ? '' : 's'}` : 'Team'}
-                  />
+                  <Badge color="Neutral" label="Workspace" />
                 ) : visibility === 'private' ? (
                   <Badge color="Neutral" label="Private" />
                 ) : null}

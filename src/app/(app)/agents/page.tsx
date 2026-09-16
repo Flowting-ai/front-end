@@ -1533,9 +1533,9 @@ function PersonasPageInner() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          // Super Link-accepted only — the team-visibility half of this
-                          // is hidden along with the rest of the shared-agent UI (see
-                          // SharingTab.tsx), not deleted from `Persona.visibility` itself.
+                          // Super Link-accepted only — workspace-visibility personas get
+                          // their own distinct "Workspace" footer badge via `visibility`
+                          // above, not this Blue "Shared" chip.
                           shared={persona.sourceShareId !== null}
                           createdBy={createdByForPersona[persona.id]}
                           useInChatLabel="Chat with agent"
@@ -1552,9 +1552,7 @@ function PersonasPageInner() {
                               : undefined
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
-                          // "Team" badge hidden along with the rest of the shared-agent UI —
-                          // every card reads as Private regardless of the underlying value.
-                          visibility={visibilityForPersona[persona.id] ? 'private' : undefined}
+                          visibility={visibilityForPersona[persona.id]}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the

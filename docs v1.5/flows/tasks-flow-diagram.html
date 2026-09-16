@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tasks (Brain) — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Tasks (Brain) — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code> and <code>flows/chats-projects-flow-diagram.html</code>, same schema — the agentic task-execution surface: the phase state machine, every animation/loading state, the Context Rail, the task list, in-task clarifying questions, and scheduled tasks.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session. This pass leans harder on <strong>render-state and animation accuracy</strong> than the other two docs — Tasks is fundamentally an async, multi-phase, streaming UI, so "what does it look like right now" depends on a 12-value phase machine, not just a route. Several real gaps found and tagged inline (a live "executing" step showing a static ring instead of a spinner, a phase that can render nothing at all, schedule creation having no direct API).</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#t00">Entities &amp; the phase machine</a></li>
+      <li><a href="#t01">Brain / Task canvas — /brain</a></li>
+      <li><a href="#t02">Task execution — animations &amp; states</a></li>
+      <li><a href="#t03">Context Rail</a></li>
+      <li><a href="#t04">Task list &amp; history — /chats?filter=tasks</a></li>
+      <li><a href="#t05">In-task Questions</a></li>
+      <li><a href="#t06">Scheduled Tasks — /brain/schedules</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2 id="t00"><span class="num">00</span>Entities &amp; the phase machine</h2>
+  <p>"Tasks" isn't a separate mode inside <code>/brain</code> — it's simply what the rest of the app calls a Brain thread (sidebar says "New task", the library's Tasks tab lists them). <code>/brain</code> is the one canvas for running a thread; everything else — <code>/brain/threads</code>, <code>/brain/chats</code> — are legacy redirect stubs into <code>/chats?filter=tasks</code>.</p>
+  <p>Everything on screen is driven by one <strong>12-value <code>Phase</code> state machine</strong> (<code>src/templates/Brain/lib/phase.ts</code>), mirrored into a ref so streaming callbacks always read the latest value:</p>
+  <table>
+    <tr><th class="label">Phase</th><th>Renders</th></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--ink-faint)"></span>idle</span></td><td>empty composer, no activity</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--blue)"></span>user-sent</span></td><td>message posted, awaiting first response</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--blue)"></span>thinking / streaming / souvenir</span></td><td><code>StreamingIndicator</code> — rotating message + pulsing dots</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--amber)"></span>clarifying-goal</span></td><td><code>ClarificationCard</code> — see §05</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--amber)"></span>confirming-pins</span></td><td>declared with a transition-table entry <span class="tag gap">gap</span> — no JSX was found rendering directly on this phase; likely dead or only reachable via a code path not exercised in this pass</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--blue)"></span>executing</span></td><td>live tool calls + reasoning, see §02</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--amber)"></span>paused</span></td><td><code>PauseCard</code></td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--red)"></span>stuck</span></td><td><code>StuckCard</code> — but ONLY if a prompt object exists; <span class="tag gap">gap</span> <code>phase==='stuck'</code> with no <code>activeStuckPrompt</code> renders <strong>nothing at all</strong>, the same class of bug as the pre-fix "stuck loader" issue</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--green)"></span>complete</span></td><td><code>LoopHistoryCard status="complete"</code> + result header + timeline</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--ink-faint)"></span>cancelled</span></td><td><code>LoopCancelledCard</code> (a distinct component — not a <code>status</code> value <code>LoopHistoryCard</code> accepts)</td></tr>
+    <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--red)"></span>failed</span></td><td><code>LoopFailedCard</code> (also distinct from <code>LoopHistoryCard</code>)</td></tr>
+  </table>
+
+  <!-- ══════════════════════ 01 — BRAIN CANVAS ══════════════════════ -->
+  <h2 id="t01"><span class="num">01</span>Brain / Task canvas<span class="page-route">/brain</span></h2>
+  <p class="page-intro">One canvas, keyed on a 2-state remount gate rather than a per-thread key.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box xtall">Transcript — reasoning blocks, activity feed, generated artifacts, result cards, all per-phase (§02)</div>
+        <div class="w-row" style="flex:none; position:relative;">
+          <div class="w-box icon">+</div>
+          <div class="w-box grow solid">Ask anything… <span class="w-note">— no model selector at all (hidden), no Use-Style submenu</span></div>
+          <div class="w-box icon" style="border-radius:50%;">⏹/➤</div>
+        </div>
+        <div class="w-content-width">Context-usage ring: 44×44 SVG, absolutely positioned over the send button — green &lt;60%, amber 60–85%, red ≥85% of a char/4 token estimate</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>id</code> → the thread to load; <code>new=1</code> → force a fresh thread; <code>fromSchedule</code> → links a schedule-originated prompt (see §06).</li>
+    <li>With no <code>id</code>, thread history is considered "loaded" immediately (empty-state, no fetch needed).</li>
+    <li>Persona chip picker fetches once per open (guarded by a ref), rendered as a dropdown sized <code>min(520px, 100vw − 32px)</code>, filtered to owned agents only (same underlying filter as the rest of the app — see the Agents doc's known gap about workspace-visibility exclusion).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Brain computes its own context-usage percentage (<code>totalChars / (modelInputLimit × 4)</code>) independently from how <code>/chat</code> computes the same-looking ring — worth verifying the two are meant to diverge before treating them as consistent.</li>
+    <li>The "New" sidebar button's active/selected state uses an <em>exact</em> path+query match (<code>pathname === '/brain' && no id param</code>), not a prefix check — deliberate, per an inline comment, so it doesn't light up while viewing an existing thread.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Trigger</th><th>Mechanism</th><th>Goes to</th></tr>
+    <tr><td class="label">Sidebar "New task" (multiple entry points)</td><td>all push the same URL</td><td><code>/brain?new=1</code></td></tr>
+    <tr><td class="label">Thread row (sidebar or list)</td><td>plain link</td><td><code>/brain?id=&lt;threadId&gt;</code></td></tr>
+    <tr><td class="label">"All tasks" shortcut</td><td>plain link</td><td><code>/chats?filter=tasks</code></td></tr>
+  </table>
+  <p>Remount gate: <code>BrainPageInner</code> is keyed on just two values, <code>'new'</code> vs <code>'thread'</code> (not a per-thread or incrementing key, unlike standalone Chat's epoch counter) — switching between two <em>existing</em> threads is handled by an in-place reset effect keyed on the URL's <code>id</code>, not a remount. An internal effect also strips <code>?new=1</code> from the URL right after triggering the reset, so a refresh doesn't re-trigger it.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable in the draft/publish sense — every send is itself the persistence event, same as regular chat.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>See §03 for the Context Rail — the one real side panel here. A separate, unrelated <code>ProjectConfigPanel</code> exists but is only used by a different Brain surface (project-scoped Brain settings), not this canvas — don't conflate the two.</p>
+
+  <!-- ══════════════════════ 02 — ANIMATIONS & STATES ══════════════════════ -->
+  <h2 id="t02"><span class="num">02</span>Task execution — animations &amp; states<span class="page-route">during <code>phase: 'executing'</code></span></h2>
+  <p class="page-intro">The part of this doc that's really about motion and feedback, not routes.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input — the live state shapes</h3>
+  <ul>
+    <li><code>liveToolCalls: Record&lt;id, {status: 'streaming'|'executing'|'complete'|'failed', tool_call}&gt;</code> — entries created/updated by SSE events (<code>tool_calls_streaming</code>, <code>tool_executing</code>, <code>tool_complete</code>), rendered via an activity feed: spinner while streaming/executing, checkmark on complete.</li>
+    <li><code>toolProgress</code> — a separate single live-progress object (e.g. a document being generated), which can also flip a matching tool-call entry to <code>failed</code> on an error status.</li>
+    <li>Reasoning reuses the same <code>ReasoningBlock</code> component as regular Chat, wrapped as <code>BrainReasoningStack</code> — auto-opens while thinking, otherwise user-toggleable, with a word-cycling collapsed trigger.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases — the Stop fix, and what it didn't fully close</h3>
+  <ul>
+    <li><span class="tag fixed">fixed</span> <code>handleStop</code> now filters out only <code>liveToolCalls</code> entries still <code>streaming</code>/<code>executing</code> (keeping already-settled ones visible) and nulls <code>toolProgress</code> — previously these kept spinning forever after Stop.</li>
+    <li><span class="tag gap">gap</span> <code>StepStatusIcon</code> (the per-step icon inside a <code>LoopHistoryCard</code>) treats <code>'executing'</code> exactly like <code>'pending'</code>/<code>'upcoming'</code> — a plain static open ring, <strong>no spinner</strong> — even though the Scheduled Tasks detail view does pass a live <code>status: 'executing'</code> for an in-progress run. That history card silently shows "not started" for a run that's actually live.</li>
+    <li><span class="tag gap">gap</span> Only 3 of the 6 <code>StepStatus</code> values (<code>failed</code>/<code>complete</code>/<code>executing</code>) get a distinct header color on <code>LoopHistoryCard</code>; <code>pending</code>/<code>upcoming</code>/<code>skipped</code> fall back to plain gray if ever passed as the card-level status — currently nothing does, so this is latent, not yet visibly broken.</li>
+    <li>Historical/archived turns never pass <code>isStreaming</code> to their reasoning block (defaults false) — correct, since a past turn shouldn't re-animate, but worth knowing if you're auditing "why doesn't this replay."</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation / transitions</h3>
+  <p>Phase transitions are driven by SSE events (<code>content</code> → streaming, <code>error</code> → failed) and two user actions: Stop → <code>cancelled</code>, and the Pause card's own Cancel → <code>cancelled</code>.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Card visual language</h3>
+  <table>
+    <tr><th class="label">Component</th><th>Trigger</th><th>Visual</th></tr>
+    <tr><td class="label"><code>LoopHistoryCard</code></td><td><code>phase==='complete'</code></td><td>white card, shadow only (no border), radius 12, header colored by status (green/red/blue text), no fixed width</td></tr>
+    <tr><td class="label"><code>LoopCancelledCard</code></td><td><code>phase==='cancelled'</code></td><td>a distinct component, not a status variant of the above</td></tr>
+    <tr><td class="label"><code>LoopFailedCard</code></td><td><code>phase==='failed'</code></td><td>likewise distinct</td></tr>
+    <tr><td class="label"><code>StreamingIndicator</code></td><td>thinking/streaming/souvenir</td><td>icon + rotating text (blur+y swap via <code>AnimatePresence</code>) + 3 pulsing dots, 1.2s cycle, 0.18s stagger</td></tr>
+  </table>
+  <p>Card mount animation (used almost everywhere in the transcript): fade in + 8px rise + 4px de-blur, on the app's "moderate" spring preset. The history card's own expand/collapse chevron rotates 0→180° on the faster spring preset, body via <code>AnimatePresence</code> opacity/y.</p>
+  <p><code>BreathingDot</code> (used elsewhere in Chat/Agent-Configure) is <strong>not used anywhere in Brain</strong> — its equivalent loading affordances here are <code>StreamingIndicator</code>'s pulsing dots and a plain <code>Spinner</code> on individual in-progress activity rows.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Covered by §03 (Context Rail) — the execution feed itself isn't a panel, it's the main transcript.</p>
+
+  <!-- ══════════════════════ 03 — CONTEXT RAIL ══════════════════════ -->
+  <h2 id="t03"><span class="num">03</span>Context Rail<span class="page-route">side panel, all phases</span></h2>
+  <p class="page-intro">The one real side panel in Brain — not toggled by the user in the way Agent Configure's panels are; it opens itself based on phase and content.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — 300px fixed width</div>
+    <div class="w-frame" style="max-width:300px; margin:0 auto; min-height:340px;">
+      <div class="w-row between"><div class="w-box tight">Context</div><div class="w-box icon" style="width:20px; min-height:20px; border:none;">✕</div></div>
+      <div class="w-box solid"><div class="w-row" style="flex:none"><div class="w-box avatar" style="width:24px; min-height:24px;">av</div>Agent — name + @handle</div></div>
+      <div class="w-box tight" style="justify-content:flex-start">In context — Active (green dot)</div>
+      <div class="w-box solid">📌 Pin — active</div>
+      <div class="w-box tight" style="justify-content:flex-start; opacity:.6">Previously used</div>
+      <div class="w-box solid" style="opacity:.6">📌 Pin — dimmed</div>
+      <div class="w-box tight" style="justify-content:flex-start">Files</div>
+      <div class="w-box solid">file.pdf — meta</div>
+      <div class="w-box tight" style="justify-content:flex-start">Connectors</div>
+      <div class="w-box solid">🟢 Gmail — connected</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Content is per-turn — built from the current/most-recent turn's own <code>context</code> SSE snapshot, <strong>not</strong> a cross-task feed and not a step/tool-call history (that's the transcript's job).</li>
+    <li>4 sections: Agent (persona avatar 40×40, radius 10, name + handle), In Context (pins), Files, Connectors — each of the latter three splits into an "Active" (green-dot sub-header) group and a dimmed "Previously used" group.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Opens automatically whenever the phase is one of a specific set (user-sent through complete/streaming) <em>or</em> there's already persona/pin/file/connector context at idle — and stays closed if the user explicitly closed it (a small info-icon reopen affordance appears instead, top-right).</li>
+    <li>Empty state is a single centered caption ("Context will appear here during an active loop.") — no skeleton/loading state exists for this panel.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — no links out, just an open/close toggle.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — pure read/display of already-persisted context.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Animation: open transition 150ms, close 200ms, both on a custom cubic-bezier; closed state slides +150px on the X axis while fading and blurring 2px, and its flex-basis collapses to 0 (it un-renders visually rather than leaving DOM, but isn't literally removed).</p>
+
+  <!-- ══════════════════════ 04 — TASK LIST ══════════════════════ -->
+  <h2 id="t04"><span class="num">04</span>Task list &amp; history<span class="page-route">/chats?filter=tasks</span></h2>
+  <p class="page-intro">There's no in-app sidebar list of past tasks separate from this — the library page IS the task list.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row" style="flex:none"><div class="w-box tab active">All</div><div class="w-box tab">Scheduled</div></div>
+        <div class="w-box solid tall">Task row — title, timestamp, starred, scheduled badge <span class="w-note">no status/duration field</span></div>
+        <div class="w-box solid tall">Task row</div>
+        <div class="w-box solid tall">Task row</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Uses the exact same <code>ChatRow</code> component as the regular Chats list, with <code>taskMode</code> and <code>scheduled</code> props layered on — title = <code>thread.chat_title</code>, timestamp from <code>updated_at</code>/<code>created_at</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> No status badge (running/failed/complete) or duration is passed to the row at all — that information only exists once you actually open a thread and see its <code>LoopHistoryCard</code>/<code>LoopFailedCard</code>/<code>LoopCancelledCard</code>. You cannot tell from the list whether a task succeeded, failed, or is still running.</li>
+    <li>Loading skeleton: 5 stacked rows, 62px tall, radius 12, each row progressively more transparent (fade-out stack effect) — a nicer-than-average loading treatment, worth preserving if this list is ever redesigned.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Row click → <code>/brain?id=&lt;threadId&gt;</code>, reopening the thread at whatever phase it last settled in.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — read-only list.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════ 05 — QUESTIONS ══════════════════════ -->
+  <h2 id="t05"><span class="num">05</span>In-task Questions<span class="page-route">inline, during execution</span></h2>
+  <p class="page-intro">A real, dedicated clarifying-question mechanism — distinct from connector permission/connect prompts, which stay connector-specific.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — inline clarification card</div>
+    <div class="w-frame" style="max-width:560px; margin:0 auto; min-height:220px;">
+      <div class="w-row between"><div class="w-box tight">Clarifying question</div><div class="w-box tight" style="flex:none">2 / 3</div></div>
+      <div class="w-box tall">"Which timezone should this run in?" — radio options, or free-text input, or yes/no</div>
+      <div class="w-row" style="justify-content:flex-end; flex:none"><div class="w-box btn">Skip</div><div class="w-box btn primary">Next →</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Two SSE event families trigger it: a generic <code>user_prompt</code> (kinds: choice/input/confirm/permission) and a dedicated <code>questions</code>/<code>question_prompt</code> event emitted specifically by the Brain <code>ask_user</code> tool, carrying a list of question objects (id, question text, type, options, entity).</li>
+    <li>Rendered by <code>ClarificationCard</code> (wrapping the same <code>QuestionCard</code> used elsewhere in the app, e.g. Agent Configure's help system) — inline in the transcript's input slot, <strong>never a modal</strong>.</li>
+    <li>Response types: single-choice (radio), multi-choice (checkboxes), free text, or yes/no (synthesized automatically when the payload provides no options).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Multiple questions step through one at a time with an "N/M" pagination chip, accumulating answers keyed by question id before a single combined response is sent.</li>
+    <li>The stream genuinely blocks while waiting — per an inline comment, without this handling the stream would stall on heartbeats until a 300-second server-side prompt-gate timeout. Send/Skip are disabled (<code>clarificationInFlight</code>) until the answer POSTs.</li>
+    <li>A second, related but distinct fallback exists: <strong><code>StuckCard</code></strong> ("Brain cannot proceed without human input") for open-ended blockers that aren't a structured question — free-text "provide context" or Cancel. See §00's gap note: this only renders when a prompt object is actually present; otherwise the <code>stuck</code> phase shows nothing.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>After the last question in a batch, one combined response POSTs and the phase returns to <code>thinking</code> — execution resumes automatically, no page navigation involved.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>One <code>respondToPrompt(promptId, {response: {answers}})</code> call per question batch — not saved incrementally per question.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — inline in the main transcript, not a panel.</p>
+
+  <!-- ══════════════════════ 06 — SCHEDULED TASKS ══════════════════════ -->
+  <h2 id="t06"><span class="num">06</span>Scheduled Tasks<span class="page-route">/brain/schedules</span></h2>
+  <p class="page-intro">Creation and editing are conversational, not direct form submissions — a real, deliberate design choice worth knowing before you go looking for a POST endpoint that doesn't exist.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between"><div class="w-box tab active">All</div><div class="w-box btn primary" style="flex:none">New schedule</div></div>
+        <div class="w-box solid tall">Schedule card — name, "Daily • 9:00 AM (America/Chicago)", active/paused badge, run count, success rate, drift warning if the deployed timer disagrees with the stored schedule</div>
+        <div class="w-box solid tall">Schedule card</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>List/detail read from real REST endpoints (<code>GET /automations</code>, <code>GET /automations/{id}</code>) — only the mutation side is unusual (below).</li>
+    <li>The create/edit modal collects exactly 3 things: Name, Instructions (free text), Frequency (Daily/Weekly tabs, day-of-week, time, IANA timezone — defaulted from the browser) — <strong>no target persona/model field exists at all</strong>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong>Creation has no direct create endpoint</strong> — confirmed by an inline comment ("local — no create/update endpoints available yet"). Saving the modal instead builds a natural-language prompt ("I want to create a schedule called…") and navigates into a Brain chat so the Task agent itself creates the schedule conversationally. Editing works identically — an update-style prompt, back into the linked chat, not a direct PATCH of the fields you just edited.</li>
+    <li><span class="tag gap">gap</span> <code>parseFrequency</code> (which round-trips the backend's human-readable cadence sentence back into the modal's structured fields) can't recognize every possible cadence — e.g. "Every 5 minutes" — and silently falls back to modal defaults instead of surfacing the real value.</li>
+    <li>No "target agent/persona was deleted" handling exists, because the <code>Automation</code>/<code>AutomationDetail</code> types don't reference a persona field at all — that failure mode simply isn't modeled client-side.</li>
+    <li>Repeated run failures show per-run in the run history (traceback stripped to just the exception message) — there's no "N consecutive failures" banner or auto-pause behavior.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Mechanism</th><th>Goes to</th></tr>
+    <tr><td class="label">New schedule / Edit</td><td>stash a generated prompt, then navigate</td><td>a Brain chat, where the agent actually performs the create/update conversationally</td></tr>
+    <tr><td class="label">Pause / Resume</td><td><code>PATCH /automations/{id}</code> (only <code>is_active</code>/<code>name</code>/<code>summary</code>), optimistic with rollback</td><td>same page</td></tr>
+    <tr><td class="label">Run now</td><td><code>POST /automations/{id}/run</code></td><td>same page</td></tr>
+    <tr><td class="label">Delete</td><td>confirm modal → <code>DELETE /automations/{id}</code></td><td>same page</td></tr>
+  </table>
+  <p>A 409 on resume (no future run computable) surfaces as a "Failed to resume schedule" toast rather than a silent failure.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Only the operational fields (active/paused, name, summary) persist directly. Content (instructions, frequency) only ever changes via the conversational round-trip above — there is no "Save" button that writes those fields straight to the backend.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — a plain list + modal, no side panel.</p>
+
+  <footer>SOUVENIR — TASKS (BRAIN): PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

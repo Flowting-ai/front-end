@@ -311,14 +311,14 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                   description={p.description}
                   tags={p.tags}
                   paused={p.paused}
-                  // Super Link only — `p.shared` also folds in team-visibility
-                  // sharing, which is hidden from the UI here (isSuperlink(p) is
-                  // already computed independently below for the superlink prop).
+                  // Super Link only — `p.shared` also folds in workspace-visibility
+                  // sharing, which gets its own distinct "Workspace" footer badge via
+                  // `visibility` below (isSuperlink(p) is already computed independently
+                  // below for the superlink prop).
                   shared={isSuperlink(p)}
                   avatarUrl={p.imageUrl ?? undefined}
                   avatarSeed={p.id}
-                  // "Team" badge hidden along with the rest of the shared-agent UI.
-                  visibility="private"
+                  visibility={p.visibility}
                   superlink={isSuperlink(p)}
                   onUseInChat={() => handleSelect(p)}
                   useInChatLabel={inProject ? 'Use in project chat' : undefined}

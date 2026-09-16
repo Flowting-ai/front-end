@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chats, Projects &amp; Sharing — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:60ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:66ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:74ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:64ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.btn.optional{ border-style:dashed; color:var(--ink-faint); }
+  .w-box.tab{ border-style:solid; border-color:var(--line-strong); flex:none; padding:5px 10px; border-radius:6px; }
+  .w-box.tab.active{ border-color:var(--ink); font-weight:600; color:var(--ink); background:#fff; }
+  .w-box.icon{ flex:none; width:32px; min-height:32px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:44px; min-height:44px; border-radius:50%; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Chats, Projects &amp; Sharing — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code>, same schema — every screen in the Chat and Project surfaces, in the order a user actually moves through them, including the two global side panels (Pinboard, Highlights) and how the chat composer differs by context.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source (not from the older <code>docs/souvenir-overall-flow-diagram.html</code> case studies or <code>docs v1.5/sharing-model-v2.html</code>, both of which predate the Team→Workspace/Shared rename and are stale in places — flagged inline where they diverge). Same fixed schema as the Agents doc: <strong>Input → Edge cases → Navigation → Save &amp; Publish → Floating panels &amp; Help</strong>, with "Save &amp; Publish" read as "how this page's data actually persists/shares" since this domain has no draft/publish concept.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#c01">Sidebar "New Chat"</a></li>
+      <li><a href="#c02">Chat — /chat</a></li>
+      <li><a href="#c03">Chats list — /chats</a></li>
+      <li><a href="#c04">Chat Sharing (share + accept)</a></li>
+      <li><a href="#c05">Projects list — /projects</a></li>
+      <li><a href="#c06">Project creation — /projects/new</a></li>
+      <li><a href="#c07">Project hub — /project/[id]</a></li>
+      <li><a href="#c08">Project chat — /project/[id]/chat/[chatId]</a></li>
+      <li><a href="#c09">Pinboard (global panel)</a></li>
+      <li><a href="#c10">Highlights (global feature)</a></li>
+      <li><a href="#c11">Chat input, by context</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2><span class="num">00</span>Entities</h2>
+  <p>A <strong>Chat</strong> is a single conversation thread — standalone, or living inside a Project. <strong>Chat visibility</strong> is just three states now: <code>private</code> (default), <code>team</code> (the frontend's leftover name for "shared" — a chat shared with specific people, not org-wide), and <code>archived</code> (one-way, no unarchive endpoint exists). Sharing a chat and sharing a persona (Super Link, in the Agents doc) are unrelated systems.</p>
+  <p>A <strong>Project</strong> has three visibility types: <strong>Personal</strong> (owner only), <strong>Workspace</strong> (every org member automatically — no manageable list), <strong>Shared</strong> (an explicit, owner-or-collaborator-managed list). Set once at creation, immutable after. <strong>Pins</strong> and <strong>Highlights</strong> are both message-level, cross-chat features rendered as global side panels rather than pages of their own — Pins save a copy of a message's content; Highlights save a specific text selection within one.</p>
+
+  <!-- ══════════════════════ 01 — SIDEBAR NEW CHAT ══════════════════════ -->
+  <h2 id="c01"><span class="num">01</span>Sidebar "New Chat"<span class="page-route">not a page — a sidebar action</span></h2>
+  <p class="page-intro">The entry point into a fresh chat from anywhere in the app.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <p>Reads which surface you're currently on (Brain/Tasks vs. everything else) to decide behavior — no props of its own beyond that.</p>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>On Brain/Tasks, always <code>push('/brain?new=1')</code> unconditionally — fixed this way because it used to silently no-op with an "Already on new task" toast during the brief window right after sending a brand-new task's first message, before the backend had assigned a real id.</li>
+    <li>A parallel event (<code>PROJECT_NEW_CHAT_EVENT</code>) solves the equivalent problem for project chat, where the router could otherwise believe it never left <code>/project/[id]/chat/new</code> after a URL-swap trick.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Where you are</th><th>What happens</th></tr>
+    <tr><td class="label">Already on <code>/chat</code></td><td>dispatches a <code>sidebar:new-chat</code> event (consumed by both the page's remount-epoch bump and its own synchronous reset), then still pushes <code>/chat</code> for correct URL/history</td></tr>
+    <tr><td class="label">On Brain/Tasks</td><td><code>push('/brain?new=1')</code></td></tr>
+    <tr><td class="label">Elsewhere</td><td>plain <code>push('/chat')</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — nothing is created until the first message actually sends.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable to the sidebar action itself.</p>
+
+  <!-- ══════════════════════ 02 — CHAT ══════════════════════ -->
+  <h2 id="c02"><span class="num">02</span>Chat<span class="page-route">/chat</span></h2>
+  <p class="page-intro">The standalone chat surface. Two remount layers protect against stale state: an outer <code>ChatPageInner key={`chat-${newChatEpoch}`}</code> (a true remount, belt-and-suspenders in case the router serves the route from cache) and an inner synchronous reset for the common case.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between"><div class="w-box tight">Chat title / share button (if <code>canManage &amp;&amp; orgId</code>)</div></div>
+        <div class="w-box xtall">Message list — empty state shows the composer centered mid-page for a brand-new chat</div>
+        <div class="w-box solid">Composer — model ▾ · Add-agent/attach menu · web-search toggle · input · send</div>
+      </div>
+      <div class="w-content-width">Content isn't width-capped the way Configure's 714px column is — the message list/composer run the full available width of the chat panel.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>id</code> (chat id), <code>msg</code> (a message id to scroll to), <code>share</code> (presence-only — auto-opens the Share overlay).</li>
+    <li><code>isNewChat = !activeChatId &amp;&amp; !hasMessages &amp;&amp; !initialPrompt</code> — the tri-state driving new-vs-existing UI.</li>
+    <li>Per-chat settings (web search, attached persona) load from <code>localStorage souvenir_chat_&lt;chatId&gt;</code> whenever <code>chatIdFromUrl</code> changes — not part of the remount key, so switching between two <em>existing</em> chats via a <code>useLayoutEffect</code> URL-sync (not a remount) still gets fresh settings without losing other page state.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Sending with no chat id yet just sets local state (<code>initialPrompt</code>, <code>hasMessages=true</code>) — no id exists until the stream's first <code>RUN_STARTED</code> event.</li>
+    <li>Switching away mid-stream doesn't abort it — streams are tracked in a global registry independent of navigation; only UI updates for the now-unfocused stream are gated.</li>
+    <li>Page reload mid-conversation relies on a documented "reload-interrupted-stream recovery path" plus a message refresh.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens to data</th><th>Goes to</th></tr>
+    <tr><td class="label">First message sends</td><td>a real chat id is adopted from the stream's <code>RUN_STARTED</code> event (or several documented fallbacks off <code>metadata</code>/<code>message_saved</code>/the final <code>done</code> event) — a temp-id swap is guarded so it can't wipe messages</td><td><code>router.replace('/chat?id=&lt;newId&gt;')</code>, plus an optimistic sidebar stub is added</td></tr>
+    <tr><td class="label">New Chat (sidebar)</td><td>synchronous reset of active chat id, highlights, and model — no full remount for this common case</td><td>same page</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li>Every message send is itself the persistence event — there's no separate draft/save step.</li>
+    <li>Per-chat settings (web search, attached persona) save to <code>localStorage souvenir_chat_&lt;chatId&gt;</code> on every change once a chat is active, and once at creation time.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">No Configure-style Test-Chat/AI-Suggestions/Versions shell here. The closest equivalents are the global Pinboard and Highlights panels — see §09/§10 — plus the Share overlay (see §04).</p>
+
+  <!-- ══════════════════════ 03 — CHATS LIST ══════════════════════ -->
+  <h2 id="c03"><span class="num">03</span>Chats list<span class="page-route">/chats</span></h2>
+  <p class="page-intro">Chats / Tasks toggle, each with its own sub-tabs.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between">
+          <div class="w-row" style="flex:none"><div class="w-box tab active">Chats</div><div class="w-box tab">Tasks</div></div>
+          <div class="w-box solid" style="flex:none">search / filter dropdown</div>
+        </div>
+        <div class="w-row" style="flex:none"><div class="w-box tab active">All</div><div class="w-box tab">Shared with me</div><div class="w-box tab">Archived</div></div>
+        <div class="w-box solid">chat row — title, relative timestamp, pin count, starred, read-only badge if shared+no-edit</div>
+        <div class="w-box solid">chat row</div>
+        <div class="w-box solid">chat row</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>?filter=tasks</code> → Tasks mode (else Chats); <code>?tab=archived</code> → Archived sub-tab (else All). The "Shared with me" sub-tab is <strong>not</strong> URL-driven — internal state only, lazily fetching <code>listSharedWithMe()</code> the first time you switch to it.</li>
+    <li>A <code>useEffect</code> re-derives mode/tab from <code>searchParams</code> on every change and syncs local state only if it actually differs — this is the fix that makes sidebar links (which just <code>replace()</code> the URL on an already-mounted <code>/chats</code>) actually update the displayed content, since a query-only navigation on the same route doesn't remount and a <code>useState</code> initializer only runs once.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Toggling mode from inside the page also pushes the URL (<code>replace</code>) so the sidebar's own read of <code>searchParams</code> stays in sync — the sync is bidirectional, not just page-reads-URL.</li>
+    <li>Archiving is one-way — no unarchive endpoint exists yet.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Row type</th><th>Click behavior</th></tr>
+    <tr><td class="label">Regular / Archived row</td><td><code>push('/chat?id=&lt;chatId&gt;')</code> — note the query param is <strong>`id`</strong>, not `chatId`</td></tr>
+    <tr><td class="label">Shared-with-me row</td><td>a distinct bespoke card (not the same row component), "Open" → <code>push('/chat-shares/&lt;shareId&gt;')</code> — the read-only accept view, §04</td></tr>
+    <tr><td class="label">Task row</td><td><code>push('/brain?id=&lt;threadId&gt;')</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Archive persists optimistically then confirms via <code>POST /chats/&lt;id&gt;/archive</code>, rolling back with a toast on failure.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════ 04 — CHAT SHARING ══════════════════════ -->
+  <h2 id="c04"><span class="num">04</span>Chat Sharing<span class="page-route">share overlay + /chat-shares/[shareId]</span></h2>
+  <p class="page-intro">Two halves: the sharer's overlay (on <code>/chat</code>) and the recipient's read-only accept page. The backend dropped the old editable/read-only "mode" and project-target columns entirely — every share today is uniformly "view read-only, then optionally fork your own copy."</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — recipient accept page</div>
+    <div class="w-frame" style="max-width:500px; margin:0 auto; min-height:280px;">
+      <div class="w-row between"><div class="w-box tight">Chat title</div><div class="w-box tight" style="flex:none; color:var(--red);">Read only</div></div>
+      <div class="w-box xtall">Full transcript — read-only message bubbles, no input box</div>
+      <div class="w-row" style="justify-content:flex-end"><div class="w-box btn primary" style="flex:none;">Make a copy</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Sharer side:</strong> the overlay button only renders when <code>chatId &amp;&amp; canManage &amp;&amp; orgId</code>. Tabs: "Share" (multiselect org members, one <code>POST /chat-shares</code> call per person) and "Active shares" (<code>GET /chat-shares?chat_id=</code>, revoke via <code>DELETE</code>).</li>
+    <li>A deep link <code>/chat?id=&lt;id&gt;&amp;share=1</code> (built by both the sidebar's "Share" menu item and the Chats-list row's share action) auto-opens the overlay on load.</li>
+    <li><strong>Recipient side</strong> (<code>/chat-shares/[shareId]</code>): <code>GET /chat-shares/{shareId}</code> on mount returns the chat title + full message transcript in one shot.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>A cancellation guard (a local <code>cancelled</code> flag checked in every branch) protects against a fast <code>shareId1 → shareId2</code> navigation letting a stale response overwrite the newer share's content.</li>
+    <li><span class="tag gap">gap</span> A revoked/deleted share and a share that never existed both 404 into the exact same "not found" screen — there's no distinct "this was unshared while you were viewing it" message, just a generic error and a "Go back" button.</li>
+    <li>Separately, if a chat that was already shared with you (not owned) needs its own copy, there's a different, unrelated "Create a copy" action directly on <code>/chat</code> for read-only chats you can already see — that calls <code>copyChat()</code>, not the fork-from-share endpoint below.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>What happens</th><th>Goes to</th></tr>
+    <tr><td class="label">Make a copy</td><td><code>POST /chat-shares/{shareId}/fork</code> → new <code>chatId</code>; chat history is refreshed (not optimistically patched)</td><td><code>/chat?id=&lt;newChatId&gt;</code> — your own private, editable copy</td></tr>
+    <tr><td class="label">Not found / error</td><td>nothing</td><td><code>router.back()</code> via a "Go back" button</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Sharing/revoking are immediate API calls, no draft state. The frontend touches exactly three chat visibility values: <code>private</code>, <code>team</code> (displayed as "shared"), <code>archived</code>.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════ 05 — PROJECTS LIST ══════════════════════ -->
+  <h2 id="c05"><span class="num">05</span>Projects list<span class="page-route">/projects</span></h2>
+  <p class="page-intro">Scope filter is a <strong>dropdown</strong>, not tabs — worth calling out since the older spec doc describes it as Tabs.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between">
+          <div class="w-box btn" style="flex:none;">Scope ▾ <span class="w-note">Personal/Workspace/Shared/Recently Deleted — hidden entirely if no org</span></div>
+          <div class="w-row" style="flex:none; gap:6px;"><div class="w-box solid tight">search</div><div class="w-box solid tight">sort ▾</div><div class="w-box solid tight">view ▾</div><div class="w-box btn primary tight">New Project</div></div>
+        </div>
+        <div class="w-row">
+          <div class="w-box solid tall">Project card — visibility badge, name, "Created by X · time", member count, chat count, ⋮ menu</div>
+          <div class="w-box solid tall">Project card</div>
+          <div class="w-box solid tall">Project card</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>?scope=</code> (<code>personal|workspace|shared|trash|all</code> — legacy <code>?scope=team</code> is mapped to <code>workspace</code>), <code>?view=</code> (grid/list), <code>?sort=</code> (recent/az/za/active), <code>?q=</code> (search) — all persisted to the URL and restored on load/back-nav.</li>
+    <li>The scope dropdown is only rendered at all when <code>orgId</code> exists; with no org, scope silently defaults to <code>personal</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Empty state copy varies by scope; a separate "no results" message shows when a search query matches nothing.</li>
+    <li>"New Project" cache-busting is implemented in the <em>sidebar</em>, not this page: the sidebar appends <code>?t=&lt;timestamp&gt;</code> only when you're already on <code>/projects/new</code>, and that page keys its inner component on that param to force a full remount (blank draft) on a same-route re-click.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Card click → project hub (§07). "New Project" → §06. ⋮ menu → Edit / Leave project (§07's owner-exit flow) / Delete, each gated by capability checks (<code>canEditProjectContent</code>/<code>canLeaveProject</code>/<code>canDeleteProject</code>).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — this page only reads/filters; creation and mutation happen elsewhere.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════ 06 — PROJECT CREATION ══════════════════════ -->
+  <h2 id="c06"><span class="num">06</span>Project creation<span class="page-route">/projects/new</span></h2>
+  <p class="page-intro">A single form, 608px content column.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:608px; margin:0 auto; min-height:380px;">
+      <div class="w-box solid">Name — InputField, autoFocus</div>
+      <div class="w-box tall">Description — textarea, rows=5</div>
+      <div class="w-row between"><div class="w-box solid" style="flex:1">Visibility ▾ — Personal / Workspace / Shared</div><div class="w-box icon" style="width:20px; min-height:20px; border:none;">ⓘ</div></div>
+      <div class="w-note">"You can't change this once the project is created" — tooltip on the ⓘ, exact copy</div>
+      <div class="w-box solid">Tags — ChipInput, max 5, Enter to add</div>
+      <div class="w-row" style="justify-content:flex-end"><div class="w-box btn primary" style="flex:none;">Create</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Visibility options filtered to <strong>Personal-only</strong> when there's no org — Workspace/Shared simply aren't offered.</li>
+    <li>No member invitation happens at creation time, even for Shared — that's a separate step from the project hub's Sharing modal (§07) afterward.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <p>Visibility is chosen from a custom dropdown (<code>Dropdown.Float</code> + items), not a native <code>&lt;select&gt;</code> — each option shows its own one-line description ("Just you." / "Everyone in the workspace." / "You choose who to invite.").</p>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Create → <code>createProject(name, description, undefined, visibility, tags)</code> → on success, pushes straight into the new project's hub (§07); on failure, a toast and the button re-enables — no navigation.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>One-shot creation call, no draft/save distinction — the whole form submits together.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <!-- ══════════════════════ 07 — PROJECT HUB ══════════════════════ -->
+  <h2 id="c07"><span class="num">07</span>Project hub<span class="page-route">/project/[id]</span></h2>
+  <p class="page-intro">The biggest page in this doc. Header, an inline chat composer, a chat list (shape depends on visibility), and a floating side-menu.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tight" style="justify-content:flex-start">Header — "Created by X · Workspace Project" / "…Shared Project" / "Personal Project" (plain text, no chip component)</div>
+        <div class="w-box solid">Composer — ChatInput: model ▾, add-menu, web search, attachments, send</div>
+        <div class="w-row" style="flex:none"><div class="w-box tab active">Your chats</div><div class="w-box tab">Workspace chats <span class="w-note">(or "Shared chats")</span></div></div>
+        <div class="w-note">Personal projects: no tabs at all — one flat divided list instead</div>
+        <div class="w-box solid tall">chat row</div>
+        <div class="w-box solid tall">chat row</div>
+      </div>
+      <div class="w-floating" style="right:24px; top:50%; transform:translateY(-50%);">
+        <div class="w-col w-bordered" style="padding:4px; border-radius:10px; gap:4px;">
+          <div class="w-box icon">S</div><div class="w-box icon">P</div><div class="w-box icon">A</div><div class="w-box icon">M</div>
+        </div>
+      </div>
+      <div class="w-content-width">Floating menu: 4 items — Instructions &amp; Files (S), Pinboard (P), Agents (A), Members (M, only shown when visibility ≠ personal). Not "Team/Agents/Instructions &amp; Files" (3 items) as an older doc claims.</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Header scope text is derived straight from <code>project.visibility</code> — no separate chip component fetches org/team display data.</li>
+    <li>Chat list: for non-personal projects, exactly <strong>2 tabs</strong> — "Your chats" (own + anything published) and a dynamically-labeled "Workspace chats" / "Shared chats" (the published-only subset, with an unread-style count badge). Personal projects skip tabs entirely.</li>
+    <li>Membership capability: <code>canManageProjectMembers = visibility === 'shared'</code> — Workspace access is automatic org-wide and has no manageable list at all; only Shared has an actual member list to add/remove from.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Older docs describe a 4-tab chat list ("Personal/Published to team/Shared with you/View only") and a 3-item side menu without Pinboard — both stale relative to current code (post Team→Workspace/Shared rename).</li>
+    <li>Owner-exit flow (<code>LeaveProjectModal</code>): if other members remain, a successor picker is required (manual pick from remaining members, no auto-assign); if the owner is alone, a forced two-button choice — Archive (read-only) or Convert to personal project. Matches the decision-tree shape in <code>sharing-model-v2.html</code>'s FIG 2, just confirmed against the real component this session.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Chat row click → project chat (§08). Floating menu → Pinboard (§09) / Agents / Instructions &amp; Files / Members panel. Sharing modal (ShareOneIcon button) invites org members not yet on a Shared project.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Membership add/remove and the leave/archive/convert actions are immediate API calls (<code>leaveProjectApi(projectId, {...})</code>), no separate save step.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>The floating menu here is a <em>different</em> shell from Configure's Test-Chat/AI-Suggestions/Versions trio — it opens Pinboard (§09), an Agents view, an Instructions &amp; Files panel, and (conditionally) a Members panel, rather than the agent-editor's panels.</p>
+
+  <!-- ══════════════════════ 08 — PROJECT CHAT ══════════════════════ -->
+  <h2 id="c08"><span class="num">08</span>Project chat<span class="page-route">/project/[id]/chat/[chatId]</span></h2>
+  <p class="page-intro">Same composer engine as standalone chat, scoped to a project, with three separate persistence channels for state carried in from the hub page.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Per-chat settings (web search, persona): <code>localStorage souvenir_project_chat_&lt;chatId&gt;</code>.</li>
+    <li>A pending persona chip dropped on the hub page just before navigating here: <code>sessionStorage project-chat-pending-persona</code>, read once then removed.</li>
+    <li>Pending file attachments carried the same way: <code>window.__pendingProjectChatFiles</code>.</li>
+    <li>Highlights reload per chat via an effect keyed on <code>activeChatId</code> — <code>loadForChat(activeChatId)</code>, or <code>clearHighlights()</code> for the "new chat" sentinel route.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><strong>Remount key</strong>: <code>project-chat-&lt;projectId&gt;-&lt;chatId&gt;-&lt;resetEpoch&gt;</code> — the epoch counter bumps on a dedicated sidebar "quick add" event for that project. This is the documented fix ensuring switching chats doesn't leave the previous chat's messages, share overlay, highlights, <em>or settings</em> on screen — all four were bleeding across chats before the key included all three identifiers plus the epoch.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Same navigation shape as standalone Chat (§02) — chat-id adoption on first send, sidebar New Chat resets — scoped to this project's chat list instead of the global one.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Same as standalone Chat — every send is the persistence event; settings save to the project-scoped localStorage key on change.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Highlights (§10) is scoped to <code>activeChatId</code> here specifically — switching chats reloads the panel's contents via the effect above rather than via a full remount of the highlight sidebar itself (that sidebar is a single app-wide instance, not per-chat).</p>
+
+  <!-- ══════════════════════ 09 — PINBOARD ══════════════════════ -->
+  <h2 id="c09"><span class="num">09</span>Pinboard<span class="page-route">global right-sidebar panel</span></h2>
+  <p class="page-intro">No dedicated route — a persistent panel mounted on every <code>(app)</code> route, animating width 0↔332px rather than mounting/unmounting, plus an "Organize" overlay for the full view.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — collapsed panel (332px) + Organize overlay</div>
+    <div class="w-row">
+      <div class="w-frame" style="width:332px; flex:none; min-height:340px;">
+        <div class="w-row between"><div class="w-box tight">Pinboard</div><div class="w-box icon" style="width:24px; min-height:24px;">⤢</div></div>
+        <div class="w-box solid tall">Pin card — sticky-note style, dog-eared corner, 5-line clamp, hover: Copy / Show in chat / Insert / Delete</div>
+        <div class="w-box solid tall">Pin card</div>
+        <div class="w-content-width">Panel: 332px wide, always mounted</div>
+      </div>
+      <div class="w-col w-bordered" style="flex:1; min-height:340px; padding:10px; gap:8px;">
+        <div class="w-row" style="flex:none"><div class="w-box solid tight" style="flex:none">All Pins</div><div class="w-box solid tight" style="flex:none">Folder A</div><div class="w-box solid tight" style="flex:none">Folder B</div></div>
+        <div class="w-row" style="flex:1"><div class="w-box tall">pin grid</div></div>
+        <div class="w-content-width">"Organize" overlay — PinboardExpanded, ~924×817px, 240px folder sidebar on the left</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Created from a chat message's hover action bar (not a dedicated flow) — pins the <strong>full message content as a copy</strong>, not a live reference, with title = first 80 chars up to the first newline, category hardcoded to "Quote" (no picker), plus auto-extracted tags from any "tags" content block in that message.</li>
+    <li>A cross-tree <code>pin:insert</code> CustomEvent (fired on "Insert" click or drag-drop) is picked up by whichever chat composer is currently mounted, adding the pin as an <code>@mention</code> chip — the exact same event-bridge pattern reused (independently, not shared code) by the Agents picker elsewhere in the app.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Pinning the same message twice is a client-side no-op — a <code>messageId</code> duplicate check bails before the API call even fires.</li>
+    <li>Deleting a folder does <strong>not</strong> delete its pins — they're unassigned back to "All Pins," matching the confirm modal's own copy.</li>
+    <li><span class="tag gap">gap</span> If a pin's source chat is later deleted, the pin's content survives (it was always a stored copy) but its chat name was never actually captured at creation time, and "Show in chat" navigates to a chat id that may no longer resolve — no defensive check exists for either.</li>
+    <li><span class="tag note">note</span> A `PinFolder` type is reused for typing inside the agent-configure Test Chat panel (`testChatFolders`) but is dead/unwired there — Pinboard is not actually integrated into that composer.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>"Show in chat" → <code>/chat?id=&lt;chatId&gt;&amp;msg=&lt;messageId&gt;</code> (the <code>msg</code> param from §02's Input list is what this jump relies on).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Optimistic insert with a temp id, then <code>POST /pins/message/&lt;messageId&gt;</code>; reconciles or rolls back with a toast. Folder CRUD is its own set of immediate calls (<code>POST/PATCH/DELETE /pins/folders...</code>), with folder names validated non-empty, ≤255 chars, case-insensitive-unique.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Pinboard <em>is itself</em> one of the floating-panel-style surfaces in this doc's schema — no further nested panel exists inside it beyond the Organize overlay shown above.</p>
+
+  <!-- ══════════════════════ 10 — HIGHLIGHTS ══════════════════════ -->
+  <h2 id="c10"><span class="num">10</span>Highlights<span class="page-route">global side panel + inline marks</span></h2>
+  <p class="page-intro">A saved text <em>selection</em> from an assistant message — not a whole-message bookmark like a Pin. Assistant messages only.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — selection popover + side panel (332px)</div>
+    <div class="w-row">
+      <div class="w-col grow" style="min-height:260px;">
+        <div class="w-box tall">Assistant message — selected text shown with a small popover: Reply / Highlight (pen icon) / Copy</div>
+        <div class="w-note">Once saved, the same span renders inline as a colored &lt;mark&gt; (1 of 4 rotating colors) for the rest of the session</div>
+      </div>
+      <div class="w-frame" style="width:332px; flex:none; min-height:260px;">
+        <div class="w-row between"><div class="w-box tight">Highlights</div><div class="w-box solid tight" style="flex:none">This chat ▾</div></div>
+        <div class="w-box solid tall">Highlight card — sticky-note style, 5-line clamp, hover: Copy / Open in chat / Delete</div>
+        <div class="w-content-width">Panel: 332px wide, app-wide singleton (not remounted per chat)</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Filter dropdown: "This chat" (default, needs a <code>chat_id</code> — the backend has no all-chats endpoint) vs. "All highlights" (fans out one <code>GET /highlights?chat_id=</code> call per known chat in parallel, silently swallowing per-chat failures).</li>
+    <li><code>color_index</code> is assigned automatically, round-robin over 4 colors — never user-chosen.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Creating a highlight calls <code>PATCH /highlights</code> — an odd HTTP verb for what's semantically a create, likely an intentional upsert-style backend design, but worth knowing if you're cross-referencing the API contract.</li>
+    <li>Editing an existing highlight is <strong>not implemented</strong> — only create/read/delete exist.</li>
+    <li>Deleting is a soft-delete (<code>PATCH /highlights/{id}</code>) behind a confirm modal ("This highlight will be permanently removed").</li>
+    <li>The literal string <code>"new"</code> as a chat id is explicitly excluded from highlight loads to avoid a 422 from the backend.</li>
+    <li><span class="tag gap">gap</span> If the source message is deleted, the highlight persists server-side and still shows as a card, but its inline mark can no longer render (needs the message present) and "Jump" has no verified fallback beyond the message container. No explicit access-revocation handling either — a chat you've lost access to just silently contributes zero highlights rather than erroring.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>"Open in chat" (Jump): same-chat scrolls directly; cross-chat navigates first, then polls the DOM (up to 20×250ms, twice — once for the message, once for the mark) before scrolling. "Copy" is clipboard-only, no navigation, no API call.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Optimistic create/delete against the API described above, with rollback + toast on failure — same pattern as Pins.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Highlights is itself a floating-panel-style surface — no further nested panel.</p>
+
+  <!-- ══════════════════════ 11 — CHAT INPUT BY CONTEXT ══════════════════════ -->
+  <h2 id="c11"><span class="num">11</span>Chat input, by context<span class="page-route">the same component, different props</span></h2>
+  <p class="page-intro">One real <code>ChatInput</code> component (<code>src/components/chat/ChatInput.tsx</code>) is reused everywhere — a second, unrelated <code>src/components/ChatInput/index.tsx</code> exists only for the agent-configure Test Chat/AI Suggestions inputs, a naming collision worth knowing about if you go looking for "the" ChatInput. The real one's feature set differs purely by which props each surface passes in:</p>
+
+  <table>
+    <tr><th class="label">Surface</th><th>Add-menu</th><th>Model selector</th><th>Notable extras</th></tr>
+    <tr><td class="label">Standalone /chat</td><td>full (web search, files, use-style, add agent, pin folders)</td><td>shown; disabled while a persona is attached</td><td>pin-mention chip strip</td></tr>
+    <tr><td class="label">Project chat</td><td>full, same as standalone</td><td>shown; disabled while a persona is attached</td><td>pending-persona/attachment handoff from the hub page (§08)</td></tr>
+    <tr><td class="label">Brain</td><td><code>hideStyle</code> — no Use-Style submenu</td><td><strong>hidden entirely</strong></td><td>a context-usage percentage ring; a Stop-generation button</td></tr>
+    <tr><td class="label">Persona chat</td><td><code>hidePersona hidePinFolders</code></td><td>always disabled, no click handler at all</td><td>a Stop-generation button</td></tr>
+  </table>
+  <p>All four pass an <code>AttachmentManager</code> for file attachments — that part doesn't vary.</p>
+
+  <footer>SOUVENIR — CHATS, PROJECTS &amp; SHARING: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>
