@@ -86,10 +86,9 @@ export async function resolveSelectableChatPersonas(
   fallbackOwned: boolean,
   copyPersona: CopyPersona = usePersonaRepoDeduped,
 ): Promise<SelectedPersonaInfo[]> {
-  return Promise.all(personas.map(async persona => {
+  const resolved = await Promise.all(personas.map(async persona => {
     const ownedByViewer = isPersonaOwnedByViewer(persona, ownerMap, viewerUserId, fallbackOwned)
-    const base = toSelectedPersona(persona, ownedByViewer)
-    if (ownedByViewer) return base
+    if (ownedByViewer) return toSelectedPersona(persona, ownedByViewer)
 
     const cached = copiedPersonaCache.get(persona.id)
     if (cached) return cached
@@ -100,9 +99,20 @@ export async function resolveSelectableChatPersonas(
       copiedPersonaCache.set(persona.id, selected)
       return selected
     } catch {
-      return base
+      // Do NOT fall back to the original, not-owned persona here — its
+      // `activeVersionId` belongs to whoever created it, not the viewer, and
+      // chat execution hard-rejects a version id that isn't the caller's own
+      // (backend: `persona.user_id != user_id` -> 404 "Persona not found").
+      // A chip built from that data looks perfectly normal (name, avatar,
+      // model all populate) right up until the user actually sends a
+      // message, at which point it fails with a confusing generic error.
+      // Dropping it from the selectable list is confusing in a much smaller,
+      // more honest way: the agent just doesn't show up until the copy
+      // succeeds, instead of showing up broken.
+      return null
     }
   }))
+  return resolved.filter((p): p is SelectedPersonaInfo => p !== null)
 }
 
 // 30-second TTL cache + in-flight dedup — the Agents floating panel calls

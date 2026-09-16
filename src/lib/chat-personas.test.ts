@@ -56,6 +56,26 @@ describe('resolveSelectableChatPersonas', () => {
     expect(copyPersona).toHaveBeenCalledOnce()
     expect(copyPersona).toHaveBeenCalledWith('other-team', 'version')
   })
+
+  it('drops a non-owned agent entirely when its copy fails, instead of falling back to the original (unowned) version id', async () => {
+    // A version id that belongs to someone else is rejected by chat send
+    // (backend: persona.user_id !== caller -> 404 "Persona not found"), so a
+    // failed clone must never be surfaced as a selectable/attachable agent.
+    // Distinct persona id from the test above — copiedPersonaCache is a
+    // module-level cache keyed by persona id, so reusing 'other-team' would
+    // return that test's already-cached successful clone instead of ever
+    // calling this test's (rejecting) copyPersona mock.
+    const copyPersona = vi.fn().mockRejectedValue(new Error('use failed'))
+
+    const result = await resolveSelectableChatPersonas([
+      persona({ id: 'private', name: 'Private agent' }),
+      persona({ id: 'other-team-failing', name: 'Other team agent (broken copy)', visibility: 'team' }),
+    ], {
+      'other-team-failing': 'another-user',
+    }, 'viewer', false, copyPersona)
+
+    expect(result.map(agent => agent.name)).toEqual(['Private agent'])
+  })
 })
 
 const { fetchPersonasMock } = vi.hoisted(() => ({
