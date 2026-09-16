@@ -148,13 +148,10 @@ export function fetchSelectableChatPersonas(
 
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
-    // Workspace-visibility agents are included too now that the Sharing tab's
-    // visibility toggle is a real, re-enabled feature — resolveSelectableChatPersonas
-    // (below) already handles the eager clone-on-open behavior for anything not
-    // owned by the viewer, so a workspace-shared agent gets cloned into the
-    // viewer's own account the same way a Super Link/team-shared "use" already
-    // does elsewhere. Drafts stay excluded — they aren't published/usable yet.
-    const personas = allPersonas.filter(persona => persona.status !== 'draft')
+    // Team-visibility agents excluded — that UI is hidden for now (see
+    // SharingTab.tsx), so they're not selectable here either. Drafts are
+    // excluded too — they aren't published/usable yet.
+    const personas = allPersonas.filter(persona => persona.status !== 'draft' && persona.visibility === 'private')
     const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved

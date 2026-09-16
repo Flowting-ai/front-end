@@ -783,30 +783,16 @@ function PersonasPageInner() {
 
   // "Created by" footer attribution — "You" for agents the viewer owns,
   // otherwise the actual owner's name resolved via personaOwnerMap + org members.
-  //
-  // Deliberately does NOT go through isOwnedByMe()/isPersonaOwnedByViewer() for
-  // team-visibility personas: that check's `fallbackOwned` (currentUserRole ===
-  // 'admin') is a load-bearing EDIT-PERMISSION heuristic used elsewhere (the
-  // copy-before-edit gate, sidebar categorization, chat-attach clone decision)
-  // and must stay as-is. But "Created by" is a factual claim, not a permission
-  // decision — claiming "Created by You" for every admin regardless of who
-  // actually created it is simply wrong, so this reads ONLY the real
-  // personaOwnerMap (currently always empty pending backend support — see
-  // EMPTY_PERSONA_OWNER_MAP above) and leaves the label unset rather than
-  // guessing. PersonaCard already omits the row entirely when createdBy is falsy.
   const createdByForPersona = useMemo(() => {
     const map: Record<string, string> = {}
     for (const p of personas) {
-      if (p.visibility === 'team') {
-        const ownerId = personaOwnerMap[p.id]
-        if (!ownerId) continue
-        map[p.id] = String(ownerId) === String(viewerUserId) ? 'You' : (members.find(m => m.id === ownerId)?.name ?? '')
-        continue
-      }
-      map[p.id] = 'You'
+      if (isOwnedByMe(p)) { map[p.id] = 'You'; continue }
+      const ownerId = personaOwnerMap[p.id]
+      const owner = ownerId ? members.find(m => m.id === ownerId) : undefined
+      if (owner) map[p.id] = owner.name
     }
     return map
-  }, [personas, personaOwnerMap, members, viewerUserId])
+  }, [personas, personaOwnerMap, members, viewerUserId, currentUserRole])
 
   // Map from stable model ID → human-readable model name (from the full API
   // models list, including blocked ones — see modelsForNameLookup above).
@@ -1556,9 +1542,9 @@ function PersonasPageInner() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          // Super Link-accepted only — workspace-visibility personas get
-                          // their own distinct "Workspace" footer badge via `visibility`
-                          // above, not this Blue "Shared" chip.
+                          // Super Link-accepted only — the team-visibility half of this
+                          // is hidden along with the rest of the shared-agent UI (see
+                          // SharingTab.tsx), not deleted from `Persona.visibility` itself.
                           shared={persona.sourceShareId !== null}
                           createdBy={createdByForPersona[persona.id]}
                           useInChatLabel="Chat with agent"
@@ -1575,7 +1561,9 @@ function PersonasPageInner() {
                               : undefined
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
-                          visibility={visibilityForPersona[persona.id]}
+                          // "Team" badge hidden along with the rest of the shared-agent UI —
+                          // every card reads as Private regardless of the underlying value.
+                          visibility={visibilityForPersona[persona.id] ? 'private' : undefined}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the

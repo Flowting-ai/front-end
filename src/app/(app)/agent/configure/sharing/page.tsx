@@ -18,8 +18,10 @@ import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
 import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
+// "Visibility" TOC entry intentionally omitted — its target section is
+// hidden (see SharingTab.tsx), not deleted; re-add the item here if that
+// section is ever re-shown.
 const SHARING_TOC_ITEMS: AttributeTocItem[] = [
-  { id: 'visibility', label: 'Visibility', anchor: 'help-sharing-visibility' },
   { id: 'superlink',  label: 'Super Link', anchor: 'help-sharing-superlink' },
   { id: 'email',      label: 'Email Invite', anchor: 'help-sharing-email' },
 ]

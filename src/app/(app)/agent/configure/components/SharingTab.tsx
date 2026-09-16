@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
-import VisibilityRow from '@/components/VisibilityRow'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
@@ -86,7 +85,7 @@ function UsageBar({ percent }: { percent: number }) {
 
 export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
-  const { orgId, org } = useOrg()
+  const { orgId } = useOrg()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
@@ -335,87 +334,11 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       </h1>
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
-      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={ATTRIBUTE_HEADER_STYLE}>
-            Visibility
-          </span>
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 12,
-              lineHeight: '16px',
-              color: '#6a625d',
-              maxWidth: 560,
-            }}
-          >
-            Who can see and chat with this agent.
-          </span>
-        </div>
-
-        <div role="radiogroup" aria-label="Visibility" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <VisibilityRow
-            label="Private"
-            description="Only you can see and use this agent."
-            selected={visibility === 'private'}
-            // The backend can't revert a shared agent back to private — see
-            // the helper text below once that's the saved state.
-            disabled={visibilitySaving || savedVisibility === 'team'}
-            onClick={() => handleVisibilitySelect('private')}
-          />
-          <VisibilityRow
-            label="Workspace"
-            description={
-              orgId
-                ? `Everyone in ${org.name || 'your workspace'} can see and chat with this agent.`
-                : 'Join an organization to share this agent with your workspace.'
-            }
-            selected={visibility === 'team'}
-            disabled={visibilitySaving || !orgId || panelsLocked}
-            onClick={() => handleVisibilitySelect('team')}
-          />
-        </div>
-
-        {savedVisibility === 'team' && (
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize: 12,
-              lineHeight: '16px',
-              color: 'var(--neutral-500)',
-            }}
-          >
-            This agent is shared with your workspace and can&apos;t be made private again.
-          </span>
-        )}
-
-        {panelsLocked && savedVisibility !== 'team' && (
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize: 12,
-              lineHeight: '16px',
-              color: 'var(--neutral-500)',
-            }}
-          >
-            Save a version first to share this agent with your workspace.
-          </span>
-        )}
-
-        {visibilityChanged && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="default" size="sm" onClick={handleSaveVisibility} loading={visibilitySaving} disabled={visibilitySaving}>
-              Save
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
+      {/* Agents are private-only for now — the team/shared visibility toggle is
+          hidden, not removed: `visibility`/`setPersonaVisibility` and everything
+          that reads `.visibility === 'team'` elsewhere stays intact so this can
+          be re-shown later without rebuilding it. See the "hide, don't delete"
+          instruction this was scoped under. */}
 
       {/* ── Super Link ──────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-superlink" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
