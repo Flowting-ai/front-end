@@ -37,7 +37,7 @@ import {
   derivePublicationState,
   pickVersionToEdit,
 } from '@/lib/persona-version-logic'
-import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
@@ -190,7 +190,7 @@ function UndoRedoGroup({
 
 // ── Model row helpers — mirror PresetModelSelectorDialog's real filtering/
 // capability logic so this picker reads as the same design-system component,
-// minus the Muse/Advanced cards and category tabs (not applicable to picking
+// minus the featured cards and category tabs (not applicable to picking
 // one fixed model for an agent).
 
 // Deterministic tag → Badge color, same hash as PresetModelSelectorDialog's
@@ -276,9 +276,9 @@ function ModelDropdown({
   // Advanced → Standard → Basic, same fixed order as every other model
   // selector in the app (chat switcher, Change/Fix model modals). No
   // provider grouping/filter — every model here is one of the 3 Souvenir
-  // Muse tiers under a single company, so a company tab/header would just
+  // models grouped under their provider, so a company tab/header would just
   // read "Anthropic" and reveal the underlying provider for no benefit.
-  const sortedModels = React.useMemo(() => sortModelsByTier(models), [models])
+  const sortedModels = React.useMemo(() => sortModels(models), [models])
 
   const updateScrollEdges = () => {
     const el = scrollRef.current
@@ -336,7 +336,7 @@ function ModelDropdown({
         leftIcon={
           selectedModel ? (
             // Always the Souvenir mark — every model is one of the 3
-            // Souvenir Muse tiers, never a raw third-party brand.
+            // the model name exactly as the catalog stores it.
             <SouvenirModelIcon size={16} />
           ) : (
             <AtomOneIcon size={16} />

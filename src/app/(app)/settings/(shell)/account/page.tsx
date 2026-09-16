@@ -11,6 +11,8 @@ import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from
 import { useNavGuard } from '@/context/nav-guard-context'
 import { toast } from 'sonner'
 import { AccountSkeleton } from '../SettingsSkeleton'
+import { fetchModelsWithCache, sortModels, pickDefaultModel } from '@/lib/ai-models'
+import type { AIModel } from '@/types/ai-model'
 
 // ── Settings v1.5 — Account page ─────────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27466
@@ -29,29 +31,16 @@ const TONE_DESCRIPTIONS: Record<typeof TONE_OPTIONS[number], string> = {
   Warm:     'Conversational, with context and reasoning.',
 }
 
-// Default Model dropdown — the 3 Souvenir Muse tiers (MODEL_TIER_RANK in
-// lib/ai-models.ts). PENDING CONFIRMATION: there is no backend field for a
-// per-user "default model" preference anywhere in this codebase — every
-// existing model-tier default is computed (pickDefaultModel() always starts
-// new chats on "Standard"), not stored per-user. Rather than fabricate a save
-// call against a contract that doesn't exist, this control persists to
-// localStorage only (client-side, this browser only) and does NOT feed back
-// into pickDefaultModel() or any chat-creation path — flagged here rather
-// than silently wiring a real-looking control to nothing, or silently
-// changing unrelated chat-creation behavior beyond what was asked.
-const MODEL_TIER_OPTIONS = ['Advanced', 'Standard', 'Basic'] as const
-const DEFAULT_MODEL_TIER_STORAGE_KEY = 'souvenir:settings:default-model-tier'
-
-// Qualitative, not exact numbers — there's no published per-tier credit-cost
-// table to cite (see the PENDING CONFIRMATION note above), so this sticks to
-// the same relative quality/speed/cost tradeoff every "good/better/best"
-// model tier (here, and Anthropic's own Opus/Sonnet/Haiku) already implies,
-// rather than fabricating precise multipliers.
-const MODEL_TIER_DESCRIPTIONS: Record<typeof MODEL_TIER_OPTIONS[number], string> = {
-  Advanced: 'Highest quality · slower · more credits',
-  Standard: 'Balanced quality and speed (default)',
-  Basic:    'Fastest · fewest credits · simpler tasks',
-}
+// Default Model dropdown — the live catalog, ordered the same way as every
+// other model picker. PENDING CONFIRMATION: there is no backend field for a
+// per-user "default model" preference anywhere in this codebase — the default
+// is computed (pickDefaultModel() starts new chats on the "Recommended" row),
+// not stored per-user. Rather than fabricate a save call against a contract
+// that doesn't exist, this control persists to localStorage only (client-side,
+// this browser only) and does NOT feed back into pickDefaultModel() or any
+// chat-creation path — flagged here rather than silently wiring a real-looking
+// control to nothing.
+const DEFAULT_MODEL_STORAGE_KEY = 'souvenir:settings:default-model'
 
 function ChevronDownIcon() {
   return (
@@ -318,15 +307,26 @@ function AccountPageContent({
 
   const [tone, setToneState] = useState(baseTone)
   const [tonePending, setTonePending] = useState(false)
-  const [modelTier, setModelTier] = useState<typeof MODEL_TIER_OPTIONS[number]>('Standard')
+  const [models, setModels] = useState<AIModel[]>([])
+  const [defaultModel, setDefaultModel] = useState('')
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(DEFAULT_MODEL_TIER_STORAGE_KEY)
-      if (stored && (MODEL_TIER_OPTIONS as readonly string[]).includes(stored)) {
-        setModelTier(stored as typeof MODEL_TIER_OPTIONS[number])
-      }
-    } catch { /* localStorage unavailable - keep the "Standard" default */ }
+    let cancelled = false
+    void fetchModelsWithCache().then(fetched => {
+      if (cancelled) return
+      const ordered = sortModels(fetched.filter(m => !m.blocked))
+      setModels(ordered)
+      let stored: string | null = null
+      try { stored = window.localStorage.getItem(DEFAULT_MODEL_STORAGE_KEY) } catch { /* unavailable */ }
+      const match = stored && ordered.some(m => m.modelName === stored) ? stored : null
+      setDefaultModel(match ?? pickDefaultModel(ordered)?.modelName ?? '')
+    })
+    return () => { cancelled = true }
   }, [])
+
+  const modelOptions = models.map(m => m.modelName)
+  const modelDescriptions = Object.fromEntries(
+    models.map(m => [m.modelName, m.description ?? '']),
+  ) as Record<string, string>
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -386,9 +386,9 @@ function AccountPageContent({
     }
   }
 
-  const handleModelTierChange = (next: typeof MODEL_TIER_OPTIONS[number]) => {
-    setModelTier(next)
-    try { window.localStorage.setItem(DEFAULT_MODEL_TIER_STORAGE_KEY, next) } catch { /* best-effort */ }
+  const handleDefaultModelChange = (next: string) => {
+    setDefaultModel(next)
+    try { window.localStorage.setItem(DEFAULT_MODEL_STORAGE_KEY, next) } catch { /* best-effort */ }
   }
 
   const handlePickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -760,7 +760,7 @@ function AccountPageContent({
             <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
           </SettingsRow>
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
-            <PillSelect value={modelTier} options={MODEL_TIER_OPTIONS} onChange={handleModelTierChange} descriptions={MODEL_TIER_DESCRIPTIONS} />
+            <PillSelect value={defaultModel} options={modelOptions} onChange={handleDefaultModelChange} descriptions={modelDescriptions} />
           </SettingsRow>
         </SettingsCard>
 

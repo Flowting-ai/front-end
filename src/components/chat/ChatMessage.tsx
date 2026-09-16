@@ -20,7 +20,6 @@ import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
 import { respondToChatPrompt } from "@/lib/api/chat";
-import { toSouvenirModelLabel } from "@/lib/ai-models";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -139,24 +138,11 @@ function StandaloneActivitiesBlock({
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const displayName = (() => {
-    const complexity = modelMeta?.complexity
-    if (complexity === 'basic') return 'Souvenir Muse (Basic)'
-    if (complexity === 'standard') return 'Souvenir Muse (Standard)'
-    // Per-message resolved tier — "Auto" is only ever the selector's routing
-    // mode (TopBar.tsx), never a tier a message actually resolves to.
-    if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = modelMeta?.modelName ?? modelName
     if (!raw) return null
-    const l = raw.toLowerCase()
-    if (l === 'muse') return 'Souvenir Muse'
-    // Already one of the 3 renamed tier labels (e.g. a manually-selected
-    // model, whose modelName was renamed upstream by toSouvenirModelLabel
-    // already) — show it as-is rather than falling into the placeholder
-    // filter below, which would otherwise blank it out just because it now
-    // also starts with "souvenir".
-    if (l.startsWith('souvenir muse:')) return raw
-    if (l === 'souvenir' || l.startsWith('souvenir')) return null
-    return toSouvenirModelLabel(raw)
+    // Never expose an internal routing label as the model name.
+    if (raw.toLowerCase().startsWith('souvenir')) return null
+    return raw
   })()
 
   // Derive summary for collapsed state
@@ -385,24 +371,11 @@ export function ChatMessage({
 
   // Resolve the actual model display name — never expose "souvenir" as a routing label.
   const modelDisplayName = (() => {
-    const complexity = message.modelMeta?.complexity
-    if (complexity === 'basic') return 'Souvenir Muse (Basic)'
-    if (complexity === 'standard') return 'Souvenir Muse (Standard)'
-    // Per-message resolved tier — "Auto" is only ever the selector's routing
-    // mode (TopBar.tsx), never a tier a message actually resolves to.
-    if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = message.modelMeta?.modelName ?? message.modelName ?? message.model_name ?? message.model
     if (!raw) return null
-    const l = raw.toLowerCase()
-    if (l === 'muse') return 'Souvenir Muse'
-    // Already one of the 3 renamed tier labels (e.g. a manually-selected
-    // model, whose modelName was renamed upstream by toSouvenirModelLabel
-    // already) — show it as-is rather than falling into the placeholder
-    // filter below, which would otherwise blank it out just because it now
-    // also starts with "souvenir".
-    if (l.startsWith('souvenir muse:')) return raw
-    if (l === 'souvenir' || l.startsWith('souvenir')) return null
-    return toSouvenirModelLabel(raw)
+    // Never expose an internal routing label as the model name.
+    if (raw.toLowerCase().startsWith('souvenir')) return null
+    return raw
   })()
 
   // Trigger a glow burst when model metadata first becomes available.

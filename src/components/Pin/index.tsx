@@ -1566,7 +1566,7 @@ function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: s
         {chatName}
       </p>
       {/* Always the Souvenir mark — every model is one of the 3 Souvenir
-          Muse tiers, never a raw third-party (Anthropic/Claude) brand. */}
+          the model name exactly as the catalog stores it. */}
       <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
         <SouvenirModelIcon size={24} />
       </div>

@@ -17,7 +17,7 @@ export interface SouvenirModelIconProps {
 /**
  * The Souvenir mark — used wherever a model row/button/trigger would
  * otherwise show a per-provider LlmIcon (e.g. Anthropic's Claude logo).
- * Every model in the catalog is one of the 3 Souvenir Muse tiers; there is
+ * Every model in the catalog is a real provider model; there is
  * no other provider/brand to reveal to the user.
  */
 export function SouvenirModelIcon({ size = 16, variant = 'dark' }: SouvenirModelIconProps) {

@@ -18,7 +18,7 @@ import { ModelSelectItem } from "@/components/ModelSelectItem";
 import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
 import { Badge, type BadgeColor } from "@/components/Badge";
-import { sortModelsByTier } from "@/lib/ai-models";
+import { sortModels } from "@/lib/ai-models";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -133,7 +133,7 @@ function PresetModelSelectorContent({
   }, []);
 
   // No search — just the 3 tiers, Advanced → Standard → Basic.
-  const filtered = sortModelsByTier(models);
+  const filtered = sortModels(models);
 
   return (
     <div ref={containerRef} style={{ padding: "8px" }}>

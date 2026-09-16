@@ -5,7 +5,7 @@ import { TickTwoIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { trackFeature } from '@/lib/analytics/events'
-import { sortModelsByTier } from '@/lib/ai-models'
+import { sortModels } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 
 function isSameModel(a: AIModel | null, b: AIModel): boolean {
@@ -21,7 +21,7 @@ export interface ModelMenuProps {
 
 export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   const { models, selectedModel, selectModel, enableReasoning, setEnableReasoning } = useModelSelectorContext()
-  const sortedModels = sortModelsByTier(models)
+  const sortedModels = sortModels(models)
 
   return (
     // maxHeight={false} opts out of Popover's ScrollArea — same pattern

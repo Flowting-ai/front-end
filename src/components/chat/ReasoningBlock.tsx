@@ -63,8 +63,8 @@ export function ModelLogo({
   modelName?: string;
   size?: number;
 }) {
-  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
-  // tiers, never a raw third-party (Anthropic/Claude) brand.
+  // Always the Souvenir mark — the chrome stays Souvenir's regardless of
+  // which provider's model produced the response.
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
   return <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none" }}><SouvenirMark size={size} /></span>;
 }
@@ -83,13 +83,13 @@ export function AnimatedLogo({
   modelName,
   justSelected,
 }: AnimatedLogoProps) {
-  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
-  // tiers, never a raw third-party (Anthropic/Claude) brand. `hasModel`
-  // still distinguishes "thinking, no model chosen yet" from "model
-  // selected" so the swing-in animation below keeps firing on selection.
-  // Muse-routed responses report only `complexity` (basic/standard/advanced),
-  // never a raw modelName — so complexity alone must count as "resolved" too,
-  // or this never leaves the "no model yet" state for those responses.
+  // Always the Souvenir mark — the chrome stays Souvenir's regardless of
+  // which provider's model produced the response. `hasModel` still
+  // distinguishes "thinking, no model chosen yet" from "model selected" so
+  // the swing-in animation below keeps firing on selection. Auto-routed
+  // responses report only `complexity`, never a raw modelName — so complexity
+  // alone must count as "resolved" too, or this never leaves the "no model
+  // yet" state for those responses.
   const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
   const showModel = hasModel;
   const currentModelKey = modelMeta?.modelName || modelName || modelMeta?.complexity;
