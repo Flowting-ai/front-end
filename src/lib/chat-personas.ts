@@ -138,14 +138,13 @@ export function fetchSelectableChatPersonas(
 
   const promise = (async () => {
     const allPersonas = await fetchPersonas()
-    // Private-only — the shared-agent UI (and the eager clone-on-open behavior
-    // resolveSelectableChatPersonas runs for anything not owned by the viewer)
-    // is hidden app-wide, so this stays scoped to agents the viewer already
-    // owns outright rather than silently /use-cloning every org-shared agent
-    // into their account on each panel open. Matches brain/page.tsx's chip
-    // list, which was already scoped this way. resolveSelectableChatPersonas
-    // itself is untouched — still callable if this is ever re-widened.
-    const personas = allPersonas.filter(persona => persona.status !== 'draft' && persona.visibility === 'private')
+    // Workspace-visibility agents are included too now that the Sharing tab's
+    // visibility toggle is a real, re-enabled feature — resolveSelectableChatPersonas
+    // (below) already handles the eager clone-on-open behavior for anything not
+    // owned by the viewer, so a workspace-shared agent gets cloned into the
+    // viewer's own account the same way a Super Link/team-shared "use" already
+    // does elsewhere. Drafts stay excluded — they aren't published/usable yet.
+    const personas = allPersonas.filter(persona => persona.status !== 'draft')
     const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved

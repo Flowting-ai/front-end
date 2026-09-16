@@ -42,7 +42,7 @@ import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo 
 import { normalizeModels } from '@/lib/ai-models'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
-import { AGENTS_SEE_ALL_EVENT } from '@/hooks/use-sidebar-events'
+import { AGENTS_SEE_ALL_EVENT, emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
 import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
 import { Badge } from '@/components/Badge'
@@ -783,16 +783,30 @@ function PersonasPageInner() {
 
   // "Created by" footer attribution — "You" for agents the viewer owns,
   // otherwise the actual owner's name resolved via personaOwnerMap + org members.
+  //
+  // Deliberately does NOT go through isOwnedByMe()/isPersonaOwnedByViewer() for
+  // team-visibility personas: that check's `fallbackOwned` (currentUserRole ===
+  // 'admin') is a load-bearing EDIT-PERMISSION heuristic used elsewhere (the
+  // copy-before-edit gate, sidebar categorization, chat-attach clone decision)
+  // and must stay as-is. But "Created by" is a factual claim, not a permission
+  // decision — claiming "Created by You" for every admin regardless of who
+  // actually created it is simply wrong, so this reads ONLY the real
+  // personaOwnerMap (currently always empty pending backend support — see
+  // EMPTY_PERSONA_OWNER_MAP above) and leaves the label unset rather than
+  // guessing. PersonaCard already omits the row entirely when createdBy is falsy.
   const createdByForPersona = useMemo(() => {
     const map: Record<string, string> = {}
     for (const p of personas) {
-      if (isOwnedByMe(p)) { map[p.id] = 'You'; continue }
-      const ownerId = personaOwnerMap[p.id]
-      const owner = ownerId ? members.find(m => m.id === ownerId) : undefined
-      if (owner) map[p.id] = owner.name
+      if (p.visibility === 'team') {
+        const ownerId = personaOwnerMap[p.id]
+        if (!ownerId) continue
+        map[p.id] = String(ownerId) === String(viewerUserId) ? 'You' : (members.find(m => m.id === ownerId)?.name ?? '')
+        continue
+      }
+      map[p.id] = 'You'
     }
     return map
-  }, [personas, personaOwnerMap, members, viewerUserId, currentUserRole])
+  }, [personas, personaOwnerMap, members, viewerUserId])
 
   // Map from stable model ID → human-readable model name (from the full API
   // models list, including blocked ones — see modelsForNameLookup above).
@@ -1024,6 +1038,13 @@ function PersonasPageInner() {
       const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
       sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(toSelectedPersonaFromCopy(copy, persona)))
+      // /chat may already be mounted (e.g. the user was just there) — a plain
+      // push() to the same route won't remount it, so the pending-persona
+      // sessionStorage read (a mount-time-only lazy initializer) never fires
+      // and the chip silently never appears. Same fix as BRAIN_NEW_THREAD_EVENT/
+      // PROJECT_NEW_CHAT_EVENT elsewhere: force the same reset the sidebar's
+      // own "New chat" button uses.
+      emitSidebarNewChat()
       push(CHAT_ROUTE)
     } catch {
       toast.dismiss(toastId)
@@ -1064,6 +1085,8 @@ function PersonasPageInner() {
         shared:          true,
       }
       sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(selected))
+      // See handleUseTeamSharedInChat above — forces a reset if /chat is already mounted.
+      emitSidebarNewChat()
       push(CHAT_ROUTE)
     } catch {
       toast.dismiss(toastId)
@@ -1575,6 +1598,10 @@ function PersonasPageInner() {
                               // of attaching it to a new regular chat.
                               onUseInChat:       () => {
                                 sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(toSelectedPersona(persona, isOwned)))
+                                // See handleUseTeamSharedInChat's comment above — forces a
+                                // reset if /chat is already mounted, so the pending-persona
+                                // sessionStorage handoff actually gets read.
+                                emitSidebarNewChat()
                                 push(CHAT_ROUTE)
                               },
                               onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,

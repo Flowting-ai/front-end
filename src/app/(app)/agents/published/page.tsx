@@ -19,6 +19,7 @@ import {
 } from '@/lib/api/persona-shares'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { AGENTS_ROUTE, CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -316,6 +317,13 @@ function PersonaPublishedContent() {
       shared:          false,
     }
     sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(info))
+    // /chat may already be mounted from an earlier visit — a plain push() to
+    // the same route won't remount it, so the pending-persona sessionStorage
+    // read (a mount-time-only lazy initializer) never fires and the chip
+    // silently never appears. Force the same reset the sidebar's own
+    // "New chat" button uses (same fix applied to agents/page.tsx's
+    // "Chat with agent" actions).
+    emitSidebarNewChat()
     push(CHAT_ROUTE)
   }
 

@@ -33,14 +33,11 @@ type AgentFilter = 'mine' | 'team' | 'superlink'
 
 const FILTER_LABEL: Record<AgentFilter, string> = {
   mine:      'My Agents',
-  team:      'Team Agents',
+  team:      'Workspace Agents',
   superlink: 'Superlink Agents',
 }
 
-// "Team Agents" hidden from the selectable dropdown along with the rest of
-// the shared-agent UI — `AgentFilter`/`FILTER_LABEL.team`/byFilter's 'team'
-// branch below stay intact so this can be re-shown without rebuilding it.
-const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']
+const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'team', 'superlink']
 
 // Loading placeholder shaped like a PersonaCard row (65px avatar, name/handle,
 // two description lines, a badge pill) so the list doesn't jump when real

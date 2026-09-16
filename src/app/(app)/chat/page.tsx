@@ -296,10 +296,24 @@ function ChatPageInner() {
   // This prevents routing an existing regular chatId through the persona endpoint.
   const personaChatIds = useRef(new Map<string, string>()); // chatId → personaId
 
+  // Tracks a newly-created chat so handleChatMoveToTop can schedule a title
+  // refresh, AND so the settings-reload effect below can recognize "this is
+  // the chat I just created in this exact render sequence" and skip its own
+  // reload for it.
+  const newlyCreatedChatIdRef = useRef<string | null>(null);
+
   // When the URL chatId changes (navigation), load that chat's stored settings.
   // Settings are per-chat — navigating away resets to defaults so no cross-chat bleed.
   useEffect(() => {
     if (chatIdFromUrl) {
+      // Skip the reload for the chat we JUST created via handleChatCreated in
+      // this session — it already set selectedPersona/webSearchEnabled
+      // synchronously from live state, which is authoritative. Re-reading
+      // from localStorage here for that same chat id is redundant, and it's
+      // the one path capable of nulling out a freshly-attached persona chip
+      // right after the first send if the write hasn't (or can't yet have)
+      // landed by the time this effect re-fires off the URL update.
+      if (chatIdFromUrl === newlyCreatedChatIdRef.current) return;
       const s = loadChatSettings(chatIdFromUrl);
       setWebSearchEnabled(s?.webSearch ?? false);
       setSelectedPersona(s?.persona ?? null);
@@ -743,9 +757,6 @@ function ChatPageInner() {
   const activeChatCanManage = activeChatRecord?.can_edit === true && !activeChatArchived;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
-
-  // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
-  const newlyCreatedChatIdRef = useRef<string | null>(null);
 
   // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
   // to avoid an effect chain (layoutEffect sets activeChatId → effect reacts to it).
