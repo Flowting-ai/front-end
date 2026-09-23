@@ -16,7 +16,7 @@ import {
   UnfoldLessIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
+import { ModelIcon } from '@/components/ModelIcon'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge, type BadgeColor } from '@/components/Badge'
@@ -1551,7 +1551,7 @@ export function Pin({
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
+function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
   const timeLabel = createdAt ? formatRelativeTime(createdAt) : null
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
@@ -1565,10 +1565,8 @@ function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: s
       >
         {chatName}
       </p>
-      {/* Always the Souvenir mark — every model is one of the 3 Souvenir
-          Muse tiers, never a raw third-party (Anthropic/Claude) brand. */}
       <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <SouvenirModelIcon size={24} />
+        <ModelIcon model={modelName} size={24} />
       </div>
     </div>
   )

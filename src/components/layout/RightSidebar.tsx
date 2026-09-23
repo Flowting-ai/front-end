@@ -13,7 +13,6 @@ import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
 import { CHAT_ROUTE } from "@/lib/routes"
 import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
-import { toSouvenirModelLabel } from "@/lib/ai-models"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
 import { InputField } from "@/components/InputField"
@@ -76,7 +75,7 @@ function toPinboardPin(
     comments:    item.comments as PinComment[] | undefined,
     labels: [
       ...tagLabels,
-      ...(item.modelName ? [{ color: "Neutral" as BadgeColor, text: toSouvenirModelLabel(item.modelName) }] : []),
+      ...(item.modelName ? [{ color: "Neutral" as BadgeColor, text: item.modelName }] : []),
     ],
     onExport,
     onDelete,

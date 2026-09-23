@@ -37,10 +37,10 @@ import {
   derivePublicationState,
   pickVersionToEdit,
 } from '@/lib/persona-version-logic'
-import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
+import { ModelIcon } from '@/components/ModelIcon'
 import { usePersonaConfigure, type ConfigureTabKey } from '@/app/(app)/agent/configure/context'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
@@ -190,7 +190,7 @@ function UndoRedoGroup({
 
 // ── Model row helpers — mirror PresetModelSelectorDialog's real filtering/
 // capability logic so this picker reads as the same design-system component,
-// minus the Muse/Advanced cards and category tabs (not applicable to picking
+// minus the featured cards and category tabs (not applicable to picking
 // one fixed model for an agent).
 
 // Deterministic tag → Badge color, same hash as PresetModelSelectorDialog's
@@ -276,9 +276,9 @@ function ModelDropdown({
   // Advanced → Standard → Basic, same fixed order as every other model
   // selector in the app (chat switcher, Change/Fix model modals). No
   // provider grouping/filter — every model here is one of the 3 Souvenir
-  // Muse tiers under a single company, so a company tab/header would just
+  // models grouped under their provider, so a company tab/header would just
   // read "Anthropic" and reveal the underlying provider for no benefit.
-  const sortedModels = React.useMemo(() => sortModelsByTier(models), [models])
+  const sortedModels = React.useMemo(() => sortModels(models), [models])
 
   const updateScrollEdges = () => {
     const el = scrollRef.current
@@ -335,9 +335,7 @@ function ModelDropdown({
         aria-invalid={!selectedModel}
         leftIcon={
           selectedModel ? (
-            // Always the Souvenir mark — every model is one of the 3
-            // Souvenir Muse tiers, never a raw third-party brand.
-            <SouvenirModelIcon size={16} />
+            <ModelIcon model={selectedModel.companyName ?? selectedModel.modelName} size={16} />
           ) : (
             <AtomOneIcon size={16} />
           )
@@ -412,7 +410,7 @@ function ModelDropdown({
                                 // above (the browser cursors off the topmost element under
                                 // the pointer) — override it directly here instead.
                                 style={disallowed ? { cursor: 'not-allowed' } : undefined}
-                                image={<SouvenirModelIcon size={18} />}
+                                image={<ModelIcon model={m.companyName ?? m.modelName} size={18} />}
                                 label={m.modelName}
                                 icons={
                                   disallowed

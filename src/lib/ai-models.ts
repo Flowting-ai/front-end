@@ -49,20 +49,30 @@ const normalizeModelType = (
 };
 
 /**
- * Souvenir's user-facing name for each of the 3 real underlying models —
- * there is no separate "Muse algorithm" model, just Anthropic's Claude
- * Haiku/Sonnet/Opus relabeled. Matches by substring on the raw provider name
- * (case-insensitive) so it survives version bumps ("Claude Haiku 4.5",
- * "Claude 3 Haiku", etc. all match); anything that isn't one of the 3 is
- * returned unchanged.
+ * A catalog provider or model name → an `LlmIcon` id from
+ * `@strange-huge/icons/llm`. Matches by substring so it survives version bumps
+ * ("Claude Opus 5", "Anthropic", "claude-haiku-4.5" all resolve to Claude), and
+ * accepts either field because the surfaces that render a model avatar have one
+ * or the other, not reliably both.
+ *
+ * Returns null when nothing matches, so callers fall back to the Souvenir mark
+ * rather than stamping an unknown model with some other provider's logo.
  */
-export function toSouvenirModelLabel(rawName: string | null | undefined): string {
-  if (!rawName) return rawName ?? "";
-  const n = rawName.toLowerCase();
-  if (n.includes("haiku")) return "Basic";
-  if (n.includes("opus")) return "Advanced";
-  if (n.includes("sonnet")) return "Standard";
-  return rawName;
+export function toLlmIconId(source: string | null | undefined): string | null {
+  const s = (source ?? "").toLowerCase();
+  if (!s) return null;
+  if (s.includes("anthropic") || s.includes("claude")) return "Claude";
+  if (s.includes("grok") || s.includes("xai")) return "Grok";
+  if (s.includes("openai") || s.includes("gpt")) return "OpenAI";
+  if (s.includes("gemini")) return "Gemini";
+  if (s.includes("google")) return "Google";
+  if (s.includes("meta") || s.includes("llama")) return "Meta";
+  if (s.includes("mistral")) return "Mistral";
+  if (s.includes("deepseek")) return "DeepSeek";
+  if (s.includes("groq")) return "Groq";
+  if (s.includes("cohere")) return "Cohere";
+  if (s.includes("perplexity")) return "Perplexity";
+  return null;
 }
 
 const toNumber = (value: unknown, fallback = 0): number => {
@@ -85,9 +95,7 @@ const normalizeModel = (model: BackendModel): AIModel => ({
     model.providerName ??
     model.provider ??
     "Unknown",
-  modelName: toSouvenirModelLabel(
-    model.model_name ?? model.modelName ?? model.name ?? "Unknown Model",
-  ),
+  modelName: model.model_name ?? model.modelName ?? model.name ?? "Unknown Model",
   modelType: normalizeModelType(
     model.model_plan_type ?? model.planType ?? model.plan,
     model.callType,
@@ -142,47 +150,34 @@ export function bustModelsCache(): void {
   }
 }
 
-// Canonical display order for the 3 Souvenir Muse tiers — Advanced, then
-// Standard, then Basic — used by every model-selector dropdown in the app
-// (the chat/global switcher, the agent Instructions tab, and the Change/Fix
-// model modals) so the list order never drifts between surfaces. Anything
-// that doesn't match one of the 3 known tier labels (shouldn't happen — see
-// toSouvenirModelLabel) sorts last instead of throwing, so an unexpected or
-// future model still renders.
-const MODEL_TIER_RANK: Record<string, number> = {
-  "Advanced": 0,
-  "Standard": 1,
-  "Basic": 2,
-};
-
-export function modelTierRank(modelName: string): number {
-  return MODEL_TIER_RANK[modelName] ?? 99;
-}
-
-/** Sorts a model list Advanced → Standard → Basic. Stable, non-mutating. */
-export function sortModelsByTier<T extends Pick<AIModel, "modelName">>(models: T[]): T[] {
-  return [...models].sort((a, b) => modelTierRank(a.modelName) - modelTierRank(b.modelName));
+// Canonical display order for every model-selector dropdown in the app (the
+// chat/global switcher, the agent Instructions tab, and the Change/Fix model
+// modals) so the list order never drifts between surfaces: grouped by
+// provider, alphabetical within each. Derived entirely from the catalog, so a
+// model added to the DB slots in without a front-end change.
+export function sortModels<T extends Pick<AIModel, "modelName" | "companyName">>(models: T[]): T[] {
+  return [...models].sort(
+    (a, b) =>
+      a.companyName.localeCompare(b.companyName) ||
+      a.modelName.localeCompare(b.modelName),
+  );
 }
 
 /**
- * The model every new chat should start on: the Standard tier, the
- * mid-tier of the 3 Souvenir Muse tiers. Falls back to the first model in
- * the list on the off chance the Standard tier isn't present (shouldn't
- * happen — see toSouvenirModelLabel), so callers always get something
- * rather than nothing.
+ * The model every new chat should start on: the one the catalog tags
+ * "Recommended", which is kept in step with the backend's
+ * DEFAULT_DEPLOYMENT_NAME. Falls back to the first model in the list when no
+ * row carries the tag, so callers always get something rather than nothing.
  */
-export function pickDefaultModel<T extends Pick<AIModel, "modelName">>(models: T[]): T | null {
+export function pickDefaultModel<T extends Pick<AIModel, "tags">>(models: T[]): T | null {
   if (!models.length) return null;
-  return models.find(m => m.modelName === "Standard") ?? models[0];
+  return models.find(m => m.tags?.includes("Recommended")) ?? models[0];
 }
 
-// Tier keywords used only to break ties between same-company candidates —
-// e.g. prefer another "Standard"-class model over an "Advanced"/"Basic" one
-// so a persona's cost/capability tier survives a forced model swap where
-// possible. Matches both the pre-rename provider words (in case a raw name
-// ever reaches this function without going through normalizeModel/
-// toSouvenirModelLabel first) and the post-rename Souvenir Muse tier words.
-const MODEL_TIER_WORDS = ['advanced', 'standard', 'basic', 'opus', 'sonnet', 'haiku', 'pro', 'mini', 'flash']
+// Size/class keywords used only to break ties between same-company candidates
+// — e.g. prefer another Sonnet-class model over an Opus/Haiku one so a
+// persona's cost/capability tier survives a forced model swap where possible.
+const MODEL_TIER_WORDS = ['opus', 'sonnet', 'haiku', 'sol', 'terra', 'luna', 'pro', 'mini', 'flash']
 
 /**
  * Picks a replacement for a model that's no longer usable (blocked or

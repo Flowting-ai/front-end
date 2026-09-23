@@ -31,6 +31,7 @@ import {
   type ReasoningSection,
   type ReasoningTimelineItem,
 } from "@/lib/reasoning";
+import { ModelIcon } from "@/components/ModelIcon";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
 
 const THINKING_WORDS = ["Thinking", "Analysing", "Processing", "Considering"];
@@ -57,16 +58,20 @@ function SouvenirMark({ size }: { size: number }) {
 // ── ModelLogo - static logo for non-reasoning headers ─────────────────────────
 
 export function ModelLogo({
+  modelMeta,
+  modelName,
   size = 16,
 }: {
   modelMeta?: ModelSelectedMeta;
   modelName?: string;
   size?: number;
 }) {
-  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
-  // tiers, never a raw third-party (Anthropic/Claude) brand.
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
-  return <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none" }}><SouvenirMark size={size} /></span>;
+  return (
+    <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none", lineHeight: 0 }}>
+      <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={size} />
+    </span>
+  );
 }
 
 // ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
@@ -83,13 +88,12 @@ export function AnimatedLogo({
   modelName,
   justSelected,
 }: AnimatedLogoProps) {
-  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
-  // tiers, never a raw third-party (Anthropic/Claude) brand. `hasModel`
-  // still distinguishes "thinking, no model chosen yet" from "model
+  // `hasModel` distinguishes "thinking, no model chosen yet" from "model
   // selected" so the swing-in animation below keeps firing on selection.
-  // Muse-routed responses report only `complexity` (basic/standard/advanced),
-  // never a raw modelName — so complexity alone must count as "resolved" too,
-  // or this never leaves the "no model yet" state for those responses.
+  // Auto-routed responses report only `complexity`, never a raw modelName — so
+  // complexity alone must count as "resolved" too, or this never leaves the
+  // "no model yet" state for those responses. Those turns have no provider to
+  // name, so ModelIcon falls back to the Souvenir mark on its own.
   const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
   const showModel = hasModel;
   const currentModelKey = modelMeta?.modelName || modelName || modelMeta?.complexity;
@@ -114,7 +118,7 @@ export function AnimatedLogo({
             animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <SouvenirMark size={16} />
+            <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={16} />
           </m.div>
         )}
       </AnimatePresence>

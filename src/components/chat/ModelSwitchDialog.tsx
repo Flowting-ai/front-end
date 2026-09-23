@@ -4,7 +4,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { AIModel } from "@/types/ai-model";
-import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
+import { ModelIcon } from "@/components/ModelIcon";
 
 interface ModelSwitchDialogProps {
   isOpen: boolean;
@@ -121,7 +121,7 @@ export function ModelSwitchDialog({
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
-                  <SouvenirModelIcon size={20} />
+                  <ModelIcon model={fromModel.companyName ?? fromModel.modelName} size={20} />
                 </span>
                 <span
                   style={{
@@ -141,7 +141,7 @@ export function ModelSwitchDialog({
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
-                  <SouvenirModelIcon size={20} />
+                  <ModelIcon model={toModel.companyName ?? toModel.modelName} size={20} />
                 </span>
                 <span
                   style={{

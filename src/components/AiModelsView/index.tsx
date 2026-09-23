@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { LlmIcon } from '@strange-huge/icons/llm'
+import { ModelIcon } from '@/components/ModelIcon'
 import { SearchOneIcon } from '@strange-huge/icons'
 import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
@@ -12,23 +12,6 @@ import { toast } from 'sonner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toLlmIconId(provider: string): string {
-  const p = provider.toLowerCase()
-  if (p.includes('anthropic') || p.includes('claude')) return 'Claude'
-  if (p.includes('openai') || p.includes('gpt'))       return 'OpenAI'
-  if (p.includes('gemini'))                             return 'Gemini'
-  if (p.includes('google'))                             return 'Google'
-  if (p.includes('meta') || p.includes('llama'))        return 'Meta'
-  if (p.includes('mistral'))                            return 'Mistral'
-  if (p.includes('groq'))                               return 'Groq'
-  if (p.includes('deepseek'))                           return 'DeepSeek'
-  if (p.includes('xai'))                                return 'XAI'
-  if (p.includes('grok'))                               return 'Grok'
-  if (p.includes('cohere'))                             return 'Cohere'
-  if (p.includes('perplexity'))                         return 'Perplexity'
-  if (p.includes('aws') || p.includes('bedrock'))       return 'Bedrock'
-  return 'OpenAI'
-}
 
 type PlanTier = 'standard' | 'pro' | 'power'
 type BadgeColor = 'blue' | 'neutral' | 'red' | 'green' | 'brown' | 'purple'
@@ -221,7 +204,6 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
   const tierClr  = (PLAN_COLOR[tierKey] ?? 'neutral') as BadgeColor
   const ctxLbl   = formatContext(model.model_context_window)
   const featLbl  = featureLabel(model)
-  const iconId   = toLlmIconId(model.model_provider)
 
   return (
     <div
@@ -254,7 +236,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
             flexShrink:      0,
             overflow:        'hidden',
           }}>
-            <LlmIcon id={iconId} variant="color" size={24} />
+            <ModelIcon model={model.model_provider} size={24} />
           </div>
           <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignSelf: 'stretch' }}>
             <p style={{
