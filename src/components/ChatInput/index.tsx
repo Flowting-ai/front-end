@@ -396,25 +396,53 @@ const DEFAULT_RECENT_MODELS = [
   { id: 'qwen',      llm: 'Qwen',    label: 'Qwen 3 Max' },
 ] as const
 
+// Souvenir's own 3 in-house tiers — kept in their own labelled section below
+// the general model list, same split `chat/ModelMenu.tsx` applies via
+// `isSouvenirMuseModel` (lib/ai-models.ts) for the live, data-backed menu.
+const DEFAULT_MUSE_MODELS = [
+  { id: 'advanced', label: 'Advanced', subLabel: 'Most capable for ambitious work' },
+  { id: 'standard', label: 'Standard', subLabel: 'Balanced speed and capability' },
+  { id: 'basic',    label: 'Basic',    subLabel: 'Cost-efficient for everyday tasks' },
+] as const
+
+// Same row-math as `chat/ModelMenu.tsx`'s MODEL_LIST_MAX_HEIGHT: 5 visible
+// plain rows (5px pad + 22px line-height + 5px pad = 32px each) + 4px gaps.
+const DEFAULT_MODEL_LIST_MAX_HEIGHT = 5 * 32 + 4 * 4
+
 function DefaultModelMenu() {
+  const sampleModels = [...DEFAULT_MOST_USED_MODELS, ...DEFAULT_RECENT_MODELS]
   return (
     <Dropdown size="md" maxHeight={false}>
-      <Dropdown.Section fluid>
-        <Dropdown.Item
-          label="Souvenir : Advance"
-          subLabel="Most capable for ambitious work"
-          showSwitch
-          defaultSwitchChecked={false}
-          fluid
-        />
+      <Dropdown.Section label="Select model" fluid>
+        <div
+          className="kaya-scrollbar"
+          style={{
+            display:              'flex',
+            flexDirection:        'column',
+            gap:                  '4px',
+            maxHeight:            DEFAULT_MODEL_LIST_MAX_HEIGHT,
+            overflowY:            'auto',
+            overscrollBehaviorY:  'contain',
+          }}
+        >
+          {sampleModels.map((model) => (
+            <Dropdown.Item key={model.id} llm={model.llm} label={model.label} fluid />
+          ))}
+        </div>
+      </Dropdown.Section>
+      <Dropdown.Section label="Souvenir Muse" fluid divider>
+        {DEFAULT_MUSE_MODELS.map((model) => (
+          <Dropdown.Item key={model.id} label={model.label} subLabel={model.subLabel} fluid />
+        ))}
+      </Dropdown.Section>
+      <Dropdown.Section label="Thinking" fluid divider>
         <Dropdown.Item
           label="Adaptive thinking"
-          subLabel="Most capable for ambitious work"
+          subLabel="Enable extended reasoning"
           showSwitch
           defaultSwitchChecked={false}
           fluid
         />
-        {/* More models hidden */}
       </Dropdown.Section>
     </Dropdown>
   )

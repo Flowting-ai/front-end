@@ -174,6 +174,33 @@ export function pickDefaultModel<T extends Pick<AIModel, "tags">>(models: T[]): 
   return models.find(m => m.tags?.includes("Recommended")) ?? models[0];
 }
 
+// Tier names Souvenir's own catalog uses for its 3 in-house models (exposed
+// today as "Advanced" / "Standard" / "Basic" — see PresetModelSelectorDialog's
+// "3 tiers" comment). Matched case-insensitively against `modelName` so a
+// model literally named one of these tiers is treated as a Souvenir Muse
+// model even when its `companyName`/`modelName` don't otherwise mention
+// "Souvenir" or "Muse" (e.g. today's catalog reports the underlying provider,
+// not the Souvenir brand, as `companyName`).
+const SOUVENIR_MUSE_TIER_NAMES = new Set(["advanced", "standard", "basic"]);
+
+/**
+ * Whether a model belongs to Souvenir's own "Souvenir Muse" lineup, as
+ * opposed to a third-party model in the catalog. Used to split model-selector
+ * dropdowns (e.g. `ModelMenu`) into a general model list plus a distinct
+ * "Souvenir Muse" section. Matches the same substring-on-name convention as
+ * `toLlmIconId` above and `inferCompany` in `message-transformer.ts`, plus
+ * the fixed tier names Souvenir's 3 in-house models ship under today.
+ */
+export function isSouvenirMuseModel(
+  model: Pick<AIModel, "modelName" | "companyName">,
+): boolean {
+  const name = model.modelName.toLowerCase();
+  const company = model.companyName.toLowerCase();
+  if (name.includes("souvenir") || name.includes("muse")) return true;
+  if (company.includes("souvenir") || company.includes("muse")) return true;
+  return SOUVENIR_MUSE_TIER_NAMES.has(name);
+}
+
 // Size/class keywords used only to break ties between same-company candidates
 // — e.g. prefer another Sonnet-class model over an Opus/Haiku one so a
 // persona's cost/capability tier survives a forced model swap where possible.
