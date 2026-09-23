@@ -405,12 +405,36 @@ function closeOpenFences(content: string): string {
 // Code spans / fences are excluded by running this before fence-closing and
 // only on the text layer - false positives (literal \( in prose) are
 // extremely rare in LLM output.
-function normalizeMathDelimiters(content: string): string {
+//
+// The `$...$`/`$$...$$` spans this produces are stashed into `stash` (as
+// opaque `\x04N{i}\x04` tokens) rather than left inline, so a later pipeline
+// stage — escapeCurrencyDollars, whose job is to guard against literal
+// currency text like "$50/mo" — never re-examines them. An explicit \(...\)
+// from the model is unambiguously real math regardless of how trivial its
+// content is (a bare `\(1\)`), but escapeCurrencyDollars's heuristic doesn't
+// know that: it previously misclassified spans like `$1$` as "not math" and
+// rewrote only their opening `$` to `&#36;`, leaving the closing `$`
+// dangling. remark-math then re-paired that orphaned `$` with the NEXT
+// unrelated `$` in the text, swallowing everything in between (including
+// plain English) into one bogus math span. Restoring the stash happens after
+// escapeCurrencyDollars runs (see preprocessMarkdown) so it can't happen.
+function normalizeMathDelimiters(content: string, stash: string[]): string {
+  const token = (i: number) => `\x04N${i}\x04`
   // \[...\] → display math block
-  let out = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  let out = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
+    stash.push(`\n$$\n${math.trim()}\n$$\n`)
+    return token(stash.length - 1)
+  });
   // \(...\) → inline math
-  out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math}$`);
+  out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
+    stash.push(`$${math}$`)
+    return token(stash.length - 1)
+  });
   return out;
+}
+
+function restoreMathStash(content: string, stash: string[]): string {
+  return content.replace(/\x04N(\d+)\x04/g, (_, i) => stash[Number(i)] ?? '')
 }
 
 function protectMarkdownRegions(content: string, transform: (value: string) => string): string {
@@ -511,19 +535,21 @@ function stripCollapsibleHtml(content: string): string {
 // already parse it correctly and regex "repairs" corrupt valid input.
 // Innermost runs first:
 //   stripResponseInterruptedMarker → stripCollapsibleHtml → fixHeadingSpace
-//   → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
+//   → normalizeMathDelimiters → escapeCurrencyDollars → restoreMathStash
+//   → closeOpenFences
+// The math stash is threaded through and restored AFTER escapeCurrencyDollars
+// (not inside normalizeMathDelimiters itself) specifically so that stage's
+// currency-detection scan never sees the $...$/$$...$$ spans normalizeMath
+// Delimiters just produced from explicit model LaTeX — see the comment on
+// normalizeMathDelimiters.
 export function preprocessMarkdown(content: string): string {
-  return closeOpenFences(
-    escapeCurrencyDollars(
-      normalizeMathDelimiters(
-        fixHeadingSpace(
-          stripCollapsibleHtml(
-            stripResponseInterruptedMarker(content),
-          ),
-        ),
-      ),
-    ),
-  );
+  const mathStash: string[] = [];
+  const withoutHtml = stripCollapsibleHtml(stripResponseInterruptedMarker(content));
+  const withHeadingSpace = fixHeadingSpace(withoutHtml);
+  const withMathTokens = normalizeMathDelimiters(withHeadingSpace, mathStash);
+  const withCurrencyEscaped = escapeCurrencyDollars(withMathTokens);
+  const withMathRestored = restoreMathStash(withCurrencyEscaped, mathStash);
+  return closeOpenFences(withMathRestored);
 }
 
 interface MarkdownRendererProps {

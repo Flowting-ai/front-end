@@ -542,6 +542,16 @@ export function ChatInterface({
         initialMentionedPinObjects.length > 0 ? initialMentionedPinObjects : undefined,
       );
       const loadingId = addLoadingAssistantMessage();
+      // A user's own send always jumps the view to the bottom, unlike a
+      // passively arriving streamed update (which intentionally does NOT
+      // yank someone away from history they scrolled up to read) — sending
+      // is an explicit action by the user, not a background event. This
+      // just marks intent; the streaming-follow effects below do the actual
+      // scrollToIndex once `messages`/`isStreaming` have committed, so it
+      // isn't racing a stale `messages` closure from calling scrollToBottom
+      // directly here.
+      atBottomRef.current = true;
+      setAtBottom(true);
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
@@ -843,6 +853,11 @@ export function ChatInterface({
       capturedMentionedPins.length > 0 ? capturedMentionedPins : undefined,
     );
     const loadingId = addLoadingAssistantMessage();
+    // See the matching comment in sendInitialPrompt — a user's own send
+    // always jumps to the bottom, exempt from the "only follow if already
+    // at bottom" gate that guards passively arriving streamed updates.
+    atBottomRef.current = true;
+    setAtBottom(true);
     setInputValue("");
     setAttachments([]);
     setMentionedPins([]);
@@ -922,6 +937,11 @@ export function ChatInterface({
     });
 
     const loadingId = addLoadingAssistantMessage();
+    // See the matching comment in sendInitialPrompt — regenerating is just
+    // as much a user-initiated send as a fresh message, so it should reveal
+    // the new reply the same way.
+    atBottomRef.current = true;
+    setAtBottom(true);
     // Analytics: part of the override rate (earliest answer-quality warning).
     trackFeature("regenerate", {
       model_pick: "manual",
@@ -997,6 +1017,9 @@ export function ChatInterface({
         .slice(0, idx + 1)
     })
     const loadingId = addLoadingAssistantMessage()
+    // See the matching comment in sendInitialPrompt.
+    atBottomRef.current = true
+    setAtBottom(true)
 
     fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,

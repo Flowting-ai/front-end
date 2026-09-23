@@ -275,7 +275,14 @@ export function SelectionPopover({
             position:        'fixed',
             top:             pos.y,
             left:            pos.x,
-            zIndex:          40,
+            // Below the chat composer's own stacking layer (the wrapper
+            // around <ChatInput> in ChatInterface.tsx uses zIndex: 1) —
+            // neither ancestor establishes an isolated stacking context of
+            // its own, so this compares directly against that value even
+            // though this popover is portaled to document.body. Selecting
+            // text near the bottom of the message list, close to the
+            // composer, should never let this toolbar float over it.
+            zIndex:          0,
             display:         'flex',
             flexDirection:   'row',
             alignItems:      'center',

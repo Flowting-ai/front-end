@@ -262,25 +262,8 @@ function ResearchTitle({ text }: { text: string }) {
 }
 
 function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { open: boolean; onToggle: () => void; controls: string; summary?: string; streaming: boolean }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
-    <div
-      style={{ position: "relative", width: summary ? "100%" : "fit-content", maxWidth: "100%" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <AnimatePresence>
-        {hovered && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.08 }}
-            style={{ position: "absolute", inset: 0, borderRadius: 8, background: "var(--neutral-100, #F7F3F0)", pointerEvents: "none" }}
-          />
-        )}
-      </AnimatePresence>
+    <div style={{ position: "relative", width: summary ? "100%" : "fit-content", maxWidth: "100%" }}>
       <button
         type="button"
         className="kaya-thinking-trigger"
@@ -299,7 +282,10 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
             {streaming ? "Considering" : "Thinking"}
           </span>
           <span
-            className={streaming ? "kaya-thinking-step-shimmer" : undefined}
+            // Shimmers (shadcn's `shimmer` utility, ported below in
+            // globals.css — see kaya-shimmer) only while actively
+            // reasoning; the idle "Thinking" label is plain static text.
+            className={streaming ? "kaya-shimmer" : undefined}
             style={{
               gridArea: "1 / 1",
               color: "#9A9089",
@@ -320,7 +306,7 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
   );
 }
 
-function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; children: ReactNode }) {
+function ThinkingCollapse({ open, id, children, instant }: { open: boolean; id: string; children: ReactNode; instant?: boolean }) {
   return (
     <m.div
       id={id}
@@ -328,7 +314,28 @@ function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; c
       inert={!open}
       initial={false}
       animate={{ height: open ? "auto" : 0 }}
-      transition={{ ...springs.moderate, bounce: 0 }}
+      // `instant` (true whenever this open/close transition is auto-driven
+      // by streaming — thinking starting or finishing — rather than the
+      // user clicking the trigger) skips the height animation entirely:
+      // this row lives in a TanStack-Virtual-managed list that measures
+      // each row's real DOM height via ResizeObserver on every frame it
+      // changes. A multi-hundred-ms height *animation* here means the
+      // row's measured size — and therefore the list's total scroll
+      // height — changes continuously while the "stay scrolled to bottom"
+      // effect keeps re-snapping to the (constantly moving) max scroll
+      // offset, which reads as the whole message list visibly shaking for
+      // that animation's duration. Snapping straight to the final height
+      // for auto transitions removes the moving target; the spring is
+      // reserved for the user's own manual expand/collapse click, which
+      // isn't happening while new content is actively streaming in, so it
+      // can't fight the auto-scroll the same way.
+      // Separately: `bounce` only has any effect when framer-motion's
+      // spring resolver sees NO stiffness/damping/mass keys (this repo's
+      // springs.moderate sets stiffness+damping), so a lingering
+      // `bounce: 0` here would be silently ignored — damping: 35 against
+      // stiffness: 300 is genuinely critically damped (ratio ≈ 1, no
+      // overshoot) for the manual-toggle case.
+      transition={instant ? { duration: 0 } : { type: "spring", stiffness: springs.moderate.stiffness, damping: 35 }}
       style={{ overflow: "hidden" }}
     >
       <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "#524B47" }}>
@@ -711,6 +718,11 @@ export function ReasoningBlock({
   const panelId = useId();
   const runningActivity = activities?.find(isActivityRunning);
   const open = manualOpen ?? Boolean(isThinkingInProgress || runningActivity);
+  // Whether the CURRENT open/close transition is auto-driven by streaming
+  // state (thinking starting/finishing) rather than the user clicking the
+  // trigger. Auto transitions skip the height animation entirely — see
+  // ThinkingCollapse's `instant` prop for why.
+  const isAutoControlled = manualOpen === null;
 
   const fallbackTitle = (() => {
     const lastReasoning = reasoningTimeline?.findLast((item) => item.kind === "reasoning");
@@ -742,7 +754,7 @@ export function ReasoningBlock({
       <ThinkingTrigger open={open} onToggle={() => setManualOpen(!open)} controls={panelId} summary={summary || undefined} streaming={!!isThinkingInProgress} />
 
       {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
-      <ThinkingCollapse open={open} id={panelId}>
+      <ThinkingCollapse open={open} id={panelId} instant={isAutoControlled}>
         <ReasoningContent
           thinkingContent={thinkingContent}
           reasoningSections={reasoningSections}

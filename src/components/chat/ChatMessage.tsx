@@ -18,7 +18,7 @@ import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
-import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
+import type { UIMessage, ActivityItem, WebCitation } from "@/hooks/use-chat-state";
 import { respondToChatPrompt } from "@/lib/api/chat";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
@@ -128,22 +128,11 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
 // ── Standalone Activities Block (collapsible, used when no reasoning) ─────────
 
 function StandaloneActivitiesBlock({
-  modelName,
-  modelMeta,
   activities,
 }: {
-  modelName?: string;
-  modelMeta?: ModelSelectedMeta;
   activities: ActivityItem[];
 }) {
   const [isOpen, setIsOpen] = useState(true);
-  const displayName = (() => {
-    const raw = modelMeta?.modelName ?? modelName
-    if (!raw) return null
-    // Never expose an internal routing label as the model name.
-    if (raw.toLowerCase().startsWith('souvenir')) return null
-    return raw
-  })()
 
   // Derive summary for collapsed state
   const doneCount = activities.filter((a) => a.status === "done").length;
@@ -154,22 +143,9 @@ function StandaloneActivitiesBlock({
 
   return (
     <div style={{ margin: "4px 0 8px" }}>
-      {/* Header row - logo + model name + summary + chevron */}
+      {/* Header row - summary + chevron. Logo/model name live in the
+          message-level attribution header above this block, not here. */}
       <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-        <ModelLogo modelMeta={modelMeta} modelName={modelName} size={16} />
-        {displayName && (
-          <span
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 500,
-              color: "#524B47",
-              flexShrink: 0,
-            }}
-          >
-            {displayName}
-          </span>
-        )}
         <span
           style={{
             fontSize: 14,
@@ -181,7 +157,7 @@ function StandaloneActivitiesBlock({
             minWidth: 0,
           }}
         >
-          · {summaryText}
+          {summaryText}
         </span>
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -446,6 +422,49 @@ export function ChatMessage({
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
   }, [disableHighlight, isAssistant])
+
+  // Keep the popover anchored to the live selection while the message list
+  // scrolls. `selectionAnchor` is a viewport-relative DOMRect captured once
+  // at selection time and applied as the popover's `position: fixed`
+  // coordinates (see SelectionPopover) — without this, scrolling moves the
+  // selected text to a new position on screen but the popover's coordinates
+  // never get told, so it stays frozen where it first appeared instead of
+  // following the text. `scroll` events don't bubble, but a capture-phase
+  // listener on `document` still observes them fire on any scrollable
+  // descendant (the message list's own scroll container), so this works
+  // without needing a ref to that container from this per-message component.
+  useEffect(() => {
+    if (!selectionOpen) return
+    let rafId: number | null = null
+    const reposition = () => {
+      rafId = null
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        setSelectionOpen(false)
+        setSelectionAnchor(null)
+        return
+      }
+      const range = sel.getRangeAt(0)
+      if (!contentRef.current?.contains(range.commonAncestorContainer)) {
+        setSelectionOpen(false)
+        setSelectionAnchor(null)
+        return
+      }
+      const rect = range.getBoundingClientRect()
+      if (rect.width) setSelectionAnchor(rect)
+    }
+    // rAF-throttled so a fast scroll doesn't fire a flurry of setState +
+    // floating-ui recomputations, one per raw scroll event.
+    const onScroll = () => {
+      if (rafId != null) return
+      rafId = requestAnimationFrame(reposition)
+    }
+    document.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('scroll', onScroll, true)
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [selectionOpen])
 
   useEffect(() => {
     if (!isAssistant || disableHighlight) return
@@ -723,16 +742,15 @@ export function ChatMessage({
         /* ── Assistant message: left-aligned, no bubble ── */
         <div style={{ width: "100%", minWidth: 0 }}>
 
-        {/* Assistant role label when no thinking/reasoning present */}
+        {/* Assistant model-attribution header — always its own line above
+            whatever comes next (the Thinking trigger, an activities
+            summary, or bare content), never merged into any of those rows.
+            Gated only on identity being resolved, not on hasThinking/
+            showReasoning/activities — ReasoningBlock's "Thinking" trigger
+            and StandaloneActivitiesBlock's summary row no longer show their
+            own duplicate logo/name, this is the one place it renders. */}
         <AnimatePresence initial={false}>
-          {/* Gated on !showReasoningBlock (not !hasThinking) so this header
-              still shows when a message HAS thinking data but adaptive
-              thinking is currently toggled off — otherwise this block and
-              ReasoningBlock's own `hasThinking && showReasoning` gate below
-              were both false at once, and the model logo/name vanished
-              entirely for any message with thinking data whenever the
-              adaptive-thinking switch was off. */}
-          {!showReasoningBlock && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
+          {(message.modelName || !message.isLoading) && (
             <m.div
               key="model-header"
               initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
@@ -783,14 +801,13 @@ export function ChatMessage({
           )}
         </AnimatePresence>
 
-        {/* Assistant model label when activities exist but no thinking (or
-            thinking is toggled off — see the comment on showReasoningBlock) */}
+        {/* Activities summary line — shown when there are activities but
+            ReasoningBlock isn't the one rendering them (no thinking data, or
+            thinking is toggled off). The model-attribution header above
+            already covers logo/name, so this only renders the activities
+            summary + chevron underneath it, on its own line. */}
         {!showReasoningBlock && message.activities && message.activities.length > 0 && (
-          <StandaloneActivitiesBlock
-            modelName={message.modelName || message.model_name || message.model}
-            modelMeta={message.modelMeta}
-            activities={message.activities}
-          />
+          <StandaloneActivitiesBlock activities={message.activities} />
         )}
 
         {/* Loading state - shows shimmer label only before model identity is known.

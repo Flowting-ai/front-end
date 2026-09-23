@@ -167,6 +167,67 @@
   outline-offset: 0;
 }
 
+/* ── Shimmer utility — ported from shadcn/ui (https://ui.shadcn.com/docs/utils/shimmer) ──
+   Used for the "Thinking"/"Considering" label while a reasoning response is
+   actively streaming (see ThinkingTrigger in ReasoningBlock.tsx) — NOT on
+   hover; the idle/collapsed label is plain static text.
+   Pure CSS: paints the text with `background-clip: text` and sweeps a soft
+   highlight band across it in a seamless loop. The highlight is derived
+   from `currentColor` (via oklch lightness/alpha), so it automatically
+   matches whatever text color the class is applied to — no separate color
+   needed per use site. Fixed spread/angle/duration (no per-instance
+   customization via Tailwind arbitrary classes, since this repo doesn't run
+   shadcn's Tailwind utility generator) matching the utility's own defaults:
+   spread `3ch + 40px`, angle 20deg, duration 2s. */
+@keyframes kaya-tw-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.kaya-shimmer {
+  --kaya-shimmer-spread: calc(3ch + 40px);
+  --kaya-shimmer-angle: 20deg;
+  --kaya-shimmer-base: currentColor;
+  --kaya-shimmer-highlight: oklch(from currentColor l c h / calc(alpha * 0.2));
+  background-image: linear-gradient(
+    calc(90deg + var(--kaya-shimmer-angle)),
+    var(--kaya-shimmer-base) calc(50% - var(--kaya-shimmer-spread)),
+    var(--kaya-shimmer-highlight) calc(50% - var(--kaya-shimmer-spread) * 0.5),
+    var(--kaya-shimmer-highlight) 50%,
+    var(--kaya-shimmer-highlight) calc(50% + var(--kaya-shimmer-spread) * 0.5),
+    var(--kaya-shimmer-base) calc(50% + var(--kaya-shimmer-spread))
+  );
+  background-repeat: no-repeat;
+  background-size: calc(200% + var(--kaya-shimmer-spread) * 2) 100%;
+  background-position: 0 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: kaya-tw-shimmer 2s linear infinite;
+}
+
+@supports (color: color-mix(in lab, red, red)) {
+  .kaya-shimmer {
+    background-image: linear-gradient(
+      calc(90deg + var(--kaya-shimmer-angle)),
+      var(--kaya-shimmer-base) calc(50% - var(--kaya-shimmer-spread)),
+      color-mix(in oklch, var(--kaya-shimmer-highlight), var(--kaya-shimmer-base) 50%) calc(50% - var(--kaya-shimmer-spread) * 0.5),
+      var(--kaya-shimmer-highlight) 50%,
+      color-mix(in oklch, var(--kaya-shimmer-highlight), var(--kaya-shimmer-base) 50%) calc(50% + var(--kaya-shimmer-spread) * 0.5),
+      var(--kaya-shimmer-base) calc(50% + var(--kaya-shimmer-spread))
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kaya-shimmer {
+    animation: none;
+    background-image: none;
+    color: currentColor !important;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kaya-thinking-step-shimmer {
     animation: none;
