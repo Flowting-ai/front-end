@@ -314,6 +314,15 @@ export function DropdownMenuItem(
           // Figma 1056:840 / 1056:874 - radius 6 px (lowered from 10 px in
           // the same revision that introduced the header right-slot).
           borderRadius:    '6px',
+          // Without this, `width: 100%` sets only the CONTENT box and the
+          // 12px of horizontal padding below is added on top, rendering the
+          // row 12px wider than its container (e.g. wider than the plain
+          // `<span>` DropdownSubmenu wraps a trigger row in for hover
+          // tracking) — silently clipped by an ancestor's `overflow: hidden`
+          // visually, but still a real 12px-wide dead zone at the row's
+          // right edge, exactly where a `rightIcon` chevron sits, that never
+          // registers hover/click.
+          boxSizing:       'border-box',
           width:           fluid ? '100%' : '217px',
           // Figma 1056:874 - header pt-4, pb-6
           paddingLeft:     '6px',

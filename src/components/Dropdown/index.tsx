@@ -600,7 +600,11 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
   const openTimerRef      = React.useRef<number | null>(null)
   const closeTimerRef     = React.useRef<number | null>(null)
   const cursorRef         = React.useRef<Point>({ x: 0, y: 0 })
-  const prevCursorXRef    = React.useRef<number>(0)
+  // NaN, not a real coordinate — signals "not yet calibrated" so the
+  // pointermove tracker's first sample after each (re)attachment can skip
+  // computing a delta against a stale leftover position (see the tracker
+  // effect below).
+  const prevCursorXRef    = React.useRef<number>(NaN)
   const frozenVertexRef   = React.useRef<Point | null>(null)
   const inSafeZoneRef     = React.useRef<boolean>(false)
   const rafIdRef          = React.useRef<number>(0)
@@ -705,6 +709,21 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       if (e.pointerType !== 'mouse') return
       const cx = e.clientX
       const cy = e.clientY
+      // First sample since this listener (re)attached — `prevCursorXRef` is
+      // still whatever was left from the LAST time the submenu was open (or
+      // its initial NaN), not the cursor's actual current position. Treating
+      // that as a real previous position produced a huge spurious `deltaX`
+      // on this very first event, which read as "rightward intent" and
+      // froze the safe-triangle vertex even for a user who never moved
+      // toward the submenu — a later, still-legitimate movement anywhere
+      // else in the trigger row could then land outside that bogus triangle
+      // and close the submenu out from under a cursor that never left the
+      // trigger. Calibrate instead of computing a delta this one time.
+      if (Number.isNaN(prevCursorXRef.current)) {
+        prevCursorXRef.current = cx
+        cursorRef.current = { x: cx, y: cy }
+        return
+      }
       const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
       const threshold = Math.max(1, 1 / dpr)
       const deltaX = cx - prevCursorXRef.current
@@ -729,12 +748,15 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       document.removeEventListener('pointermove', onMove)
       window.removeEventListener('scroll', onScrollOrResize, true)
       window.removeEventListener('resize', onScrollOrResize)
+      // Recalibrate on next open rather than comparing against wherever the
+      // cursor happened to be when this submenu last closed.
+      prevCursorXRef.current = NaN
     }
   }, [open])
 
   // rAF loop - runs only while open. Per frame:
-  //   • If cursor is inside the submenu rect → clear close, restore
-  //     pointer-events on the parent panel.
+  //   • If cursor is inside the submenu rect OR still inside the trigger's
+  //     own rect → clear close, restore pointer-events on the parent panel.
   //   • Else if a vertex is frozen → check the grace triangle. Inside →
   //     keep open, suppress parent panel pointer-events so siblings can't
   //     steal hover. Outside (and we WERE in the zone) → schedule the
@@ -752,7 +774,8 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     const loop = () => {
       if (cancelled) return
       const sub = panelRef.current
-      if (!sub) { rafIdRef.current = requestAnimationFrame(loop); return }
+      const trig = triggerWrapRef.current
+      if (!sub || !trig) { rafIdRef.current = requestAnimationFrame(loop); return }
       const cursor = cursorRef.current
       if (cursor.x === lastCx && cursor.y === lastCy) {
         rafIdRef.current = requestAnimationFrame(loop)
@@ -763,7 +786,22 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       const inSubmenu =
         cursor.x >= subRect.left && cursor.x <= subRect.right &&
         cursor.y >= subRect.top  && cursor.y <= subRect.bottom
-      if (inSubmenu) {
+      // Being back over the TRIGGER itself is unconditionally still valid
+      // interaction — the safe triangle only exists to bridge the GAP
+      // between trigger and submenu, and shouldn't relitigate whether the
+      // cursor is still on the trigger. Without this check, a frozen vertex
+      // anchored far from the submenu builds a triangle that narrows to a
+      // point near the vertex, which can be narrower than the trigger row's
+      // own height close to that point — so small, normal vertical drift
+      // while still squarely on the trigger row (never having left it, per
+      // its own native mouseenter/mouseleave) could fall outside the
+      // triangle and schedule a close out from under a cursor that's still
+      // on the button.
+      const inTrigger = (() => {
+        const r = trig.getBoundingClientRect()
+        return cursor.x >= r.left && cursor.x <= r.right && cursor.y >= r.top && cursor.y <= r.bottom
+      })()
+      if (inSubmenu || inTrigger) {
         clearCloseTimerEvent()
         if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
         rafIdRef.current = requestAnimationFrame(loop)
