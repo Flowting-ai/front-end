@@ -47,6 +47,14 @@ export const customEventSchemas = {
     round_index: z.number().nullable().optional(),
   }),
   message_saved: z.looseObject({ message_id: z.string().optional() }),
+  // The catalog model a turn actually runs on. A Souvenir tier is routed to a
+  // real model, so this is the only way the chat learns which one answered.
+  model_selected: z.looseObject({
+    model_id: z.string(),
+    model_name: z.string(),
+    deployment_name: z.string(),
+    company: z.string(),
+  }),
   title: z.looseObject({ title: z.string() }),
   web_search: z.looseObject({
     query: z.string().optional().default(""),

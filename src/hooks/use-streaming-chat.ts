@@ -451,6 +451,22 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "model_selected") {
+            const modelName = asString(parsed.model_name)
+            if (modelName) {
+              queueUpdate({
+                modelName,
+                modelMeta: {
+                  modelId: asString(parsed.model_id) ?? modelName,
+                  modelName,
+                  deploymentName: asString(parsed.deployment_name),
+                  company: asString(parsed.company),
+                },
+              }, true)
+            }
+            continue
+          }
+
           if (eventName === "message_saved") {
             // Backend confirmed the message was persisted.
             const evtChatId = extractChatId(parsed)
