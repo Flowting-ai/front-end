@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useState, Suspense, useEffect, useEffectEvent, useRef, useCallback } from 'react'
+import React, { useState, Suspense, useEffect, useEffectEvent, useLayoutEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -240,9 +240,42 @@ function ModelDropdown({
   onSelect:      (model: AIModel) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const panelRef      = useRef<HTMLDivElement | null>(null)
   const scrollRef     = useRef<HTMLDivElement | null>(null)
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
+  // Whether the panel opens upward (dropup) instead of its default downward
+  // placement — decided per-open by measuring the trigger's position against
+  // the panel's actual rendered height, same approach as Dropdown.Float's
+  // `autoFlipVertical` (src/components/Dropdown/index.tsx). This panel is
+  // hand-rolled (not Dropdown.Float — see the comment above ModelDropdown)
+  // so it needs its own copy of that measure-then-flip logic.
+  const [openUpward, setOpenUpward] = useState(false)
+
+  const recomputeFlip = useEffectEvent(() => {
+    const trigger = containerRef.current
+    const panel = panelRef.current
+    if (!trigger || !panel) return
+    const rect = trigger.getBoundingClientRect()
+    const vh = document.documentElement.clientHeight
+    const panelHeight = panel.offsetHeight
+    const gap = 4
+    const edgeMargin = 8
+    const overflowsBelow = rect.bottom + gap + panelHeight + edgeMargin > vh
+    const flipFits = rect.top - gap - panelHeight - edgeMargin >= 0
+    setOpenUpward(overflowsBelow && flipFits)
+  })
+
+  useEffect(() => {
+    if (!open) return
+    const onScrollOrResize = () => recomputeFlip()
+    window.addEventListener('scroll', onScrollOrResize, true)
+    window.addEventListener('resize', onScrollOrResize)
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true)
+      window.removeEventListener('resize', onScrollOrResize)
+    }
+  }, [open])
 
   // Close on outside click + Escape
   const closeDropdown = useEffectEvent((v: boolean) => onOpenChange(v))
@@ -279,6 +312,14 @@ function ModelDropdown({
   // models grouped under their provider, so a company tab/header would just
   // read "Anthropic" and reveal the underlying provider for no benefit.
   const sortedModels = React.useMemo(() => sortModels(models), [models])
+
+  // useLayoutEffect (not useEffect) so this runs after the panel commits to
+  // the DOM but before the browser paints — the flip decision is applied
+  // before the first frame, so there's no visible jump from "open downward"
+  // to "open upward".
+  useLayoutEffect(() => {
+    if (open) recomputeFlip()
+  }, [open, sortedModels.length])
 
   const updateScrollEdges = () => {
     const el = scrollRef.current
@@ -356,23 +397,30 @@ function ModelDropdown({
       <AnimatePresence>
         {open && (
           <m.div
+            ref={panelRef}
             role="dialog"
             aria-modal
             aria-label="Select model"
-            initial={{ opacity: 0, scaleY: 0.85, y: -4 }}
+            // Slide direction mirrors the flip: a downward panel's initial
+            // position is slightly ABOVE its resting place (y: -4 → 0), an
+            // upward one's is slightly BELOW it (y: 4 → 0) — the animation
+            // always converges from the trigger's side, not the panel's.
+            initial={{ opacity: 0, scaleY: 0.85, y: openUpward ? 4 : -4 }}
             animate={{ opacity: 1, scaleY: 1,    y:  0 }}
-            exit={{    opacity: 0, scaleY: 0.9,  y: -4, transition: { duration: 0.1 } }}
+            exit={{    opacity: 0, scaleY: 0.9,  y: openUpward ? 4 : -4, transition: { duration: 0.1 } }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
             style={{
               position:        'absolute',
-              top:             'calc(100% + 4px)',
+              ...(openUpward
+                ? { bottom: 'calc(100% + 4px)' }
+                : { top: 'calc(100% + 4px)' }),
               left:            0,
               right:           0,
               zIndex:          50,
               backgroundColor: 'var(--popover-bg)',
               borderRadius:    18,
               boxShadow:       'var(--shadow-popover)',
-              transformOrigin: 'top center',
+              transformOrigin: openUpward ? 'bottom center' : 'top center',
               overflow:        'hidden',
               isolation:       'isolate',
             }}

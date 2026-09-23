@@ -418,7 +418,7 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, algorithm, setPersonaActive } = useModelSelectorContext()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   // Reset to the default model tier on a genuinely blank "new chat" landing —
@@ -899,6 +899,7 @@ function ProjectChatPageInner() {
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}
               selectedModelId={selectedModel?.id}
+              algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               addMenu={addMenu}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}

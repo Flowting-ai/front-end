@@ -105,6 +105,11 @@ interface ChatInterfaceProps {
   onChatMoveToTop?: (chatId: string) => void;
   selectedModel?: string;
   selectedModelId?: string | number | null;
+  /** Souvenir's own auto-routing tier ('base'/'pro'), when the composer's
+   *  model menu has that selected instead of a direct `selectedModelId`. The
+   *  two are mutually exclusive (see ModelSelectorContext), so this and
+   *  `selectedModelId` are never both set. */
+  algorithm?: 'base' | 'pro' | null;
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
   /** Dropdown content for the `+` add button in ChatInput. */
   addMenu?: React.ReactNode;
@@ -220,6 +225,7 @@ export function ChatInterface({
   onChatMoveToTop,
   selectedModel,
   selectedModelId,
+  algorithm,
   onModelClick,
   addMenu,
   modelMenu,
@@ -546,6 +552,7 @@ export function ChatInterface({
       fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        algorithm,
         files: files.length > 0 ? files : undefined,
         userMessageId: userMsgId,
         pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
@@ -862,6 +869,7 @@ export function ChatInterface({
       await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        algorithm,
         files: allFiles.length > 0 ? allFiles : undefined,
         userMessageId: userMsgId,
         pinIds: allPinIds.length > 0 ? allPinIds : undefined,
@@ -925,7 +933,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       selectedModelId,
-      { enableReasoning, chatOwnershipConfirmed },
+      { enableReasoning, algorithm, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -993,6 +1001,7 @@ export function ChatInterface({
     fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
+      algorithm,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
       temperature: selectedPersonaTemperature ?? undefined,

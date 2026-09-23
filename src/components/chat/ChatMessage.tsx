@@ -366,6 +366,12 @@ export function ChatMessage({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking || message.reasoning_sections?.length);
+  // Whether ReasoningBlock actually renders below. The model-header and
+  // StandaloneActivitiesBlock blocks key off `!showReasoningBlock` (not
+  // `!hasThinking`) so exactly one of the three always renders — a message
+  // with thinking data doesn't go attribution-less just because adaptive
+  // thinking is currently toggled off.
+  const showReasoningBlock = hasThinking && showReasoning;
   const canUseContentActions = Boolean(message.content.trim()) && !message.isError;
   const pinned = isAssistant && pinnedProp;
 
@@ -719,7 +725,14 @@ export function ChatMessage({
 
         {/* Assistant role label when no thinking/reasoning present */}
         <AnimatePresence initial={false}>
-          {!hasThinking && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
+          {/* Gated on !showReasoningBlock (not !hasThinking) so this header
+              still shows when a message HAS thinking data but adaptive
+              thinking is currently toggled off — otherwise this block and
+              ReasoningBlock's own `hasThinking && showReasoning` gate below
+              were both false at once, and the model logo/name vanished
+              entirely for any message with thinking data whenever the
+              adaptive-thinking switch was off. */}
+          {!showReasoningBlock && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
             <m.div
               key="model-header"
               initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
@@ -770,8 +783,9 @@ export function ChatMessage({
           )}
         </AnimatePresence>
 
-        {/* Assistant model label when activities exist but no thinking */}
-        {!hasThinking && message.activities && message.activities.length > 0 && (
+        {/* Assistant model label when activities exist but no thinking (or
+            thinking is toggled off — see the comment on showReasoningBlock) */}
+        {!showReasoningBlock && message.activities && message.activities.length > 0 && (
           <StandaloneActivitiesBlock
             modelName={message.modelName || message.model_name || message.model}
             modelMeta={message.modelMeta}
@@ -806,7 +820,7 @@ export function ChatMessage({
         )}
 
         {/* Reasoning block — shown when adaptive thinking is enabled */}
-        {hasThinking && showReasoning && (
+        {showReasoningBlock && (
           <ReasoningBlock
             thinkingContent={message.thinking!}
             isNewMessage={isNewMessage}

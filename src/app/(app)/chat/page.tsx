@@ -663,6 +663,7 @@ function ChatPageInner() {
     selectModel,
     open: openModelSelector,
     enableReasoning,
+    algorithm,
     setPersonaActive,
   } = useModelSelectorContext();
 
@@ -1207,6 +1208,7 @@ function ChatPageInner() {
               onChatMoveToTop={handleChatMoveToTop}
               selectedModel={modelButtonLabel}
               selectedModelId={selectedModel?.id}
+              algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               addMenu={addMenu}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}

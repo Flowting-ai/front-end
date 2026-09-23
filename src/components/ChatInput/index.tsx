@@ -396,46 +396,68 @@ const DEFAULT_RECENT_MODELS = [
   { id: 'qwen',      llm: 'Qwen',    label: 'Qwen 3 Max' },
 ] as const
 
-// Souvenir's own 3 in-house tiers — kept in their own labelled section below
-// the general model list, same split `chat/ModelMenu.tsx` applies via
-// `isSouvenirMuseModel` (lib/ai-models.ts) for the live, data-backed menu.
-const DEFAULT_MUSE_MODELS = [
-  { id: 'advanced', label: 'Advanced', subLabel: 'Most capable for ambitious work' },
-  { id: 'standard', label: 'Standard', subLabel: 'Balanced speed and capability' },
-  { id: 'basic',    label: 'Basic',    subLabel: 'Cost-efficient for everyday tasks' },
+// Sample auto-routing tiers — mirrors chat/ModelMenu.tsx's real
+// "Auto Routing" section (backed there by ModelSelectorContext's
+// `algorithm`/`selectAlgorithm`). Static here since this is the
+// design-system reference copy with no live selection state.
+const DEFAULT_ALGORITHM_TIERS = [
+  { id: 'pro',  label: 'Souvenir Pro' },
+  { id: 'base', label: 'Souvenir Standard' },
 ] as const
 
-// Same row-math as `chat/ModelMenu.tsx`'s MODEL_LIST_MAX_HEIGHT: 5 visible
-// plain rows (5px pad + 22px line-height + 5px pad = 32px each) + 4px gaps.
+// Caps the "Select a Model" submenu at 5 visible rows, scrolling for the
+// rest — same spec and row-math as chat/ModelMenu.tsx's MODEL_LIST_MAX_HEIGHT.
 const DEFAULT_MODEL_LIST_MAX_HEIGHT = 5 * 32 + 4 * 4
 
 function DefaultModelMenu() {
   const sampleModels = [...DEFAULT_MOST_USED_MODELS, ...DEFAULT_RECENT_MODELS]
   return (
     <Dropdown size="md" maxHeight={false}>
-      <Dropdown.Section label="Select model" fluid>
-        <div
-          className="kaya-scrollbar"
-          style={{
-            display:              'flex',
-            flexDirection:        'column',
-            gap:                  '4px',
-            maxHeight:            DEFAULT_MODEL_LIST_MAX_HEIGHT,
-            overflowY:            'auto',
-            overscrollBehaviorY:  'contain',
-          }}
-        >
-          {sampleModels.map((model) => (
-            <Dropdown.Item key={model.id} llm={model.llm} label={model.label} fluid />
-          ))}
-        </div>
-      </Dropdown.Section>
-      <Dropdown.Section label="Souvenir Muse" fluid divider>
-        {DEFAULT_MUSE_MODELS.map((model) => (
-          <Dropdown.Item key={model.id} label={model.label} subLabel={model.subLabel} fluid />
+      <Dropdown.Section label="Auto Routing" fluid>
+        {DEFAULT_ALGORITHM_TIERS.map((tier) => (
+          <Dropdown.Item key={tier.id} label={tier.label} fluid />
         ))}
       </Dropdown.Section>
-      <Dropdown.Section label="Thinking" fluid divider>
+      <Dropdown.Section label="Select a model" fluid divider>
+        <Dropdown.Submenu
+          trigger={
+            <Dropdown.Item label="Select a Model" rightIcon={<ArrowRightOneIcon />} fluid />
+          }
+        >
+          {/* Same primitive as the "Use style" submenu above — hover-open,
+              auto-flips left/right based on viewport space. maxHeight={false}
+              opts out of Popover's own default cap; the nested scroll div
+              enforces the product's explicit 5-row cap instead. */}
+          <Dropdown size="md" maxHeight={false}>
+            <Dropdown.Section fluid>
+              {/* Two nested divs, not one — see chat/ModelMenu.tsx's matching
+                  comment. The OUTER is the plain-block scroll container
+                  (maxHeight + overflow, no display:flex of its own); the
+                  INNER is the flex column that stacks the rows. Collapsing
+                  these into a single flex+scroll div makes DropdownMenuItem
+                  rows flex-shrink to fit instead of overflowing (their own
+                  `overflow: hidden` zeroes a flex item's automatic
+                  min-height). */}
+              <div
+                className="kaya-scrollbar"
+                style={{
+                  maxHeight:            DEFAULT_MODEL_LIST_MAX_HEIGHT,
+                  overflowY:            'auto',
+                  overscrollBehaviorY:  'contain',
+                  padding:              '3px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {sampleModels.map((model) => (
+                    <Dropdown.Item key={model.id} llm={model.llm} label={model.label} fluid />
+                  ))}
+                </div>
+              </div>
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Submenu>
+      </Dropdown.Section>
+      <Dropdown.Section fluid divider>
         <Dropdown.Item
           label="Adaptive thinking"
           subLabel="Enable extended reasoning"
