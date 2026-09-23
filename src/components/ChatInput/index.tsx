@@ -19,6 +19,7 @@ import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
+import { ModelIcon } from '@/components/ModelIcon'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
@@ -415,10 +416,12 @@ function DefaultModelMenu() {
     <Dropdown size="md" maxHeight={false}>
       <Dropdown.Section label="Auto Routing" fluid>
         {DEFAULT_ALGORITHM_TIERS.map((tier) => (
-          <Dropdown.Item key={tier.id} label={tier.label} fluid />
+          // No `model` — ModelIcon falls back to the Souvenir mark, since no
+          // specific provider backs an algorithm tier.
+          <Dropdown.Item key={tier.id} icon={<ModelIcon size={16} />} label={tier.label} fluid />
         ))}
       </Dropdown.Section>
-      <Dropdown.Section label="Select a model" fluid divider>
+      <Dropdown.Section label="Models" fluid divider>
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item label="Select a Model" rightIcon={<ArrowRightOneIcon />} fluid />
@@ -449,7 +452,11 @@ function DefaultModelMenu() {
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {sampleModels.map((model) => (
-                    <Dropdown.Item key={model.id} llm={model.llm} label={model.label} fluid />
+                    // `icon`+ModelIcon (not the `llm` prop) — Souvenir-mark
+                    // fallback for unrecognized providers, and a slightly
+                    // smaller fixed slot size (20px vs llm's 22px), same as
+                    // chat/ModelMenu.tsx's real "Select a Model" rows.
+                    <Dropdown.Item key={model.id} icon={<ModelIcon model={model.llm} size={16} />} label={model.label} fluid />
                   ))}
                 </div>
               </div>
@@ -457,7 +464,7 @@ function DefaultModelMenu() {
           </Dropdown>
         </Dropdown.Submenu>
       </Dropdown.Section>
-      <Dropdown.Section fluid divider>
+      <Dropdown.Section label="Thinking" fluid divider>
         <Dropdown.Item
           label="Adaptive thinking"
           subLabel="Enable extended reasoning"

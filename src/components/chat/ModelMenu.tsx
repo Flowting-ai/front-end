@@ -6,6 +6,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { useModelSelectorContext, type ModelAlgorithm } from '@/context/model-selector-context'
 import { trackFeature } from '@/lib/analytics/events'
 import { sortModels } from '@/lib/ai-models'
+import { ModelIcon } from '@/components/ModelIcon'
 import type { AIModel } from '@/types/ai-model'
 
 function isSameModel(a: AIModel | null, b: AIModel): boolean {
@@ -18,6 +19,25 @@ function isSameModel(a: AIModel | null, b: AIModel): boolean {
 const ALGORITHM_LABELS: Record<ModelAlgorithm, string> = {
   pro:  'Souvenir Pro',
   base: 'Souvenir Standard',
+}
+
+// Lowercased for case-insensitive matching against a catalog model's
+// `modelName` — see the filter on `sortedModels` below.
+const ALGORITHM_MODEL_NAMES = new Set(
+  Object.values(ALGORITHM_LABELS).map((label) => label.toLowerCase()),
+)
+
+// Legacy Souvenir-tier names ("Advanced"/"Standard"/"Basic") that can still
+// appear in the catalog alongside the real provider models — these are
+// Claude under the hood, but their own companyName/modelName don't reliably
+// resolve to "Claude" via toLlmIconId, so it's forced explicitly here rather
+// than showing no logo for them.
+const CLAUDE_TIER_NAMES = new Set(['advanced', 'standard', 'basic'])
+
+/** Resolves what to hand ModelIcon's `model` prop for a catalog model row. */
+function modelIconSource(model: AIModel): string | null {
+  if (CLAUDE_TIER_NAMES.has(model.modelName.trim().toLowerCase())) return 'Claude'
+  return model.companyName || model.modelName
 }
 
 // Caps the "Select a Model" submenu at 5 visible rows, scrolling (kaya
@@ -44,7 +64,13 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
     algorithm, selectAlgorithm,
     enableReasoning, setEnableReasoning,
   } = useModelSelectorContext()
-  const sortedModels = sortModels(models)
+  // The catalog can carry entries literally named "Souvenir Pro"/"Souvenir
+  // Standard" (aliases for the Auto Routing tiers above) alongside the real
+  // provider models — excluded here so a routing alias doesn't show up a
+  // second time as if it were its own distinct, directly-selectable model.
+  const sortedModels = sortModels(models).filter(
+    (model) => !ALGORITHM_MODEL_NAMES.has(model.modelName.trim().toLowerCase()),
+  )
   const hasDirectSelection = !algorithm && !!selectedModel
 
   const renderModelItem = (model: AIModel) => {
@@ -53,6 +79,11 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
       <Dropdown.Item
         key={`${model.id}-${model.modelId}`}
         fluid
+        // ModelIcon (not the `llm` prop) so an unrecognized provider falls
+        // back to the Souvenir mark instead of an empty slot, and so the
+        // icon slot is `icon` (DropdownMenuItem clones it to a fixed 20px)
+        // rather than `llm` (fixed 22px) — a deliberate, slightly smaller size.
+        icon={<ModelIcon model={modelIconSource(model)} size={16} />}
         label={model.modelName}
         selected={selected}
         // Rendered on every row, not just the selected one — keeps the
@@ -74,6 +105,10 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
       <Dropdown.Item
         key={value}
         fluid
+        // No specific provider backs an algorithm tier — omitting `model`
+        // resolves to nothing in toLlmIconId, so ModelIcon falls back to
+        // the actual Souvenir mark, not an empty slot.
+        icon={<ModelIcon size={16} />}
         label={ALGORITHM_LABELS[value]}
         selected={selected}
         rightIcon={<TickTwoIcon style={{ opacity: selected ? 1 : 0 }} />}
@@ -98,7 +133,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
         {renderAlgorithmItem('pro')}
         {renderAlgorithmItem('base')}
       </Dropdown.Section>
-      <Dropdown.Section label="Select a model" fluid divider>
+      <Dropdown.Section label="Models" fluid divider>
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item
@@ -152,7 +187,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
           </Dropdown>
         </Dropdown.Submenu>
       </Dropdown.Section>
-      <Dropdown.Section fluid divider>
+      <Dropdown.Section label="Thinking" fluid divider>
         <Dropdown.Item
           label="Adaptive thinking"
           subLabel="Enable extended reasoning"
