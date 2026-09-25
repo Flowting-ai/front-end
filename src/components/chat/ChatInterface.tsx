@@ -325,8 +325,12 @@ export function ChatInterface({
 
   // Ref always pointing to the currently displayed chatId.
   // Passed to useStreamingChat to suppress setStreamState calls for background streams.
+  // Assigned in an effect, not during render — see the selectModelRef comment
+  // in chat/page.tsx for why mutating a ref's `.current` during render is unsafe.
   const currentChatIdRef = useRef<string | undefined>(chatId ?? undefined)
-  currentChatIdRef.current = chatId ?? undefined
+  useEffect(() => {
+    currentChatIdRef.current = chatId ?? undefined
+  }, [chatId])
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -383,6 +387,7 @@ export function ChatInterface({
     rollbackLast,
     markChatAsOptimistic,
     refreshMessages,
+    messagesLoadError,
   } = useChatState(chatId, chatStateOptions);
 
   const messages = rawMessages ?? [];
@@ -523,8 +528,16 @@ export function ChatInterface({
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
 
-  // Store the send function in a ref so it's always current (closes over latest props)
-  sendInitialPrompt.current = async (prompt: string) => {
+  // Store the send function in a ref so it's always current (closes over latest
+  // props). Assigned in an effect (no deps — reassigns every render, same as
+  // the old during-render assignment did) rather than during render itself,
+  // since mutating a ref's `.current` while rendering is unsafe under Strict
+  // Mode / concurrent rendering. Safe to defer to an effect here specifically
+  // because every caller (see below) only ever invokes `sendInitialPrompt.current`
+  // from inside another effect or an event handler, never synchronously during
+  // this same render pass — so it's always assigned by the time anything reads it.
+  useEffect(() => {
+    sendInitialPrompt.current = async (prompt: string) => {
     const content = prompt.trim();
     if (content && !chatId) {
       // Use initialFiles if provided, otherwise fall back to addMenuFiles.
@@ -585,7 +598,8 @@ export function ChatInterface({
         } : undefined,
       });
     }
-  };
+    }
+  })
 
   useEffect(() => {
     // Same race as handleSend's personaConfigLoading check — this is the
@@ -1161,8 +1175,49 @@ export function ChatInterface({
               settles its initial measurements so the first visible frame is jitter-free */}
           {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}
 
+          {/* Failed-to-load banner — shown instead of the empty state when the
+              initial history fetch failed, so a transient backend error reads
+              as "couldn't load this conversation, retry" rather than as an
+              empty/deleted chat (messages is legitimately [] in both cases,
+              so messagesLoadError is what tells them apart). */}
+          {!isLoadingMessages && !isSettling && messages.length === 0 && messagesLoadError && (
+            <div
+              role="alert"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12,
+                padding: "32px 16px",
+                textAlign: "center",
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 14, color: "#827A74" }}>
+                Couldn&apos;t load this conversation. {messagesLoadError}
+              </p>
+              <button
+                type="button"
+                onClick={() => void refreshMessages()}
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#FFFFFF",
+                  background: "#26211E",
+                  border: "none",
+                  borderRadius: 999,
+                  padding: "7px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           {/* Empty state — shown when no messages and not loading */}
-          {!isLoadingMessages && !isSettling && messages.length === 0 && emptyState}
+          {!isLoadingMessages && !isSettling && messages.length === 0 && !messagesLoadError && emptyState}
 
           {/* Messages — virtualised: only renders visible rows.
               Hidden (not unmounted) during settling so the virtualizer can

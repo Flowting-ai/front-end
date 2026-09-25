@@ -24,16 +24,7 @@ import { m, useReducedMotion } from "framer-motion"
 import { StatCard } from "@/components/StatCard"
 import { Sparkline } from "@/components/Sparkline"
 import type { DeltaTrend } from "@/components/DeltaPill"
-import { scanTags } from "@/lib/xml-widgets"
-
-export interface ParsedMetric {
-  label: string
-  value: string
-  delta?: string
-  trend: DeltaTrend
-  sub?: string
-  spark?: number[]
-}
+import { parseMetricsXml } from "@/components/chat/XmlMetrics.parse"
 
 const TREND_PALETTE: Record<DeltaTrend, { stroke: string; wash: string; border: string }> = {
   up: {
@@ -46,26 +37,6 @@ const TREND_PALETTE: Record<DeltaTrend, { stroke: string; wash: string; border: 
     wash: "linear-gradient(145deg, rgba(180, 98, 88, 0.10), rgba(255,255,255,0) 48%)",
     border: "rgba(180, 98, 88, 0.18)",
   },
-}
-
-export function parseMetricsXml(xml: string): ParsedMetric[] {
-  const metrics: ParsedMetric[] = []
-  for (const { attrs } of scanTags(xml, "metric")) {
-    const { label, value, delta, sub } = attrs
-    if (!label || !value) continue
-    const trendAttr = (attrs.trend ?? "").toLowerCase()
-    const trend: DeltaTrend =
-      trendAttr === "down" ? "down" :
-      trendAttr === "up"   ? "up"   :
-      delta?.trim().startsWith("-") ? "down" : "up"
-    const spark = (attrs.spark ?? "")
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number)
-      .filter(Number.isFinite)
-    metrics.push({ label, value, delta, trend, sub, spark: spark.length >= 2 ? spark : undefined })
-  }
-  return metrics
 }
 
 export function XmlMetrics({ xml }: { xml: string }) {

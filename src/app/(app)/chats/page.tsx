@@ -188,6 +188,14 @@ function ChatsPageInner() {
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
+  // `formatTaskTimestamp` reads `new Date()` at render time, so the server's
+  // render and the client's hydration render can land in different relative
+  // buckets ("2m ago" vs "3m ago") — a real, if intermittent, hydration
+  // mismatch. Render a stable empty value until after mount, then swap in the
+  // live relative time; same pattern already used by Switch/index.tsx.
+  const [hasMounted, setHasMounted] = useState(false)
+  useEffect(() => { setHasMounted(true) }, [])
+
   // ── Chats mode / Tasks mode ────────────────────────────────────────────────
   const [libraryMode, setLibraryMode] = useState<LibraryMode>(
     () => (searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'),
@@ -906,7 +914,7 @@ function ChatsPageInner() {
                   <div key={thread.id} role="listitem" style={{ padding: '1px 0 6px' }}>
                     <ChatRow
                       title={thread.chat_title || 'Untitled'}
-                      timestamp={formatTaskTimestamp(thread.updated_at ?? thread.created_at)}
+                      timestamp={hasMounted ? formatTaskTimestamp(thread.updated_at ?? thread.created_at) : ''}
                       starred={thread.starred}
                       taskMode
                       scheduled={scheduledChatIds.has(thread.id)}

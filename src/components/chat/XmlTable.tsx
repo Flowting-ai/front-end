@@ -76,9 +76,14 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
       : Array.from({ length: colCount }, (_, ci) => (ci === 0 ? "1.6fr" : "1fr")).join(" ")
 
   // Keep a ref so the interval can always read the latest row count even as
-  // streaming appends new rows — avoids stale-closure capture.
+  // streaming appends new rows — avoids stale-closure capture. Assigned in an
+  // effect, not during render: the interval only ever reads this
+  // asynchronously, so there's no need to mutate it during the render phase
+  // itself, which is unsafe under Strict Mode / concurrent rendering.
   const rowsLenRef = useRef(rows.length)
-  rowsLenRef.current = rows.length
+  useEffect(() => {
+    rowsLenRef.current = rows.length
+  }, [rows.length])
 
   useEffect(() => {
     if (!animate) return

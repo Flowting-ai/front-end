@@ -18,18 +18,7 @@
 
 import React from "react"
 import { AnimatedSteps } from "@/components/chat/ResponseBlocks"
-import { scanTags } from "@/lib/xml-widgets"
-import type { StepsData } from "@/hooks/use-chat-state"
-
-export function parseStepsXml(xml: string): StepsData | null {
-  const [block] = scanTags(xml, "steps")
-  if (!block) return null
-  const steps = scanTags(block.inner, "step")
-    .map(({ attrs }) => ({ label: attrs.label ?? "", description: attrs.description }))
-    .filter((step) => step.label)
-  if (steps.length === 0) return null
-  return { title: block.attrs.title, steps }
-}
+import { parseStepsXml } from "@/components/chat/XmlSteps.parse"
 
 const noop = () => {}
 

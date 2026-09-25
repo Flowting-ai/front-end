@@ -25,7 +25,7 @@ import { sanitizeKaTeX } from "@/lib/security"
 import { hasRawRange } from "@/lib/highlight-offsets"
 import type { WebCitation } from "@/hooks/use-chat-state"
 import type { HighlightSpec } from "./markdown-utils"
-import { isLikelyInlineMath } from "./markdown-utils"
+import { isLikelyInlineMath } from "./markdown-preprocess"
 
 // ── KaTeX helpers ──────────────────────────────────────────────────────────────
 
@@ -97,11 +97,11 @@ function renderHighlightedText(
 
   const nodes: React.ReactNode[] = []
   let pos = 0
-  resolved.forEach((span, index) => {
+  resolved.forEach((span) => {
     if (span.start > pos) nodes.push(text.slice(pos, span.start))
     nodes.push(
       <HighlightMark
-        key={`${prefix}-rawhl${index}`}
+        key={`${prefix}-${span.spec.id}`}
         colorIndex={span.spec.colorIndex}
         data-highlight-id={span.spec.id}
       >

@@ -175,8 +175,11 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         if (popup && !popup.closed) {
           popup.location.href = openUrl
         } else {
-          // Popup was blocked — fall back to a new tab
-          window.open(openUrl, '_blank')
+          // Popup was blocked — fall back to a new tab. Safe to pass noopener
+          // here (unlike the deferred-navigation `popup` above): this call's
+          // return value is never read, so there's no window reference that
+          // needs to survive.
+          window.open(openUrl, '_blank', 'noopener')
         }
         setState('polling')
         if (isZapierProviderConnector(prompt.provider, link.redirectUrl)) {

@@ -6,7 +6,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
-import { preprocessMarkdown } from "./markdown-utils";
+import { preprocessMarkdown } from "./markdown-preprocess";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex, rehypeRaw];

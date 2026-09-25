@@ -469,11 +469,13 @@ export function AttachmentManager({
                   >
                     <m.div
                       style={{
+                        width:           "100%",
                         height:          "100%",
                         backgroundColor: "#22C55E",
                         borderRadius:    "0 0 8px 8px",
+                        transformOrigin: "left",
                       }}
-                      animate={{ width: `${attachment.uploadProgress ?? 0}%` }}
+                      animate={{ scaleX: (attachment.uploadProgress ?? 0) / 100 }}
                       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
                     />
                   </div>

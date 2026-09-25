@@ -20,21 +20,7 @@ import {
   Thermometer,
   Wind,
 } from "lucide-react"
-import { scanTags } from "@/lib/xml-widgets"
-
-export interface ParsedWeather {
-  location: string
-  unit: string
-  current?: {
-    temp: string
-    condition?: string
-    high?: string
-    low?: string
-    humidity?: string
-    wind?: string
-  }
-  days: Array<{ label: string; high?: string; low?: string; condition?: string }>
-}
+import { parseWeatherXml, type ParsedWeather } from "@/components/chat/XmlWeather.parse"
 
 type ConditionFamily = "storm" | "rain" | "snow" | "fog" | "cloud" | "partly" | "wind" | "clear" | "neutral"
 
@@ -125,23 +111,6 @@ function conditionFamily(condition?: string): ConditionFamily {
   return "neutral"
 }
 
-const CONDITION_ICON: Record<ConditionFamily, string> = {
-  storm: "⛈️",
-  rain: "🌧️",
-  snow: "🌨️",
-  fog: "🌫️",
-  cloud: "☁️",
-  partly: "⛅",
-  wind: "💨",
-  clear: "☀️",
-  neutral: "🌡️",
-}
-
-/** Kept exported for callers that need a compact text/emoji representation. */
-export function conditionIcon(condition?: string): string {
-  return CONDITION_ICON[conditionFamily(condition)]
-}
-
 function conditionLabel(condition?: string): string {
   return (condition ?? "").replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -151,37 +120,11 @@ function paletteFor(condition?: string): WeatherPalette {
 }
 
 /** Cold-blue → hot-orange hue for a temperature (°C internally). */
-export function tempColor(value: number, unit: string): string {
+function tempColor(value: number, unit: string): string {
   const celsius = /f/i.test(unit) ? ((value - 32) * 5) / 9 : value
   const t = Math.max(0, Math.min(1, (celsius + 10) / 45))
   const hue = 220 - t * 195
   return `hsl(${Math.round(hue)} 70% 52%)`
-}
-
-export function parseWeatherXml(xml: string): ParsedWeather | null {
-  const [weather] = scanTags(xml, "weather")
-  if (!weather) return null
-  const [current] = scanTags(weather.inner, "current")
-  const days = scanTags(weather.inner, "day")
-    .filter((d) => d.attrs.label)
-    .map((d) => ({ label: d.attrs.label, high: d.attrs.high, low: d.attrs.low, condition: d.attrs.condition }))
-
-  if (!current && days.length === 0) return null
-  return {
-    location: weather.attrs.location ?? "",
-    unit: weather.attrs.unit ?? "°",
-    current: current?.attrs.temp
-      ? {
-          temp: current.attrs.temp,
-          condition: current.attrs.condition,
-          high: current.attrs.high,
-          low: current.attrs.low,
-          humidity: current.attrs.humidity,
-          wind: current.attrs.wind,
-        }
-      : undefined,
-    days,
-  }
 }
 
 const captionStyle: React.CSSProperties = {

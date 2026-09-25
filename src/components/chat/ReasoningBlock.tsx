@@ -21,7 +21,8 @@ import {
   Checkmark,
 } from "@hugeicons/core-free-icons";
 import { LineRenderer } from "@/lib/line-renderer";
-import { ACTIVITY_VERB, ActivitiesSection } from "./ActivityRow";
+import { ActivitiesSection } from "./ActivityRow";
+import { ACTIVITY_VERB } from "@/lib/activity";
 import { springs } from "@/lib/springs";
 import {
   cleanReasoningHeading,
@@ -768,8 +769,3 @@ export function ReasoningBlock({
   );
 }
 
-/** Legacy export kept for any external callers */
-export const renderReasoningContent = (text: string): React.ReactNode => {
-  if (!text) return null;
-  return <LineRenderer content={text} />;
-};

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preprocessMarkdown } from "./markdown-utils";
+import { preprocessMarkdown } from "./markdown-preprocess";
 
 describe("preprocessMarkdown", () => {
   it("converts separate \\(...\\) spans without swallowing the plain text between them", () => {

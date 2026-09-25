@@ -17,21 +17,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { QuillWriteOneIcon, NeuralNetworkIcon } from "@strange-huge/icons";
 import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
-
-// ── Activity type display config ──────────────────────────────────────────────
-
-export const ACTIVITY_VERB: Record<ActivityType, string> = {
-  "web-search": "Searching the web",
-  "browser": "Browsing",
-  "read-pages": "Reading document",
-  "csv-execute": "Analysing data",
-  "fetch-resource": "Fetching resource",
-  "tool-call": "Running tool",
-  "doc-execute": "Generating document",
-  "docx-progress": "Generating document",
-  "skills": "Loading skill",
-  "other": "Processing",
-};
+import { ACTIVITY_VERB } from "@/lib/activity";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IconEntry = { icon: any; isHuge: boolean };
@@ -327,7 +313,7 @@ export function ActivitiesSection({ activities }: { activities: ActivityItem[] }
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
       {activities.map((activity, i) => (
         <m.div
-          key={activity.id || i}
+          key={activity.id}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: i * 0.06 }}

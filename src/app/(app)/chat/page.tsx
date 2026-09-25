@@ -28,7 +28,8 @@ import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
-import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
+import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
+import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
 import { getVersion } from "@/lib/api/personas";
 import { useSelectableChatPersonas } from "@/hooks/use-selectable-chat-personas";
@@ -256,24 +257,34 @@ function ChatPageInner() {
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
-  // Read from sessionStorage synchronously in the lazy initializer so
-  // selectedPersona is populated on the FIRST render (same reasoning as
-  // project/[id]/chat/[chatId]/page.tsx's identical pattern for its own
-  // pending-persona key — a useEffect would run one flush too late for the
-  // initial-send path to see it). Set by agents/published's "Use this Agent"
-  // button just before it navigates here.
+  // selectedPersona always starts `null` on both server and client (no
+  // hydration mismatch), then gets the real value synchronously via
+  // useLayoutEffect below — layout effects run before the browser paints or
+  // allows any interaction, so this is still available before the
+  // initial-send path can possibly fire, same guarantee the old lazy-
+  // initializer read gave, without branching on `typeof window` inside the
+  // initializer (which made the initializer's return value itself differ
+  // between the server render and the client's first render — a real
+  // hydration mismatch whenever a pending persona was actually present).
+  // Same reasoning as project/[id]/chat/[chatId]/page.tsx's identical
+  // pending-persona key — a plain useEffect would run one flush too late for
+  // the initial-send path to see it, but useLayoutEffect does not have that
+  // gap. Set by agents/published's "Use this Agent" button just before it
+  // navigates here.
   const cameFromPendingPersonaRef = useRef(false);
-  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(() => {
-    if (chatIdFromUrl || typeof window === 'undefined') return null;
+  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+  useLayoutEffect(() => {
+    if (chatIdFromUrl) return;
     const stored = sessionStorage.getItem('new-chat-pending-persona');
-    if (!stored) return null;
+    if (!stored) return;
     sessionStorage.removeItem('new-chat-pending-persona');
     try {
       const parsed = JSON.parse(stored) as SelectedPersonaInfo;
       cameFromPendingPersonaRef.current = true;
-      return parsed;
-    } catch { return null; }
-  });
+      setSelectedPersona(parsed);
+    } catch { /* ignore malformed sessionStorage value */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Same "Model locked to agent" notice ChatInput/TopBar already show on a
   // click against the locked model selector — surfaced proactively here since
   // arriving with the agent pre-attached (from agents/published's "Use this
@@ -668,11 +679,16 @@ function ChatPageInner() {
   } = useModelSelectorContext();
 
   // Keep a stable ref to selectModel so the effect below doesn't re-run every render
-  // due to the context function being recreated on each render.
+  // due to the context function being recreated on each render. Assigned in an
+  // effect (not during render) — mutating a ref's `.current` while rendering is
+  // unsafe under Strict Mode / concurrent rendering, where a render pass can be
+  // discarded or retried after the mutation already happened.
   const selectModelRef = useRef(selectModel)
-  selectModelRef.current = selectModel
   const modelsRef = useRef(models)
-  modelsRef.current = models
+  useEffect(() => {
+    selectModelRef.current = selectModel
+    modelsRef.current = models
+  }, [selectModel, models])
 
   // Push persona-active state into the model selector context so the dialog is
   // locked from ALL entry points (not just the button in ChatInput) while a

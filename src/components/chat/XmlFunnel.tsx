@@ -20,22 +20,7 @@
 import React from "react"
 import { m, useReducedMotion } from "framer-motion"
 import { ArrowDown, Filter, TrendingDown } from "lucide-react"
-import { scanTags } from "@/lib/xml-widgets"
-
-export interface ParsedFunnel {
-  title?: string
-  stages: Array<{ label: string; value: number }>
-}
-
-export function parseFunnelXml(xml: string): ParsedFunnel | null {
-  const [funnel] = scanTags(xml, "funnel")
-  if (!funnel) return null
-  const stages = scanTags(funnel.inner, "stage")
-    .map(({ attrs }) => ({ label: attrs.label ?? "", value: Number(attrs.value) }))
-    .filter((s) => s.label && Number.isFinite(s.value) && s.value >= 0)
-  if (stages.length === 0) return null
-  return { title: funnel.attrs.title, stages }
-}
+import { parseFunnelXml } from "@/components/chat/XmlFunnel.parse"
 
 function formatNum(n: number): string {
   const abs = Math.abs(n)
@@ -151,14 +136,16 @@ export function XmlFunnel({ xml }: { xml: string }) {
                 </div>
                 <div style={{ height: 9, borderRadius: 999, backgroundColor: "rgba(82,75,71,0.08)", overflow: "hidden" }}>
                   <m.div
-                    initial={reduceMotion ? false : { width: 0 }}
-                    animate={{ width: `${Math.max(pct * 100, 1.5)}%` }}
+                    initial={reduceMotion ? false : { scaleX: 0 }}
+                    animate={{ scaleX: Math.max(pct, 0.015) }}
                     transition={{ delay: reduceMotion ? 0 : 0.12 + i * 0.08, duration: reduceMotion ? 0 : 0.55, ease: [0.16, 1, 0.3, 1] }}
                   style={{
+                    width: "100%",
                     height: "100%",
                     borderRadius: 999,
                     background: `linear-gradient(90deg, ${color}, ${color}B8)`,
                     boxShadow: `0 0 12px ${color}24`,
+                    transformOrigin: "left",
                   }}
                   />
                 </div>

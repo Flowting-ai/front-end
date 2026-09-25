@@ -21,30 +21,7 @@
 import React from "react"
 import { m, useReducedMotion } from "framer-motion"
 import { Columns3, Layers3 } from "lucide-react"
-import { scanTags } from "@/lib/xml-widgets"
-
-export interface ParsedKanban {
-  title?: string
-  columns: Array<{
-    label: string
-    cards: Array<{ title: string; sub?: string; tag?: string }>
-  }>
-}
-
-export function parseKanbanXml(xml: string): ParsedKanban | null {
-  const [kanban] = scanTags(xml, "kanban")
-  if (!kanban) return null
-  const columns = scanTags(kanban.inner, "column")
-    .filter((c) => c.attrs.label)
-    .map((c) => ({
-      label: c.attrs.label,
-      cards: scanTags(c.inner, "card")
-        .filter((card) => card.attrs.title)
-        .map((card) => ({ title: card.attrs.title, sub: card.attrs.sub, tag: card.attrs.tag })),
-    }))
-  if (columns.length === 0) return null
-  return { title: kanban.attrs.title, columns }
-}
+import { parseKanbanXml } from "@/components/chat/XmlKanban.parse"
 
 export function XmlKanban({ xml }: { xml: string }) {
   const kanban = React.useMemo(() => parseKanbanXml(xml), [xml])

@@ -309,8 +309,15 @@ export interface UseChatStateResult {
   /** Mark a chat ID as optimistically created (prevents fetch-and-clear on navigate). */
   markChatAsOptimistic: (id: string) => void
   /** Re-fetch the current chat's messages from the API without clearing chatId state.
-   *  Used after recovering from a dropped stream connection. */
+   *  Used after recovering from a dropped stream connection, and as the retry
+   *  action when `messagesLoadError` is set. */
   refreshMessages: () => Promise<void>
+  /** Set when the initial message-history fetch for the current chat failed.
+   *  `messages` is left as whatever it was before the failed fetch (not
+   *  cleared), so the UI can show existing content plus a retry affordance
+   *  instead of an unexplained empty thread. Cleared on the next successful
+   *  load, initial or retried. */
+  messagesLoadError: string | null
 }
 
 // ── Reload-interrupted stream recovery ───────────────────────────────────────
@@ -369,6 +376,13 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const [messages, setMessages] = useState<UIMessage[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  // Set when the initial message-history fetch for the current chatId fails.
+  // Cleared on the next successful load (initial or retried). Lets the UI
+  // show a retry affordance instead of a silently-empty thread — a failed
+  // fetch here previously just toasted and left `messages` as the `[]` it
+  // was eagerly cleared to before the fetch started, which reads as "this
+  // conversation's history is gone" rather than "a refresh failed."
+  const [messagesLoadError, setMessagesLoadError] = useState<string | null>(null)
   const cursorRef = useRef<string | undefined>(undefined)
   const loadingRef = useRef(false)
   // Track chat IDs that were created optimistically during streaming -
@@ -388,10 +402,12 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       }
       setHasMoreMessages(false)
       cursorRef.current = undefined
+      setMessagesLoadError(null)
       return
     }
 
     hasPreviousChatRef.current = true
+    setMessagesLoadError(null)
 
     // If this chatId was just created during an active stream, skip the
     // fetch-and-clear cycle - the stream is still writing messages.
@@ -432,7 +448,9 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
           }
         } catch (err) {
           logger.error("[useChatState] Failed to reload after background stream", err)
-          toast.error(err instanceof Error ? err.message : "Failed to load messages")
+          const message = err instanceof Error ? err.message : "Failed to load messages"
+          toast.error(message)
+          if (!cancelled) setMessagesLoadError(message)
         } finally {
           if (!cancelled) setIsLoadingMessages(false)
           loadingRef.current = false
@@ -468,7 +486,9 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     fetch
       .catch((err) => {
         logger.error("[useChatState] Failed to load messages", err)
-        toast.error(err instanceof Error ? err.message : "Failed to load messages")
+        const message = err instanceof Error ? err.message : "Failed to load messages"
+        toast.error(message)
+        if (!cancelled) setMessagesLoadError(message)
       })
       .finally(() => {
         if (!cancelled) setIsLoadingMessages(false)
@@ -568,9 +588,12 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
         setHasMoreMessages(res.has_more)
         cursorRef.current = res.next_cursor ?? undefined
       }
+      setMessagesLoadError(null)
     } catch (err) {
       logger.error("[useChatState] Failed to refresh messages", err)
-      toast.error(err instanceof Error ? err.message : "Failed to refresh messages")
+      const message = err instanceof Error ? err.message : "Failed to refresh messages"
+      toast.error(message)
+      setMessagesLoadError(message)
     } finally {
       setIsLoadingMessages(false)
       loadingRef.current = false
@@ -590,5 +613,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     clearMessages,
     markChatAsOptimistic,
     refreshMessages,
+    messagesLoadError,
   }
 }

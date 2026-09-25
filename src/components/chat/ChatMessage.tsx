@@ -999,7 +999,7 @@ export function ChatMessage({
               const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
 
               return (
-                <m.div key={`${file.url}-${i}`}
+                <m.div key={file.url}
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{

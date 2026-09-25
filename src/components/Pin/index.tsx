@@ -28,7 +28,7 @@ import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { PinMarkdownRenderer } from '@/lib/pin-markdown'
-import { stripMarkdown } from '@/lib/markdown-utils'
+import { stripMarkdown } from '@/lib/markdown-preprocess'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

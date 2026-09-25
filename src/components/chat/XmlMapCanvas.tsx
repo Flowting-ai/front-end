@@ -15,7 +15,7 @@ import {
 import type { GeoJSONSource, LngLatBoundsLike } from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { mapStyleUrl } from "@/lib/config"
-import type { ParsedMap, ParsedMapPoint } from "./XmlMap"
+import type { ParsedMap, ParsedMapPoint } from "./XmlMap.parse"
 import styles from "./XmlMap.module.css"
 
 const SOURCE_ID = "souvenir-map-points"

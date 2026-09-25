@@ -296,7 +296,7 @@ function normalizeBoldTitles(text: string): string {
 // Full block text renderer - supports headings, lists, blockquotes, bold, code, citations
 // Block index (bi) is the only stable key: same markdown can produce adjacent same-type blocks.
 /* eslint-disable react/no-array-index-as-key */
-export function renderTextBlock(text: string, citations?: WebCitation[], cursor?: React.ReactNode): React.ReactNode {
+function renderTextBlock(text: string, citations?: WebCitation[], cursor?: React.ReactNode): React.ReactNode {
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
   return (
@@ -569,6 +569,7 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
     if (!animate) return;
     const rowDelay = isCompact ? 52 : 72;
     let iv: ReturnType<typeof setInterval> | null = null;
+    let doneT: ReturnType<typeof setTimeout> | null = null;
     const skT = setTimeout(() => {
       setSkeletonVisible(false);
       let idx = 0;
@@ -579,13 +580,14 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
           clearInterval(iv!);
           iv = null;
           setIsDone(true);
-          setTimeout(onComplete, 280);
+          doneT = setTimeout(onComplete, 280);
         }
       }, rowDelay);
     }, 500);
     return () => {
       clearTimeout(skT);
       if (iv !== null) clearInterval(iv);
+      if (doneT !== null) clearTimeout(doneT);
     };
   }, []); // eslint-disable-line
 
@@ -800,8 +802,12 @@ function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChart
 
   useEffect(() => {
     if (!animate) { onComplete(); return; }
-    const t = setTimeout(() => { setRevealed(true); setTimeout(onComplete, totalDelay); }, 140);
-    return () => clearTimeout(t);
+    let doneT: ReturnType<typeof setTimeout> | null = null;
+    const t = setTimeout(() => { setRevealed(true); doneT = setTimeout(onComplete, totalDelay); }, 140);
+    return () => {
+      clearTimeout(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   if (v === "vertical") {
@@ -936,9 +942,9 @@ function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChart
                     const segH = (ds.values[gi] / maxTotal) * chartH;
                     const color = ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length];
                     return (
-                      <m.div key={ds.label} initial={{ height: 0 }} animate={{ height: revealed ? segH : 0 }}
+                      <m.div key={ds.label} initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: gi * 0.12 + di * 0.05 }}
-                        style={{ width: "100%", background: color, flexShrink: 0 }} />
+                        style={{ width: "100%", height: segH, background: color, flexShrink: 0, transformOrigin: "bottom" }} />
                     );
                   })}
                 </div>
@@ -1026,16 +1032,16 @@ function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChart
                 <div key={bar.label} style={{ flex: 1, height: "100%", position: "relative" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: halfH, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                     {isPos && (
-                      <m.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
+                      <m.div initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                         transition={{ type: "spring", stiffness: 140, damping: 18, delay: i * 0.1 }}
-                        style={{ width: "68%", background: color, borderRadius: "3px 3px 0 0" }} />
+                        style={{ width: "68%", height: barH, background: color, borderRadius: "3px 3px 0 0", transformOrigin: "bottom" }} />
                     )}
                   </div>
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: halfH, display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
                     {!isPos && (
-                      <m.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
+                      <m.div initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                         transition={{ type: "spring", stiffness: 140, damping: 18, delay: i * 0.1 }}
-                        style={{ width: "68%", background: color, borderRadius: "0 0 3px 3px" }} />
+                        style={{ width: "68%", height: barH, background: color, borderRadius: "0 0 3px 3px", transformOrigin: "top" }} />
                     )}
                   </div>
                   <m.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
@@ -1177,13 +1183,17 @@ function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: CodeDat
   useEffect(() => {
     if (!animate) { onComplete(); return; }
     let idx = 0;
+    let doneT: ReturnType<typeof setTimeout> | null = null;
     const interval = Math.min(55, Math.round(1400 / totalLines));
     const t = setInterval(() => {
       idx++;
       setRevealedLines(idx);
-      if (idx >= totalLines) { clearInterval(t); setTimeout(onComplete, 200); }
+      if (idx >= totalLines) { clearInterval(t); doneT = setTimeout(onComplete, 200); }
     }, interval);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   return (
@@ -1326,12 +1336,16 @@ export function AnimatedTags({ data, onComplete, animate = true }: { data: TagsD
   useEffect(() => {
     if (!animate) { onComplete(); return; }
     let idx = 0;
+    let doneT: ReturnType<typeof setTimeout> | null = null;
     const t = setInterval(() => {
       idx++;
       setRevealedTags(idx);
-      if (idx >= data.tags.length) { clearInterval(t); setTimeout(onComplete, 160); }
+      if (idx >= data.tags.length) { clearInterval(t); doneT = setTimeout(onComplete, 160); }
     }, 90);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   return (
@@ -1376,12 +1390,16 @@ function AnimatedPieChart({ data, onComplete, animate = true }: { data: PieChart
   useEffect(() => {
     if (!animate) { onComplete(); return; }
     let idx = 0;
+    let doneT: ReturnType<typeof setTimeout> | null = null;
     const t = setInterval(() => {
       idx++;
       setRevealedCount(idx);
-      if (idx >= data.segments.length) { clearInterval(t); setTimeout(onComplete, 800); }
+      if (idx >= data.segments.length) { clearInterval(t); doneT = setTimeout(onComplete, 800); }
     }, 180);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   return (
@@ -1466,8 +1484,12 @@ function AnimatedLineChart({ data, onComplete, animate = true }: { data: LineCha
 
   useEffect(() => {
     if (!animate) { onComplete(); return; }
-    const t = setTimeout(() => { setRevealed(true); setTimeout(onComplete, 1300); }, 120);
-    return () => clearTimeout(t);
+    let doneT: ReturnType<typeof setTimeout> | null = null;
+    const t = setTimeout(() => { setRevealed(true); doneT = setTimeout(onComplete, 1300); }, 120);
+    return () => {
+      clearTimeout(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -1661,12 +1683,16 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp, animate = true }: {
   useEffect(() => {
     if (!animate) { onComplete(); return; }
     let idx = 0;
+    let doneT: ReturnType<typeof setTimeout> | null = null;
     const t = setInterval(() => {
       idx++;
       setRevealed(idx);
-      if (idx >= data.prompts.length) { clearInterval(t); setTimeout(onComplete, 160); }
+      if (idx >= data.prompts.length) { clearInterval(t); doneT = setTimeout(onComplete, 160); }
     }, 100);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      if (doneT !== null) clearTimeout(doneT);
+    };
   }, []); // eslint-disable-line
 
   return (
@@ -1720,7 +1746,9 @@ export const BlockSequenceRenderer = React.memo(function BlockSequenceRenderer({
   const [activeIdx, setActiveIdx] = useState(isStatic ? blocks.length : 0);
   const [allDone, setAllDone] = useState(isStatic);
   const onAllCompleteRef = useRef(onAllComplete);
-  onAllCompleteRef.current = onAllComplete;
+  useEffect(() => {
+    onAllCompleteRef.current = onAllComplete;
+  }, [onAllComplete]);
 
   const handleBlockDone = useCallback((idx: number) => {
     if (idx < blocks.length - 1) {
