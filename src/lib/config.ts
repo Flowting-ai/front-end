@@ -235,7 +235,6 @@ export const PIN_COMMENT_CRUD_ENDPOINT = (pinId: string, commentId: string) => w
 // ── Projects ──────────────────────────────────────────────────────────────────
 export const PROJECTS_ENDPOINT = withBase('/projects')
 export const PROJECT_DETAIL_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}`)
-export const PROJECT_VISIBILITY_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}/visibility`)
 export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/projects/${projectId}/chats`)
 export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
   withBase(`/projects/${projectId}/chats/${chatId}`)
@@ -354,6 +353,8 @@ export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: str
 /** DELETE — remove the Slack bot from the organization (revokes + drops install). */
 export const ORG_SLACK_INSTALLATION_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/installation`)
+export const ORG_SLACK_CONFIG_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/config`)
 export const ORG_SLACK_PROJECT_CHANNEL_ENDPOINT = (orgId: string, projectId: string) =>
   withBase(`/organizations/${orgId}/slack/projects/${projectId}/channel`)
 

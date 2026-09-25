@@ -24,9 +24,12 @@ import {
   deleteProjectSlackChannel,
   getOrgSlackStatus,
   getProjectSlackChannel,
+  getSlackAppConfig,
   removeOrgSlackInstallation,
   renameProjectSlackChannel,
+  updateSlackAppConfig,
 } from '@/lib/api/slack'
+import type { SlackAppConfig } from '@/lib/api/slack'
 import type { SlackChannel, SlackStatus } from '@/lib/api/slack'
 import { fetchProjects } from '@/lib/api/projects'
 import type { ApiProjectSummary } from '@/lib/api/projects'
@@ -290,6 +293,112 @@ function ProjectSlackRow({
   )
 }
 
+const fieldStyle = {
+  width: '100%',
+  border: 'none',
+  borderRadius: 10,
+  padding: '10px 12px',
+  backgroundColor: 'white',
+  boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+  outline: 'none',
+  fontFamily: 'var(--font-body)',
+  fontSize: 14,
+  color: 'var(--neutral-900)',
+} as const
+
+function SlackAppConfigForm({ orgId }: { orgId: string }) {
+  const [config, setConfig] = useState<SlackAppConfig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getSlackAppConfig(orgId)
+      .then(next => {
+        if (!cancelled) setConfig(next)
+      })
+      .catch(err => {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load Slack config')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [orgId])
+
+  const save = async () => {
+    if (!config || saving) return
+    setSaving(true)
+    try {
+      const next = await updateSlackAppConfig(orgId, {
+        name: config.name.trim(),
+        description: config.description,
+        prompt: config.prompt,
+      })
+      setConfig(next)
+      toast.success('Slack app saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save Slack app')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 600, color: 'var(--neutral-900)', margin: 0 }}>
+          Slack app
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+          Name and instructions for Souvenir in this workspace. Member connections stay the same.
+        </p>
+      </div>
+      {loading || !config ? (
+        <div className="kaya-skeleton" style={{ width: '100%', height: 160, borderRadius: 12 }} />
+      ) : (
+        <>
+          <input
+            type="text"
+            aria-label="Slack app name"
+            value={config.name}
+            onChange={event => setConfig({ ...config, name: event.target.value })}
+            placeholder="App name"
+            style={{ ...fieldStyle, height: 40, padding: '0 12px' }}
+          />
+          <input
+            type="text"
+            aria-label="Slack app description"
+            value={config.description}
+            onChange={event => setConfig({ ...config, description: event.target.value })}
+            placeholder="Short description"
+            style={{ ...fieldStyle, height: 40, padding: '0 12px' }}
+          />
+          <textarea
+            aria-label="Slack app instructions"
+            value={config.prompt}
+            onChange={event => setConfig({ ...config, prompt: event.target.value })}
+            placeholder="Instructions Souvenir follows in this Slack workspace"
+            rows={6}
+            style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.45 }}
+          />
+          <div>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={saving || !config.name.trim()}
+              loading={saving}
+              onClick={() => void save()}
+            >
+              Save
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function SouvenirSlackPage() {
   const { orgId, orgReady, orgRole } = useOrg()
   const { user } = useAuth()
@@ -479,8 +588,8 @@ export default function SouvenirSlackPage() {
 
   return (
     <SettingsPageShell
-      title="Slack project channels"
-      description="Create one Slack channel per project so Tasks can use that project context automatically."
+      title="Slack"
+      description="Configure how Souvenir shows up in Slack, and create one channel per project."
     >
       {connected && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -547,6 +656,8 @@ export default function SouvenirSlackPage() {
           </Button>
         </div>
       ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+        {orgId && <SlackAppConfigForm orgId={orgId} />}
         <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
           <SettingsTableToolbar title="Project channels" />
           <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
@@ -610,6 +721,7 @@ export default function SouvenirSlackPage() {
             </div>
           </div>
         </SettingsTable>
+        </div>
       )}
 
       <SlackConnectModal
