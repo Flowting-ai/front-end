@@ -235,6 +235,7 @@ export const PIN_COMMENT_CRUD_ENDPOINT = (pinId: string, commentId: string) => w
 // ── Projects ──────────────────────────────────────────────────────────────────
 export const PROJECTS_ENDPOINT = withBase('/projects')
 export const PROJECT_DETAIL_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}`)
+export const PROJECT_VISIBILITY_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}/visibility`)
 export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/projects/${projectId}/chats`)
 export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
   withBase(`/projects/${projectId}/chats/${chatId}`)
