@@ -1,4 +1,4 @@
-import type { ActivityStatus, ActivityType } from '@/hooks/use-chat-state'
+import type { ActivityItem, ActivityStatus, ActivityType } from '@/hooks/use-chat-state'
 
 // The single place backend tool telemetry turns into the props `ActivityRow`
 // renders. Transport agnostic on purpose: chat drives it from `useStreamingChat`'s
@@ -57,6 +57,22 @@ export function webSearchResults(links: unknown, results?: unknown, limit = 6): 
     }
     return []
   })
+}
+
+/**
+ * Called when generation stops (user-initiated Stop, or a reload discovering
+ * a mid-stream interruption) — any activity still `start`/`executing`/
+ * `reading` at that moment never gets a terminal SSE event, so without this
+ * it spins forever. Marks those `stopped` instead; already-terminal
+ * activities (`done`/`error`) pass through untouched.
+ */
+export function stopActiveActivities(activities: ActivityItem[] | undefined): ActivityItem[] | undefined {
+  if (!activities || activities.length === 0) return activities
+  return activities.map((a) =>
+    a.status === 'start' || a.status === 'executing' || a.status === 'reading'
+      ? { ...a, status: 'stopped' as const }
+      : a,
+  )
 }
 
 /**

@@ -95,6 +95,15 @@ function ErrorIcon() {
   );
 }
 
+// Stopped icon - neutral (not red/error) since the tool wasn't refused, just cut short
+function StoppedIcon() {
+  return (
+    <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
+      <HIcon icon={Cancel01Icon} size={16} color="#B6ACA4" strokeWidth={2} />
+    </span>
+  );
+}
+
 // ── Favicon helper ───────────────────────────────────────────────────────────
 
 function FaviconImg({ domain, size = 14 }: { domain?: string; size?: number }) {
@@ -118,6 +127,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
   const isActive = activity.status === "start" || activity.status === "executing" || activity.status === "reading";
   const isDone = activity.status === "done";
   const isError = activity.status === "error";
+  const isStopped = activity.status === "stopped";
   const verb = activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
   const hasResults = activity.results && activity.results.length > 0;
   // Web-search results auto-expand (visible inline while done); other types need a click
@@ -152,6 +162,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         {isActive && <SpinnerIcon />}
         {isDone && <CheckmarkIcon />}
         {isError && <ErrorIcon />}
+        {isStopped && <StoppedIcon />}
 
         {/* Activity type icon */}
         <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>

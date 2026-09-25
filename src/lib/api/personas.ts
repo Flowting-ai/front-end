@@ -964,7 +964,7 @@ export type PersonaActivityType =
   | 'web-search' | 'browser' | 'read-pages' | 'csv-execute' | 'fetch-resource'
   | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
 
-export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
+export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error' | 'stopped'
 
 export interface PersonaActivityItem {
   id:               string

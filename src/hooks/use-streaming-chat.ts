@@ -26,7 +26,7 @@ import {
   eventRoundIndex,
   reasoningEventText,
 } from "@/lib/reasoning"
-import { normalizeActivityStatus, toolNameToType, webSearchResults } from "@/lib/activity"
+import { normalizeActivityStatus, stopActiveActivities, toolNameToType, webSearchResults } from "@/lib/activity"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -181,6 +181,7 @@ export function useStreamingChat({
                 isThinkingInProgress: false,
                 stoppedByUser: true,
                 content: msg.content || "Generation stopped.",
+                activities: stopActiveActivities(msg.activities),
               }
             : msg,
         ),

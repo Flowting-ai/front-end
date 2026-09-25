@@ -6,6 +6,7 @@ import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
 import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry"
+import { stopActiveActivities } from "@/lib/activity"
 import type { Message } from "@/types/chat"
 import type { ReasoningTimelineItem } from "@/lib/reasoning"
 
@@ -125,8 +126,11 @@ export type ActivityType =
   | 'skills'
   | 'other'
 
-/** Status values for tool progress. */
-export type ActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
+/** Status values for tool progress. `stopped` marks an activity that was
+ *  still in-flight when the user hit Stop (or the tab reloaded mid-stream) —
+ *  distinct from `error` since the tool wasn't refused or failed, it was
+ *  just never allowed to finish. */
+export type ActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error' | 'stopped'
 
 /** A single activity (tool use) performed by the AI during response generation. */
 export interface ActivityItem {
@@ -325,7 +329,13 @@ function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[]
   if (last && last.role === "assistant") {
     return msgs.map((m, i) =>
       i === msgs.length - 1
-        ? { ...m, isLoading: false, stoppedByUser: true, content: m.content || "Generation stopped." }
+        ? {
+            ...m,
+            isLoading: false,
+            stoppedByUser: true,
+            content: m.content || "Generation stopped.",
+            activities: stopActiveActivities(m.activities),
+          }
         : m,
     )
   }
