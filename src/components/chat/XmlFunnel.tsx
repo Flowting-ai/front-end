@@ -100,8 +100,8 @@ export function XmlFunnel({ xml }: { xml: string }) {
             <React.Fragment key={`${stage.label}-${i}`}>
               {i > 0 && (
                 <m.div
-                  initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
+                  initial={reduceMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   transition={{ delay: reduceMotion ? 0 : i * 0.08 }}
                   style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 10, color: "var(--neutral-400)" }}
                 >

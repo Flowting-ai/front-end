@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import type { ConnectorConnectPrompt } from '@/types/chat'
 import {
@@ -254,70 +253,89 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
       )}
 
       {showCredentialForm ? (
-        <AnimatePresence initial={false}>
-          {!showApiForm ? (
-            <m.div key="cta" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        // Grid-rows collapse instead of animating `height`: both views stay
+        // mounted and the transition runs on the compositor instead of
+        // forcing a layout recalculation every frame. Field count is small
+        // and catalog-bounded, so always-rendering both is cheap.
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div
+            aria-hidden={showApiForm}
+            style={{
+              display: 'grid',
+              gridTemplateRows: showApiForm ? '0fr' : '1fr',
+              opacity: showApiForm ? 0 : 1,
+              visibility: showApiForm ? 'hidden' : 'visible',
+              transition: `grid-template-rows 200ms ease, opacity 150ms ease, visibility 0s linear ${showApiForm ? '150ms' : '0s'}`,
+            }}
+          >
+            <div style={{ overflow: 'hidden', minHeight: 0 }}>
               <PromptButton onClick={() => setShowApiForm(true)} disabled={state === 'connecting'}>
                 Enter credentials
               </PromptButton>
-            </m.div>
-          ) : (
-            <m.div
-              key="form"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 8 }}
-            >
-              {/* Render one input per field returned by the connector catalog */}
-              {(fieldDefs ?? [DEFAULT_API_KEY_FIELD]).map((field) => (
-                <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label
-                    htmlFor={`cf-${prompt.connector.slug}-${field.name}`}
-                    style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}
+            </div>
+          </div>
+          <div
+            aria-hidden={!showApiForm}
+            style={{
+              display: 'grid',
+              gridTemplateRows: showApiForm ? '1fr' : '0fr',
+              opacity: showApiForm ? 1 : 0,
+              visibility: showApiForm ? 'visible' : 'hidden',
+              transition: `grid-template-rows 220ms ease, opacity 180ms ease, visibility 0s linear ${showApiForm ? '0s' : '220ms'}`,
+            }}
+          >
+            <div style={{ overflow: 'hidden', minHeight: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
+                {/* Render one input per field returned by the connector catalog */}
+                {(fieldDefs ?? [DEFAULT_API_KEY_FIELD]).map((field) => (
+                  <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label
+                      htmlFor={`cf-${prompt.connector.slug}-${field.name}`}
+                      style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}
+                    >
+                      {field.label}
+                    </label>
+                    <input
+                      id={`cf-${prompt.connector.slug}-${field.name}`}
+                      type={field.secret ? 'password' : 'text'}
+                      autoComplete="off"
+                      placeholder={field.help ?? field.label}
+                      value={apiKeyFields[field.name] ?? ''}
+                      onChange={(e) => setApiKeyFields((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                      style={{
+                        padding:         '8px 10px',
+                        borderRadius:    8,
+                        border:          '1px solid var(--neutral-300)',
+                        fontFamily:      'var(--font-body)',
+                        fontSize:        13,
+                        outline:         'none',
+                        width:           '100%',
+                        boxSizing:       'border-box',
+                        backgroundColor: 'var(--neutral-0, #fff)',
+                      }}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <PromptButton
+                    onClick={prompt.auth_mode === 'api_key' ? handleApiKey : () => handleOAuth(apiKeyFields)}
+                    disabled={
+                      state === 'connecting' || state === 'polling' ||
+                      !(fieldDefs ?? [DEFAULT_API_KEY_FIELD])
+                        .filter((f) => f.required)
+                        .every((f) => (apiKeyFields[f.name] ?? '').trim())
+                    }
                   >
-                    {field.label}
-                  </label>
-                  <input
-                    id={`cf-${prompt.connector.slug}-${field.name}`}
-                    type={field.secret ? 'password' : 'text'}
-                    autoComplete="off"
-                    placeholder={field.help ?? field.label}
-                    value={apiKeyFields[field.name] ?? ''}
-                    onChange={(e) => setApiKeyFields((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                    style={{
-                      padding:         '8px 10px',
-                      borderRadius:    8,
-                      border:          '1px solid var(--neutral-300)',
-                      fontFamily:      'var(--font-body)',
-                      fontSize:        13,
-                      outline:         'none',
-                      width:           '100%',
-                      boxSizing:       'border-box',
-                      backgroundColor: 'var(--neutral-0, #fff)',
-                    }}
-                  />
+                    {state === 'polling' ? 'Waiting…' : state === 'connecting' ? 'Connecting…' : 'Connect'}
+                  </PromptButton>
+                  <PromptButton variant="outline" onClick={() => setShowApiForm(false)} disabled={state === 'connecting' || state === 'polling'}>
+                    Cancel
+                  </PromptButton>
                 </div>
-              ))}
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <PromptButton
-                  onClick={prompt.auth_mode === 'api_key' ? handleApiKey : () => handleOAuth(apiKeyFields)}
-                  disabled={
-                    state === 'connecting' || state === 'polling' ||
-                    !(fieldDefs ?? [DEFAULT_API_KEY_FIELD])
-                      .filter((f) => f.required)
-                      .every((f) => (apiKeyFields[f.name] ?? '').trim())
-                  }
-                >
-                  {state === 'polling' ? 'Waiting…' : state === 'connecting' ? 'Connecting…' : 'Connect'}
-                </PromptButton>
-                <PromptButton variant="outline" onClick={() => setShowApiForm(false)} disabled={state === 'connecting' || state === 'polling'}>
-                  Cancel
-                </PromptButton>
               </div>
-            </m.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </div>
       ) : (
         // ── OAuth2 ────────────────────────────────────────────────────────────
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

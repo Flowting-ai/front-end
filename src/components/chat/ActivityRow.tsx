@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiWebBrowsingIcon,
@@ -240,19 +240,24 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         )}
       </button>
 
-      {/* Results list - web-search auto-expands, others behind chevron */}
-      <AnimatePresence initial={false}>
-        {resultsVisible && (
-          <m.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{
-              height: { type: "spring", stiffness: 300, damping: 28 },
-              opacity: { duration: 0.2 },
-            }}
-            style={{ overflow: "hidden" }}
-          >
+      {/* Results list - web-search auto-expands, others behind chevron.
+          Grid-rows collapse instead of animating `height`: the row stays
+          mounted across toggles (only the reveal-then-open case still gets
+          the per-item stagger below; re-opening an already-seen list just
+          shows it, no replay) and the transition runs on the compositor
+          instead of forcing a layout recalculation every frame. */}
+      {hasResults && (
+        <div
+          aria-hidden={!resultsVisible}
+          style={{
+            display: "grid",
+            gridTemplateRows: resultsVisible ? "1fr" : "0fr",
+            opacity: resultsVisible ? 1 : 0,
+            visibility: resultsVisible ? "visible" : "hidden",
+            transition: `grid-template-rows 280ms cubic-bezier(0.16,1,0.3,1), opacity 200ms ease, visibility 0s linear ${resultsVisible ? "0s" : "280ms"}`,
+          }}
+        >
+          <div style={{ overflow: "hidden", minHeight: 0 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingLeft: 48, paddingTop: 4, paddingBottom: 4 }}>
               {activity.results!.map((r, ri) => (
                 <m.a
@@ -260,6 +265,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                   href={r.url || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
+                  tabIndex={resultsVisible ? 0 : -1}
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: ri * 0.05, duration: 0.18 }}
@@ -290,9 +296,9 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                 </m.a>
               ))}
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* Progress message (for tool_progress / docx_progress) */}
       {isActive && activity.progressMessage && (

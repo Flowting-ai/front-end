@@ -133,12 +133,21 @@ export function XmlEmail({ xml }: { xml: string }) {
   const reduceMotion = Boolean(useReducedMotion())
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
+  // Full natural content height, measured once from the same scrollHeight
+  // read that already determines `overflows` — lets the expand transition
+  // target a known pixel value via a plain CSS `transition`, instead of
+  // Framer Motion's `height: "auto"` tween (which still writes `style.height`
+  // via JS on every frame, "auto" target or not).
+  const [fullHeight, setFullHeight] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const bodyRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     const el = bodyRef.current
-    if (el) setOverflows(el.scrollHeight > BODY_CLAMP_PX + 24)
+    if (!el) return
+    const sh = el.scrollHeight
+    setOverflows(sh > BODY_CLAMP_PX + 24)
+    setFullHeight(sh)
   }, [email?.body])
 
   if (!email) return null
@@ -368,14 +377,16 @@ export function XmlEmail({ xml }: { xml: string }) {
         >
           {email.body && (
             <div style={{ padding: "15px 17px 13px" }}>
-              <m.div
+              <div
                 ref={bodyRef}
-                animate={{ height: expanded || !overflows ? "auto" : BODY_CLAMP_PX }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                style={{ overflow: "hidden" }}
+                style={{
+                  height: expanded || !overflows ? (fullHeight ?? "auto") : BODY_CLAMP_PX,
+                  overflow: "hidden",
+                  transition: reduceMotion ? undefined : "height 280ms cubic-bezier(0.16,1,0.3,1)",
+                }}
               >
                 <MarkdownRenderer content={email.body} />
-              </m.div>
+              </div>
               {overflows && (
                 <m.button
                   type="button"

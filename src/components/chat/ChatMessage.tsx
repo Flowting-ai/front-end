@@ -194,25 +194,25 @@ function StandaloneActivitiesBlock({
         </button>
       </div>
 
-      {/* Collapsible activities panel */}
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <m.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{
-              height: { type: "spring", stiffness: 260, damping: 28 },
-              opacity: { duration: 0.22, ease: "easeInOut" },
-            }}
-            style={{ overflow: "hidden" }}
-          >
-            <div style={{ paddingTop: 10 }}>
-              <ActivitiesSection activities={activities} />
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+      {/* Collapsible activities panel — grid-rows collapse instead of
+          animating `height`, so the transition runs on the compositor
+          instead of forcing a layout recalculation every frame. */}
+      <div
+        aria-hidden={!isOpen}
+        style={{
+          display: "grid",
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          opacity: isOpen ? 1 : 0,
+          visibility: isOpen ? "visible" : "hidden",
+          transition: `grid-template-rows 260ms cubic-bezier(0.16,1,0.3,1), opacity 220ms ease, visibility 0s linear ${isOpen ? "0s" : "260ms"}`,
+        }}
+      >
+        <div style={{ overflow: "hidden", minHeight: 0 }}>
+          <div style={{ paddingTop: 10 }}>
+            <ActivitiesSection activities={activities} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
