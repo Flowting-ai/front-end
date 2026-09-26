@@ -183,3 +183,15 @@ Separate follow-up session: the giant-component decomposition (§9 Phase 6 of `0
 **Total page weight and request count are new baseline numbers** — not measured in §4, so there's no prior figure to compare against. Recorded here so a future bundle-size-focused pass (the "still-unconverted layout animations" or "what dominates the TBT budget" follow-ups flagged in §5) has a real number to work against instead of starting blind.
 
 **Bottom line:** consistent with the decomposition being designed and verified as zero-behavior-change — nothing measurably broke, nothing measurably regressed, and the one real bug fixed (`initialMentionedPins` forwarding) is a correctness fix with no expected performance signature. The nominally-lower TBT is worth re-checking after a few more independent measurement sessions before calling it a real trend.
+
+---
+
+## 7. Auto-height animation conversions — no Lighthouse rescan, and here's why
+
+A separate follow-up converted 5 of the 11 real "auto"-height layout animations flagged earlier (see `01-chats-feature-report.md` §9 Phase 7) from Framer Motion's JS-driven `height: 0 → "auto"` tween to compositor-friendly techniques (CSS grid-rows collapses, a measured-height CSS transition, or dropping the animation entirely where it wasn't needed).
+
+**Deliberately not re-measured with Lighthouse**, for the same reason established earlier in this document (§5/§6 discussion, and the live conversation before it): every one of these 5 animations only runs *after* a chat response streams in with activities, results, or an email/funnel block — none of them execute during a cold page load. Lighthouse's standard run never sends a message or waits for a streamed response, so it structurally cannot see these code paths at all, exactly like Phase 2's original `scaleX`/`scaleY` chart conversions didn't move any Lighthouse number in §4/§6 above. Running another Lighthouse pass here would only reconfirm a result already established twice — it wouldn't tell us anything new.
+
+**What was actually verified instead:** live Playwright smoke tests exercising the real interaction each animation lives in — pixel-confirmed via screenshot for 4 of the 5 (results-list collapse/expand, activities-panel collapse/expand, email clamp/expand/collapse, funnel stage rendering), plus a full test-suite pass at every step. See `01b-chats-fixes-test-plan.md`'s new Phase 7 section for the complete case-by-case breakdown, including the one (`ConnectorPrompts.tsx`) not live-testable this session for the same reason as the original TC-1.1 (needs a real third-party connector).
+
+**If real-world CLS/TBT impact from this specific work is ever needed, the only valid way to get it is field data** (CrUX/RUM from actual users mid-conversation), not another lab-mode Lighthouse run — that's the honest limit of what this testing environment can measure for interaction-gated animations.

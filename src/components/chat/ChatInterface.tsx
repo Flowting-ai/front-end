@@ -9,7 +9,6 @@ import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { CitationsPanel } from "./CitationsPanel";
 import { PinMentionDropdown } from "./PinMentionDropdown";
 import { PinChipStrip } from "./PinChipStrip";
 import {
@@ -21,7 +20,6 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { registerChatScroller } from "@/lib/chat-scroller";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
-import { useCitationsPanel } from "@/hooks/use-citations-panel";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
 import type { UIMessage } from "@/types/chat";
 import {
@@ -37,7 +35,6 @@ import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import type { PinFolder } from "@/lib/api/pins";
-import type { Source } from "@/types/chat";
 import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
 
@@ -255,7 +252,6 @@ export function ChatInterface({
   const [inputValue, setInputValue] = useState("");
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const { citationsOpen, citationsSources, highlightedCitation, openCitations, closeCitations } = useCitationsPanel();
   const {
     mentionedPins,
     filteredPins,
@@ -1155,11 +1151,6 @@ export function ChatInterface({
                         ? handleEditMessage
                         : undefined
                     }
-                    onCitationsClick={
-                      message.sources && message.sources.length > 0
-                        ? () => openCitations(message.sources!)
-                        : undefined
-                    }
                     onPromptDecided={handlePromptDecided}
                   />
                 </div>
@@ -1353,14 +1344,6 @@ export function ChatInterface({
           aria-hidden="true"
         />
       </div>
-
-      {/* Citations panel */}
-      <CitationsPanel
-        sources={citationsSources}
-        isOpen={citationsOpen}
-        onClose={closeCitations}
-        highlightedIndex={highlightedCitation}
-      />
     </div>
   );
 }
