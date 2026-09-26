@@ -7,7 +7,7 @@
  */
 
 import { scanTags, unescapeXml } from "@/lib/xml-widgets"
-import type { CalloutData } from "@/hooks/use-chat-state"
+import type { CalloutData } from "@/types/chat"
 
 const CALLOUT_VARIANTS = new Set<CalloutData["variant"]>(["info", "warning", "success", "error", "tip"])
 

@@ -9,10 +9,10 @@ import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import DOMPurify from "isomorphic-dompurify";
 import { CodeBlock } from "@/components/chat/CodeBlock";
-import { CitationChip } from "@/components/chat/ResponseBlocks";
+import { CitationChip } from "@/components/chat/CitationChip";
 import type { Components } from "react-markdown";
 import type { Pluggable } from "unified";
-import type { WebCitation } from "@/hooks/use-chat-state";
+import type { WebCitation } from "@/types/chat";
 import { preprocessMarkdown } from "@/lib/markdown-preprocess";
 
 const remarkPlugins = [remarkGfm, remarkMath];

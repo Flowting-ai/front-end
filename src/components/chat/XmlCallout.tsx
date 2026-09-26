@@ -17,7 +17,7 @@
  */
 
 import React from "react"
-import { AnimatedCallout } from "@/components/chat/ResponseBlocks"
+import { AnimatedCallout } from "@/components/chat/AnimatedCallout"
 import { parseCalloutXml } from "@/components/chat/XmlCallout.parse"
 
 const noop = () => {}

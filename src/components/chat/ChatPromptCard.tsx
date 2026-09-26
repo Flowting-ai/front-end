@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { ClarificationCard } from "@/templates/Brain/ClarificationCard"
 import type { QuestionCardOption } from "@/components/QuestionCard"
 import { respondToChatPrompt } from "@/lib/api/chat"
-import type { ChatPrompt, ChatPromptQuestion } from "@/hooks/use-chat-state"
+import type { ChatPrompt, ChatPromptQuestion } from "@/types/chat"
 
 interface ChatPromptCardProps {
   prompt: ChatPrompt

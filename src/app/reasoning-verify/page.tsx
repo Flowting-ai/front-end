@@ -10,7 +10,7 @@
 
 import React, { useState } from 'react'
 import { ReasoningBlock, type ReasoningBlockProps } from '@/components/chat/ReasoningBlock'
-import type { ActivityItem } from '@/hooks/use-chat-state'
+import type { ActivityItem } from '@/types/chat'
 import type { ReasoningTimelineItem } from '@/lib/reasoning'
 
 const SECTIONS = [

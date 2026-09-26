@@ -1,5 +1,5 @@
 import type { Message } from "@/types/chat"
-import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/hooks/use-chat-state"
+import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/types/chat"
 
 /** Infer company from a model name string for icon/logo display. */
 function inferCompany(modelName: string): string | undefined {
@@ -37,7 +37,7 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
   if (!Array.isArray(rawAtts) || rawAtts.length === 0) return {};
 
   const generatedFiles: GeneratedFile[] = [];
-  const generatedImages: import("@/hooks/use-chat-state").GeneratedImage[] = [];
+  const generatedImages: import("@/types/chat").GeneratedImage[] = [];
   const uploadedAttachments: import("@/types/chat").Attachment[] = [];
 
   for (const att of rawAtts) {
@@ -154,7 +154,7 @@ export function toUIMessage(raw: Message): UIMessage {
     : [];
   const imageFromAtts = fileData.images ?? [];
   const seenImageUrls = new Set<string>();
-  const mergedImages: import("@/hooks/use-chat-state").GeneratedImage[] = [];
+  const mergedImages: import("@/types/chat").GeneratedImage[] = [];
   for (const img of [...imageFromLinks, ...imageFromAtts]) {
     if (!seenImageUrls.has(img.url)) {
       seenImageUrls.add(img.url);

@@ -36,7 +36,7 @@ import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
-import type { ExternalOutputAction, GeneratedFile } from "@/hooks/use-chat-state";
+import type { ExternalOutputAction, GeneratedFile } from "@/types/chat";
 import { toConnector } from "@/lib/connector";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
@@ -982,7 +982,7 @@ export interface PersonaActivityItem {
 
 /** Canonical connect-prompt shape — aliased so persona stream consumers keep
  *  their existing import. */
-export type PersonaConnectPrompt = import('@/hooks/use-chat-state').ConnectorConnectPrompt
+export type PersonaConnectPrompt = import('@/types/chat').ConnectorConnectPrompt
 
 /** Canonical permission-prompt shape, zod-parsed in lib/api/prompts.ts —
  *  aliased so persona stream consumers keep their existing import. */

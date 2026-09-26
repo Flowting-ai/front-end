@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { BlockSequenceRenderer } from "@/components/chat/ResponseBlocks"
-import type { ResponseBlock } from "@/hooks/use-chat-state"
+import type { ResponseBlock } from "@/types/chat"
 import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 
 describe("structured response blocks", () => {

@@ -2,7 +2,7 @@
 
 Companion to `01-chats-feature-report.md` (original findings) and `01b-chats-fixes-test-plan.md` (test cases). This report re-tests the feature live, using the `.env.local` test credentials, after the fixes logged in the original report's §9, and compares against the original baseline.
 
-**Methodology note up front, because it materially affects how to read §3 below:** three different measurement types were used, with three different reliability levels. Static analysis (§1) is fully deterministic — same tool, same rules, same code, reproducible every time. Functional tests (§2) are deterministic where network conditions were controlled (e.g. forced failures via interception) and best-effort where they depend on live LLM responses. Lighthouse in dev mode (§3) turned out to be **highly volatile in this environment** even with no code changes between runs — that's reported honestly rather than smoothed over. §4 adds a genuine production-build measurement, which resolves most of §3's open questions.
+**Methodology note up front, because it materially affects how to read §3 below:** three different measurement types were used, with three different reliability levels. Static analysis (§1) is fully deterministic — same tool, same rules, same code, reproducible every time. Functional tests (§2) are deterministic where network conditions were controlled (e.g. forced failures via interception) and best-effort where they depend on live LLM responses. Lighthouse in dev mode (§3) turned out to be **highly volatile in this environment** even with no code changes between runs — that's reported honestly rather than smoothed over. §4 adds a genuine production-build measurement, which resolves most of §3's open questions. §6 is a later follow-up: the same production methodology re-run after a separate giant-component decomposition pass, to confirm it didn't move the numbers.
 
 ---
 
@@ -154,3 +154,32 @@ Every comparison above still had a confound in it: no one had ever built the **p
 **Bottom line:** this round of fixes was a correctness, stability, and maintainability pass — a real leaked timer, a real silent-data-loss bug, a real hydration warning, 21 fast-refresh-breaking exports cleaned up, unsafe ref-mutation-during-render patterns removed, static-analysis findings down 15.6%. None of that shows up as a Lighthouse score movement, and now that's verified rather than assumed: raw speed before and after is statistically indistinguishable. If faster Lighthouse numbers specifically are the goal, that requires different work — likely tackling the ~27 still-unconverted layout animations, investigating whatever dominates this app's TBT budget (bundle size, hydration cost, or backend response shape), not more of this session's fix categories.
 
 Full raw data (all Lighthouse JSON reports for dev, production-before, and production-after runs, screenshots, console logs) is in the local scratchpad from this session — ask if you want it attached as supporting files.
+
+---
+
+## 6. Post-decomposition production check
+
+Separate follow-up session: the giant-component decomposition (§9 Phase 6 of `01-chats-feature-report.md` — the `use-chat-state.ts`/`ResponseBlocks.tsx`/`ChatInterface.tsx`/`chat/page.tsx`/`chats/page.tsx` splits, all verified zero-behavior-change at the time) plus one real bug fix (`project/[id]/chat/[chatId]/page.tsx` wasn't forwarding `initialMentionedPins` to `ChatInterface`). Same methodology as §4: clean production build, clean server restart, fresh login via `.env.local`'s `PROFILE_EMAIL`/`PROFILE_PASSWORD`, 3 consecutive Lighthouse runs per page.
+
+| Metric | `/chats` run 1 | `/chats` run 2 | `/chats` run 3 | `/chat` run 1 | `/chat` run 2 | `/chat` run 3 |
+|---|---|---|---|---|---|---|
+| Performance score | 58 | 41 | 40 | 42 | 41 | 33 |
+| TBT | 534 ms | 531 ms | 545 ms | 472 ms | 495 ms | 626 ms |
+| CLS | 0.007 | 0.357 | 0.357 | 0.366 | 0.366 | 0.381 |
+| FCP | 1.5 s | 1.5 s | 1.5 s | 1.5 s | 1.5 s | 1.5 s |
+| Speed Index | 4.6 s | 4.6 s | 4.7 s | 4.9 s | 4.9 s | 7.7 s |
+| Server response time | 13 ms | 5 ms | 4 ms | 4 ms | 4 ms | 2,110 ms* |
+| Total page weight | 8,947 KB | 8,947 KB | 8,950 KB | 8,932 KB | 8,934 KB | 8,932 KB |
+| Requests | 124 | 124 | 124 | 126 | 126 | 126 |
+
+*Same backend-latency-spike pattern documented throughout this whole engagement (`devapi.getsouvenir.com` flakiness) — `/chat` run 3's Speed Index/score dip tracks directly with this one slow server response, not a code effect.
+
+**Two honest anomalies, not smoothed over:**
+- **`/chats` run 1's CLS (0.007) breaks the previously rock-solid 0.357** seen identically across all 6 combined runs in §4 and here (runs 2-3). This is the *first* Lighthouse run against a server that had just been restarted (cold route-handler compilation, cold caches) — the same "first-run-after-restart" volatility already documented for dev mode in §3, just not previously seen in production because this is the first time production was tested with a truly fresh restart immediately before measuring. Runs 2-3 (both 0.357) are the trustworthy read.
+- **`/chat` run 3's Speed Index (7.7s) and score (33) dip** track the 2,110ms server-response outlier in the same run — a backend timing artifact, not a rendering regression (runs 1-2 are consistent with each other and with §4's prior numbers).
+
+**Reading the stable rows (excluding both anomalies): `/chats` TBT ~530-545ms (vs. §4's 740-800ms) and `/chat` TBT ~472-495ms (vs. §4's 540-730ms) — both nominally lower than the pre-decomposition production baseline.** Tempting to credit the decomposition (smaller per-file bundles could plausibly parse/compile faster), but this environment has already demonstrated repeatedly in this same document that TBT swings by hundreds of ms between back-to-back runs with zero code changes — this delta is not clearly outside that noise band, so it is reported as a directional observation, not a proven improvement. CLS on both pages is unchanged from §4 (`/chats` 0.357, `/chat` 0.366-0.381) — expected, since this pass touched no rendering/animation code at all.
+
+**Total page weight and request count are new baseline numbers** — not measured in §4, so there's no prior figure to compare against. Recorded here so a future bundle-size-focused pass (the "still-unconverted layout animations" or "what dominates the TBT budget" follow-ups flagged in §5) has a real number to work against instead of starting blind.
+
+**Bottom line:** consistent with the decomposition being designed and verified as zero-behavior-change — nothing measurably broke, nothing measurably regressed, and the one real bug fixed (`initialMentionedPins` forwarding) is a correctness fix with no expected performance signature. The nominally-lower TBT is worth re-checking after a few more independent measurement sessions before calling it a real trend.

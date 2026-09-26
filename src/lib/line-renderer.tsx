@@ -19,11 +19,11 @@
 import React from "react"
 import katex from "katex"
 import { CodeBlock } from "@/components/chat/CodeBlock"
-import { CitationChip } from "@/components/chat/ResponseBlocks"
+import { CitationChip } from "@/components/chat/CitationChip"
 import { HighlightMark } from "@/components/HighlightMark"
 import { sanitizeKaTeX } from "@/lib/security"
 import { hasRawRange } from "@/lib/highlight-offsets"
-import type { WebCitation } from "@/hooks/use-chat-state"
+import type { WebCitation } from "@/types/chat"
 import type { HighlightSpec } from "./markdown-utils"
 import { isLikelyInlineMath } from "./markdown-preprocess"
 

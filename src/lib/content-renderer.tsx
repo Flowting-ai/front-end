@@ -27,7 +27,7 @@ import { XmlMap } from "@/components/chat/XmlMap"
 import { XmlSteps } from "@/components/chat/XmlSteps"
 import { XmlCallout } from "@/components/chat/XmlCallout"
 import { XmlTags } from "@/components/chat/XmlTags"
-import type { WebCitation } from "@/hooks/use-chat-state"
+import type { WebCitation } from "@/types/chat"
 
 // ---------------------------------------------------------------------------
 // Pending block placeholder

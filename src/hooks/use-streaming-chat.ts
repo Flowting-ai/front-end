@@ -19,7 +19,7 @@ import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
 import { toConnector } from "@/lib/connector"
 import { responseBlockFromEventPayload } from "@/lib/response-blocks"
-import type { UIMessage } from "@/hooks/use-chat-state"
+import type { UIMessage } from "@/types/chat"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import {
   createReasoningAccumulator,
@@ -355,8 +355,8 @@ export function useStreamingChat({
               : null
 
             if (universalMsgId && universalAtts) {
-              const newGeneratedFiles: import("@/hooks/use-chat-state").GeneratedFile[] = []
-              const newGeneratedImages: import("@/hooks/use-chat-state").GeneratedImage[] = []
+              const newGeneratedFiles: import("@/types/chat").GeneratedFile[] = []
+              const newGeneratedImages: import("@/types/chat").GeneratedImage[] = []
 
               for (const a of universalAtts) {
                 if (a.origin !== "generated") continue
@@ -522,8 +522,8 @@ export function useStreamingChat({
               const rawAtts = Array.isArray(savedMsg.file_attachments)
                 ? (savedMsg.file_attachments as Array<Record<string, unknown>>)
                 : []
-              const generatedFromSaved: import("@/hooks/use-chat-state").GeneratedFile[] = []
-              const imagesFromSaved: import("@/hooks/use-chat-state").GeneratedImage[] = []
+              const generatedFromSaved: import("@/types/chat").GeneratedFile[] = []
+              const imagesFromSaved: import("@/types/chat").GeneratedImage[] = []
 
               for (const a of rawAtts) {
                 if (a.origin !== "generated") continue
@@ -628,7 +628,7 @@ export function useStreamingChat({
             const query = asString(parsed.query) ?? ""
             const results = webSearchResults(parsed.links, parsed.results)
 
-            const activity: import("@/hooks/use-chat-state").ActivityItem = {
+            const activity: import("@/types/chat").ActivityItem = {
               id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: "web-search",
               detail: query,
@@ -716,7 +716,7 @@ export function useStreamingChat({
                     }
                   }
                   // Create new activity (tool_executing may have been missed)
-                  const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
+                  const newActivity: import("@/types/chat").ActivityItem = {
                     id: activityId,
                     type: activityType,
                     toolName,
@@ -781,7 +781,7 @@ export function useStreamingChat({
                 )
               } else {
                 // No preliminary activity — create a new one
-                const activity: import("@/hooks/use-chat-state").ActivityItem = {
+                const activity: import("@/types/chat").ActivityItem = {
                   id: toolCallId,
                   type: activityType,
                   toolName,
@@ -819,7 +819,7 @@ export function useStreamingChat({
                 toolCallIdByName.set(toolName, callId)
                 const activityType = toolNameToType(toolName)
                 const label = asString(parsed.label) ?? undefined
-                const activity: import("@/hooks/use-chat-state").ActivityItem = {
+                const activity: import("@/types/chat").ActivityItem = {
                   id: callId,
                   type: activityType,
                   toolName,
@@ -861,7 +861,7 @@ export function useStreamingChat({
                     typeof (f as Record<string, unknown>).name === 'string',
                 )
               : undefined
-            const prompt: import("@/hooks/use-chat-state").ConnectorConnectPrompt = {
+            const prompt: import("@/types/chat").ConnectorConnectPrompt = {
               request_id:      asString(parsed.prompt_id) ?? `ccp-${Date.now()}`,
               // The whole event goes to toConnector: slug, name and logo
               // resolve together from whichever fields the wire used.
@@ -1053,7 +1053,7 @@ export function useStreamingChat({
                 prev.map((msg) => {
                   if (msg.id !== msgId) return msg
                   const existing = (msg.activities ?? []).find((a) => a.id === activityId)
-                  const status: import("@/hooks/use-chat-state").ActivityStatus =
+                  const status: import("@/types/chat").ActivityStatus =
                     step === "done" ? "done" : step === "error" ? "error" : "executing"
                   if (existing) {
                     return {
@@ -1066,7 +1066,7 @@ export function useStreamingChat({
                       reasoningTimeline: reasoning.timeline(),
                     }
                   }
-                  const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
+                  const newActivity: import("@/types/chat").ActivityItem = {
                     id: activityId,
                     type: "docx-progress",
                     toolName: "docx",
@@ -1088,7 +1088,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "external_output") {
-            const actions: import("@/hooks/use-chat-state").ExternalOutputAction[] =
+            const actions: import("@/types/chat").ExternalOutputAction[] =
               Array.isArray(parsed.actions) ? parsed.actions.flatMap((action) => {
                 if (!action || typeof action !== "object") return []
                 const row = action as Record<string, unknown>

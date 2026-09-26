@@ -20,13 +20,16 @@ import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { registerChatScroller } from "@/lib/chat-scroller";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
-import { useChatState, type UseChatStateOptions, type UIMessage } from "@/hooks/use-chat-state";
+import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
+import { useCitationsPanel } from "@/hooks/use-citations-panel";
+import { usePinMentions } from "@/hooks/use-pin-mentions";
+import type { UIMessage } from "@/types/chat";
 import {
   useStreamingChat,
   type StreamState,
 } from "@/hooks/use-streaming-chat";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { usePinboard, type PinItem } from "@/context/pinboard-context";
+import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
 import { InlineCreditNotice } from "@/components/InlineCreditNotice";
@@ -34,7 +37,6 @@ import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import type { PinFolder } from "@/lib/api/pins";
-import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
 import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
@@ -89,13 +91,6 @@ function MentionChip({ label, onRemove }: MentionChipProps) {
       </button>
     </span>
   );
-}
-
-// ── Mentioned pin state type ──────────────────────────────────────────────────
-
-interface MentionedPin {
-  id: string;
-  label: string;
 }
 
 interface ChatInterfaceProps {
@@ -260,38 +255,24 @@ export function ChatInterface({
   const [inputValue, setInputValue] = useState("");
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const [citationsOpen, setCitationsOpen] = useState(false);
-  const [citationsSources, setCitationsSources] = useState<Source[]>([]);
-  const [highlightedCitation, setHighlightedCitation] = useState<number | null>(
-    null,
-  );
+  const { citationsOpen, citationsSources, highlightedCitation, openCitations, closeCitations } = useCitationsPanel();
+  const {
+    mentionedPins,
+    filteredPins,
+    showPinDropdown,
+    pinQuery,
+    highlightedPinIndex,
+    setHighlightedPinIndex,
+    inputWrapperRef,
+    handleMentionChange,
+    handlePinSelect,
+    handleRemoveMention,
+    handlePinNavigate,
+    clearMentions,
+  } = usePinMentions(setInputValue);
 
-  // ── @-mention / pin state ─────────────────────────────────────────────────
-  const [showPinDropdown, setShowPinDropdown] = useState(false);
-  const [pinQuery, setPinQuery] = useState("");
-  const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
-  const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [atBottom, setAtBottom] = useState(true);
 
-  // Listen for pin:insert events dispatched by the Pinboard sidebar / expanded
-  // modal's "Insert" button. Adds the pin as a real @-mention chip — the same
-  // outcome as picking it from the PinMentionDropdown — rather than splicing
-  // its raw content into the input text.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const pin = (e as CustomEvent<PinMentionable>).detail;
-      if (!pin?.id) return;
-      const label = (pin.title || pin.content).slice(0, 50) || pin.id;
-      if (mentionedPins.some((m) => m.id === pin.id)) {
-        toast.info(`"${label}" is already added to this chat`);
-        return;
-      }
-      setMentionedPins((prev) => [...prev, { id: pin.id, label }]);
-      toast.success(`"${label}" added to chat`);
-    };
-    window.addEventListener("pin:insert", handler);
-    return () => window.removeEventListener("pin:insert", handler);
-  }, [mentionedPins]);
   // True during the brief window after messages load while the virtualizer
   // measures all rendered items. Keeps the spinner up and content hidden so
   // the first visible frame is already at settled positions (no jitter).
@@ -319,7 +300,7 @@ export function ChatInterface({
   useEffect(() => {
     setInputValue("");
     setAttachments([]);
-    setMentionedPins([]);
+    clearMentions();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
   }, [chatId]);
 
@@ -336,7 +317,6 @@ export function ChatInterface({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const streamingTopMessageIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputWrapperRef = useRef<HTMLDivElement>(null);
   // Tracks which attachment IDs already have an active simulation interval
   // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
 
@@ -358,17 +338,6 @@ export function ChatInterface({
 
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
   const { pins, isPinned } = usePinboard();
-
-  const filteredPins = useMemo<PinItem[]>(() => {
-    if (!pinQuery.trim()) return pins.slice(0, 10);
-    const q = pinQuery.toLowerCase();
-    return pins.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.content.toLowerCase().includes(q) ||
-        (p.tags ?? []).some((t) => t.toLowerCase().includes(q)),
-    );
-  }, [pins, pinQuery]);
 
   const chatStateOptions = useMemo<UseChatStateOptions | undefined>(
     () => loadMessages ? { loadMessages } : undefined,
@@ -760,86 +729,6 @@ export function ChatInterface({
     setAttachments((prev) => processFiles(addMenuFiles, prev));
   }, [addMenuFiles, initialPrompt]);
 
-  // ── Pin-mention handlers ────────────────────────────────────────────────────
-
-  // Reset highlighted index whenever the filtered list changes.
-  useEffect(() => {
-    setHighlightedPinIndex(0);
-  }, [filteredPins]);
-
-  // Close the dropdown when the user clicks outside the input wrapper.
-  useEffect(() => {
-    if (!showPinDropdown) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        inputWrapperRef.current &&
-        !inputWrapperRef.current.contains(e.target as Node)
-      ) {
-        setShowPinDropdown(false);
-        setPinQuery("");
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showPinDropdown]);
-
-  const handleMentionChange = useCallback((query: string | null) => {
-    if (query === null) {
-      setShowPinDropdown(false);
-      setPinQuery("");
-    } else {
-      setShowPinDropdown(true);
-      setPinQuery(query);
-    }
-  }, []);
-
-  const handlePinSelect = useCallback((pin: PinMentionable) => {
-    const label = (pin.title || pin.content).slice(0, 50) || pin.id;
-    // Strip the `@query` fragment that the user typed from the input value.
-    setInputValue((prev) => {
-      const lastAt = prev.lastIndexOf("@");
-      return lastAt !== -1 ? prev.substring(0, lastAt) : prev;
-    });
-    setMentionedPins((prev) =>
-      prev.some((m) => m.id === pin.id)
-        ? prev
-        : [...prev, { id: pin.id, label }],
-    );
-    setShowPinDropdown(false);
-    setPinQuery("");
-  }, []);
-
-  const handleRemoveMention = useCallback((pinId: string) => {
-    setMentionedPins((prev) => prev.filter((m) => m.id !== pinId));
-  }, []);
-
-  const handlePinNavigate = useCallback(
-    (action: "up" | "down" | "select" | "close") => {
-      switch (action) {
-        case "down":
-          setHighlightedPinIndex((i) =>
-            i < filteredPins.length - 1 ? i + 1 : 0,
-          );
-          break;
-        case "up":
-          setHighlightedPinIndex((i) =>
-            i > 0 ? i - 1 : filteredPins.length - 1,
-          );
-          break;
-        case "select":
-          if (filteredPins[highlightedPinIndex]) {
-            handlePinSelect(filteredPins[highlightedPinIndex]);
-          }
-          break;
-        case "close":
-          setShowPinDropdown(false);
-          setPinQuery("");
-          break;
-      }
-    },
-    [filteredPins, highlightedPinIndex, handlePinSelect],
-  );
-
   // Send message - uses local attachments (which include add-menu files after absorption)
   const handleSend = async (text: string) => {
     const allFiles = attachments.map((a) => a.file);
@@ -874,7 +763,7 @@ export function ChatInterface({
     setAtBottom(true);
     setInputValue("");
     setAttachments([]);
-    setMentionedPins([]);
+    clearMentions();
     onClearAddMenuFiles?.();
 
     const folderPinIds = selectedFolders && selectedFolders.length > 0
@@ -1053,12 +942,6 @@ export function ChatInterface({
     (messageId: string, newContent: string) => _handleEditMessageImpl.current(messageId, newContent),
     [],
   )
-
-  // Citations
-  const handleCitationsClick = (sources: Source[]) => {
-    setCitationsSources(sources);
-    setCitationsOpen(true);
-  };
 
   // Attachment via hidden file input (triggered by onAdd on the ChatInput)
   const handleAdd = () => {
@@ -1274,7 +1157,7 @@ export function ChatInterface({
                     }
                     onCitationsClick={
                       message.sources && message.sources.length > 0
-                        ? () => handleCitationsClick(message.sources!)
+                        ? () => openCitations(message.sources!)
                         : undefined
                     }
                     onPromptDecided={handlePromptDecided}
@@ -1475,7 +1358,7 @@ export function ChatInterface({
       <CitationsPanel
         sources={citationsSources}
         isOpen={citationsOpen}
-        onClose={() => setCitationsOpen(false)}
+        onClose={closeCitations}
         highlightedIndex={highlightedCitation}
       />
     </div>

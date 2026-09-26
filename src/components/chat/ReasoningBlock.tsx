@@ -33,7 +33,7 @@ import {
   type ReasoningTimelineItem,
 } from "@/lib/reasoning";
 import { ModelIcon } from "@/components/ModelIcon";
-import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
+import type { ActivityItem, ModelSelectedMeta } from "@/types/chat";
 
 const THINKING_WORDS = ["Thinking", "Analysing", "Processing", "Considering"];
 

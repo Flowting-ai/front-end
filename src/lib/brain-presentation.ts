@@ -1,6 +1,6 @@
 import type { AgentStep } from '@/templates/Brain/lib/phase'
 import type { BrainTimelineItem } from '@/templates/Brain'
-import type { ActivityItem } from '@/hooks/use-chat-state'
+import type { ActivityItem } from '@/types/chat'
 import type { ToolCallPreview, ToolProgressEvent, WebSearchEvent } from '@/lib/api/brain'
 import { normalizeActivityStatus, toolNameToType, webSearchResults } from '@/lib/activity'
 

@@ -16,7 +16,7 @@ import {
   Cancel01Icon,
 } from "@hugeicons/core-free-icons";
 import { QuillWriteOneIcon, NeuralNetworkIcon } from "@strange-huge/icons";
-import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
+import type { ActivityItem, ActivityType } from "@/types/chat";
 import { ACTIVITY_VERB } from "@/lib/activity";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import React, { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -22,8 +22,9 @@ import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
 import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
-import { usePinboard, type PinItem } from "@/context/pinboard-context";
-import type { PinMentionable } from "@/components/chat/PinMentionDropdown";
+import { usePinboard } from "@/context/pinboard-context";
+import { usePinMentions } from "@/hooks/use-pin-mentions";
+import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/Button";
@@ -51,13 +52,6 @@ import {
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
 import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
-
-// ── Mentioned-pin state type ──────────────────────────────────────────────────
-
-interface MentionedPin {
-  id: string;
-  label: string;
-}
 
 // ── Mention chip ──────────────────────────────────────────────────────────────
 
@@ -257,50 +251,16 @@ function ChatPageInner() {
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
-  // selectedPersona always starts `null` on both server and client (no
-  // hydration mismatch), then gets the real value synchronously via
-  // useLayoutEffect below — layout effects run before the browser paints or
-  // allows any interaction, so this is still available before the
-  // initial-send path can possibly fire, same guarantee the old lazy-
-  // initializer read gave, without branching on `typeof window` inside the
-  // initializer (which made the initializer's return value itself differ
-  // between the server render and the client's first render — a real
-  // hydration mismatch whenever a pending persona was actually present).
-  // Same reasoning as project/[id]/chat/[chatId]/page.tsx's identical
-  // pending-persona key — a plain useEffect would run one flush too late for
-  // the initial-send path to see it, but useLayoutEffect does not have that
-  // gap. Set by agents/published's "Use this Agent" button just before it
-  // navigates here.
-  const cameFromPendingPersonaRef = useRef(false);
   const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
-  useLayoutEffect(() => {
-    if (chatIdFromUrl) return;
-    const stored = sessionStorage.getItem('new-chat-pending-persona');
-    if (!stored) return;
-    sessionStorage.removeItem('new-chat-pending-persona');
-    try {
-      const parsed = JSON.parse(stored) as SelectedPersonaInfo;
-      cameFromPendingPersonaRef.current = true;
-      setSelectedPersona(parsed);
-    } catch { /* ignore malformed sessionStorage value */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  // Same "Model locked to agent" notice ChatInput/TopBar already show on a
-  // click against the locked model selector — surfaced proactively here since
-  // arriving with the agent pre-attached (from agents/published's "Use this
-  // Agent") is a less visually obvious moment than picking one from the
-  // composer's own "+" menu, where the chip appearing is the feedback.
-  useEffect(() => {
-    if (!cameFromPendingPersonaRef.current) return;
-    toast.info('Model locked to agent', {
+  const cameFromPendingPersonaRef = usePendingPersonaHandoff(
+    'new-chat-pending-persona',
+    !chatIdFromUrl,
+    setSelectedPersona,
+    { toastMessage: {
+      title: 'Model locked to agent',
       description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
-    });
-    // NOTE: does not reset cameFromPendingPersonaRef here — the chatIdFromUrl
-    // effect below (declared after this one, so it runs later in the same
-    // mount commit) still needs to see it be true, to know NOT to immediately
-    // clear the persona this same effect just announced via the toast. It
-    // consumes/resets the ref itself once it's done checking.
-  }, []);
+    } },
+  );
   const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
   // Tracks which chatIds were created in this session as persona chats.
@@ -359,52 +319,22 @@ function ChatPageInner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { processFiles, FILE_ACCEPT } = useFileUpload();
 
-  // ── New-chat @-mention / pin state ────────────────────────────────────────
-  const newChatInputWrapperRef = useRef<HTMLDivElement>(null);
-  const [newChatShowPinDropdown, setNewChatShowPinDropdown] = useState(false);
-  const [newChatPinQuery, setNewChatPinQuery] = useState("");
-  const [newChatHighlightedPinIndex, setNewChatHighlightedPinIndex] = useState(0);
-  const [newChatMentionedPins, setNewChatMentionedPins] = useState<MentionedPin[]>([]);
+  const {
+    mentionedPins: newChatMentionedPins,
+    filteredPins: newChatFilteredPins,
+    showPinDropdown: newChatShowPinDropdown,
+    pinQuery: newChatPinQuery,
+    highlightedPinIndex: newChatHighlightedPinIndex,
+    setHighlightedPinIndex: setNewChatHighlightedPinIndex,
+    inputWrapperRef: newChatInputWrapperRef,
+    handleMentionChange: handleNewChatMentionChange,
+    handlePinSelect: handleNewChatPinSelect,
+    handleRemoveMention: handleNewChatRemoveMention,
+    handlePinNavigate: handleNewChatPinNavigate,
+    clearMentions: clearNewChatMentions,
+  } = usePinMentions(setNewChatInput, !activeChatId);
 
   const { pins } = usePinboard();
-
-  const newChatFilteredPins = useMemo<PinItem[]>(() => {
-    if (!newChatPinQuery.trim()) return pins.slice(0, 10);
-    const q = newChatPinQuery.toLowerCase();
-    return pins.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.content.toLowerCase().includes(q) ||
-        (p.tags ?? []).some((t) => t.toLowerCase().includes(q)),
-    );
-  }, [pins, newChatPinQuery]);
-
-  // Reset highlighted index on filtered list change
-  useEffect(() => {
-    setNewChatHighlightedPinIndex(0);
-  }, [newChatFilteredPins]);
-
-  // When no active chat is open, listen for pin:insert events from the Pinboard
-  // sidebar / expanded modal's "Insert" button and add the pin as a real
-  // @-mention chip (same as picking it from the PinMentionDropdown) — not raw
-  // text spliced into the new-chat input. ChatInterface handles the same
-  // event for active chats, so only register here when there's no chatId.
-  useEffect(() => {
-    if (activeChatId) return;
-    const handler = (e: Event) => {
-      const pin = (e as CustomEvent<PinMentionable>).detail;
-      if (!pin?.id) return;
-      const label = (pin.title || pin.content).slice(0, 50) || pin.id;
-      if (newChatMentionedPins.some((m) => m.id === pin.id)) {
-        toast.info(`"${label}" is already added to this chat`);
-        return;
-      }
-      setNewChatMentionedPins((prev) => [...prev, { id: pin.id, label }]);
-      toast.success(`"${label}" added to chat`);
-    };
-    window.addEventListener("pin:insert", handler);
-    return () => window.removeEventListener("pin:insert", handler);
-  }, [activeChatId, newChatMentionedPins]);
 
   // Listen for the Agents floating-panel's selection — same cross-tree
   // pattern as pin:insert above (the panel renders via the shared AppLayout's
@@ -417,76 +347,6 @@ function ChatPageInner() {
     window.addEventListener(AGENT_SELECT_EVENT, handler);
     return () => window.removeEventListener(AGENT_SELECT_EVENT, handler);
   }, []);
-
-  // Close pin dropdown on outside click
-  useEffect(() => {
-    if (!newChatShowPinDropdown) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        newChatInputWrapperRef.current &&
-        !newChatInputWrapperRef.current.contains(e.target as Node)
-      ) {
-        setNewChatShowPinDropdown(false);
-        setNewChatPinQuery("");
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [newChatShowPinDropdown]);
-
-  const handleNewChatMentionChange = useCallback((query: string | null) => {
-    if (query === null) {
-      setNewChatShowPinDropdown(false);
-      setNewChatPinQuery("");
-    } else {
-      setNewChatShowPinDropdown(true);
-      setNewChatPinQuery(query);
-    }
-  }, []);
-
-  const handleNewChatPinSelect = useCallback((pin: PinMentionable) => {
-    const label = (pin.title || pin.content).slice(0, 50) || pin.id;
-    setNewChatInput((prev) => {
-      const lastAt = prev.lastIndexOf("@");
-      return lastAt !== -1 ? prev.substring(0, lastAt) : prev;
-    });
-    setNewChatMentionedPins((prev) =>
-      prev.some((m) => m.id === pin.id) ? prev : [...prev, { id: pin.id, label }],
-    );
-    setNewChatShowPinDropdown(false);
-    setNewChatPinQuery("");
-  }, []);
-
-  const handleNewChatRemoveMention = useCallback((pinId: string) => {
-    setNewChatMentionedPins((prev) => prev.filter((m) => m.id !== pinId));
-  }, []);
-
-  const handleNewChatPinNavigate = useCallback(
-    (action: "up" | "down" | "select" | "close") => {
-      switch (action) {
-        case "down":
-          setNewChatHighlightedPinIndex((i) =>
-            i < newChatFilteredPins.length - 1 ? i + 1 : 0,
-          );
-          break;
-        case "up":
-          setNewChatHighlightedPinIndex((i) =>
-            i > 0 ? i - 1 : newChatFilteredPins.length - 1,
-          );
-          break;
-        case "select":
-          if (newChatFilteredPins[newChatHighlightedPinIndex]) {
-            handleNewChatPinSelect(newChatFilteredPins[newChatHighlightedPinIndex]);
-          }
-          break;
-        case "close":
-          setNewChatShowPinDropdown(false);
-          setNewChatPinQuery("");
-          break;
-      }
-    },
-    [newChatFilteredPins, newChatHighlightedPinIndex, handleNewChatPinSelect],
-  );
 
   // ── File handling ─────────────────────────────────────────────────────────
 
@@ -919,7 +779,7 @@ function ChatPageInner() {
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
     setInitialMentionedPins([...newChatMentionedPins]);
-    setNewChatMentionedPins([]);
+    clearNewChatMentions();
     const composed = selectedMode
       ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
       : value.trim();

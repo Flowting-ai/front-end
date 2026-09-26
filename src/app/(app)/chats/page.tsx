@@ -27,11 +27,9 @@ import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
 import type { LibraryMode } from '@/components/LibraryFilterButton'
-import { useBrainThreadContext } from '@/context/brain-thread-context'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
-import { listAutomations } from '@/lib/api/automations'
-import { getAllScheduleLinks } from '@/lib/scheduleLinks'
+import { useTasksLibrary, type TasksTab } from '@/hooks/use-tasks-library'
 
 // ── Library page — merged Chats + Tasks ─────────────────────────────────────
 // Was two separate pages (/chats and /brain/threads); merged into one, with
@@ -42,7 +40,6 @@ import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 // /brain/threads is now a redirect stub into Tasks mode (?filter=tasks).
 
 type ChatsTab = 'all' | 'shared' | 'archived'
-type TasksTab = 'all' | 'scheduled'
 
 // ── Chats/Tasks filter — Dropdown.Float instead of a Tabs bar, same pattern
 // as ScopeFilterDropdown on the /projects page (Dropdown.Float + Button
@@ -61,7 +58,25 @@ const CHATS_TAB_DESCRIPTION: Record<ChatsTab, string> = {
 }
 const CHATS_TAB_VALUES: readonly ChatsTab[] = ['all', 'shared', 'archived']
 
-function ChatsTabDropdown({ value, onChange }: { value: ChatsTab; onChange: (v: ChatsTab) => void }) {
+const TASKS_TAB_LABEL: Record<TasksTab, string> = {
+  all:       'All tasks',
+  scheduled: 'Scheduled',
+}
+const TASKS_TAB_DESCRIPTION: Record<TasksTab, string> = {
+  all:       'Every task you’ve created.',
+  scheduled: 'Tasks with an active schedule.',
+}
+const TASKS_TAB_VALUES: readonly TasksTab[] = ['all', 'scheduled']
+
+function LibraryTabDropdown<T extends string>({
+  value, values, labels, descriptions, onChange,
+}: {
+  value: T
+  values: readonly T[]
+  labels: Record<T, string>
+  descriptions: Record<T, string>
+  onChange: (v: T) => void
+}) {
   const [open, setOpen] = useState(false)
   return (
     <Dropdown.Float
@@ -81,7 +96,7 @@ function ChatsTabDropdown({ value, onChange }: { value: ChatsTab; onChange: (v: 
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               style={{ display: 'block', transformOrigin: 'left center' }}
             >
-              {CHATS_TAB_LABEL[value]}
+              {labels[value]}
             </m.span>
           </AnimatePresence>
         </Button>
@@ -89,11 +104,11 @@ function ChatsTabDropdown({ value, onChange }: { value: ChatsTab; onChange: (v: 
     >
       <Dropdown size="md" maxHeight={false}>
         <Dropdown.Section fluid>
-          {CHATS_TAB_VALUES.map(v => (
+          {values.map(v => (
             <Dropdown.Item
               key={v}
-              label={CHATS_TAB_LABEL[v]}
-              subLabel={CHATS_TAB_DESCRIPTION[v]}
+              label={labels[v]}
+              subLabel={descriptions[v]}
               selected={value === v}
               onClick={() => { onChange(v); setOpen(false) }}
               fluid
@@ -103,72 +118,6 @@ function ChatsTabDropdown({ value, onChange }: { value: ChatsTab; onChange: (v: 
       </Dropdown>
     </Dropdown.Float>
   )
-}
-
-const TASKS_TAB_LABEL: Record<TasksTab, string> = {
-  all:       'All tasks',
-  scheduled: 'Scheduled',
-}
-const TASKS_TAB_DESCRIPTION: Record<TasksTab, string> = {
-  all:       'Every task you’ve created.',
-  scheduled: 'Tasks with an active schedule.',
-}
-const TASKS_TAB_VALUES: readonly TasksTab[] = ['all', 'scheduled']
-
-function TasksTabDropdown({ value, onChange }: { value: TasksTab; onChange: (v: TasksTab) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dropdown.Float
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom-start"
-      trigger={
-        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <m.span
-              key={value}
-              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              style={{ display: 'block', transformOrigin: 'left center' }}
-            >
-              {TASKS_TAB_LABEL[value]}
-            </m.span>
-          </AnimatePresence>
-        </Button>
-      }
-    >
-      <Dropdown size="md" maxHeight={false}>
-        <Dropdown.Section fluid>
-          {TASKS_TAB_VALUES.map(v => (
-            <Dropdown.Item
-              key={v}
-              label={TASKS_TAB_LABEL[v]}
-              subLabel={TASKS_TAB_DESCRIPTION[v]}
-              selected={value === v}
-              onClick={() => { onChange(v); setOpen(false) }}
-              fluid
-            />
-          ))}
-        </Dropdown.Section>
-      </Dropdown>
-    </Dropdown.Float>
-  )
-}
-
-function formatTaskTimestamp(iso: string | undefined | null): string {
-  if (!iso) return ''
-  const d    = new Date(iso)
-  const now  = new Date()
-  const diff = (now.getTime() - d.getTime()) / 1000
-
-  if (diff < 60)        return 'Just now'
-  if (diff < 3600)      return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400)     return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 86400 * 2) return 'Yesterday'
-  if (diff < 86400 * 7) return d.toLocaleDateString('en-US', { weekday: 'short' })
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // ── Page wrapper — Suspense required for useSearchParams ────────────────────
@@ -188,7 +137,7 @@ function ChatsPageInner() {
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
-  // `formatTaskTimestamp` reads `new Date()` at render time, so the server's
+  // `formatRelativeTime` reads `new Date()` at render time, so the server's
   // render and the client's hydration render can land in different relative
   // buckets ("2m ago" vs "3m ago") — a real, if intermittent, hydration
   // mismatch. Render a stable empty value until after mount, then swap in the
@@ -394,29 +343,19 @@ function ChatsPageInner() {
   // (app)/layout.tsx) — the same state the left sidebar's Tasks section reads
   // (src/app/(app)/brain/BrainSidebarSections.tsx), so a rename/pin/delete on
   // either surface is reflected on the other immediately, no reload needed.
-  const { threads, isLoading: tasksLoading, rename: renameTask, star: starTask, remove: removeTask } = useBrainThreadContext()
-  const [tasksSearchQuery, setTasksSearchQuery] = useState('')
-  const [tasksTab, setTasksTab] = useState<TasksTab>('all')
-  // Chat ids that are linked to a still-existing schedule — drives the
-  // "Scheduled" tag on each thread row. Cross-referenced against the live
-  // task list since scheduleLinks is a local-only map that isn't cleaned up
-  // when a schedule is deleted.
-  const [scheduledChatIds, setScheduledChatIds] = useState<Set<string>>(new Set())
-  const scheduleLinksLoadedRef = useRef(false)
-
-  // Lazily load schedule-link info the first time Tasks mode is actually
-  // opened, matching how the Shared tab above lazy-loads on first visit.
-  useEffect(() => {
-    if (libraryMode !== 'tasks' || scheduleLinksLoadedRef.current) return
-    scheduleLinksLoadedRef.current = true
-    listAutomations()
-      .then(tasks => {
-        const links = getAllScheduleLinks()
-        const chatIds = tasks.map(t => links[t.id]).filter((id): id is string => !!id)
-        setScheduledChatIds(new Set(chatIds))
-      })
-      .catch(() => {})
-  }, [libraryMode])
+  const {
+    threads,
+    tasksLoading,
+    renameTask,
+    starTask,
+    tasksSearchQuery,
+    setTasksSearchQuery,
+    tasksTab,
+    setTasksTab,
+    scheduledChatIds,
+    filteredThreads,
+    handleTaskDelete,
+  } = useTasksLibrary(libraryMode)
 
   // Navigate to /brain when sidebar "New thread" button fires the event.
   useEffect(() => {
@@ -424,21 +363,6 @@ function ChatsPageInner() {
     window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
     return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
   }, [push])
-
-  const filteredThreads = useMemo(() => {
-    const scoped = tasksTab === 'scheduled' ? threads.filter(t => scheduledChatIds.has(t.id)) : threads
-    if (!tasksSearchQuery.trim()) return scoped
-    const q = tasksSearchQuery.toLowerCase()
-    return scoped.filter(t => (t.chat_title || '').toLowerCase().includes(q))
-  }, [threads, tasksSearchQuery, tasksTab, scheduledChatIds])
-
-  const handleTaskDelete = useCallback((id: string, title: string) => {
-    openDeleteChatDialog({
-      chatId:    id,
-      chatTitle: title,
-      onConfirm: async () => { await removeTask(id) },
-    })
-  }, [removeTask])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -594,9 +518,21 @@ function ChatsPageInner() {
             }}
           >
             {libraryMode === 'chats' ? (
-              <ChatsTabDropdown value={chatsTab} onChange={handleChatsTabChange} />
+              <LibraryTabDropdown
+                value={chatsTab}
+                values={CHATS_TAB_VALUES}
+                labels={CHATS_TAB_LABEL}
+                descriptions={CHATS_TAB_DESCRIPTION}
+                onChange={handleChatsTabChange}
+              />
             ) : (
-              <TasksTabDropdown value={tasksTab} onChange={setTasksTab} />
+              <LibraryTabDropdown
+                value={tasksTab}
+                values={TASKS_TAB_VALUES}
+                labels={TASKS_TAB_LABEL}
+                descriptions={TASKS_TAB_DESCRIPTION}
+                onChange={setTasksTab}
+              />
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: searchOpen ? '1 0 0' : undefined, minWidth: 0 }}>
               {/* Search — same morph-in-place pattern as PinboardHeader's own
@@ -914,7 +850,7 @@ function ChatsPageInner() {
                   <div key={thread.id} role="listitem" style={{ padding: '1px 0 6px' }}>
                     <ChatRow
                       title={thread.chat_title || 'Untitled'}
-                      timestamp={hasMounted ? formatTaskTimestamp(thread.updated_at ?? thread.created_at) : ''}
+                      timestamp={hasMounted ? formatRelativeTime(thread.updated_at ?? thread.created_at) : ''}
                       starred={thread.starred}
                       taskMode
                       scheduled={scheduledChatIds.has(thread.id)}

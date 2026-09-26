@@ -11,7 +11,7 @@ import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { stableKey } from "@/hooks/use-model-selection";
 import { useStreamingChat, type StreamState } from "@/hooks/use-streaming-chat";
-import type { UIMessage } from "@/hooks/use-chat-state";
+import type { UIMessage } from "@/types/chat";
 import {
   getPersona,
   getVersion,

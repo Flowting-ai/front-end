@@ -17,7 +17,7 @@
  */
 
 import React from "react"
-import { AnimatedSteps } from "@/components/chat/ResponseBlocks"
+import { AnimatedSteps } from "@/components/chat/AnimatedSteps"
 import { parseStepsXml } from "@/components/chat/XmlSteps.parse"
 
 const noop = () => {}

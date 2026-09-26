@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import type { ConnectorConnectPrompt } from '@/hooks/use-chat-state'
+import type { ConnectorConnectPrompt } from '@/types/chat'
 import {
   getConnector,
   initiateLink,

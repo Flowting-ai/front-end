@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import React, { Suspense, useState, useRef, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -21,12 +21,12 @@ import { useProjects }                                     from '@/context/proje
 import { PROJECT_NEW_CHAT_EVENT, type ProjectNewChatEventDetail } from '@/hooks/use-sidebar-events'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
-import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
 import { useHighlight }                                    from '@/context/highlight-context'
-import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
+import { usePinMentions } from '@/hooks/use-pin-mentions'
 import { getVersion } from '@/lib/api/personas'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
+import { usePendingPersonaHandoff } from '@/hooks/use-pending-persona-handoff'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
@@ -43,10 +43,6 @@ import {
 import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
 import { CHAT_ROUTE } from '@/lib/routes'
-
-// ── Mentioned-pin state type ──────────────────────────────────────────────────
-
-interface MentionedPin { id: string; label: string; }
 
 // ── Mention chip ──────────────────────────────────────────────────────────────
 
@@ -305,6 +301,8 @@ function ProjectChatPageInner() {
   const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
   const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
+  // @-mentioned pins from the new-chat landing, passed once to ChatInterface for the initial send.
+  const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([])
   const [initialFiles,       setInitialFiles]       = useState<File[]>(() => {
     // Synchronously read files carried over from the project overview page.
     // Only applies when there is an initial prompt (text+files navigation);
@@ -319,77 +317,36 @@ function ProjectChatPageInner() {
   const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
   const [styleChipOpen,      setStyleChipOpen]      = useState(false)
   const [selectedFolders,    setSelectedFolders]    = useState<PinFolder[]>([])
-  // Read from sessionStorage synchronously in the lazy initializer so selectedPersona
-  // is populated on the FIRST render. If we used useEffect instead, ChatInterface would
-  // capture selectedPersonaId=null in its initial-send effect (runs in the same flush,
-  // before the state update from a useEffect could apply) and the agent would be ignored.
-  const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(() => {
-    if (!isNewChat || typeof window === 'undefined') return null
-    const stored = sessionStorage.getItem('project-chat-pending-persona')
-    if (!stored) return null
-    sessionStorage.removeItem('project-chat-pending-persona')
-    try { return JSON.parse(stored) as SelectedPersonaInfo } catch { return null }
-  })
+  // selectedPersona always starts `null` on both server and client (no
+  // hydration mismatch), then gets the real value synchronously via
+  // usePendingPersonaHandoff's useLayoutEffect — layout effects run before
+  // the browser paints or allows any interaction, so this is still available
+  // before the initial-send path can possibly fire. The old lazy `useState`
+  // initializer branched on `typeof window` directly, which made its return
+  // value differ between the server render and the client's first render — a
+  // real hydration mismatch whenever a pending persona was actually present
+  // (same bug, same fix, as chat/page.tsx's identical pending-persona key).
+  const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(null)
+  usePendingPersonaHandoff('project-chat-pending-persona', isNewChat, setSelectedPersona)
   const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
   const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen)
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
-  const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
 
-  // ── Pin @-mention state ───────────────────────────────────────────────────
-
-  const [showPinDropdown,     setShowPinDropdown]     = useState(false)
-  const [pinQuery,            setPinQuery]            = useState('')
-  const [highlightedPinIndex, setHighlightedPinIndex] = useState(0)
-  const [mentionedPins,       setMentionedPins]       = useState<MentionedPin[]>([])
-
-  const { pins } = usePinboard()
-
-  const filteredPins = useMemo<PinItem[]>(() => {
-    if (!pinQuery.trim()) return pins.slice(0, 10)
-    const q = pinQuery.toLowerCase()
-    return pins.filter(p =>
-      p.title.toLowerCase().includes(q) ||
-      p.content.toLowerCase().includes(q) ||
-      (p.tags ?? []).some(t => t.toLowerCase().includes(q))
-    )
-  }, [pins, pinQuery])
-
-  useEffect(() => { setHighlightedPinIndex(0) }, [filteredPins])
-
-  useEffect(() => {
-    if (!showPinDropdown) return
-    const handler = (e: MouseEvent) => {
-      if (newChatInputWrapperRef.current && !newChatInputWrapperRef.current.contains(e.target as Node)) {
-        setShowPinDropdown(false)
-        setPinQuery('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showPinDropdown])
-
-  const handleMentionChange = useCallback((query: string | null) => {
-    if (query === null) { setShowPinDropdown(false); setPinQuery('') }
-    else                { setShowPinDropdown(true);  setPinQuery(query) }
-  }, [])
-
-  const handlePinSelect = useCallback((pin: PinMentionable) => {
-    const label = (pin.title || pin.content).slice(0, 50) || pin.id
-    setNewChatInput(prev => { const i = prev.lastIndexOf('@'); return i !== -1 ? prev.substring(0, i) : prev })
-    setMentionedPins(prev => prev.some(m => m.id === pin.id) ? prev : [...prev, { id: pin.id, label }])
-    setShowPinDropdown(false)
-    setPinQuery('')
-  }, [])
-
-  const handlePinNavigate = useCallback((action: 'up' | 'down' | 'select' | 'close') => {
-    switch (action) {
-      case 'down':   setHighlightedPinIndex(i => i < filteredPins.length - 1 ? i + 1 : 0); break
-      case 'up':     setHighlightedPinIndex(i => i > 0 ? i - 1 : filteredPins.length - 1); break
-      case 'select': if (filteredPins[highlightedPinIndex]) handlePinSelect(filteredPins[highlightedPinIndex]); break
-      case 'close':  setShowPinDropdown(false); setPinQuery(''); break
-    }
-  }, [filteredPins, highlightedPinIndex, handlePinSelect])
+  const {
+    mentionedPins,
+    filteredPins,
+    showPinDropdown,
+    pinQuery,
+    highlightedPinIndex,
+    setHighlightedPinIndex,
+    inputWrapperRef: newChatInputWrapperRef,
+    handleMentionChange,
+    handlePinSelect,
+    handleRemoveMention,
+    handlePinNavigate,
+    clearMentions: clearMentionedPins,
+  } = usePinMentions(setNewChatInput)
 
   // ── File handling ─────────────────────────────────────────────────────────
 
@@ -553,7 +510,7 @@ function ProjectChatPageInner() {
         />
       ))}
       {mentionedPins.map(mp => (
-        <MentionChip key={mp.id} label={mp.label} onRemove={() => setMentionedPins(prev => prev.filter(m => m.id !== mp.id))} />
+        <MentionChip key={mp.id} label={mp.label} onRemove={() => handleRemoveMention(mp.id)} />
       ))}
       {webSearchEnabled && (
         <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
@@ -617,7 +574,9 @@ function ProjectChatPageInner() {
     if (!value.trim() && !newChatAttachments.length) return
     setInitialFiles(newChatAttachments.map(a => a.file))
     setNewChatAttachments([])
-    setMentionedPins([])
+    // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
+    setInitialMentionedPins([...mentionedPins])
+    clearMentionedPins()
     setInitialPrompt(value.trim())
     setNewChatInput('')
     setHasMessages(true)
@@ -908,6 +867,7 @@ function ProjectChatPageInner() {
               initialPrompt={initialPrompt}
               initialFiles={initialFiles}
               onClearInitialFiles={() => setInitialFiles([])}
+              initialMentionedPins={initialMentionedPins}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}

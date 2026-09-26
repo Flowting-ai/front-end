@@ -16,7 +16,7 @@
  */
 
 import React from "react"
-import { AnimatedTags } from "@/components/chat/ResponseBlocks"
+import { AnimatedTags } from "@/components/chat/AnimatedTags"
 import { parseTagsXml } from "@/components/chat/XmlTags.parse"
 
 const noop = () => {}

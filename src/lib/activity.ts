@@ -1,4 +1,4 @@
-import type { ActivityItem, ActivityStatus, ActivityType } from '@/hooks/use-chat-state'
+import type { ActivityItem, ActivityStatus, ActivityType } from '@/types/chat'
 
 // The single place backend tool telemetry turns into the props `ActivityRow`
 // renders. Transport agnostic on purpose: chat drives it from `useStreamingChat`'s

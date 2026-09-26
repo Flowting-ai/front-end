@@ -7,7 +7,7 @@
  */
 
 import { scanTags } from "@/lib/xml-widgets"
-import type { StepsData } from "@/hooks/use-chat-state"
+import type { StepsData } from "@/types/chat"
 
 export function parseStepsXml(xml: string): StepsData | null {
   const [block] = scanTags(xml, "steps")
