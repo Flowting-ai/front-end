@@ -9,6 +9,7 @@ import {
   ORG_SLACK_CHANNELS_ENDPOINT,
   ORG_SLACK_CHANNEL_MAPPING_ENDPOINT,
   ORG_SLACK_INSTALLATION_ENDPOINT,
+  ORG_SLACK_CONFIG_ENDPOINT,
   ORG_SLACK_PROJECT_CHANNEL_ENDPOINT,
 } from '@/lib/config'
 
@@ -243,6 +244,36 @@ export async function renameProjectSlackChannel(
     { method: 'PATCH', body: JSON.stringify({ name }) },
   )
   return normalizeChannel(slackChannelItemSchema.parse(raw))
+}
+
+const slackAppConfigSchema = z.object({
+  name:        z.string(),
+  description: z.string().default(''),
+  prompt:      z.string().default(''),
+})
+
+export interface SlackAppConfig {
+  name:        string
+  description: string
+  prompt:      string
+}
+
+/** GET /organizations/{id}/slack/config — the Slack app's name and instructions. */
+export async function getSlackAppConfig(orgId: string): Promise<SlackAppConfig> {
+  const raw = await apiFetchJson<unknown>(ORG_SLACK_CONFIG_ENDPOINT(orgId))
+  return slackAppConfigSchema.parse(raw)
+}
+
+/** PATCH /organizations/{id}/slack/config */
+export async function updateSlackAppConfig(
+  orgId: string,
+  config: SlackAppConfig,
+): Promise<SlackAppConfig> {
+  const raw = await apiFetchJson<unknown>(ORG_SLACK_CONFIG_ENDPOINT(orgId), {
+    method: 'PATCH',
+    body: JSON.stringify(config),
+  })
+  return slackAppConfigSchema.parse(raw)
 }
 
 /** DELETE /organizations/{id}/slack/projects/{projectId}/channel — archive the
