@@ -575,6 +575,8 @@ export default function ProjectPage() {
     )))
   )
 
+  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
+
   return (
     <div style={{ position: 'relative', display: 'flex', width: '100%', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
 
@@ -820,14 +822,14 @@ export default function ProjectPage() {
               }
               chips={
                 <>
-                  {(USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)) && (
+                  {activeStyle && (
                     <Dropdown.Float
                       open={styleChipOpen}
                       onOpenChange={setStyleChipOpen}
                       placement="top-start"
                       trigger={
                         <Chip
-                          label={USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)!.label}
+                          label={activeStyle.label}
                           icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
                           onRemove={() => setSelectedStyleId(null)}
                           onExpand={() => setStyleChipOpen(v => !v)}

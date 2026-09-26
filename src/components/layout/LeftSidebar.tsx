@@ -498,6 +498,20 @@ function sortProjectsByRecency(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 }
 
+// Extracts the project id from a pathname matching PROJECT_ROUTE's shape
+// (`/project/{id}` or a nested route under it), or null if it doesn't match.
+// Used to synchronously seed which project's sidebar row should start
+// expanded, straight from the URL, instead of waiting for the projects list
+// to load and an effect to react to it — pathname is identical on the server
+// render and the client's first render, so this carries no hydration-mismatch
+// risk (unlike branching on `typeof window` or reading sessionStorage).
+// Closes the gap where the row used to animate open a beat after paint,
+// which Lighthouse (correctly) measured as layout shift.
+function activeProjectIdFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/project\/([^/]+)/)
+  return match ? match[1] : null
+}
+
 interface ProjectsSectionProps {
   label?: string
   showNewProject?: boolean
@@ -526,7 +540,10 @@ function ProjectsSection({
     () => projectsFilter ? allProjects.filter(projectsFilter) : allProjects,
     [allProjects, projectsFilter],
   )
-  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => new Set())
+  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => {
+    const id = activeProjectIdFromPathname(pathname)
+    return id ? new Set([id]) : new Set()
+  })
 
   const visibleProjects = useMemo(() => projects.slice(0, PROJECT_LIMIT), [projects])
 
@@ -2106,7 +2123,10 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
   // FlatTeamsSidebarContent, which merges personal + active-team projects
   // into one filtered pool before slicing.
   const projects = useMemo(() => sortProjectsByRecency(allProjects.filter(projectsFilter)), [allProjects, projectsFilter])
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const id = activeProjectIdFromPathname(pathname)
+    return id ? new Set([id]) : new Set()
+  })
   const visibleProjects = useMemo(() => projects.slice(0, limit), [projects, limit])
 
   React.useEffect(() => {

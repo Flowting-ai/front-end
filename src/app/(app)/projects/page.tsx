@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard, VISIBILITY_LABEL, VISIBILITY_COLOR } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
+import { Skeleton } from '@/components/Skeleton'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
@@ -737,24 +738,26 @@ function ProjectsPageInner() {
         {scopeFilter === 'trash' ? (
           user?.auth0Id && <ProjectTrashList currentUserId={user.auth0Id} onRestored={handleRefreshProjects} />
         ) : loading ? (
-          <div
-            style={{
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              padding:        '64px 24px',
-            }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   '14px',
-                color:      '#857a72',
-              }}
-            >
-              Loading projects…
-            </p>
-          </div>
+          // Sized to roughly match the real content each viewMode renders
+          // once `loading` resolves (grid cards are a fixed 262px —
+          // ProjectCard/index.tsx:82 — list rows ~64px) so the swap from
+          // skeleton to real content doesn't shift the layout underneath it;
+          // the previous single-line "Loading projects…" text reserved far
+          // less space than either real layout, causing a real, measured
+          // (not dev-mode-artifact) CLS hit.
+          viewMode === 'list' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} height={64} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', width: '100%' }}>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} height={262} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+              ))}
+            </div>
+          )
         ) : filtered.length === 0 ? (
           query.trim() ? (
             <p
