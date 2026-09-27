@@ -46,8 +46,8 @@ import { LoopFailedCard, type LoopFailedCardProps } from './LoopFailedCard'
 export { LoopFailedCard, type LoopFailedCardProps }
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
 export { ScheduleCard, type ScheduleCardProps }
-import { ScheduleListView, type ScheduleListViewProps, type ScheduleListItem } from './ScheduleListView'
-export { ScheduleListView, type ScheduleListViewProps, type ScheduleListItem }
+import { ScheduleListView, type ScheduleListViewProps, type ScheduleListItem, type ScheduleScope } from './ScheduleListView'
+export { ScheduleListView, type ScheduleListViewProps, type ScheduleListItem, type ScheduleScope }
 import { ScheduleDetailView, type ScheduleDetailViewProps, type ScheduleDetailItem, type ScheduleRunRecord } from './ScheduleDetailView'
 export { ScheduleDetailView, type ScheduleDetailViewProps, type ScheduleDetailItem, type ScheduleRunRecord }
 import { PersonaActiveBar, type PersonaActiveBarProps } from './PersonaActiveBar'

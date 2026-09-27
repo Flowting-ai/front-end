@@ -32,6 +32,9 @@ export interface ScheduleCardProps {
    *  (services/automations/schedule.py's `drift` flag) — the last edit may
    *  not have fully taken effect. */
   drift?:       boolean
+  /** Set for someone else's automation in the org view — shown instead of the
+   *  creation date, since who owns it is what decides what you can do with it. */
+  ownerName?:   string
   onClick?:     (id: string) => void
 }
 
@@ -49,6 +52,7 @@ export function ScheduleCard({
   successRate,
   isRunning,
   drift,
+  ownerName,
   onClick,
 }: ScheduleCardProps) {
   const [hovered, setHovered] = useState(false)
@@ -93,7 +97,7 @@ export function ScheduleCard({
           ProjectCard's "Created by" + visibility badge. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
         <div style={{ minWidth: 0 }}>
-          {createdAt && (
+          {(ownerName || createdAt) && (
             <span style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   400,
@@ -104,7 +108,7 @@ export function ScheduleCard({
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              Created on {createdAt}
+              {ownerName ? `By ${ownerName}` : `Created on ${createdAt}`}
             </span>
           )}
         </div>

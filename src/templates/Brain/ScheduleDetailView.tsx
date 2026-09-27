@@ -8,6 +8,7 @@ import {
   ArrowRightOneIcon,
   CalendarThreeIcon,
   AlertTwoIcon,
+  CopyOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -54,6 +55,9 @@ export interface ScheduleDetailItem {
   /** True when the backend's deployed timer has drifted from what's stored —
    *  the last edit may not have fully taken effect. */
   drift?:       boolean
+  /** Set when someone else in the org owns it: the view is read-only and its
+   *  run history, which can hold the owner's data, is not available. */
+  ownerName?:   string
 }
 
 export interface ScheduleDetailViewProps {
@@ -66,6 +70,10 @@ export interface ScheduleDetailViewProps {
   runningNow?:     boolean
   onToggleActive?: (active: boolean) => void
   onOpenChat?:     (chatId: string) => void
+  /** Start a Brain chat that rebuilds this schedule as the viewer's own. */
+  onCopy?:         () => void
+  /** True while the copy chat is being prepared. */
+  copying?:        boolean
 }
 
 // ── Inline toggle ─────────────────────────────────────────────────────────────
@@ -115,7 +123,10 @@ export function ScheduleDetailView({
   runningNow = false,
   onToggleActive,
   onOpenChat,
+  onCopy,
+  copying = false,
 }: ScheduleDetailViewProps) {
+  const readOnly = !!schedule.ownerName
   const [isActive, setIsActive] = useState(schedule.isActive)
 
   const handleToggle = (v: boolean) => {
@@ -157,18 +168,33 @@ export function ScheduleDetailView({
           {schedule.name}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <IconButton variant="ghost" aria-label="Edit schedule"   icon={<PenOneIcon />}    onClick={onEdit}   />
-          <IconButton variant="ghost" aria-label="Delete schedule" icon={<DeleteTwoIcon />} onClick={onDelete} />
-          <Button
-            variant="default"
-            size="sm"
-            rightIcon={<ArrowRightOneIcon />}
-            loading={runningNow}
-            disabled={runningNow}
-            onClick={onRunNow}
-          >
-            Run now
-          </Button>
+          {readOnly ? (
+            <Button
+              variant="default"
+              size="sm"
+              leftIcon={<CopyOneIcon />}
+              loading={copying}
+              disabled={copying}
+              onClick={onCopy}
+            >
+              Copy
+            </Button>
+          ) : (
+            <>
+              <IconButton variant="ghost" aria-label="Edit schedule"   icon={<PenOneIcon />}    onClick={onEdit}   />
+              <IconButton variant="ghost" aria-label="Delete schedule" icon={<DeleteTwoIcon />} onClick={onDelete} />
+              <Button
+                variant="default"
+                size="sm"
+                rightIcon={<ArrowRightOneIcon />}
+                loading={runningNow}
+                disabled={runningNow}
+                onClick={onRunNow}
+              >
+                Run now
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -183,7 +209,7 @@ export function ScheduleDetailView({
         backgroundColor: 'var(--neutral-white)',
         flexWrap:        'wrap',
       }}>
-        <Toggle checked={isActive} onChange={handleToggle} />
+        {!readOnly && <Toggle checked={isActive} onChange={handleToggle} />}
 
         <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
 
@@ -309,6 +335,25 @@ export function ScheduleDetailView({
           flexDirection: 'column',
           gap:           6,
         }}>
+          {schedule.ownerName && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                color:      'var(--neutral-400)',
+              }}>
+                Owner
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-body)',
+                lineHeight: 'var(--line-height-body)',
+                color:      'var(--neutral-700)',
+              }}>
+                {schedule.ownerName}
+              </span>
+            </div>
+          )}
           {schedule.createdAt && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{
@@ -363,8 +408,8 @@ export function ScheduleDetailView({
         </div>
       </div>
 
-      {/* ── Run history ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ── Run history — the owner's alone; its answers can hold their data ── */}
+      {!readOnly && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             fontFamily: 'var(--font-body)',
@@ -435,7 +480,7 @@ export function ScheduleDetailView({
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
     </div>
   )
