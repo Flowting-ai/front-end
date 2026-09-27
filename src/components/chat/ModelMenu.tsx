@@ -5,7 +5,7 @@ import { TickTwoIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { useModelSelectorContext, type ModelAlgorithm } from '@/context/model-selector-context'
 import { trackFeature } from '@/lib/analytics/events'
-import { sortModels } from '@/lib/ai-models'
+import { sortModels, modelIconSource, AUTO_ROUTING_LABELS, isAutoRoutingModelName } from '@/lib/ai-models'
 import { ModelIcon } from '@/components/ModelIcon'
 import type { AIModel } from '@/types/ai-model'
 
@@ -13,32 +13,11 @@ function isSameModel(a: AIModel | null, b: AIModel): boolean {
   return a?.id === b.id && a?.modelId === b.modelId
 }
 
-// Display copy for each auto-routing tier — the only place this mapping
-// lives, so the trigger button label (useModelButtonLabel) and the menu
-// rows below always agree.
-const ALGORITHM_LABELS: Record<ModelAlgorithm, string> = {
-  pro:  'Souvenir Pro',
-  base: 'Souvenir Standard',
-}
-
-// Lowercased for case-insensitive matching against a catalog model's
-// `modelName` — see the filter on `sortedModels` below.
-const ALGORITHM_MODEL_NAMES = new Set(
-  Object.values(ALGORITHM_LABELS).map((label) => label.toLowerCase()),
-)
-
-// Legacy Souvenir-tier names ("Advanced"/"Standard"/"Basic") that can still
-// appear in the catalog alongside the real provider models — these are
-// Claude under the hood, but their own companyName/modelName don't reliably
-// resolve to "Claude" via toLlmIconId, so it's forced explicitly here rather
-// than showing no logo for them.
-const CLAUDE_TIER_NAMES = new Set(['advanced', 'standard', 'basic'])
-
-/** Resolves what to hand ModelIcon's `model` prop for a catalog model row. */
-function modelIconSource(model: AIModel): string | null {
-  if (CLAUDE_TIER_NAMES.has(model.modelName.trim().toLowerCase())) return 'Claude'
-  return model.companyName || model.modelName
-}
+// Display copy for each auto-routing tier — sourced from lib/ai-models.ts so
+// the trigger button label (useModelButtonLabel), the menu rows below, and
+// the settings account page's Default Model picker (which groups these
+// under their own "Auto Routing" section) all agree on the same strings.
+const ALGORITHM_LABELS: Record<ModelAlgorithm, string> = AUTO_ROUTING_LABELS
 
 // Caps the "Select a Model" submenu at 5 visible rows, scrolling (kaya
 // scrollbar) for the rest — overrides Popover's own default ~7-row cap so
@@ -69,7 +48,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   // provider models — excluded here so a routing alias doesn't show up a
   // second time as if it were its own distinct, directly-selectable model.
   const sortedModels = sortModels(models).filter(
-    (model) => !ALGORITHM_MODEL_NAMES.has(model.modelName.trim().toLowerCase()),
+    (model) => !isAutoRoutingModelName(model.modelName),
   )
   const hasDirectSelection = !algorithm && !!selectedModel
 

@@ -174,6 +174,42 @@ export function pickDefaultModel<T extends Pick<AIModel, "tags">>(models: T[]): 
   return models.find(m => m.tags?.includes("Recommended")) ?? models[0];
 }
 
+/**
+ * Display labels for Souvenir's own auto-routing tiers — these appear in the
+ * model catalog as regular-looking model rows (aliases for an algorithm the
+ * backend picks a real model for, not a directly-selectable model). Single
+ * source of truth so every surface that lists, excludes, or groups them
+ * (ModelMenu's composer picker, the settings account page's Default Model
+ * picker) agrees on the exact display strings.
+ */
+export const AUTO_ROUTING_LABELS = {
+  pro: "Souvenir Pro",
+  base: "Souvenir Standard",
+} as const;
+
+const AUTO_ROUTING_NAMES = new Set(
+  Object.values(AUTO_ROUTING_LABELS).map((label) => label.toLowerCase()),
+);
+
+/** True when a catalog model's name is one of Souvenir's own auto-routing
+ *  tier aliases (AUTO_ROUTING_LABELS), not a directly-selectable model. */
+export function isAutoRoutingModelName(modelName: string): boolean {
+  return AUTO_ROUTING_NAMES.has(modelName.trim().toLowerCase());
+}
+
+// Legacy Souvenir-tier names ("Advanced"/"Standard"/"Basic") that can still
+// appear in the catalog alongside the real provider models — these are
+// Claude under the hood, but their own companyName/modelName don't reliably
+// resolve to "Claude" via toLlmIconId, so it's forced explicitly here rather
+// than showing no logo for them.
+const CLAUDE_TIER_NAMES = new Set(["advanced", "standard", "basic"]);
+
+/** Resolves what to hand ModelIcon's `model` prop for a catalog model row. */
+export function modelIconSource<T extends Pick<AIModel, "modelName" | "companyName">>(model: T): string | null {
+  if (CLAUDE_TIER_NAMES.has(model.modelName.trim().toLowerCase())) return "Claude";
+  return model.companyName || model.modelName;
+}
+
 // Size/class keywords used only to break ties between same-company candidates
 // — e.g. prefer another Sonnet-class model over an Opus/Haiku one so a
 // persona's cost/capability tier survives a forced model swap where possible.

@@ -11,7 +11,8 @@ import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from
 import { useNavGuard } from '@/context/nav-guard-context'
 import { toast } from 'sonner'
 import { AccountSkeleton } from '../SettingsSkeleton'
-import { fetchModelsWithCache, sortModels, pickDefaultModel } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModels, pickDefaultModel, modelIconSource, isAutoRoutingModelName } from '@/lib/ai-models'
+import { ModelIcon } from '@/components/ModelIcon'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Settings v1.5 — Account page ─────────────────────────────────────────────
@@ -50,12 +51,27 @@ function ChevronDownIcon() {
   )
 }
 
+// Caps the list at 4 visible rows, scrolling (kaya-scrollbar, via Popover's
+// own ScrollArea) for the rest — same row-math convention as ModelMenu's
+// MODEL_LIST_MAX_HEIGHT, but for rows WITH a subLabel (descriptions are
+// always passed for the model list): 5px top pad + 22px label line-height +
+// 16px subLabel line-height + 5px bottom pad = 48px/row (DropdownMenuItem's
+// own documented content height), + 4px gap between rows (this component's
+// item-wrapper gap below).
+const VISIBLE_OPTION_ROWS = 4
+const OPTION_ROW_HEIGHT = 48
+const OPTION_ROW_GAP = 4
+const OPTION_LIST_MAX_HEIGHT =
+  VISIBLE_OPTION_ROWS * OPTION_ROW_HEIGHT + (VISIBLE_OPTION_ROWS - 1) * OPTION_ROW_GAP
+
 // ── Compact pill select — Figma "Button" (18:27528/18:27537) ─────────────────
 function PillSelect<T extends string>({
   value,
   options,
   onChange,
   descriptions,
+  icons,
+  sections,
   pending = false,
 }: {
   value: T
@@ -63,12 +79,32 @@ function PillSelect<T extends string>({
   onChange: (value: T) => void
   /** Optional one-line "what this means" caption shown under each option's label. */
   descriptions?: Partial<Record<T, string>>
+  /** Optional leading icon per option (e.g. a model's provider logo). */
+  icons?: Partial<Record<T, React.ReactElement>>
+  /**
+   * Optional grouping — when provided, renders under labeled mini-headers
+   * (e.g. "Auto Routing" / "Models") instead of one flat list. `options`
+   * should still list every value (used for the trigger/type-checking);
+   * `sections` only changes how the open list is rendered. Sections with an
+   * empty `options` array are skipped entirely (no empty header).
+   */
+  sections?: Array<{ label: string; options: readonly T[] }>
   /** True while the change request is in flight — dims the trigger, blocks reopening. */
   pending?: boolean
 }) {
+  const visibleSections = sections?.filter(s => s.options.length > 0)
   const [open, setOpen] = useState(false)
   return (
-    <Dropdown.Float open={open && !pending} onOpenChange={(v) => { if (!pending) setOpen(v) }} placement="bottom-end" offset={4} trigger={
+    <Dropdown.Float
+      open={open && !pending}
+      onOpenChange={(v) => { if (!pending) setOpen(v) }}
+      placement="bottom-end"
+      offset={4}
+      // Flips to open upward when there isn't enough room below the trigger
+      // (e.g. this row sitting near the bottom of the viewport) — same
+      // mechanism already used for the sidebar's project-row menus.
+      autoFlipVertical
+      trigger={
       <button
         type="button"
         disabled={pending}
@@ -78,7 +114,11 @@ function PillSelect<T extends string>({
           alignItems:      'center',
           justifyContent:  'space-between',
           gap:             8,
-          width:           100,
+          // minWidth (not a fixed width) — a fixed 100px truncated/cramped
+          // longer values (model names, especially once an icon eats into
+          // the same space); this keeps the compact Tone trigger's size but
+          // lets the button grow for whatever content actually needs it.
+          minWidth:        100,
           padding:         '5px 8px',
           borderRadius:    8,
           border:          'none',
@@ -93,33 +133,66 @@ function PillSelect<T extends string>({
           color:           'var(--neutral-700,#524b47)',
         }}
       >
-        {value}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+          {icons?.[value]}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+        </span>
         {pending ? <Spinner size={14} /> : <ChevronDownIcon />}
       </button>
     }>
-      <Dropdown maxHeight={false}>
-        {/* Not Dropdown.Section — its item wrapper hardcodes width:100% (fluid)
-            or width:217px on every nested div, a percentage/fixed chain that
-            left a few px of slack between the widest item and the popover's
-            own shrink-to-fit edge. Omitting width entirely here (on both this
-            wrapper and each item, via style below) lets the container and
-            items resolve through plain flex `align-items: stretch` (the
-            default) instead — a single, first-pass-then-stretch computation
-            with no percentage-of-indeterminate-ancestor step, so the item's
-            right edge lands exactly on the container's own edge. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
-          {options.map(option => (
-            <Dropdown.Item
-              key={option}
-              label={option}
-              subLabel={descriptions?.[option]}
-              selected={option === value}
-              onClick={() => { onChange(option); setOpen(false) }}
-              style={{ width: 'auto' }}
-            />
+      {visibleSections ? (
+        // Dropdown.Section is safe here (unlike the flat branch below)
+        // because `size="lg"` below gives the popover an explicit width —
+        // DropdownSection's own width:100%-on-nested-divs chain only
+        // produces a few px of edge slack when the popover's own width is
+        // indeterminate (shrink-to-fit); a known ancestor width removes
+        // that step entirely, same reason ModelMenu's sectioned dropdown
+        // (which also uses an explicit `size`) doesn't have the issue.
+        <Dropdown size="lg" maxHeight={OPTION_LIST_MAX_HEIGHT}>
+          {visibleSections.map((section, i) => (
+            <Dropdown.Section key={section.label} label={section.label} fluid divider={i > 0}>
+              {section.options.map(option => (
+                <Dropdown.Item
+                  key={option}
+                  fluid
+                  icon={icons?.[option]}
+                  label={option}
+                  subLabel={descriptions?.[option]}
+                  selected={option === value}
+                  onClick={() => { onChange(option); setOpen(false) }}
+                />
+              ))}
+            </Dropdown.Section>
           ))}
-        </div>
-      </Dropdown>
+        </Dropdown>
+      ) : (
+        <Dropdown maxHeight={OPTION_LIST_MAX_HEIGHT}>
+          {/* Not Dropdown.Section — its item wrapper hardcodes width:100% (fluid)
+              or width:217px on every nested div, a percentage/fixed chain that
+              left a few px of slack between the widest item and the popover's
+              own shrink-to-fit edge (this branch has no explicit `size`, so
+              the popover's own width is indeterminate/shrink-to-fit).
+              Omitting width entirely here (on both this wrapper and each
+              item, via style below) lets the container and items resolve
+              through plain flex `align-items: stretch` (the default) instead
+              — a single, first-pass-then-stretch computation with no
+              percentage-of-indeterminate-ancestor step, so the item's right
+              edge lands exactly on the container's own edge. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: OPTION_ROW_GAP, padding: 8 }}>
+            {options.map(option => (
+              <Dropdown.Item
+                key={option}
+                icon={icons?.[option]}
+                label={option}
+                subLabel={descriptions?.[option]}
+                selected={option === value}
+                onClick={() => { onChange(option); setOpen(false) }}
+                style={{ width: 'auto' }}
+              />
+            ))}
+          </div>
+        </Dropdown>
+      )}
     </Dropdown.Float>
   )
 }
@@ -327,6 +400,23 @@ function AccountPageContent({
   const modelDescriptions = Object.fromEntries(
     models.map(m => [m.modelName, m.description ?? '']),
   ) as Record<string, string>
+  const modelIcons = Object.fromEntries(
+    models.map(m => [
+      m.modelName,
+      // Auto-routing aliases ("Souvenir Pro"/"Souvenir Standard") don't have
+      // a real provider behind them — omitting `model` here (not passing
+      // modelIconSource's result) falls back to the Souvenir mark, matching
+      // ModelMenu's own identical, deliberate choice for these same two rows.
+      <ModelIcon key={m.modelName} model={isAutoRoutingModelName(m.modelName) ? undefined : modelIconSource(m)} size={16} />,
+    ]),
+  ) as Record<string, React.ReactElement>
+  // Groups the picker under "Auto Routing" / "Models" mini-headers, matching
+  // ModelMenu's own composer picker's exact section labels and grouping —
+  // the catalog carries the auto-routing tiers as regular-looking model rows
+  // (see AUTO_ROUTING_LABELS), so they'd otherwise sort in among the real
+  // models with no indication they're something different.
+  const autoRoutingModelOptions = modelOptions.filter(isAutoRoutingModelName)
+  const otherModelOptions = modelOptions.filter(name => !isAutoRoutingModelName(name))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -760,7 +850,17 @@ function AccountPageContent({
             <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
           </SettingsRow>
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
-            <PillSelect value={defaultModel} options={modelOptions} onChange={handleDefaultModelChange} descriptions={modelDescriptions} />
+            <PillSelect
+              value={defaultModel}
+              options={modelOptions}
+              onChange={handleDefaultModelChange}
+              descriptions={modelDescriptions}
+              icons={modelIcons}
+              sections={[
+                { label: 'Auto Routing', options: autoRoutingModelOptions },
+                { label: 'Models', options: otherModelOptions },
+              ]}
+            />
           </SettingsRow>
         </SettingsCard>
 
