@@ -1,14 +1,11 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, CancelOneIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Chip } from '@/components/Chip'
-import { Badge } from '@/components/Badge'
 import { useProjects } from '@/context/projects-context'
 import { emitProjectNewChat } from '@/hooks/use-sidebar-events'
 import { useAuth } from '@/context/auth-context'
@@ -25,11 +22,12 @@ import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import { Skeleton } from '@/components/Skeleton'
 import { Divider } from '@/components/Divider'
+import { teamChatsLoadingRows, withDividers } from '@/components/ProjectChatListSkeleton'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
-import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
+import { ProjectShareModal } from '@/components/ProjectShareModal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { publishProjectChat } from '@/lib/api/chat'
 import { fetchProjectChats, PROJECT_VISIBILITY_OPTIONS, type ApiProjectChat } from '@/lib/api/projects'
@@ -73,31 +71,6 @@ const tabsRowStyle: React.CSSProperties = {
 const tooltipDividerStyle: React.CSSProperties = {
   height:          1,
   backgroundColor: 'rgba(255,255,255,0.15)',
-}
-
-// Row separation comes from a divider between items, not a per-row border —
-// intersperses one before every row after the first.
-function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
-  return rows.flatMap((row, i) => (i === 0 ? [row] : [<Divider key={`divider-${i}`} />, row]))
-}
-
-// Shown in place of "Your chats"/"Published chats" while teamChats is still
-// loading (see the fetchProjectChats effect) — same padding/shape as a real
-// ProjectChatRow so there's no layout jump once the rows swap in, and no
-// "No chats yet" flash for a project that genuinely has chats.
-function TeamChatRowSkeleton({ w }: { w: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', width: '100%', boxSizing: 'border-box' }}>
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Skeleton width={w} height={14} />
-        <Skeleton width="30%" height={12} />
-      </div>
-    </div>
-  )
-}
-
-function teamChatsLoadingRows() {
-  return withDividers(['70%', '45%', '58%'].map((w, i) => <TeamChatRowSkeleton key={i} w={w} />))
 }
 
 export default function ProjectPage() {
@@ -175,8 +148,12 @@ export default function ProjectPage() {
   // draft message/attachment/persona-or-style pick typed while viewing
   // Project A carried over unchanged into Project B's composer after
   // switching projects via the sidebar (same route file, different id, no
-  // remount).
-  useEffect(() => {
+  // remount). Adjusts state during render the moment params.id changes
+  // (React's own sanctioned pattern for this) instead of an effect, which
+  // would apply the same reset a whole extra frame later, after paint.
+  const [composerResetForId, setComposerResetForId] = useState(params.id)
+  if (params.id !== composerResetForId) {
+    setComposerResetForId(params.id)
     setChatInputValue('')
     setNewChatAttachments([])
     setPendingFiles([])
@@ -190,7 +167,7 @@ export default function ProjectPage() {
     setAgentsPanelOpen(false)
     setMembersPanelOpen(false)
     setInstructionsOpen(false)
-  }, [params.id])
+  }
 
   // Workspace/Shared projects source their chat list from the project-scoped
   // GET /projects/{id}/chats endpoint (services/projects/project.py :: chats),
@@ -209,10 +186,26 @@ export default function ProjectPage() {
   // project.visibility, NOT project.teamId — the backend stamps
   // organizationId on org members' Personal projects too, so teamId alone
   // can't tell Personal apart from Workspace/Shared.
+  // The personal-vs-team reset used to fire synchronously at the top of the
+  // fetch effect below; moved to a render-time adjustment (same pattern as
+  // the composer reset above) so the effect only ever sets state from a
+  // genuine async completion. Tracks the same identity the effect's own
+  // dependency array does.
+  const teamChatsKey = `${project?.visibility ?? ''}|${params.id}|${user?.auth0Id ?? ''}`
+  const [teamChatsSyncedKey, setTeamChatsSyncedKey] = useState(teamChatsKey)
+  if (teamChatsKey !== teamChatsSyncedKey) {
+    setTeamChatsSyncedKey(teamChatsKey)
+    if (!project || project.visibility === 'personal' || !user?.auth0Id) {
+      setTeamChats([])
+      setTeamChatsLoading(false)
+    } else {
+      setTeamChatsLoading(true)
+    }
+  }
+
   useEffect(() => {
-    if (!project || project.visibility === 'personal' || !user?.auth0Id) { setTeamChats([]); setTeamChatsLoading(false); return }
+    if (!project || project.visibility === 'personal' || !user?.auth0Id) return
     let cancelled = false
-    setTeamChatsLoading(true)
     fetchProjectChats(params.id, user.auth0Id)
       .then(list => { if (!cancelled) setTeamChats(list) })
       .catch(() => { if (!cancelled) setTeamChats([]) })
@@ -1125,120 +1118,19 @@ export default function ProjectPage() {
         onClose={() => setInstructionsOpen(false)}
       />}
 
-      {/* ── Sharing modal ─────────────────────────────────────────────────
-          Portaled to document.body: AppLayout's rounded content container
-          sets `isolation: isolate` for its own z-index scoping, which traps
-          any z-index set on a descendant — including a `position: fixed`
-          one — inside that local stacking context. Since the Instructions/
-          Team panel and Pinboard render as siblings OUTSIDE that container
-          (see project-panel-context / RightSidebar), nothing rendered
-          in-place here could ever paint above them, no matter how high the
-          z-index. Portaling escapes the trap the same way EditProjectModal/
-          SystemInstructionsModal already do.
-
-          Visibility itself is changed by the owner in the Edit modal; this
-          is read-only status plus, for Shared projects, an invite-only list (org members
-          NOT yet in the project, each with its own "Add to project" button
-          — ProjectAddMembersList). Viewing/removing people already on the
-          project stays the "Members" floating panel's job
-          (ProjectMembersPanel) — this modal never shows current members, to
-          avoid duplicating that same list in two places. Workspace projects
-          have nothing to manage: access is automatic for the whole
-          workspace, per spec ("membership = whole workspace, not managed"). */}
-      {shareOpen && typeof document !== 'undefined' && createPortal(
-        <>
-          <div
-            onClick={handleCloseShare}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 100 }}
-          />
-          <div
-            style={{
-              position:        'fixed',
-              top:             '50%',
-              left:            '50%',
-              transform:       'translate(-50%, -50%)',
-              zIndex:          101,
-              width:           600,
-              maxWidth:        'calc(100vw - 48px)',
-              maxHeight:       'calc(100vh - 96px)',
-              // Only the Shared branch (real member list below) gets a real
-              // `height`, not just a cap — `flex: 1 1 0` on that list region
-              // has flex-basis 0 and only grows into space the container
-              // actually has; an auto-sized (maxHeight-only) column has none
-              // to give it, so it rendered at ~0px. The Workspace branch is a
-              // couple lines of static text with nothing to scroll, so it
-              // stays auto-height (no wasted white space below short text).
-              height:          project.visibility === 'shared' ? 600 : undefined,
-              overflow:        'hidden',
-              borderRadius:    16,
-              backgroundColor: 'white',
-              boxShadow:       '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
-              padding:         24,
-              display:         'flex',
-              flexDirection:   'column',
-              gap:             16,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-                  Sharing
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-                  {project.visibility === 'workspace'
-                    ? `Everyone in ${org.name || 'your workspace'} can see this project.`
-                    : 'Add teammates from your workspace to this project.'}
-                </p>
-              </div>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<CancelOneIcon />}
-                aria-label="Close"
-                onClick={handleCloseShare}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
-                Currently
-              </span>
-              {project.visibility === 'workspace' ? (
-                <Badge color="Blue" label="Workspace" />
-              ) : (
-                <Badge color="Yellow" label="Shared" />
-              )}
-            </div>
-
-            {project.visibility === 'workspace' ? (
-              // No manageable list — per spec, Workspace access is automatic
-              // for everyone currently in the org, not a curated list. Revoke
-              // access by removing someone from the workspace itself, not here.
-              <div style={{ padding: '16px', borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--neutral-50)' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
-                  Workspace projects aren't shared with individual people — every
-                  current and future workspace member has access automatically.
-                  To remove someone's access, remove them from the workspace.
-                </p>
-              </div>
-            ) : (
-              // This modal is invite-only — viewing/removing people already
-              // on the project is the "Members" floating panel's job
-              // (ProjectMembersPanel), not this one's. `flex: 1 1 0` +
-              // `minHeight: 0` let the list grow to fill whatever room the
-              // header/badge/footer leave (bounded by the card's own
-              // maxHeight above) and scroll internally once it overflows.
-              <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-                <ProjectAddMembersList projectId={project.id} onAdded={() => setMemberListVersion(v => v + 1)} />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
-              <Button variant="outline" size="sm" onClick={handleCloseShare}>Close</Button>
-            </div>
-          </div>
-        </>,
-        document.body,
+      {/* project.visibility !== 'personal' is always true whenever shareOpen
+          can be true — the Sharing icon that opens this is itself hidden on
+          personal projects — narrowing it here is what lets ProjectShareModal
+          type its own prop as Exclude<ProjectVisibility, 'personal'>. */}
+      {project.visibility !== 'personal' && (
+        <ProjectShareModal
+          open={shareOpen}
+          onClose={handleCloseShare}
+          projectId={project.id}
+          projectVisibility={project.visibility}
+          orgName={org.name}
+          onMemberAdded={() => setMemberListVersion(v => v + 1)}
+        />
       )}
     </div>
   )
