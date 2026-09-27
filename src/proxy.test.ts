@@ -52,4 +52,21 @@ describe("proxy invite authentication", () => {
     );
     expect(auth0Mocks.middleware).not.toHaveBeenCalled();
   });
+
+  it("sends an email login onto a Slack-made account through Slack login", async () => {
+    auth0Mocks.getSession.mockResolvedValue({ user: { sub: "google-oauth2|ada" } });
+    auth0Mocks.getAccessToken.mockResolvedValue({ token: "jwt" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "slack_login_required" }), { status: 409 }),
+    );
+
+    const response = await proxy(new NextRequest("https://app.getsouvenir.com/"));
+
+    expect(response.status).toBe(302);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/auth/login");
+    expect(location.searchParams.get("connection")).toBe("sign-in-with-slack");
+    expect(location.searchParams.get("returnTo")).toBe("/");
+    fetchMock.mockRestore();
+  });
 });

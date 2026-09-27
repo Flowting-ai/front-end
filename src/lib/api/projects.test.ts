@@ -35,7 +35,6 @@ describe('fetchProjects', () => {
       teamId: 'org-1',
       visibility: 'workspace',
       canEdit: true,
-      canManageVisibility: false,
       title: 'Launch',
       description: '',
       tags: [],

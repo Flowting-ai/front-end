@@ -21,7 +21,14 @@ type OnboardingGate = {
 type OnboardingStateResult = {
   data: OnboardingGate | null;
   requiresReauth: boolean;
+  /** The Auth0 connection the re-login must use, when the backend names one. */
+  loginConnection?: string;
 };
+
+// The backend's 409 when this email belongs to an account made from Slack that
+// has never signed in with Slack: Auth0 can only merge logins into it after one.
+const SLACK_LOGIN_REQUIRED = "slack_login_required";
+const SLACK_LOGIN_CONNECTION = "sign-in-with-slack";
 
 const apiBaseUrl = process.env.SERVER_URL?.replace(/\/+$/, "");
 const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
@@ -122,6 +129,12 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
 
     if (response.status === 401) {
       return { data: null, requiresReauth: true };
+    }
+    if (response.status === 409) {
+      const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
+      if (body.detail === SLACK_LOGIN_REQUIRED) {
+        return { data: null, requiresReauth: true, loginConnection: SLACK_LOGIN_CONNECTION };
+      }
     }
     if (!response.ok) return { data: null, requiresReauth: false };
 
@@ -257,6 +270,9 @@ export default async function proxy(request: NextRequest) {
   if (onboardingResult.requiresReauth) {
     const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
     loginUrl.searchParams.set("returnTo", returnTo);
+    if (onboardingResult.loginConnection) {
+      loginUrl.searchParams.set("connection", onboardingResult.loginConnection);
+    }
     return Response.redirect(loginUrl);
   }
 

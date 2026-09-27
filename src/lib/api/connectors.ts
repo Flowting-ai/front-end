@@ -66,6 +66,18 @@ export class ConnectorTool {
   }
 }
 
+// Successful raw API calls are remembered by the backend as endpoint-specific
+// catalog rows (`raw_get_…`, `raw_post_…`, and so on). They help the runtime
+// rediscover an endpoint, but they are not separate permission identities: the
+// canonical `proxy_get` / `proxy_post` tools already cover every endpoint for
+// that verb. Keeping learned rows in the settings catalog exposes implementation
+// detail and can turn one connector into hundreds of duplicate permission rows.
+const LEARNED_PROXY_TOOL_KEY = /^raw_(?:get|post|put|patch|delete)_/
+
+function isUserFacingTool(tool: ToolEntryWire): boolean {
+  return !LEARNED_PROXY_TOOL_KEY.test(tool.key)
+}
+
 /** One catalog tool as one account decided it. A tool with no stored row is 'ask'. */
 export class AccountTool {
   readonly tool: ConnectorTool
@@ -201,7 +213,7 @@ export class ConnectorCatalog {
     this.logoUrl = wire.logo_url
     this.categories = wire.categories
     this.catalogMetadata = wire.catalog_metadata
-    this.tools = wire.tools.map(tool => new ConnectorTool(tool))
+    this.tools = wire.tools.filter(isUserFacingTool).map(tool => new ConnectorTool(tool))
     this.apiKeyFields = wire.api_key_fields
     this.linked = wire.linked
     this.connections = wire.connections.map(row => new ConnectorConnection(row))

@@ -32,7 +32,7 @@ import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { publishProjectChat } from '@/lib/api/chat'
-import { fetchProjectChats, type ApiProjectChat } from '@/lib/api/projects'
+import { fetchProjectChats, PROJECT_VISIBILITY_OPTIONS, type ApiProjectChat } from '@/lib/api/projects'
 import { useOrg } from '@/context/org-context'
 import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
@@ -1083,7 +1083,9 @@ export default function ProjectPage() {
         name={project.name}
         description={project.description}
         tags={project.tags}
-        onSave={(name, description, tags) => updateProject(projectId, { name, description, tags })}
+        visibility={project.visibility}
+        visibilityOptions={project.canEdit && orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        onSave={(name, description, tags, visibility) => updateProject(projectId, { name, description, tags, visibility })}
         onClose={() => setEditOpen(false)}
       />}
 
@@ -1132,11 +1134,8 @@ export default function ProjectPage() {
           z-index. Portaling escapes the trap the same way EditProjectModal/
           SystemInstructionsModal already do.
 
-          This used to be a Private<->Shared visibility TOGGLE — that's gone:
-          the backend has no PATCH to change a project's visibility after
-          creation (personal/workspace/shared is fixed at creation, per
-          sharing-model-v2.html's Types table). So this is now read-only
-          status plus, for Shared projects, an invite-only list (org members
+          Visibility itself is changed by the owner in the Edit modal; this
+          is read-only status plus, for Shared projects, an invite-only list (org members
           NOT yet in the project, each with its own "Add to project" button
           — ProjectAddMembersList). Viewing/removing people already on the
           project stays the "Members" floating panel's job

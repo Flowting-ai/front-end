@@ -22,7 +22,7 @@ import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import type { OrgMember } from '@/types/teams'
-import type { ProjectVisibility } from '@/lib/api/projects'
+import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'az' | 'za' | 'active'
@@ -853,9 +853,11 @@ function ProjectsPageInner() {
         name={editTarget?.name ?? ''}
         description={editTarget?.description ?? ''}
         tags={editTarget?.tags ?? []}
-        onSave={(name, description, tags) => {
+        visibility={editTarget?.visibility ?? 'personal'}
+        visibilityOptions={editTarget?.canEdit && orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        onSave={(name, description, tags, visibility) => {
           if (!editTarget) return
-          return updateProject(editTarget.id, { name, description, tags })
+          return updateProject(editTarget.id, { name, description, tags, visibility })
         }}
         onClose={() => setEditTarget(null)}
       />

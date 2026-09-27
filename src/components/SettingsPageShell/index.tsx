@@ -9,6 +9,7 @@ interface SettingsPageShellProps {
   backLabel?: string
   onBack?: () => void
   maxWidth?: number
+  fluid?: boolean
 }
 
 export function SettingsPageShell({
@@ -18,6 +19,7 @@ export function SettingsPageShell({
   backLabel,
   onBack,
   maxWidth = 1114,
+  fluid = false,
 }: SettingsPageShellProps) {
   return (
     <div
@@ -27,6 +29,7 @@ export function SettingsPageShell({
         minHeight: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
+        scrollbarGutter: fluid ? 'auto' : undefined,
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -40,8 +43,8 @@ export function SettingsPageShell({
         style={{
           flex: '1 0 0',
           minWidth: 0,
-          maxWidth: maxWidth + 48,
-          padding: '0 24px',
+          maxWidth: fluid ? undefined : maxWidth + 48,
+          padding: fluid ? '0 0 0 24px' : '0 24px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',

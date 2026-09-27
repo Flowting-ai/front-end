@@ -40,6 +40,7 @@ import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { ChipColor } from "@/components/Chip";
 import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
+import { useMobile } from "@/hooks/use-mobile";
 import {
   PROJECT_ROUTE,
   PROJECT_CHAT_ROUTE,
@@ -2396,6 +2397,8 @@ function LeftSidebarImpl({
   // Sharing) are a deliberately full-width editing surface — the sidebar
   // stays collapsed and its toggle disabled so it can't be re-expanded.
   const isAgentConfigurePage = pathname?.startsWith(AGENT_CONFIGURE_BASE_ROUTE) ?? false;
+  const isSlackPage = pathname?.startsWith(ORG_SOUVENIR_SLACK_ROUTE) ?? false;
+  const isMobile = useMobile();
   // Trailing slash matters: bare "/project" also prefix-matches "/projects"
   // and "/projects/new" (the listing pages), which must NOT be treated as a
   // project detail page here (unlike AppLayout's own, intentionally broader
@@ -2701,7 +2704,7 @@ function LeftSidebarImpl({
           searchActive={searchOpen}
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
-          forceCollapsed={isAgentConfigurePage}
+          forceCollapsed={isAgentConfigurePage || (isSlackPage && isMobile)}
           destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />

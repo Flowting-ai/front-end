@@ -4,7 +4,6 @@ import { apiFetch, apiFetchJson, ApiError } from './client'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
-  PROJECT_VISIBILITY_ENDPOINT,
   PROJECT_CHATS_ENDPOINT,
   PROJECT_CHAT_LINK_ENDPOINT,
   PROJECT_FILES_ENDPOINT,
@@ -28,12 +27,9 @@ import {
 // toggle; see `canEdit`'s derivation in the normalizers below for how we make
 // do without a server-supplied signal there.
 //
-// UPDATE: `visibility` itself is back (commit 342b899d, "Enhance project
-// management features with access control and recovery options") — but as a
-// set-ONCE-at-creation field (`personal | workspace | shared`, sent as a
-// `visibility` form field to `POST /projects`), not the old PATCH-toggle.
-// `PATCH /projects/{id}/visibility` (below) genuinely still doesn't exist —
-// don't resurrect it.
+// `visibility` (`personal | workspace | shared`) is set as a form field on
+// `POST /projects` and changed later by the owner through the regular
+// `PATCH /projects/{id}` body.
 
 export interface ProjectDocumentResponse {
   id:        string
@@ -43,6 +39,12 @@ export interface ProjectDocumentResponse {
 }
 
 export type ProjectVisibility = 'personal' | 'workspace' | 'shared'
+
+export const PROJECT_VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; description: string }[] = [
+  { value: 'personal',  label: 'Personal',  description: 'Just you.' },
+  { value: 'workspace', label: 'Workspace', description: 'Everyone in the workspace.' },
+  { value: 'shared',    label: 'Shared',    description: 'You choose who to invite.' },
+]
 
 export interface ProjectSummary {
   id:             string
@@ -111,7 +113,6 @@ export interface ApiProjectSummary {
   teamId:        string | null
   visibility:    ProjectVisibility
   canEdit:       boolean
-  canManageVisibility: boolean
   title:         string
   description:   string
   tags:          string[]
@@ -130,7 +131,6 @@ export interface ApiProject {
   teamId:            string | null
   visibility:        ProjectVisibility
   canEdit:           boolean
-  canManageVisibility: boolean
   createdAt:         string
   updatedAt:         string
   documents:         ApiProjectDocument[]
@@ -161,10 +161,8 @@ export interface ApiProjectMember {
 // above), so every normalizer takes the caller's own id and derives it as
 // straight ownership — the one part of the old `can_edit` contract ("can this
 // user change this resource") that's still knowable without calling the new
-// `/members` endpoint. `visibility` now reads the real wire value (set once at
-// creation, see the UPDATE note above). `canManageVisibility` stays fixed at
-// `false` — visibility genuinely can't be changed post-creation (no PATCH
-// endpoint exists), so there's still nothing to manage.
+// `/members` endpoint. Ownership also gates changing visibility (the backend
+// allows only the owner), so `canEdit` covers that too.
 
 function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
   return { id: d.id, filename: d.filename, fileLink: d.fileLink, createdAt: d.createdAt, sizeBytes: null }
@@ -182,7 +180,6 @@ function normalizeProjectSummary(p: ProjectSummary, currentUserId: string): ApiP
     // from every scope tab silently instead of just mis-labeling it.
     visibility:    p.visibility ?? 'personal',
     canEdit:       p.ownerUserId === currentUserId,
-    canManageVisibility: false,
     title:         p.title,
     description:   p.description,
     tags:          p.tags ?? [],
@@ -203,7 +200,6 @@ function normalizeProject(p: ProjectResponse, currentUserId: string): ApiProject
     teamId:            p.organizationId ?? null,
     visibility:        p.visibility ?? 'personal',
     canEdit:           p.ownerUserId === currentUserId,
-    canManageVisibility: false,
     createdAt:         p.createdAt,
     updatedAt:         p.updatedAt,
     documents:         (p.documents ?? []).map(normalizeDocument),
@@ -288,6 +284,8 @@ export interface UpdateProjectParams {
   systemInstruction?: string
   /** Full replacement tag list. */
   tags?:              string[]
+  /** Owner-only; send only when it changes. */
+  visibility?:        ProjectVisibility
 }
 
 /** PATCH /projects/{project_id} — JSON body (`UpdateProjectFields`), not form-encoded. */
@@ -297,6 +295,7 @@ export async function updateProjectApi(projectId: string, params: UpdateProjectP
   if (params.description !== undefined)       body.description = params.description
   if (params.systemInstruction !== undefined) body.systemInstruction = params.systemInstruction
   if (params.tags !== undefined)               body.tags = params.tags
+  if (params.visibility !== undefined)        body.visibility = params.visibility
 
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
     method: 'PATCH',
@@ -444,49 +443,5 @@ export async function removeProjectMemberFromProject(projectId: string, auth0Id:
       // non-JSON error body - keep the default message
     }
     throw new ApiError(res.status, 'remove_member_failed', message)
-  }
-}
-
-/**
- * PATCH /projects/{project_id}/visibility — this route no longer exists on
- * the backend (dropped along with the visibility column; see the backend-shape
- * note up top). Nothing calls this any more: `canManageVisibility` is now
- * fixed at `false` in the normalizers above, so the UI button that used to
- * trigger this is never rendered. Kept only as a reference for whatever
- * replaces it once project sharing is rebuilt on top of the new
- * `/projects/{id}/members` + `/invite(s)` endpoints — delete it once that
- * lands, or sooner if nothing ends up needing the old wire format.
- */
-export async function setProjectVisibility(
-  projectId: string,
-  visibility: 'private' | 'team',
-  teamId?: string,
-): Promise<void> {
-  // Wire format is SetVisibilityRequest{visibility: "private"|"shared", organizationId?}
-  // — there's only ever one organization now, so `teamId` here is really just
-  // the caller's org id, not a choice among several teams. (This "org" vs.
-  // "shared" value was wrong here for a long time and got copy-pasted into
-  // the still-live personas/chat visibility setters — fixed there too.)
-  const body: Record<string, unknown> = { visibility: visibility === 'team' ? 'shared' : 'private' }
-  if (visibility === 'team' && teamId) body.organizationId = teamId
-  const res = await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
-    method: 'PATCH',
-    body:   JSON.stringify(body),
-  })
-  // The endpoint returns 204 No Content on success, so this can't use
-  // apiFetchJson (its success path unconditionally calls response.json(),
-  // which throws on an empty body) — check res.ok manually instead. Without
-  // this, a rejected change (e.g. the 403 a non-owner gets from
-  // set_resource_visibility) resolved silently and the caller reported
-  // success even though the project's visibility never changed.
-  if (!res.ok) {
-    let message = `Failed to update visibility (${res.status})`
-    try {
-      const data = await res.clone().json() as { detail?: string }
-      if (typeof data.detail === 'string') message = data.detail
-    } catch {
-      // non-JSON error body - keep the default message
-    }
-    throw new ApiError(res.status, 'set_visibility_failed', message)
   }
 }

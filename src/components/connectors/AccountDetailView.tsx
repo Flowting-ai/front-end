@@ -156,7 +156,7 @@ function PermissionsTabSkeleton() {
   )
 }
 
-function PermissionsTab({
+export function PermissionsTab({
   account, catalog, onChanged,
 }: { account: ConnectorConnection; catalog: ConnectorCatalog; onChanged: () => void }) {
   // The catalog says what the tools are; the account says what it decided

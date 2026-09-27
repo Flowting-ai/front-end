@@ -10,7 +10,7 @@ vi.mock('./client', async importOriginal => {
   return { ...actual, apiFetch, apiFetchJson }
 })
 
-import { getOrgSlackStatus, linkSlackIdentity, removeOrgSlackInstallation } from './slack'
+import { getOrgSlackStatus, getSlackAppConfig, removeOrgSlackInstallation, updateSlackAppConfig, uploadSlackSkill } from './slack'
 
 describe('removeOrgSlackInstallation', () => {
   beforeEach(() => {
@@ -54,26 +54,46 @@ describe('removeOrgSlackInstallation', () => {
       rawMessage: 'The Slack bot is not installed for this organization.',
     })
   })
-})
 
-describe('linkSlackIdentity', () => {
-  beforeEach(() => {
-    apiFetch.mockReset()
-    apiFetchJson.mockReset()
+  it('normalizes model and skill config', async () => {
+    apiFetchJson.mockResolvedValue({
+      name: 'Souvenir', description: '', prompt: 'Be brief.', model_id: 'model-1',
+      skills: ['pdf'], available_skills: [{ name: 'pdf', description: 'Work with PDFs.' }],
+    })
+
+    await expect(getSlackAppConfig('org-1')).resolves.toMatchObject({
+      prompt: 'Be brief.', modelId: 'model-1', skills: ['pdf'],
+      availableSkills: [{ name: 'pdf', description: 'Work with PDFs.' }],
+    })
   })
 
-  it('carries the per-person authorization URL back to the caller', async () => {
-    // Linking without this URL leaves the identity bound but tokenless, so
-    // Souvenir can only read Slack as the bot. Dropping it is the bug.
+  it('serializes model and skill updates for the backend', async () => {
     apiFetchJson.mockResolvedValue({
-      ok: true,
-      team_id: 'T1',
-      authorization_url: 'https://slack.com/oauth/v2/authorize?user_scope=search%3Aread',
+      name: 'Souvenir', description: '', prompt: '', model_id: null,
+      skills: ['documents'], available_skills: [],
     })
 
-    await expect(linkSlackIdentity('signed-state')).resolves.toEqual({
-      teamId: 'T1',
-      authorizationUrl: 'https://slack.com/oauth/v2/authorize?user_scope=search%3Aread',
+    await updateSlackAppConfig('org-1', { modelId: null, skills: ['documents'] })
+
+    expect(apiFetchJson).toHaveBeenCalledWith(expect.any(String), {
+      method: 'PATCH',
+      body: JSON.stringify({ model_id: null, skills: ['documents'] }),
     })
+  })
+
+  it('uploads a Markdown skill as multipart form data', async () => {
+    apiFetchJson.mockResolvedValue({
+      name: 'Souvenir', description: '', prompt: '', model_id: null,
+      skills: ['briefing'], available_skills: [{ name: 'briefing', description: 'Write briefs.' }],
+    })
+    const file = new File(['# Briefing'], 'briefing.md', { type: 'text/markdown' })
+
+    await expect(uploadSlackSkill('org-1', file)).resolves.toMatchObject({
+      skills: ['briefing'],
+    })
+    const options = apiFetchJson.mock.calls[0]?.[1]
+    expect(options).toMatchObject({ method: 'POST' })
+    expect(options?.body).toBeInstanceOf(FormData)
+    expect((options?.body as FormData).get('file')).toBe(file)
   })
 })

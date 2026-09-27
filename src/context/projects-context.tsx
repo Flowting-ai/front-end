@@ -79,7 +79,6 @@ export interface Project {
   teamId:       string | null
   visibility:   ProjectVisibility
   canEdit:      boolean
-  canManageVisibility: boolean
   tags:         ProjectTag[]
   files:        ProjectFile[]
   chatCount:    number
@@ -136,7 +135,6 @@ function summaryToProject(s: ApiProjectSummary): Project {
     teamId:       s.teamId,
     visibility:   s.visibility,
     canEdit:      s.canEdit,
-    canManageVisibility: s.canManageVisibility,
     tags:         tagsFromLabels(s.tags),
     files:        [],
     chatCount:    s.chatCount,
@@ -178,7 +176,6 @@ function apiToProject(
     // known value, the other silently taking whatever came back).
     visibility:   api.visibility ?? existing?.visibility ?? 'personal',
     canEdit:      api.canEdit,
-    canManageVisibility: api.canManageVisibility,
     tags:         tagsFromLabels(api.tags),
     files,
     chatCount:    existing?.chatCount ?? 0,
@@ -207,7 +204,7 @@ interface ProjectsContextValue {
   chats:            ProjectChat[]
   loading:          boolean
   createProject:    (name: string, description: string, teamId?: string, visibility?: ProjectVisibility, tags?: ProjectTag[]) => Promise<Project>
-  updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
+  updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags' | 'visibility'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
   loadProject:      (id: string) => Promise<void>
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
@@ -267,7 +264,6 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
             teamId:      s.teamId,
             visibility:  s.visibility,
             canEdit:     s.canEdit,
-            canManageVisibility: s.canManageVisibility,
             chatCount:   s.chatCount,
             updatedAt:   s.updatedAt,
           }
@@ -309,7 +305,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const updateProject = useCallback(async (
     id: string,
-    patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>,
+    patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags' | 'visibility'>>,
   ) => {
     const snapshot = projectsRef.current.find(p => p.id === id)
 
@@ -323,6 +319,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     if (patch.description !== undefined)  apiPatch.description = patch.description
     if (patch.instructions !== undefined) apiPatch.systemInstruction = patch.instructions
     if (patch.tags !== undefined)         apiPatch.tags = patch.tags.map(t => t.label)
+    if (patch.visibility !== undefined)   apiPatch.visibility = patch.visibility
 
     if (Object.keys(apiPatch).length > 0) {
       try {

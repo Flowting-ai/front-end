@@ -14,16 +14,10 @@ import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
-import type { ProjectVisibility } from '@/lib/api/projects'
+import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 const MAX_TAGS = 5
-
-const VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; description: string }[] = [
-  { value: 'personal',  label: 'Personal',  description: 'Just you.' },
-  { value: 'workspace', label: 'Workspace', description: 'Everyone in the workspace.' },
-  { value: 'shared',    label: 'Shared',    description: 'You choose who to invite.' },
-]
 
 function NewProjectPageInner() {
   const { push }                     = useRouter()
@@ -38,7 +32,7 @@ function NewProjectPageInner() {
   const [visibilityOpen, setVisibilityOpen] = useState(false)
 
   // Workspace/Shared require an org — backend 400s otherwise (Project.create()).
-  const visibilityOptions = orgId ? VISIBILITY_OPTIONS : VISIBILITY_OPTIONS.filter(o => o.value === 'personal')
+  const visibilityOptions = orgId ? PROJECT_VISIBILITY_OPTIONS : PROJECT_VISIBILITY_OPTIONS.filter(o => o.value === 'personal')
 
   // Same commit/remove/max-5 logic as EditProjectModal's own tag editor, so a
   // tag's color/id stay stable whether it was added here or after creation.
@@ -172,7 +166,7 @@ function NewProjectPageInner() {
                 >
                   Who can see this
                 </label>
-                <Tooltip content="You can't change this once the project is created.">
+                <Tooltip content="You can change this later from Edit.">
                   <IconButton
                     variant="ghost"
                     size="sm"

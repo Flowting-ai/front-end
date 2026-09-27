@@ -10,6 +10,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
 import { TAG_COLORS, type ProjectTag } from '@/context/projects-context'
+import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
 import { toast } from 'sonner'
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
@@ -50,6 +51,23 @@ function RequiredMark() {
   return <span aria-hidden="true" style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
 }
 
+// What a visibility change does to the people who have access now. The
+// backend clears whichever people list stops applying (Project.setVisibility).
+function accessChangeNote(from: ProjectVisibility, to: ProjectVisibility): { text: string; losesAccess: boolean } | null {
+  if (from === to) return null
+  if (to === 'personal') {
+    return { text: 'Only you will have access. Everyone else loses it.', losesAccess: from !== 'personal' }
+  }
+  if (to === 'workspace') {
+    return from === 'shared'
+      ? { text: 'Everyone in the workspace gets access. The invite list is cleared.', losesAccess: false }
+      : { text: 'Everyone in the workspace gets access.', losesAccess: false }
+  }
+  return from === 'workspace'
+    ? { text: 'Only people you invite will have access. Everyone else in the workspace loses it.', losesAccess: true }
+    : { text: 'Only people you invite will have access.', losesAccess: false }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface EditProjectModalProps {
@@ -57,18 +75,24 @@ export interface EditProjectModalProps {
   name:        string
   description: string
   tags?:       ProjectTag[]
-  onSave:      (name: string, description: string, tags: ProjectTag[]) => void | Promise<void>
+  visibility:  ProjectVisibility
+  /** Visibilities the caller may switch to. Fewer than two hides the control. */
+  visibilityOptions: typeof PROJECT_VISIBILITY_OPTIONS
+  /** `visibility` is passed only when it changed. */
+  onSave:      (name: string, description: string, tags: ProjectTag[], visibility?: ProjectVisibility) => void | Promise<void>
   onClose:     () => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function EditProjectModal({
-  open, name, description, tags = EMPTY_PROJECT_TAGS, onSave, onClose,
+  open, name, description, tags = EMPTY_PROJECT_TAGS, visibility, visibilityOptions, onSave, onClose,
 }: EditProjectModalProps) {
   const [draftName, setDraftName]   = useState(name)
   const [draftDesc, setDraftDesc]   = useState(description)
   const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
+  const [draftVisibility, setDraftVisibility] = useState<ProjectVisibility>(visibility)
+  const visibilityNote = accessChangeNote(visibility, draftVisibility)
   const [tagInput,  setTagInput]    = useState('')
   const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
@@ -79,10 +103,11 @@ export function EditProjectModal({
       setDraftName(name)
       setDraftDesc(description)
       setDraftTags(tags)
+      setDraftVisibility(visibility)
       setTagInput('')
     }
     prevOpenRef.current = open
-  }, [open, name, description, tags])
+  }, [open, name, description, tags, visibility])
 
   function commitTag() {
     const label = tagInput.trim()
@@ -110,7 +135,12 @@ export function EditProjectModal({
     if (!draftName.trim() || submitting) return
     setSubmitting(true)
     try {
-      await onSave(draftName.trim(), draftDesc.trim(), draftTags)
+      await onSave(
+        draftName.trim(),
+        draftDesc.trim(),
+        draftTags,
+        draftVisibility === visibility ? undefined : draftVisibility,
+      )
       toast.success('Project updated')
       onClose()
     } catch (err) {
@@ -237,6 +267,64 @@ export function EditProjectModal({
                   aria-required="true"
                 />
               </div>
+
+              {/* Who can see this — owner-only, inline so it can't open
+                  underneath this modal's z-index layer. */}
+              {visibilityOptions.length > 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span id="edit-project-visibility" style={LABEL_STYLE}>Who can see this</span>
+                  <div role="radiogroup" aria-labelledby="edit-project-visibility" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {visibilityOptions.map(opt => {
+                      const selected = draftVisibility === opt.value
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setDraftVisibility(opt.value)}
+                          style={{
+                            display:         'flex',
+                            alignItems:      'center',
+                            gap:             '10px',
+                            width:           '100%',
+                            padding:         '8px 12px',
+                            borderRadius:    '10px',
+                            border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-200)',
+                            background:      selected ? 'rgba(59,134,246,0.06)' : 'var(--neutral-white)',
+                            cursor:          'pointer',
+                            textAlign:       'left',
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              width:        14,
+                              height:       14,
+                              flexShrink:   0,
+                              borderRadius: '50%',
+                              boxShadow:    selected ? 'inset 0 0 0 4px var(--blue-400)' : 'inset 0 0 0 1.5px rgba(59,54,50,0.28)',
+                            }}
+                          />
+                          <span style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '20px', color: 'var(--neutral-800)' }}>
+                              {opt.label}
+                            </span>
+                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
+                              {opt.description}
+                            </span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {visibilityNote && (
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: visibilityNote.losesAccess ? 'var(--red-500, #ef4444)' : 'var(--neutral-500)', margin: 0 }}>
+                      {visibilityNote.text}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Description */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

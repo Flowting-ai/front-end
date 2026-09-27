@@ -1,424 +1,26 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { toast } from 'sonner'
-import { CancelOneIcon, CheckmarkCircleTwoIcon, DeleteTwoIcon, PlusSignIcon, QuillWriteOneIcon } from '@strange-huge/icons'
-import { useAuth } from '@/context/auth-context'
+import { CancelOneIcon, CheckmarkCircleTwoIcon } from '@strange-huge/icons'
 import { useOrg } from '@/context/org-context'
-import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
-import { Spinner } from '@/components/Spinner'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
-import {
-  SettingsTable,
-  SettingsTableToolbar,
-  SettingsTableHeader,
-  SettingsTableHeaderCell,
-  SettingsTableRow,
-  SettingsTableCell,
-  SettingsTableFooter,
-} from '@/components/SettingsTable'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
-import {
-  createProjectSlackChannel,
-  deleteProjectSlackChannel,
-  getOrgSlackStatus,
-  getProjectSlackChannel,
-  getSlackAppConfig,
-  removeOrgSlackInstallation,
-  renameProjectSlackChannel,
-  updateSlackAppConfig,
-} from '@/lib/api/slack'
-import type { SlackAppConfig } from '@/lib/api/slack'
-import type { SlackChannel, SlackStatus } from '@/lib/api/slack'
-import { fetchProjects } from '@/lib/api/projects'
-import type { ApiProjectSummary } from '@/lib/api/projects'
-
-type SlackProject = ApiProjectSummary & { teamId: string }
-
-function defaultChannelName(title: string): string {
-  const slug = title
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80)
-  return slug || 'souvenir-project'
-}
-
-function ChannelTypeToggle({
-  isPrivate,
-  onChange,
-  disabled,
-}: {
-  isPrivate: boolean
-  onChange:  (next: boolean) => void
-  disabled?: boolean
-}) {
-  return (
-    <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 10, backgroundColor: 'var(--neutral-100)' }}>
-      {[
-        { value: false, label: 'Public' },
-        { value: true, label: 'Private' },
-      ].map(option => {
-        const active = isPrivate === option.value
-        return (
-          <button
-            key={option.label}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(option.value)}
-            style={{
-              height: 30,
-              padding: '0 10px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              backgroundColor: active ? 'white' : 'transparent',
-              boxShadow: active ? '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)' : 'none',
-              color: active ? 'var(--neutral-900)' : 'var(--neutral-500)',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 13,
-            }}
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-const SLACK_COLUMNS = 'minmax(200px, 1.4fr) minmax(200px, 1.4fr) minmax(170px, 220px) 130px'
-
-function IconActionButton({
-  label,
-  onClick,
-  disabled,
-  loading,
-  danger,
-  children,
-}: {
-  label: string
-  onClick: () => void
-  disabled?: boolean
-  loading?: boolean
-  danger?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled || loading}
-      onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 30,
-        height: 30,
-        borderRadius: 8,
-        border: 'none',
-        cursor: (disabled || loading) ? 'not-allowed' : 'pointer',
-        opacity: (disabled || loading) ? 0.5 : 1,
-        backgroundColor: 'white',
-        boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-        color: danger ? 'var(--red-600, #dc2626)' : 'var(--neutral-600)',
-        flexShrink: 0,
-      }}
-    >
-      {loading ? <Spinner size={14} /> : children}
-    </button>
-  )
-}
-
-function ProjectSlackRow({
-  project,
-  channel,
-  creating,
-  nameDraft,
-  isPrivate,
-  divider,
-  editing,
-  editDraft,
-  savingEdit,
-  deleting,
-  onNameChange,
-  onPrivacyChange,
-  onCreate,
-  onEditStart,
-  onEditNameChange,
-  onEditSave,
-  onEditCancel,
-  onDelete,
-}: {
-  project: SlackProject
-  channel: SlackChannel | null | undefined
-  creating: boolean
-  nameDraft: string
-  isPrivate: boolean
-  divider: boolean
-  editing: boolean
-  editDraft: string
-  savingEdit: boolean
-  deleting: boolean
-  onNameChange: (value: string) => void
-  onPrivacyChange: (value: boolean) => void
-  onCreate: () => void
-  onEditStart: () => void
-  onEditNameChange: (value: string) => void
-  onEditSave: () => void
-  onEditCancel: () => void
-  onDelete: () => void
-}) {
-  const busy = creating || savingEdit || deleting
-  return (
-    <SettingsTableRow minHeight={72} divider={divider} style={{ opacity: busy ? 0.6 : 1 }}>
-      <SettingsTableCell>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {project.title}
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '2px 0 0' }}>
-            Shared / {project.documentCount} files / {project.chatCount} chats
-          </p>
-        </div>
-      </SettingsTableCell>
-
-      {channel ? (
-        <>
-          <SettingsTableCell>
-            {editing ? (
-              <input
-                type="text"
-                value={editDraft}
-                disabled={savingEdit}
-                autoFocus
-                onChange={event => onEditNameChange(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' && editDraft.trim()) onEditSave()
-                  if (event.key === 'Escape') onEditCancel()
-                }}
-                placeholder="channel-name"
-                style={{
-                  width: '100%',
-                  height: 36,
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '0 10px',
-                  backgroundColor: 'white',
-                  boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-                  outline: 'none',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 14,
-                  color: 'var(--neutral-900)',
-                }}
-              />
-            ) : (
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                # {channel.channelName}
-              </p>
-            )}
-          </SettingsTableCell>
-          <SettingsTableCell>
-            <Badge label={channel.isPrivate ? 'Private' : 'Public'} color={channel.isPrivate ? 'Neutral' : 'Blue'} />
-          </SettingsTableCell>
-          <SettingsTableCell align="end">
-            {editing ? (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Button variant="default" size="sm" disabled={savingEdit || !editDraft.trim()} loading={savingEdit} onClick={onEditSave}>
-                  Save
-                </Button>
-                <Button variant="outline" size="sm" disabled={savingEdit} onClick={onEditCancel}>
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <IconActionButton label="Rename channel" disabled={busy} onClick={onEditStart}>
-                  <QuillWriteOneIcon size={15} />
-                </IconActionButton>
-                <IconActionButton label="Delete channel" disabled={busy} loading={deleting} danger onClick={onDelete}>
-                  <DeleteTwoIcon size={15} color="var(--red-600, #dc2626)" />
-                </IconActionButton>
-              </div>
-            )}
-          </SettingsTableCell>
-        </>
-      ) : (
-        <>
-          <SettingsTableCell>
-            <input
-              type="text"
-              value={nameDraft}
-              disabled={creating}
-              onChange={event => onNameChange(event.target.value)}
-              placeholder="channel-name"
-              style={{
-                width: '100%',
-                height: 36,
-                border: 'none',
-                borderRadius: 10,
-                padding: '0 10px',
-                backgroundColor: 'white',
-                boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-                outline: 'none',
-                fontFamily: 'var(--font-body)',
-                fontSize: 14,
-                color: 'var(--neutral-900)',
-              }}
-            />
-          </SettingsTableCell>
-          <SettingsTableCell>
-            <ChannelTypeToggle isPrivate={isPrivate} disabled={creating} onChange={onPrivacyChange} />
-          </SettingsTableCell>
-          <SettingsTableCell align="end">
-            <Button
-              variant="default"
-              size="sm"
-              leftIcon={<PlusSignIcon size={16} />}
-              disabled={creating || !nameDraft.trim()}
-              loading={creating}
-              onClick={onCreate}
-            >
-              Create
-            </Button>
-          </SettingsTableCell>
-        </>
-      )}
-    </SettingsTableRow>
-  )
-}
-
-const fieldStyle = {
-  width: '100%',
-  border: 'none',
-  borderRadius: 10,
-  padding: '10px 12px',
-  backgroundColor: 'white',
-  boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-  outline: 'none',
-  fontFamily: 'var(--font-body)',
-  fontSize: 14,
-  color: 'var(--neutral-900)',
-} as const
-
-function SlackAppConfigForm({ orgId }: { orgId: string }) {
-  const [config, setConfig] = useState<SlackAppConfig | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    getSlackAppConfig(orgId)
-      .then(next => {
-        if (!cancelled) setConfig(next)
-      })
-      .catch(err => {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load Slack config')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [orgId])
-
-  const save = async () => {
-    if (!config || saving) return
-    setSaving(true)
-    try {
-      const next = await updateSlackAppConfig(orgId, {
-        name: config.name.trim(),
-        description: config.description,
-        prompt: config.prompt,
-      })
-      setConfig(next)
-      toast.success('Slack app saved')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save Slack app')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 600, color: 'var(--neutral-900)', margin: 0 }}>
-          Slack app
-        </p>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '4px 0 0' }}>
-          Name and instructions for Souvenir in this workspace. Member connections stay the same.
-        </p>
-      </div>
-      {loading || !config ? (
-        <div className="kaya-skeleton" style={{ width: '100%', height: 160, borderRadius: 12 }} />
-      ) : (
-        <>
-          <input
-            type="text"
-            aria-label="Slack app name"
-            value={config.name}
-            onChange={event => setConfig({ ...config, name: event.target.value })}
-            placeholder="App name"
-            style={{ ...fieldStyle, height: 40, padding: '0 12px' }}
-          />
-          <input
-            type="text"
-            aria-label="Slack app description"
-            value={config.description}
-            onChange={event => setConfig({ ...config, description: event.target.value })}
-            placeholder="Short description"
-            style={{ ...fieldStyle, height: 40, padding: '0 12px' }}
-          />
-          <textarea
-            aria-label="Slack app instructions"
-            value={config.prompt}
-            onChange={event => setConfig({ ...config, prompt: event.target.value })}
-            placeholder="Instructions Souvenir follows in this Slack workspace"
-            rows={6}
-            style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.45 }}
-          />
-          <div>
-            <Button
-              variant="default"
-              size="sm"
-              disabled={saving || !config.name.trim()}
-              loading={saving}
-              onClick={() => void save()}
-            >
-              Save
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
+import { getOrgSlackStatus, removeOrgSlackInstallation } from '@/lib/api/slack'
+import type { SlackStatus } from '@/lib/api/slack'
+import { SlackWorkspaceConfig } from './SlackWorkspaceConfig'
+import styles from './slack-config.module.css'
 
 export default function SouvenirSlackPage() {
   const { orgId, orgReady, orgRole } = useOrg()
-  const { user } = useAuth()
-  const currentUserId = user?.auth0Id ?? ''
 
   const [statusLoading, setStatusLoading] = useState(true)
   const [status,        setStatus]        = useState<SlackStatus | null>(null)
   const [modalOpen,     setModalOpen]     = useState(false)
 
-  const [projects,        setProjects]        = useState<SlackProject[]>([])
-  const [projectsLoading, setProjectsLoading] = useState(false)
-  const [channelsByProject, setChannelsByProject] = useState<Record<string, SlackChannel | null>>({})
-  const [nameDrafts,      setNameDrafts]      = useState<Record<string, string>>({})
-  const [privateDrafts,   setPrivateDrafts]   = useState<Record<string, boolean>>({})
-  const [creatingId,      setCreatingId]      = useState<string | null>(null)
-  const [removing,        setRemoving]        = useState(false)
-  const [editingId,       setEditingId]       = useState<string | null>(null)
-  const [editDraft,       setEditDraft]       = useState('')
-  const [savingEditId,    setSavingEditId]    = useState<string | null>(null)
-  const [deletingId,      setDeletingId]      = useState<string | null>(null)
+  const [removing,      setRemoving]      = useState(false)
 
   const isAdmin = orgRole === 'admin'
   const connected = status?.connected ?? false
@@ -455,116 +57,6 @@ export default function SouvenirSlackPage() {
     return () => { cancelled = true }
   }, [orgId, orgReady, isAdmin])
 
-  useEffect(() => {
-    if (!orgId || !connected || !isAdmin) return
-    const currentOrgId = orgId
-    let cancelled = false
-
-    async function loadProjectsAndChannels() {
-      setProjectsLoading(true)
-      try {
-        const summaries = await fetchProjects(currentUserId)
-        // Only Workspace/Shared projects are Slack-linkable targets — a
-        // Personal project also carries the org's teamId (organizationId is
-        // stamped on every org member's project regardless of visibility),
-        // so a bare teamId check would leak other members' private projects
-        // into this admin-facing list.
-        const rows = summaries.flatMap(summary => {
-          return summary.teamId && summary.visibility !== 'personal' ? [{ ...summary, teamId: summary.teamId }] : []
-        })
-        if (cancelled) return
-        setProjects(rows)
-        setNameDrafts(prev => {
-          const next = { ...prev }
-          for (const project of rows) next[project.id] ??= defaultChannelName(project.title)
-          return next
-        })
-        const entries = await Promise.all(
-          rows.map(async project => {
-            const channel = await getProjectSlackChannel(currentOrgId, project.id)
-            return [project.id, channel] as const
-          }),
-        )
-        if (!cancelled) setChannelsByProject(Object.fromEntries(entries))
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load Slack projects')
-      } finally {
-        if (!cancelled) setProjectsLoading(false)
-      }
-    }
-
-    void loadProjectsAndChannels()
-    return () => { cancelled = true }
-  }, [orgId, connected, isAdmin, currentUserId])
-
-  const mappedCount = useMemo(
-    () => Object.values(channelsByProject).filter(Boolean).length,
-    [channelsByProject],
-  )
-
-  const handleCreateChannel = async (project: SlackProject) => {
-    if (!orgId) return
-    const name = (nameDrafts[project.id] ?? defaultChannelName(project.title)).trim()
-    if (!name) return
-    setCreatingId(project.id)
-    try {
-      const channel = await createProjectSlackChannel(orgId, project.id, {
-        name,
-        isPrivate: privateDrafts[project.id] ?? false,
-      })
-      setChannelsByProject(prev => ({ ...prev, [project.id]: channel }))
-      toast.success('Slack channel created')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create Slack channel')
-    } finally {
-      setCreatingId(null)
-    }
-  }
-
-  const handleEditStart = (project: SlackProject, channel: SlackChannel) => {
-    setEditingId(project.id)
-    setEditDraft(channel.channelName)
-  }
-
-  const handleEditCancel = () => {
-    setEditingId(null)
-    setEditDraft('')
-  }
-
-  const handleEditSave = async (project: SlackProject) => {
-    if (!orgId) return
-    const name = editDraft.trim()
-    if (!name) return
-    setSavingEditId(project.id)
-    try {
-      const channel = await renameProjectSlackChannel(orgId, project.id, name)
-      setChannelsByProject(prev => ({ ...prev, [project.id]: channel }))
-      setEditingId(null)
-      setEditDraft('')
-      toast.success('Slack channel renamed')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to rename Slack channel')
-    } finally {
-      setSavingEditId(null)
-    }
-  }
-
-  const handleDeleteChannel = async (project: SlackProject) => {
-    if (!orgId || deletingId) return
-    if (!window.confirm(`Delete the Slack channel for "${project.title}"? It will be archived in Slack and unlinked from this project.`)) return
-    setDeletingId(project.id)
-    try {
-      await deleteProjectSlackChannel(orgId, project.id)
-      setChannelsByProject(prev => ({ ...prev, [project.id]: null }))
-      if (editingId === project.id) handleEditCancel()
-      toast.success('Slack channel deleted')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete Slack channel')
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
   const handleRemoveSlack = async () => {
     if (!orgId || removing) return
     if (!window.confirm('Remove the Slack bot from this organization? It will be uninstalled from the workspace and all project channels stop working.')) return
@@ -575,7 +67,6 @@ export default function SouvenirSlackPage() {
       if (nextStatus.connected) {
         throw new Error('Slack is still connected. Please try disconnecting again.')
       }
-      setChannelsByProject({})
       setStatus(nextStatus)
       setModalOpen(false)
       toast.success('Slack removed from this organization')
@@ -589,139 +80,60 @@ export default function SouvenirSlackPage() {
   return (
     <SettingsPageShell
       title="Slack"
-      description="Configure how Souvenir shows up in Slack, and create one channel per project."
+      description="Configure how Souvenir shows up in Slack, its connectors, and its channels."
+      fluid
     >
-      {connected && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, backgroundColor: 'var(--blue-100, #dbeafe)', boxShadow: '0px 0px 0px 1px var(--blue-200, #bfdbfe)' }}>
-            <CheckmarkCircleTwoIcon size={14} color="var(--blue-600, #2563eb)" />
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--blue-700, #1d4ed8)' }}>
-              {teamName ? `Slack connected - ${teamName}` : 'Slack connected'} / {mappedCount} project channels
-            </span>
-          </div>
-          {isAdmin && (
-            <Button variant="danger" size="sm" leftIcon={<CancelOneIcon size={14} />} disabled={removing} loading={removing} onClick={handleRemoveSlack}>
-              Disconnect Slack
-            </Button>
-          )}
-        </div>
-      )}
-
       {!orgReady || statusLoading ? (
-        // Shape of the connected/table state — the most common outcome once
-        // this settles — so the page shimmers into its real layout instead
-        // of flashing plain "Loading..." text.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="kaya-skeleton" style={{ width: 220, height: 24, borderRadius: 8 }} />
-          <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
-            <SettingsTableToolbar title="Project channels" />
-            <SettingsTableHeader>
-              <SettingsTableHeaderCell>Project</SettingsTableHeaderCell>
-              <SettingsTableHeaderCell>Slack channel</SettingsTableHeaderCell>
-              <SettingsTableHeaderCell>Visibility</SettingsTableHeaderCell>
-              <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
-            </SettingsTableHeader>
-            {[0, 1, 2].map(i => (
-              <SettingsTableRow key={i} divider={i < 2}>
-                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 140, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 110, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                <SettingsTableCell><div className="kaya-skeleton" style={{ width: 60, height: 20, borderRadius: 6, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                <SettingsTableCell align="end"><div className="kaya-skeleton" style={{ width: 70, height: 28, borderRadius: 8, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-              </SettingsTableRow>
-            ))}
-          </SettingsTable>
-        </div>
+        <div className="kaya-skeleton" style={{ width: '100%', height: 320, borderRadius: 16 }} />
       ) : !isAdmin ? (
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyStateTitle}>
             Only workspace owners and admins can manage Slack.
           </p>
         </div>
       ) : !connected ? (
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
+        <div className={styles.emptyState}>
+          <span className={styles.emptyStateMark}>
+            <Image src="/icons/slack.svg" alt="" width={24} height={24} />
+          </span>
+          <p className={styles.emptyStateTitle}>
             Slack is not connected yet
           </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-            Connect your workspace before creating project channels.
+          <p className={styles.emptyStateCopy}>
+            Connect your workspace to choose what Souvenir can access and how it behaves in each channel.
           </p>
           <Button
             variant="default"
             size="sm"
             style={{ marginTop: 4 }}
             onClick={() => setModalOpen(true)}
-            leftIcon={<img src="/icons/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
+            leftIcon={<Image src="/icons/slack.svg" alt="" width={14} height={14} />}
           >
             Connect Slack workspace
           </Button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        {orgId && <SlackAppConfigForm orgId={orgId} />}
-        <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
-          <SettingsTableToolbar title="Project channels" />
-          <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-            <div role="table" aria-label="Slack project channels" style={{ minWidth: 760 }}>
-              <SettingsTableHeader>
-                <SettingsTableHeaderCell>Project</SettingsTableHeaderCell>
-                <SettingsTableHeaderCell>Slack channel</SettingsTableHeaderCell>
-                <SettingsTableHeaderCell>Visibility</SettingsTableHeaderCell>
-                <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
-              </SettingsTableHeader>
-
-              {projectsLoading ? (
-                [0, 1, 2].map(i => (
-                  <SettingsTableRow key={i} divider={i < 2}>
-                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 140, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 110, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                    <SettingsTableCell><div className="kaya-skeleton" style={{ width: 60, height: 20, borderRadius: 6, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                    <SettingsTableCell align="end"><div className="kaya-skeleton" style={{ width: 70, height: 28, borderRadius: 8, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
-                  </SettingsTableRow>
-                ))
-              ) : projects.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center' }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                    No shared projects yet. Share a project with your organization to add its Slack channel here.
-                  </p>
-                </div>
-              ) : projects.map((project, index) => (
-                <ProjectSlackRow
-                  key={project.id}
-                  project={project}
-                  channel={channelsByProject[project.id]}
-                  creating={creatingId === project.id}
-                  nameDraft={nameDrafts[project.id] ?? defaultChannelName(project.title)}
-                  isPrivate={privateDrafts[project.id] ?? false}
-                  divider={index < projects.length - 1}
-                  editing={editingId === project.id}
-                  editDraft={editDraft}
-                  savingEdit={savingEditId === project.id}
-                  deleting={deletingId === project.id}
-                  onNameChange={value => setNameDrafts(prev => ({ ...prev, [project.id]: value }))}
-                  onPrivacyChange={value => setPrivateDrafts(prev => ({ ...prev, [project.id]: value }))}
-                  onCreate={() => void handleCreateChannel(project)}
-                  onEditStart={() => {
-                    const ch = channelsByProject[project.id]
-                    if (ch) handleEditStart(project, ch)
-                  }}
-                  onEditNameChange={setEditDraft}
-                  onEditSave={() => void handleEditSave(project)}
-                  onEditCancel={handleEditCancel}
-                  onDelete={() => void handleDeleteChannel(project)}
-                />
-              ))}
-
-              {!projectsLoading && projects.length > 0 && (
-                <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
-                    {mappedCount} of {projects.length} project{projects.length === 1 ? '' : 's'} connected
+        orgId && (
+          <div className={styles.connectedSurface}>
+            <div className={styles.connectionBar}>
+              <div className={styles.connectionStatus}>
+                <span className={styles.connectionMark}>
+                  <Image src="/icons/slack.svg" alt="" width={18} height={18} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span className={styles.connectionTitle} style={{ display: 'block' }}>{teamName ?? 'Slack workspace'}</span>
+                  <span className={styles.connectionMeta} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <CheckmarkCircleTwoIcon size={12} color="var(--green-600, #16a34a)" /> Connected
                   </span>
-                </SettingsTableFooter>
-              )}
+                </span>
+              </div>
+              <Button variant="danger" size="sm" leftIcon={<CancelOneIcon size={14} />} disabled={removing} loading={removing} onClick={handleRemoveSlack}>
+                Disconnect Slack
+              </Button>
             </div>
+            <SlackWorkspaceConfig orgId={orgId} teamName={teamName} />
           </div>
-        </SettingsTable>
-        </div>
+        )
       )}
 
       <SlackConnectModal

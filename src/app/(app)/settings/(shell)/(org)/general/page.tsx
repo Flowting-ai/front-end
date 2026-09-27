@@ -13,8 +13,6 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { useNavGuard } from '@/context/nav-guard-context'
 import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from '@/lib/api/organization'
-import { listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
-import type { SlackChannel } from '@/lib/api/slack'
 import { LeaveWorkspaceModal } from '@/components/LeaveWorkspaceModal'
 import { CHAT_ROUTE } from '@/lib/routes'
 
@@ -400,29 +398,6 @@ function GeneralPageSkeleton() {
         </div>
       </SkeletonCard>
 
-      {/* Slack channel mapping — real card is gated on
-          `slackLoading || slackChannels.length > 0` (page.tsx:1234), so we
-          can't know yet whether it'll render; show it as a reasonable
-          "might be there" placeholder like every other data-dependent card
-          here. The "Allowed email domains" and "Workspace defaults" bones
-          that used to sit here are gone — those real cards are permanently
-          dead (`{false && (...)}`, page.tsx:1123 and 1138), never rendered. */}
-      <SkeletonCard>
-        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SkeletonBlock width={140} height={16} radius={5} />
-          <SkeletonBlock width='70%' height={13} radius={4} />
-        </div>
-        {[0, 1].map(i => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 24px' }}>
-            <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <SkeletonBlock width={110} height={14} radius={5} />
-              <SkeletonBlock width={160} height={12} radius={4} />
-            </div>
-            <SkeletonBlock width={110} height={26} radius={6} />
-          </div>
-        ))}
-      </SkeletonCard>
-
       {/* Danger Zone */}
       <SkeletonCard danger>
         <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -499,14 +474,6 @@ export default function OrgGeneralPage() {
   const [clearingInstructions, setClearingInstructions] = useState(false)
   const [showAddDomain,   setShowAddDomain]   = useState(false)
   const [addDomainInput,  setAddDomainInput]  = useState('')
-
-  // Slack channel mapping
-  const [slackChannels,     setSlackChannels]     = useState<SlackChannel[]>([])
-  const [slackTeamName,     setSlackTeamName]     = useState<string | null>(null)
-  const [slackLoading,      setSlackLoading]      = useState(false)
-  const [slackMappingSlug,  setSlackMappingSlug]  = useState<string | null>(null)
-  const [slackProjectInput, setSlackProjectInput] = useState('')
-  const [slackSaving,       setSlackSaving]       = useState(false)
 
   // Load org identity
   useEffect(() => {
@@ -585,16 +552,6 @@ export default function OrgGeneralPage() {
       .finally(() => setSettingsLoading(false))
   }, [orgId])
 
-  // Load Slack channels (only if Slack is connected — 404 is silent)
-  useEffect(() => {
-    if (!orgId) return
-    setSlackLoading(true)
-    listSlackChannels(orgId)
-      .then(res => { setSlackTeamName(res.teamName); setSlackChannels(res.channels) })
-      .catch(() => { /* not connected — no-op */ })
-      .finally(() => setSlackLoading(false))
-  }, [orgId])
-
   // Stages the logo locally (like the name/slug fields) instead of uploading
   // immediately — it's only actually sent to the backend when Save changes
   // is clicked, alongside whatever else changed (see handleSaveIdentity).
@@ -623,21 +580,6 @@ export default function OrgGeneralPage() {
       setAvatarUploading(false)
     }
   }, [])
-
-  const handleSetSlackMapping = async (channelId: string, projectId: string | null) => {
-    if (!orgId) return
-    setSlackSaving(true)
-    try {
-      const updated = await setSlackChannelMapping(orgId, channelId, projectId || null)
-      setSlackChannels(prev => prev.map(c => c.channelId === channelId ? updated : c))
-      setSlackMappingSlug(null)
-      toast.success('Channel mapping saved')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save mapping')
-    } finally {
-      setSlackSaving(false)
-    }
-  }
 
   const handleArchiveOrg = () => {
     // TODO: no backend enforcement exists yet — wire once `archived` is
@@ -1332,57 +1274,6 @@ export default function OrgGeneralPage() {
             </Button>
           </div>
         </Card>
-        )}
-
-        {/* ── Slack channel mapping card ── */}
-        {(slackLoading || slackChannels.length > 0) && (
-          <Card>
-            <CardHeader
-              title={slackTeamName ? `Slack · ${slackTeamName}` : 'Slack'}
-              subtitle="Map Slack channels to projects so messages are routed correctly."
-            />
-            <div style={{ padding: '6px 24px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {slackLoading && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading channels…</p>
-              )}
-              {!slackLoading && slackChannels.length === 0 && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No channels found.</p>
-              )}
-              {slackChannels.map(ch => (
-                <div key={ch.channelId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--neutral-100)' }}>
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>#{ch.channelName}</p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>
-                      {ch.projectId ? `Mapped to project ${ch.projectId}` : 'No project mapping'}
-                    </p>
-                  </div>
-                  {slackMappingSlug === ch.channelId ? (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        value={slackProjectInput}
-                        onChange={e => setSlackProjectInput(e.target.value)}
-                        placeholder="Project ID (or blank to clear)"
-                        style={{ fontFamily: 'var(--font-body)', fontSize: 13, padding: '4px 8px', border: '1px solid var(--neutral-200)', borderRadius: 6, width: 220 }}
-                      />
-                      <Button variant="default" size="sm" disabled={slackSaving} onClick={() => handleSetSlackMapping(ch.channelId, slackProjectInput || null)}>
-                        {slackSaving ? 'Saving…' : 'Save'}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setSlackMappingSlug(null)}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => { setSlackMappingSlug(ch.channelId); setSlackProjectInput(ch.projectId ?? '') }}
-                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--neutral-200)', background: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-600)', fontWeight: 500, flexShrink: 0 }}
-                    >
-                      {ch.projectId ? 'Change mapping' : 'Map to project'}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
         )}
 
         {/* ── Danger Zone card — node 18:23867 ── */}

@@ -95,7 +95,8 @@ export function AppLayout({
   // Connectors / Souvenir-in-Slack are settings-style pages too (moved off
   // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
   // as /org and /teams/[teamId] above.
-  const isConnectorsOrSlackPage = pathname.startsWith(ORG_CONNECTORS_ROUTE) || pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)
+  const isSlackPage = pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)
+  const isConnectorsOrSlackPage = pathname.startsWith(ORG_CONNECTORS_ROUTE) || isSlackPage
   // Chat surfaces (/chat, /project/[id]/chat/[chatId]) manage their own message-
   // list scrolling (ChatInterface's own kaya-scrollbar div) — same reasoning as
   // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
@@ -227,13 +228,13 @@ export function AppLayout({
             flex:      "1 0 0",
             minHeight: 0,
             display:   "flex",
-            padding:   "10px 10px 10px 0",
+            padding:   isSlackPage ? 0 : "10px 10px 10px 0",
           }}
         >
-        {isPersonaPage && !isPersonaChatPage ? (
-          /* Non-chat persona pages (list, configure): plain main, no container.
-             Every page under this branch (agents list, agent/configure/*) brings
-             its own inner .kaya-scrollbar element that does the real scrolling —
+        {(isPersonaPage && !isPersonaChatPage) || isSlackPage ? (
+          /* Non-chat persona pages and Slack: plain main, no outer glass card.
+             Every page under this branch brings its own inner .kaya-scrollbar
+             element that does the real scrolling —
              this main never overflows on its own, so it must NOT also carry
              .kaya-scrollbar (scrollbar-gutter: stable): that reserved a second,
              always-on gutter stacked on top of the page's own, doubling the gap

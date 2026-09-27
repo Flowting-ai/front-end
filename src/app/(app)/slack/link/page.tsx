@@ -1,20 +1,11 @@
 'use client'
 
-import React, { Suspense, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
-import { ApiError } from '@/lib/api/client'
-import { linkSlackIdentity, disconnectSlackIdentity } from '@/lib/api/slack'
+import { disconnectSlackIdentity } from '@/lib/api/slack'
 import { ROOT_ROUTE } from '@/lib/routes'
-
-type PageState =
-  | 'linking'
-  | 'authorizing'
-  | 'linked'
-  | 'missing'
-  | 'error'
-  | 'disconnected'
 
 const cardStyle: React.CSSProperties = {
   display:         'flex',
@@ -52,58 +43,16 @@ const bodyStyle: React.CSSProperties = {
 }
 
 function SlackLinkContent() {
-  const search        = useSearchParams()
-  const { push }      = useRouter()
-  const state         = search.get('state')
-  // Slack's user-token consent bounces back here as ?authorized=1 (the backend
-  // /oauth/callback sends it), and that leg carries no `state`.
-  const authorized    = search.get('authorized') === '1'
-
-  // Decided at first render so the effect never has to setState synchronously:
-  // a fresh /connect deep link is 'linking', the return leg is already done,
-  // and anything else reached this page without a link.
-  const [pageState,  setPageState]  = useState<PageState>(
-    () => (state ? 'linking' : authorized ? 'linked' : 'missing'),
-  )
-  const [errorMsg,   setErrorMsg]   = useState('')
-  const [busy,       setBusy]       = useState(false)
-  // The link POST runs once; React 18 StrictMode double-invokes effects in dev.
-  const linkedOnce    = useRef(false)
-
-  useEffect(() => {
-    if (linkedOnce.current || !state) return
-    linkedOnce.current = true
-
-    linkSlackIdentity(state)
-      .then(({ authorizationUrl }) => {
-        // Binding the identity is only half of it. Slack mints the member's own
-        // token on a second consent screen, and without that token Souvenir can
-        // only ever read Slack as the bot — it cannot search their messages or
-        // post as them. So this is not a success page yet: hand them straight
-        // on, and let the ?authorized=1 return leg above declare success.
-        if (authorizationUrl) {
-          setPageState('authorizing')
-          window.location.assign(authorizationUrl)
-          return
-        }
-        setPageState('linked')
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 400) {
-          setErrorMsg('This link is invalid or has expired. Run `/connect` in Slack to get a fresh one.')
-        } else {
-          setErrorMsg(err instanceof Error ? err.message : 'Something went wrong linking your account.')
-        }
-        setPageState('error')
-      })
-  }, [state])
+  const { push }                    = useRouter()
+  const [disconnected, setDisconnected] = useState(false)
+  const [busy,         setBusy]         = useState(false)
 
   async function handleDisconnect() {
     if (busy) return
     setBusy(true)
     try {
       await disconnectSlackIdentity()
-      setPageState('disconnected')
+      setDisconnected(true)
       toast.success('Slack disconnected')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not disconnect')
@@ -112,51 +61,13 @@ function SlackLinkContent() {
     }
   }
 
-  if (pageState === 'linking') {
-    return (
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>Linking your Slack…</h1>
-        <p style={bodyStyle}>One moment while we connect this Slack identity to your account.</p>
-      </div>
-    )
-  }
-
-  if (pageState === 'authorizing') {
-    return (
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>One more step…</h1>
-        <p style={bodyStyle}>
-          Taking you to Slack to approve Souvenir reading and posting as you.
-        </p>
-      </div>
-    )
-  }
-
-  if (pageState === 'linked') {
-    return (
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>Slack connected 🎉</h1>
-        <p style={bodyStyle}>
-          You&apos;re all set. Head back to Slack — mentions, threads and slash commands
-          now run as you.
-        </p>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="outline" size="sm" loading={busy} onClick={handleDisconnect}>
-            Disconnect
-          </Button>
-          <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
-            Go to Souvenir
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (pageState === 'disconnected') {
+  if (disconnected) {
     return (
       <div style={cardStyle}>
         <h1 style={titleStyle}>Slack disconnected</h1>
-        <p style={bodyStyle}>Your Slack identity is no longer linked. Run `/connect` in Slack to relink anytime.</p>
+        <p style={bodyStyle}>
+          Your Slack identity is no longer linked. Message Souvenir in Slack to connect again.
+        </p>
         <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
           Go to Souvenir
         </Button>
@@ -164,18 +75,20 @@ function SlackLinkContent() {
     )
   }
 
-  // missing / error
   return (
     <div style={cardStyle}>
-      <h1 style={titleStyle}>Couldn&apos;t link Slack</h1>
+      <h1 style={titleStyle}>Your Slack</h1>
       <p style={bodyStyle}>
-        {pageState === 'missing'
-          ? 'This page expects a connect link from Slack. Run `/connect` in Slack to get one.'
-          : errorMsg}
+        Connecting happens from Slack: message Souvenir there and use the Connect button.
       </p>
-      <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
-        Go to Souvenir
-      </Button>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Button variant="outline" size="sm" loading={busy} onClick={handleDisconnect}>
+          Disconnect
+        </Button>
+        <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
+          Go to Souvenir
+        </Button>
+      </div>
     </div>
   )
 }
@@ -183,9 +96,7 @@ function SlackLinkContent() {
 export default function SlackLinkPage() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', minHeight: '100dvh', padding: 24 }}>
-      <Suspense fallback={null}>
-        <SlackLinkContent />
-      </Suspense>
+      <SlackLinkContent />
     </div>
   )
 }

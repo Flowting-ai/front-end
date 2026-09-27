@@ -97,6 +97,27 @@ describe('ConnectorCatalog', () => {
     expect(entry.tools[1].group).toBe('write')
   })
 
+  it('hides learned proxy endpoints because the verb proxy is the permission identity', () => {
+    const entry = ConnectorCatalog.parse({
+      ...GMAIL_DETAIL,
+      tools: [
+        ...GMAIL_DETAIL.tools,
+        { key: 'proxy_get', name: 'Proxy Get', description: 'Authenticated GET request.', read_only: true },
+        { key: 'raw_get_api_clickup_com_api_v2_task_comment', name: 'GET /task/{task}/comment', description: 'Raw route learned from a successful call.', read_only: true },
+        { key: 'raw_post_api_clickup_com_api_v2_task', name: 'POST /task', description: 'Raw route learned from a successful call.', read_only: false },
+        { key: 'raw_put_api_clickup_com_api_v2_task', name: 'PUT /task/{task}', description: 'Raw route learned from a successful call.', read_only: false },
+        { key: 'raw_patch_api_clickup_com_api_v2_task', name: 'PATCH /task/{task}', description: 'Raw route learned from a successful call.', read_only: false },
+        { key: 'raw_delete_api_clickup_com_api_v2_task', name: 'DELETE /task/{task}', description: 'Raw route learned from a successful call.', read_only: false },
+      ],
+    })
+
+    expect(entry.tools.map(tool => tool.key)).toEqual([
+      'gmail-find-email',
+      'gmail-send-email',
+      'proxy_get',
+    ])
+  })
+
   it('reads each account\'s own permissions, so two accounts differ', () => {
     const entry = ConnectorCatalog.parse(GMAIL_DETAIL)
     const [mine, theirs] = entry.connections

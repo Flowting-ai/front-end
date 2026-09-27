@@ -349,13 +349,23 @@ export const SLACK_STATUS_ENDPOINT  = withBase('/slack/status')
 export const SLACK_LINK_ENDPOINT    = withBase('/slack/link')
 export const ORG_SLACK_CHANNELS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/channels`)
-export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: string) =>
-  withBase(`/organizations/${orgId}/slack/channels/${encodeURIComponent(channelId)}/mapping`)
+export const ORG_SLACK_CHANNEL_SUMMARY_ENDPOINT = (orgId: string, channelId: string) =>
+  withBase(`/organizations/${orgId}/slack/channels/${encodeURIComponent(channelId)}/summary`)
 /** DELETE — remove the Slack bot from the organization (revokes + drops install). */
 export const ORG_SLACK_INSTALLATION_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/installation`)
 export const ORG_SLACK_CONFIG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/config`)
+export const ORG_SLACK_SKILLS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/skills`)
+export const ORG_SLACK_AUTOMATIONS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/automations`)
+export const ORG_SLACK_CONNECTORS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/connectors`)
+export const ORG_SLACK_CONNECTOR_ENDPOINT = (orgId: string, entryId: string) =>
+  withBase(`/organizations/${orgId}/slack/connectors/${entryId}`)
+export const ORG_SLACK_CHANNEL_CONFIG_ENDPOINT = (orgId: string, channelId: string) =>
+  withBase(`/organizations/${orgId}/slack/channels/${encodeURIComponent(channelId)}/config`)
 export const ORG_SLACK_PROJECT_CHANNEL_ENDPOINT = (orgId: string, projectId: string) =>
   withBase(`/organizations/${orgId}/slack/projects/${projectId}/channel`)
 
