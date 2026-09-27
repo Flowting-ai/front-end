@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { FolderOneIcon, PlusSignIcon, QuillWriteTwoIcon, SettingsOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/Tooltip'
+import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
 
 // ── "Sidebar / Project Group" (Figma 136:49968) ──────────────────────────────
 // Project row + its nested chats, inset 28px so child labels align under the
@@ -104,13 +105,17 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
 
     return (
       <div ref={ref} className={cn(className)} style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }} {...props}>
+        {/* Not itself a role="button" any more — it used to wrap the toggle
+            button, the icon, and up to 3 more role="button" spans (new chat /
+            open / add) all as nested interactive descendants of one outer
+            interactive element, which assistive tech can't reliably operate
+            (nested-interactive-control). The toggle, icon (when clickable),
+            and each action are now real, sibling <button>s inside this purely
+            visual/hover-tracking row; nothing here needs stopPropagation any
+            more since there's no longer a parent click handler to protect
+            against. */}
         <div
           ref={rowRef}
-          role="button"
-          tabIndex={0}
-          aria-expanded={isExpanded}
-          onClick={toggle}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           style={{
@@ -125,7 +130,6 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
             borderRadius:    10,
             backgroundColor: isActive ? 'var(--sidebar-menu-item-hover-bg)' : 'transparent',
             boxShadow:       isActive ? SHADOW_ITEM_HOVER : undefined,
-            cursor:          'pointer',
             transition:      'background-color 150ms, box-shadow 150ms',
             userSelect:      'none',
             boxSizing:       'border-box',
@@ -133,26 +137,34 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 0', minWidth: 0 }}>
             {icon !== null && (
-              <div
-                role={onIconClick ? 'button' : undefined}
-                tabIndex={onIconClick ? 0 : undefined}
-                aria-label={onIconClick ? `Open ${label}` : undefined}
-                onClick={onIconClick ? (e) => { e.stopPropagation(); onIconClick() } : undefined}
-                onKeyDown={onIconClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onIconClick() } } : undefined}
-                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: onIconClick ? 'pointer' : undefined }}
-              >
-                {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
-              </div>
+              onIconClick ? (
+                <button
+                  type="button"
+                  onClick={onIconClick}
+                  aria-label={`Open ${label}`}
+                  style={{ ...RESET_BUTTON_STYLE, color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: 'pointer' }}
+                >
+                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+                </button>
+              ) : (
+                <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+                </div>
+              )
             )}
-            <p
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              onClick={toggle}
               style={{
+                ...RESET_BUTTON_STYLE,
                 fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
                 lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 0 0', minWidth: 0, margin: 0,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 0 0', minWidth: 0,
               }}
             >
               {label}
-            </p>
+            </button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -160,64 +172,58 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
 
             {onNewChat && (
               <Tooltip content="New project chat" side="top" delayDuration={300}>
-                <span
-                  role="button"
-                  tabIndex={0}
+                <button
+                  type="button"
                   aria-label={`New chat in ${label}`}
-                  onClick={(e) => { e.stopPropagation(); onNewChat() }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onNewChat() } }}
+                  onClick={onNewChat}
                   onMouseEnter={() => setNewChatIconHovered(true)}
                   onMouseLeave={() => setNewChatIconHovered(false)}
                   style={{
-                    display: 'inline-flex', lineHeight: 0, cursor: 'pointer',
+                    ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0,
                     color: newChatIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
                     opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
                   <QuillWriteTwoIcon size={16} animated />
-                </span>
+                </button>
               </Tooltip>
             )}
 
             {onOpen && (
               <Tooltip content="Manage project" side="top" delayDuration={300}>
-                <span
-                  role="button"
-                  tabIndex={0}
+                <button
+                  type="button"
                   aria-label={`Open ${label}`}
-                  onClick={(e) => { e.stopPropagation(); onOpen() }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onOpen() } }}
+                  onClick={onOpen}
                   onMouseEnter={() => setOpenIconHovered(true)}
                   onMouseLeave={() => setOpenIconHovered(false)}
                   style={{
-                    display: 'inline-flex', lineHeight: 0, cursor: 'pointer',
+                    ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0,
                     color: openIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
                     opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
                   <SettingsOneIcon size={16} />
-                </span>
+                </button>
               </Tooltip>
             )}
 
             {onAddClick && (
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 aria-label={addLabel ?? `Add to ${label}`}
-                onClick={(e) => { e.stopPropagation(); onAddClick() }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onAddClick() } }}
-                style={{ display: 'inline-flex', lineHeight: 0, cursor: 'pointer', color: 'var(--sidebar-menu-item-text)', opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms' }}
+                onClick={onAddClick}
+                style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-text)', opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms' }}
               >
                 <PlusSignIcon size={16} />
-              </span>
+              </button>
             )}
           </div>
         </div>
 
         <AnimatePresence initial={false}>
           {isExpanded && children && (
-            <motion.div
+            <m.div
               key="content"
               initial="closed"
               animate="open"
@@ -227,15 +233,15 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
               onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
               onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
             >
-              <motion.div
+              <m.div
                 variants={staggerVariants}
                 style={{ paddingLeft: icon === null ? 6 : 28, display: 'flex', flexDirection: 'column', gap: 4 }}
               >
                 {React.Children.map(children, (child, i) => (
-                  <motion.div key={i} variants={itemVariants}>{child}</motion.div>
+                  <m.div key={i} variants={itemVariants}>{child}</m.div>
                 ))}
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

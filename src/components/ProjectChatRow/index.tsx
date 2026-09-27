@@ -6,6 +6,7 @@ import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
+import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -87,20 +88,26 @@ export function ProjectChatRow(
     const [isEditing, setIsEditing] = useState(false)
 
     // Publish state machine. Seeded from `published`; re-synced when the prop
-    // changes (e.g. after the parent reloads the published set).
+    // changes (e.g. after the parent reloads the published set). Tracks the
+    // previous value via useState, not a ref -- writing to ref.current during
+    // render isn't safe (a render can be replayed/discarded, e.g. Strict Mode
+    // double-invoking or a Suspense interruption, leaving the ref out of sync
+    // with what actually committed), and is exactly what the React Compiler's
+    // `refs` lint rule flags. useState is the compiler-safe version of the
+    // same "adjust state when a prop changes" pattern.
     const [publishState, setPublishState] = useState<PublishState>(published ? 'published' : 'idle')
-    const prevPublishedRef = useRef(published)
-    if (prevPublishedRef.current !== published) {
-      prevPublishedRef.current = published
+    const [prevPublished, setPrevPublished] = useState(published)
+    if (prevPublished !== published) {
+      setPrevPublished(published)
       setPublishState(published ? 'published' : 'idle')
     }
     const isPublished  = publishState === 'published'
     const isConfirming = publishState === 'confirming' || publishState === 'unpublishing'
     const [editValue, setEditValue] = useState(title)
     const inputRef = useRef<HTMLInputElement>(null)
-    const prevTitleRef = useRef(title)
-    if (prevTitleRef.current !== title) {
-      prevTitleRef.current = title
+    const [prevTitle, setPrevTitle] = useState(title)
+    if (prevTitle !== title) {
+      setPrevTitle(title)
       setEditValue(title)
     }
 
@@ -159,10 +166,6 @@ export function ProjectChatRow(
     return (
       <div
         ref={ref}
-        role="button"
-        tabIndex={0}
-        onClick={() => { if (!isEditing) onChatClick?.() }}
-        onKeyDown={(e) => { if (!isEditing && (e.key === 'Enter' || e.key === ' ')) onChatClick?.() }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -174,15 +177,22 @@ export function ProjectChatRow(
           backgroundColor,
           boxShadow,
           outline,
-          cursor:          isEditing ? 'default' : 'pointer',
           transition:      'background-color 120ms ease, box-shadow 120ms ease',
           width:           '100%',
           boxSizing:       'border-box',
         }}
       >
-        {/* Left: title + timestamp */}
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {isEditing ? (
+        {/* Left: title + timestamp. The whole row used to be one role="button"
+            div wrapping the ⋮ menu, pin-count and publish buttons as nested
+            interactive descendants — assistive tech can't reliably operate a
+            button inside another interactive element. The title/timestamp
+            (the "open chat" target) is now its own real <button> instead, a
+            sibling to those, not their ancestor; while editing there's no
+            button here at all (an <input> can't validly nest inside one
+            anyway), which is fine since the row's own navigate click was
+            already suppressed during editing before this change. */}
+        {isEditing ? (
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <input
               ref={inputRef}
               value={editValue}
@@ -191,9 +201,7 @@ export function ProjectChatRow(
               onKeyDown={(e) => {
                 if (e.key === 'Enter')  { e.preventDefault(); commitRename() }
                 if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
-                e.stopPropagation()
               }}
-              onClick={(e) => e.stopPropagation()}
               style={{
                 fontFamily:      'var(--font-body)',
                 fontWeight:      'var(--font-weight-medium)',
@@ -208,7 +216,28 @@ export function ProjectChatRow(
                 margin:          0,
               }}
             />
-          ) : (
+            <p
+              style={{
+                fontFamily:   'var(--font-body)',
+                fontWeight:   'var(--font-weight-regular)',
+                fontSize: '12px',
+                lineHeight:   '16px',
+                color:        '#a39b95',
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+                margin:       0,
+              }}
+            >
+              {[timestamp, author].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onChatClick?.()}
+            style={{ ...RESET_BUTTON_STYLE, flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
               <p
                 style={{
@@ -228,30 +257,28 @@ export function ProjectChatRow(
               {isPublished && <Badge color="Blue" label="Published" style={{ flexShrink: 0 }} />}
               {readOnly && <Badge color="Red" label="View only" style={{ flexShrink: 0 }} />}
             </div>
-          )}
-          <p
-            style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   'var(--font-weight-regular)',
-              fontSize: '12px',
-              lineHeight:   '16px',
-              color:        '#a39b95',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-              margin:       0,
-            }}
-          >
-            {[timestamp, author].filter(Boolean).join(' · ')}
-          </p>
-        </div>
+            <p
+              style={{
+                fontFamily:   'var(--font-body)',
+                fontWeight:   'var(--font-weight-regular)',
+                fontSize: '12px',
+                lineHeight:   '16px',
+                color:        '#a39b95',
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+                margin:       0,
+              }}
+            >
+              {[timestamp, author].filter(Boolean).join(' · ')}
+            </p>
+          </button>
+        )}
 
         {/* Publish confirmation — replaces ⋮/pins while confirming */}
         {!isEditing && isConfirming && (
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+
             <span
               style={{
                 display:         'inline-flex',
@@ -304,7 +331,6 @@ export function ProjectChatRow(
               transition: 'opacity 120ms ease',
               flexShrink: 0,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <Dropdown.Float
               open={menuOpen}
@@ -361,10 +387,7 @@ export function ProjectChatRow(
         {/* + Publish — editor+ only, hidden once published or while confirming,
             and only shown on hover/menu-open like the row's other actions. */}
         {!isEditing && !isConfirming && canPublish && !isPublished && showMoreMenu && (
-          <div
-            style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Button
               variant="outline"
               size="sm"
@@ -378,7 +401,6 @@ export function ProjectChatRow(
         {/* Pin count badge */}
         {!isConfirming && <button
           onClick={(e) => {
-            e.stopPropagation()
             if (hasPins) onPinsClick?.(e)
           }}
           disabled={!hasPins}
