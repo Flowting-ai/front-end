@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
@@ -37,58 +36,7 @@ import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import type { PinFolder } from "@/lib/api/pins";
 import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
-
-// ── Mention chip ──────────────────────────────────────────────────────────────
-
-interface MentionChipProps {
-  label: string;
-  onRemove: () => void;
-}
-
-function MentionChip({ label, onRemove }: MentionChipProps) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "4px",
-        borderRadius: "999px",
-        backgroundColor: "var(--neutral-100, #F5F5F5)",
-        border: "1px solid var(--neutral-200, #E5E5E5)",
-        padding: "2px 8px 2px 10px",
-        fontSize: "12px",
-        fontWeight: 500,
-        color: "var(--neutral-700, #444)",
-        fontFamily: "var(--font-body)",
-        maxWidth: "200px",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-        @{label}
-      </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove mention @${label}`}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "none",
-          background: "none",
-          padding: "1px",
-          cursor: "pointer",
-          color: "var(--neutral-400, #999)",
-          borderRadius: "50%",
-          flexShrink: 0,
-        }}
-      >
-        <X size={11} strokeWidth={2.5} />
-      </button>
-    </span>
-  );
-}
+import { MentionChip } from "@/components/chat/MentionChip";
 
 interface ChatInterfaceProps {
   chatId: string | undefined;
