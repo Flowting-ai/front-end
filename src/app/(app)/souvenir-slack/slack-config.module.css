@@ -242,6 +242,20 @@
 .listSecondary { overflow: hidden; margin-top: 1px; color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .rowActions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; }
 
+.automation { border: 1px solid var(--neutral-200); border-radius: 11px; background: white; }
+.automation > .listRow { border: 0; background: transparent; }
+.automationToggle { display: flex; min-width: 0; flex: 1; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.automationChevron { flex: 0 0 auto; color: var(--neutral-500); transition: transform 150ms ease; }
+.automationChevronOpen { transform: rotate(180deg); }
+.automationDetail { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px 36px; color: var(--neutral-700); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
+.automationSummary { margin: 0; white-space: pre-wrap; }
+.automationMeta { margin: 0; color: var(--neutral-500); font-size: 12px; }
+.automationRuns { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.automationRun { display: flex; gap: 8px; color: var(--neutral-600); font-size: 12px; }
+.automationRunStatus { flex: 0 0 64px; color: var(--neutral-500); }
+.automationRunText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.automationActions { display: flex; flex-wrap: wrap; gap: 7px; }
+
 .empty { margin: 12px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
 .inlinePanel { margin-top: 14px; padding: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-25, #fcfbfa); }
 .inlinePanelHeader { margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; }

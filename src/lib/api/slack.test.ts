@@ -10,7 +10,7 @@ vi.mock('./client', async importOriginal => {
   return { ...actual, apiFetch, apiFetchJson }
 })
 
-import { getOrgSlackStatus, getSlackAppConfig, removeOrgSlackInstallation, updateSlackAppConfig, uploadSlackSkill } from './slack'
+import { getOrgSlackStatus, getSlackAppConfig, linkSlackIdentity, removeOrgSlackInstallation, updateSlackAppConfig, uploadSlackSkill } from './slack'
 
 describe('removeOrgSlackInstallation', () => {
   beforeEach(() => {
@@ -95,5 +95,27 @@ describe('removeOrgSlackInstallation', () => {
     expect(options).toMatchObject({ method: 'POST' })
     expect(options?.body).toBeInstanceOf(FormData)
     expect((options?.body as FormData).get('file')).toBe(file)
+  })
+})
+
+describe('linkSlackIdentity', () => {
+  beforeEach(() => {
+    apiFetch.mockReset()
+    apiFetchJson.mockReset()
+  })
+
+  it('carries the per-person authorization URL back to the caller', async () => {
+    // Linking without this URL leaves the identity bound but tokenless, so
+    // Souvenir can only read Slack as the bot. Dropping it is the bug.
+    apiFetchJson.mockResolvedValue({
+      ok: true,
+      team_id: 'T1',
+      authorization_url: 'https://slack.com/oauth/v2/authorize?user_scope=search%3Aread',
+    })
+
+    await expect(linkSlackIdentity('signed-state')).resolves.toEqual({
+      teamId: 'T1',
+      authorizationUrl: 'https://slack.com/oauth/v2/authorize?user_scope=search%3Aread',
+    })
   })
 })
