@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
+import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { PermissionsTab } from '@/components/connectors/AccountDetailView'
 import {
   getConnector,
@@ -11,7 +12,6 @@ import {
   listConnectors,
   listLinkedConnectors,
   pollConnectorUntilActive,
-  resolveConnector,
   type ConnectorCatalog,
   type ConnectorConnection,
 } from '@/lib/api/connectors'
@@ -21,23 +21,16 @@ import {
   removeSlackConnector,
   type SlackScopeConnector,
 } from '@/lib/api/slack'
+import type { Connector } from '@/lib/connector'
 import styles from './slack-config.module.css'
 
 type AddMode = 'closed' | 'menu' | 'existing' | 'new'
 
-function ConnectorLabel({ slug, detail }: { slug: string; detail?: string }) {
-  const connector = resolveConnector(slug)
+function ConnectorLabel({ connector, detail }: { connector: Connector; detail?: string }) {
   return (
     <span className={styles.listRowMain}>
       <span className={styles.connectorIcon}>
-        {connector.logo
-          ? (
-            // Connector logos can be arbitrary provider URLs, so Next Image's
-            // allowlist cannot safely describe them ahead of time.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={connector.logo} alt="" width={18} height={18} style={{ objectFit: 'contain' }} />
-          )
-          : <span style={{ width: 16, height: 16, borderRadius: 4, background: 'var(--neutral-200)' }} />}
+        <ConnectorGlyph slug={connector.slug} name={connector.name} logoUrl={connector.logo} size={18} />
       </span>
       <span style={{ minWidth: 0 }}>
         <span className={styles.listPrimary} style={{ display: 'block' }}>{connector.name}</span>
@@ -53,14 +46,14 @@ function AccountPermissions({ entry }: { entry: SlackScopeConnector }) {
 
   useEffect(() => {
     let cancelled = false
-    getConnector(entry.connectorSlug)
+    getConnector(entry.connector.slug)
       .then(catalog => {
         const account = catalog.connections.find(c => c.id === entry.accountId)
         if (!cancelled && account) setLoaded({ account, catalog })
       })
       .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load permissions'))
     return () => { cancelled = true }
-  }, [entry.connectorSlug, entry.accountId, refresh])
+  }, [entry.connector.slug, entry.accountId, refresh])
 
   if (!loaded) return <div className="kaya-skeleton" style={{ width: '100%', height: 120, borderRadius: 8 }} />
   return (
@@ -77,7 +70,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
   const [entries, setEntries] = useState<SlackScopeConnector[] | null>(null)
   const [openPermissions, setOpenPermissions] = useState<string | null>(null)
   const [mode, setMode] = useState<AddMode>('closed')
-  const [mine, setMine] = useState<ConnectorConnection[]>([])
+  const [mine, setMine] = useState<{ account: ConnectorConnection; connector: Connector }[]>([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ConnectorCatalog[]>([])
   const [connecting, setConnecting] = useState<string | null>(null)
@@ -91,7 +84,9 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
   useEffect(() => {
     if (mode !== 'existing') return
     listLinkedConnectors()
-      .then(catalog => setMine(catalog.flatMap(entry => entry.ownedConnections.filter(c => c.connected))))
+      .then(catalog => setMine(catalog.flatMap(entry => entry.ownedConnections
+        .filter(c => c.connected)
+        .map(account => ({ account, connector: entry.identity })))))
       .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load your connections'))
   }, [mode])
 
@@ -144,7 +139,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
   if (entries === null) return <div className={`kaya-skeleton ${styles.skeleton}`} />
 
   const lentHere = new Set(entries.filter(e => !e.inherited).map(e => e.accountId))
-  const available = mine.filter(account => !lentHere.has(account.id))
+  const available = mine.filter(({ account }) => !lentHere.has(account.id))
 
   return (
     <section className={styles.section}>
@@ -187,9 +182,9 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
           <div className={styles.list}>
             {available.length === 0
               ? <p className={styles.empty}>No other connections are available.</p>
-              : available.map(account => (
+              : available.map(({ account, connector }) => (
                 <div key={account.id} className={styles.listRow}>
-                  <ConnectorLabel slug={account.connectorSlug} detail={account.accountIdentifier ?? account.nickname} />
+                  <ConnectorLabel connector={connector} detail={account.accountIdentifier ?? account.nickname} />
                   <Button variant="outline" size="sm" onClick={() => void lend(account.id)}>Add</Button>
                 </div>
               ))}
@@ -206,7 +201,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
           <div className={styles.list}>
             {results.map(catalog => (
               <div key={catalog.slug} className={styles.listRow}>
-                <ConnectorLabel slug={catalog.slug} />
+                <ConnectorLabel connector={catalog.identity} />
                 <Button variant="outline" size="sm" loading={connecting === catalog.slug} disabled={connecting !== null} onClick={() => void connectNew(catalog)}>
                   Connect
                 </Button>
@@ -224,7 +219,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
           {entries.map(entry => (
             <div key={entry.id}>
               <div className={styles.listRow}>
-                <ConnectorLabel slug={entry.connectorSlug} detail={`${entry.accountLabel} · connected by ${entry.owned ? 'you' : entry.ownerName}`} />
+                <ConnectorLabel connector={entry.connector} detail={`${entry.accountLabel} · connected by ${entry.owned ? 'you' : entry.ownerName}`} />
                 <span className={styles.rowActions}>
                   {entry.inherited && <span className={styles.inherited}>Inherited</span>}
                   {entry.owned ? (

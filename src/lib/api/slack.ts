@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { ApiError, apiFetch, apiFetchJson, friendlyApiError } from './client'
+import { toConnector, type Connector } from '@/lib/connector'
 import {
   SLACK_INSTALL_ENDPOINT,
   SLACK_STATUS_ENDPOINT,
@@ -181,9 +182,33 @@ export async function getSlackChannelSummary(
 
 // ── Identity link / unlink (the /connect + /disconnect flow) ──────────────────
 
+interface SlackLinkResponseRaw {
+  ok:                boolean
+  team_id:           string
+  authorization_url: string
+}
+
 interface SlackDisconnectResponseRaw {
   ok:      boolean
   removed: number
+}
+
+/** POST /slack/link — complete a `/connect` deep link, binding the Slack
+ * identity carried in `state` to the logged-in account.
+ *
+ * Linking is only half the flow. `authorizationUrl` is Slack's per-person
+ * consent screen, and the user token it mints is the only way Souvenir can read
+ * Slack as the member rather than as the bot — searching their own messages
+ * included. Dropping it leaves every identity linked but tokenless, so the
+ * caller must send them there. */
+export async function linkSlackIdentity(
+  state: string,
+): Promise<{ teamId: string; authorizationUrl: string }> {
+  const data = await apiFetchJson<SlackLinkResponseRaw>(SLACK_LINK_ENDPOINT, {
+    method: 'POST',
+    body:   JSON.stringify({ state }),
+  })
+  return { teamId: data.team_id, authorizationUrl: data.authorization_url }
 }
 
 /** DELETE /slack/link — unlink the user's Slack identity from every workspace. */
@@ -306,6 +331,8 @@ const slackScopeConnectorSchema = z.object({
   id:             z.string(),
   account_id:     z.string(),
   connector_slug: z.string(),
+  display_name:   z.string().nullable(),
+  logo_url:       z.string().nullable(),
   account_label:  z.string(),
   owner_id:       z.string(),
   owner_name:     z.string(),
@@ -317,7 +344,7 @@ const slackScopeConnectorSchema = z.object({
 export interface SlackScopeConnector {
   id:            string
   accountId:     string
-  connectorSlug: string
+  connector:     Connector
   accountLabel:  string
   ownerName:     string
   /** The viewer connected it, so they alone can change its permissions. */
@@ -330,7 +357,7 @@ function toScopeConnector(row: z.infer<typeof slackScopeConnectorSchema>): Slack
   return {
     id:            row.id,
     accountId:     row.account_id,
-    connectorSlug: row.connector_slug,
+    connector:     toConnector(row),
     accountLabel:  row.account_label,
     ownerName:     row.owner_name,
     owned:         row.owned,
@@ -404,6 +431,7 @@ const slackChannelAutomationSchema = z.object({
   summary:    z.string(),
   channel_id: z.string(),
   status:     z.string(),
+  owned:      z.boolean(),
   created_at: z.string(),
 })
 
@@ -413,10 +441,12 @@ export interface SlackChannelAutomation {
   summary:   string
   channelId: string
   status:    string
+  /** Only the owner can pause, run or delete it. */
+  owned:     boolean
   createdAt: string
 }
 
-/** GET /organizations/{id}/slack/automations — automations watching a channel. */
+/** GET /organizations/{id}/slack/automations — automations watching channels you share with the bot. */
 export async function listSlackChannelAutomations(orgId: string): Promise<SlackChannelAutomation[]> {
   const raw = await apiFetchJson<unknown>(ORG_SLACK_AUTOMATIONS_ENDPOINT(orgId))
   return z.array(slackChannelAutomationSchema).parse(raw).map(row => ({
@@ -425,6 +455,7 @@ export async function listSlackChannelAutomations(orgId: string): Promise<SlackC
     summary:   row.summary,
     channelId: row.channel_id,
     status:    row.status,
+    owned:     row.owned,
     createdAt: row.created_at,
   }))
 }

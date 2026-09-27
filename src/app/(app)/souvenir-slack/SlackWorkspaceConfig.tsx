@@ -415,6 +415,9 @@ export function SlackWorkspaceConfig({ orgId, teamName }: { orgId: string; teamN
             <span className={styles.railLabel}>{channel.name}</span>
           </button>
         ))}
+        {channels.length === 0 && (
+          <p className={styles.emptyRail}>No channels you share with Souvenir yet.</p>
+        )}
         {channels.length > 0 && filtered.length === 0 && (
           <p className={styles.emptyRail}>No matching channels.</p>
         )}
