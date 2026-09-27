@@ -161,12 +161,18 @@ function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDe
   }
 }
 
-// Someone else's automation carries its owner; the org list is all a
-// non-owner can read, so its detail view is built from this row alone.
-function organizationToListItem(task: OrganizationAutomation, chatId?: string): ScheduleListItem {
-  return task.is_mine
-    ? taskToListItem(task, chatId)
-    : { ...taskToListItem(task), ownerName: task.owner_name }
+// Someone else's automation: the org row is all a non-owner can read, so its
+// detail view is built from this row alone.
+function organizationToListItem(task: OrganizationAutomation): ScheduleListItem {
+  return {
+    ...taskToListItem(task),
+    ownerName:  task.owner_name,
+    connectors: task.connectors.map(connector => ({
+      slug:    connector.slug,
+      name:    connector.display_name,
+      logoUrl: connector.logo_url,
+    })),
+  }
 }
 
 function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
@@ -182,6 +188,7 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
     successRate:  item.successRate,
     isRunning:    item.isRunning,
     ownerName:    item.ownerName,
+    connectors:   item.connectors,
   }
 }
 
@@ -255,9 +262,8 @@ function BrainSchedulesPageInner() {
   const handleScopeChange = useCallback((next: ScheduleScope) => {
     setScope(next)
     if (next !== 'organization' || orgSchedules) return
-    const links = getAllScheduleLinks()
     listOrganizationAutomations()
-      .then(tasks => setOrgSchedules(tasks.map(t => organizationToListItem(t, links[t.id]))))
+      .then(tasks => setOrgSchedules(tasks.map(organizationToListItem)))
       .catch((err: unknown) => {
         console.error('[schedules] failed to load organization schedules', err)
         toast.error('Failed to load organization schedules')
@@ -272,8 +278,8 @@ function BrainSchedulesPageInner() {
   const handleScheduleClick = useCallback((id: string) => {
     setSelectedId(id)
     // Someone else's: the org row is everything a non-owner may read.
-    const orgItem = orgSchedules?.find(s => s.id === id)
-    if (scope === 'organization' && orgItem?.ownerName) {
+    const orgItem = scope === 'organization' ? orgSchedules?.find(s => s.id === id) : undefined
+    if (orgItem) {
       setSelectedDetail(listItemToDetail(orgItem))
       return
     }

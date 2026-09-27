@@ -44,12 +44,18 @@ export interface AutomationDetail extends Automation {
   runs?:    AutomationRun[]
 }
 
-/** One automation in the org list. Anyone in the org can read it; only its
- *  owner (`is_mine`) can edit, pause, run or delete it. Someone else's row
- *  carries only its public trigger fields and no run history. */
+/** A connector an automation's program calls, as the catalog names it. */
+export interface AutomationConnector {
+  slug:         string
+  display_name: string
+  logo_url:     string | null
+}
+
+/** Someone else's automation in the org list. Read-only: it carries only its
+ *  public trigger fields and no run history. */
 export interface OrganizationAutomation extends Automation {
   owner_name: string
-  is_mine:    boolean
+  connectors: AutomationConnector[]
 }
 
 /** A Brain chat holding the source's program, and the request that sets it up. */
@@ -96,7 +102,7 @@ export function listAutomations(): Promise<Automation[]> {
   return apiFetchJson<Automation[]>(AUTOMATIONS_BASE)
 }
 
-/** GET /automations/organization — every live automation in the user's org. */
+/** GET /automations/organization — everyone else's live automations in the user's org. */
 export function listOrganizationAutomations(): Promise<OrganizationAutomation[]> {
   return apiFetchJson<OrganizationAutomation[]>(ORGANIZATION_AUTOMATIONS)
 }

@@ -13,9 +13,11 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
+import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { LoopHistoryCard } from './LoopHistoryCard'
 import type { AgentStep, StepStatus } from './lib/phase'
+import type { ScheduleConnector } from './ScheduleCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,8 @@ export interface ScheduleDetailItem {
   /** Set when someone else in the org owns it: the view is read-only and its
    *  run history, which can hold the owner's data, is not available. */
   ownerName?:   string
+  /** Connectors its program calls. */
+  connectors?:  ScheduleConnector[]
 }
 
 export interface ScheduleDetailViewProps {
@@ -352,6 +356,32 @@ export function ScheduleDetailView({
               }}>
                 {schedule.ownerName}
               </span>
+            </div>
+          )}
+          {!!schedule.connectors?.length && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                color:      'var(--neutral-400)',
+              }}>
+                Connectors
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
+                {schedule.connectors.map(connector => (
+                  <span key={connector.slug} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <ConnectorGlyph slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
+                    <span style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize:   'var(--font-size-body)',
+                      lineHeight: 'var(--line-height-body)',
+                      color:      'var(--neutral-700)',
+                    }}>
+                      {connector.name}
+                    </span>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
           {schedule.createdAt && (

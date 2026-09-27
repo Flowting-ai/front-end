@@ -3,8 +3,18 @@
 import React, { useState } from 'react'
 import { CalendarThreeIcon, AlertTwoIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
+import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/** A connector the schedule's program calls. */
+export interface ScheduleConnector {
+  slug:    string
+  name:    string
+  logoUrl: string | null
+}
+
+const MAX_CARD_CONNECTORS = 4
 
 export interface ScheduleCardProps {
   id:           string
@@ -35,6 +45,8 @@ export interface ScheduleCardProps {
   /** Set for someone else's automation in the org view — shown instead of the
    *  creation date, since who owns it is what decides what you can do with it. */
   ownerName?:   string
+  /** Connectors its program calls — shown as logos in the footer. */
+  connectors?:  ScheduleConnector[]
   onClick?:     (id: string) => void
 }
 
@@ -53,6 +65,7 @@ export function ScheduleCard({
   isRunning,
   drift,
   ownerName,
+  connectors = [],
   onClick,
 }: ScheduleCardProps) {
   const [hovered, setHovered] = useState(false)
@@ -204,6 +217,22 @@ export function ScheduleCard({
               {successRate != null && ` · ${Math.round(successRate * 100)}% success`}
             </span>
           </>
+        )}
+
+        {connectors.length > 0 && (
+          <div
+            title={connectors.map(connector => connector.name).join(', ')}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 }}
+          >
+            {connectors.slice(0, MAX_CARD_CONNECTORS).map(connector => (
+              <ConnectorGlyph key={connector.slug} slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
+            ))}
+            {connectors.length > MAX_CARD_CONNECTORS && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
+                +{connectors.length - MAX_CARD_CONNECTORS}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </button>
