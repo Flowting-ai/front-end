@@ -15,6 +15,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
 import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
+import { Skeleton } from '@/components/Skeleton'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 const MAX_TAGS = 5
@@ -22,7 +23,7 @@ const MAX_TAGS = 5
 function NewProjectPageInner() {
   const { push }                     = useRouter()
   const { createProject } = useProjects()
-  const { orgId }                    = useOrg()
+  const { orgId, orgReady }          = useOrg()
   const [name,        setName]       = useState('')
   const [description, setDescription] = useState('')
   const [visibility,  setVisibility]  = useState<ProjectVisibility>('personal')
@@ -152,7 +153,19 @@ function NewProjectPageInner() {
             />
           </div>
 
-          {visibilityOptions.length > 1 && (
+          {/* Reserves the same block height while `orgId` is still resolving
+              (an async org-membership fetch — see org-context.tsx) as it
+              will occupy once resolved-with-an-org, so the swap from
+              skeleton to the real selector doesn't shift the fields below
+              it. Measured live: without this, the block pops in ~2s after
+              first paint, which is exactly the layout shift Lighthouse was
+              scoring as this page's CLS. */}
+          {!orgReady ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <Skeleton width={110} height={24} radius={4} />
+              <Skeleton height={44} radius={10} />
+            </div>
+          ) : visibilityOptions.length > 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <label

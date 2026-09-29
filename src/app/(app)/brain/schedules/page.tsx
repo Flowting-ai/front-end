@@ -11,9 +11,12 @@ import {
   type ScheduleListItem,
   type ScheduleDetailItem,
   type ScheduleEditData,
+  type ScheduleScope,
 } from '@/templates/Brain'
 import {
   listAutomations,
+  listOrganizationAutomations,
+  copyAutomation,
   getAutomation,
   runAutomationNow,
   updateAutomation,
@@ -22,6 +25,7 @@ import {
   type Automation,
   type AutomationDetail,
   type AutomationRun,
+  type OrganizationAutomation,
 } from '@/lib/api/automations'
 import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, linkScheduleToChat, stashPendingPrompt } from '@/lib/scheduleLinks'
@@ -157,6 +161,20 @@ function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDe
   }
 }
 
+// Someone else's automation: the org row is all a non-owner can read, so its
+// detail view is built from this row alone.
+function organizationToListItem(task: OrganizationAutomation): ScheduleListItem {
+  return {
+    ...taskToListItem(task),
+    ownerName:  task.owner_name,
+    connectors: task.connectors.map(connector => ({
+      slug:    connector.slug,
+      name:    connector.display_name,
+      logoUrl: connector.logo_url,
+    })),
+  }
+}
+
 function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
   return {
     id:           item.id,
@@ -166,6 +184,11 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
     isActive:     item.isActive,
     createdAt:    item.createdAt,
     chatId:       item.chatId,
+    runCount:     item.runCount,
+    successRate:  item.successRate,
+    isRunning:    item.isRunning,
+    ownerName:    item.ownerName,
+    connectors:   item.connectors,
   }
 }
 
@@ -180,6 +203,9 @@ function BrainSchedulesPageInner() {
   // ── State ──────────────────────────────────────────────────────────────────
 
   const [schedules,       setSchedules]       = useState<ScheduleListItem[]>([])
+  const [scope,           setScope]           = useState<ScheduleScope>('mine')
+  const [orgSchedules,    setOrgSchedules]    = useState<ScheduleListItem[] | null>(null)
+  const [isCopying,       setIsCopying]       = useState(false)
   const [isLoadingList,   setIsLoadingList]   = useState(true)
   const [selectedId,      setSelectedId]      = useState<string | null>(null)
   const [selectedDetail,  setSelectedDetail]  = useState<ScheduleDetailItem | null>(null)
@@ -231,10 +257,32 @@ function BrainSchedulesPageInner() {
       .finally(() => setIsLoadingList(false))
   }, [requestedScheduleId])
 
+  // ── Organization scope (loaded on first visit) ─────────────────────────────
+
+  const handleScopeChange = useCallback((next: ScheduleScope) => {
+    setScope(next)
+    if (next !== 'organization' || orgSchedules) return
+    listOrganizationAutomations()
+      .then(tasks => setOrgSchedules(tasks.map(organizationToListItem)))
+      .catch((err: unknown) => {
+        console.error('[schedules] failed to load organization schedules', err)
+        toast.error('Failed to load organization schedules')
+        setScope('mine')
+      })
+  }, [orgSchedules])
+
+  const visibleSchedules = scope === 'organization' ? (orgSchedules ?? []) : schedules
+
   // ── Select / open detail ───────────────────────────────────────────────────
 
   const handleScheduleClick = useCallback((id: string) => {
     setSelectedId(id)
+    // Someone else's: the org row is everything a non-owner may read.
+    const orgItem = scope === 'organization' ? orgSchedules?.find(s => s.id === id) : undefined
+    if (orgItem) {
+      setSelectedDetail(listItemToDetail(orgItem))
+      return
+    }
     // Local-only items: use list-item data immediately, no API call
     if (localIdsRef.current.has(id)) {
       const item = schedules.find(s => s.id === id)
@@ -249,7 +297,7 @@ function BrainSchedulesPageInner() {
         const item = schedules.find(s => s.id === id)
         setSelectedDetail(item ? listItemToDetail(item) : null)
       })
-  }, [schedules])
+  }, [schedules, scope, orgSchedules])
 
   const handleBack = useCallback(() => {
     setSelectedId(null)
@@ -399,9 +447,29 @@ function BrainSchedulesPageInner() {
       .finally(() => setIsRunningNow(false))
   }, [selectedId])
 
+  // ── Copy (someone else's → a Brain chat that rebuilds it as mine) ─────────
+  // The chat already holds the program. The prompt is prefilled for the user to
+  // send; the non-UUID schedule key makes Brain bind this chat to the copy it
+  // creates, the same way a schedule made from the modal is bound.
+
+  const handleCopy = useCallback(() => {
+    if (!selectedId) return
+    setIsCopying(true)
+    copyAutomation(selectedId)
+      .then(({ chat_id, prompt }) => {
+        const key = `copy-${chat_id}`
+        stashPendingPrompt(key, prompt)
+        push(`${BRAIN_ROUTE}?id=${chat_id}&fromSchedule=${encodeURIComponent(key)}`)
+      })
+      .catch(() => {
+        toast.error('Failed to copy schedule')
+        setIsCopying(false)
+      })
+  }, [selectedId, push])
+
   // ── Derived: what to show in the center ───────────────────────────────────
 
-  const selectedListItem  = selectedId ? (schedules.find(s => s.id === selectedId) ?? null) : null
+  const selectedListItem  = selectedId ? (visibleSchedules.find(s => s.id === selectedId) ?? null) : null
   // Show API-loaded detail if available; fall back to list-item data instantly so
   // the detail view opens immediately without waiting for the fetch.
   const detailToShow      = selectedDetail ?? (selectedListItem ? listItemToDetail(selectedListItem) : null)
@@ -461,12 +529,16 @@ function BrainSchedulesPageInner() {
                   runningNow={isRunningNow}
                   onToggleActive={handleToggleActive}
                   onOpenChat={(chatId) => push(`${BRAIN_ROUTE}?id=${chatId}`)}
+                  onCopy={handleCopy}
+                  copying={isCopying}
                 />
-              ) : isLoadingList ? (
+              ) : isLoadingList || (scope === 'organization' && !orgSchedules) ? (
                 <SchedulesLoadingState />
               ) : (
                 <ScheduleListView
-                  schedules={schedules}
+                  schedules={visibleSchedules}
+                  scope={scope}
+                  onScopeChange={handleScopeChange}
                   onScheduleClick={handleScheduleClick}
                   onCreateNew={handleCreateNew}
                 />

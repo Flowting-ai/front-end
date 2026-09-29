@@ -288,7 +288,6 @@ interface ChatMessageProps {
   archived?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
-  onCitationsClick?: () => void;
   onFollowUp?: (prompt: string) => void;
   onRetry?: () => void;
   /** Records a permission-prompt answer in the owning messages state so the

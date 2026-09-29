@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { Slot } from '@radix-ui/react-slot'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Popover } from '@/components/Popover'
@@ -165,7 +165,7 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             key="role-panel"
             initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
             animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
@@ -190,7 +190,7 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
                 />
               ))}
             </Popover>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

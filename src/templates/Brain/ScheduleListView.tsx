@@ -5,14 +5,20 @@ import { PlusSignIcon, SearchOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ScheduleListItem = Omit<ScheduleCardProps, 'onClick'>
 
+/** Your own schedules, or every schedule in your organization. */
+export type ScheduleScope = 'mine' | 'organization'
+
 export interface ScheduleListViewProps {
   schedules:          ScheduleListItem[]
+  scope:              ScheduleScope
+  onScopeChange:      (scope: ScheduleScope) => void
   onScheduleClick?:   (id: string) => void
   onCreateNew?:       () => void
 }
@@ -70,6 +76,8 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
 
 export function ScheduleListView({
   schedules,
+  scope,
+  onScopeChange,
   onScheduleClick,
   onCreateNew,
 }: ScheduleListViewProps) {
@@ -116,7 +124,9 @@ export function ScheduleListView({
             lineHeight: '22px',
             color:      'var(--neutral-500)',
           }}>
-            Automated tasks that run on your behalf
+            {scope === 'organization'
+              ? 'Everyone in your organization can see these. Copy one to run it as your own.'
+              : 'Automated tasks that run on your behalf'}
           </p>
         </div>
         {!isEmpty && (
@@ -156,6 +166,15 @@ export function ScheduleListView({
             </Button>
           </div>
         )}
+      </div>
+
+      <div style={{ width: 240 }}>
+        <Tabs value={scope} onValueChange={(value) => onScopeChange(value as ScheduleScope)}>
+          <TabsList fluid size="small">
+            <TabsTrigger value="mine">Mine</TabsTrigger>
+            <TabsTrigger value="organization">Organization</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {isEmpty ? (

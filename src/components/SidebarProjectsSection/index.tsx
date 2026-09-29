@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { ArrowDownOneIcon, FolderOneIcon } from '@strange-huge/icons'
 
@@ -335,7 +335,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   paddingRight:    isMarqueeing ? '48px' : undefined,
                 }}
               >
-                <motion.p
+                <m.p
                   ref={labelRef}
                   style={{
                     ...bodyTextStyle,
@@ -350,7 +350,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   onAnimationComplete={() => { setIsMarqueeing(false); setMarqueeDone(true) }}
                 >
                   {label}
-                </motion.p>
+                </m.p>
               </div>
             )}
           </div>
@@ -359,7 +359,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               {badge}
               {showExpandArrow && (
-                <motion.div
+                <m.div
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}
@@ -395,7 +395,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   }}
                 >
                   <ArrowDownOneIcon size={16} />
-                </motion.div>
+                </m.div>
               )}
             </div>
           )}
@@ -409,7 +409,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
         {/* ── Expanded children — staggered per-item fade + drift ── */}
         <AnimatePresence initial={false}>
           {isExpanded && children && (
-            <motion.div
+            <m.div
               key="content"
               initial="closed"
               animate="open"
@@ -419,7 +419,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
               onAnimationStart={(def) => { if (def === 'closed') setExpandOverflow('hidden') }}
               onAnimationComplete={(def) => { if (def === 'open') setExpandOverflow('visible') }}
             >
-              <motion.div
+              <m.div
                 variants={staggerVariants}
                 style={{
                   position:      'relative',
@@ -437,7 +437,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                 }}
               >
                 {showTreeLine && (
-                  <motion.div
+                  <m.div
                     aria-hidden
                     variants={treeLineVariants}
                     style={{
@@ -454,12 +454,12 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   />
                 )}
                 {React.Children.map(children, (child, i) => (
-                  <motion.div key={i} variants={itemVariants}>
+                  <m.div key={i} variants={itemVariants}>
                     {child}
-                  </motion.div>
+                  </m.div>
                 ))}
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

@@ -3,378 +3,40 @@
 import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
-import { ProjectCard, VISIBILITY_LABEL, VISIBILITY_COLOR } from '@/components/ProjectCard'
+import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
+import { Skeleton } from '@/components/Skeleton'
+import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
-import { Divider } from '@/components/Divider'
 import { Tooltip } from '@/components/Tooltip'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { LeaveProjectModal } from '@/components/LeaveProjectModal'
 import { DeleteProjectModal } from '@/components/DeleteProjectModal'
 import { ProjectTrashList } from '@/components/ProjectTrashModal/ProjectTrashList'
+import { ProjectViewToggle } from '@/components/ProjectViewToggle'
+import { ScopeFilterDropdown } from '@/components/ScopeFilterDropdown'
+import { ProjectListRow } from '@/components/ProjectListRow'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import type { OrgMember } from '@/types/teams'
-import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
+import { PROJECT_VISIBILITY_OPTIONS } from '@/lib/api/projects'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
-
-type SortKey = 'recent' | 'az' | 'za' | 'active'
-const SORT_VALUES: readonly SortKey[] = ['recent', 'az', 'za', 'active']
-function parseSort(raw: string | null): SortKey {
-  return (SORT_VALUES as readonly string[]).includes(raw ?? '') ? (raw as SortKey) : 'recent'
-}
-// 'all' isn't a real visibility either — it skips the visibility filter
-// entirely (see scopedProjects below) — plus the 3 ProjectVisibility values,
-// plus a 'trash' tab that isn't a real visibility — it lists soft-deleted
-// Workspace/Shared projects instead of filtering `projects` by visibility
-// (see the render below).
-type ScopeFilter = 'all' | ProjectVisibility | 'trash'
-const SCOPE_VALUES: readonly ScopeFilter[] = ['all', 'personal', 'workspace', 'shared', 'trash']
-// Same label/color mapping ProjectCard/ProjectListRow already use for a
-// project's own visibility Badge (VISIBILITY_LABEL/VISIBILITY_COLOR) — the
-// filter reuses those directly and only adds the 'all' and 'trash' entries.
-const SCOPE_LABEL: Record<ScopeFilter, string> = { all: 'All Projects', ...VISIBILITY_LABEL, trash: 'Recently Deleted' }
-// Same wording as the visibility picker on the New Project page (projects/new/page.tsx).
-const SCOPE_DESCRIPTION: Record<ScopeFilter, string> = {
-  all:       'Everything you can see.',
-  personal:  'Just you.',
-  workspace: 'Everyone in the workspace.',
-  shared:    'You choose who to invite.',
-  trash:     'Projects deleted in the last 30 days.',
-}
-// Legacy '?scope=team' links (bookmarks, the sidebar, anywhere else that
-// hasn't been updated) map to 'workspace' — the closest equivalent now that
-// Team is gone from the backend (see docs v1.5/sharing-model-v2-gap-audit.md's
-// Cross-cutting Teams note).
-function parseScope(raw: string | null): ScopeFilter {
-  if (raw === 'team') return 'workspace'
-  return (SCOPE_VALUES as readonly string[]).includes(raw ?? '') ? (raw as ScopeFilter) : 'personal'
-}
-type ViewMode = 'grid' | 'list'
-function parseViewMode(raw: string | null): ViewMode {
-  return raw === 'list' ? 'list' : 'grid'
-}
+import {
+  parseSort, parseScope, parseViewMode,
+  SORT_LABELS, SORT_DESCRIPTIONS,
+  type SortKey, type ScopeFilter, type ViewMode,
+} from '@/lib/project-filters'
+import { sortProjects, projectMemberCount, formatUpdated } from '@/lib/project-list-utils'
 
 // Gradient palette seeded by team name — shared with TeamChip/TeamSwitcherRow/
 // TeamSwitcherDropdown/ProjectCard/etc via src/lib/team-gradients.ts, so a
 // project's avatar is the same colour everywhere else it appears.
-
-// ── Grid/List toggle — single secondary button + Dropdown, same "view filter"
-// pattern as Pinboard's own view switcher (in-place label swap included). ──
-
-const VIEW_LABELS: Record<ViewMode, string> = { grid: 'Grid', list: 'List' }
-const VIEW_DESCRIPTION: Record<ViewMode, string> = {
-  grid: 'Show projects as cards.',
-  list: 'Show projects in a compact list.',
-}
-
-// Both accept `size` — DropdownMenuItem clones its `icon` prop with a fixed
-// size (20) to fill the row's icon slot; without accepting it these stayed a
-// hardcoded 16×16 inside that 20×20 slot, sitting off-center from the label.
-function GridViewGlyph({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  )
-}
-
-function ListViewGlyph({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="3"    width="12" height="2.2" rx="1.1" fill="currentColor" />
-      <rect x="2" y="6.9"  width="12" height="2.2" rx="1.1" fill="currentColor" />
-      <rect x="2" y="10.8" width="12" height="2.2" rx="1.1" fill="currentColor" />
-    </svg>
-  )
-}
-
-function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dropdown.Float
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom-end"
-      trigger={
-        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
-          {/* In-place text swap — same pattern as Pinboard's view-filter trigger. */}
-          <AnimatePresence mode="popLayout" initial={false}>
-            <m.span
-              key={value}
-              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              style={{ display: 'block', transformOrigin: 'left center' }}
-            >
-              {VIEW_LABELS[value]}
-            </m.span>
-          </AnimatePresence>
-        </Button>
-      }
-    >
-      <Dropdown size="md" maxHeight={false}>
-        <Dropdown.Section fluid>
-          <Dropdown.Item
-            label="Grid"
-            subLabel={VIEW_DESCRIPTION.grid}
-            icon={<GridViewGlyph />}
-            selected={value === 'grid'}
-            onClick={() => { onChange('grid'); setOpen(false) }}
-            fluid
-          />
-          <Dropdown.Item
-            label="List"
-            subLabel={VIEW_DESCRIPTION.list}
-            icon={<ListViewGlyph />}
-            selected={value === 'list'}
-            onClick={() => { onChange('list'); setOpen(false) }}
-            fluid
-          />
-        </Dropdown.Section>
-      </Dropdown>
-    </Dropdown.Float>
-  )
-}
-
-// ── Scope filter — Personal/Workspace/Shared/Recently Deleted as a Dropdown.Float
-// instead of a Tabs bar, composed the same way AccountMenu wires its own
-// Dropdown.Float + Dropdown.Section + Dropdown.Item (see AccountMenu/index.tsx).
-// Trigger shows plain text (not a colored Badge/tag) — same convention as
-// ProjectViewToggle's own Grid/List trigger just below. ──
-
-function ScopeFilterDropdown({ value, onChange }: { value: ScopeFilter; onChange: (v: ScopeFilter) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dropdown.Float
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom-start"
-      trigger={
-        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
-          {/* In-place text swap — same transition ProjectViewToggle's own
-              trigger label uses. */}
-          <AnimatePresence mode="popLayout" initial={false}>
-            <m.span
-              key={value}
-              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              style={{ display: 'block', transformOrigin: 'left center' }}
-            >
-              {SCOPE_LABEL[value]}
-            </m.span>
-          </AnimatePresence>
-        </Button>
-      }
-    >
-      <Dropdown size="md" maxHeight={false}>
-        <Dropdown.Section fluid>
-          {SCOPE_VALUES.map(v => (
-            <Dropdown.Item
-              key={v}
-              label={SCOPE_LABEL[v]}
-              subLabel={SCOPE_DESCRIPTION[v]}
-              selected={value === v}
-              onClick={() => { onChange(v); setOpen(false) }}
-              fluid
-            />
-          ))}
-        </Dropdown.Section>
-      </Dropdown>
-    </Dropdown.Float>
-  )
-}
-
-// ── Compact list-view row ────────────────────────────────────────────────────
-
-function ProjectListRow({
-  project, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete, onLeave,
-}: {
-  project:      Project
-  ownerName?:   string
-  memberCount:  number
-  updatedAt:    string
-  onClick:      () => void
-  onEdit?:      () => void
-  onDelete?:    () => void
-  onLeave?:     () => void
-}) {
-  const [hovered,  setHovered]  = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const hasActions = Boolean(onEdit || onDelete || onLeave)
-  const showMenu   = hovered || menuOpen
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             12,
-        padding:         '10px 16px',
-        borderRadius:    12,
-        backgroundColor: hovered || menuOpen ? 'var(--neutral-50)' : 'var(--neutral-white)',
-        boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        cursor:          'pointer',
-        transition:      'background-color 120ms ease',
-        width:           '100%',
-        boxSizing:       'border-box',
-      }}
-    >
-      {/* Visibility badge — fixed width so Personal/Workspace/Shared rows all
-          line up instead of each badge hugging its own label's width. */}
-      <Badge
-        color={VISIBILITY_COLOR[project.visibility]}
-        label={VISIBILITY_LABEL[project.visibility]}
-        style={{ width: 84, flexShrink: 0 }}
-      />
-
-      {/* Title + meta */}
-      <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-medium)',
-            fontSize:     14,
-            lineHeight:   '20px',
-            color:        'var(--neutral-900)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
-          {project.name}
-        </span>
-        <span
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   400,
-            fontSize:     11,
-            lineHeight:   '16px',
-            color:        'var(--neutral-500)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
-          {ownerName ? `Created by ${ownerName} · ` : ''}{updatedAt}
-        </span>
-      </div>
-
-      {/* Stats — each count gets a fixed-width slot (not just min-width) so a
-          1-, 2-, or 3-digit number never nudges either icon's position;
-          tabular-nums keeps the digits themselves a constant width too. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, color: 'var(--neutral-400)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <UserIcon size={18} />
-          <span style={{ width: 22, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{memberCount}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <BubbleChatAddIcon size={18} />
-          <span style={{ width: 22, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{project.chatCount}</span>
-        </div>
-      </div>
-
-      {/* ⋮ menu slot - fixed 24×24 footprint always reserved (even when this
-          row has no actions) so Stats' icons land at the same horizontal
-          position on every row, regardless of hasActions. */}
-      <div
-        style={{ width: 24, height: 24, flexShrink: 0 }}
-        onClick={hasActions ? (e) => e.stopPropagation() : undefined}
-      >
-        {hasActions && (
-          <div style={{ opacity: showMenu ? 1 : 0, transition: 'opacity 120ms ease' }}>
-            <Dropdown.Float
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
-              placement="bottom-end"
-              // Rows can sit anywhere in this scrollable list — a row near
-              // the bottom of the viewport would otherwise run the menu
-              // off-screen with a fixed placement.
-              autoFlipVertical
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
-                  aria-label="Project options"
-                />
-              }
-            >
-              <Dropdown size="md" maxHeight={false}>
-                <Dropdown.Section fluid>
-                  {onEdit && (
-                    <Dropdown.Item icon={<PenOneIcon color="var(--neutral-600)" />} label="Edit" onClick={() => { setMenuOpen(false); onEdit() }} fluid />
-                  )}
-                  {onLeave && (
-                    <Dropdown.Item icon={<UnlinkOneIcon color="var(--neutral-600)" />} label="Leave project" onClick={() => { setMenuOpen(false); onLeave() }} fluid />
-                  )}
-                  {onDelete && (
-                    <>
-                      {(onEdit || onLeave) && <Divider decorative />}
-                      <Dropdown.Item icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" variant="danger" onClick={() => { setMenuOpen(false); onDelete() }} fluid />
-                    </>
-                  )}
-                </Dropdown.Section>
-              </Dropdown>
-            </Dropdown.Float>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function sortProjects(projects: Project[], key: SortKey): Project[] {
-  const copy = [...projects]
-  if (key === 'az')     return copy.sort((a, b) => a.name.localeCompare(b.name))
-  if (key === 'za')     return copy.sort((a, b) => b.name.localeCompare(a.name))
-  if (key === 'active') return copy.sort((a, b) => b.chatCount - a.chatCount)
-  return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-}
-
-// A workspace/shared project's member count is its team's roster (everyone
-// who can reach it); a personal project's is just its owner — there's no
-// separate per-project membership list distinct from team membership.
-// Gated on visibility, not teamId — an org member's own Personal project
-// also carries the org's teamId, but has no roster of its own.
-function projectMemberCount(project: Project, members: OrgMember[]): number {
-  if (project.visibility === 'personal' || !project.teamId) return 1
-  const count = members.filter(m => m.teamMemberships.some(tm => tm.teamId === project.teamId)).length
-  return count || 1
-}
-
-function formatUpdated(iso: string) {
-  const d    = new Date(iso)
-  const now  = new Date()
-  const diff = (now.getTime() - d.getTime()) / 1000
-  if (diff < 60)         return 'Updated just now'
-  if (diff < 3600)       return `Updated ${Math.floor(diff / 60)}m ago`
-  if (diff < 86400)      return `Updated ${Math.floor(diff / 3600)}h ago`
-  const days  = Math.floor(diff / 86400)
-  if (diff < 86400 * 7)  return `Updated ${days} ${days === 1 ? 'day' : 'days'} ago`
-  const weeks = Math.floor(diff / 86400 / 7)
-  if (diff < 86400 * 30) return `Updated ${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`
-  return 'Updated last month'
-}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -413,7 +75,13 @@ function ProjectsPageInner() {
   const [sort,           setSort]           = useState<SortKey>(() => parseSort(searchParams.get('sort')))
   const [sortOpen,       setSortOpen]       = useState(false)
   const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() => parseScope(searchParams.get('scope')))
-  useEffect(() => {
+  // Re-syncs all four the moment the URL changes out from under them (e.g.
+  // browser Back/Forward) by adjusting state during render against the new
+  // searchParams reference (React's own sanctioned pattern for this) instead
+  // of an effect, which would apply the same sync a whole extra frame later.
+  const [searchParamsSynced, setSearchParamsSynced] = useState(searchParams)
+  if (searchParams !== searchParamsSynced) {
+    setSearchParamsSynced(searchParams)
     const urlScope = parseScope(searchParams.get('scope'))
     setScopeFilter(prev => (prev === urlScope ? prev : urlScope))
     const urlView = parseViewMode(searchParams.get('view'))
@@ -423,7 +91,7 @@ function ProjectsPageInner() {
     const urlQuery = searchParams.get('q') ?? ''
     setQuery(prev => (prev === urlQuery ? prev : urlQuery))
     if (urlQuery) setSearchOpen(true)
-  }, [searchParams])
+  }
   // Shared writer — patches one param onto the current URL while preserving
   // the rest (e.g. changing ?sort= doesn't clobber ?scope=). replace (not
   // push) — switching a filter shouldn't pile up history entries. An empty
@@ -540,20 +208,6 @@ function ProjectsPageInner() {
     const q = query.toLowerCase()
     return sorted.filter((p) => p.name.toLowerCase().includes(q))
   }, [sorted, query])
-
-  const sortLabels: Record<SortKey, string> = {
-    recent: 'Recent',
-    az:     'A to Z',
-    za:     'Z to A',
-    active: 'Most active',
-  }
-
-  const sortDescriptions: Record<SortKey, string> = {
-    recent: 'Most recently updated first.',
-    az:     'Sort by name, A to Z.',
-    za:     'Sort by name, Z to A.',
-    active: 'Most chats first.',
-  }
 
   const emptyLabel = scopeFilter === 'all'
     ? 'No projects yet. Create your first one to get started.'
@@ -672,17 +326,15 @@ function ProjectsPageInner() {
                         showLabel={false}
                         leftIcon={<SearchOneIcon size={16} />}
                         rightIcon={
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          <button
+                            type="button"
                             aria-label="Close search"
                             onClick={() => { setSearchOpen(false); handleQueryChange('') }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); handleQueryChange('') } }}
                             className="kds-icon-in-field"
-                            style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                            style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
                           >
                             <CancelCircleIcon size={16} />
-                          </span>
+                          </button>
                         }
                         placeholder="Search projects…"
                         value={query}
@@ -708,7 +360,7 @@ function ProjectsPageInner() {
               placement="bottom-end"
               trigger={
                 <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} animated />}>
-                  {sortLabels[sort]}
+                  {SORT_LABELS[sort]}
                 </Button>
               }
             >
@@ -717,8 +369,8 @@ function ProjectsPageInner() {
                   {(['recent', 'az', 'za', 'active'] as SortKey[]).map((k) => (
                     <Dropdown.Item
                       key={k}
-                      label={sortLabels[k]}
-                      subLabel={sortDescriptions[k]}
+                      label={SORT_LABELS[k]}
+                      subLabel={SORT_DESCRIPTIONS[k]}
                       selected={sort === k}
                       onClick={() => { handleSortChange(k); setSortOpen(false) }}
                       fluid
@@ -737,24 +389,26 @@ function ProjectsPageInner() {
         {scopeFilter === 'trash' ? (
           user?.auth0Id && <ProjectTrashList currentUserId={user.auth0Id} onRestored={handleRefreshProjects} />
         ) : loading ? (
-          <div
-            style={{
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              padding:        '64px 24px',
-            }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   '14px',
-                color:      '#857a72',
-              }}
-            >
-              Loading projects…
-            </p>
-          </div>
+          // Sized to roughly match the real content each viewMode renders
+          // once `loading` resolves (grid cards are a fixed 262px —
+          // ProjectCard/index.tsx:82 — list rows ~64px) so the swap from
+          // skeleton to real content doesn't shift the layout underneath it;
+          // the previous single-line "Loading projects…" text reserved far
+          // less space than either real layout, causing a real, measured
+          // (not dev-mode-artifact) CLS hit.
+          viewMode === 'list' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} height={64} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', width: '100%' }}>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} height={262} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+              ))}
+            </div>
+          )
         ) : filtered.length === 0 ? (
           query.trim() ? (
             <p

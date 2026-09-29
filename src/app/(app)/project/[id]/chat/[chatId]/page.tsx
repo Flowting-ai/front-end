@@ -3,7 +3,6 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
 import { ChatMessagesSkeleton }                            from '@/components/chat/ChatMessagesSkeleton'
 import { ChatInput }                                       from '@/components/chat/ChatInput'
@@ -35,122 +34,13 @@ import {
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  QuillWriteOneIcon,
-  NeuralNetworkIcon,
-  AiVisionRecognitionIcon,
-  AiWebBrowsingIcon,
 } from '@strange-huge/icons'
 import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
 import { CHAT_ROUTE } from '@/lib/routes'
-
-// ── Mention chip ──────────────────────────────────────────────────────────────
-
-function MentionChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        gap:             '4px',
-        borderRadius:    '999px',
-        backgroundColor: 'var(--neutral-100)',
-        border:          '1px solid var(--neutral-200)',
-        padding:         '2px 8px 2px 10px',
-        fontSize:        '12px',
-        fontWeight:      500,
-        color:           'var(--neutral-700)',
-        fontFamily:      'var(--font-body)',
-        maxWidth:        '200px',
-        whiteSpace:      'nowrap',
-      }}
-    >
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>@{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove mention @${label}`}
-        style={{
-          display:        'inline-flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          border:         'none',
-          background:     'none',
-          padding:        '1px',
-          cursor:         'pointer',
-          color:          'var(--neutral-400)',
-          borderRadius:   '50%',
-          flexShrink:     0,
-        }}
-      >
-        <X size={11} strokeWidth={2.5} />
-      </button>
-    </span>
-  )
-}
-
-// ── Template card ─────────────────────────────────────────────────────────────
-
-function TemplateCard({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        flex:          1,
-        background:    'white',
-        border:        `1px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-200)'}`,
-        borderRadius:  '12px',
-        padding:       '14px 12px',
-        cursor:        'pointer',
-        display:       'flex',
-        flexDirection: 'column',
-        alignItems:    'flex-start',
-        gap:           '10px',
-        textAlign:     'left',
-        boxShadow:     hovered ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
-        transition:    'box-shadow 150ms, border-color 150ms',
-        minWidth:      0,
-      }}
-    >
-      <div style={{ flexShrink: 0 }}>{icon}</div>
-      <p
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   '13px',
-          fontWeight: 500,
-          color:      'var(--neutral-700)',
-          margin:     0,
-          lineHeight: 1.4,
-        }}
-      >
-        {label}
-      </p>
-    </button>
-  )
-}
-
-// ── Chat mode ─────────────────────────────────────────────────────────────────
-
-type ChatMode = 'write' | 'research' | 'think' | 'build'
-
-const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
-  { mode: 'write',    label: 'Write',    icon: <QuillWriteOneIcon       size={16} animated /> },
-  { mode: 'research', label: 'Research', icon: <NeuralNetworkIcon       size={16} animated /> },
-  { mode: 'think',    label: 'Think',    icon: <AiVisionRecognitionIcon size={16} animated /> },
-  { mode: 'build',    label: 'Build',    icon: <AiWebBrowsingIcon       size={16} animated /> },
-]
-
-const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
-  write:    'What would you like to write?',
-  research: 'What would you like to research?',
-  think:    'What would you like to think through?',
-  build:    'What would you like to build?',
-}
-
+import { MentionChip } from '@/components/chat/MentionChip'
+import { TemplateCard } from '@/components/chat/TemplateCard'
+import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from '@/lib/chat-modes'
 
 // ── Per-chat settings persistence ────────────────────────────────────────────
 
@@ -235,12 +125,13 @@ function ProjectChatPageInner() {
   // chats-loading pattern directly above.
   const [projectLoading, setProjectLoading] = useState(true)
 
-  // Track a chat ID we just created in THIS render session.  Using a ref
-  // (not state) avoids a second render cycle and survives the URL replace
-  // without the component unmounting.  We use it to bypass the "chat not
-  // found" guard during the brief window between addChat() and the context
-  // state update being committed after router.replace().
-  const justCreatedChatIdRef = useRef<string | null>(null)
+  // Track a chat ID we just created in THIS render session, to bypass the
+  // "chat not found" guard during the brief window between addChat() and the
+  // context state update being committed. useState, not a ref -- it's read
+  // during render (line below), which the React Compiler's `refs` rule
+  // disallows for refs; the actual write below happens in the same batch as
+  // setActiveChatId, so this doesn't add an extra render tick in practice.
+  const [justCreatedChatId, setJustCreatedChatId] = useState<string | null>(null)
 
   // Local chatId state — mirrors the main chat page pattern.
   // Updated immediately (same React batch) when onChatCreated fires so that
@@ -248,7 +139,7 @@ function ProjectChatPageInner() {
   // preventing useChatState from clearing streaming messages via fetch-and-clear.
   // We use window.history.replaceState (not router.replace) to update the URL
   // so that Next.js does NOT remount this page on the path-param change,
-  // which would reset justCreatedChatIdRef and optimisticChatIdsRef mid-stream.
+  // which would reset justCreatedChatId and optimisticChatIdsRef mid-stream.
   const [activeChatId, setActiveChatId] = useState<string | undefined>(
     params.chatId !== 'new' ? params.chatId : undefined
   )
@@ -272,13 +163,17 @@ function ProjectChatPageInner() {
     else clearHighlights()
   }, [activeChatId, loadHighlightsForChat, clearHighlights])
 
+  // No setChatsLoading(true)/setProjectLoading(true) here: the outer
+  // ProjectChatPage wrapper keys this whole component on params.id, so a
+  // different project always remounts it fresh (chatsLoading/projectLoading
+  // already start `true` from useState) rather than re-running this effect
+  // in place -- setting them again here would be a synchronous setState in
+  // an effect body with nothing to actually reset.
   useEffect(() => {
-    setChatsLoading(true)
     loadProjectChats(params.id).finally(() => setChatsLoading(false))
   }, [params.id, loadProjectChats])
 
   useEffect(() => {
-    setProjectLoading(true)
     loadProject(params.id).finally(() => setProjectLoading(false))
   }, [params.id, loadProject])
 
@@ -286,20 +181,37 @@ function ProjectChatPageInner() {
   const [initialPrompt,      setInitialPrompt]      = useState<string | null>(qParam)
 
   // useSearchParams() returns empty on the server, so qParam is null during SSR
-  // and useState is initialized with null. This effect syncs the real value on
-  // the client so the chat page immediately starts generating without re-entering text.
-  useEffect(() => {
+  // and useState is initialized with null. Syncs the real value the moment it
+  // changes on the client by adjusting state during render (React's own
+  // sanctioned pattern for "state depends on a prop that changed since the
+  // last render") instead of an effect, which would apply the same update a
+  // whole extra frame later, after paint.
+  const [qParamSynced, setQParamSynced] = useState(qParam)
+  if (qParam !== qParamSynced) {
+    setQParamSynced(qParam)
     if (qParam && isNewChat && !hasMessages) {
       setInitialPrompt(qParam)
       setHasMessages(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qParam])
+  }
 
   const [newChatInput,       setNewChatInput]       = useState('')
   const [selectedMode,       setSelectedMode]       = useState<ChatMode | null>(null)
   const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
-  const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
+  const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>(() => {
+    // Files-only navigation from the project overview page (no ?q= param):
+    // the initialFiles initializer below only claims the window global when
+    // qParam is present, so this mirrors it for the complementary case. Same
+    // window-global mechanism, same reasoning as initialFiles for why
+    // branching on `typeof window` here is benign (see the P0 note there): a
+    // client-side push() never runs this as a real SSR/hydration pass, and a
+    // hard reload can't have this in-memory global survive anyway.
+    if (typeof window === 'undefined') return []
+    const files = (window as any).__pendingProjectChatFiles as File[] | undefined
+    if (!files || !files.length || qParam) return []
+    delete (window as any).__pendingProjectChatFiles
+    return processFiles(files, [])
+  })
   const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
   // @-mentioned pins from the new-chat landing, passed once to ChatInterface for the initial send.
   const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([])
@@ -363,17 +275,6 @@ function ProjectChatPageInner() {
     }
   }
 
-  // Files-only navigation from the project overview page (no ?q= param):
-  // the lazy initialiser above skips window files when qParam is absent, so
-  // we pick them up here and show them as pre-loaded chips in the new-chat input.
-  useEffect(() => {
-    const files = (window as any).__pendingProjectChatFiles as File[] | undefined
-    if (!files || !files.length) return
-    delete (window as any).__pendingProjectChatFiles
-    setNewChatAttachments(prev => processFiles(files, prev))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // ── Model selector ────────────────────────────────────────────────────────
 
   const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, algorithm, setPersonaActive } = useModelSelectorContext()
@@ -401,8 +302,17 @@ function ProjectChatPageInner() {
     if (pendingModelSwitch) { selectModel(pendingModelSwitch); setPendingModelSwitch(null) }
   }
 
+  // Keeps the ref current via an effect rather than a direct write during
+  // render -- writing ref.current synchronously in the render body is what
+  // the React Compiler's `refs` rule disallows (a render can be replayed or
+  // discarded, e.g. Strict Mode's double-invoke, leaving a render-time write
+  // out of sync with what actually committed). A deps-less effect re-runs
+  // after every commit, which is exactly what "always the latest value,
+  // without retriggering the effect below on identity change" needs.
   const selectModelRef = useRef(selectModel)
-  selectModelRef.current = selectModel
+  useEffect(() => {
+    selectModelRef.current = selectModel
+  })
 
   useEffect(() => {
     if (!selectedPersona || !models.length) return
@@ -442,7 +352,6 @@ function ProjectChatPageInner() {
         )
       })
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
   // Lock model selector while a persona chip is active (matches normal chat page).
@@ -450,14 +359,20 @@ function ProjectChatPageInner() {
     setPersonaActive(!!selectedPersona)
   }, [selectedPersona, setPersonaActive])
 
-  // Load persisted settings when navigating to an existing project chat.
-  useEffect(() => {
-    if (!activeChatId) return
-    const s = loadProjectChatSettings(activeChatId)
-    if (!s) return
-    setWebSearchEnabled(s.webSearch ?? false)
-    if (s.persona) setSelectedPersona(s.persona)
-  }, [activeChatId])
+  // Load persisted settings when navigating to an existing project chat --
+  // adjusts state during render the moment activeChatId changes (React's own
+  // sanctioned pattern for this) instead of an effect, which would apply the
+  // same update a whole extra frame later, after paint. loadProjectChatSettings
+  // is a synchronous localStorage read, safe to call during render.
+  const [settingsLoadedForChatId, setSettingsLoadedForChatId] = useState(activeChatId)
+  if (activeChatId !== settingsLoadedForChatId) {
+    setSettingsLoadedForChatId(activeChatId)
+    const s = activeChatId ? loadProjectChatSettings(activeChatId) : null
+    if (s) {
+      setWebSearchEnabled(s.webSearch ?? false)
+      if (s.persona) setSelectedPersona(s.persona)
+    }
+  }
 
   // Persist settings whenever they change for an existing chat.
   useEffect(() => {
@@ -601,7 +516,7 @@ function ProjectChatPageInner() {
   }
 
   if (!isNewChat) {
-    const isJustCreated = params.chatId === justCreatedChatIdRef.current
+    const isJustCreated = params.chatId === justCreatedChatId
     if (!chat && !isJustCreated) {
       if (chatsLoading) {
         return <LoadingChatSkeleton />
@@ -818,11 +733,11 @@ function ProjectChatPageInner() {
                 // Update local state immediately so markChatAsOptimistic + chatId
                 // prop change land in the same React commit (same as main chat page).
                 setActiveChatId(newChatId)
-                justCreatedChatIdRef.current = newChatId
+                setJustCreatedChatId(newChatId)
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
                 // Update the browser URL without triggering a Next.js navigation.
                 // router.replace() changes params.chatId (path param), which causes
-                // Next.js App Router to remount this page — resetting justCreatedChatIdRef
+                // Next.js App Router to remount this page — resetting justCreatedChatId
                 // and optimisticChatIdsRef mid-stream and clearing streaming messages.
                 //
                 // Next.js 16 patches window.history.replaceState to sync usePathname()/

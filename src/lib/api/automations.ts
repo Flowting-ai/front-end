@@ -6,6 +6,8 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`
 const AUTOMATIONS_BASE = withBase('/automations')
 const AUTOMATION_BY_ID = (id: string) => withBase(`/automations/${id}`)
 const AUTOMATION_RUN   = (id: string) => withBase(`/automations/${id}/run`)
+const AUTOMATION_COPY  = (id: string) => withBase(`/automations/${id}/copy`)
+const ORGANIZATION_AUTOMATIONS = withBase('/automations/organization')
 
 // ── Schemas (match OpenAPI components.schemas) ────────────────────────────────
 
@@ -40,6 +42,26 @@ export interface Automation {
 export interface AutomationDetail extends Automation {
   chat_id?: string | null
   runs?:    AutomationRun[]
+}
+
+/** A connector an automation's program calls, as the catalog names it. */
+export interface AutomationConnector {
+  slug:         string
+  display_name: string
+  logo_url:     string | null
+}
+
+/** Someone else's automation in the org list. Read-only: it carries only its
+ *  public trigger fields and no run history. */
+export interface OrganizationAutomation extends Automation {
+  owner_name: string
+  connectors: AutomationConnector[]
+}
+
+/** A Brain chat holding the source's program, and the request that sets it up. */
+export interface AutomationCopy {
+  chat_id: string
+  prompt:  string
 }
 
 export interface AutomationUpdate {
@@ -78,6 +100,16 @@ export function failureReason(error: string): string {
 /** GET /automations — list the user's automations. */
 export function listAutomations(): Promise<Automation[]> {
   return apiFetchJson<Automation[]>(AUTOMATIONS_BASE)
+}
+
+/** GET /automations/organization — everyone else's live automations in the user's org. */
+export function listOrganizationAutomations(): Promise<OrganizationAutomation[]> {
+  return apiFetchJson<OrganizationAutomation[]>(ORGANIZATION_AUTOMATIONS)
+}
+
+/** POST /automations/{id}/copy — open a Brain chat that rebuilds it as the user's own. */
+export function copyAutomation(id: string): Promise<AutomationCopy> {
+  return apiFetchJson<AutomationCopy>(AUTOMATION_COPY(id), { method: 'POST' })
 }
 
 /** GET /automations/{id} — the automation plus its run history. */

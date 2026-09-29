@@ -4,7 +4,6 @@ import React, { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallb
 import { AnimatePresence, m } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { X } from "lucide-react";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -42,134 +41,16 @@ import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  QuillWriteOneIcon,
-  NeuralNetworkIcon,
   BubbleChatIcon,
-  AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
   FolderOneIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
 import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
-
-// ── Mention chip ──────────────────────────────────────────────────────────────
-
-function MentionChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "4px",
-        borderRadius: "999px",
-        backgroundColor: "var(--neutral-100, #F5F5F5)",
-        border: "1px solid var(--neutral-200, #E5E5E5)",
-        padding: "2px 8px 2px 10px",
-        fontSize: "12px",
-        fontWeight: 500,
-        color: "var(--neutral-700, #444)",
-        fontFamily: "var(--font-body)",
-        maxWidth: "200px",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>@{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove mention @${label}`}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "none",
-          background: "none",
-          padding: "1px",
-          cursor: "pointer",
-          color: "var(--neutral-400, #999)",
-          borderRadius: "50%",
-          flexShrink: 0,
-        }}
-      >
-        <X size={11} strokeWidth={2.5} />
-      </button>
-    </span>
-  );
-}
-
-// ── Template card ─────────────────────────────────────────────────────────────
-
-function TemplateCard({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        flex: 1,
-        background: "white",
-        border: `1px solid ${isHovered ? "var(--neutral-300)" : "var(--neutral-200)"}`,
-        borderRadius: "12px",
-        padding: "14px 12px",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        gap: "10px",
-        textAlign: "left",
-        boxShadow: isHovered
-          ? "0 2px 8px rgba(0,0,0,0.08)"
-          : "0 1px 3px rgba(0,0,0,0.04)",
-        transition: "box-shadow 150ms, border-color 150ms",
-        minWidth: 0,
-      }}
-    >
-      <div style={{ flexShrink: 0 }}>{icon}</div>
-      <p
-        style={{
-          fontFamily: "var(--font-body)",
-          fontSize: "13px",
-          fontWeight: 500,
-          color: "var(--neutral-700)",
-          margin: 0,
-          lineHeight: 1.4,
-        }}
-      >
-        {label}
-      </p>
-    </button>
-  );
-}
-
-// ── Chat mode action buttons ──────────────────────────────────────────────────
-
-type ChatMode = "write" | "research" | "think" | "build";
-
-const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
-  { mode: "write",    label: "Write",    icon: <QuillWriteOneIcon      size={16} animated /> },
-  { mode: "research", label: "Research", icon: <NeuralNetworkIcon      size={16} animated /> },
-  { mode: "think",    label: "Think",    icon: <AiVisionRecognitionIcon size={16} animated /> },
-  { mode: "build",    label: "Build",    icon: <AiWebBrowsingIcon      size={16} animated /> },
-];
-
-const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
-  write:    "What would you like to write?",
-  research: "What would you like to research?",
-  think:    "What would you like to think through?",
-  build:    "What would you like to build?",
-};
+import { MentionChip } from "@/components/chat/MentionChip";
+import { TemplateCard } from "@/components/chat/TemplateCard";
+import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
 import { useRecommendations } from "@/hooks/use-recommendations";
 import { RECOMMENDATION_ICONS } from "@/lib/recommendation-icons";
 

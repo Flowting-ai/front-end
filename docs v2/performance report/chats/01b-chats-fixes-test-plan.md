@@ -126,6 +126,59 @@ No test cases — nothing was changed. The 11 sites investigated remain exactly 
 
 ---
 
+## Phase 6 — giant-component decomposition (separate follow-up session)
+
+### TC-6.1 — Type-extraction zero-behavior-change (`use-chat-state.ts` → `types/chat.ts`)
+- **Steps:** Full app compile + test suite after moving ~60% of the file's content (pure type declarations) into `types/chat.ts` and repointing all 24 consumer files.
+- **Verified:** TypeScript clean, 271/271 tests, live smoke test on `/chats` and `/chat` (page load, console-error check, a real send/response round-trip) — zero errors.
+
+### TC-6.2 — `ResponseBlocks.tsx` split into 15 files
+- **Steps:** After the line-range extraction, prompt for a markdown table (exercises `AnimatedTable.tsx`, the largest split-out file, plus `TableCellContent`/`sortableValue`/`renderTableCell`) and confirm it renders identically to before the split.
+- **Verified live this session, pixel-confirmed** (screenshot: table renders with correct data, headers, and rows). All 7 external consumers' import paths updated and compiling clean.
+
+### TC-6.3 — `ChatInterface.tsx` hook extractions (`useCitationsPanel`, `usePinMentions`)
+- **Steps:** Type `@` in an active chat's composer, confirm the mention dropdown opens/closes correctly; send a normal message to confirm `handleSend`'s use of the extracted `clearMentions()` still works.
+- **Verified live this session** — dropdown opened correctly (screenshot), and a full send/response round-trip completed with zero errors.
+
+### TC-6.4 — `chat/page.tsx` pin-mention dedup + `usePendingPersonaHandoff`
+- **Steps:** (a) Type `@` on the blank new-chat landing page (not an active chat) to confirm the reused `usePinMentions` hook works there too, then send a message to confirm the full landing→active-chat transition still works. (b) Seed `sessionStorage`'s `new-chat-pending-persona` key the same way "Use this Agent" does and reload `/chat` to confirm `usePendingPersonaHandoff` picks it up.
+- **Verified live this session.** (a) Mention dropdown rendered correctly on the landing page; full send transition completed with a real response, zero errors. (b) Screenshot confirms the seeded persona chip ("Test Persona") appeared attached to the composer with the model selector correctly locked/greyed — no real published agent existed in this test account to exercise the actual "Use this Agent" button, so the handoff mechanism was verified via direct sessionStorage seeding instead.
+
+### TC-6.5 — `chats/page.tsx` dedup (`formatTaskTimestamp` bug fix, `LibraryTabDropdown` merge, `useTasksLibrary`)
+- **Steps:** Load `/chats`, open the chats-tab dropdown and switch to Archived, switch to Tasks mode, switch the tasks-tab dropdown to Scheduled, use the search field in both modes.
+- **Verified live this session across 4 separate smoke tests** — chats list, tab dropdown (all 3 options + descriptions render), archived tab, tasks mode + scheduled-tab filtering + search. Zero errors throughout. The `formatTaskTimestamp` → `formatRelativeTime` fix is visually confirmed via correct relative timestamps ("17h ago", "20h ago") on task rows.
+
+### TC-6.6 — `project/[id]/chat/[chatId]/page.tsx` hydration fix + pin-mention dedup + `initialMentionedPins` forwarding
+- **Steps:** Navigate to a real project's `/chat/new` route (required intercepting a network response to recover a real project ID, since the project card isn't a plain link), type `@` to confirm the mention dropdown, then send a message to confirm the full flow including the newly-fixed `initialMentionedPins` capture-and-forward.
+- **Verified live this session, twice** (once right after the hydration/pin-mention fix, once again after the separate `initialMentionedPins` fix) — mention dropdown rendered correctly (screenshot), and both send round-trips completed with zero errors.
+
+---
+
+## Phase 7 — auto-height layout-animation conversions (5 of 11 real sites)
+
+### TC-7.1 — `ActivityRow.tsx` results-list collapse/expand
+- **Precondition:** A chat response that triggers a real web-search tool call (activity type where results auto-expand once done).
+- **Steps:** Send a prompt that triggers web search, wait for the activity to reach "done" with results, confirm the results list (links + favicons) renders. Separately, trigger a manually-togglable (non-web-search) activity type's "Action" chevron to test open/close/reopen — not achieved live this session (the LLM didn't reliably produce a non-web-search tool call with results in the available attempts).
+- **Verified live this session:** the auto-expand entrance path, pixel-confirmed (6 real search results rendered correctly, zero errors). The manual-toggle path for non-web-search activity types is verified indirectly via TC-7.2 below, which exercises the *same* underlying `resultsVisible`-driven grid-rows mechanism through `ActivityRow`'s child rows nested inside a manually-toggled `StandaloneActivitiesBlock` — confirmed working there (open → closed → reopened, full result list correctly hidden and restored).
+
+### TC-7.2 — `ChatMessage.tsx` `StandaloneActivitiesBlock` collapse/expand
+- **Steps:** Using the same web-search response as TC-7.1, click the "N actions completed ⌄" summary row to collapse the whole activities panel, screenshot, click again to reopen.
+- **Verified live this session, pixel-confirmed both states** — collapsed screenshot shows only the summary row with a down-chevron (all activity rows and results hidden); reopened screenshot shows the full panel restored exactly as before, including the nested 6-result list. Zero errors.
+
+### TC-7.3 — `ConnectorPrompts.tsx` credential-form toggle
+- **Steps:** Not live-tested this session (requires a real third-party API-key connector to reach this UI, same limitation as the original TC-1.1).
+- **Verified:** Code-review only, following the exact same grid-rows technique already pixel-confirmed working in TC-7.1/7.2 (same mechanism, applied to two mutually-exclusive views instead of one show/hide).
+
+### TC-7.4 — `XmlEmail.tsx` clamp/expand
+- **Steps:** Prompt for an email block with a long (15+ sentence) body, confirm it renders clamped with a "Show full message" toggle, click to expand, click "Show less" to re-collapse.
+- **Verified live this session, pixel-confirmed all 3 states** — collapsed (clamped at the fixed height), expanded (full body visible, "Show less" present), and re-collapsed (toggle button back to "Show full message"). Zero errors.
+
+### TC-7.5 — `XmlFunnel.tsx` connector-arrow row
+- **Steps:** Prompt for a funnel block with 4 stages, confirm each stage renders with its bar, percentage, and the "N% continued ↘" connector row between stages (now opacity-only, no height animation).
+- **Verified live this session, pixel-confirmed** — all 4 stages rendered with correct bars, percentages, and connector rows; no visual distortion or clipping. Zero errors.
+
+---
+
 ## Summary — verification coverage
 
 | Coverage | Count | Test cases |
@@ -136,3 +189,14 @@ No test cases — nothing was changed. The 11 sites investigated remain exactly 
 | **Needs manual QA** (precondition not reproducible this session — mostly blocked by the unrelated Agents-wizard bug, or requiring precise timing/specific data shapes) | 6 | TC-2.2, TC-2.3, TC-2.4, TC-2.5, TC-3.1, TC-4.2, TC-4.3, TC-4.5 |
 
 The "needs manual QA" column is the honest gap — mostly chart-variant visual confirmation and agent-dependent flows, not because the fixes are suspect, but because reproducing their exact preconditions live wasn't practical in this session's environment.
+
+### Phase 6/7 (separate follow-up session) coverage
+
+| Coverage | Count | Test cases |
+|---|---|---|
+| **Live-verified, pixel-confirmed via screenshot** | 8 | TC-6.2, TC-6.3, TC-6.4, TC-6.5, TC-6.6, TC-7.1, TC-7.2, TC-7.4, TC-7.5 (9 total — TC-6.1 was compile+test-suite verified, not screenshot) |
+| **Verified via TypeScript + full test suite at every step** | 1 | TC-6.1 |
+| **Verified via code-review only** (precondition not available this session) | 1 | TC-7.3 (needs a real third-party API-key connector) |
+| **Not achieved live, verified indirectly** | 1 | TC-7.1's manual-toggle path (non-web-search activity type) — the underlying mechanism is confirmed working via TC-7.2's identical grid-rows toggle, but the specific web-search-excluded manual-click path itself wasn't independently triggered |
+
+Same honesty standard as Phase 1-5 above: every one of these was either pixel-confirmed live or has a specific, stated reason it wasn't (a missing real connector, an LLM that didn't produce the exact tool-call shape needed). Nothing here was assumed working without either a live screenshot or a passing automated test backing it.

@@ -6,7 +6,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ApiError } from '@/lib/api/client'
 import { linkSlackIdentity, disconnectSlackIdentity } from '@/lib/api/slack'
-import { ROOT_ROUTE } from '@/lib/routes'
+import { useAuth } from '@/context/auth-context'
+import { ONBOARDING_TEAM_PROFILE_ROUTE, ROOT_ROUTE } from '@/lib/routes'
 
 type PageState =
   | 'linking'
@@ -54,6 +55,7 @@ const bodyStyle: React.CSSProperties = {
 function SlackLinkContent() {
   const search        = useSearchParams()
   const { push }      = useRouter()
+  const { user }      = useAuth()
   const state         = search.get('state')
   // Slack's user-token consent bounces back here as ?authorized=1 (the backend
   // /oauth/callback sends it), and that leg carries no `state`.
@@ -97,6 +99,16 @@ function SlackLinkContent() {
         setPageState('error')
       })
   }, [state])
+
+  // Someone who just joined their workspace's org from Slack finishes the way
+  // an invited team member does: the profile step, never the owner setup.
+  // Auth0 can fill a name with the email on signup, so that is not a name.
+  useEffect(() => {
+    if (pageState !== 'linked' || !user?.orgId) return
+    const named = (value?: string | null) => !!value?.trim() && !value.includes('@')
+    if (named(user.firstName) && named(user.lastName)) return
+    push(ONBOARDING_TEAM_PROFILE_ROUTE(user.orgId))
+  }, [pageState, user, push])
 
   async function handleDisconnect() {
     if (busy) return
