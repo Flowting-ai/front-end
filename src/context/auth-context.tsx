@@ -73,6 +73,9 @@ export interface AuthUser {
   orgId?: string | null;
   /** Org role (owner | admin | member) when orgId is set. */
   role?: string | null;
+  /** An org invite waiting on someone who has no org yet (e.g. they signed up
+   *  from Slack's Connect link but never finished). Accepting it comes first. */
+  pendingInviteId?: string | null;
 }
 
 interface AuthContextValue {
@@ -197,6 +200,7 @@ function mapProfileToUser(profile: UserProfile, jwtToken: string | null): AuthUs
     creditsRemainingDisplay,
     orgId: profile.org_id ?? null,
     role: profile.role ?? null,
+    pendingInviteId: profile.pending_invite_id ?? null,
   };
 }
 
