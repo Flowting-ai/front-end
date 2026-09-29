@@ -12,6 +12,7 @@ import {
   INVITE_LANDING_BASE_ROUTE,
   ROOT_ROUTE,
   SLACK_LINK_ROUTE,
+  ONBOARDING_TEAM_WELCOME_ROUTE,
 } from "@/lib/routes";
 
 type OnboardingGate = {
@@ -103,6 +104,11 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
   // name from that placeholder, so a user whose Auth0 profile happens to look
   // "filled" could be skipped past /onboarding/profile without ever seeing
   // it. Flagged, not silently assumed correct.
+  //
+  // Someone with no org and an invite waiting (signed up from Slack's Connect
+  // link, never finished) accepts it first: the workspace step would otherwise
+  // create them an org of their own, and then the invite can never be taken.
+  if (typeof root.pending_invite_id === "string") return ONBOARDING_TEAM_WELCOME_ROUTE(root.pending_invite_id);
   if (!filled("role_fit", "roleFit")) return "/onboarding/setup";
   const firstName = typeof root.first_name === "string" ? root.first_name : "";
   const lastName = typeof root.last_name === "string" ? root.last_name : "";

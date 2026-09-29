@@ -174,6 +174,8 @@ export interface UserProfile {
   org_id?: string | null;
   /** Org role (owner | admin | member) when org_id is set. */
   role?: string | null;
+  /** Set only when the user has no org and an org invite is waiting on their email. */
+  pending_invite_id?: string | null;
 }
 
 function normalizeUserProfile(raw: unknown): UserProfile {
@@ -354,6 +356,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
     active: typeof root.active === "boolean" ? root.active : null,
     org_id: typeof root.org_id === "string" ? root.org_id : null,
     role: typeof root.role === "string" ? root.role : null,
+    pending_invite_id: typeof root.pending_invite_id === "string" ? root.pending_invite_id : null,
   };
 }
 
