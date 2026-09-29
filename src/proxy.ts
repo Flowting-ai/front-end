@@ -11,6 +11,7 @@ import {
   TEAM_INVITE_BASE_ROUTE,
   INVITE_LANDING_BASE_ROUTE,
   ROOT_ROUTE,
+  SLACK_LINK_ROUTE,
 } from "@/lib/routes";
 
 type OnboardingGate = {
@@ -283,7 +284,11 @@ export default async function proxy(request: NextRequest) {
   // otherwise the invitation popup never renders.
   const isTeamInvite = pathname.startsWith(TEAM_INVITE_BASE_ROUTE);
 
-  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite && !isTeamInviteOnboarding) {
+  // A member arriving from Slack's Connect button joins their workspace's org
+  // on this page, so it must run before onboarding would bounce them.
+  const isSlackLink = pathname.startsWith(SLACK_LINK_ROUTE);
+
+  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite && !isTeamInviteOnboarding && !isSlackLink) {
     return Response.redirect(new URL(onboarding!.nextPath, request.url));
   }
 

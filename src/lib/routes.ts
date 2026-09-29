@@ -59,6 +59,9 @@ export const SETTINGS_USAGE_ROUTE = "/settings/usage";
 export const SETTINGS_BILLING_CHANGE_PLAN_ROUTE = "/settings/billing/change-plan";
 export const SETTINGS_BILLING_CONFIRMATION_ROUTE = "/settings/billing/confirmation";
 export const TEAM_INVITE_BASE_ROUTE = "/team-invite";
+// The Slack Connect button lands here after signup. A brand-new member must
+// reach it before onboarding, or the one-shot link `state` is lost.
+export const SLACK_LINK_ROUTE = "/slack/link";
 
 // B1/B2 (pre-login invite landing, "You're on the list! You've been invited
 // to join X's workspace" — Sign in vs Sign up depending on whether the

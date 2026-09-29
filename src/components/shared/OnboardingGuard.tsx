@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { hasActivePaidSubscription } from "@/lib/onboarding-access";
-import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_SETUP_ROUTE } from "@/lib/routes";
+import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_SETUP_ROUTE, SLACK_LINK_ROUTE } from "@/lib/routes";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const { isHydrated, isAuthenticated, user } = useAuth();
@@ -22,6 +22,9 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     // Let an un-onboarded invitee reach their invite link (mirrors proxy.ts) so
     // the invitation popup renders instead of bouncing them into onboarding.
     if (pathname.startsWith(TEAM_INVITE_BASE_ROUTE)) return;
+    // Same for the Slack Connect landing (mirrors proxy.ts): it joins them to
+    // their workspace's org and marks onboarding complete itself.
+    if (pathname.startsWith(SLACK_LINK_ROUTE)) return;
     // Wait until the profile has loaded — redirecting on a null user races the
     // initial /users/me fetch and can bounce the user mid-hydration.
     if (!user) return;
