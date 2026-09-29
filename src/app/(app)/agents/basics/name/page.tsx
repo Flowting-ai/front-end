@@ -113,7 +113,7 @@ function NamePageContent() {
   const handle = handleSlug ? `@${handleSlug}` : ''
 
   return (
-    <WizardShell steps={STEPS_BASICS}>
+    <WizardShell steps={STEPS_BASICS(2)}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
 
         {/* Heading */}
@@ -147,6 +147,7 @@ function NamePageContent() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Legal Assistant"
+                aria-label="Agent name"
                 style={{
                   width: '100%',
                   fontFamily: 'var(--font-body)', fontWeight: 400,

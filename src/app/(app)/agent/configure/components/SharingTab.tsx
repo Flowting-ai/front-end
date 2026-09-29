@@ -486,6 +486,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                     value={tokenLimit}
                     min={1}
                     max={maxTokenLimit}
+                    aria-label="Super Link credit limit"
                     onChange={e => { setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1))); markFieldTouched('sharing', 'superlink') }}
                     style={{
                       width: 96,
@@ -579,6 +580,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 onChange={e => { setEmailInput(e.target.value); markFieldTouched('sharing', 'email') }}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSendEmailInvite() } }}
                 placeholder="colleague@company.com"
+                aria-label="Invite email address"
                 style={{
                   flex: 1,
                   border: 'none',
@@ -612,6 +614,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               value={emailTokenLimit}
               min={1}
               max={maxTokenLimit}
+              aria-label="Email invite credit limit"
               onChange={e => { setEmailTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1))); markFieldTouched('sharing', 'email') }}
               style={{
                 width: 80,

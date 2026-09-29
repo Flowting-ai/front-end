@@ -412,7 +412,7 @@ function TonePageContent() {
   }
 
   return (
-    <WizardShell steps={STEPS_BASICS}>
+    <WizardShell steps={STEPS_BASICS(3)}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
 
         {/* Heading */}

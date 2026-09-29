@@ -292,10 +292,11 @@ export default function ConnectorsTab({
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search connectors…"
+          aria-label="Search connectors"
           style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#6a625d', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
+          <button onClick={() => setSearchQuery('')} aria-label="Clear search" style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
             <XIcon />
           </button>
         )}

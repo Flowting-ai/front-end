@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { m } from 'framer-motion'
 import { CancelOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Tooltip } from '@/components/Tooltip'
-import CancelCreationModal from './CancelCreationModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { AGENTS_ROUTE } from '@/lib/routes'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 
@@ -16,6 +16,12 @@ export type StepState = 'active' | 'completed' | 'future'
 export interface WizardStep {
   label: string
   state: StepState
+  // "Basics" is really 3 screens (Purpose -> Name -> Tone) collapsed into one
+  // step in this tracker. When set on the active step, renders a small
+  // "n/total" caption so a user on e.g. the Tone screen can tell they're on
+  // sub-step 3 of 3, not just "somewhere in Basics" — the tracker previously
+  // gave no indication a phase had multiple screens at all.
+  subStep?: { current: number; total: number }
 }
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
@@ -29,7 +35,7 @@ export interface WizardStep {
 
 const TICK_DRAW_DELAY_MS = 120
 
-function StepNode({ index, label, state }: WizardStep & { index: number }) {
+function StepNode({ index, label, state, subStep }: WizardStep & { index: number }) {
   const isActive    = state === 'active'
   const isCompleted = state === 'completed'
 
@@ -86,6 +92,11 @@ function StepNode({ index, label, state }: WizardStep & { index: number }) {
         transition: 'color 200ms',
       }}>
         {label}
+        {isActive && subStep && (
+          <span style={{ color: 'var(--blue-400)', fontWeight: 'var(--font-weight-regular)' }}>
+            {' '}({subStep.current}/{subStep.total})
+          </span>
+        )}
       </span>
     </div>
   )
@@ -176,9 +187,12 @@ export function WizardShell({ steps, children }: WizardShellProps) {
       </div>
 
       {cancelOpen && (
-        <CancelCreationModal
-          onCancel={() => {
-            setCancelOpen(false)
+        <ConfirmModal
+          title="Cancel creation?"
+          description="Your progress will be lost. This action cannot be undone."
+          confirmLabel="Yes, cancel"
+          cancelLabel="Keep creating"
+          onConfirm={async () => {
             try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
@@ -186,7 +200,7 @@ export function WizardShell({ steps, children }: WizardShellProps) {
             trackBrowserEvent('agent_wizard_abandoned', { last_step: steps.find(s => s.state === 'active')?.label })
             push(AGENTS_ROUTE)
           }}
-          onKeep={() => setCancelOpen(false)}
+          onClose={() => setCancelOpen(false)}
         />
       )}
     </div>
@@ -201,11 +215,18 @@ export const STEPS_TEMPLATE: WizardStep[] = [
   { label: 'Configure', state: 'future'    },
 ]
 
-export const STEPS_BASICS: WizardStep[] = [
-  { label: 'Template',  state: 'completed' },
-  { label: 'Basics',    state: 'active'    },
-  { label: 'Configure', state: 'future'    },
-]
+// "Basics" covers 3 screens (Purpose -> Name -> Tone) — callers pass which one
+// is current so the tracker can show "n/3" instead of a single undifferentiated
+// "Basics" step. Kept as a function (not a static array like the other two
+// exported step lists) specifically so each of the 3 pages can supply its own
+// position instead of them all rendering an identical, position-less step.
+export function STEPS_BASICS(subStepCurrent: number): WizardStep[] {
+  return [
+    { label: 'Template',  state: 'completed' },
+    { label: 'Basics',    state: 'active', subStep: { current: subStepCurrent, total: 3 } },
+    { label: 'Configure', state: 'future'    },
+  ]
+}
 
 export const STEPS_CONFIGURE: WizardStep[] = [
   { label: 'Template',  state: 'completed' },

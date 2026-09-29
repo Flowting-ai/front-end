@@ -515,25 +515,39 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   const panelsLockedRef = useRef(false)
 
+  // These three toggles used to compute `next` inside the setState updater
+  // callback and call the *other* two panels' setters from within it — a
+  // side effect (and, since it also read/wrote sibling state, an impure
+  // updater) inside a functional updater, which React may invoke more than
+  // once per commit (e.g. Strict Mode's double-invoke). Reading the current
+  // value directly (they're regular useState values already in scope) and
+  // moving the sibling-closing calls into the callback body — not the
+  // updater — makes each setState call independent and pure.
   const toggleTestChat = useCallback(() => {
     if (panelsLockedRef.current) {
       toast.error('Save a version first to unlock Test Chat', { duration: 3000 })
       return
     }
-    setTestChatOpen(prev => { const next = !prev; if (next) { setAiSuggestOpen(false); _setVersionsOpen(false) }; return next })
-  }, [])
+    const next = !testChatOpen
+    setTestChatOpen(next)
+    if (next) { setAiSuggestOpen(false); _setVersionsOpen(false) }
+  }, [testChatOpen])
 
   const toggleAiSuggest = useCallback(() => {
     if (panelsLockedRef.current) {
       toast.error('Save a version first to unlock AI Suggestions', { duration: 3000 })
       return
     }
-    setAiSuggestOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); _setVersionsOpen(false) }; return next })
-  }, [])
+    const next = !aiSuggestOpen
+    setAiSuggestOpen(next)
+    if (next) { setTestChatOpen(false); _setVersionsOpen(false) }
+  }, [aiSuggestOpen])
 
   const toggleVersions = useCallback(() => {
-    _setVersionsOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); setAiSuggestOpen(false) }; return next })
-  }, [])
+    const next = !versionsOpen
+    _setVersionsOpen(next)
+    if (next) { setTestChatOpen(false); setAiSuggestOpen(false) }
+  }, [versionsOpen])
 
   const toggleChangesTracker = useCallback(() => {
     setChangesTrackerOpen(prev => !prev)
@@ -936,20 +950,20 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [pendingChangeTags, tabDirtyFlags, setGlobalDirty])
   useEffect(() => () => setGlobalDirty(false), [setGlobalDirty])
 
+  // pendingChangeTagsRef mirrors pendingChangeTags state — kept in sync by the
+  // effect below rather than written from inside the updaters themselves
+  // (writing a ref from within a setState updater callback is a side effect;
+  // React may invoke that callback more than once per commit).
+  useEffect(() => { pendingChangeTagsRef.current = pendingChangeTags }, [pendingChangeTags])
+
   const addPendingChangeTag = useCallback((tag: string) => {
     // New (never-published) personas have no prior version to diff against, so
     // change tags are meaningless noise — don't track them until the persona is
     // published. Tracking resumes once publishedVersionId is set.
     if (publishedVersionIdRef.current == null) return
-    _setPendingChangeTags(prev => {
-      if (prev.includes(tag)) return prev
-      const next = [...prev, tag]
-      pendingChangeTagsRef.current = next
-      return next
-    })
+    _setPendingChangeTags(prev => (prev.includes(tag) ? prev : [...prev, tag]))
   }, [])
   const setPendingChangeTags = useCallback((tags: string[]) => {
-    pendingChangeTagsRef.current = tags
     // Reset the arrival baseline so the toast condition stays correct after
     // a Save Version or Publish clears the tag list mid-visit.
     tagsCountOnTabArrivalRef.current = tags.length

@@ -102,13 +102,14 @@ const TEMPLATE_ROWS: string[][] = [
 const CARD_WIDTH = 179
 const CARD_HEIGHT = 172
 
-function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) {
+function TemplateCard({ name, onClick, disabled }: { name: string; onClick: () => void; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false)
   const color = TEMPLATE_COLORS[name] ?? 'Neutral'
 
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -120,11 +121,12 @@ function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) 
         boxShadow: hovered
           ? '0px 8px 16px 0px rgba(202,220,241,0.6)'
           : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         transform: hovered ? 'translateY(-2px)' : 'none',
-        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms, opacity 150ms',
       }}
     >
       <div style={{
@@ -175,12 +177,13 @@ function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) 
 // matching the new visual system. Whole row is one button (was previously
 // only the "Start blank" pill), so the "Start blank" pill below is decorative.
 
-function CustomCard({ onClick }: { onClick: () => void }) {
+function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false)
 
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -193,9 +196,10 @@ function CustomCard({ onClick }: { onClick: () => void }) {
         boxShadow: hovered
           ? '0px 8px 16px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--neutral-100)'
           : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         transform: hovered ? 'translateY(-1px)' : 'none',
-        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms',
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms, opacity 150ms',
         textAlign: 'left',
       }}
     >
@@ -247,6 +251,22 @@ function CustomCard({ onClick }: { onClick: () => void }) {
 export default function PersonaTemplatesPage() {
   const { push } = useRouter()
 
+  // Hydration-race guard for the template/"Start blank" cards below: the
+  // pre-hydration HTML renders every card `disabled` (this starts `false`,
+  // so the very first — server/static — render has `hydrated === false`).
+  // A native `disabled` button never dispatches click at all, so a click
+  // that lands in the window between paint and hydration completing is
+  // visibly inert instead of being silently swallowed (confirmed live: an
+  // early click on a plain enabled button in that window does nothing, no
+  // navigation, no error — see 02b-agents-before-scan.md). The effect below
+  // only runs once hydration has completed, so the flip to enabled can't
+  // happen any earlier than the point React's event handlers are actually
+  // live. On a normal machine this resolves in well under one frame and is
+  // imperceptible; it only matters on the slow/throttled devices where the
+  // race was reproducible.
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => { setHydrated(true) }, [])
+
   // Only show the Continue button when the user has already stepped into the wizard
   // (i.e. navigated back from the purpose page mid-flow).
   const [hasWizardDraft, setHasWizardDraft] = useState(false)
@@ -291,14 +311,14 @@ export default function PersonaTemplatesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
           {/* Custom / start blank row */}
-          <CustomCard onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)} />
+          <CustomCard onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)} disabled={!hydrated} />
 
           {/* Template card rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {TEMPLATE_ROWS.map((row, ri) => (
               <div key={ri} style={{ display: 'flex', gap: 16 }}>
                 {row.map(name => (
-                  <TemplateCard key={name} name={name} onClick={() => continueToBasics(name)} />
+                  <TemplateCard key={name} name={name} onClick={() => continueToBasics(name)} disabled={!hydrated} />
                 ))}
               </div>
             ))}

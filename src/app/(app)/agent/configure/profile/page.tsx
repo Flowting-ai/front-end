@@ -333,27 +333,32 @@ function PersonaConfigureProfileContent() {
   // On tab switch: flush text fields + tags to the API so persona cards on /agents
   // always show current tags even after a browser refresh (sessionStorage would be gone).
   // Image upload is skipped here — only done on explicit Save Version or Publish.
-  profileAutoSaveRef.current = async () => {
-    if (!isDirtyRef.current || !repoId || !versionId) return
-    try {
-      await updateVersion({
-        repoId,
-        versionId,
-        name:         personaName,
-        description:  personaDescription,
-        persona_tags: personaTags,
-        // No image / imageUrl — avoid re-downloading remote URLs or uploading data: blobs on every tab switch.
-      })
-      // Was missing — the tab's traffic light stayed stuck on "Unsaved" forever
-      // after any edit + tab switch, even though this autosave just persisted it.
-      isDirtyRef.current = false
-      setIsDirty(false)
-      toast.success('Changes autosaved')
-    } catch (err) {
-      console.error('[ProfilePage] auto-save error:', err)
-      toast.error('Failed to autosave changes')
+  // Wrapped in a deps-less effect (not assigned directly in the render body) —
+  // ref mutation during render is unsafe under concurrent rendering and blocks
+  // the React Compiler; re-runs every render to capture the latest values.
+  useEffect(() => {
+    profileAutoSaveRef.current = async () => {
+      if (!isDirtyRef.current || !repoId || !versionId) return
+      try {
+        await updateVersion({
+          repoId,
+          versionId,
+          name:         personaName,
+          description:  personaDescription,
+          persona_tags: personaTags,
+          // No image / imageUrl — avoid re-downloading remote URLs or uploading data: blobs on every tab switch.
+        })
+        // Was missing — the tab's traffic light stayed stuck on "Unsaved" forever
+        // after any edit + tab switch, even though this autosave just persisted it.
+        isDirtyRef.current = false
+        setIsDirty(false)
+        toast.success('Changes autosaved')
+      } catch (err) {
+        console.error('[ProfilePage] auto-save error:', err)
+        toast.error('Failed to autosave changes')
+      }
     }
-  }
+  })
 
   useEffect(() => {
     registerAutoSave(() => profileAutoSaveRef.current())

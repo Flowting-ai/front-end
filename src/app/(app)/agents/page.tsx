@@ -37,7 +37,7 @@ import {
   SettingsTableRow,
   SettingsTableCell,
 } from '@/components/SettingsTable'
-import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, copyPersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo } from '@/lib/chat-personas'
 import { normalizeModels } from '@/lib/ai-models'
 import { fetchAllModels } from '@/lib/api/models'
@@ -1004,7 +1004,7 @@ function PersonasPageInner() {
   async function handleCopyAndEdit(persona: Persona) {
     const toastId = toast.loading(`Copying "${persona.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
+      const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
       push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(copy.id, { name: persona.name }))
     } catch {
@@ -1021,7 +1021,7 @@ function PersonasPageInner() {
   async function handleUseTeamSharedInChat(persona: Persona) {
     const toastId = toast.loading(`Opening "${persona.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
+      const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
       sessionStorage.setItem('new-chat-pending-persona', JSON.stringify(toSelectedPersonaFromCopy(copy, persona)))
       // /chat may already be mounted (e.g. the user was just there) — a plain
@@ -1046,12 +1046,12 @@ function PersonasPageInner() {
   // send path requires an OWNED version id (see the comment on
   // resolveSelectableChatPersonas in lib/chat-personas.ts) — so, same as
   // team-shared personas above, clone into the viewer's own account first via
-  // the same usePersonaRepoDeduped flow (seeded from the share's frozen
+  // the same copyPersonaRepoDeduped flow (seeded from the share's frozen
   // version id), then chip the resulting owned copy onto a fresh /chat.
   async function handleUseReceivedShareInChat(share: ReceivedShareResponse) {
     const toastId = toast.loading(`Opening "${share.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(share.persona_repo_id, share.persona_id)
+      const copy = await copyPersonaRepoDeduped(share.persona_repo_id, share.persona_id)
       const version = copy.published_version ?? copy.active_version
       toast.dismiss(toastId)
       const selected: SelectedPersonaInfo = {
@@ -1253,6 +1253,7 @@ function PersonasPageInner() {
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                       placeholder="Search agent"
+                      aria-label="Search agents"
                       style={{
                         flex: '1 0 0',
                         border: 'none',

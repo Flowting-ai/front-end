@@ -137,6 +137,21 @@ function PersonaConfigureKnowledgeContent() {
   // silently resurrecting the deleted file in the list.
   const deletedIdsRef  = useRef<Set<string>>(new Set())
 
+  // Revoke every blob preview URL still tracked when the tab unmounts — these
+  // are created once per uploaded file (see uploadFiles below) and otherwise
+  // live for the lifetime of the tab even after the file is deleted or the
+  // user navigates away from Knowledge entirely.
+  useEffect(() => {
+    return () => {
+      const seen = new Set<string>()
+      Object.values(fileUrlMapRef.current).forEach(url => {
+        if (seen.has(url)) return
+        seen.add(url)
+        URL.revokeObjectURL(url)
+      })
+    }
+  }, [])
+
   function docsToFilesWithSizes(version: PersonaVersionResponse): KnowledgeFile[] {
     return docsToFiles(version).map(f => {
       // Check by doc ID first — survives API filename normalisation (spaces→underscores etc.)
@@ -354,6 +369,7 @@ function PersonaConfigureKnowledgeContent() {
       if (!newTab) { toast.error('Allow pop-ups to preview files'); return }
       try {
         const res = await fetch(file.url)
+        if (!res.ok) throw new Error(`Failed to fetch file (${res.status})`)
         const blob = await res.blob()
         const blobUrl = URL.createObjectURL(blob)
         newTab.location.href = blobUrl
@@ -378,6 +394,15 @@ function PersonaConfigureKnowledgeContent() {
     try {
       await deleteDocument(repoId, versionId, id)
       deletedIdsRef.current.add(id)
+      // Revoke and drop this file's blob preview URL(s) — every key (id,
+      // name, and its normalised variants) that points at the same blob.
+      const blobUrl = fileUrlMapRef.current[file.id] ?? fileUrlMapRef.current[file.name]
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl)
+        Object.keys(fileUrlMapRef.current).forEach(key => {
+          if (fileUrlMapRef.current[key] === blobUrl) delete fileUrlMapRef.current[key]
+        })
+      }
       setFiles(prev => prev.filter(f => f.id !== id))
       toast.success(`Removed "${file.name}"`)
       setIsDirty(true)
@@ -446,22 +471,27 @@ function PersonaConfigureKnowledgeContent() {
   // ── Auto-save on tab switch ────────────────────────────────────────────────
 
   const knowledgeAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
-  knowledgeAutoSaveRef.current = async () => {
-    const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Knowledge'] === true
-    if (!hasDirty || !repoId || !versionId) return
-    try {
-      await updateVersion({ repoId, versionId, name: personaName || undefined })
-      // Was missing — the tab's traffic light stayed stuck on "Unsaved" forever
-      // after any upload/delete + tab switch, even though this autosave just
-      // persisted it (uploads/deletes already hit the API immediately; this
-      // call only flushes the accumulated change tags onto the version).
-      setIsDirty(false)
-      toast.success('Changes autosaved')
-    } catch (err) {
-      console.error('[KnowledgePage] auto-save error:', err)
-      toast.error('Failed to autosave changes')
+  // Wrapped in a deps-less effect (not assigned directly in the render body) —
+  // ref mutation during render is unsafe under concurrent rendering and blocks
+  // the React Compiler; re-runs every render to capture the latest values.
+  useEffect(() => {
+    knowledgeAutoSaveRef.current = async () => {
+      const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Knowledge'] === true
+      if (!hasDirty || !repoId || !versionId) return
+      try {
+        await updateVersion({ repoId, versionId, name: personaName || undefined })
+        // Was missing — the tab's traffic light stayed stuck on "Unsaved" forever
+        // after any upload/delete + tab switch, even though this autosave just
+        // persisted it (uploads/deletes already hit the API immediately; this
+        // call only flushes the accumulated change tags onto the version).
+        setIsDirty(false)
+        toast.success('Changes autosaved')
+      } catch (err) {
+        console.error('[KnowledgePage] auto-save error:', err)
+        toast.error('Failed to autosave changes')
+      }
     }
-  }
+  })
 
   useEffect(() => {
     registerAutoSave(() => knowledgeAutoSaveRef.current())

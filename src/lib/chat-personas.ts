@@ -1,7 +1,7 @@
 import {
   fetchPersonas,
   isPersonaOwnedByViewer,
-  usePersonaRepoDeduped,
+  copyPersonaRepoDeduped,
   PERSONAS_LIST_UPDATED_EVENT,
   type Persona,
   type PersonaRepoResponse,
@@ -84,7 +84,7 @@ export async function resolveSelectableChatPersonas(
   ownerMap: Record<string, string>,
   viewerUserId: string | number | null | undefined,
   fallbackOwned: boolean,
-  copyPersona: CopyPersona = usePersonaRepoDeduped,
+  copyPersona: CopyPersona = copyPersonaRepoDeduped,
 ): Promise<SelectedPersonaInfo[]> {
   const resolved = await Promise.all(personas.map(async persona => {
     const ownedByViewer = isPersonaOwnedByViewer(persona, ownerMap, viewerUserId, fallbackOwned)

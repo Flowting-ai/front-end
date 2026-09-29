@@ -683,6 +683,16 @@ function PersonaConfigureInstructionsContent() {
   // never from client-only storage — so it's correct on first open.
   const hasInitialisedRef  = useRef(false)
   const savedSnapshotRef   = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
+  // Bumped every time savedSnapshotRef is written — the only way `isDirty`
+  // below (a derived value that must be render-reactive for the Save/Publish
+  // buttons and the traffic-light dots) can safely react to a ref mutation.
+  // isDirty itself is computed in an effect, not the render body: reading
+  // `.current` directly during render is unsafe under concurrent rendering
+  // (the ref can be mutated between render and commit, or read inconsistently
+  // across a double-render in Strict Mode) — this is what the React Compiler's
+  // `refs` diagnostic flags, and it was previously the single largest source
+  // of compiler-blocking findings in this file.
+  const [snapshotVersion, setSnapshotVersion] = useState(0)
   const hasDraftLoadedRef  = useRef(false)
   const handlePublishRef   = useRef<() => void>(() => { /* set after mount */ })
   const instructionAutoSaveRef    = useRef<() => Promise<void>>(() => Promise.resolve())
@@ -752,6 +762,7 @@ function PersonaConfigureInstructionsContent() {
           modelId:     isCustomNoModel ? '' : (resolvedModel1 ? (stableKey(resolvedModel1) ?? '') : ''),
           temperature: version.temperature ?? 0.5,
         }
+        setSnapshotVersion(v => v + 1)
         if (version.persona_tags?.length) setProfileTags(prev => prev.length ? prev : version.persona_tags)
       } else if (repoIdParam) {
         // ── Repo exists but no specific version (e.g. "Edit" from the library) ──
@@ -799,6 +810,7 @@ function PersonaConfigureInstructionsContent() {
             modelId:     resolvedModel2 ? (stableKey(resolvedModel2) ?? '') : '',
             temperature: fullVersion.temperature ?? 0.5,
           }
+          setSnapshotVersion(v => v + 1)
         } else if (repo.active_version) {
           // Fallback: version list empty but active_version exists
           const prompt = repo.active_version.prompt ?? ''
@@ -819,6 +831,7 @@ function PersonaConfigureInstructionsContent() {
             modelId:     resolvedModel3 ? (stableKey(resolvedModel3) ?? '') : '',
             temperature: repo.active_version.temperature ?? 0.5,
           }
+          setSnapshotVersion(v => v + 1)
         } else {
           setSelectedModel(null)
         }
@@ -880,6 +893,7 @@ function PersonaConfigureInstructionsContent() {
       // unsaved even though nothing has been edited yet.
       const restoredModelId = model ? (stableKey(model) ?? '') : currentModelId
       savedSnapshotRef.current = { instruction: prompt, modelId: restoredModelId, temperature: full.temperature ?? 0.5 }
+      setSnapshotVersion(v => v + 1)
       // Clear draft — version was explicitly restored from history
       try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
     })
@@ -994,6 +1008,7 @@ function PersonaConfigureInstructionsContent() {
       }
 
       savedSnapshotRef.current = { instruction, modelId, temperature }
+      setSnapshotVersion(v => v + 1)
       resetInstructionsTouched()
       setVersionTags(savedVersionId, pendingChangeTags)
       setPendingChangeTags([])
@@ -1088,6 +1103,7 @@ function PersonaConfigureInstructionsContent() {
           })
           if (updated.image_url) setImageUrl(updated.image_url)
           savedSnapshotRef.current = { instruction, modelId, temperature }
+          setSnapshotVersion(v => v + 1)
           resetInstructionsTouched()
           setVersionTags(versionId, pendingChangeTags)
           setPendingChangeTags([])
@@ -1120,11 +1136,23 @@ function PersonaConfigureInstructionsContent() {
   }
 
   const currentModelId = (selectedModel ? stableKey(selectedModel) : null) ?? ''
-  const isDirty =
-    !savedSnapshotRef.current ||
-    instruction !== savedSnapshotRef.current.instruction ||
-    currentModelId !== savedSnapshotRef.current.modelId ||
-    temperature !== savedSnapshotRef.current.temperature
+  // isDirty must be render-reactive (it gates the Save/Publish buttons and the
+  // tab traffic-light) but savedSnapshotRef is a ref, and reading `.current`
+  // directly in the render body is unsafe under concurrent rendering — the
+  // compiler correctly refuses to optimize a component that does this. Instead
+  // recompute it in an effect, re-running whenever the render-time inputs
+  // change OR whenever the ref itself was written (snapshotVersion, bumped at
+  // every savedSnapshotRef.current = ... call site above).
+  const [isDirty, setIsDirty] = useState(false)
+  useEffect(() => {
+    const snapshot = savedSnapshotRef.current
+    setIsDirty(
+      !snapshot ||
+      instruction !== snapshot.instruction ||
+      currentModelId !== snapshot.modelId ||
+      temperature !== snapshot.temperature
+    )
+  }, [instruction, currentModelId, temperature, snapshotVersion])
 
   // Auto-detect change tags — guarded by isDraftApplied so they never fire
   // during the initial hydration phase (init load + draft restore). Once
@@ -1240,41 +1268,49 @@ function PersonaConfigureInstructionsContent() {
 
   // Auto-save on tab switch — updates the current version in place (never forks).
   // createVersion is only called by the wizard (initial creation) and handleSaveVersion (explicit).
-  instructionAutoSaveRef.current = async () => {
-    const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!repoId || !versionId || !modelId) return
-    const snapshot = savedSnapshotRef.current
-    const isDirtyNow =
-      !snapshot ||
-      instruction !== snapshot.instruction ||
-      currentModelId !== snapshot.modelId ||
-      temperature !== snapshot.temperature
-    if (!isDirtyNow) return
-    try {
-      let imageFile: File | null = null
-      let preserveImageUrl: string | null = null
-      const avatarDataUrl = readProfileAvatar(repoId)
-      if (avatarDataUrl?.startsWith('data:')) {
-        imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
-      } else {
-        preserveImageUrl = avatarDataUrl ?? imageUrl
+  // Assigning `.current` directly in the render body mutates a ref during
+  // render (unsafe under concurrent rendering, same class of issue as the
+  // isDirty ref-read above) — wrapped in a deps-less effect instead, matching
+  // the handlePublishRef pattern already used elsewhere in this file: it
+  // re-runs after every render, so the ref always points at a closure over
+  // this render's latest values, but the write itself happens post-commit.
+  useEffect(() => {
+    instructionAutoSaveRef.current = async () => {
+      const modelId = selectedModel ? stableKey(selectedModel) : null
+      if (!repoId || !versionId || !modelId) return
+      const snapshot = savedSnapshotRef.current
+      const isDirtyNow =
+        !snapshot ||
+        instruction !== snapshot.instruction ||
+        currentModelId !== snapshot.modelId ||
+        temperature !== snapshot.temperature
+      if (!isDirtyNow) return
+      try {
+        let imageFile: File | null = null
+        let preserveImageUrl: string | null = null
+        const avatarDataUrl = readProfileAvatar(repoId)
+        if (avatarDataUrl?.startsWith('data:')) {
+          imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
+        } else {
+          preserveImageUrl = avatarDataUrl ?? imageUrl
+        }
+        await updateVersion({
+          repoId,
+          versionId,
+          name:        personaName,
+          modelId,
+          prompt:      instruction,
+          temperature,
+          image:       imageFile ?? undefined,
+          imageUrl:    preserveImageUrl,
+        })
+        toast.success('Changes autosaved')
+      } catch (err) {
+        console.error('[InstructionsPage] auto-save error:', err)
+        toast.error('Failed to autosave changes')
       }
-      await updateVersion({
-        repoId,
-        versionId,
-        name:        personaName,
-        modelId,
-        prompt:      instruction,
-        temperature,
-        image:       imageFile ?? undefined,
-        imageUrl:    preserveImageUrl,
-      })
-      toast.success('Changes autosaved')
-    } catch (err) {
-      console.error('[InstructionsPage] auto-save error:', err)
-      toast.error('Failed to autosave changes')
     }
-  }
+  })
 
   useEffect(() => {
     registerAutoSave(() => instructionAutoSaveRef.current())
@@ -1282,23 +1318,26 @@ function PersonaConfigureInstructionsContent() {
   }, [registerAutoSave])
 
   // Continue handler for the ConfigureStepNav Continue button — validates model +
-  // instruction before autosaving and navigating to the next tab.
-  instructionContinueRef.current = () => {
-    if (!isInitialising) {
-      if (!selectedModel) {
-        toast.error('Please select a model before continuing.')
-        return
+  // instruction before autosaving and navigating to the next tab. Same
+  // deps-less-effect wrapper as instructionAutoSaveRef above, for the same reason.
+  useEffect(() => {
+    instructionContinueRef.current = () => {
+      if (!isInitialising) {
+        if (!selectedModel) {
+          toast.error('Please select a model before continuing.')
+          return
+        }
+        if (!hasContent) {
+          toast.error('Please add agent instructions before continuing.')
+          return
+        }
       }
-      if (!hasContent) {
-        toast.error('Please add agent instructions before continuing.')
-        return
-      }
+      const params = new URLSearchParams(searchParams.toString())
+      if (repoId)    params.set('repoId',    repoId)
+      if (versionId) params.set('versionId', versionId)
+      safeNavigate(`/agent/configure/profile?${params.toString()}`)
     }
-    const params = new URLSearchParams(searchParams.toString())
-    if (repoId)    params.set('repoId',    repoId)
-    if (versionId) params.set('versionId', versionId)
-    safeNavigate(`/agent/configure/profile?${params.toString()}`)
-  }
+  })
 
   useEffect(() => {
     registerContinueHandler(() => instructionContinueRef.current())
