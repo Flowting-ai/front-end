@@ -23,6 +23,7 @@ import {
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { Skeleton } from '@/components/Skeleton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { Avatar } from '@/components/Avatar'
@@ -362,10 +363,15 @@ function StatTile({
   label,
   value,
   sub,
+  loading = false,
 }: {
   label:  string
   value?: string | number
   sub?:   string
+  /** Renders skeleton placeholders instead of `value`/`sub` — the real
+   *  numbers default to 0 while the underlying fetch is in flight, which
+   *  reads as "confirmed empty" rather than "still loading" if shown as-is. */
+  loading?: boolean
 }) {
   return (
     <div style={{
@@ -382,12 +388,16 @@ function StatTile({
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
         {label}
       </p>
-      {value !== undefined && (
+      {loading ? (
+        <Skeleton width={72} height={24} radius={5} />
+      ) : value !== undefined && (
         <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
           {value}
         </p>
       )}
-      {sub && (
+      {loading ? (
+        <Skeleton width={96} height={14} radius={4} />
+      ) : sub && (
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
           {sub}
         </p>
@@ -1681,25 +1691,38 @@ function PersonasPageInner() {
                           label="Credits this month"
                           value={fmtK(creditsMonth)}
                           sub="across all links"
+                          loading={sharesLoading}
                         />
                         <StatTile
                           label="Conversations"
                           value={summary?.conversations ?? 0}
                           sub="total sessions"
+                          loading={sharesLoading}
                         />
                         <StatTile
                           label="Active links"
                           value={summary?.active_links ?? 0}
                           sub={`of ${summary?.total_links ?? 0} total`}
+                          loading={sharesLoading}
                         />
                         <StatTile
                           label="Est. cost"
                           value={`$${estimatedCost.toFixed(2)}`}
                           sub="creator-pays"
+                          loading={sharesLoading}
                         />
                       </div>
 
-                      {topShare && (
+                      {sharesLoading ? (
+                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                          <Skeleton width={110} height={14} radius={4} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <Skeleton width={24} height={24} radius="50%" />
+                            <Skeleton width={100} height={16} radius={4} />
+                          </div>
+                          <Skeleton width={160} height={14} radius={4} />
+                        </div>
+                      ) : topShare && (
                         <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                             Most active agent
@@ -1741,18 +1764,22 @@ function PersonasPageInner() {
                         </div>
                       }
                     >
-                      <span style={{
-                        fontFamily: 'var(--font-title)',
-                        fontSize:   'var(--font-size-heading)',
-                        lineHeight: 'var(--line-height-heading)',
-                        fontWeight: 'var(--font-weight-medium)',
-                        color:      'var(--neutral-900)',
-                      }}>
-                        {fmtK(creditsMonth)}
-                      </span>
+                      {sharesLoading ? (
+                        <Skeleton width={80} height={28} radius={5} />
+                      ) : (
+                        <span style={{
+                          fontFamily: 'var(--font-title)',
+                          fontSize:   'var(--font-size-heading)',
+                          lineHeight: 'var(--line-height-heading)',
+                          fontWeight: 'var(--font-weight-medium)',
+                          color:      'var(--neutral-900)',
+                        }}>
+                          {fmtK(creditsMonth)}
+                        </span>
+                      )}
 
                       {sharesLoading ? (
-                        <div style={{ height: 180, borderRadius: 10, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                        <Skeleton width="100%" height={180} radius={10} />
                       ) : (
                         <Sparkline data={sparkData} height={180} />
                       )}
@@ -1777,7 +1804,7 @@ function PersonasPageInner() {
                       <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
                     ) : (
                       <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16}>
-                        <SettingsTableToolbar title={sharesLoading ? 'Loading…' : `My Superlinks · ${totalLinks}`}>
+                        <SettingsTableToolbar title={sharesLoading ? <Skeleton width={130} height={16} radius={4} /> : `My Superlinks · ${totalLinks}`}>
                           <IconButton
                             variant="ghost"
                             size="sm"
@@ -1942,7 +1969,7 @@ function PersonasPageInner() {
                     )
                   ) : (
                     <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16}>
-                      <SettingsTableToolbar title={receivedLoading ? 'Loading…' : `Shared Superlinks · ${receivedShares.length}`} />
+                      <SettingsTableToolbar title={receivedLoading ? <Skeleton width={150} height={16} radius={4} /> : `Shared Superlinks · ${receivedShares.length}`} />
                       <SettingsTableViewport minWidth={1000} ariaLabel="Shared with me">
                         <SettingsTableHeader>
                           <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
