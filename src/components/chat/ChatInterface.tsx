@@ -280,8 +280,15 @@ export function ChatInterface({
 
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
-  // Pin data for the @-mention dropdown — read from context (no extra fetch).
-  const { pins, isPinned } = usePinboard();
+  // Pin data for the @-mention dropdown and the per-message "pinned" badge —
+  // read from context. pinboard-context no longer fetches eagerly on every
+  // authenticated page load (that was firing GET /pins + GET /pins/folders/all
+  // on pages with nothing to do with pins — see pinboard-context.tsx's mount
+  // effect), so a real chat surface like this one — the one place besides the
+  // Pinboard panel itself that actually needs live pin data — prefetches on
+  // its own mount instead. No-op if data is already fresh/in-flight.
+  const { pins, isPinned, prefetch: prefetchPins } = usePinboard();
+  useEffect(() => { prefetchPins() }, [prefetchPins]);
 
   const chatStateOptions = useMemo<UseChatStateOptions | undefined>(
     () => loadMessages ? { loadMessages } : undefined,

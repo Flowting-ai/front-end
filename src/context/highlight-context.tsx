@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { createContext, useCallback, use, useRef, useState } from 'react'
+import React, { createContext, useCallback, use, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/Toast'
 import { createHighlight, removeHighlight, getHighlights } from '@/lib/api/highlights'
 import type { HighlightResponse } from '@/lib/api/highlights'
@@ -113,11 +113,14 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const [hasError,    setHasError]    = useState(false)
 
   // Refs kept in sync with state so callbacks can read current values without
-  // stale-closure issues. Updated during render so they are always current.
+  // stale-closure issues. Synced via effect (after render, not during it) —
+  // writing `.current` directly during render (the previous shape) is exactly
+  // what blocks React Compiler's auto-memoization for this component, since
+  // the compiler can't prove a ref is only read/written outside of render.
   const highlightsRef = useRef<HighlightEntry[]>([])
   const filterModeRef = useRef<FilterMode>('this-chat')
-  highlightsRef.current = highlights
-  filterModeRef.current = filterMode
+  useEffect(() => { highlightsRef.current = highlights }, [highlights])
+  useEffect(() => { filterModeRef.current = filterMode }, [filterMode])
 
   // â”€â”€ Actions (stable refs â€” never change identity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
