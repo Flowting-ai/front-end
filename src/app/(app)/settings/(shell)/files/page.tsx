@@ -423,6 +423,15 @@ const RETENTION_OPTIONS = ['30 days', '60 days', '90 days']
 
 export default function FilesPage() {
   const { user } = useAuth()
+  // Both hooks must run unconditionally on every render — moved above the
+  // `!user` early return below. They used to sit after it, so the very first
+  // render (before auth resolves) skipped calling them entirely, then called
+  // them for the first time once `user` arrived: a real conditional-hook-call
+  // bug (React requires the exact same hooks, in the exact same order, on
+  // every render), not a lint false positive.
+  const [maxFileSize,    setMaxFileSize]    = useState('50 MB')
+  const [fileRetention,  setFileRetention]  = useState('30 days')
+
   if (!user) return <FilesSkeleton />
 
   const planName    = user?.planName ?? 'Starter'
@@ -433,9 +442,6 @@ export default function FilesPage() {
   // Static storage values - TODO: wire to files API
   const storageUsedGB  = 2.4
   const storageTotalGB = parseInt(storageLimit)
-
-  const [maxFileSize,    setMaxFileSize]    = useState('50 MB')
-  const [fileRetention,  setFileRetention]  = useState('30 days')
 
   return (
     <div

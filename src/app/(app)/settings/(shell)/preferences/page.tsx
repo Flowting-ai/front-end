@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Checkbox } from '@/components/Checkbox'
-import { PreferencesSkeleton } from '../SettingsSkeleton'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -111,12 +110,14 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 ]
 
 export default function PreferencesPage() {
-  const [mounted, setMounted] = useState(false)
+  // Previously gated behind a `mounted` flag purely to force an extra
+  // skeleton-then-real-content render pass — every value below is a static
+  // default (no props/API/localStorage read), so nothing here actually
+  // differs between the server render and the client's first render. Same
+  // root cause and fix as help/notifications/security.
   const [themeMode,           setThemeMode]           = useState<ThemeMode>('system')
   const [tonePreset,          setTonePreset]          = useState<TonePreset>('Balanced')
   const [customInstructions,  setCustomInstructions]  = useState('')
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return <PreferencesSkeleton />
 
   return (
     <div

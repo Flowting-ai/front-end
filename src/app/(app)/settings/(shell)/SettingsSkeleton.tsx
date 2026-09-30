@@ -418,25 +418,29 @@ export function SecuritySkeleton() {
   )
 }
 
-export function NotificationsSkeleton() {
-  function NotifGroupHeader() {
-    return (
-      <Section divider>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Bone w={160} h={16} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Bone w={80} h={28} r={8} />
-            <Bone w={80} h={28} r={8} />
-          </div>
+// Was defined inside NotificationsSkeleton() — a new function identity (and
+// a fresh sub-tree, losing any of its own DOM/state) on every parent render.
+// Closes over nothing local to NotificationsSkeleton (just the module-level
+// Section/Bone primitives below), so hoisting out is a pure, zero-risk move.
+function NotifGroupHeader() {
+  return (
+    <Section divider>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Bone w={160} h={16} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Bone w={80} h={28} r={8} />
+          <Bone w={80} h={28} r={8} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 32 }}>
-          <Bone w={50} h={12} />
-          <Bone w={50} h={12} />
-        </div>
-      </Section>
-    )
-  }
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 32 }}>
+        <Bone w={50} h={12} />
+        <Bone w={50} h={12} />
+      </div>
+    </Section>
+  )
+}
 
+export function NotificationsSkeleton() {
   return (
     <div className="kaya-scrollbar" style={OUTER} aria-busy="true">
       <div style={INNER}>

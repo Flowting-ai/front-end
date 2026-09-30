@@ -444,8 +444,17 @@ function AccountPageContent({
   const avatarChanged = (avatar ?? '') !== (baseAvatar ?? '')
   const isDirty = nameChanged || avatarChanged
 
-  // Keep ref in sync for the beforeunload handler (ref writes during render are safe)
-  isDirtyRef.current = isDirty
+  // Keep ref in sync for the beforeunload handler. Was written directly
+  // during render — technically idempotent, but refs are only safe to read
+  // or write outside of render (React Compiler's `refs`/`no-ref-current-in-render`
+  // rule flags this exact shape); moved into an effect, matching the
+  // deps-less "always mirror the latest value" pattern this codebase already
+  // uses elsewhere (e.g. Agents' `agent/configure/*` auto-save refs). The
+  // beforeunload handler only reads this ref from inside a later event, not
+  // during render, so the one-commit delay an effect introduces is safe.
+  useEffect(() => {
+    isDirtyRef.current = isDirty
+  })
 
   // Sync dirty flag to the nav guard context via effect — calling setIsDirty during
   // render would update a different component (NavGuardProvider), which React forbids.
@@ -560,7 +569,12 @@ function AccountPageContent({
   // in a effect keyed on `[handleSave]` would re-run (and re-render) on
   // every render instead of once.
   const handleSaveRef = useRef(handleSave)
-  handleSaveRef.current = handleSave
+  // Was written directly during render (`handleSaveRef.current = handleSave`)
+  // — moved into a deps-less effect for the same reason as `isDirtyRef`
+  // above; only ever read later, from inside the setSaveHandler wrapper.
+  useEffect(() => {
+    handleSaveRef.current = handleSave
+  })
   useEffect(() => {
     setSaveHandler(() => handleSaveRef.current())
     return () => setSaveHandler(null)
