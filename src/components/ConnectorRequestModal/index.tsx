@@ -67,7 +67,7 @@ function UrgencyDropdown({ value, onChange }: { value: ConnectorRequestUrgency; 
       placement="bottom-start"
       offset={4}
       trigger={
-        <button type="button"
+        <button type="button" id="connector-request-urgency"
           onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: hov ? 'var(--neutral-50)' : 'var(--neutral-white)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none', transition: 'background-color 120ms' }}>
           <span>{label}</span>
@@ -148,10 +148,11 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
         {/* Fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
+            <label htmlFor="connector-request-tool-name" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
               Tool / service name
             </label>
             <InputField
+              id="connector-request-tool-name"
               value={toolName}
               onChange={setToolName}
               placeholder="e.g. beehiiv"
@@ -159,10 +160,11 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
+            <label htmlFor="connector-request-url" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
               Website or app URL <span style={{ fontWeight: 400, color: 'var(--neutral-400)' }}>(optional)</span>
             </label>
             <InputField
+              id="connector-request-url"
               value={url}
               onChange={setUrl}
               placeholder="http://"
@@ -171,10 +173,11 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
+            <label htmlFor="connector-request-description" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
               What do you need it to do?
             </label>
             <textarea
+              id="connector-request-description"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="What data should the task read? What actions should it take? Which team needs it?"
@@ -190,7 +193,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
+            <label htmlFor="connector-request-urgency" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>
               How blocking is this?
             </label>
             <UrgencyDropdown value={urgency} onChange={setUrgency} />

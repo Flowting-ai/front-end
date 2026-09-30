@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
@@ -173,13 +173,13 @@ function ConnectTrigger({
       }}
     >
       Connect
-      <motion.span
+      <m.span
         animate={{ rotate: expanded ? 0 : -90 }}
         transition={{ duration: 0.15, ease: 'easeOut' }}
         style={{ display: 'flex', lineHeight: 0 }}
       >
         <ArrowDownOneIcon size={14} color="var(--neutral-500)" />
-      </motion.span>
+      </m.span>
     </button>
   )
 }
@@ -368,8 +368,9 @@ export const ConnectorRow = React.forwardRef<HTMLDivElement, ConnectorRowProps>(
         {/* ── OAuth expand panel (not-connected only) ───────────────────────── */}
         <AnimatePresence initial={false}>
           {status === 'not-connected' && expanded && (
-            <motion.div
+            <m.div
               key="oauth-panel"
+              layout
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -420,7 +421,7 @@ export const ConnectorRow = React.forwardRef<HTMLDivElement, ConnectorRowProps>(
                   </Button>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </Comp>

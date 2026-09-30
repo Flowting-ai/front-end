@@ -75,9 +75,17 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     const known = knownAccountIds ?? []
     const target = reconnecting ? { healthy: reconnecting } : { known }
     const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
-    // Opened without noopener deliberately — noopener leaves the popup stuck
-    // at about:blank in some browsers once we later assign popup.location.
+    // Opened without the noopener FEATURE deliberately — passing noopener to
+    // window.open() makes it return null in most browsers, and this code
+    // needs the real reference below to set popup.location once the OAuth
+    // URL comes back. Severing the reverse-tabnabbing vector (the popup's own
+    // window.opener, which a compromised/malicious OAuth page could use to
+    // rewrite this tab's location while the user is mid-auth) without losing
+    // that reference: set .opener directly on the child after opening it.
+    // This is settable cross-origin and doesn't invalidate `popup` itself —
+    // popup.location/.closed/.close() below all keep working.
     const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
+    if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     popupRef.current = popup
     setState('opening')
     setErrorMsg('')
@@ -107,7 +115,10 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
         const hosted = isZapierProviderConnector(connectorProvider, url)
         const openUrl = hosted ? zapierConnectHref(url) : url
         if (popup && !popup.closed) popup.location.href = openUrl
-        else window.open(openUrl, hosted ? 'zapier-connect' : '_blank')
+        // This call's return value is never read (the pre-opened `popup`
+        // above is what's tracked/closed elsewhere), so it's safe to pass
+        // noopener directly rather than needing the .opener=null trick.
+        else window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'noopener')
         setState('polling')
 
         pollAbortRef.current?.abort()

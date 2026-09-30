@@ -367,6 +367,12 @@ function PersonaConfigureKnowledgeContent() {
     if (file.url) {
       const newTab = window.open('about:blank', '_blank')
       if (!newTab) { toast.error('Allow pop-ups to preview files'); return }
+      // Not opened with the noopener FEATURE — this tab is navigated to a
+      // blob: URL below via the returned reference. Sever its window.opener
+      // directly instead (settable cross-origin, keeps this reference usable
+      // for .location/.close()) so the remote file's rendered content can't
+      // reach back into this tab.
+      try { newTab.opener = null } catch { /* best-effort */ }
       try {
         const res = await fetch(file.url)
         if (!res.ok) throw new Error(`Failed to fetch file (${res.status})`)

@@ -64,7 +64,29 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     }
   }, [])
 
-  useEffect(() => { void fetchAll() }, [fetchAll])
+  // Was `useEffect(() => { void fetchAll() }, [fetchAll])` — fetchAll's own
+  // first statement (setLoading(true)) runs synchronously the instant it's
+  // called, which is exactly what react-hooks/set-state-in-effect flags when
+  // that call sits directly in an effect body. `loading` already starts
+  // `true` via its own useState initializer, so the mount fetch never
+  // actually needed to set it again — only needs to flip it back to `false`
+  // once the request settles, which is the documented "setState inside an
+  // async callback" shape the rule allows. Inlined here (rather than reusing
+  // fetchAll, which the linter still flags by tracing into its body
+  // regardless of a boolean flag) so this effect's own reachable synchronous
+  // code contains no setState at all. fetchAll itself is unchanged and still
+  // used as-is by confirmRemove/handleSetupConnected below, both called from
+  // event handlers, not an effect, so the rule doesn't apply there.
+  useEffect(() => {
+    let cancelled = false
+    void listLinkedConnectors()
+      .then(rows => { if (!cancelled) setCatalog(rows) })
+      .catch((err: unknown) => {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const isTabView = view === 'permissions' || view === 'access' || view === 'settings'
@@ -146,11 +168,17 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     setActiveAccountId(null)
   }, [])
 
-  useEffect(() => {
-    if (loading || view === 'connections') return
-    const accountMissing = view !== 'connector' && !activeAccount
-    if (!active || accountMissing) backToConnections()
-  }, [loading, view, active, activeAccount, backToConnections])
+  // Was a useEffect bailing the view back to 'connections' whenever the
+  // active connector/account it needs has gone missing (e.g. removed
+  // elsewhere, or a stale slug after a refetch) — a pure "does the current
+  // view still make sense given the data we have" check with no external
+  // system to subscribe to, so it converts cleanly to React's documented
+  // "adjust state during render" pattern instead of an effect. Self-
+  // terminating: backToConnections() sets view to 'connections', which makes
+  // `invalidView` false on the very next evaluation.
+  const accountMissing = view !== 'connector' && !activeAccount
+  const invalidView = !loading && view !== 'connections' && (!active || accountMissing)
+  if (invalidView) backToConnections()
 
   const handleSetupConnected = useCallback((_result: SetupFlowResult) => {
     setSetupOpen(false)
