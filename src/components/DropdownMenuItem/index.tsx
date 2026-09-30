@@ -1,9 +1,20 @@
 'use client'
 
 import React, { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, m } from 'framer-motion'
-import { LlmIcon } from '@strange-huge/icons/llm'
+// LlmIcon pulls in @strange-huge/icons/llm (~10MB/6.5MB-gzip of every LLM
+// provider's logo/animation data) but only ever renders when a caller passes
+// the optional `llm` prop (see the `llm && !isDanger` guard further down) —
+// most DropdownMenuItem call sites across the app never do, yet
+// DropdownMenuItem is a foundational primitive used almost everywhere (via
+// Dropdown), so a static import here made every page with any dropdown pay
+// for it. Deferred so the chunk only loads when a caller actually passes `llm`.
+const LlmIcon = dynamic(
+  () => import('@strange-huge/icons/llm').then((m) => ({ default: m.LlmIcon })),
+  { ssr: false, loading: () => null },
+)
 import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
 import { Spinner } from '@/components/Spinner'

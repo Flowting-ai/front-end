@@ -1,12 +1,22 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useBrainThreadContext } from "@/context/brain-thread-context";
 import { Button } from "@/components/Button";
-import { ModelIcon } from "@/components/ModelIcon";
+// ModelIcon pulls in @strange-huge/icons/llm (~10MB/6.5MB-gzip of every LLM
+// provider's logo data) but only ever renders here when a persona/model tag
+// is actually shown (see the `personaModel || persona?.modelId` guard
+// below) — most pages never hit that branch, so a static import here made
+// every page's TopBar (mounted on every authenticated route) pay for it
+// regardless. Deferred so the chunk only loads when this branch renders.
+const ModelIcon = dynamic(
+  () => import("@/components/ModelIcon").then((m) => ({ default: m.ModelIcon })),
+  { ssr: false, loading: () => null },
+);
 import { ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
-import { Copy01Icon, Checkmark } from "@hugeicons/core-free-icons";
+import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
+import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import type { TableData, TableCellValue } from "@/types/chat";
 import { HIcon } from "./response-blocks-shared";
 

@@ -7,7 +7,7 @@ import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
-import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
+import { LazyPresetModelSelectorDialog } from "@/components/chat/LazyPresetModelSelectorDialog";
 import { ProjectsProvider } from "@/context/projects-context";
 import { ProjectPanelProvider } from "@/context/project-panel-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
@@ -42,7 +42,7 @@ export default function AppGroupLayout({
                         {children}
                       </AppLayout>
                     </ProjectPanelProvider>
-                    <PresetModelSelectorDialog />
+                    <LazyPresetModelSelectorDialog />
                     <PlanUpgradeToast />
                     <ConnectorAuthResultToast />
                   </SearchProvider>

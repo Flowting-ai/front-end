@@ -3,18 +3,16 @@
 import React, { useState } from "react";
 import { m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  AiWebBrowsingIcon,
-  PdfIcon,
-  CodeIcon,
-  AiSheetsIcon,
-  Link01Icon,
-  Doc01Icon,
-  AiBrain01Icon,
-  Spinner,
-  Checkmark,
-  Cancel01Icon,
-} from "@hugeicons/core-free-icons";
+import AiWebBrowsingIcon from "@hugeicons/core-free-icons/AiWebBrowsingIcon";
+import PdfIcon from "@hugeicons/core-free-icons/Pdf01Icon";
+import CodeIcon from "@hugeicons/core-free-icons/CodeIcon";
+import AiSheetsIcon from "@hugeicons/core-free-icons/AiSheetsIcon";
+import Link01Icon from "@hugeicons/core-free-icons/Link01Icon";
+import Doc01Icon from "@hugeicons/core-free-icons/Doc01Icon";
+import AiBrain01Icon from "@hugeicons/core-free-icons/AiBrain01Icon";
+import Spinner from "@hugeicons/core-free-icons/Loading01Icon";
+import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import { QuillWriteOneIcon, NeuralNetworkIcon } from "@strange-huge/icons";
 import type { ActivityItem, ActivityType } from "@/types/chat";
 import { ACTIVITY_VERB } from "@/lib/activity";

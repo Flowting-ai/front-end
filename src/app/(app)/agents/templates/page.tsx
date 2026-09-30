@@ -5,23 +5,21 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { trackFeature } from '@/lib/analytics/events'
-import {
-  CustomerService01Icon,
-  GoldSellIcon,
-  CourtHouseIcon,
-  SearchVisualIcon,
-  ContentWritingIcon,
-  InspectCodeIcon,
-  Login01Icon,
-  Target02Icon,
-  AnalysisTextLinkIcon,
-  OfficeChairIcon,
-  Briefcase08Icon,
-  Mortarboard01Icon,
-  Analytics01Icon,
-  MentoringIcon,
-  BrowserIcon,
-} from '@hugeicons/core-free-icons'
+import CustomerService01Icon from '@hugeicons/core-free-icons/CustomerService01Icon'
+import GoldSellIcon from '@hugeicons/core-free-icons/GoldSellIcon'
+import CourtHouseIcon from '@hugeicons/core-free-icons/CourtHouseIcon'
+import SearchVisualIcon from '@hugeicons/core-free-icons/SearchVisualIcon'
+import ContentWritingIcon from '@hugeicons/core-free-icons/ContentWritingIcon'
+import InspectCodeIcon from '@hugeicons/core-free-icons/InspectCodeIcon'
+import Login01Icon from '@hugeicons/core-free-icons/Login01Icon'
+import Target02Icon from '@hugeicons/core-free-icons/Target02Icon'
+import AnalysisTextLinkIcon from '@hugeicons/core-free-icons/AnalysisTextLinkIcon'
+import OfficeChairIcon from '@hugeicons/core-free-icons/OfficeChairIcon'
+import Briefcase08Icon from '@hugeicons/core-free-icons/Briefcase08Icon'
+import Mortarboard01Icon from '@hugeicons/core-free-icons/Mortarboard01Icon'
+import Analytics01Icon from '@hugeicons/core-free-icons/Analytics01Icon'
+import MentoringIcon from '@hugeicons/core-free-icons/MentoringIcon'
+import BrowserIcon from '@hugeicons/core-free-icons/BrowserIcon'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
 import { AGENTS_BASICS_PURPOSE_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
