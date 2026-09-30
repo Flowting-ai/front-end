@@ -175,18 +175,14 @@ export default async function proxy(request: NextRequest) {
 
   // Component verification harnesses render fixtures only and must stay
   // reachable without a session while developing. Never in production.
+  // (This used to also list "/brain-verify" — that harness was confirmed
+  // unlinked anywhere in the app and deleted as part of the Brain/Tasks
+  // performance-report follow-up; "/reasoning-verify" is still live.
+  // This block was also accidentally duplicated verbatim right below itself
+  // — collapsed back to one copy while touching this.)
   if (
     process.env.NODE_ENV !== "production" &&
-    (pathname === "/reasoning-verify" || pathname === "/brain-verify")
-  ) {
-    return NextResponse.next();
-  }
-
-  // Component verification harnesses render fixtures only and must stay
-  // reachable without a session while developing. Never in production.
-  if (
-    process.env.NODE_ENV !== "production" &&
-    (pathname === "/reasoning-verify" || pathname === "/brain-verify")
+    pathname === "/reasoning-verify"
   ) {
     return NextResponse.next();
   }

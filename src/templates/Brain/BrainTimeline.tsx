@@ -164,6 +164,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
           {chipOpen && result?.details && (
             <m.div
               id={detailsId}
+              layout
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}

@@ -86,6 +86,7 @@ export function BrainPhaseGroup({
         {!collapsed && (
           <m.div
             id={contentId}
+            layout
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

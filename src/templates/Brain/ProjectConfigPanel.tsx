@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   CancelOneIcon,
   PenOneIcon,
@@ -112,7 +112,7 @@ export function ProjectConfigPanel({
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 12 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 12 }}
@@ -464,7 +464,7 @@ export function ProjectConfigPanel({
           Save
         </Button>
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 

@@ -27,8 +27,6 @@ import {
   StuckCard,
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
-  type ActiveSchedule,
-  type DigestItem,
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
@@ -91,7 +89,8 @@ import { ApiError } from '@/lib/api/client'
 import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
-import { getAutomation, listAutomations, runSummary, type Automation } from '@/lib/api/automations'
+import { listAutomations } from '@/lib/api/automations'
+import { useBrainHomeDigest } from '@/hooks/use-brain-home-digest'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
@@ -385,17 +384,6 @@ function artifactMeta(mime: string, size?: number): string {
   return parts.join(' · ')
 }
 
-function brainHomeTime(iso: string): string {
-  const value = new Date(iso)
-  if (Number.isNaN(value.getTime())) return ''
-  const now = new Date()
-  const sameDay = value.toDateString() === now.toDateString()
-  const day = sameDay
-    ? 'Today'
-    : value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `${day} · ${value.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-}
-
 // Extract a display filename from an S3 key (last path segment).
 function filenameFromS3Key(key: string): string {
   const segment = key.split('/').pop()
@@ -654,9 +642,15 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       const { redirectUrl } = await initiateLink(event.connector.slug, initData)
       const hosted = Boolean(redirectUrl && isZapierProviderConnector(null, redirectUrl))
       const openUrl = hosted && redirectUrl ? zapierConnectHref(redirectUrl) : redirectUrl
+      // Not opened with the noopener FEATURE — that makes window.open()
+      // return null in most browsers, and `popup` is closed explicitly below
+      // once the flow settles. Sever the popup's own window.opener instead
+      // (settable cross-origin, doesn't invalidate this reference) so a
+      // compromised/malicious OAuth page can't reverse-tabnab this tab.
       const popup = openUrl
         ? window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'width=900,height=700')
         : null
+      if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
       if (hosted) {
         const connectionId = await waitForZapierAuthId()
         await completeZapierLink(event.connector.slug, connectionId)
@@ -781,20 +775,24 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
 
       {showCredentialForm ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-          {resolvedFields.map((field) => (
-            <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={labelStyle}>{field.label}</label>
-              <input
-                type={field.secret ? 'password' : 'text'}
-                autoComplete="off"
-                placeholder={field.help ?? field.label}
-                value={creds[field.name] ?? ''}
-                disabled={busy || done}
-                onChange={(e) => setCreds((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                style={inputStyle}
-              />
-            </div>
-          ))}
+          {resolvedFields.map((field) => {
+            const fieldId = `credential-field-${field.name}`
+            return (
+              <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label htmlFor={fieldId} style={labelStyle}>{field.label}</label>
+                <input
+                  id={fieldId}
+                  type={field.secret ? 'password' : 'text'}
+                  autoComplete="off"
+                  placeholder={field.help ?? field.label}
+                  value={creds[field.name] ?? ''}
+                  disabled={busy || done}
+                  onChange={(e) => setCreds((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                  style={inputStyle}
+                />
+              </div>
+            )
+          })}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <Button
               size="sm"
@@ -1037,63 +1035,10 @@ function BrainPageInner() {
   const { threads: brainThreads } = useBrainThreadContext()
   const activeThreadTitle = chatIdFromUrl ? brainThreads.find(t => t.id === chatIdFromUrl)?.chat_title : undefined
 
-  const [homeSchedules, setHomeSchedules] = useState<ActiveSchedule[]>([])
-  const [homeDigest, setHomeDigest] = useState<DigestItem[]>([])
-
-  useEffect(() => {
-    if (chatIdFromUrl) return
-    let cancelled = false
-    const seenKey = 'brain_schedule_last_seen_at'
-    const now = Date.now()
-    const storedSeen = Number(window.localStorage.getItem(seenKey) ?? '')
-    const cutoff = Number.isFinite(storedSeen) && storedSeen > 0
-      ? storedSeen
-      : now - 24 * 60 * 60 * 1000
-
-    void listAutomations()
-      .then(async (rawTasks) => {
-        if (cancelled) return
-        const tasks: Automation[] = Array.isArray(rawTasks) ? rawTasks : []
-        setHomeSchedules(tasks
-          .filter((task) => task.is_active && task.next_run_at)
-          .sort((a, b) => new Date(a.next_run_at!).getTime() - new Date(b.next_run_at!).getTime())
-          .map((task) => ({
-            id: task.id,
-            name: task.name,
-            nextRun: brainHomeTime(task.next_run_at!),
-          })))
-
-        const recent = tasks
-          .filter((task) => task.last_run_at && new Date(task.last_run_at).getTime() > cutoff)
-          .sort((a, b) => new Date(b.last_run_at!).getTime() - new Date(a.last_run_at!).getTime())
-          .slice(0, 3)
-        const details = await Promise.all(recent.map((task) => getAutomation(task.id).catch(() => null)))
-        if (cancelled) return
-        setHomeDigest(details.flatMap((task): DigestItem[] => {
-          if (!task) return []
-          const run = [...(task.runs ?? [])]
-            .sort((a, b) => new Date(b.finished_at ?? b.started_at ?? 0).getTime()
-              - new Date(a.finished_at ?? a.started_at ?? 0).getTime())[0]
-          if (!run) return []
-          const ranAt = run.finished_at ?? run.started_at
-          return [{
-            scheduleId: task.id,
-            scheduleName: task.name,
-            ranAt: ranAt ? brainHomeTime(ranAt) : 'Recent run',
-            summary: runSummary(run),
-            status: run.status === 'succeeded' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
-          }]
-        }))
-        window.localStorage.setItem(seenKey, String(now))
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setHomeSchedules([])
-          setHomeDigest([])
-        }
-      })
-    return () => { cancelled = true }
-  }, [chatIdFromUrl])
+  // Extracted to its own hook — see src/hooks/use-brain-home-digest.ts's own
+  // header comment for why this piece specifically (self-contained, no
+  // dependency on this page's phase/timeline state machine).
+  const { homeSchedules, homeDigest } = useBrainHomeDigest(!!chatIdFromUrl)
 
   // The account menu, role badge, plan label, credits, search and sidebar-collapse
   // state all live in the shared LeftSidebar (owned by AppLayout) now — Brain renders
@@ -1291,15 +1236,27 @@ function BrainPageInner() {
     } catch { /* localStorage unavailable (private mode, quota) */ }
   }, [phase, userAttachments, chatId, userMessage])
 
-  const storedHistoryAttachments = useMemo<Record<string, UserAttachment[]>>(() => {
-    if (!chatId) return {}
+  // Always starts `{}` on both the server render and the client's first
+  // (hydration) render — no hydration mismatch — then populates for real via
+  // a plain effect just after mount. A `useMemo` reading `localStorage`
+  // directly during render/hook-init (the shape this used to be) differs
+  // between the server pass (no `localStorage`, caught, returns `{}`) and the
+  // client's hydration pass (real value) whenever `chatId` is already present
+  // on first paint (e.g. a hard reload of `/brain?id=...`) — exactly the
+  // `no-unguarded-browser-global-in-render-or-hook-init` class of bug already
+  // fixed for `chat/page.tsx`'s `selectedPersona` initializer (see
+  // da89ccd2). The one-render-tick delay before attachment chips populate
+  // from localStorage is the same accepted trade-off made there.
+  const [storedHistoryAttachments, setStoredHistoryAttachments] = useState<Record<string, UserAttachment[]>>({})
+  useEffect(() => {
+    if (!chatId) { setStoredHistoryAttachments({}); return }
     try {
       const key = `brain_input_files_${chatId}`
       const stored: { userInput: string; attachments: UserAttachment[] }[] =
         JSON.parse(localStorage.getItem(key) ?? '[]')
-      return Object.fromEntries(stored.map(s => [s.userInput, s.attachments]))
+      setStoredHistoryAttachments(Object.fromEntries(stored.map(s => [s.userInput, s.attachments])))
     } catch {
-      return {}
+      setStoredHistoryAttachments({})
     }
   }, [chatId])
 
@@ -1963,9 +1920,18 @@ function BrainPageInner() {
         if (resolvedPromptIdsRef.current.has(prompt.request_id)) break
         setPermissionPrompts((queue) => enqueuePrompt(queue, prompt))
         setPermissionInFlight(false)
-        setTimeline((prev) => prev.some((it) => it.kind === 'permission' && it.promptId === prompt.request_id)
-          ? prev
-          : [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId: prompt.request_id }])
+        // Id is minted up front (not inside the updater) so the updater stays a
+        // pure function of `prev` — React may invoke it more than once per
+        // commit (Strict Mode / concurrent rendering), and a `++ref.current`
+        // read inside it would double-increment on a re-invoke. A skipped
+        // sequence number when the duplicate-guard short-circuits is fine:
+        // these ids only need to be unique, never contiguous.
+        {
+          const permissionTimelineId = `permission-${++timelineSeqRef.current}`
+          setTimeline((prev) => prev.some((it) => it.kind === 'permission' && it.promptId === prompt.request_id)
+            ? prev
+            : [...prev, { kind: 'permission', id: permissionTimelineId, promptId: prompt.request_id }])
+        }
         break
       }
 
@@ -1984,9 +1950,13 @@ function BrainPageInner() {
           target:        typeof d.target === 'string' ? d.target : '',
         })
         setApprovalInFlight(false)
-        setTimeline((prev) => prev.some((it) => it.kind === 'approval' && it.promptId === promptId)
-          ? prev
-          : [...prev, { kind: 'approval', id: `approval-${++timelineSeqRef.current}`, promptId }])
+        // Id minted up front — see the `permission_prompt` case above for why.
+        {
+          const approvalTimelineId = `approval-${++timelineSeqRef.current}`
+          setTimeline((prev) => prev.some((it) => it.kind === 'approval' && it.promptId === promptId)
+            ? prev
+            : [...prev, { kind: 'approval', id: approvalTimelineId, promptId }])
+        }
         break
       }
 
@@ -2049,7 +2019,8 @@ function BrainPageInner() {
         const links = Array.isArray(d.links) ? d.links : []
         const results = Array.isArray(d.results) ? d.results : []
         if (query) {
-          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links, results } }])
+          const searchTimelineId = `search-${++timelineSeqRef.current}`
+          setTimeline((prev) => [...prev, { kind: 'web_search', id: searchTimelineId, data: { query, links, results } }])
         }
         break
       }
@@ -2059,7 +2030,8 @@ function BrainPageInner() {
         const s3_key = typeof d.s3_key === 'string' ? d.s3_key : ''
         if (url) {
           setStreamImages((prev) => [...prev, { url, s3_key }])
-          setTimeline((prev) => [...prev, { kind: 'image', id: `image-${++timelineSeqRef.current}`, url }])
+          const imageTimelineId = `image-${++timelineSeqRef.current}`
+          setTimeline((prev) => [...prev, { kind: 'image', id: imageTimelineId, url }])
         }
         break
       }
@@ -2073,7 +2045,8 @@ function BrainPageInner() {
         if (url && filename) {
           const fileEvent: GeneratedFileEvent = { url, s3_key, filename, mime_type, file_size }
           setStreamFiles((prev) => [...prev, fileEvent])
-          setTimeline((prev) => [...prev, { kind: 'file', id: `file-${++timelineSeqRef.current}`, data: fileEvent }])
+          const fileTimelineId = `file-${++timelineSeqRef.current}`
+          setTimeline((prev) => [...prev, { kind: 'file', id: fileTimelineId, data: fileEvent }])
         }
         break
       }
@@ -2111,7 +2084,8 @@ function BrainPageInner() {
           // through toolProgress.
           if (!progressPushedRef.current) {
             progressPushedRef.current = true
-            setTimeline((prev) => [...prev, { kind: 'progress', id: `progress-${++timelineSeqRef.current}` }])
+            const progressTimelineId = `progress-${++timelineSeqRef.current}`
+            setTimeline((prev) => [...prev, { kind: 'progress', id: progressTimelineId }])
           }
         }
         break
@@ -2137,8 +2111,9 @@ function BrainPageInner() {
             request_id,
             api_key_fields,
           })
+          const connectTimelineId = `connect-${++timelineSeqRef.current}`
           setTimeline((prev) => [...prev, {
-            kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug: connector.slug,
+            kind: 'connect', id: connectTimelineId, slug: connector.slug,
           }])
         }
         break
@@ -2246,6 +2221,10 @@ function BrainPageInner() {
       // Append to the timeline: extend the trailing text segment, or open a new
       // one if the previous item was a tool/search/etc. (so text lands below it).
       if (token) {
+        // Id minted up front, not inside the updater (see the `permission_prompt`
+        // case above) — unused (harmlessly) whenever this token merges into the
+        // existing trailing text segment instead of opening a new one.
+        const textTimelineId = `text-${++timelineSeqRef.current}`
         setTimeline((prev) => {
           const last = prev[prev.length - 1]
           if (last && last.kind === 'text') {
@@ -2253,7 +2232,7 @@ function BrainPageInner() {
             copy[copy.length - 1] = { ...last, text: last.text + token }
             return copy
           }
-          return [...prev, { kind: 'text', id: `text-${++timelineSeqRef.current}`, text: token }]
+          return [...prev, { kind: 'text', id: textTimelineId, text: token }]
         })
       }
       setPhase((prev) =>
@@ -2303,7 +2282,8 @@ function BrainPageInner() {
       // arrival position. Later status updates flow through liveToolCalls.
       if (!seenToolIdsRef.current.has(id)) {
         seenToolIdsRef.current.add(id)
-        setTimeline((prev) => [...prev, { kind: 'tool', id: `tool-${++timelineSeqRef.current}`, toolKey: id }])
+        const toolTimelineId = `tool-${++timelineSeqRef.current}`
+        setTimeline((prev) => [...prev, { kind: 'tool', id: toolTimelineId, toolKey: id }])
       }
       return
     }
@@ -2506,10 +2486,19 @@ function BrainPageInner() {
           replace(`${BRAIN_ROUTE}?id=${resolvedChatId}`, { scroll: false })
         } else {
           // Backend forgot to set X-Chat-Id (e.g., a misconfigured proxy
-          // stripping the header). The stream will still play, but the chat
-          // is unrecoverable on refresh — warn the user.
+          // stripping the header). The stream will still play, but there's no
+          // id to navigate/replace the URL with, so the composer stays on
+          // /brain with no persistent visual sign a task is running — this is
+          // the one path left that can still reproduce the "sent a task, saw
+          // nothing happen" symptom investigated in
+          // docs v2/performance report/brain-tasks/03b-brain-tasks-before-scan.md
+          // §1 (the main send path was confirmed working live, 2/2 attempts,
+          // this is the narrower defensive branch for when it doesn't).
+          // Given this, a default 4s toast is too easy to miss if the user
+          // isn't looking right at that instant — held open (no auto-dismiss)
+          // until the user actually notices and closes it themselves.
           console.warn('[Brain] /brain/create returned no X-Chat-Id header — chat is orphaned')
-          toast.warning('Chat started but cannot be saved to the URL. Refreshing will lose it.')
+          toast.warning('Chat started but cannot be saved to the URL. Refreshing will lose it.', { duration: Infinity })
         }
       } else {
         response = await continueBrainChat(resolvedChatId, input, streamOpts, controller.signal)

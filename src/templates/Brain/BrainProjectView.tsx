@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeftOneIcon,
   CheckmarkCircleTwoIcon,
@@ -188,7 +188,7 @@ export function BrainProjectView({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', isolation: 'isolate' }}>
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
@@ -301,7 +301,7 @@ export function BrainProjectView({
           ))}
         </div>
       )}
-    </motion.div>
+    </m.div>
 
     {/* ── Config panel overlay ── */}
     <AnimatePresence initial={false}>

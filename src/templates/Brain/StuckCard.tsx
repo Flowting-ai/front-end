@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { AlertCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { springs } from '@/lib/springs'
@@ -23,7 +23,7 @@ export function StuckCard({ reason, suggestion, onProvideContext, onCancel }: St
   const [inputValue, setInputValue] = React.useState('')
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
@@ -125,7 +125,7 @@ export function StuckCard({ reason, suggestion, onProvideContext, onCancel }: St
           </Button>
         </div>
       )}
-    </motion.div>
+    </m.div>
   )
 }
 
