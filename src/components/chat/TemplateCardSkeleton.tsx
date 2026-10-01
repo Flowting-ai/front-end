@@ -25,7 +25,7 @@ export function TemplateCardSkeleton({ count = 3 }: TemplateCardSkeletonProps) {
           style={{
             flex:          1,
             minWidth:      0,
-            background:    'white',
+            background:    'var(--neutral-white)',
             border:        '1px solid var(--neutral-200)',
             borderRadius:  '12px',
             padding:       '14px 12px',

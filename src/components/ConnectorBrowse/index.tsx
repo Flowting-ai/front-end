@@ -128,7 +128,7 @@ export function Pagination({
     border: 'none',
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
-    backgroundColor: 'white',
+    backgroundColor: 'var(--neutral-white)',
     boxShadow: '0px 0px 0px 1px var(--neutral-200)',
     fontFamily: 'var(--font-body)',
     fontWeight: 500,

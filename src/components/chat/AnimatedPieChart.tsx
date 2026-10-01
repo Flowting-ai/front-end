@@ -39,8 +39,8 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
   }, []); // eslint-disable-line
 
   return (
-    <div style={{ background: "white", border: "1px solid #F2E8E0", borderRadius: 12, padding: "18px 20px" }}>
-      {data.title && <div style={{ fontSize: 13, fontWeight: 600, color: "#26211E", marginBottom: 4 }}>{data.title}</div>}
+    <div style={{ background: "var(--neutral-white)", border: "1px solid #F2E8E0", borderRadius: 12, padding: "18px 20px" }}>
+      {data.title && <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 4 }}>{data.title}</div>}
       <div style={{ fontSize: 12, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 16 }}>pie chart</div>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
         <svg width={220} height={220} viewBox="0 0 220 220" style={{ display: "block", maxWidth: "100%" }}>
@@ -79,8 +79,8 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
             style={{ display: "flex", alignItems: "center", gap: 8, cursor: "default", opacity: hoveredIdx !== null && hoveredIdx !== i ? 0.45 : undefined, transition: "opacity 120ms" }}>
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: "#524B47", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 12, color: "#9C938B", lineHeight: "15px" }}>
+              <div style={{ fontSize: 12, color: "var(--neutral-700)", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
+              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>
                 {Math.round(arc.pct * 100)}%
                 {data.unit && <span style={{ marginLeft: 4 }}>{Math.round(arc.pct * total)}{data.unit}</span>}
               </div>

@@ -154,7 +154,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         </span>
 
         {/* Verb */}
-        <span style={{ fontSize: 14, fontWeight: 500, color: "#524B47", flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-700)", flexShrink: 0 }}>
           {verb}
         </span>
 
@@ -282,7 +282,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                 >
                   <FaviconImg domain={r.domain} size={13} />
                   {!r.domain && <span style={{ color: "#C0B5AD", flexShrink: 0 }}>·</span>}
-                  <span style={{ color: "#3B3632", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ color: "var(--neutral-800)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.title}
                   </span>
                   {r.domain && r.domain !== "pin" && (

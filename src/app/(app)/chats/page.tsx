@@ -628,7 +628,7 @@ function ChatsPageInner() {
                   gap:             12,
                   padding:         '12px 16px',
                   borderRadius:    12,
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--neutral-white)',
                   boxShadow:       '0px 1px 2px rgba(18,12,8,0.08), 0px 0px 0px 1px var(--neutral-100)',
                 }}
               >

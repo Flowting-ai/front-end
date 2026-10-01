@@ -74,7 +74,7 @@ export function CardTitle({ children }: { children: React.ReactNode }) {
         fontWeight: 400,
         fontSize: 40,
         lineHeight: "48px",
-        color: "#1a1916",
+        color: "var(--legacy-1a1916)",
         margin: 0,
         letterSpacing: "-0.01em",
       }}

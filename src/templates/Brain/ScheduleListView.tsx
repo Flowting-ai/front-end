@@ -41,7 +41,7 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
           fontWeight: 'var(--font-weight-regular)',
           fontSize:   24,
           lineHeight: '32px',
-          color:      '#1a1916',
+          color:      'var(--legacy-1a1916)',
           margin:     0,
           whiteSpace: 'nowrap',
         }}>
@@ -52,7 +52,7 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
           fontWeight: 'var(--font-weight-regular)',
           fontSize:   16,
           lineHeight: '22px',
-          color:      '#1a1916',
+          color:      'var(--legacy-1a1916)',
           textAlign:  'center',
           maxWidth:   427,
           margin:     0,

@@ -123,7 +123,7 @@ function Notice({ heading, body }: { heading: string; body: string }) {
           fontFamily: 'var(--font-title)',
           fontSize: 20,
           lineHeight: '28px',
-          color: '#1a1916',
+          color: 'var(--legacy-1a1916)',
           margin: 0,
         }}
       >
@@ -193,7 +193,7 @@ export default async function TemplatePage({
             fontWeight: 400,
             fontSize: 18,
             lineHeight: '26px',
-            color: '#1a1916',
+            color: 'var(--legacy-1a1916)',
             margin: 0,
           }}
         >

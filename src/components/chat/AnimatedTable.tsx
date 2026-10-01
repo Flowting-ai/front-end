@@ -27,8 +27,8 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     );
     if (cell.type === "rich") return (
       <div>
-        <div style={{ fontSize: 14, color: "#26211E", fontWeight: 500 }}>{cell.text}</div>
-        {cell.sub && <div style={{ fontSize: 12, color: "#9C938B", marginTop: 1 }}>{cell.sub}</div>}
+        <div style={{ fontSize: 14, color: "var(--neutral-900)", fontWeight: 500 }}>{cell.text}</div>
+        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-400)", marginTop: 1 }}>{cell.sub}</div>}
         {cell.badge && (
           <span style={{
             display: "inline-flex", marginTop: 4, background: cell.badge.bg, color: cell.badge.color,
@@ -181,7 +181,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
         <AnimatePresence>
           {data.caption && isDone && (
             <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ padding: "7px 14px", borderBottom: "1px solid #F2E8E0", fontSize: 12, color: "#9C938B", fontStyle: "italic" }}>
+              style={{ padding: "7px 14px", borderBottom: "1px solid #F2E8E0", fontSize: 12, color: "var(--neutral-400)", fontStyle: "italic" }}>
               {data.caption}
             </m.div>
           )}
@@ -192,7 +192,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
             <div key={ci} onClick={() => handleSort(ci)}
               style={{
                 padding: isCompact ? "6px 12px" : "9px 14px",
-                fontWeight: 600, color: "#26211E", fontSize: 14, letterSpacing: "0.1px",
+                fontWeight: 600, color: "var(--neutral-900)", fontSize: 14, letterSpacing: "0.1px",
                 borderLeft: (!isMinimal && !isHoverable) ? (ci > 0 ? "1px solid rgba(59,54,50,0.10)" : "none") : "none",
                 cursor: data.sortable ? "pointer" : "default",
                 userSelect: "none", display: "flex", alignItems: "center", gap: 5,
@@ -293,7 +293,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
             <button onClick={copyMarkdown} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "3px 9px",
               borderRadius: 6, border: "1px solid rgba(82,75,71,0.12)",
-              background: "transparent", cursor: "pointer", fontSize: 12, color: "#827A74",
+              background: "transparent", cursor: "pointer", fontSize: 12, color: "var(--neutral-500)",
               fontFamily: "inherit", transition: "all 120ms",
             }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(59,54,50,0.05)"; e.currentTarget.style.color = "#524B47"; }}

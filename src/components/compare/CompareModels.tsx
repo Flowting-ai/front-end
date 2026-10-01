@@ -7,7 +7,7 @@ import { toConnector } from "@/lib/connector";
 import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
 import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
-import { LlmIcon } from "@strange-huge/icons/llm";
+import { ThemedLlmIcon } from "@/components/ThemedLlmIcon";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button } from "@/components/Button";
 import { friendlyModelError } from "@/lib/model-error";
@@ -125,7 +125,7 @@ function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor;
 // that visually joins the active tab to the white content panel below.
 function CornerNotch({ side }: { side: "left" | "right" }) {
   return (
-    <div style={{ width: 8, height: 8, background: "#EDE1D7", overflow: "hidden", position: "relative", flexShrink: 0, alignSelf: "flex-end" }}>
+    <div style={{ width: 8, height: 8, background: "var(--neutral-100)", overflow: "hidden", position: "relative", flexShrink: 0, alignSelf: "flex-end" }}>
       <div style={{
         position:     "absolute",
         top:          0,
@@ -133,7 +133,7 @@ function CornerNotch({ side }: { side: "left" | "right" }) {
         width:        16,
         height:       16,
         borderRadius: "50%",
-        background:   "#FFFFFF",
+        background:   "var(--neutral-white)",
       }} />
     </div>
   );
@@ -600,7 +600,7 @@ function ModelCard({
         height:          "100%",
         borderRadius:    16,
         boxShadow:       isActive ? CARD_SHADOW_RAISED : CARD_SHADOW,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "var(--neutral-white)",
         paddingTop:      12,
         paddingBottom:   16,
         paddingLeft:     12,
@@ -662,7 +662,7 @@ function ModelCard({
           justifyContent:  "center",
           overflow:        "hidden",
         }}>
-          <LlmIcon id={llmId} variant="color" size={24} />
+          <ThemedLlmIcon id={llmId} size={24} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 500, color: PRIMARY, lineHeight: "22px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
@@ -1199,7 +1199,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         height:        "98vh",
         maxHeight:     "98vh",
         borderRadius:  20,
-        background:    "#F7F2ED",
+        background:    "var(--neutral-50)",
         boxShadow:     DIALOG_SHADOW,
         display:       "flex",
         flexDirection: "column",
@@ -1254,9 +1254,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             {expandedModelId ? (
               /* â”€â”€ Expanded tab view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
               <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW, padding: 12 }}>
-                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "#EDE1D7", boxShadow: CARD_SHADOW }}>
+                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "var(--neutral-100)", boxShadow: CARD_SHADOW }}>
                   {/* Tabs header */}
-                  <div style={{ display: "flex", alignItems: "stretch", background: "#EDE1D7", flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "stretch", background: "var(--neutral-100)", flexShrink: 0 }}>
                     {/* Collapse button */}
                     <div style={{ display: "flex", alignItems: "center", paddingLeft: 12, paddingRight: 4, paddingTop: 10, paddingBottom: 10, flexShrink: 0 }}>
                       <button
@@ -1273,9 +1273,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       const llmId = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                       if (isActive) {
                         return (
-                          <div key={model.id} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#FFFFFF", borderRadius: "8px 8px 0 0", flexShrink: 0 }}>
+                          <div key={model.id} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "var(--neutral-white)", borderRadius: "8px 8px 0 0", flexShrink: 0 }}>
                             <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                              <LlmIcon id={llmId} variant="color" size={24} />
+                              <ThemedLlmIcon id={llmId} size={24} />
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
                               <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1289,10 +1289,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         <button
                           key={model.id}
                           onClick={() => setExpandedModelId(model.requestModelId)}
-                          style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#EDE1D7", borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer", flexShrink: 0 }}
+                          style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "var(--neutral-100)", borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer", flexShrink: 0 }}
                         >
                           <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            <LlmIcon id={llmId} variant="color" size={24} />
+                            <ThemedLlmIcon id={llmId} size={24} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1319,7 +1319,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={springs.fast}
-                      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "#FFFFFF", borderRadius: 8 }}
+                      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "var(--neutral-white)", borderRadius: 8 }}
                     >
                       {/* Response area */}
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
@@ -1387,12 +1387,12 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                   const credits          = testCredits[responseKey];
                   return (
-                    <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "#FFFFFF", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
+                    <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "var(--neutral-white)", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
                       {/* Column header */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
                         <div style={{ display: "flex", flex: 1, alignItems: "flex-start", gap: 6, minWidth: 0 }}>
                           <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            <LlmIcon id={llmId} variant="color" size={24} />
+                            <ThemedLlmIcon id={llmId} size={24} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0, alignSelf: "stretch" }}>
                             <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1479,7 +1479,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
           {/* Chat input */}
           <div style={{ flexShrink: 0, paddingLeft: 9, paddingRight: 9 }}>
-            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "#FFFFFF", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "var(--neutral-white)", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
               {/* Pasted image thumbnails */}
               {pastedImages.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1574,7 +1574,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       height:        "98vh",
       maxHeight:     "98vh",
       borderRadius:  20,
-      background:    "#F7F2ED",
+      background:    "var(--neutral-50)",
       boxShadow:     DIALOG_SHADOW,
       display:       "flex",
       flexDirection: "column",
@@ -1585,7 +1585,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       {/* Inner content wrapper */}
       <div style={{
         borderRadius:  20,
-        background:    "#F7F2ED",
+        background:    "var(--neutral-50)",
         padding:       16,
         display:       "flex",
         flexDirection: "column",
@@ -1702,7 +1702,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     <TabsTrigger
                       key={company}
                       value={company}
-                      icon={repLlmId ? <LlmIcon id={repLlmId} variant="color" size={16} /> : undefined}
+                      icon={repLlmId ? <ThemedLlmIcon id={repLlmId} size={16} /> : undefined}
                     >
                       {company}
                     </TabsTrigger>
@@ -1783,20 +1783,20 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   // eslint-disable-next-line react/no-array-index-as-key
                   <div key={idx} style={{
                     borderRadius: 16, boxShadow: CARD_SHADOW,
-                    backgroundColor: "#EDE1D7", display: "flex", flexDirection: "column",
+                    backgroundColor: "var(--neutral-100)", display: "flex", flexDirection: "column",
                     gap: 12, padding: 12, boxSizing: "border-box",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ height: 16, borderRadius: 4, backgroundColor: "#D5C9C0", width: "60%" }} className="animate-pulse" />
-                        <div style={{ height: 11, borderRadius: 4, backgroundColor: "#D5C9C0", width: "40%" }} className="animate-pulse" />
+                        <div style={{ height: 16, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)", width: "60%" }} className="animate-pulse" />
+                        <div style={{ height: 11, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)", width: "40%" }} className="animate-pulse" />
                       </div>
                     </div>
-                    <div style={{ height: 48, borderRadius: 4, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                    <div style={{ height: 48, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                     <div style={{ display: "flex", gap: 6 }}>
-                      <div style={{ height: 20, width: 64, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                      <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ height: 20, width: 64, borderRadius: 6, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
+                      <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                     </div>
                   </div>
                 ))}
@@ -1915,7 +1915,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     alignItems:      "center",
                     gap:             8,
                     borderRadius:    8,
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "var(--neutral-white)",
                     boxShadow:       SLOT_SHADOW,
                     padding:         12,
                     boxSizing:       "border-box",
@@ -1935,7 +1935,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           justifyContent:  "center",
                           overflow:        "hidden",
                         }}>
-                          <LlmIcon id={llmId} variant="color" size={24} />
+                          <ThemedLlmIcon id={llmId} size={24} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                           <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>

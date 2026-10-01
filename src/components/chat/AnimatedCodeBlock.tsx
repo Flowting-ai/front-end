@@ -82,7 +82,7 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
 
   return (
     <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-      {data.caption && <div style={{ fontSize: 12, color: "#827A74", marginBottom: 6 }}>{data.caption}</div>}
+      {data.caption && <div style={{ fontSize: 12, color: "var(--neutral-500)", marginBottom: 6 }}>{data.caption}</div>}
       <div style={{ background: "#1E1A17", borderRadius: 10, overflow: "hidden", boxShadow: "0px 0px 0px 1px rgba(0,0,0,0.9), 0px 1px 1px rgba(59,54,50,0.12), 0px 2px 4px rgba(59,54,50,0.28)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px 7px 14px", borderBottom: "1px solid rgba(255,255,255,0.055)", background: "linear-gradient(180deg, rgba(82,75,71,0.30) 0%, rgba(38,33,30,0.30) 100%)" }}>
           <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(182,172,164,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>

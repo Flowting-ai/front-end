@@ -83,7 +83,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: 17, lineHeight: "21px", fontWeight: "var(--font-weight-semibold)", color: "#683D1B", fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 17, lineHeight: "21px", fontWeight: "var(--font-weight-semibold)", color: "var(--brown-700)", fontVariantNumeric: "tabular-nums" }}>
             {Math.round(finalConversion * 100)}%
           </div>
           <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)" }}>final conversion</div>
@@ -119,7 +119,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
                 style={{
                   padding: "9px 10px 10px",
                   borderRadius: 12,
-                  backgroundColor: "rgba(255,255,255,0.62)",
+                  backgroundColor: "rgba(var(--surface-rgb), 0.62)",
                   border: "1px solid rgba(82, 75, 71, 0.08)",
                 }}
               >

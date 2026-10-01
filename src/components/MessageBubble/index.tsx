@@ -242,7 +242,10 @@ export function MessageBubble({
               position:        'absolute',
               inset:           0,
               borderRadius:    'inherit',
-              backgroundColor: 'white',
+              // Same token as the bubble itself (white in light, and pinned white in dark) —
+              // a plain --neutral-white here would be the dark card colour in dark mode and
+              // cover the white bubble.
+              backgroundColor: 'var(--message-bubble-user-bg)',
               pointerEvents:   'none',
             }}
           />

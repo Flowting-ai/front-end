@@ -316,7 +316,7 @@ export function BrainShell({
             padding:         '12px',
             borderRadius:    '22px',
             border:          '1px solid var(--neutral-200)',
-            backgroundColor: 'var(--color-surface-glass)',
+            backgroundColor: 'var(--color-surface-container)',
             isolation:       'isolate',
         }}>
 

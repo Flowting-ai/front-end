@@ -70,7 +70,7 @@ function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string;
           fontWeight:     500,
           fontSize:       11,
           lineHeight:     1,
-          color:          'var(--neutral-white)',
+          color:          'var(--color-text-on-accent)',
           userSelect:     'none',
         }}
       >

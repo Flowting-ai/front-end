@@ -23,7 +23,7 @@ const INPUT_BASE: React.CSSProperties = {
   fontWeight:   'var(--font-weight-regular)',
   fontSize:     '14px',
   lineHeight:   '22px',
-  color:        '#1a1714',
+  color:        'var(--legacy-1a1714)',
   background:   'var(--neutral-white)',
   border:       '1px solid var(--neutral-200)',
   borderRadius: '10px',
@@ -225,7 +225,7 @@ export function EditProjectModal({
                   fontWeight: 'var(--font-weight-regular)',
                   fontSize:   '24px',
                   lineHeight: '32px',
-                  color:      '#1a1714',
+                  color:      'var(--legacy-1a1714)',
                   margin:     0,
                 }}
               >

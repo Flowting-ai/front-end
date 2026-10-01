@@ -247,7 +247,7 @@ function ProjectsPageInner() {
                   fontWeight:  'var(--font-weight-regular)',
                   fontSize:    '24px',
                   lineHeight:  '32px',
-                  color:       '#1a1916',
+                  color:       'var(--legacy-1a1916)',
                   margin:      0,
                 }}
               >

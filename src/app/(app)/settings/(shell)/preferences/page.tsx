@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Checkbox } from '@/components/Checkbox'
+import { useTheme } from '@/context/theme-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,7 +17,9 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
   return (
     <div style={{
       backgroundColor: '#f5f1ed',
-      border:          `1px solid ${isDark ? 'var(--neutral-900)' : '#ede1d7'}`,
+      // The thumbnails below show what each OPTION looks like, so they use fixed
+      // (light-theme) values — not tokens, which would flip when dark is active.
+      border:          `1px solid ${isDark ? '#26211E' : '#ede1d7'}`,
       borderRadius:    4,
       height:          64,
       overflow:        'hidden',
@@ -28,7 +31,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
       <div style={{ display: 'flex', flex: '1 0 0', minHeight: 0, overflow: 'hidden' }}>
         {/* Sidebar strip */}
         <div style={{
-          backgroundColor: isDark ? 'var(--neutral-900)' : 'white',
+          backgroundColor: isDark ? '#26211E' : 'white',
           display:         'flex',
           flexDirection:   'column',
           gap:             4,
@@ -44,14 +47,14 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
               width:           24,
               borderRadius:    3,
               backgroundColor: isDark
-                ? isActive ? 'white' : 'var(--neutral-500)'
+                ? isActive ? 'white' : '#827A74'
                 : isActive ? '#26211e' : 'rgba(130,122,116,0.4)',
             }} />
           ))}
         </div>
         {/* Main area */}
         <div style={{
-          backgroundColor: isDark ? 'var(--neutral-900)' : '#f5f1ed',
+          backgroundColor: isDark ? '#26211E' : '#f5f1ed',
           flex:            '1 0 0',
           minWidth:        0,
           display:         'flex',
@@ -63,19 +66,19 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
             height:          8,
             width:           50,
             borderRadius:    4,
-            backgroundColor: isDark ? 'var(--neutral-500)' : 'rgba(130,122,116,0.3)',
+            backgroundColor: isDark ? '#827A74' : 'rgba(130,122,116,0.3)',
           }} />
           <div style={{
             height:          8,
             width:           70,
             borderRadius:    4,
-            backgroundColor: isDark ? 'var(--neutral-500)' : 'rgba(130,122,116,0.2)',
+            backgroundColor: isDark ? '#827A74' : 'rgba(130,122,116,0.2)',
           }} />
           {/* Input bar */}
           <div style={{
             flex:            '1 0 0',
             minHeight:       0,
-            backgroundColor: isDark ? 'var(--neutral-800)' : 'white',
+            backgroundColor: isDark ? '#3B3632' : 'white',
             borderRadius:    6,
             display:         'flex',
             alignItems:      'center',
@@ -115,7 +118,13 @@ export default function PreferencesPage() {
   // default (no props/API/localStorage read), so nothing here actually
   // differs between the server render and the client's first render. Same
   // root cause and fix as help/notifications/security.
-  const [themeMode,           setThemeMode]           = useState<ThemeMode>('system')
+  // With theming OFF this stays a local, non-functional selector exactly as it
+  // was (default 'system'). With it ON it is the real Light / Dark / System
+  // preference, stored and applied by ThemeProvider.
+  const theme = useTheme()
+  const [localThemeMode,      setLocalThemeMode]      = useState<ThemeMode>('system')
+  const themeMode    = theme.enabled ? theme.mode    : localThemeMode
+  const setThemeMode = theme.enabled ? theme.setMode : setLocalThemeMode
   const [tonePreset,          setTonePreset]          = useState<TonePreset>('Balanced')
   const [customInstructions,  setCustomInstructions]  = useState('')
 

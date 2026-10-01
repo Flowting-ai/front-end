@@ -194,12 +194,15 @@ export function Button({
     ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
     ...(variant === 'default'
       ? {
+          // Tokens, not hex: these resolve to the same #524b47 / #26211e / #3b3632 in
+          // light (the primary-surface aliases point at neutral-700/800/900), and let
+          // the dark theme restyle the button instead of leaving a fixed gradient.
           backgroundImage: isDisabled
             ? isMd
-              ? 'linear-gradient(180deg, #524b47 0%, #3b3632 100%)'
+              ? 'linear-gradient(180deg, var(--color-interactive-primary-surface-disabled-from) 0%, var(--color-interactive-primary-surface-disabled-to) 100%)'
               : undefined
-            : 'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
-          backgroundColor: isDisabled && !isMd ? '#3b3632' : undefined,
+            : 'linear-gradient(180deg, var(--color-interactive-primary-surface-from) 0%, var(--color-interactive-primary-surface-to) 100%)',
+          backgroundColor: isDisabled && !isMd ? 'var(--color-interactive-primary-surface-disabled-to)' : undefined,
         }
       : {}),
     ...(isSecondary ? {

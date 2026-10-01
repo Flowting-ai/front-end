@@ -277,7 +277,7 @@ function ShareAcceptContent() {
               fontWeight: 400,
               fontSize: 24,
               lineHeight: '32px',
-              color: '#1a1916',
+              color: 'var(--legacy-1a1916)',
               margin: 0,
               textAlign: 'center',
             }}
@@ -362,7 +362,7 @@ function ShareAcceptContent() {
             fontWeight: 400,
             fontSize: 12,
             lineHeight: '18px',
-            color: '#135487',
+            color: 'var(--blue-700)',
             margin: 0,
           }}
         >
@@ -449,7 +449,7 @@ const headingStyle: React.CSSProperties = {
   fontWeight: 400,
   fontSize: 20,
   lineHeight: '28px',
-  color: '#1a1916',
+  color: 'var(--legacy-1a1916)',
   margin: 0,
   textAlign: 'center',
 }

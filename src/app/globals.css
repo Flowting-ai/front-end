@@ -7,6 +7,9 @@
 @import "../styles/tokens/aliases.css";
 @import "../styles/tokens/semantic.css";
 @import "../styles/tokens/typography.css";
+/* Dark theme (generated, additive — applies only under data-theme="dark").
+   Must stay AFTER the token files above so its overrides win. */
+@import "../styles/tokens/theme.css";
 
 /* KDS utility class - apply to every scrollable element */
 .kaya-scrollbar {
@@ -142,7 +145,7 @@
 }
 
 .kaya-label-shimmer {
-  background-image: linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%);
+  background-image: linear-gradient(90deg, var(--thinking-shimmer-edge) 0%, var(--thinking-shimmer-peak) 45%, var(--thinking-shimmer-peak) 55%, var(--thinking-shimmer-edge) 100%);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -153,7 +156,7 @@
 
 /* Fluid Functionalism ThinkingSteps active-label treatment. */
 .kaya-thinking-step-shimmer {
-  background-image: linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%);
+  background-image: linear-gradient(90deg, var(--thinking-shimmer-edge) 0%, var(--thinking-shimmer-peak) 45%, var(--thinking-shimmer-peak) 55%, var(--thinking-shimmer-edge) 100%);
   background-size: 200% 100%;
   background-clip: text;
   color: transparent !important;

@@ -96,7 +96,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   fontWeight: 500,
                   fontSize: 16,
                   lineHeight: '22px',
-                  color: '#1a1916',
+                  color: 'var(--legacy-1a1916)',
                   margin: 0,
                 }}
               >
@@ -132,7 +132,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       fontWeight: 400,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: '#ee3030',
+                      color: 'var(--red-400)',
                       margin: 0,
                     }}
                   >
@@ -140,7 +140,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--neutral-white)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -160,7 +160,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         fontFamily: 'var(--font-body)',
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#3b3632',
+                        color: 'var(--neutral-800)',
                         backgroundColor: 'transparent',
                         outline: 'none',
                         border: 'none',
@@ -181,12 +181,12 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       flexShrink: 0,
                     }}
                   >
-                    <span style={{ color: '#524b47' }}>Agent replies</span>
-                    <span style={{ color: '#a28847' }}>*</span>
+                    <span style={{ color: 'var(--neutral-700)' }}>Agent replies</span>
+                    <span style={{ color: 'var(--yellow-500)' }}>*</span>
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--neutral-white)',
                       display: 'flex',
                       flex: '1 0 0',
                       minHeight: 0,
@@ -208,7 +208,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         fontFamily: 'var(--font-body)',
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#3b3632',
+                        color: 'var(--neutral-800)',
                         backgroundColor: 'transparent',
                         outline: 'none',
                         border: 'none',

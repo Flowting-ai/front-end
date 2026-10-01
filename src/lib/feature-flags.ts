@@ -19,6 +19,16 @@
 export const PINS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PINS === 'true'
 export const HIGHLIGHTS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_HIGHLIGHTS === 'true'
 
+/**
+ * Dark theme (and the Light / Dark / System selector in Settings → Preferences).
+ * OFF by default: with it off no attribute is ever set on <html>, no script is
+ * injected, and the app renders exactly as before. Turn on with
+ *   NEXT_PUBLIC_ENABLE_THEMING=true
+ * The default choice is still Light, so enabling it changes nothing until a user
+ * picks Dark or System.
+ */
+export const THEMING_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THEMING === 'true'
+
 /** Thrown by API wrappers when called while their feature is switched off. */
 export class FeatureDisabledError extends Error {
   constructor(feature: 'Pins' | 'Highlights') {

@@ -41,7 +41,7 @@ function FeatureDot() {
     <div style={{ display: 'flex', alignItems: 'center', padding: 2, flexShrink: 0 }}>
       <div style={{
         width: 8, height: 8, borderRadius: 19,
-        backgroundColor: '#ede1d7',
+        backgroundColor: 'var(--neutral-100)',
         boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
       }} />
     </div>
@@ -52,7 +52,7 @@ function FeatureLine({ text }: { text: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <FeatureDot />
-      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
         {text}
       </p>
     </div>
@@ -62,7 +62,7 @@ function FeatureLine({ text }: { text: string }) {
 function FeatureGroup({ title, items }: { title: string; items: string[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#827a74', margin: 0 }}>
+      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
         {title}
       </p>
       {items.map(item => <FeatureLine key={item} text={item} />)}
@@ -71,7 +71,7 @@ function FeatureGroup({ title, items }: { title: string; items: string[] }) {
 }
 
 function Hairline() {
-  return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
+  return <div style={{ height: 1, width: '100%', backgroundColor: 'var(--legacy-e5e5e5)' }} />
 }
 
 export default function ChangePlanPage() {
@@ -205,7 +205,7 @@ export default function ChangePlanPage() {
           flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '0 24px 48px',
-          backgroundColor: '#f7f2ed',
+          backgroundColor: 'var(--neutral-50)',
         }}
       >
         {/* Back button — fixed to top-left of the page */}
@@ -253,9 +253,9 @@ export default function ChangePlanPage() {
               position: 'relative', borderRadius: 6, overflow: 'hidden',
               boxShadow: '0px 1.476px 2.214px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)',
             }}>
-              <div style={{ position: 'absolute', inset: 0, backgroundColor: '#e6d5ca', borderRadius: 6 }} />
+              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--brown-100)', borderRadius: 6 }} />
               <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: 'inset 0px 1.476px 0px 0px rgba(250,241,235,0.7), inset 0px -1.476px 0px 0px rgba(126,84,53,0.1)' }} />
-              <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#683d1b', position: 'relative', padding: '2.952px 5.904px' }}>
+              <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--brown-700)', position: 'relative', padding: '2.952px 5.904px' }}>
                 Multi-agent workforce
               </span>
             </div>
@@ -263,7 +263,7 @@ export default function ChangePlanPage() {
             {/* Title */}
             <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 48, lineHeight: '56px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
               Choose your plan,{' '}
-              <span style={{ color: '#6a625d' }}>{firstName}.</span>
+              <span style={{ color: 'var(--neutral-600)' }}>{firstName}.</span>
             </h1>
 
             {/* Subtitle */}
@@ -278,7 +278,7 @@ export default function ChangePlanPage() {
             {/* ── Individual ── */}
             <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column', opacity: isOnTeamPlan ? 0.45 : 1, pointerEvents: isOnTeamPlan ? 'none' : undefined }}>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '1px solid #e5e5e5',
                 borderRadius: 18,
                 padding: 12,
@@ -290,14 +290,14 @@ export default function ChangePlanPage() {
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
                     Individual
                   </p>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                     For prosumers, creators, and solo operators.
                   </p>
                 </div>
 
                 {/* Welcome gift card */}
                 <div style={{
-                  backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
+                  backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
                   display: 'flex', gap: 8, alignItems: 'flex-start',
                   boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
                 }}>
@@ -313,13 +313,13 @@ export default function ChangePlanPage() {
                     </svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
+                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600)', margin: 0 }}>
                       Welcome gift
                     </p>
                     <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
                       1,000 free credits
                     </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', margin: 0 }}>
                       No credit card required. Try every feature with real workloads before you pay.
                     </p>
                   </div>
@@ -327,31 +327,31 @@ export default function ChangePlanPage() {
 
                 {/* Price slider box */}
                 <div style={{
-                  backgroundColor: '#ede1d7', borderRadius: 16, padding: 16,
+                  backgroundColor: 'var(--neutral-100)', borderRadius: 16, padding: 16,
                   display: 'flex', flexDirection: 'column', gap: 8,
                 }}>
-                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
+                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600)', margin: 0 }}>
                     Pick your monthly credits
                   </p>
                   <div>
                     <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'black' }}>
                       ${selectedIndividual.price}
                     </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74' }}>
+                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
                       /mo
                     </span>
                   </div>
 
                   {/* Credits card */}
                   <div style={{
-                    backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
+                    backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
                     boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
                     display: 'flex', alignItems: 'flex-end', gap: 4,
                   }}>
                     <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
                       {fmtNum(selectedIndividual.credits)}
                     </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', paddingBottom: 2 }}>
+                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', paddingBottom: 2 }}>
                       credits / month
                     </span>
                   </div>
@@ -388,7 +388,7 @@ export default function ChangePlanPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       {INDIVIDUAL_PLANS.map(p => (
-                        <span key={p.id} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632' }}>
+                        <span key={p.id} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)' }}>
                           ${p.price}
                         </span>
                       ))}
@@ -421,9 +421,9 @@ export default function ChangePlanPage() {
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                       cursor: isOnTeamPlan || isCurrent || changingTo ? 'default' : 'pointer',
                       opacity: changingTo ? 0.5 : 1,
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--neutral-white)',
                       boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
+                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                     }}
                   >
                     {isCurrent
@@ -439,7 +439,7 @@ export default function ChangePlanPage() {
             {/* ── Team ── */}
             <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
@@ -457,21 +457,21 @@ export default function ChangePlanPage() {
                       position: 'relative', borderRadius: 6, overflow: 'hidden',
                       boxShadow: '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
                     }}>
-                      <div style={{ position: 'absolute', inset: 0, backgroundColor: '#e9dfc9', borderRadius: 6 }} />
+                      <div style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--yellow-100)', borderRadius: 6 }} />
                       <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
-                      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6d5921', position: 'relative', padding: '2px 4px' }}>
+                      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--yellow-700)', position: 'relative', padding: '2px 4px' }}>
                         Most popular
                       </span>
                     </div>
                   </div>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                     Shared credits across unlimited members. No per-seat fees.
                   </p>
                 </div>
 
                 {/* Team-exclusive card */}
                 <div style={{
-                  backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
+                  backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
                   display: 'flex', gap: 8, alignItems: 'flex-start',
                   boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
                 }}>
@@ -483,13 +483,13 @@ export default function ChangePlanPage() {
                     #
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#6a625d', margin: 0 }}>
+                    <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600)', margin: 0 }}>
                       Team-exclusive
                     </p>
                     <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
                       Souvenir Slack Manager
                     </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', margin: 0 }}>
                       Bot in Slack. The entire AI workforce, accessible by @-mention.
                     </p>
                   </div>
@@ -514,14 +514,14 @@ export default function ChangePlanPage() {
 
                   {/* Credits card */}
                   <div style={{
-                    backgroundColor: '#f7f2ed', borderRadius: 12, padding: '12px 16px',
+                    backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
                     boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
                     display: 'flex', alignItems: 'flex-end', gap: 4,
                   }}>
                     <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
                       {fmtNum(selectedTeam.credits)}
                     </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', paddingBottom: 2 }}>
+                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', paddingBottom: 2 }}>
                       credits / month
                     </span>
                   </div>
@@ -609,7 +609,7 @@ export default function ChangePlanPage() {
             {/* ── Custom ── */}
             <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '1px solid #e5e5e5',
                 borderRadius: 18,
                 padding: 12,
@@ -622,7 +622,7 @@ export default function ChangePlanPage() {
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
                     Enterprise
                   </p>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                     $250/month with $125 of provider usage included.
                   </p>
                 </div>
@@ -658,9 +658,9 @@ export default function ChangePlanPage() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, textDecoration: 'none',
-                      backgroundColor: 'white', border: 'none', cursor: changingTo ? 'wait' : 'pointer',
+                      backgroundColor: 'var(--neutral-white)', border: 'none', cursor: changingTo ? 'wait' : 'pointer',
                       boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
+                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                     }}
                   >
                     {org.plan === 'enterprise' ? 'Current plan' : 'Contact Sales'}

@@ -44,7 +44,7 @@ function InputField({
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
         {label}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         <input
           type={type}
           value={value}
@@ -87,7 +87,7 @@ function TimePill({
         lineHeight:      '22px',
         whiteSpace:      'nowrap',
         position:        'relative',
-        background:      'white',
+        background:      'var(--neutral-white)',
         color:           active ? 'var(--neutral-50, #f7f2ed)' : 'var(--neutral-700)',
         boxShadow:       active ? SHADOW_PILL_ACTIVE : SHADOW_PILL,
         transition:      'box-shadow 120ms, color 120ms',
@@ -231,7 +231,7 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Tell us about your team and what you're trying to solve — we'll tailor the demo to it…"
                 rows={4}
-                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--neutral-white)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
               />
             </div>
           </div>

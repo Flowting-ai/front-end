@@ -37,7 +37,7 @@ function UsageBar({ percent }: { percent: number }) {
       style={{
         position: 'relative',
         height: 4,
-        backgroundColor: 'white',
+        backgroundColor: 'var(--neutral-white)',
         borderRadius: 2,
         width: '100%',
       }}
@@ -106,7 +106,7 @@ function SuperLinkSection({
             fontSize: 14,
             lineHeight: 1.5,
             letterSpacing: '0.07px',
-            color: '#0a0a0a',
+            color: 'var(--legacy-0a0a0a)',
           }}
         >
           Super Link
@@ -117,7 +117,7 @@ function SuperLinkSection({
             fontWeight: 500,
             fontSize: 12,
             lineHeight: '16px',
-            color: '#6a625d',
+            color: 'var(--neutral-600)',
           }}
         >
           Generate a shareable URL anyone can chat without a Souvenir account. You cover the credit cost.
@@ -130,7 +130,7 @@ function SuperLinkSection({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--neutral-white)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 10,
           padding: '8px 7px',
@@ -330,7 +330,7 @@ function PersonaPublishedContent() {
   return (
     <div
       style={{
-        backgroundColor: '#f7f2ed',
+        backgroundColor: 'var(--neutral-50)',
         display: 'flex',
         flexDirection: 'column',
         flex: '1 0 0',
@@ -341,7 +341,7 @@ function PersonaPublishedContent() {
       {/* Inner card */}
       <div
         style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
+          backgroundColor: 'var(--color-surface-container)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 22,
           display: 'flex',
@@ -497,7 +497,7 @@ function PersonaPublishedContent() {
                   flexDirection:   'column',
                   gap:             14,
                   alignItems:      'center',
-                  backgroundColor: 'rgba(255,255,255,0.5)',
+                  backgroundColor: 'rgba(var(--surface-rgb), 0.5)',
                   border:          '1px solid var(--neutral-200)',
                   borderRadius:    20,
                   padding:         '24px 28px',
@@ -552,7 +552,7 @@ function PersonaPublishedContent() {
                       </span>
                       <div
                         style={{
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--neutral-white)',
                           border: '1px solid var(--neutral-200)',
                           borderRadius: 8,
                           padding: '4px 8px',
@@ -582,7 +582,7 @@ function PersonaPublishedContent() {
                             fontWeight: 400,
                             fontSize: 12,
                             lineHeight: 'normal',
-                            color: '#3b3632',
+                            color: 'var(--neutral-800)',
                           }}
                         />
                       </div>

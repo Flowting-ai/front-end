@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from 'next/image';
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 import { getGreeting, getSubheading } from "@/lib/greetings";
 import { useAuth } from "@/context/auth-context";
 
@@ -40,13 +40,9 @@ export function InitialPrompts() {
           lineHeight: 1.25,
         }}
       >
-        <Image
-          src="/icons/souvenir-logo-gray.svg"
-          alt=""
-          aria-hidden="true"
-          width={28}
-          height={28}
-          unoptimized
+        <SouvenirLogo
+          variant="gray"
+          size={28}
           style={{
             display: "inline-block",
             verticalAlign: "middle",
@@ -61,7 +57,7 @@ export function InitialPrompts() {
           fontFamily: "var(--font-body)",
           fontSize:   "16px",
           fontWeight: 400,
-          color:      "#3B3632",
+          color:      "var(--neutral-800)",
           margin:     "0",
           lineHeight: 1.5,
           maxWidth:   "480px",

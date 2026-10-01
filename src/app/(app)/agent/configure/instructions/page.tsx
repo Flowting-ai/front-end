@@ -1674,8 +1674,8 @@ function PersonaConfigureInstructionsContent() {
                     // Extra top padding reserves room for the drag-value tooltip above the thumb.
                     padding:         '28px 16px 16px',
                     borderRadius:    18,
-                    border:          '1px solid #E5E5E5',
-                    backgroundColor: '#FFFFFF',
+                    border:          '1px solid var(--legacy-e5e5e5)',
+                    backgroundColor: 'var(--neutral-white)',
                   }}
                 >
                   <Slider
@@ -1712,9 +1712,9 @@ function PersonaConfigureInstructionsContent() {
                     height: 64,
                     width: '100%',
                     // Same idle container treatment as System Instruction: white bg, 18px radius.
-                    border: '1px solid #E5E5E5',
+                    border: '1px solid var(--legacy-e5e5e5)',
                     borderRadius: 18,
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--neutral-white)',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
@@ -1726,7 +1726,7 @@ function PersonaConfigureInstructionsContent() {
                         fontWeight:   500,
                         fontSize:     14,
                         lineHeight:   '22px',
-                        color:        '#0a0a0a',
+                        color:        'var(--legacy-0a0a0a)',
                         overflow:     'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace:   'nowrap',
@@ -1770,7 +1770,7 @@ function PersonaConfigureInstructionsContent() {
                         </button>
                         {conv.userSays && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: '#ee3030' }}>User says</span>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--red-400)' }}>User says</span>
                             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>{conv.userSays}</p>
                           </div>
                         )}

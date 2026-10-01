@@ -90,7 +90,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
       justifyContent:  'center',
       padding:         2,
       borderRadius:    6,
-      backgroundColor: '#e9dfc9',
+      backgroundColor: 'var(--yellow-100)',
       boxShadow:       '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5), inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)',
       flexShrink:      0,
     }}>
@@ -99,7 +99,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
         fontWeight: 500,
         fontSize: 12,
         lineHeight: '16px',
-        color:      '#6d5921',
+        color:      'var(--yellow-700)',
         padding:    '0 2px',
         whiteSpace: 'nowrap',
       }}>
@@ -378,7 +378,7 @@ export default function SecurityPage() {
           />
           <div style={{ padding: '12px 24px' }}>
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               borderRadius:    8,
               boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
               padding:         12,
@@ -395,7 +395,7 @@ export default function SecurityPage() {
                     fontWeight: 500,
                     fontSize: 12,
                     lineHeight: '16px',
-                    color:      '#a28847',
+                    color:      'var(--yellow-500)',
                   }}>
                     Recommended
                   </span>
@@ -450,7 +450,7 @@ export default function SecurityPage() {
               <div style={{
                 width:           327,
                 height:          36,
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 borderRadius:    10,
                 boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                 display:         'flex',
@@ -482,7 +482,7 @@ export default function SecurityPage() {
               borderRadius:    10,
               border:          'none',
               cursor:          'pointer',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
               fontFamily:      'var(--font-body)',
               fontWeight:      500,
@@ -597,7 +597,7 @@ export default function SecurityPage() {
               border:          'none',
               cursor:          'pointer',
               position:        'relative',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               boxShadow:       '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100), inset 0px -2.182px 0.364px 0px var(--red-100)',
               fontFamily:      'var(--font-body)',
               fontWeight:      500,

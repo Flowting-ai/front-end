@@ -214,7 +214,7 @@ export function EnhancePromptField(
       borderColor:     'var(--color-enhance-border-open)',
       borderWidth:     1.5,
     } : {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: 'var(--neutral-white)',
       borderColor:     '#E5E5E5',
       borderWidth:     1,
     }
@@ -305,7 +305,7 @@ export function EnhancePromptField(
                 fontWeight: 400,
                 fontSize:   14,
                 lineHeight: 1.29,
-                color:      '#524B47',
+                color:      'var(--neutral-700)',
               }}
             />
             <div

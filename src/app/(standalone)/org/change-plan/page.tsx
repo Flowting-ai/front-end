@@ -110,7 +110,7 @@ function FeatureLine({ item }: { item: FeatureItemDef }) {
           indicator (e.g. ModelMenu's own selected-row tick). */}
       <TickTwoIcon size={16} color="#3b3632" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
           {label}
         </p>
         {icon}
@@ -122,7 +122,7 @@ function FeatureLine({ item }: { item: FeatureItemDef }) {
 function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#827a74', margin: 0 }}>
+      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
         {title}
       </p>
       {items.map(item => <FeatureLine key={typeof item === 'string' ? item : item.label} item={item} />)}
@@ -131,7 +131,7 @@ function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[]
 }
 
 function Hairline() {
-  return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
+  return <div style={{ height: 1, width: '100%', backgroundColor: 'var(--legacy-e5e5e5)' }} />
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ function ChangePlanSkeleton() {
           {/* Workspace card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'white', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
               boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
             }}>
@@ -224,7 +224,7 @@ function ChangePlanSkeleton() {
           {/* Enterprise card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'white', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', gap: 28,
               boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
             }}>
@@ -479,10 +479,10 @@ function OrgChangePlanPageInner() {
             </button>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+              <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 Pricing
               </p>
-              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Choose the plan that works for your workspace. Shared credits across unlimited members. No per-seat fees.
               </p>
             </div>
@@ -534,7 +534,7 @@ function OrgChangePlanPageInner() {
                       color: '#f7f2ed',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
-                  : { color: '#827a74' }),
+                  : { color: 'var(--neutral-500)' }),
               }}
             >
               Monthly
@@ -555,7 +555,7 @@ function OrgChangePlanPageInner() {
                       color: '#f7f2ed',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
-                  : { color: '#827a74' }),
+                  : { color: 'var(--neutral-500)' }),
               }}
             >
               Yearly
@@ -569,7 +569,7 @@ function OrgChangePlanPageInner() {
             {/* ── Workspace (Core) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '2px solid #683d1b',
                 borderRadius: 24,
                 padding: 32,
@@ -580,7 +580,7 @@ function OrgChangePlanPageInner() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                       Core
                     </p>
                     <Badge label="Recommended" color="brown" />
@@ -593,20 +593,20 @@ function OrgChangePlanPageInner() {
                   {isOnFreePlan && (
                     <div style={{
                       position: 'relative',
-                      backgroundColor: 'white', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
+                      backgroundColor: 'var(--neutral-white)', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
                       padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
                     }}>
                       <div style={{
                         position: 'absolute', top: -11, left: 16,
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        borderRadius: 6, overflow: 'hidden', backgroundColor: '#cadcf1',
+                        borderRadius: 6, overflow: 'hidden', backgroundColor: 'var(--blue-100)',
                         boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
                       }}>
-                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#135487', padding: '2px 6px' }}>
+                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--blue-700)', padding: '2px 6px' }}>
                           FREE PLAN ACTIVE
                         </span>
                       </div>
-                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: '#524b47' }}>
+                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: 'var(--neutral-700)' }}>
                         <p style={{ margin: 0 }}>You have been assigned</p>
                         <p style={{ margin: 0 }}>$20 worth of free credits</p>
                       </div>
@@ -674,11 +674,11 @@ function OrgChangePlanPageInner() {
                           </Dropdown.Section>
                         </Dropdown>
                       </Dropdown.Float>
-                      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
                         /month
                       </p>
                     </div>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
                       {fmtNum(selectedWorkspace.credits)} credits
                     </p>
                   </div>
@@ -726,7 +726,7 @@ function OrgChangePlanPageInner() {
             {/* ── Enterprise (Pro) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '1px solid #e5e5e5',
                 borderRadius: 24,
                 padding: 32,
@@ -735,7 +735,7 @@ function OrgChangePlanPageInner() {
                 height: '100%',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                     Pro
                   </p>
                 </div>
@@ -749,9 +749,9 @@ function OrgChangePlanPageInner() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
-                    backgroundColor: 'white', cursor: changingTo ? 'wait' : 'pointer',
+                    backgroundColor: 'var(--neutral-white)', cursor: changingTo ? 'wait' : 'pointer',
                     boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
                   {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}

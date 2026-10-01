@@ -139,7 +139,7 @@ function TeamRow({
           fontWeight:     500,
           fontSize:       '16px',
           lineHeight:     1,
-          color:          'var(--neutral-white)',
+          color:          'var(--color-text-on-accent)',
           boxShadow:      'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
         }}
       >

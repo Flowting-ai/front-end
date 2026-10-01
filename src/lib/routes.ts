@@ -10,9 +10,7 @@ export const CHAT_ROUTE = "/chat";
 export const CHATS_ROUTE = "/chats";
 export const AGENTS_ROUTE = "/agents";
 export const AGENTS_TEMPLATES_ROUTE = "/agents/templates";
-export const AGENTS_BASICS_NAME_ROUTE = "/agents/basics/name";
-export const AGENTS_BASICS_PURPOSE_ROUTE = "/agents/basics/purpose";
-export const AGENTS_BASICS_TONE_ROUTE = "/agents/basics/tone";
+export const AGENTS_NEW_ROUTE = "/agents/new";
 export const BRAIN_ROUTE = "/brain";
 export const BRAIN_THREADS_ROUTE = "/brain/threads";
 export const BRAIN_SCHEDULES_ROUTE = "/brain/schedules";
@@ -111,6 +109,7 @@ export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
 export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
+export const AGENT_EDIT_ROUTE = (personaId: string) => `/agents/${personaId}/edit`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 
 export const ONBOARDING_TEAM_WELCOME_ROUTE = (inviteId: string) => `${ONBOARDING_TEAM_BASE_ROUTE}/${inviteId}`;

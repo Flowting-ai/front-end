@@ -71,7 +71,7 @@ const tabsRowStyle: React.CSSProperties = {
 // tooltip's dark neutral-700→900 background (see semantic.css --tooltip-bg-*).
 const tooltipDividerStyle: React.CSSProperties = {
   height:          1,
-  backgroundColor: 'rgba(255,255,255,0.15)',
+  backgroundColor: 'rgba(var(--surface-rgb), 0.15)',
 }
 
 export default function ProjectPage() {
@@ -593,7 +593,7 @@ export default function ProjectPage() {
         }}
         aria-label="Back to Projects"
       >
-        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
+        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: 'var(--neutral-700)' }} />
       </button>
 
       {/* ── Left column - fixed header + scrollable chat list ─────────── */}
@@ -636,7 +636,7 @@ export default function ProjectPage() {
                   fontWeight:   'var(--font-weight-regular)',
                   fontSize:     '24px',
                   lineHeight:   '32px',
-                  color:        '#3b3632',
+                  color:        'var(--neutral-800)',
                   margin:       0,
                   overflow:     'hidden',
                   textOverflow: 'ellipsis',
@@ -745,7 +745,7 @@ export default function ProjectPage() {
                   fontWeight:       'var(--font-weight-regular)',
                   fontSize:         '14px',
                   lineHeight:       '20px',
-                  color:            '#1a1714',
+                  color:            'var(--legacy-1a1714)',
                   margin:           0,
                   overflow:         'hidden',
                   textOverflow:     'ellipsis',

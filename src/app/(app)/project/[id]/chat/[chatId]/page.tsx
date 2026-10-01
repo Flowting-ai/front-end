@@ -573,7 +573,7 @@ function ProjectChatPageInner() {
                   display:         'flex',
                   alignItems:      'center',
                   justifyContent:  'center',
-                  backgroundColor: 'rgba(255,255,255,0.88)',
+                  backgroundColor: 'rgba(var(--surface-rgb), 0.88)',
                   border:          '2px dashed var(--focus-ring)',
                   borderRadius:    '16px',
                   pointerEvents:   'none',
@@ -638,6 +638,7 @@ function ProjectChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleSend}
+                      agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
@@ -798,6 +799,7 @@ function ProjectChatPageInner() {
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               readOnly={activeChatReadOnly}
               chatOwnershipConfirmed={activeChatRecord?.canEdit === true}
+              agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>
         )}

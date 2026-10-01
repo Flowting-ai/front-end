@@ -124,7 +124,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
         height: 56,
         padding: "0 12px",
         borderRadius: 12,
-        backgroundColor: "white",
+        backgroundColor: "var(--neutral-white)",
         boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
         width: "100%",
         fontFamily: "var(--font-body)",
@@ -137,7 +137,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
             height: 35,
             flexShrink: 0,
             marginRight: 8,
-            backgroundColor: "#f0f0f0",
+            backgroundColor: "var(--legacy-f0f0f0)",
             borderRadius: 6,
             display: "flex",
             alignItems: "center",
@@ -155,7 +155,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
           minWidth: 0,
           fontSize: 14,
           fontWeight: 500,
-          color: "#3b3632",
+          color: "var(--neutral-800)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -168,23 +168,23 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
 
       <div style={{ display: "flex", gap: 17, alignItems: "center", width: 265, flexShrink: 0 }}>
         {isDeleting ? (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#c0392b", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--legacy-c0392b)", whiteSpace: "nowrap" }}>
             Deleting…
           </span>
         ) : isUploading ? (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
             Uploading…
           </span>
         ) : (
           <>
             <FileBadge label={badgeLabel} />
             {file.size && file.size !== "-" && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
                 {file.size}
               </span>
             )}
             {file.date && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
                 {file.date}
               </span>
             )}
@@ -220,8 +220,8 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                 position: "absolute",
                 top: 36,
                 right: 0,
-                backgroundColor: "white",
-                border: "1px solid #d1c6bd",
+                backgroundColor: "var(--neutral-white)",
+                border: "1px solid var(--neutral-200)",
                 borderRadius: 8,
                 boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
                 zIndex: 5,
@@ -241,10 +241,10 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                     padding: "8px 12px",
                     fontSize: 14,
                     fontFamily: "var(--font-body)",
-                    color: "#3b3632",
+                    color: "var(--neutral-800)",
                     backgroundColor: "transparent",
                     border: "none",
-                    borderBottom: "1px solid #ede1d7",
+                    borderBottom: "1px solid var(--neutral-100)",
                     cursor: "pointer",
                   }}
                 >
@@ -262,7 +262,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                   padding: "8px 12px",
                   fontSize: 14,
                   fontFamily: "var(--font-body)",
-                  color: "#c0392b",
+                  color: "var(--legacy-c0392b)",
                   backgroundColor: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -312,12 +312,12 @@ function DropOverlay({ visible }: { visible: boolean }) {
         backgroundColor: "rgba(13,110,178,0.08)",
         backdropFilter: "blur(2px)",
         fontFamily: "var(--font-body)",
-        color: "#0d6eb2",
+        color: "var(--blue-600)",
       }}
     >
       <ArrowUp size={28} color="#0d6eb2" />
       <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Drop files to upload</p>
-      <p style={{ margin: 0, fontSize: 12, color: "#3b3632" }}>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--neutral-800)" }}>
         PDF, DOCX, XLSX, images and more · max 30 MB per file
       </p>
     </div>
@@ -546,8 +546,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         <div data-help-id="help-knowledge-upload" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div
             style={{
-              backgroundColor: "#f7f2ed",
-              border: "1px dashed #b6aca4",
+              backgroundColor: "var(--neutral-50)",
+              border: "1px dashed var(--neutral-300)",
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -585,7 +585,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 style={{
                   fontFamily: "var(--font-body)",
                   fontSize: 14,
-                  color: "#737373",
+                  color: "var(--legacy-737373)",
                   textAlign: "center",
                   maxWidth: 362,
                   margin: 0,
@@ -615,7 +615,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   fontFamily: "var(--font-body)",
                   fontSize: 14,
                   fontWeight: 500,
-                  color: "#524b47",
+                  color: "var(--neutral-700)",
                 }}
               >
                 <Upload size={16} color="#524b47" />
@@ -639,7 +639,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
             }}
           >
             <span>0 files</span>
@@ -666,7 +666,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-title)",
               fontSize: 24,
               fontWeight: 400,
-              color: "#1a1916",
+              color: "var(--legacy-1a1916)",
               lineHeight: "1.3",
               margin: 0,
             }}
@@ -686,8 +686,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -706,8 +706,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -726,8 +726,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -776,7 +776,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         <div
           style={{
             flex: 1,
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-white)",
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -796,7 +796,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
               backgroundColor: "transparent",
               border: "none",
               outline: "none",
@@ -814,7 +814,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
       {regularFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Files</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "var(--legacy-0a0a0a)", margin: 0 }}>Files</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {regularFiles.map((f) => (
               <FileRow key={f.id} file={f} onRemove={requestRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
@@ -825,7 +825,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
       {urlFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "var(--legacy-0a0a0a)", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
               <FileRow key={f.id} file={f} onRemove={requestRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
@@ -843,7 +843,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             fontFamily: "var(--font-body)",
             fontSize: 14,
             fontWeight: 500,
-            color: "#6a625d",
+            color: "var(--neutral-600)",
           }}
         >
           <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""}</span>

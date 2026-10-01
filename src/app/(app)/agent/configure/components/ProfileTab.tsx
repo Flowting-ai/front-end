@@ -166,7 +166,7 @@ export default function ProfileTab({
             {avatarUrl ? (
               <NextImage src={avatarUrl} alt="Agent avatar" fill sizes="65px" unoptimized style={{ objectFit: "cover" }} />
             ) : (
-              <div style={{ width: "100%", height: "100%", backgroundColor: "#ede1d7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: "100%", height: "100%", backgroundColor: "var(--neutral-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#827a74" strokeWidth="1.5">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
@@ -189,7 +189,7 @@ export default function ProfileTab({
                 fontFamily: "var(--font-body)",
                 fontSize: 14,
                 fontWeight: 500,
-                color: "#524b47",
+                color: "var(--neutral-700)",
                 backgroundColor: "transparent",
                 border: "1px solid rgba(59,54,50,0.3)",
                 borderRadius: 8,
@@ -201,7 +201,7 @@ export default function ProfileTab({
               {isCompressing ? "Processing…" : avatarUrl ? "Change Image" : "Upload Image"}
             </button>
             {!avatarUrl && (
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>drag &amp; drop · paste</p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--neutral-700)", margin: 0 }}>drag &amp; drop · paste</p>
             )}
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
@@ -213,7 +213,7 @@ export default function ProfileTab({
         <label htmlFor="profile-persona-name" style={ATTRIBUTE_HEADER_STYLE}>Name</label>
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-white)",
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -232,7 +232,7 @@ export default function ProfileTab({
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
               backgroundColor: "transparent",
               outline: "none",
               border: "none",
@@ -266,7 +266,7 @@ export default function ProfileTab({
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#9c938b",
+              color: "var(--neutral-400)",
               backgroundColor: "transparent",
               outline: "none",
               border: "none",
@@ -274,7 +274,7 @@ export default function ProfileTab({
             }}
           />
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#9c938b", margin: 0 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--neutral-400)", margin: 0 }}>
           Auto-generated from name · updates when you save a new version
         </p>
       </div>
@@ -284,7 +284,7 @@ export default function ProfileTab({
         <label htmlFor="profile-persona-desc" style={ATTRIBUTE_HEADER_STYLE}>Description</label>
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-white)",
             display: "flex",
             alignItems: "flex-start",
             gap: 2,
@@ -304,7 +304,7 @@ export default function ProfileTab({
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
               backgroundColor: "transparent",
               outline: "none",
               resize: "none",
@@ -395,7 +395,7 @@ export default function ProfileTab({
                 border: "1px solid rgba(59,54,50,0.3)",
                 borderRadius: 6,
                 outline: "none",
-                backgroundColor: "white",
+                backgroundColor: "var(--neutral-white)",
                 width: 96,
               }}
             />
@@ -412,10 +412,10 @@ export default function ProfileTab({
                 borderRadius: 6,
                 fontSize: 12,
                 fontWeight: 500,
-                color: "#524b47",
+                color: "var(--neutral-700)",
                 cursor: "pointer",
                 border: "none",
-                backgroundColor: "#ede1d7",
+                backgroundColor: "var(--neutral-100)",
                 boxShadow:
                   "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
               }}

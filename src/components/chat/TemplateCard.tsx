@@ -24,7 +24,7 @@ export function TemplateCard({ icon, label, onClick }: TemplateCardProps) {
       onMouseLeave={() => setHovered(false)}
       style={{
         flex:          1,
-        background:    'white',
+        background:    'var(--neutral-white)',
         border:        `1px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-200)'}`,
         borderRadius:  '12px',
         padding:       '14px 12px',

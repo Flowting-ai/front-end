@@ -77,7 +77,7 @@ export function XmlKanban({ xml }: { xml: string }) {
             {kanban.title || "Task board"}
           </div>
         </div>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.62)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.62)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
           <Layers3 size={12} />
           {cardCount} {cardCount === 1 ? "card" : "cards"}
         </span>
@@ -121,7 +121,7 @@ export function XmlKanban({ xml }: { xml: string }) {
               >
                 {column.label}
               </span>
-              <span style={{ minWidth: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.65)", border: "1px solid rgba(82,75,71,0.08)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+              <span style={{ minWidth: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid rgba(82,75,71,0.08)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
                 {column.cards.length}
               </span>
             </div>
@@ -139,7 +139,7 @@ export function XmlKanban({ xml }: { xml: string }) {
                   gap: 5,
                   padding: "10px 11px 9px",
                   borderRadius: 11,
-                  backgroundColor: "rgba(255,255,255,0.92)",
+                  backgroundColor: "rgba(var(--surface-rgb), 0.92)",
                   border: "1px solid rgba(82,75,71,0.10)",
                   boxShadow: "0 2px 6px rgba(82,75,71,0.07)",
                   overflow: "hidden",

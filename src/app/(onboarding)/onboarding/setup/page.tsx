@@ -8,6 +8,7 @@ import AiMagicIcon from "@hugeicons/core-free-icons/AiMagicIcon";
 import { Button } from "@/components/Button";
 import { getSlackInstallUrl } from "@/lib/api/slack";
 import { ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 
 // ── Screen 1 of the workspace onboarding flow ────────────────────────────────
 // Figma: Onboarding v1, node 181:7750 ("Setup your team" in the file — renamed
@@ -208,7 +209,7 @@ export default function OnboardingSetupChoicePage() {
             icon={
               <div style={{ flexShrink: 0, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- static local icon, Next Image adds no value here */}
-                <img src="/icons/souvenir-logo.svg" alt="" width={24} height={24} style={{ display: "block" }} aria-hidden />
+                <SouvenirLogo size={24} />
               </div>
             }
             title="Set up in Souvenir"

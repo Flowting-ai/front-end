@@ -88,7 +88,7 @@ export function ProjectInstructionsPanel({ value, editable, onOpenEditor, ref }:
               fontWeight:        'var(--font-weight-regular)',
               fontSize:          '14px',
               lineHeight:        '22px',
-              color:             '#1a1714',
+              color:             'var(--legacy-1a1714)',
               margin:            0,
               whiteSpace:        'pre-wrap',
               wordBreak:         'break-word',

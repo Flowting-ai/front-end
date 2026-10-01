@@ -11,6 +11,7 @@ import { STRIPE_TRIAL_ENDPOINT } from "@/lib/config";
 import { SETTINGS_BILLING_CHANGE_PLAN_ROUTE } from "@/lib/routes";
 import { creditsFromUsage } from "@/lib/credits";
 import { formatCredits } from "@/lib/plan-config";
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 import type { UserUsage } from "@/lib/api/user";
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ function TeamsWorkspacePreview() {
     >
       <div
         style={{
-          backgroundColor: "rgba(255,255,255,0.2)",
+          backgroundColor: "rgba(var(--surface-rgb), 0.2)",
           border: "1px solid var(--neutral-200, #d1c6bd)",
           borderRadius: "16px",
           padding: "10px",
@@ -290,12 +291,7 @@ function TeamsWorkspacePreview() {
 function SouvenirWordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "11.5px" }}>
-      <img
-        src="/icons/souvenir-logo.svg"
-        alt="Souvenir"
-        width={40}
-        height={40}
-      />
+      <SouvenirLogo size={40} alt="Souvenir" style={{ display: "inline-block" }} />
       <span
         style={{
           fontFamily: "var(--font-title)",

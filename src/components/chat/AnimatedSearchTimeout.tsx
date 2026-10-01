@@ -20,7 +20,7 @@ export function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: Sea
         <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <span style={{ lineHeight: 0 }}><HIcon icon={GlobeXIcon} size={16} color="#7A6030" strokeWidth={1.5} /></span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#26211E" }}>Web search timed out</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--neutral-900)" }}>Web search timed out</span>
           </div>
           <div style={{ display: "inline-flex", alignSelf: "flex-start", fontSize: 13, fontFamily: "var(--font-code, monospace)", color: "#827A74", background: "rgba(59,54,50,0.08)", border: "1px solid rgba(82,75,71,0.12)", borderRadius: 5, padding: "2px 8px" }}>
             {data.query}

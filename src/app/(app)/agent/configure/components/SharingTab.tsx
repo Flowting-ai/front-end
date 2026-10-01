@@ -45,7 +45,7 @@ function UsageBar({ percent }: { percent: number }) {
       style={{
         position: 'relative',
         height: 4,
-        backgroundColor: 'white',
+        backgroundColor: 'var(--neutral-white)',
         borderRadius: 2,
         width: '100%',
       }}
@@ -326,7 +326,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           fontWeight: 400,
           fontSize: 24,
           lineHeight: '32px',
-          color: '#1a1916',
+          color: 'var(--legacy-1a1916)',
           margin: 0,
         }}
       >
@@ -355,7 +355,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 fontWeight: 500,
                 fontSize: 12,
                 lineHeight: '16px',
-                color: '#6a625d',
+                color: 'var(--neutral-600)',
                 maxWidth: 560,
               }}
             >
@@ -386,7 +386,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '1px solid var(--neutral-200)',
                 borderRadius: 10,
                 padding: '8px 7px',
@@ -473,7 +473,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 </span>
                 <div
                   style={{
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--neutral-white)',
                     border: '1px solid var(--neutral-200)',
                     borderRadius: 8,
                     padding: 7,
@@ -497,7 +497,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                       fontWeight: 400,
                       fontSize: 12,
                       lineHeight: 'normal',
-                      color: '#3b3632',
+                      color: 'var(--neutral-800)',
                     }}
                   />
                 </div>
@@ -544,7 +544,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               fontWeight: 500,
               fontSize: 12,
               lineHeight: '16px',
-              color: '#6a625d',
+              color: 'var(--neutral-600)',
               maxWidth: 560,
             }}
           >
@@ -567,7 +567,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 border: '1px solid var(--neutral-200)',
                 borderRadius: 10,
                 padding: '8px 12px',
@@ -599,7 +599,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           {/* Token limit for this invite */}
           <div
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               border: '1px solid var(--neutral-200)',
               borderRadius: 10,
               padding: '8px 12px',
@@ -625,7 +625,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 fontWeight: 400,
                 fontSize: 12,
                 lineHeight: 'normal',
-                color: '#3b3632',
+                color: 'var(--neutral-800)',
               }}
             />
             <span
@@ -673,7 +673,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                     justifyContent: 'space-between',
                     padding: '10px 14px',
                     borderRadius: 10,
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--neutral-white)',
                     boxShadow: '0px 0px 0px 1px var(--neutral-100)',
                     gap: 12,
                   }}

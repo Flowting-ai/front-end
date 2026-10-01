@@ -70,7 +70,7 @@ export function XmlSchedule({ xml }: { xml: string }) {
             {schedule.title || "Schedule"}
           </div>
         </div>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.65)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
           <Clock3 size={12} />
           {eventCount} {eventCount === 1 ? "event" : "events"}
         </span>
@@ -130,7 +130,7 @@ export function XmlSchedule({ xml }: { xml: string }) {
                     fontSize: 10,
                     lineHeight: "14px",
                     color: accent,
-                    backgroundColor: "rgba(255,255,255,0.65)",
+                    backgroundColor: "rgba(var(--surface-rgb), 0.65)",
                     border: `1px solid ${accent}1A`,
                     fontVariantNumeric: "tabular-nums",
                   }}
@@ -140,7 +140,7 @@ export function XmlSchedule({ xml }: { xml: string }) {
                 <span aria-hidden style={{ position: "relative", width: 10, height: 10, borderRadius: "50%", backgroundColor: accent, boxShadow: `0 0 0 4px ${accent}16`, zIndex: 1 }}>
                   {i < group.events.length - 1 && <span style={{ position: "absolute", left: 4, top: 10, width: 2, height: 50, backgroundColor: `${accent}20` }} />}
                 </span>
-                <div style={{ minWidth: 0, padding: "8px 10px", borderRadius: 11, backgroundColor: "rgba(255,255,255,0.72)", border: "1px solid rgba(82,75,71,0.09)", boxShadow: "0 2px 5px rgba(82,75,71,0.05)" }}>
+                <div style={{ minWidth: 0, padding: "8px 10px", borderRadius: 11, backgroundColor: "rgba(var(--surface-rgb), 0.72)", border: "1px solid rgba(82,75,71,0.09)", boxShadow: "0 2px 5px rgba(82,75,71,0.05)" }}>
                   <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", lineHeight: "18px", fontWeight: "var(--font-weight-medium)", color: "var(--neutral-800)", overflowWrap: "anywhere" }}>
                     {event.title}
                   </div>

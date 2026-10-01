@@ -211,7 +211,8 @@ export function IconButton({
         }
       : {}),
     ...(isSecondary ? {
-      backgroundColor: 'var(--neutral-white)',
+      // Token (== --neutral-white in light) so the secondary button can stay white in dark.
+      backgroundColor: 'var(--icon-button-secondary-bg)',
       boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
       transition:      'box-shadow 150ms',
     } : {}),

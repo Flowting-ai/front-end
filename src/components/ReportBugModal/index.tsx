@@ -63,7 +63,7 @@ function SeverityPill({ label, active, onClick }: { label: string; active: boole
         flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-        whiteSpace: 'nowrap', position: 'relative', background: 'white',
+        whiteSpace: 'nowrap', position: 'relative', background: 'var(--neutral-white)',
         color: active ? 'var(--neutral-50, #f7f2ed)' : 'var(--neutral-700)',
         boxShadow: active ? SHADOW_PILL_ACTIVE : SHADOW_PILL,
         transition: 'box-shadow 120ms, color 120ms',
@@ -159,7 +159,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rb-email" style={labelStyle}>Work email</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rb-email" type="email" name="email" placeholder="you@company.com" defaultValue={user?.email ?? ''} required style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -169,7 +169,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rb-name" style={labelStyle}>Full name</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rb-name" type="text" name="name" placeholder="Jane Smith" defaultValue={displayName} style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -189,7 +189,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
                   required
                   value={message}
                   onChange={e => setMessage(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--neutral-white)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
                 />
                 <span style={fieldErrorStyle}>
                   <ValidationError field="message" errors={state.errors} />

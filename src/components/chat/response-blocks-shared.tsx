@@ -26,7 +26,7 @@ function renderInlineMd(text: string): React.ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\))/).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
       // eslint-disable-next-line react/no-array-index-as-key
-      return <strong key={i} style={{ fontWeight: 600, color: "#26211E" }}>{part.slice(2, -2)}</strong>;
+      return <strong key={i} style={{ fontWeight: 600, color: "var(--neutral-900)" }}>{part.slice(2, -2)}</strong>;
     if (part.startsWith("`") && part.endsWith("`"))
       // eslint-disable-next-line react/no-array-index-as-key
       return <code key={i} style={INLINE_CODE_STYLE}>{part.slice(1, -1)}</code>;

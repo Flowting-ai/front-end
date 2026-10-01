@@ -150,7 +150,7 @@ function ChevronRight({ isOpen }: { isOpen: boolean }) {
     >
       <path
         d="M3.5 2 L7 5 L3.5 8"
-        stroke="#C0B5AD"
+        stroke="var(--thinking-text-faint)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -218,9 +218,9 @@ function WorkingPulse() {
     <m.div
       animate={shouldReduceMotion ? undefined : { opacity: [0.3, 0.8, 0.3] }}
       transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, color: "#C0B5AD" }}
+      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, color: "var(--thinking-text-faint)" }}
     >
-      <HugeiconsIcon icon={AiBrain01Icon} size={16} color="#D1C6BD" strokeWidth={1.5} />
+      <HugeiconsIcon icon={AiBrain01Icon} size={16} color="var(--thinking-icon-strong)" strokeWidth={1.5} />
       <span>Working…</span>
     </m.div>
   );
@@ -287,7 +287,7 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
             className={streaming ? "kaya-shimmer" : undefined}
             style={{
               gridArea: "1 / 1",
-              color: "#9A9089",
+              color: "var(--thinking-text)",
               fontWeight: 500,
             }}
           >
@@ -295,7 +295,7 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
           </span>
         </span>
         {summary && (
-          <span style={{ minWidth: 0, flex: 1, color: "#9A9089", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
+          <span style={{ minWidth: 0, flex: 1, color: "var(--thinking-text)", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
             <ResearchTitle text={summary} />
           </span>
         )}
@@ -337,7 +337,7 @@ function ThinkingCollapse({ open, id, children, instant }: { open: boolean; id: 
       transition={instant ? { duration: 0 } : { type: "spring", stiffness: springs.moderate.stiffness, damping: 35 }}
       style={{ overflow: "hidden" }}
     >
-      <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "#524B47" }}>
+      <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--neutral-700)" }}>
         {children}
       </div>
     </m.div>
@@ -403,7 +403,7 @@ function ReasoningStep({
         <div style={{ display: "flex", alignItems: "stretch", paddingBottom: isLast ? 0 : 12 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 20 }}>
             <span style={{ display: "flex", width: 20, height: 28, alignItems: "center", justifyContent: "center", lineHeight: 0 }}>
-              <HugeiconsIcon icon={icon} size={16} color={isActive ? "#A89488" : "#C0B5AD"} strokeWidth={1.5} />
+              <HugeiconsIcon icon={icon} size={16} color={isActive ? "var(--thinking-icon-active)" : "var(--thinking-text-faint)"} strokeWidth={1.5} />
             </span>
             {!isLast && (
               <m.span
@@ -435,10 +435,10 @@ function ReasoningStep({
                 fontFamily: "var(--font-body)",
               }}
             >
-              <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#524B47", fontSize: 14, lineHeight: "22px" }}>
+              <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--neutral-700)", fontSize: 14, lineHeight: "22px" }}>
                 <strong
                   className={isActive ? "kaya-thinking-step-shimmer" : undefined}
-                  style={{ color: "#26211E", fontWeight: 600 }}
+                  style={{ color: "var(--neutral-900)", fontWeight: 600 }}
                 >
                   {verb}{isActive ? "…" : ""}
                 </strong>
@@ -457,7 +457,7 @@ function ReasoningStep({
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                   style={{ overflow: "hidden" }}
                 >
-                  <div style={{ margin: "8px 0 6px", paddingLeft: 10, borderLeft: "2px solid #EDE1D7" }}>
+                  <div style={{ margin: "8px 0 6px", paddingLeft: 10, borderLeft: "2px solid var(--thinking-rule)" }}>
                     <LineRenderer content={section.body} variant="reasoning" />
                   </div>
                 </m.div>
@@ -525,10 +525,10 @@ function ActivityGroup({ activities }: { activities: ActivityItem[] }) {
         <span style={{ display: "flex", lineHeight: 0, flexShrink: 0 }}>
           <HugeiconsIcon icon={Checkmark} size={16} color="#80B707" strokeWidth={2.5} />
         </span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#524B47", flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--neutral-700)", flexShrink: 0 }}>
           Ran {activities.length} actions
         </span>
-        <span style={{ fontSize: 14, color: "#9A9089", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 14, color: "var(--thinking-text)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           — {verbs}
         </span>
         <ChevronDown isOpen={open} />
@@ -570,11 +570,11 @@ function TimelineReasoningStep({ content, active }: { content: string; active: b
           style={{ display: "flex", gap: 10 }}
         >
           <span style={{ display: "flex", width: 20, height: 22, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: "#C0B5AD" }} />
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--thinking-text-faint)" }} />
           </span>
           <div
             className={active ? "kaya-thinking-step-shimmer" : undefined}
-            style={{ minWidth: 0, flex: 1, color: "#524B47", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px" }}
+            style={{ minWidth: 0, flex: 1, color: "var(--neutral-700)", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px" }}
           >
             <LineRenderer content={content} variant="reasoning" />
           </div>

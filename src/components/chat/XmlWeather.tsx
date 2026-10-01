@@ -198,7 +198,7 @@ function WeatherMeta({ icon, children }: { icon: React.ReactNode; children: Reac
         padding: "5px 8px",
         borderRadius: 999,
         color: "var(--neutral-700)",
-        background: "rgba(255,255,255,0.60)",
+        background: "rgba(var(--surface-rgb), 0.60)",
         border: "1px solid rgba(255,255,255,0.72)",
         backdropFilter: "blur(8px)",
       }}

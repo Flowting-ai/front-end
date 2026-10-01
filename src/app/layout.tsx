@@ -6,6 +6,9 @@ import { MotionProvider } from "@/components/MotionProvider";
 import { MetaPixel } from "@/components/MetaPixel";
 import { MixpanelProvider } from "@/components/Analytics/MixpanelProvider";
 import { QueryProvider } from "@/components/QueryProvider";
+import { ThemeProvider } from "@/context/theme-context";
+import { THEMING_ENABLED } from "@/lib/feature-flags";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
@@ -52,17 +55,27 @@ export default function RootLayout({
     <html
       lang="en"
       className={`h-full ${besley.variable} ${geist.variable} ${geistMono.variable}`}
+      // The theme init script may set data-theme before React hydrates; only
+      // relevant (and only enabled) when theming is on.
+      suppressHydrationWarning={THEMING_ENABLED || undefined}
     >
+      {THEMING_ENABLED && (
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        </head>
+      )}
       <body className="h-full antialiased" suppressHydrationWarning>
         <MetaPixel />
-        <QueryProvider>
-          <MotionProvider>
-            <AuthProvider>
-              <MixpanelProvider>{children}</MixpanelProvider>
-            </AuthProvider>
-            <Toaster />
-          </MotionProvider>
-        </QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>
+            <MotionProvider>
+              <AuthProvider>
+                <MixpanelProvider>{children}</MixpanelProvider>
+              </AuthProvider>
+              <Toaster />
+            </MotionProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

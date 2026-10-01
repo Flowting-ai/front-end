@@ -756,7 +756,7 @@ export function PersonaChatInterface({
               <p style={{ flex: "1 0 0", minWidth: 0, margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Red-text)" }}>
                 The <strong>{disabledModelName}</strong> model assigned to this agent is disabled.{" "}
                 {!persona?.sourceShareId
-                  ? (<>To continue, <a href={`/agent/configure/instructions?repoId=${personaId}`} style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>assign an enabled model</a> in the agent configure page, or <a href="/settings/ai" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>enable it in Settings</a>.</>)
+                  ? (<>To continue, <a href={`/agents/${personaId}/edit`} style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>assign an enabled model</a> in the agent editor, or <a href="/settings/ai" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>enable it in Settings</a>.</>)
                   : (<><a href="/settings/ai" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>Enable it in Settings</a> to continue.</>)
                 }
               </p>

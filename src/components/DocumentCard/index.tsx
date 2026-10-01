@@ -54,7 +54,7 @@ export function DocumentCard({ ref, name, type, sizeLabel, onRemove, onClick }: 
             fontWeight:  'var(--font-weight-medium)',
             fontSize:    '14px',
             lineHeight:  '22px',
-            color:       '#1a1714',
+            color:       'var(--legacy-1a1714)',
             margin:      0,
             wordBreak:   'break-word',
             overflowWrap:'break-word',

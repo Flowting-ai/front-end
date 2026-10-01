@@ -694,7 +694,7 @@ function AccountPageContent({
                     alignItems:     'center',
                     justifyContent: 'center',
                     backgroundColor:'rgba(38,33,30,0.55)',
-                    color:          'var(--neutral-white)',
+                    color:          'var(--color-text-on-accent)',
                     fontFamily:     'var(--font-body)',
                     fontWeight:     500,
                     fontSize:       11,

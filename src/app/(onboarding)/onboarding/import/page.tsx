@@ -170,7 +170,7 @@ export default function OnboardingImportPage() {
               fontWeight: 500,
               fontSize: "14px",
               lineHeight: "21px",
-              color: "#0a0a0a",
+              color: "var(--legacy-0a0a0a)",
               letterSpacing: "0.07px",
             }}
           >
@@ -180,7 +180,7 @@ export default function OnboardingImportPage() {
 
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-white)",
             border: "1px solid #e5e5e5",
             borderRadius: "18px",
             padding: "12px",
@@ -202,7 +202,7 @@ export default function OnboardingImportPage() {
                 gap: "4px",
                 padding: "2px 6px",
                 borderRadius: "6px",
-                backgroundColor: "#cadcf1",
+                backgroundColor: "var(--blue-100)",
                 border: "1px solid rgba(13,110,178,0.5)",
                 cursor: "pointer",
                 boxShadow:
@@ -215,7 +215,7 @@ export default function OnboardingImportPage() {
                   fontWeight: 500,
                   fontSize: "12px",
                   lineHeight: "16px",
-                  color: "#135487",
+                  color: "var(--blue-700)",
                 }}
               >
                 {copied ? "Copied!" : "Copy"}
@@ -231,7 +231,7 @@ export default function OnboardingImportPage() {
                 gap: "4px",
                 padding: "2px 6px",
                 borderRadius: "6px",
-                backgroundColor: "#cadcf1",
+                backgroundColor: "var(--blue-100)",
                 border: "1px solid rgba(13,110,178,0.5)",
                 boxShadow:
                   "inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
@@ -243,7 +243,7 @@ export default function OnboardingImportPage() {
                   fontWeight: 500,
                   fontSize: "12px",
                   lineHeight: "16px",
-                  color: "#135487",
+                  color: "var(--blue-700)",
                 }}
               >
                 Run in your AI tool
@@ -259,7 +259,7 @@ export default function OnboardingImportPage() {
                 gap: "4px",
                 padding: "2px 6px",
                 borderRadius: "6px",
-                backgroundColor: "#cadcf1",
+                backgroundColor: "var(--blue-100)",
                 border: "1px solid rgba(13,110,178,0.5)",
                 boxShadow:
                   "inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
@@ -271,7 +271,7 @@ export default function OnboardingImportPage() {
                   fontWeight: 500,
                   fontSize: "12px",
                   lineHeight: "16px",
-                  color: "#135487",
+                  color: "var(--blue-700)",
                 }}
               >
                 Paste the answer below
@@ -286,7 +286,7 @@ export default function OnboardingImportPage() {
               fontWeight: 400,
               fontSize: "14px",
               lineHeight: "22px",
-              color: "#1e1e1e",
+              color: "var(--legacy-1e1e1e)",
               margin: 0,
               whiteSpace: "pre-wrap",
             }}
@@ -327,7 +327,7 @@ export default function OnboardingImportPage() {
               fontWeight: 500,
               fontSize: "14px",
               lineHeight: "21px",
-              color: "#0a0a0a",
+              color: "var(--legacy-0a0a0a)",
             }}
           >
             Paste the response here-{" "}
@@ -338,7 +338,7 @@ export default function OnboardingImportPage() {
               fontWeight: 500,
               fontSize: "14px",
               lineHeight: "21px",
-              color: "#6a625d",
+              color: "var(--neutral-600)",
             }}
           >
             or write your own context
@@ -347,7 +347,7 @@ export default function OnboardingImportPage() {
 
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-white)",
             border: "1px solid #e5e5e5",
             borderRadius: "18px",
             padding: "12px",
@@ -369,7 +369,7 @@ export default function OnboardingImportPage() {
               fontWeight: 400,
               fontSize: "14px",
               lineHeight: "22px",
-              color: "#1e1e1e",
+              color: "var(--legacy-1e1e1e)",
               backgroundColor: "transparent",
               padding: 0,
             }}

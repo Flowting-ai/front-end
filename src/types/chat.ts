@@ -160,6 +160,15 @@ export interface UIMessage extends Message {
    *  animation on content that's already fully visible. Keying by this field
    *  instead keeps the row's identity stable across that swap. */
   reactKey?: string
+  /** True for a message that exists only in this browser session (never sent to
+   *  or stored by the backend) — it has no edit / regenerate / pin actions. */
+  localOnly?: boolean
+  /** Renders this assistant row as the card of an agent just created from chat. */
+  agentCard?: {
+    persona:   import('@/lib/chat-personas').SelectedPersonaInfo
+    /** False when the agent was created but could not be made live. */
+    published: boolean
+  }
 }
 
 /** Model selection metadata from the backend. */

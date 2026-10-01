@@ -792,7 +792,7 @@ export function ChatMessage({
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
                         fontWeight: 500,
-                        color: "#524B47",
+                        color: "var(--neutral-700)",
                       }}
                     >
                       {label}
@@ -1056,7 +1056,7 @@ export function ChatMessage({
                       fontFamily: "var(--font-body)",
                       fontSize: 13,
                       fontWeight: 500,
-                      color: "#524B47",
+                      color: "var(--neutral-700)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",

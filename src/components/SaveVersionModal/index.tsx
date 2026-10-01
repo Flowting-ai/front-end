@@ -124,7 +124,7 @@ export function SaveVersionModal({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--neutral-white)',
           borderRadius:    18,
           boxShadow:
             '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
@@ -144,7 +144,7 @@ export function SaveVersionModal({
               fontWeight:  400,
               fontSize:    20,
               lineHeight:  '28px',
-              color:       '#1a1916',
+              color:       'var(--legacy-1a1916)',
               margin:      0,
             }}>
               What changed?

@@ -18,10 +18,11 @@ describe("routeToScreen", () => {
     expect(routeToScreen("/agents/published")).toBe("agent_library");
   });
 
-  it("distinguishes the agent configure dashboard from the new-agent wizard", () => {
+  it("distinguishes the agent configure/editor screens from the new-agent flow", () => {
     expect(routeToScreen("/agent/configure")).toBe("agent_configure");
     expect(routeToScreen("/agent/configure/connectors")).toBe("agent_configure");
-    expect(routeToScreen("/agents/basics/name")).toBe("agent_onboarding");
+    expect(routeToScreen("/agents/persona-123/edit")).toBe("agent_configure");
+    expect(routeToScreen("/agents/new")).toBe("agent_onboarding");
   });
 
   it("routes chat surfaces nested under agents/projects to chat", () => {

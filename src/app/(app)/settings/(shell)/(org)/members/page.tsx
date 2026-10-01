@@ -610,7 +610,7 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
           maxWidth:        'calc(100vw - 32px)',
           maxHeight:       'calc(100vh - 64px)',
           borderRadius:    20,
-          backgroundColor: '#f9f5f1',
+          backgroundColor: 'var(--legacy-f9f5f1)',
           border:          '1px solid var(--neutral-200)',
           boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
           overflow:        'hidden',
@@ -909,7 +909,7 @@ function MembersPageSkeleton() {
         </div>
 
         {/* Members table skeleton */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
+        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
           {/* Toolbar — title left, search icon button + "Invite members" button right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={120} height={16} radius={4} />

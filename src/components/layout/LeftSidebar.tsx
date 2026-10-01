@@ -55,9 +55,9 @@ import {
   ORG_SOUVENIR_SLACK_ROUTE,
   AGENT_CHAT_ROUTE,
   AGENT_CONFIGURE_BASE_ROUTE,
-  AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
+  AGENT_EDIT_ROUTE,
   AGENTS_ROUTE,
-  AGENTS_TEMPLATES_ROUTE,
+  AGENTS_NEW_ROUTE,
   BRAIN_ROUTE,
   BRAIN_SCHEDULES_ROUTE,
   CHAT_ROUTE,
@@ -1133,7 +1133,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
                   active={isActive}
                   expanded={isDraft ? false : isExpanded}
                   onClick={() => isDraft
-                    ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+                    ? push(AGENT_EDIT_ROUTE(persona.id))
                     : handleExpand(persona.id, !isExpanded)}
                   onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
                   showExpandArrow={!isDraft}
@@ -1364,7 +1364,7 @@ function PersonasSectionIndividual() {
           active={isActive}
           expanded={isDraft ? false : isExpanded}
           onClick={() => isDraft
-            ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+            ? push(AGENT_EDIT_ROUTE(persona.id))
             : handleExpand(persona.id, !isExpanded)}
           onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
           showExpandArrow={!isDraft}
@@ -1477,7 +1477,7 @@ function PersonasSectionIndividual() {
               variant="default"
               label="New Agent"
               icon={<UserAddOneIcon size={20} />}
-              onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+              onClick={() => push(AGENTS_NEW_ROUTE)}
             />
           </m.div>
           {isLoading && Array.from({ length: 2 }).map((_, i) => (

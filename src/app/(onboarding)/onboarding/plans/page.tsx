@@ -75,7 +75,7 @@ function FeatureItem({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
       <GreenDot />
-      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632' }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)' }}>
         {label}
       </span>
     </div>
@@ -105,7 +105,7 @@ function IndFeatureItem({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <BeigeDot />
-      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632' }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)' }}>
         {label}
       </span>
     </div>
@@ -251,7 +251,7 @@ function IndSlider({ value, onChange }: { value: number; onChange: (i: number) =
   return (
     <div ref={trackRef} style={{ position: 'relative', height: THUMB }}>
       {/* Track background */}
-      <div style={{ position: 'absolute', top: 3, left: 0, right: 0, height: 4, backgroundColor: 'white', borderRadius: 2 }} />
+      <div style={{ position: 'absolute', top: 3, left: 0, right: 0, height: 4, backgroundColor: 'var(--neutral-white)', borderRadius: 2 }} />
       {/* Animated fill */}
       <motion.div
         animate={{ width: trackW > 0 ? fillW : 0 }}
@@ -262,7 +262,7 @@ function IndSlider({ value, onChange }: { value: number; onChange: (i: number) =
       <motion.div
         animate={{ x: trackW > 0 ? thumbX : 0 }}
         transition={spring}
-        style={{ position: 'absolute', top: 0, left: 0, width: THUMB, height: THUMB, borderRadius: '50%', backgroundColor: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.22), 0 0 0 1px rgba(59,54,50,0.2)' }}
+        style={{ position: 'absolute', top: 0, left: 0, width: THUMB, height: THUMB, borderRadius: '50%', backgroundColor: 'var(--neutral-white)', boxShadow: '0 1px 4px rgba(0,0,0,0.22), 0 0 0 1px rgba(59,54,50,0.2)' }}
       />
       {/* Invisible native range — handles drag */}
       <input
@@ -439,7 +439,7 @@ function OnboardingPlansContent() {
           <div style={{ display: 'flex', gap: 32, width: '100%', maxWidth: 1060, alignItems: 'flex-start' }}>
 
             {/* Team card */}
-            <div style={{ flex: '0 0 523px', display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: 'white', borderRadius: 18, border: '1px solid var(--neutral-200,#e5e5e5)', padding: 12, boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', boxSizing: 'border-box' }}>
+            <div style={{ flex: '0 0 523px', display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: 'var(--neutral-white)', borderRadius: 18, border: '1px solid var(--neutral-200,#e5e5e5)', padding: 12, boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>Team</h2>
@@ -545,7 +545,7 @@ function OnboardingPlansContent() {
             </div>
 
             {/* Custom / Enterprise card */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: 'white', borderRadius: 18, border: '1px solid var(--neutral-200,#e5e5e5)', padding: 12, boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', boxSizing: 'border-box' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: 'var(--neutral-white)', borderRadius: 18, border: '1px solid var(--neutral-200,#e5e5e5)', padding: 12, boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>Custom</h2>
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500,#827a74)', margin: 0 }}>Unlimited postpaid usage with a predictable monthly platform fee.</p>
@@ -589,7 +589,7 @@ function OnboardingPlansContent() {
                   </div>
                 </div>
               </div>
-              <button type="button" onClick={() => setContactSalesOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', backgroundColor: 'white', color: 'var(--neutral-700,#524b47)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', cursor: 'pointer', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)' }}>
+              <button type="button" onClick={() => setContactSalesOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', backgroundColor: 'var(--neutral-white)', color: 'var(--neutral-700,#524b47)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', cursor: 'pointer', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)' }}>
                 Contact Sales
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2.5 8h11M9.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
@@ -655,7 +655,7 @@ function OnboardingPlansContent() {
                   {/* Price — counter animation */}
                   <p style={{ margin: 0, lineHeight: 0 }}>
                     <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'black' }}>${animPriceNum}</span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74' }}>/mo{billing === 'annual' ? ` billed annually (${indTier.annualBilled})` : ''}</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>/mo{billing === 'annual' ? ` billed annually (${indTier.annualBilled})` : ''}</span>
                   </p>
 
                   {/* Credits display — directional slide animation */}

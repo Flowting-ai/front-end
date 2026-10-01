@@ -487,7 +487,7 @@ const REASONING_TEXT: React.CSSProperties = {
   ...TEXT,
   fontSize: "14px",
   lineHeight: "22px",
-  color: "#524B47",
+  color: "var(--neutral-700)",
 }
 
 const HEADING_SIZE: Record<number, string> = {
@@ -519,7 +519,9 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
     webCitations,
     urlMap,
     highlights,
-    emphasisColor: isReasoning ? "#26211E" : undefined,
+    // --neutral-900 is #26211E in light (what this was), and the bright primary text in dark —
+    // a hard-coded near-black here made bold reasoning text invisible on the dark page.
+    emphasisColor: isReasoning ? "var(--neutral-900)" : undefined,
   }
 
   const blocks = React.useMemo(() => parseBlocks(content, sourceOffset), [content, sourceOffset])

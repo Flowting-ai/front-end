@@ -19,7 +19,7 @@ export function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Co
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
             <span style={{ fontSize: 14 }}>{data.icon ?? "⚠️"}</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#26211E" }}>{data.connector}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--neutral-900)" }}>{data.connector}</span>
             <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: "#A82E2E", background: "rgba(195,56,56,0.1)", border: "1px solid rgba(195,56,56,0.2)", borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>Auth expired</span>
           </div>
           <button onMouseEnter={() => setRetryHovered(true)} onMouseLeave={() => setRetryHovered(false)} onClick={onRetry}
@@ -28,7 +28,7 @@ export function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Co
             {data.cta}
           </button>
         </div>
-        {data.message && <div style={{ fontSize: 14, color: "#827A74", lineHeight: "22px" }}>{data.message}</div>}
+        {data.message && <div style={{ fontSize: 14, color: "var(--neutral-500)", lineHeight: "22px" }}>{data.message}</div>}
       </div>
     </m.div>
   );

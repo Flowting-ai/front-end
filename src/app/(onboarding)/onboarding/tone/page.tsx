@@ -38,7 +38,7 @@ function ToneCard({
         alignItems: "flex-start",
         padding: "12px",
         borderRadius: "16px",
-        backgroundColor: "white",
+        backgroundColor: "var(--neutral-white)",
         boxShadow: selected
           ? "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px #26211e"
           : "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",

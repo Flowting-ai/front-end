@@ -304,7 +304,7 @@ export function MoveToProjectModal({
               borderRadius:    12,
               position:        'relative',
               overflow:        'hidden',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--neutral-white)',
               boxShadow:       'var(--shadow-model-featured-default-outer)',
             }}>
               {/* Inner depth shadow */}

@@ -598,7 +598,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
             {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
           </div>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {personaName || 'Name'}
           </p>
         </div>
@@ -614,7 +614,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
       {/* Messages + Input — wrapped for lock overlay */}
       <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {panelsLocked && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(var(--surface-rgb), 0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock Test Chat</p>
         </div>
       )}
@@ -776,7 +776,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
           <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI suggestions</p>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI suggestions</p>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           {expanded
@@ -789,7 +789,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
       {/* Messages + Input — wrapped for lock overlay */}
       <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {panelsLocked && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(var(--surface-rgb), 0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock AI Suggestions</p>
           </div>
         )}
@@ -913,7 +913,7 @@ function VersionsPanel() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
             <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
           </div>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap' }}>
             Versions
           </p>
         </div>
@@ -1230,7 +1230,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
       }}
     >
       {/* Left configure panel (page content) with FloatingMenu + footer */}
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'rgba(255,255,255,0.2)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface-container)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
         {/* Scrollable content area */}
         <div style={{ flex: '1 0 0', minHeight: 0, position: 'relative' }}>
           {children}

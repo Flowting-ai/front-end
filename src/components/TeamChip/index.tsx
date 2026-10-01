@@ -60,7 +60,7 @@ export const TeamChip = React.forwardRef<HTMLSpanElement, TeamChipProps>(
             fontFamily:   'var(--font-title)',
             fontWeight:   500,
             fontSize:     isSmall ? 7 : 9,
-            color:        'var(--neutral-white)',
+            color:        'var(--color-text-on-accent)',
             lineHeight:   1,
             userSelect:   'none',
           }}
