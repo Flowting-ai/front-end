@@ -435,3 +435,14 @@ describe("thinking text (reasoning blocks, shimmer)", () => {
     }
   });
 });
+
+describe("active sidebar item", () => {
+  it("gets exactly the hover tokens, so its text is white like on hover", () => {
+    const active = decls(THEME.match(/:root\[data-theme="dark"\] \[data-sidebar-active\]\s*\{([^}]*)\}/)![1]);
+    const hover = decls(THEME.match(/:root\[data-theme="dark"\] button:hover[^{]*\{([^}]*)\}/)![1]);
+    expect(Object.keys(active).length).toBeGreaterThan(0);
+    expect(active).toEqual(hover);
+    expect(resolveVar({ ...DARK, ...active }, "--sidebar-menu-item-text")!.toUpperCase()).toBe("#FFFFFF");
+    expect(resolveVar({ ...DARK, ...active }, "--sidebar-menu-item-muted")!.toUpperCase()).toBe("#FFFFFF");
+  });
+});

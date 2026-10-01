@@ -294,6 +294,10 @@ const overrides = [
   // White is the hover colour for text in dark. Light has NO --text-hover, so every
   // `var(--text-hover, <today's colour>)` falls back to today's colour there.
   ['--text-hover', WHITE],
+  // Sidebar icons (new/all projects, section headers, chevrons, row icons) are pure white in dark.
+  // Light defines neither, so var(--sidebar-icon, <today's colour>) falls back to today's colour.
+  ['--sidebar-icon', WHITE],
+  ['--sidebar-icon-muted', WHITE],
   ['--tab-item-text-hover', WHITE],
   // Tab bar: the mid grey (#413D39) behind the white selected pill. It is lighter than the
   // near-black track the labels were tuned for, so unselected labels step up one palette
@@ -487,6 +491,13 @@ ${lines.join('\n')}
    Overrides the text/icon tokens on the hovered (or keyboard-highlighted) element;
    descendants that read these tokens turn white. Disabled controls are skipped. */
 ${hoverSelectors} {
+${HOVER_TOKENS.map((t) => `  ${t}: var(--text-hover);`).join('\n')}
+}
+
+/* ── Active sidebar item (dark only) ───────────────────────────────────────────
+   The selected sidebar row reads like a hovered one: same tokens, same white. Rows opt in with
+   data-sidebar-active; light mode has no rule for it, so it is a no-op there. */
+:root[data-theme="dark"] [data-sidebar-active] {
 ${HOVER_TOKENS.map((t) => `  ${t}: var(--text-hover);`).join('\n')}
 }
 

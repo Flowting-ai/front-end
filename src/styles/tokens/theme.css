@@ -246,6 +246,8 @@
   --color-surface-container: transparent;
   --surface-rgb: 28, 22, 19;
   --text-hover: #FFFFFF;
+  --sidebar-icon: #FFFFFF;
+  --sidebar-icon-muted: #FFFFFF;
   --tab-item-text-hover: #FFFFFF;
   --tab-bg: #413D39;
   --agent-card-bg: #413D39;
@@ -332,6 +334,27 @@
 :root[data-theme="dark"] [role="tab"][data-highlighted]:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
 :root[data-theme="dark"] a[href]:hover:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
 :root[data-theme="dark"] a[href][data-highlighted]:not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+  --button-ghost-text: var(--text-hover);
+  --button-outline-text: var(--text-hover);
+  --icon-button-ghost-icon: var(--text-hover);
+  --icon-button-ghost-2-icon: var(--text-hover);
+  --icon-button-outline-icon: var(--text-hover);
+  --dropdown-menu-item-text: var(--text-hover);
+  --dropdown-menu-item-muted: var(--text-hover);
+  --dropdown-menu-item-sublabel: var(--text-hover);
+  --model-select-item-text: var(--text-hover);
+  --model-select-item-icon: var(--text-hover);
+  --floating-menu-item-label: var(--text-hover);
+  --sidebar-menu-item-text: var(--text-hover);
+  --sidebar-menu-item-muted: var(--text-hover);
+  --color-text-default: var(--text-hover);
+  --color-text-muted: var(--text-hover);
+}
+
+/* ── Active sidebar item (dark only) ───────────────────────────────────────────
+   The selected sidebar row reads like a hovered one: same tokens, same white. Rows opt in with
+   data-sidebar-active; light mode has no rule for it, so it is a no-op there. */
+:root[data-theme="dark"] [data-sidebar-active] {
   --button-ghost-text: var(--text-hover);
   --button-outline-text: var(--text-hover);
   --icon-button-ghost-icon: var(--text-hover);

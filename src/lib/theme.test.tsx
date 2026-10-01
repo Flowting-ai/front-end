@@ -96,21 +96,23 @@ describe("theme.css is additive and in sync", () => {
       selector: m[1].trim(),
       body: m[2],
     }));
-    // Nine blocks: the light-safe additions, the dark token block, the dark hover-text rule
-    // (many selectors, all scoped to dark), the dark "raised surface" scope, the logo-swap
-    // rules (one default-hidden block + three dark-scoped), and the dark body rule.
-    expect(blocks.length).toBe(9);
+    // Ten blocks: the light-safe additions, the dark token block, the dark hover-text rule
+    // (many selectors, all scoped to dark), the dark active-sidebar-item rule, the dark "raised
+    // surface" scope, the logo-swap rules (one default-hidden block + three dark-scoped), and the
+    // dark body rule.
+    expect(blocks.length).toBe(10);
     expect(blocks[0].selector).toBe(":root");
     expect(blocks[1].selector).toBe(':root[data-theme="dark"]');
-    expect(blocks[3].selector).toBe(':root[data-theme="dark"] [data-surface="raised"]');
-    expect(blocks[8].selector).toBe(':root[data-theme="dark"] body');
+    expect(blocks[3].selector).toBe(':root[data-theme="dark"] [data-sidebar-active]');
+    expect(blocks[4].selector).toBe(':root[data-theme="dark"] [data-surface="raised"]');
+    expect(blocks[9].selector).toBe(':root[data-theme="dark"] body');
     for (const sel of blocks[2].selector.split(",").map((s) => s.trim())) {
       expect(sel.startsWith(':root[data-theme="dark"] ')).toBe(true);
     }
     // Logo swap: the only non-dark-scoped rule targets classes that exist solely on the
     // dark-variant images (rendered only when theming is on), so light is unaffected.
-    expect(blocks[4].selector.split(",").map((s) => s.trim())).toEqual([".kds-logo-dark", ".kds-llm-mono"]);
-    for (const b of blocks.slice(5, 8)) {
+    expect(blocks[5].selector.split(",").map((s) => s.trim())).toEqual([".kds-logo-dark", ".kds-llm-mono"]);
+    for (const b of blocks.slice(6, 9)) {
       for (const sel of b.selector.split(",").map((s) => s.trim())) {
         expect(sel.startsWith(':root[data-theme="dark"] .kds-')).toBe(true);
       }

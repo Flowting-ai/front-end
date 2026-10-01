@@ -231,6 +231,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
           onKeyDown={handleHeaderKeyDown}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          data-sidebar-active={isActive && !isEditing ? '' : undefined}
           style={{
             position:        'relative',
             display:         'flex',
@@ -262,7 +263,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                 aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
                 onClick={(e) => { if (isEditing || !showExpandArrow) return; e.stopPropagation(); toggle() }}
                 onKeyDown={(e) => { if (isEditing || !showExpandArrow) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : (showExpandArrow ? 'pointer' : 'default') }}
+                style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : (showExpandArrow ? 'pointer' : 'default') }}
               >
                 {icon
                   ? typeof icon.type === 'string'

@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { AccountSkeleton } from '../SettingsSkeleton'
 import { fetchModelsWithCache, sortModels, pickDefaultModel, modelIconSource, isAutoRoutingModelName } from '@/lib/ai-models'
 import { ModelIcon } from '@/components/ModelIcon'
+import { useTheme } from '@/context/theme-context'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Settings v1.5 — Account page ─────────────────────────────────────────────
@@ -23,6 +24,17 @@ import type { AIModel } from '@/types/ai-model'
 // lib/api/user.ts). Figma shows this as a constrained dropdown, not the old
 // free-text "AI Tone" input.
 const TONE_OPTIONS = ['Direct', 'Balanced', 'Warm'] as const
+
+// Screen mode — same Light / Dark / System choice as the Preferences page.
+const SCREEN_MODE_OPTIONS = ['Light', 'Dark', 'System'] as const
+type ScreenModeLabel = typeof SCREEN_MODE_OPTIONS[number]
+const SCREEN_MODE_VALUE = { Light: 'light', Dark: 'dark', System: 'system' } as const
+const SCREEN_MODE_LABEL = { light: 'Light', dark: 'Dark', system: 'System' } as const
+const SCREEN_MODE_DESCRIPTIONS: Record<ScreenModeLabel, string> = {
+  Light:  'Always use the light theme',
+  Dark:   'Always use the dark theme',
+  System: 'Match your device setting',
+}
 
 // Same copy onboarding/tone/page.tsx uses to introduce these exact 3 choices —
 // reused verbatim rather than reworded, so the tone means the same thing
@@ -379,6 +391,15 @@ function AccountPageContent({
   const [avatarHover, setAvatarHover] = useState(false)
   const [isEditing,   setIsEditing]   = useState(false)
 
+  // With theming OFF this stays a local, non-functional selector (default System), exactly like
+  // Preferences. With it ON it is the real preference, stored and applied by ThemeProvider.
+  const theme = useTheme()
+  const [localScreenMode, setLocalScreenMode] = useState<ScreenModeLabel>('System')
+  const screenMode: ScreenModeLabel = theme.enabled ? SCREEN_MODE_LABEL[theme.mode] : localScreenMode
+  const handleScreenModeChange = (label: ScreenModeLabel) => {
+    if (theme.enabled) theme.setMode(SCREEN_MODE_VALUE[label])
+    else setLocalScreenMode(label)
+  }
   const [tone, setToneState] = useState(baseTone)
   const [tonePending, setTonePending] = useState(false)
   const [models, setModels] = useState<AIModel[]>([])
@@ -861,6 +882,9 @@ function AccountPageContent({
               Personalisation
             </p>
           </CardSection>
+          <SettingsRow title="Screen mode" subtitle="Light, dark, or match your device" divider>
+            <PillSelect value={screenMode} options={SCREEN_MODE_OPTIONS} onChange={handleScreenModeChange} descriptions={SCREEN_MODE_DESCRIPTIONS} />
+          </SettingsRow>
           <SettingsRow title="Style" subtitle="How the interface should feel" divider>
             <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
           </SettingsRow>

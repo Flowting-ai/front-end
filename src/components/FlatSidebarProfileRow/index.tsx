@@ -53,6 +53,7 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      data-sidebar-active={isActive ? '' : undefined}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 50,
         padding: '0 12px', borderRadius: 10, cursor: 'pointer', boxSizing: 'border-box',
@@ -100,7 +101,7 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
             {planLabel}
           </span>
         )}
-        <span style={{ display: 'inline-flex', color: 'var(--sidebar-menu-item-text)' }}>
+        <span style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}>
           <SettingsOneIcon size={16} triggered={isActive} />
         </span>
       </div>
