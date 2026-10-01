@@ -332,15 +332,6 @@ export function ChatInterface({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, contextModel]);
 
-  // Estimate how much of the model's context window is currently in use.
-  // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
-  const contextUsedPct = useMemo(() => {
-    const limit = contextModel?.inputLimit;
-    const totalChars = messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
-    if (!limit || limit <= 0) return Math.min(1, totalChars / (200_000 * 4));
-    return Math.min(1, totalChars / (limit * 4));
-  }, [messages, contextModel]);
-
   // ── Tab / page-reload resilience ──────────────────────────────────────────
 
   // Warn before page reload when a stream is active so the user doesn't
@@ -1282,7 +1273,6 @@ export function ChatInterface({
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
-            contextUsedPct={contextUsedPct}
           />
             </>
           )}

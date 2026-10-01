@@ -839,7 +839,6 @@ function ChatPageInner() {
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
-                      contextUsedPct={0}
                       disabled={creditStatus.blocked}
                       attachmentsSlot={
                         PINS_ENABLED && newChatMentionedPins.length > 0 ? (

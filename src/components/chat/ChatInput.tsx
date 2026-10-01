@@ -127,12 +127,6 @@ export interface ChatInputProps
    * can send files without typing a message.
    */
   hasAttachments?: boolean;
-  /**
-   * Fraction of the model's context window currently used (0–1).
-   * A progress ring is shown around the send button for all values.
-   * Green at 0–60%, amber at 60–85%, red at 85%+.
-   */
-  contextUsedPct?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -166,7 +160,6 @@ export function ChatInput(
     hideAddButton = false,
     onFilePaste,
     hasAttachments = false,
-    contextUsedPct,
     className,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
@@ -845,41 +838,6 @@ export function ChatInput(
               onMouseLeave={() => setIsMicHovered(false)}
               style={{ display: "inline-flex", position: "relative" }}
             >
-              {/* Context window exhaustion ring — visible at all usage levels (0–100%) */}
-              {contextUsedPct !== undefined && (() => {
-                const CIRC = 125.66; // 2π × r20
-                const pct  = Math.min(1, Math.max(0, contextUsedPct))
-                const color = pct >= 0.85
-                  ? "#ef4444"
-                  : pct >= 0.60
-                    ? "#f59e0b"
-                    : "#22c55e";
-                return (
-                  <svg
-                    aria-hidden
-                    width={44}
-                    height={44}
-                    viewBox="0 0 44 44"
-                    style={{
-                      position:      "absolute",
-                      top:           -4,
-                      left:          -4,
-                      pointerEvents: "none",
-                      zIndex:        1,
-                      overflow:      "visible",
-                    }}
-                  >
-                    <circle cx={22} cy={22} r={20} fill="none"
-                      stroke={color} strokeWidth={1.5} strokeOpacity={0.15} />
-                    <circle cx={22} cy={22} r={20} fill="none"
-                      stroke={color} strokeWidth={1.5} strokeLinecap="round"
-                      strokeDasharray={CIRC}
-                      strokeDashoffset={CIRC * (1 - pct)}
-                      transform="rotate(-90 22 22)"
-                    />
-                  </svg>
-                );
-              })()}
               <IconButton
                 variant="default"
                 size="md"
