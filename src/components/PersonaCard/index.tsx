@@ -22,11 +22,20 @@ import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
+import {
+  AnimatedPersonaAvatar,
+  AVATAR_THEMES,
+  GENERIC_STATUS,
+  pickAvatarTheme,
+  type AvatarTheme,
+} from './AnimatedPersonaAvatar'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
 const SHADOW_CARD          = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_CARD_TEMPLATE = '0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
+// Hover lifts the 1px ring a few steps — the reference card's border-color brighten.
+const SHADOW_CARD_HOVER    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
+const SHADOW_CARD_TEMPLATE ='0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
 
 // Fixed height for default/draft cards so every card in a grid lines up
 // regardless of description length or which badges/footer content is
@@ -57,48 +66,76 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-// ── PersonaAvatar ─────────────────────────────────────────────────────────────
-// 65 × 65 rounded avatar — shows saved image URL, falls back to initials.
+// ── StatusTicker ──────────────────────────────────────────────────────────────
+// Live status in the hover action bar: steps through `messages` every 1.2s
+// (each line rising in) while a 1px progress line sweeps the bar's top edge,
+// staying full once the last line lands. Mounts on hover, so its clock starts
+// at hover-in.
 
-function PersonaAvatar({
-  avatarUrl,
-  name,
-  avatarSeed,
-  size   = AVATAR_SIZE,
-  radius = 8,
-}: {
-  avatarUrl?: string
-  name:       string
-  avatarSeed?: string
-  size?:      number
-  radius?:    number
-}) {
-  // Match may-day: when no avatar (or the provided URL fails to load) fall back
-  // to a deterministic marble image rather than initials.
-  const [imgError, setImgError] = useState(false)
-  const src = (avatarUrl && !imgError)
-    ? avatarUrl
-    : getPersonaFallbackAvatar(avatarSeed || name)
+const STATUS_STEP_S = 1.2
+const RISE = {
+  initial:    { y: 8, opacity: 0 },
+  animate:    { y: 0, opacity: 1 },
+  transition: { duration: 0.3, ease: 'easeOut' as const },
+}
+
+function StatusTicker({ messages }: { messages: string[] }) {
+  const [idx, setIdx] = useState(0)
+  const barRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const start = performance.now() / 1000
+    const lastIdx = messages.length - 1
+    let raf = 0
+    const tick = () => {
+      const t    = performance.now() / 1000 - start
+      const next = Math.min(Math.floor(t / STATUS_STEP_S), lastIdx)
+      setIdx(next)
+      if (barRef.current) {
+        const pct = next === lastIdx ? 100 : ((t % STATUS_STEP_S) / STATUS_STEP_S) * 100
+        barRef.current.style.width = `${pct}%`
+      }
+      if (next < lastIdx) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [messages])
 
   return (
-    <div
-      aria-hidden
-      style={{
-        width:        size,
-        height:       size,
-        borderRadius: radius,
-        overflow:     'hidden',
-        flexShrink:   0,
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
-      <img
-        src={src}
-        alt={name}
-        onError={() => setImgError(true)}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    <>
+      <div
+        ref={barRef}
+        aria-hidden
+        style={{
+          position:        'absolute',
+          top:             -1,
+          left:            0,
+          height:          1,
+          width:           0,
+          backgroundColor: 'var(--neutral-800)',
+          pointerEvents:   'none',
+        }}
       />
-    </div>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', justifyContent: 'flex-end' }}>
+        <m.span
+          key={idx}
+          {...RISE}
+          style={{
+            display:      'inline-block',
+            fontFamily:   'var(--font-body)',
+            fontSize:     'var(--font-size-caption)',
+            lineHeight:   'var(--line-height-caption)',
+            color:        'var(--neutral-500)',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+            maxWidth:     '100%',
+          }}
+        >
+          {messages[idx]}
+        </m.span>
+      </div>
+    </>
   )
 }
 
@@ -221,10 +258,19 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   handle: string
   /** One-to-two line persona summary shown below the badge row. */
   description?: string
-  /** Avatar image URL. Falls back to initials derived from `name`. */
+  /**
+   * Avatar image URL. Not rendered on the card — every card draws the
+   * animated gooey avatar (agent_cards_iteration_2) instead; kept so callers
+   * and other surfaces sharing these props needn't change.
+   */
   avatarUrl?: string
   /** Stable persona id used to select the deterministic fallback avatar. */
   avatarSeed?: string
+  /**
+   * Avatar interior theme. Omit to pick from the agent's name; pass null
+   * for a plain sphere with no interior detail.
+   */
+  avatarTheme?: AvatarTheme | null
 
   /**
    * Controlled hover override. When true, the action bar is forced visible
@@ -366,6 +412,7 @@ function ActionBar({
   resumePending,
   onTry,
   onOpen,
+  statusMessages,
 }: {
   type:             ActionBarType
   isDraft?:         boolean
@@ -379,6 +426,7 @@ function ActionBar({
   resumePending?:   boolean
   onTry?:           () => void
   onOpen?:          () => void
+  statusMessages?:  string[]
 }) {
   const isPresent = useIsPresent()
 
@@ -402,6 +450,9 @@ function ActionBar({
         gap:                     6,
         zIndex:                  1,
         pointerEvents:           isPresent ? 'auto' : 'none',
+        // Stands in for the footer divider it covers, so the status
+        // ticker's progress line has an edge to sweep along.
+        borderTop:               statusMessages ? '1px solid var(--neutral-100)' : undefined,
       }}
     >
       {type === 'hover' && (
@@ -416,7 +467,7 @@ function ActionBar({
               <IconButton variant="ghost" size="sm" aria-label="Copy link" icon={<ShareOneIcon />} onClick={onLink} />
             </Tooltip>
           )}
-          <div style={{ flex: 1 }} />
+          {statusMessages ? <StatusTicker messages={statusMessages} /> : <div style={{ flex: 1 }} />}
           <Button variant="secondary" size="sm" onClick={onUseInChat}>{useInChatLabel}</Button>
         </>
       )}
@@ -495,8 +546,9 @@ function PersonaCardInner({
       name,
       handle,
       description,
-      avatarUrl,
+      avatarUrl:     _avatarUrl,
       avatarSeed,
+      avatarTheme:   avatarThemeProp,
       hovered:       hoveredProp,
       paused         = false,
       superlink      = false,
@@ -534,6 +586,7 @@ function PersonaCardInner({
       style,
       onMouseEnter:  onMouseEnterProp,
       onMouseLeave:  onMouseLeaveProp,
+      onClick:       onClickProp,
       ...props
     }: PersonaCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [internalHovered, setInternalHovered] = useState(false)
@@ -545,6 +598,18 @@ function PersonaCardInner({
     const isDraft     = variant === 'draft'
     const isTemplate  = variant === 'template'
     const isCommunity = variant === 'community' || variant === 'community-imported'
+
+    // ── Animation ─────────────────────────────────────────────────────────────
+    // Avatar theme + status copy: explicit `avatarTheme` prop wins, otherwise
+    // it's picked from the agent's name (null → plain sphere, generic copy).
+    const seed = avatarSeed || name
+    const avatarTheme = avatarThemeProp !== undefined ? avatarThemeProp : pickAvatarTheme(name)
+    const statusMessages = avatarTheme ? AVATAR_THEMES[avatarTheme].status : GENERIC_STATUS
+    const [bounceKey,  setBounceKey]  = useState(0)
+    // Bumped on hover-out so "Created by" rises back in, like the reference
+    // footer label returning after its status run.
+    const [leaveCount, setLeaveCount] = useState(0)
+    const animateHover = isHovered && !modelUnavailable
 
     // Which content to render inside the action bar.
     const actionBarType =
@@ -633,7 +698,12 @@ function PersonaCardInner({
         }}
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           setInternalHovered(false)
+          setLeaveCount(n => n + 1)
           onMouseLeaveProp?.(e)
+        }}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+          if (!modelUnavailable) setBounceKey(n => n + 1)
+          onClickProp?.(e)
         }}
         style={{
           position:        'relative',
@@ -641,7 +711,7 @@ function PersonaCardInner({
           height:          (!isTemplate && !isCommunity) ? CARD_HEIGHT : undefined,
           borderRadius:    16,
           backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
-          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : SHADOW_CARD,
+          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : (animateHover && !isDraft ? SHADOW_CARD_HOVER : SHADOW_CARD),
           border:          isDraft
             ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
             : undefined,
@@ -650,7 +720,7 @@ function PersonaCardInner({
           zIndex:          menuOpen ? 100 : undefined,
           opacity:         pausePending ? 0.6 : 1,
           pointerEvents:   pausePending ? 'none' : undefined,
-          transition:      'opacity 150ms',
+          transition:      'opacity 150ms, box-shadow 300ms',
           ...style,
         }}
         // Dark mode: the card sits on a lighter grey, so its muted text/icon tones are lifted
@@ -706,7 +776,14 @@ function PersonaCardInner({
                 transition: 'opacity 0.2s ease',
               }}
             >
-              <PersonaAvatar avatarUrl={avatarUrl} name={name} avatarSeed={avatarSeed} />
+              <AnimatedPersonaAvatar
+                size={AVATAR_SIZE}
+                theme={avatarTheme}
+                seed={seed}
+                hovered={animateHover}
+                bounceKey={bounceKey}
+                inert={paused || modelUnavailable}
+              />
             </div>
 
             {/* Meta column */}
@@ -990,6 +1067,7 @@ function PersonaCardInner({
           {description && (
             <p
               title={description}
+              className={animateHover ? 'persona-card-desc-reading' : undefined}
               style={{
                 margin:           '8px 0 0',
                 fontFamily:       'var(--font-body)',
@@ -1045,7 +1123,9 @@ function PersonaCardInner({
               {/* Bottom-right slot: creator attribution. */}
               <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                 {createdBy && (
-                  <span
+                  <m.span
+                    key={leaveCount}
+                    {...(leaveCount > 0 ? RISE : null)}
                     title={`Created by ${createdBy}`}
                     style={{
                       fontFamily:   'var(--font-body)',
@@ -1055,10 +1135,11 @@ function PersonaCardInner({
                       overflow:     'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace:   'nowrap',
+                      display:      'inline-block',
                     }}
                   >
                     Created by {createdBy}
-                  </span>
+                  </m.span>
                 )}
               </div>
             </div>
@@ -1083,6 +1164,7 @@ function PersonaCardInner({
               resumePending={pausePending}
               onTry={onTry}
               onOpen={onOpen}
+              statusMessages={actionBarType === 'hover' ? statusMessages : undefined}
             />
           )}
         </AnimatePresence>
