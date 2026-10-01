@@ -13,6 +13,7 @@ import {
   StopCircleIcon,     // ⚠ substitute — no PauseIcon yet
   ArrowRightTwoIcon,  // ⚠ substitute — no PlayIcon/ResumeIcon yet
   AlertTwoIcon,
+  InformationCircleIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
@@ -319,6 +320,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   onOpen?:              () => void
   /** Bookmark icon on community cards. */
   onBookmark?:          () => void
+  /** ··· menu → Details (opens the agent details side panel) */
+  onMenuDetails?:       () => void
   /** ··· menu → Edit */
   onMenuEdit?:          () => void
   /** ··· menu → Share (navigates to the sharing configuration page) */
@@ -390,7 +393,7 @@ function ActionBar({
         bottom:                  0,
         left:                    0,
         right:                   0,
-        backgroundColor:         isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        backgroundColor:         isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
         borderBottomLeftRadius:  16,
         borderBottomRightRadius: 16,
         padding:                 '8px 10px',
@@ -519,6 +522,7 @@ function PersonaCardInner({
       onTry,
       onOpen,
       onBookmark,
+      onMenuDetails,
       onMenuEdit,
       onMenuShare,
       onMenuDuplicate,
@@ -636,7 +640,7 @@ function PersonaCardInner({
           width:           314,
           height:          (!isTemplate && !isCommunity) ? CARD_HEIGHT : undefined,
           borderRadius:    16,
-          backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)',
+          backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
           boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : SHADOW_CARD,
           border:          isDraft
             ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
@@ -649,6 +653,9 @@ function PersonaCardInner({
           transition:      'opacity 150ms',
           ...style,
         }}
+        // Dark mode: the card sits on a lighter grey, so its muted text/icon tones are lifted
+        // (see theme.css "Raised surface"). No effect in light.
+        data-surface="raised"
         {...props}
       >
 
@@ -821,6 +828,14 @@ function PersonaCardInner({
                           >
                             <Dropdown size="sm" maxHeight={false}>
                               <Dropdown.Section fluid>
+                                {onMenuDetails && (
+                                  <Dropdown.Item
+                                    label="Details"
+                                    icon={<InformationCircleIcon />}
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuDetails() }}
+                                  />
+                                )}
                                 {onMenuEdit && (
                                   <Dropdown.Item
                                     label="Edit"
@@ -946,7 +961,7 @@ function PersonaCardInner({
                     bottom:        0,
                     left:          0,
                     width:         16,
-                    background:    `linear-gradient(to right, ${isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)'} 0%, transparent 100%)`,
+                    background:    `linear-gradient(to right, ${isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)'} 0%, transparent 100%)`,
                     pointerEvents: 'none',
                     opacity:       tagRowAtStart ? 0 : 1,
                     transition:    'opacity 150ms ease',
@@ -960,7 +975,7 @@ function PersonaCardInner({
                     bottom:        0,
                     right:         0,
                     width:         16,
-                    background:    `linear-gradient(to left, ${isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)'} 0%, transparent 100%)`,
+                    background:    `linear-gradient(to left, ${isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)'} 0%, transparent 100%)`,
                     pointerEvents: 'none',
                     opacity:       tagRowAtEnd ? 0 : 1,
                     transition:    'opacity 150ms ease',
@@ -1085,7 +1100,7 @@ function PersonaCardInner({
                 position:        'absolute',
                 inset:           0,
                 borderRadius:    16,
-                backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)',
+                backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
                 // Carries the whole dim now that the content div no longer
                 // fades itself (see the pointerEvents note above).
                 opacity:         0.72,

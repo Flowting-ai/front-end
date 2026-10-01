@@ -36,3 +36,9 @@ export function getPersonaFallbackAvatar(seed: string): string {
 export function pickTemplateAvatar(): string {
   return TEMPLATE_AVATARS[Math.floor(Math.random() * TEMPLATE_AVATARS.length)]
 }
+
+/** A random avatar from the pool that is not `current` — what "Regenerate" cycles to. */
+export function pickDifferentTemplateAvatar(current: string | null | undefined): string {
+  const others = TEMPLATE_AVATARS.filter(path => path !== current)
+  return others[Math.floor(Math.random() * others.length)]
+}

@@ -50,9 +50,10 @@ import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
-import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE, CHAT_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_NEW_ROUTE, AGENT_EDIT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
+import { AgentDetailsSidebar } from '@/components/AgentEditor/AgentDetailsSidebar'
 import type { SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
@@ -545,6 +546,23 @@ function PersonasPageInner() {
     replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
   }
 
+  // The agent whose details panel is open lives in the URL (?agent=<id>) so a
+  // reload, a shared link, or landing here right after creating an agent shows it.
+  const detailsId = searchParams.get('agent')
+
+  function openDetails(id: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('agent', id)
+    replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
+
+  function closeDetails() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('agent')
+    const query = params.toString()
+    replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+  }
+
   // The sidebar's "See all agents" row emits this while this page is already
   // mounted (a same-URL push wouldn't reset activeTab on its own) — always
   // land back on "My Agents", regardless of which tab was active.
@@ -1016,7 +1034,7 @@ function PersonasPageInner() {
     try {
       const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
-      push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(copy.id, { name: persona.name }))
+      push(AGENT_EDIT_ROUTE(copy.id))
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to copy agent. Please try again.')
@@ -1133,7 +1151,7 @@ function PersonasPageInner() {
     <>
       <div
         style={{
-          background: 'rgba(255,255,255,0.2)',
+          background: 'var(--color-surface-container)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 22,
           flex: '1 1 0',
@@ -1186,7 +1204,7 @@ function PersonasPageInner() {
                 fontWeight: 'var(--font-weight-regular)',
                 fontSize: 24,
                 lineHeight: '32px',
-                color: '#1a1916',
+                color: 'var(--legacy-1a1916)',
                 margin: 0,
               }}>
                 {activeTab === 'super-links' ? 'Super Links' : 'Agents'}
@@ -1213,7 +1231,7 @@ function PersonasPageInner() {
                     <Button
                       variant="default"
                       leftIcon={<PlusSignIcon size={16} />}
-                      onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+                      onClick={() => push(AGENTS_NEW_ROUTE)}
                     >
                       New agent
                     </Button>
@@ -1253,7 +1271,7 @@ function PersonasPageInner() {
                     gap: 2,
                     padding: '7px 10px',
                     borderRadius: 10,
-                    background: 'white',
+                    background: 'var(--neutral-white)',
                     boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                     width: 450,
                   }}>
@@ -1486,7 +1504,7 @@ function PersonasPageInner() {
                         fontWeight: 'var(--font-weight-regular)',
                         fontSize: 24,
                         lineHeight: '32px',
-                        color: '#1a1916',
+                        color: 'var(--legacy-1a1916)',
                         margin: 0,
                         whiteSpace: 'nowrap',
                       }}>
@@ -1497,7 +1515,7 @@ function PersonasPageInner() {
                         fontWeight: 'var(--font-weight-regular)',
                         fontSize: 16,
                         lineHeight: '22px',
-                        color: '#1a1916',
+                        color: 'var(--legacy-1a1916)',
                         textAlign: 'center',
                         maxWidth: 427,
                         margin: 0,
@@ -1505,7 +1523,7 @@ function PersonasPageInner() {
                         Agents are your custom AI configurations - define behavior, connect knowledge, and share via link.
                       </p>
                     </div>
-                    <Button variant="default" onClick={() => push(AGENTS_TEMPLATES_ROUTE)}>
+                    <Button variant="default" onClick={() => push(AGENTS_NEW_ROUTE)}>
                       Create your first agent
                     </Button>
                   </div>
@@ -1581,6 +1599,7 @@ function PersonasPageInner() {
                             // original; they copy it first.
                             const isTeamShared = persona.visibility === 'team' && !isOwnedByMe(persona)
                             if (isTeamShared) return {
+                              onMenuDetails:     () => openDetails(persona.id),
                               onEdit:            () => void handleCopyAndEdit(persona),
                               onUseInChat:       () => void handleUseTeamSharedInChat(persona),
                               onMenuDuplicate:   () => void handleCopyAndEdit(persona),
@@ -1588,7 +1607,8 @@ function PersonasPageInner() {
                             // Owned personas (private copies or admin's own team agents)
                             const isOwned = persona.sourceShareId === null
                             return {
-                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
+                              onMenuDetails:     () => openDetails(persona.id),
+                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_EDIT_ROUTE(persona.id)) } : undefined,
                               onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
                               // Same "hand off via sessionStorage, land on a fresh /chat
                               // with the agent pre-attached" pattern as agents/published's
@@ -1604,7 +1624,7 @@ function PersonasPageInner() {
                                 push(CHAT_ROUTE)
                               },
                               onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
-                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
+                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_EDIT_ROUTE(persona.id)) } : undefined,
                               onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
                               onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                               pausePending:      pausingIds.has(persona.id),
@@ -2076,6 +2096,18 @@ function PersonasPageInner() {
         </div>
       </div>
       </div>
+
+      {/* ── Agent details (right sidebar) ── */}
+      <AgentDetailsSidebar
+        repoId={detailsId}
+        canEdit={(() => {
+          const target = personas.find(p => p.id === detailsId)
+          // Unknown yet (e.g. just created, list still refreshing): the panel
+          // loads the agent itself, and an agent that isn't the viewer's never loads.
+          return target ? target.sourceShareId === null && isOwnedByMe(target) : true
+        })()}
+        onClose={closeDetails}
+      />
 
       {/* ── Super Link drawer ── */}
       <SuperLinkDrawer

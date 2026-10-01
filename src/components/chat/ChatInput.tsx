@@ -21,6 +21,9 @@ import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { trackFeature } from "@/lib/analytics/events";
 import { PIN_DRAG_MIME_TYPE, type PinDragPayload } from "@/lib/pin-drag";
 import { PINS_ENABLED } from "@/lib/feature-flags";
+import { useAgentMention } from "@/hooks/use-agent-mention";
+import { AgentMentionMenu } from "@/components/chat/AgentMentionMenu";
+import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -127,6 +130,15 @@ export interface ChatInputProps
    * can send files without typing a message.
    */
   hasAttachments?: boolean;
+  /**
+   * Turns on `@agent` mentions: typing `@` offers the user's agents, and picking
+   * one removes the `@word` from the text and hands the agent to `onSelect`.
+   */
+  agentMention?: {
+    onSelect: (agent: SelectedPersonaInfo) => void;
+    /** The agent already attached to the chat, shown as selected in the list. */
+    selectedAgentId?: string | null;
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -160,6 +172,7 @@ export function ChatInput(
     hideAddButton = false,
     onFilePaste,
     hasAttachments = false,
+    agentMention,
     className,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
@@ -197,6 +210,24 @@ export function ChatInput(
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
+
+    // `@agent` mentions. Picking an agent rewrites the text (the `@word` is removed)
+    // and puts the caret back where it was.
+    const applyMentionText = (next: string, caret: number) => {
+      if (!isControlled) setInternalValue(next);
+      onChange?.(next);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      });
+    };
+    const mention = useAgentMention({
+      enabled: !!agentMention,
+      applyText: applyMentionText,
+      onSelect: (agent) => agentMention?.onSelect(agent),
+    });
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -362,6 +393,8 @@ export function ChatInput(
       if (!isControlled) setInternalValue(newValue);
       onChange?.(newValue);
 
+      if (agentMention) mention.update(newValue, e.target.selectionStart ?? newValue.length);
+
       // @-mention detection - only when the parent opts in via onMentionChange.
       if (PINS_ENABLED && onMentionChange) {
         const lastChar = newValue[newValue.length - 1];
@@ -413,6 +446,9 @@ export function ChatInput(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // The agent list, while open, owns arrows / Enter / Tab / Escape.
+      if (agentMention && mention.onKeyDown(e)) return;
+
       // While the pin dropdown is open, delegate arrow keys / Enter / Escape
       // to the parent so it can move the highlighted selection or confirm.
       if (PINS_ENABLED && isPinDropdownOpen && onPinNavigate) {
@@ -570,6 +606,18 @@ export function ChatInput(
         >
           {isRecording ? "Recording started. Listening." : ""}
         </span>
+
+        {/* ── @agent list — floats above the box while typing a mention ── */}
+        {agentMention && mention.open && (
+          <AgentMentionMenu
+            items={mention.items}
+            loading={mention.loading}
+            activeIndex={mention.activeIndex}
+            selectedId={agentMention.selectedAgentId ?? null}
+            onPick={mention.select}
+            onHover={mention.setActive}
+          />
+        )}
 
         {/* ── Attachments slot - chip strip rendered above the textarea ── */}
         {attachmentsSlot}

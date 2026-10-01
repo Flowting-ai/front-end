@@ -49,6 +49,10 @@ import {
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
 import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
+import { detectCreateAgentIntent } from "@/lib/agent-intent";
+import { CreateAgentInChat, toComposerAgent, type CreatedInChat } from "@/components/AgentEditor/CreateAgentInChat";
+import type { UIMessage } from "@/types/chat";
+import { buildAgentCardMessages } from "@/lib/agent-card-messages";
 import { MentionChip } from "@/components/chat/MentionChip";
 import { TemplateCard } from "@/components/chat/TemplateCard";
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
@@ -122,6 +126,10 @@ function ChatPageInner() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
+  // The "Create an agent that…" flow, open while set.
+  const [agentCreator, setAgentCreator] = useState<{ purpose: string; message: string; sendAnyway: () => void } | null>(null);
+  // The just-created agent, shown in the thread as a card (browser-only messages).
+  const [injectedMessages, setInjectedMessages] = useState<UIMessage[] | null>(null);
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
   const [selectedMode, setSelectedMode] = useState<ChatMode | null>(null);
@@ -652,12 +660,43 @@ function ChatPageInner() {
     }
   };
 
-  // Capture typed message from new-chat landing → transition to ChatInterface
+  // "Create an agent that…" starts the agent-creation flow instead of going to the
+  // model. Only for plain text (no attachments) and when no agent is attached;
+  // `sendAnyway` is the flow's "not an agent — send it as a normal message" escape.
+  const interceptCreateAgent = (text: string, sendAnyway: () => void): boolean => {
+    if (selectedPersona) return false;
+    const intent = detectCreateAgentIntent(text);
+    if (!intent) return false;
+    setAgentCreator({ purpose: intent.purpose, message: text, sendAnyway });
+    return true;
+  };
+
+  // The agent now exists: show the request and the agent card in the thread. From the
+  // new-chat landing this also switches to the thread view.
+  const handleAgentCreated = ({ draft, created, message }: CreatedInChat) => {
+    setInjectedMessages(buildAgentCardMessages({
+      persona: toComposerAgent(draft, created),
+      published: created.published,
+      message,
+      chatId: activeChatId,
+    }));
+    setHasMessages(true);
+  };
+
   const handleNewChatSend = (value: string) => {
     if (!value.trim() && newChatAttachments.length === 0) return;
     // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
     // already disabled and the CreditStatusBanner explains why, so block silently.
     if (creditStatus.blocked) return;
+    if (newChatAttachments.length === 0 && !selectedMode && interceptCreateAgent(value.trim(), () => submitNewChat(value))) {
+      setNewChatInput("");
+      return;
+    }
+    submitNewChat(value);
+  };
+
+  // Capture typed message from new-chat landing → transition to ChatInterface
+  const submitNewChat = (value: string) => {
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
@@ -752,7 +791,7 @@ function ChatPageInner() {
                   display:         "flex",
                   alignItems:      "center",
                   justifyContent:  "center",
-                  backgroundColor: "rgba(255,255,255,0.88)",
+                  backgroundColor: "rgba(var(--surface-rgb), 0.88)",
                   border:          "2px dashed var(--focus-ring)",
                   borderRadius:    "16px",
                   pointerEvents:   "none",
@@ -831,6 +870,7 @@ function ChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
+                      agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
@@ -998,10 +1038,24 @@ function ChatPageInner() {
               readOnly={activeChatReadOnly}
               archived={activeChatArchived}
               chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
+              onBeforeSend={interceptCreateAgent}
+              injectedMessages={injectedMessages}
+              onInjectedMessagesConsumed={() => setInjectedMessages(null)}
+              onUseAgent={setSelectedPersona}
+              agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>
         )}
       </AnimatePresence>
+
+      <CreateAgentInChat
+        open={agentCreator !== null}
+        initialPurpose={agentCreator?.purpose ?? ""}
+        originalMessage={agentCreator?.message ?? ""}
+        onClose={() => setAgentCreator(null)}
+        onCreated={handleAgentCreated}
+        onSendAsMessage={() => agentCreator?.sendAnyway()}
+      />
 
       {/* Switch confirmation dialog */}
       <ModelSwitchDialog

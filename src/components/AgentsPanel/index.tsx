@@ -14,7 +14,7 @@ import { PersonaCard } from '@/components/PersonaCard'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { listShares } from '@/lib/api/persona-shares'
 import { useProjectPanel } from '@/context/project-panel-context'
-import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_NEW_ROUTE } from '@/lib/routes'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
@@ -169,7 +169,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
 
   const handleCreateNew = () => {
     setPanel(null)
-    router.push(AGENTS_TEMPLATES_ROUTE)
+    router.push(AGENTS_NEW_ROUTE)
   }
 
   return (

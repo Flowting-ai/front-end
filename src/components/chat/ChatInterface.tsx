@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
-import { ChatInput } from "./ChatInput";
+import { ChatInput, type ChatInputProps } from "./ChatInput";
 import { PinMentionDropdown } from "./PinMentionDropdown";
 import { PinChipStrip } from "./PinChipStrip";
 import {
@@ -22,6 +22,9 @@ import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
 import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { UIMessage } from "@/types/chat";
+import { AgentCreatedCard } from "@/components/AgentEditor/AgentCreatedCard";
+import { mergeInjectedMessages } from "@/lib/agent-card-messages";
+import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 import {
   useStreamingChat,
   type StreamState,
@@ -157,6 +160,24 @@ interface ChatInterfaceProps {
    * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
    */
   chatOwnershipConfirmed?: boolean;
+  /**
+   * Lets the host take over a message before it is sent (e.g. "Create an agent
+   * that…" starting the agent-creation flow). Return true to say the host has
+   * handled it: nothing is sent and the input is cleared. `sendAnyway` sends the
+   * same text as an ordinary message, skipping this check.
+   */
+  onBeforeSend?: (text: string, sendAnyway: () => void) => boolean;
+  /** Turns on `@agent` mentions in the input — see ChatInput. */
+  agentMention?: ChatInputProps["agentMention"];
+  /**
+   * Messages that exist only in this browser (never sent to the backend), to be
+   * appended to the thread once — e.g. the card of an agent just created from chat.
+   * The host clears them via `onInjectedMessagesConsumed` after they are added.
+   */
+  injectedMessages?: UIMessage[] | null;
+  onInjectedMessagesConsumed?: () => void;
+  /** "Use now" on an agent card: attach that agent to the chat. */
+  onUseAgent?: (agent: SelectedPersonaInfo) => void;
 }
 
 export function ChatInterface({
@@ -196,6 +217,11 @@ export function ChatInterface({
   readOnly = false,
   archived = false,
   chatOwnershipConfirmed,
+  onBeforeSend,
+  agentMention,
+  injectedMessages,
+  onInjectedMessagesConsumed,
+  onUseAgent,
 }: ChatInterfaceProps) {
   const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -314,6 +340,15 @@ export function ChatInterface({
 
   const messages = rawMessages ?? [];
 
+  // Append host-supplied local messages once. Declared after useChatState so, on a
+  // fresh mount, its "no chat yet" reset has already run and cannot clear them.
+  useEffect(() => {
+    if (!injectedMessages || injectedMessages.length === 0) return;
+    setMessages((prev) => mergeInjectedMessages(prev, injectedMessages));
+    onInjectedMessagesConsumed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the host supplies new messages
+  }, [injectedMessages]);
+
   // Seed model logo + name on assistant messages that have thinking content but no
   // model identity when the history API does not return model_name.
   useEffect(() => {
@@ -375,6 +410,7 @@ export function ChatInterface({
     estimateSize: (i) => {
       const msg = messages[i]
       if (!msg) return 200
+      if (msg.agentCard) return 190
       if (msg.role === "user") {
         // Base height for the bubble + padding; add ~16px per 80 chars
         return 80 + Math.ceil((msg.content?.length ?? 0) / 80) * 16
@@ -436,6 +472,8 @@ export function ChatInterface({
   // Enter-then-click race) within the same tick can slip two fetchAiResponse calls
   // through before the button disables — this ref closes that gap.
   const isSendingRef = useRef(false);
+  // Set by the host's "send anyway" so the next handleSend skips onBeforeSend.
+  const skipBeforeSendRef = useRef(false);
 
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
@@ -687,6 +725,18 @@ export function ChatInterface({
     // too, so block silently rather than send with systemPrompt missing.
     if (personaConfigLoading) return;
 
+    // Host takeover (see onBeforeSend). Skipped for messages with attachments and
+    // when the host asked to send this very text anyway.
+    if (skipBeforeSendRef.current) {
+      skipBeforeSendRef.current = false;
+    } else if (allFiles.length === 0 && onBeforeSend?.(text.trim(), () => {
+      skipBeforeSendRef.current = true;
+      void handleSend(text);
+    })) {
+      setInputValue("");
+      return;
+    }
+
     // Reentrancy guard: see isSendingRef declaration above.
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -919,7 +969,7 @@ export function ChatInterface({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(255,255,255,0.9)",
+            backgroundColor: "rgba(var(--surface-rgb), 0.9)",
             border: "2px dashed var(--blue-400)",
             borderRadius: "16px",
           }}
@@ -1020,7 +1070,7 @@ export function ChatInterface({
                 fontFamily: "var(--font-body)",
               }}
             >
-              <p style={{ margin: 0, fontSize: 14, color: "#827A74" }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--neutral-500)" }}>
                 Couldn&apos;t load this conversation. {messagesLoadError}
               </p>
               <button
@@ -1079,6 +1129,14 @@ export function ChatInterface({
                     contain:    'layout',
                   }}
                 >
+                  {message.agentCard ? (
+                    <AgentCreatedCard
+                      agent={message.agentCard.persona}
+                      published={message.agentCard.published}
+                      inUse={!!selectedPersonaId && selectedPersonaId === message.agentCard.persona.activeVersionId}
+                      onUse={onUseAgent}
+                    />
+                  ) : (
                   <ChatMessageMemo
                     message={message}
                     isLast={idx === messages.length - 1}
@@ -1095,12 +1153,13 @@ export function ChatInterface({
                         : undefined
                     }
                     onEdit={
-                      message.role === "user"
+                      message.role === "user" && !message.localOnly
                         ? handleEditMessage
                         : undefined
                     }
                     onPromptDecided={handlePromptDecided}
                   />
+                  )}
                 </div>
               );
             })}
@@ -1225,6 +1284,7 @@ export function ChatInterface({
             onAdd={handleAdd}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             hasAttachments={attachments.length > 0}
+            agentMention={agentMention}
             onModelClick={onModelClick}
             modelName={selectedModel ?? "Souvenir"}
             addMenu={addMenu}
