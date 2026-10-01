@@ -1,85 +1,19 @@
 'use client'
 
 import React from 'react'
-import { m } from 'framer-motion'
 import {
   CalendarThreeIcon,
   ArrowRightOneIcon,
   CheckmarkCircleTwoIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { useRecommendations } from '@/hooks/use-recommendations'
+import { TemplateCard } from '@/components/chat/TemplateCard'
+import { m } from 'framer-motion'
+import { useRecommendationsState } from '@/hooks/use-recommendations'
+import { TemplateCardSkeleton } from '@/components/chat/TemplateCardSkeleton'
 import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
 import type { DigestItem } from './BrainDigestCard'
 
-
-// ── SuggestionCard ─────────────────────────────────────────────────────────
-
-interface SuggestionCardProps {
-  Icon:    React.ComponentType<{ size?: number }>
-  label:   string
-  onClick: () => void
-}
-
-function SuggestionCard({ Icon, label, onClick }: SuggestionCardProps) {
-  const [hovered, setHovered] = React.useState(false)
-  return (
-    <m.button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
-      style={{
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             '8px',
-        alignItems:      'flex-start',
-        flex:            '1 1 0',
-        minWidth:        0,
-        padding:         '12px 12px 16px',
-        borderRadius:    12,
-        backgroundColor: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
-        boxShadow:       hovered ? 'var(--shadow-card-hover)' : 'var(--shadow-card-default)',
-        border:          'none',
-        cursor:          'pointer',
-        textAlign:       'left',
-        transition:      'box-shadow 150ms ease, background-color 200ms ease',
-      }}
-    >
-      {/* Icon badge */}
-      <div style={{
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px',
-        borderRadius:    '8px',
-        backgroundColor: 'var(--neutral-100)',
-        color:           'var(--neutral-600)',
-        flexShrink:      0,
-      }}>
-        <Icon size={32} />
-      </div>
-
-      {/* Label */}
-      <p style={{
-        margin:           0,
-        fontFamily:       'var(--font-body)',
-        fontSize:         'var(--font-size-body-lg)',
-        fontWeight:       'var(--font-weight-medium)',
-        lineHeight:       'var(--line-height-body-lg)',
-        color:            'var(--neutral-900)',
-        overflow:         'hidden',
-        display:          '-webkit-box',
-        WebkitLineClamp:  3,
-        WebkitBoxOrient:  'vertical',
-      }}>
-        {label}
-      </p>
-    </m.button>
-  )
-}
 
 // ── DigestBanner ───────────────────────────────────────────────────────────
 // Compact single-row signal shown on home when scheduled runs completed while away.
@@ -208,6 +142,12 @@ export interface BrainHomeProps {
   activeSchedules?: ActiveSchedule[]
   /** Navigate to the Schedules view. */
   onViewSchedules?: () => void
+  /**
+   * 'default'  — full home: hero + status + suggestion cards, scrolling on its own.
+   * 'centered' — only the status strip + suggestion cards, for rendering under the
+   *              centered new-task input (the greeting and input are owned by BrainShell).
+   */
+  variant?: 'default' | 'centered'
 }
 
 export function BrainHome({
@@ -216,8 +156,10 @@ export function BrainHome({
   onViewRun,
   activeSchedules,
   onViewSchedules,
+  variant = 'default',
 }: BrainHomeProps) {
-  const recommendations = useRecommendations('brain')
+  const { recommendations, isLoading: recommendationsLoading } = useRecommendationsState('brain')
+  const isCentered = variant === 'centered'
 
   const hasDigest    = digestItems && digestItems.length > 0
   const hasSchedules = activeSchedules && activeSchedules.length > 0
@@ -225,7 +167,14 @@ export function BrainHome({
   const isPowerUser  = hasDigest || hasSchedules
 
   return (
-    <div className="kaya-scrollbar" style={{
+    <div className="kaya-scrollbar" style={isCentered ? {
+      display:       'flex',
+      flexDirection: 'column',
+      alignItems:    'center',
+      gap:           '28px',
+      width:         '100%',
+      marginTop:     '28px',
+    } : {
       flex:          1,
       display:       'flex',
       flexDirection: 'column',
@@ -240,7 +189,7 @@ export function BrainHome({
     }}>
 
       {/* ── Hero ── */}
-      <div style={{
+      {!isCentered && <div style={{
         display:       'flex',
         flexDirection: 'column',
         alignItems:    'center',
@@ -273,7 +222,7 @@ export function BrainHome({
         }}>
           Give Task a goal. It plans, executes, and delivers - in the world.
         </p>
-      </div>
+      </div>}
 
       {/* ── Status group — digest + schedule strip, tightly paired ── */}
       {(hasDigest || hasSchedules) && (
@@ -294,43 +243,54 @@ export function BrainHome({
       )}
 
       {/* ── Suggestion cards — new users only, hidden once schedules exist ── */}
-      {!isPowerUser && (
+      {!isPowerUser && (recommendations || recommendationsLoading) && (
         <div style={{
           display:       'flex',
           flexDirection: 'column',
           alignItems:    'flex-start',
-          gap:           '13px',
+          gap:           '10px',
           width:         '100%',
         }}>
           <p style={{
             margin:     0,
             fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body-lg)',
-            fontWeight: 'var(--font-weight-medium)',
-            lineHeight: 'var(--line-height-body-lg)',
-            color:      'var(--neutral-600)',
+            fontSize:   '13px',
+            fontWeight: 500,
+            color:      'var(--neutral-500)',
+            textAlign:  'left',
           }}>
             Not sure where to start?
           </p>
 
-          <div style={{
-            display:    'flex',
-            gap:        '16px',
-            alignItems: 'flex-start',
-            width:      '100%',
-          }}>
-            {recommendations?.cards.map(card => {
-              const { Icon } = RECOMMENDATION_ICONS[card.icon]
-              return (
-                <SuggestionCard
-                  key={card.label}
-                  Icon={Icon}
-                  label={card.label}
-                  onClick={() => onSuggestion?.(card.prompt)}
-                />
-              )
-            })}
-          </div>
+          {/* Same TemplateCard as new chat. Default align-items (stretch) keeps
+              every card in the row at the height of the tallest one. */}
+          {recommendations ? (
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              style={{
+                display:    'flex',
+                gap:        '10px',
+                alignItems: 'stretch',
+                width:      '100%',
+              }}
+            >
+              {recommendations.cards.map(card => {
+                const { Icon, color } = RECOMMENDATION_ICONS[card.icon]
+                return (
+                  <TemplateCard
+                    key={card.label}
+                    icon={<Icon size={24} color={color} animated />}
+                    label={card.label}
+                    onClick={() => onSuggestion?.(card.prompt)}
+                  />
+                )
+              })}
+            </m.div>
+          ) : (
+            <TemplateCardSkeleton />
+          )}
         </div>
       )}
 

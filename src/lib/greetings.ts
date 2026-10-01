@@ -1,3 +1,5 @@
+import { PINS_ENABLED } from "@/lib/feature-flags";
+
 export interface GreetingSlot {
   label: string;
   messages: string[];
@@ -114,7 +116,7 @@ export const subheadings: SubheadingCategory[] = [
       "Memory that makes every session smarter than the last.",
     ],
   },
-  {
+  ...(PINS_ENABLED ? [{
     label: "Pins & Insights",
     messages: [
       "Pin what matters. Surface it when it counts.",
@@ -123,7 +125,7 @@ export const subheadings: SubheadingCategory[] = [
       "Pinned context. Sharper answers.",
       "The things you pin become the things it knows.",
     ],
-  },
+  }] : []),
   {
     label: "Workflows & Productivity",
     messages: [

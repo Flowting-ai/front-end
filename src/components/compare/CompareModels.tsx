@@ -21,6 +21,7 @@ import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { AguiSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
 import { usePinboardActions } from "@/context/pinboard-context";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
@@ -959,6 +960,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const { addPin, open: openPinboard } = usePinboardActions();
 
   const handleSavePin = useCallback((responseKey: string, modelDisplayName: string) => {
+    if (!PINS_ENABLED) return;
     const content   = testResponses[responseKey] ?? "";
     const messageId = testMessageIds[responseKey];
     if (!content || !messageId) return;

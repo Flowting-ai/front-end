@@ -15,6 +15,7 @@ import { ChatPromptCard } from "./ChatPromptCard";
 import { ExternalOutputCard } from "@/templates/Brain/ExternalOutputCard";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
@@ -467,7 +468,7 @@ export function ChatMessage({
   }, [selectionOpen])
 
   useEffect(() => {
-    if (!isAssistant || disableHighlight) return
+    if (!HIGHLIGHTS_ENABLED || !isAssistant || disableHighlight) return
     const root = contentRef.current
     if (!root) return
 
@@ -510,6 +511,7 @@ export function ChatMessage({
   };
 
   const handlePin = () => {
+    if (!PINS_ENABLED) return;
     if (pinned) {
       removePinByMessage(message.id);
       return;
@@ -536,6 +538,7 @@ export function ChatMessage({
   };
 
   const handleHighlight = () => {
+    if (!HIGHLIGHTS_ENABLED) return
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0) return
     if (!contentRef.current) return
@@ -589,7 +592,7 @@ export function ChatMessage({
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%", maxWidth: 566 }}>
           {/* Pin attachment chips - appear above file chips and bubble */}
-          {message.mentionedPins && message.mentionedPins.length > 0 && (
+          {PINS_ENABLED && message.mentionedPins && message.mentionedPins.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
               {message.mentionedPins.map((pin) => (
                 <div
@@ -1185,7 +1188,7 @@ export function ChatMessage({
             pointerEvents: !message.isLoading ? "auto" : "none",
           }}
         >
-          {canUseContentActions && !hidePinAction && (
+          {PINS_ENABLED && canUseContentActions && !hidePinAction && (
             <ActionIconButton
               icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
               label={pinned ? "Unpin" : "Pin"}
@@ -1215,7 +1218,7 @@ export function ChatMessage({
         <SelectionPopover
           open={selectionOpen}
           anchorRect={selectionAnchor}
-          onHighlight={handleHighlight}
+          onHighlight={HIGHLIGHTS_ENABLED ? handleHighlight : undefined}
           onCopy={handleCopySelection}
         />
       )}

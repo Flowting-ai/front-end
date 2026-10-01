@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { useAuth } from '@/context/auth-context'
@@ -858,7 +859,7 @@ export default function FilesPage() {
                   color:      'var(--neutral-500)',
                   margin:     0,
                 }}>
-                  Download all your chats, pins, agents, workflows, and files as a ZIP archive. Delivered to your email.
+                  Download all your chats, {PINS_ENABLED ? 'pins, ' : ''}agents, workflows, and files as a ZIP archive. Delivered to your email.
                 </p>
               </div>
               <OutlineButton>Export</OutlineButton>

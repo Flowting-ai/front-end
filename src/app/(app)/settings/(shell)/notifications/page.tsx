@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Switch }   from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ export default function NotificationsPage() {
       return next
     })
 
-  const ACTIVITY_IDS  = ['automation-complete', 'automation-failed', 'pin-created', 'file-processed', 'memory-updated', 'budget-alert']
+  const ACTIVITY_IDS  = ['automation-complete', 'automation-failed', ...(PINS_ENABLED ? ['pin-created'] : []), 'file-processed', 'memory-updated', 'budget-alert']
   const TEAM_IDS      = ['team-invite', 'persona-invite', 'workflow-invite']
   const BILLING_IDS   = ['payment-successful', 'payment-failed']
   // Rows rendered with `emailLocked` — their Email switch is always-on and cannot be disabled,
@@ -358,12 +359,14 @@ export default function NotificationsPage() {
           {/* CONTENT section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 24px' }}>
             <SectionLabel>CONTENT</SectionLabel>
-            <NotifRow
-              id="pin-created"
-              label="Pin created"
-              description="A response was saved to your Pinboard"
-              prefs={prefs} onChange={toggleNotifPref} divider
-            />
+            {PINS_ENABLED && (
+              <NotifRow
+                id="pin-created"
+                label="Pin created"
+                description="A response was saved to your Pinboard"
+                prefs={prefs} onChange={toggleNotifPref} divider
+              />
+            )}
             <NotifRow
               id="file-processed"
               label="File processed"

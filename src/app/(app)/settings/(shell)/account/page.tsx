@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/context/auth-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
@@ -943,7 +944,7 @@ function AccountPageContent({
                   color:      'var(--neutral-500)',
                   margin:     0,
                 }}>
-                  Permanently delete your account and all associated data, personas, workflows, and pins. This action cannot be undone.
+                  Permanently delete your account and all associated data, personas, workflows{PINS_ENABLED ? ', and pins' : ''}. This action cannot be undone.
                 </p>
               </div>
 

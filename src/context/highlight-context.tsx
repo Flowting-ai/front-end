@@ -7,6 +7,7 @@ import type { HighlightResponse } from '@/lib/api/highlights'
 import { listChats } from '@/lib/api/chat'
 import { fetchPersonas, fetchPersonaChats } from '@/lib/api/personas'
 import { ApiError } from '@/lib/api/client'
+import { HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -105,7 +106,48 @@ async function collectAllChatIds(): Promise<string[]> {
 
 // â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// Disabled provider — used while HIGHLIGHTS_ENABLED is false. Nothing is loaded,
+// the panel can never open, and every action is a no-op (addHighlight resolves
+// to an empty id without touching the backend), so no caller can create or
+// fetch a highlight even if some UI entry point were missed. Module-level
+// constants, so consumers never re-render.
+const noop = () => {}
+
+const DISABLED_DATA_VALUE: HighlightDataValue = {
+  highlights: [],
+  isOpen:     false,
+  filterMode: 'this-chat',
+  isLoading:  false,
+  hasError:   false,
+}
+
+const DISABLED_ACTIONS_VALUE: HighlightActionsValue = {
+  open:            noop,
+  close:           noop,
+  toggle:          noop,
+  setFilterMode:   noop,
+  loadForChat:     noop,
+  loadAll:         noop,
+  clearHighlights: noop,
+  addHighlight:    async () => '',
+  deleteHighlight: async () => {},
+  copyHighlight:   noop,
+}
+
 export function HighlightProvider({ children }: { children: React.ReactNode }) {
+  if (!HIGHLIGHTS_ENABLED) {
+    return (
+      <HighlightActionsContext.Provider value={DISABLED_ACTIONS_VALUE}>
+        <HighlightDataContext.Provider value={DISABLED_DATA_VALUE}>
+          {children}
+        </HighlightDataContext.Provider>
+      </HighlightActionsContext.Provider>
+    )
+  }
+  return <HighlightProviderImpl>{children}</HighlightProviderImpl>
+}
+
+function HighlightProviderImpl({ children }: { children: React.ReactNode }) {
   const [highlights,  setHighlights]  = useState<HighlightEntry[]>([])
   const [isOpen,      setIsOpen]      = useState(false)
   const [filterMode,  setFilterMode]  = useState<FilterMode>('this-chat')

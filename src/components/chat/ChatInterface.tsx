@@ -20,6 +20,7 @@ import { registerChatScroller } from "@/lib/chat-scroller";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { UIMessage } from "@/types/chat";
 import {
   useStreamingChat,
@@ -191,11 +192,12 @@ export function ChatInterface({
   connectorSlugs,
   emptyState,
   loadMessages,
-  hidePinActions = false,
+  hidePinActions: hidePinActionsProp = false,
   readOnly = false,
   archived = false,
   chatOwnershipConfirmed,
 }: ChatInterfaceProps) {
+  const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
 
@@ -468,7 +470,7 @@ export function ChatInterface({
         : (addMenuFiles && addMenuFiles.length > 0)
           ? [...addMenuFiles]
           : [];
-      const initialMentionedPinObjects = initialMentionedPins ?? [];
+      const initialMentionedPinObjects = PINS_ENABLED ? (initialMentionedPins ?? []) : [];
       const userMsgId = addOptimisticUserMessage(
         content,
         files.length > 0 ? files : undefined,
@@ -488,7 +490,7 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const folderPinIds = selectedFolders && selectedFolders.length > 0
+      const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
       const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
@@ -498,7 +500,7 @@ export function ChatInterface({
         algorithm,
         files: files.length > 0 ? files : undefined,
         userMessageId: userMsgId,
-        pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
+        pinIds: PINS_ENABLED && allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
@@ -700,7 +702,7 @@ export function ChatInterface({
 
     const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.
-    const capturedMentionedPins = mentionedPins;
+    const capturedMentionedPins = PINS_ENABLED ? mentionedPins : [];
     const userMsgId = addOptimisticUserMessage(
       content,
       allFiles.length > 0 ? allFiles : undefined,
@@ -717,7 +719,7 @@ export function ChatInterface({
     clearMentions();
     onClearAddMenuFiles?.();
 
-    const folderPinIds = selectedFolders && selectedFolders.length > 0
+    const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
       ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
       : [];
     const mentionedPinIds = capturedMentionedPins.map(m => m.id);
@@ -741,7 +743,7 @@ export function ChatInterface({
         algorithm,
         files: allFiles.length > 0 ? allFiles : undefined,
         userMessageId: userMsgId,
-        pinIds: allPinIds.length > 0 ? allPinIds : undefined,
+        pinIds: PINS_ENABLED && allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,

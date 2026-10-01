@@ -23,6 +23,7 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { usePinboard } from "@/context/pinboard-context";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
@@ -51,7 +52,8 @@ import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
 import { MentionChip } from "@/components/chat/MentionChip";
 import { TemplateCard } from "@/components/chat/TemplateCard";
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
-import { useRecommendations } from "@/hooks/use-recommendations";
+import { useRecommendationsState } from "@/hooks/use-recommendations";
+import { TemplateCardSkeleton } from "@/components/chat/TemplateCardSkeleton";
 import { RECOMMENDATION_ICONS } from "@/lib/recommendation-icons";
 
 const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
@@ -123,7 +125,7 @@ function ChatPageInner() {
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
   const [selectedMode, setSelectedMode] = useState<ChatMode | null>(null);
-  const recommendations = useRecommendations("chat");
+  const { recommendations, isLoading: recommendationsLoading } = useRecommendationsState("chat");
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -299,7 +301,7 @@ function ChatPageInner() {
 
   // One chip per selected folder. Clicking the chevron opens a read-only dropup
   // listing the pins in that folder (truncated via Dropdown item ellipsis).
-  const folderChips = selectedFolders.map(folder => {
+  const folderChips = (PINS_ENABLED ? selectedFolders : []).map(folder => {
     const folderPins = pins.filter(p => p.folderId === folder.id);
     const isOpen = openFolderChipId === folder.id;
     return (
@@ -398,8 +400,9 @@ function ChatPageInner() {
       onAddFilesClick={handleAddFilesClick}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedFolders={selectedFolders}
-      onFolderToggle={(folder) => setSelectedFolders(prev =>
+      selectedFolders={PINS_ENABLED ? selectedFolders : []}
+      hidePinFolders={!PINS_ENABLED}
+      onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
@@ -659,7 +662,7 @@ function ChatPageInner() {
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
-    setInitialMentionedPins([...newChatMentionedPins]);
+    setInitialMentionedPins(PINS_ENABLED ? [...newChatMentionedPins] : []);
     clearNewChatMentions();
     const composed = selectedMode
       ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
@@ -719,8 +722,8 @@ function ChatPageInner() {
               }}
             >
               <TabsList fluid>
-                <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
                 <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+                <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -839,7 +842,7 @@ function ChatPageInner() {
                       contextUsedPct={0}
                       disabled={creditStatus.blocked}
                       attachmentsSlot={
-                        newChatMentionedPins.length > 0 ? (
+                        PINS_ENABLED && newChatMentionedPins.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                             <PinChipStrip>
                               {newChatMentionedPins.map((mp) => (
@@ -869,9 +872,9 @@ function ChatPageInner() {
                             ? MODE_PLACEHOLDERS[selectedMode]
                             : "How can I help you today?"
                       }
-                      onMentionChange={handleNewChatMentionChange}
-                      isPinDropdownOpen={newChatShowPinDropdown}
-                      onPinNavigate={handleNewChatPinNavigate}
+                      onMentionChange={PINS_ENABLED ? handleNewChatMentionChange : undefined}
+                      isPinDropdownOpen={PINS_ENABLED ? newChatShowPinDropdown : false}
+                      onPinNavigate={PINS_ENABLED ? handleNewChatPinNavigate : undefined}
                     />
                   </div>
                   </ExhaustionBanner>
@@ -912,8 +915,8 @@ function ChatPageInner() {
                   </div>
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
-                  {/* Generated per user by /recommendations; absent until it lands. */}
-                  {recommendations && (
+                  {/* Generated per user by /recommendations; skeleton until it lands. */}
+                  {(recommendations || recommendationsLoading) && (
                     <div style={{ marginTop: "28px" }}>
                       <p
                         style={{
@@ -927,19 +930,28 @@ function ChatPageInner() {
                       >
                         Not sure where to start?
                       </p>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        {recommendations.cards.map((card) => {
-                          const { Icon, color } = RECOMMENDATION_ICONS[card.icon];
-                          return (
-                            <TemplateCard
-                              key={card.label}
-                              icon={<Icon size={24} color={color} animated />}
-                              label={card.label}
-                              onClick={() => handleNewChatSend(card.prompt)}
-                            />
-                          );
-                        })}
-                      </div>
+                      {recommendations ? (
+                        <m.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          style={{ display: "flex", gap: "10px" }}
+                        >
+                          {recommendations.cards.map((card) => {
+                            const { Icon, color } = RECOMMENDATION_ICONS[card.icon];
+                            return (
+                              <TemplateCard
+                                key={card.label}
+                                icon={<Icon size={24} color={color} animated />}
+                                label={card.label}
+                                onClick={() => handleNewChatSend(card.prompt)}
+                              />
+                            );
+                          })}
+                        </m.div>
+                      ) : (
+                        <TemplateCardSkeleton />
+                      )}
                     </div>
                   )}
                 </m.div>
@@ -971,13 +983,13 @@ function ChatPageInner() {
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
               disabledModelSelector={!!selectedPersona}
               initialPrompt={initialPrompt}
-              initialMentionedPins={initialMentionedPins}
+              initialMentionedPins={PINS_ENABLED ? initialMentionedPins : []}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}
-              selectedFolders={selectedFolders}
+              selectedFolders={PINS_ENABLED ? selectedFolders : []}
               selectedStyleId={selectedStyleId}
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}

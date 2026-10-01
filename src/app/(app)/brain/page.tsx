@@ -52,6 +52,7 @@ import { emitBrainThreadCreated, emitBrainThreadTitleUpdated } from '@/hooks/use
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import {
   initiateLink,
   completeZapierLink,
@@ -1507,12 +1508,14 @@ function BrainPageInner() {
   }, [personaChipOpen])
 
   const selectedFolderPins = useMemo(() => {
+    if (!PINS_ENABLED) return []
     const folderIds = new Set(selectedFolders.map((folder) => folder.id))
     return pinboardPins.filter((pin) => pin.folderId && folderIds.has(pin.folderId))
   }, [pinboardPins, selectedFolders])
 
   const selectedFolderKey = selectedFolders.map((folder) => folder.id).sort().join(',')
-  const effectivePinIds = useMemo(() => {
+  const effectivePinIds = useMemo((): string[] => {
+    if (!PINS_ENABLED) return []
     const available = new Set(selectedFolderPins.map((pin) => pin.id))
     return confirmedPins?.folderKey !== selectedFolderKey
       ? [...available]
@@ -2621,7 +2624,7 @@ function BrainPageInner() {
     // already disabled, so block silently.
     if (creditStatus.blocked) return
 
-    if (selectedFolders.length > 0 && pinboardLoading) {
+    if (PINS_ENABLED && selectedFolders.length > 0 && pinboardLoading) {
       toast.info('Your pin context is still loading. Try sending again in a moment.')
       return
     }
@@ -2684,7 +2687,10 @@ function BrainPageInner() {
         value,   // shown in user bubble (original text, no injected content)
         allFiles.length > 0 ? allFiles : undefined,  // all files shown as chips (incl. text-extracted)
         {
-          persona_id: selectedPersona?.id,
+          // The backend resolves persona_id against agent VERSIONS (Persona rows),
+          // not the agent repo — sending selectedPersona.id (the repo id) 404s with
+          // "Persona not found". Same id chat sends (chat/page.tsx).
+          persona_id: selectedPersona?.activeVersionId ?? undefined,
           pin_ids: effectivePinIds.length > 0 ? effectivePinIds : undefined,
         },
       )
@@ -3867,7 +3873,7 @@ function BrainPageInner() {
     />
   ))
 
-  const pinReviewChip = selectedFolderPins.length > 0 ? (
+  const pinReviewChip = PINS_ENABLED && selectedFolderPins.length > 0 ? (
     <Dropdown.Float
       open={pinCardOpen}
       onOpenChange={setPinCardOpen}
@@ -3957,8 +3963,8 @@ function BrainPageInner() {
     </Dropdown.Float>
   ) : null
 
-  const chips = (styleChip || folderChips.length > 0 || pinReviewChip || webSearchChip || personaChip) ? (
-    <>{styleChip}{folderChips}{pinReviewChip}{webSearchChip}{personaChip}</>
+  const chips = (styleChip || (PINS_ENABLED && folderChips.length > 0) || pinReviewChip || webSearchChip || personaChip) ? (
+    <>{styleChip}{PINS_ENABLED && folderChips}{pinReviewChip}{webSearchChip}{personaChip}</>
   ) : undefined
 
   const addMenu = (
@@ -3968,8 +3974,8 @@ function BrainPageInner() {
       onAddFilesClick={() => fileInputRef.current?.click()}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedFolders={selectedFolders}
-      onFolderToggle={(folder) => setSelectedFolders(prev =>
+      selectedFolders={PINS_ENABLED ? selectedFolders : []}
+      onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
@@ -4019,7 +4025,7 @@ function BrainPageInner() {
       // opens immediately when the user selects context before their first send.
       const initial: ContextRailData = {}
       if (chipPersona) initial.persona = chipPersona
-      if (chipPins.length) initial.pins = chipPins.map((p) => ({ ...p, active: true }))
+      if (PINS_ENABLED && chipPins.length) initial.pins = chipPins.map((p) => ({ ...p, active: true }))
       return initial
     }
 
@@ -4109,7 +4115,7 @@ function BrainPageInner() {
             avatarUrl: railContext.persona.avatar_url,
           }
         : chipPersona,
-      pins:       [...activePins, ...previousPins],
+      pins:       PINS_ENABLED ? [...activePins, ...previousPins] : [],
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }

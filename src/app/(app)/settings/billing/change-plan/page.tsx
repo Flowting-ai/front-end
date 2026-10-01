@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
@@ -399,7 +400,7 @@ export default function ChangePlanPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
                   <FeatureGroup
                     title="Memory & Organization"
-                    items={['Cross-model memory that compounds', 'Unlimited Pins', 'Project folders', 'Highlights from any answer']}
+                    items={['Cross-model memory that compounds', ...(PINS_ENABLED ? ['Unlimited Pins'] : []), 'Project folders', ...(HIGHLIGHTS_ENABLED ? ['Highlights from any answer'] : [])]}
                   />
                   <Hairline />
                   <FeatureGroup
@@ -572,7 +573,7 @@ export default function ChangePlanPage() {
                   <Hairline />
                   <FeatureGroup
                     title="Team collaboration"
-                    items={['Unlimited members · no per-seat', 'Shared AI Assistants', 'Shared Pins & Highlights', 'Shared Project folders']}
+                    items={['Unlimited members · no per-seat', 'Shared AI Assistants', ...(PINS_ENABLED || HIGHLIGHTS_ENABLED ? ['Shared Pins & Highlights'] : []), 'Shared Project folders']}
                   />
                   <Hairline />
                   <FeatureGroup

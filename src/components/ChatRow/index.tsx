@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { PinIcon, MoreHorizontalIcon, PenOneIcon, FolderOneIcon, FolderLibraryIcon, ShareOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
@@ -596,7 +597,7 @@ function ChatRowInner(
                   </Dropdown>
                 </Dropdown.Float>
               )}
-              {onPinClick !== undefined && (
+              {PINS_ENABLED && onPinClick !== undefined && (
                 <PinCountChip
                   pinCount={pinCount}
                   pinBoardOpen={pinBoardOpen}

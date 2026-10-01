@@ -6,6 +6,7 @@ import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import type { Connector } from '@/lib/connector'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -337,7 +338,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
 
 export function ContextRail({ data, onClose }: ContextRailProps) {
   const { persona, pins, files, connectors } = data
-  const hasPins       = pins && pins.length > 0
+  const hasPins       = PINS_ENABLED && pins && pins.length > 0
   const hasFiles      = files && files.length > 0
   const hasConnectors = connectors && connectors.length > 0
   const isEmpty       = !persona && !hasPins && !hasFiles && !hasConnectors

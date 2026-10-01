@@ -4,6 +4,7 @@ import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Upload } from 'lucide-react'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
+import { InitialPrompts } from '@/components/chat/InitialPrompts'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
 import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileDrop } from '@/hooks/use-file-drop'
@@ -58,9 +59,9 @@ import { ScheduleDeleteModal, type ScheduleDeleteModalProps } from './ScheduleDe
 export { ScheduleDeleteModal, type ScheduleDeleteModalProps }
 import { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector } from './ContextRail'
 export { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector }
-import { InformationCircleIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
-import { Tooltip } from '@/components/Tooltip'
+import { AiViewIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
+import { FloatingMenu } from '@/components/FloatingMenu'
+import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction } from './ExternalOutputCard'
 export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
@@ -93,6 +94,8 @@ const CONTEXT_RAIL_PHASES = new Set<Phase>([
   'streaming',
   'complete',
 ])
+
+const CONTEXT_RAIL_WIDTH = 300
 
 function hasAnyContext(data: ContextRailData | undefined): boolean {
   if (!data) return false
@@ -194,6 +197,10 @@ export function BrainShell({
     value:        normalizedInitialInputValue,
   })
   const [userClosed, setUserClosed] = useState(false)
+  // Manual open from the floating "Context" toggle — lets the user open the rail
+  // even when the auto rules (active phase / attached context) wouldn't show it,
+  // e.g. a blank new task. Cleared whenever the rail is closed again.
+  const [userOpened, setUserOpened] = useState(false)
   // Task/Chat tab strip (Figma 136:53294, "Top Bar") — shown at the top of a new
   // (idle) Brain thread. "Task" is "new brain" renamed. Per current scope this
   // only renders the switcher; it doesn't yet change what's shown below it.
@@ -206,7 +213,10 @@ export function BrainShell({
     setInputState({ initialKey: normalizedInitialInputKey, value })
   }, [normalizedInitialInputKey])
 
-  const contextRailOpen = (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed
+  const contextRailOpen = userOpened
+    || ((CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed)
+  const openContextRail  = () => { setUserClosed(false); setUserOpened(true) }
+  const closeContextRail = () => { setUserClosed(true);  setUserOpened(false) }
   const isIdle          = phase === 'idle'
   const isClarifying    = phase === 'clarifying-goal' && clarificationProps != null
 
@@ -232,6 +242,40 @@ export function BrainShell({
   const handleSuggestion = (text: string) => {
     setInputValue(text)
   }
+
+  // Credit notice + input, shared by the bottom-pinned layout (active threads) and
+  // the centered layout (new task) so both run the exact same send/credit logic.
+  const creditAndInput = (
+    <>
+      <AnimatePresence>
+        {creditNoticeStatus && (
+          <InlineCreditNotice
+            key={creditNoticeStatus}
+            status={creditNoticeStatus}
+            isAdmin={isOrgAdmin}
+            onAdminAction={goToPlans}
+            onDismiss={dismissCreditNotice}
+          />
+        )}
+      </AnimatePresence>
+      <ExhaustionBanner>
+        <ChatInput
+          placeholder="Tell Task what to do"
+          textareaLabel="Task instruction"
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSend}
+          {...chatInputProps}
+        />
+      </ExhaustionBanner>
+    </>
+  )
+
+  // Brand-new task: no thread title, nothing to render in the thread slot. Mirrors
+  // the new-chat layout (greeting + centered input + starter cards). Any other
+  // state (streaming, reopened thread, clarifying, project views) keeps the
+  // original bottom-pinned layout untouched.
+  const isNewTask = isIdle && !title && children == null
 
   return (
     /* The left Sidebar is owned by the app shell (AppLayout → LeftSidebar) so it
@@ -298,8 +342,8 @@ export function BrainShell({
                   }}
                 >
                   <TabsList fluid>
-                    <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
                     <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+                    <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -345,6 +389,28 @@ export function BrainShell({
             </div>
           )}
 
+          {/* Floating toolbar — mid-right of the card, same placement and component as
+              chat's Pinboard / Agents / Highlights menu (components/layout/FloatingPanel.tsx).
+              Task only has the Context panel, so it's a single-item menu. */}
+          <div
+            style={{
+              position:  'absolute',
+              right:     26,
+              top:       '50%',
+              transform: 'translateY(-50%)',
+              zIndex:    10,
+            }}
+          >
+            <FloatingMenu aria-label="Task tools">
+              <FloatingMenuItem
+                icon={<AiViewIcon size={20} animated />}
+                label="Context"
+                active={contextRailOpen}
+                onClick={contextRailOpen ? closeContextRail : openContextRail}
+              />
+            </FloatingMenu>
+          </div>
+
           {/* Drag overlay */}
           {isDragging && (
             <div
@@ -385,6 +451,57 @@ export function BrainShell({
             width:         '100%',
           }}>
 
+            {isNewTask ? (
+              /* New task — centered layout, same structure as the new-chat view. */
+              <div
+                ref={threadRef}
+                data-slot="brain-thread"
+                style={{
+                  flex:                '1 0 0',
+                  minHeight:           0,
+                  width:               '100%',
+                  overflowY:           'auto',
+                  overscrollBehaviorY: 'contain',
+                }}
+                className="kaya-scrollbar"
+              >
+                <div style={{
+                  minHeight:      '100%',
+                  display:        'flex',
+                  flexDirection:  'column',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  padding:        '40px 16px 48px',
+                  boxSizing:      'border-box',
+                }}>
+                  <div style={{
+                    display:       'flex',
+                    flexDirection: 'column',
+                    alignItems:    'center',
+                    gap:           '24px',
+                    maxWidth:      '768px',
+                    width:         '100%',
+                  }}>
+                    <InitialPrompts />
+                    <div style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}>
+                      {creditAndInput}
+                      <p style={{
+                        margin:     '12px 0 0',
+                        textAlign:  'center',
+                        fontFamily: 'var(--font-body)',
+                        fontSize:   'var(--font-size-caption)',
+                        lineHeight: 'var(--line-height-caption)',
+                        color:      'var(--neutral-600)',
+                      }}>
+                        {disclaimer}
+                      </p>
+                      <BrainHome {...homeProps} variant="centered" onSuggestion={handleSuggestion} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+            <>
             {/* Thread slot — spans full content-area width; scrollbar sits at glass card inner edge.
                 Inner wrapper owns the 28px horizontal padding so content aligns with inputs below. */}
             <div
@@ -443,27 +560,7 @@ export function BrainShell({
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     style={{ width: '100%', maxWidth: '754px' }}
                   >
-                    <AnimatePresence>
-                      {creditNoticeStatus && (
-                        <InlineCreditNotice
-                          key={creditNoticeStatus}
-                          status={creditNoticeStatus}
-                          isAdmin={isOrgAdmin}
-                          onAdminAction={goToPlans}
-                          onDismiss={dismissCreditNotice}
-                        />
-                      )}
-                    </AnimatePresence>
-                    <ExhaustionBanner>
-                      <ChatInput
-                        placeholder="Tell Task what to do"
-                        textareaLabel="Task instruction"
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSend={handleSend}
-                        {...chatInputProps}
-                      />
-                    </ExhaustionBanner>
+                    {creditAndInput}
                   </m.div>
                 )}
               </AnimatePresence>
@@ -479,30 +576,33 @@ export function BrainShell({
                 {disclaimer}
               </p>
             </div>
+            </>
+            )}
 
           </div>
         </div>
       </div>
 
       {/* ── Right — ContextRail info icon for connections/conenctors (loop-active only) ── */}
-      {userClosed && (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && (
-        <div style={{ position: 'absolute', right: 35, top: 22, zIndex: 10 }}>
-          <Tooltip content="View connections" side="left">
-            <IconButton
-              variant="ghost"
-              size="sm"
-              icon={<InformationCircleIcon size={20} />}
-              aria-label="View connections"
-              onClick={() => setUserClosed(false)}
-            />
-          </Tooltip>
+      {/* Same slide as the chat Pinboard rail (components/layout/RightSidebar.tsx):
+          the outer width springs 0 ↔ 300 while a fixed-width inner shell keeps the
+          rail content at exactly 300px, so it never reflows mid-animation. */}
+      <m.div
+        initial={false}
+        animate={contextRailOpen ? { width: CONTEXT_RAIL_WIDTH, opacity: 1 } : { width: 0, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+        style={{
+          height:        '100%',
+          flexShrink:    0,
+          overflow:      'hidden',
+          pointerEvents: contextRailOpen ? undefined : 'none',
+        }}
+        aria-hidden={!contextRailOpen || undefined}
+      >
+        <div style={{ width: CONTEXT_RAIL_WIDTH, height: '100%', flexShrink: 0 }}>
+          <ContextRail data={contextRailData ?? {}} onClose={closeContextRail} />
         </div>
-      )}
-      <div className="kds-context-rail" data-open={contextRailOpen}>
-        <div className="kds-context-rail-inner">
-          <ContextRail data={contextRailData ?? {}} onClose={() => setUserClosed(true)} />
-        </div>
-      </div>
+      </m.div>
 
     </div>
   )

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { useAuth } from '@/context/auth-context'
@@ -513,7 +514,7 @@ function OnboardingPlansContent() {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <SectionLabel>Team collaboration</SectionLabel>
                       <FeatureItem label="Unlimited members" />
-                      <FeatureItem label="Shared Pins &amp; Highlights" />
+                      {(PINS_ENABLED || HIGHLIGHTS_ENABLED) && <FeatureItem label="Shared Pins &amp; Highlights" />}
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 24 }}>
                       <FeatureItem label="Shared AI assistants" />
@@ -735,9 +736,9 @@ function OnboardingPlansContent() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <SectionLabel>Memory &amp; Organization</SectionLabel>
                   <IndFeatureItem label="Cross-model memory that compounds" />
-                  <IndFeatureItem label="Unlimited Pins" />
+                  {PINS_ENABLED && <IndFeatureItem label="Unlimited Pins" />}
                   <IndFeatureItem label="Project folders" />
-                  <IndFeatureItem label="Highlights from any answer" />
+                  {HIGHLIGHTS_ENABLED && <IndFeatureItem label="Highlights from any answer" />}
                 </div>
 
                 <Divider />

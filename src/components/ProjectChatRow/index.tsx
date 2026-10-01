@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -399,7 +400,7 @@ export function ProjectChatRow(
         )}
 
         {/* Pin count badge */}
-        {!isConfirming && <button
+        {PINS_ENABLED && !isConfirming && <button
           onClick={(e) => {
             if (hasPins) onPinsClick?.(e)
           }}

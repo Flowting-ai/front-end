@@ -17,6 +17,7 @@ import { InputField } from '@/components/InputField'
 import { TabItem }    from '@/components/TabItem'
 import { highlightMatch } from '@/lib/highlightMatch'
 import { cn } from '@/lib/utils'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -318,7 +319,7 @@ function KbdHint({ keys, label }: { keys: string[]; label: string }) {
 
 // ── GlobalSearchModal ─────────────────────────────────────────────────────────
 
-const SECTION_ORDER: SearchResultType[] = ['chat', 'agent-chat', 'brain-thread', 'project', 'persona', 'pin', 'page']
+const SECTION_ORDER: SearchResultType[] = ['chat', 'agent-chat', 'brain-thread', 'project', 'persona', ...(PINS_ENABLED ? ['pin' as const] : []), 'page']
 const MAX_PER_SECTION = 4
 
 type FilterValue = 'all' | SearchResultType
@@ -330,7 +331,7 @@ const FILTER_TABS: { value: FilterValue; label: string }[] = [
   { value: 'brain-thread', label: 'Tasks' },
   { value: 'project',      label: 'Projects' },
   { value: 'persona',      label: 'Agents' },
-  { value: 'pin',          label: 'Pins' },
+  ...(PINS_ENABLED ? [{ value: 'pin' as const, label: 'Pins' }] : []),
   { value: 'page',         label: 'Pages' },
 ]
 
@@ -547,7 +548,7 @@ export function GlobalSearchModal({
                 <InputField
                   ref={inputRef}
                   fluid
-                  placeholder="Search chats, agent chats, tasks, projects, pins…"
+                  placeholder={`Search chats, agent chats, tasks, projects${PINS_ENABLED ? ', pins' : ''}…`}
                   leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
                   value={query}
                   onChange={handleQueryChange}

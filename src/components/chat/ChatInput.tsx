@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { trackFeature } from "@/lib/analytics/events";
 import { PIN_DRAG_MIME_TYPE, type PinDragPayload } from "@/lib/pin-drag";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -369,7 +370,7 @@ export function ChatInput(
       onChange?.(newValue);
 
       // @-mention detection - only when the parent opts in via onMentionChange.
-      if (onMentionChange) {
+      if (PINS_ENABLED && onMentionChange) {
         const lastChar = newValue[newValue.length - 1];
         if (lastChar === "@") {
           // User just typed @: open the dropdown with an empty query.
@@ -421,7 +422,7 @@ export function ChatInput(
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // While the pin dropdown is open, delegate arrow keys / Enter / Escape
       // to the parent so it can move the highlighted selection or confirm.
-      if (isPinDropdownOpen && onPinNavigate) {
+      if (PINS_ENABLED && isPinDropdownOpen && onPinNavigate) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
           onPinNavigate("down");
@@ -465,7 +466,7 @@ export function ChatInput(
     // toPinboardPin) — ChatInterface.tsx's existing listener does the actual
     // work (dedupe + add as an @-mention chip), so there's nothing to wire here.
     const handlePinDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
-      if (!e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
+      if (!PINS_ENABLED || !e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       setIsPinDragOver(true);
@@ -476,6 +477,7 @@ export function ChatInput(
     };
 
     const handlePinDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+      if (!PINS_ENABLED) return;
       const raw = e.dataTransfer.getData(PIN_DRAG_MIME_TYPE);
       if (!raw) return;
       e.preventDefault();
@@ -665,7 +667,7 @@ export function ChatInput(
         <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: "6px" }}>
 
           {/* Pin items row — @-mention pins and pin-folder chips, separate from feature badges */}
-          {pinChips && (
+          {PINS_ENABLED && pinChips && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", paddingLeft: "3px", paddingRight: "3px" }}>
               {pinChips}
             </div>

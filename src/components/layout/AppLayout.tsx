@@ -16,6 +16,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import {
   PROJECT_BASE_ROUTE,
   PROJECTS_ROUTE,
@@ -324,14 +325,18 @@ export function AppLayout({
       </Suspense>
 
       {/* ── Right sidebar (Pinboard) ── */}
-      <Suspense fallback={null}>
-        <RightSidebar />
-      </Suspense>
+      {PINS_ENABLED && (
+        <Suspense fallback={null}>
+          <RightSidebar />
+        </Suspense>
+      )}
 
       {/* ── Highlight sidebar ── */}
-      <Suspense fallback={null}>
-        <HighlightSidebar />
-      </Suspense>
+      {HIGHLIGHTS_ENABLED && (
+        <Suspense fallback={null}>
+          <HighlightSidebar />
+        </Suspense>
+      )}
 
       {/* ── Global dialogs ── */}
       <AppDialogs />

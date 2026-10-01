@@ -14,6 +14,7 @@ import type { PinFolder } from '@/lib/api/pins'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -141,7 +142,7 @@ export function ChatAddMenu({
             </Dropdown>
           </Dropdown.Float>
         )}
-        {!hidePinFolders && (
+        {PINS_ENABLED && !hidePinFolders && (
         <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={(open) => setOpenSubmenu(open ? 'pinFolders' : null)}
@@ -160,7 +161,7 @@ export function ChatAddMenu({
                         icon={<FolderOneIcon variant="static" animated />}
                         fluid
                         selected={selectedFolders.some(sf => sf.id === f.id)}
-                        onClick={() => onFolderToggle(f)}
+                        onClick={() => { if (PINS_ENABLED) onFolderToggle(f) }}
                       />
                     ))
                   : <Dropdown.Item label="No folders yet" fluid disabled />

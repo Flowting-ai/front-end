@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { BrainTwoIcon, GlobalSearchIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import type { Phase } from './lib/phase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,10 +33,10 @@ const PHASE_MESSAGES: Record<StreamingPhase, string[]> = {
     'Deciding how to proceed…',
   ],
   souvenir:  [
-    'Scanning your Pinboard…',
+    ...(PINS_ENABLED ? ['Scanning your Pinboard…'] : []),
     'Searching for relevant context…',
     "Reviewing what you've saved…",
-    'Matching pins to your request…',
+    ...(PINS_ENABLED ? ['Matching pins to your request…'] : []),
   ],
   streaming: [
     'Writing…',

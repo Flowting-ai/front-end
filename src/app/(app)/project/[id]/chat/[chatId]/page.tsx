@@ -22,6 +22,7 @@ import { useFileUpload }                                   from '@/hooks/use-fil
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { useHighlight }                                    from '@/context/highlight-context'
 import { usePinMentions } from '@/hooks/use-pin-mentions'
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags"
 import { getVersion } from '@/lib/api/personas'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -159,6 +160,7 @@ function ProjectChatPageInner() {
   // "new" route clears instead, so a previous chat's highlights don't linger.
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight()
   useEffect(() => {
+    if (!HIGHLIGHTS_ENABLED) return
     if (activeChatId) loadHighlightsForChat(activeChatId)
     else clearHighlights()
   }, [activeChatId, loadHighlightsForChat, clearHighlights])
@@ -416,7 +418,7 @@ function ProjectChatPageInner() {
           </Dropdown>
         </Dropdown.Float>
       )}
-      {selectedFolders.map(folder => (
+      {(PINS_ENABLED ? selectedFolders : []).map(folder => (
         <Chip
           key={folder.id}
           label={folder.name}
@@ -424,7 +426,7 @@ function ProjectChatPageInner() {
           onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
         />
       ))}
-      {mentionedPins.map(mp => (
+      {(PINS_ENABLED ? mentionedPins : []).map(mp => (
         <MentionChip key={mp.id} label={mp.label} onRemove={() => handleRemoveMention(mp.id)} />
       ))}
       {webSearchEnabled && (
@@ -474,8 +476,9 @@ function ProjectChatPageInner() {
       onAddFilesClick={() => fileInputRef.current?.click()}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedFolders={selectedFolders}
-      onFolderToggle={(folder) => setSelectedFolders(prev =>
+      selectedFolders={PINS_ENABLED ? selectedFolders : []}
+      hidePinFolders={!PINS_ENABLED}
+      onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
@@ -490,7 +493,7 @@ function ProjectChatPageInner() {
     setInitialFiles(newChatAttachments.map(a => a.file))
     setNewChatAttachments([])
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
-    setInitialMentionedPins([...mentionedPins])
+    setInitialMentionedPins(PINS_ENABLED ? [...mentionedPins] : [])
     clearMentionedPins()
     setInitialPrompt(value.trim())
     setNewChatInput('')
@@ -650,9 +653,9 @@ function ProjectChatPageInner() {
                         />
                       }
                       placeholder={selectedMode ? MODE_PLACEHOLDERS[selectedMode] : 'How can I help you today?'}
-                      onMentionChange={handleMentionChange}
-                      isPinDropdownOpen={showPinDropdown}
-                      onPinNavigate={handlePinNavigate}
+                      onMentionChange={PINS_ENABLED ? handleMentionChange : undefined}
+                      isPinDropdownOpen={PINS_ENABLED ? showPinDropdown : false}
+                      onPinNavigate={PINS_ENABLED ? handlePinNavigate : undefined}
                     />
                   </div>
 
@@ -782,13 +785,13 @@ function ProjectChatPageInner() {
               initialPrompt={initialPrompt}
               initialFiles={initialFiles}
               onClearInitialFiles={() => setInitialFiles([])}
-              initialMentionedPins={initialMentionedPins}
+              initialMentionedPins={PINS_ENABLED ? initialMentionedPins : []}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={() => setAddMenuFiles([])}
               chips={newChatChips}
-              selectedFolders={selectedFolders}
+              selectedFolders={PINS_ENABLED ? selectedFolders : []}
               selectedStyleId={selectedStyleId}
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}

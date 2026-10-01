@@ -14,6 +14,7 @@ import { ConnectorIcon } from './lib/ConnectorIcon'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { springs } from '@/lib/springs'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -305,6 +306,7 @@ export function ProjectConfigPanel({
           </div>
         )}
 
+        {PINS_ENABLED && (<>
         <Divider />
 
         {/* Default pins */}
@@ -395,6 +397,7 @@ export function ProjectConfigPanel({
             </span>
           </button>
         </div>
+        </>)}
 
         {/* Connected tools */}
         {connectors && connectors.length > 0 && (
