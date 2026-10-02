@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
@@ -180,19 +180,19 @@ export function LoopRecord({
         </span>
 
         {/* Chevron */}
-        <motion.span
+        <m.span
           animate={{ rotate: collapsed ? 0 : 180 }}
           transition={springs.fast}
           style={{ flexShrink: 0, lineHeight: 0, transformOrigin: 'center' }}
         >
           <ArrowDownOneIcon size={12} color="var(--neutral-400)" />
-        </motion.span>
+        </m.span>
       </button>
 
       {/* ── Expanded content ── */}
       <AnimatePresence initial={false}>
         {!collapsed && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1,  y: 0  }}
             exit={{    opacity: 0,  y: -4 }}
@@ -213,7 +213,7 @@ export function LoopRecord({
                 <ExternalOutputCard actions={externalActions} />
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

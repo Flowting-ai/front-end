@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon } from "@hugeicons/core-free-icons";
+import AiMagicIcon from "@hugeicons/core-free-icons/AiMagicIcon";
 import { Button } from "@/components/Button";
 import { getSlackInstallUrl } from "@/lib/api/slack";
 import { ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";

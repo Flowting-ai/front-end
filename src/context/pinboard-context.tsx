@@ -156,16 +156,23 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const fetchingRef   = useRef(false);
   const cacheWriteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const open            = useCallback(() => { setChatFilter(null); setIsOpen(true) }, []);
-  const close           = useCallback(() => { setChatFilter(null); setIsOpen(false) }, []);
-  const toggle          = useCallback(() => setIsOpen((v) => !v), []);
-  const openForChat     = useCallback((chatId: string) => { setChatFilter(chatId); setIsOpen(true) }, []);
-  const clearChatFilter = useCallback(() => setChatFilter(null), []);
+  // Mirrors `pins` for callbacks that need to look up the *current* pins list
+  // before deciding what to do (dedup checks, id lookups) without doing that
+  // lookup inside a setState updater — see addPin/removePinByMessage/
+  // updatePinComment below, each of which used to read-and-branch on `prev`
+  // from inside its own updater (impure: the branch decision and any side
+  // effect it drove could double-fire if React invoked the updater more than
+  // once for a single update, e.g. Strict Mode's double-invoke). Synced via
+  // effect (after render), never written during render itself.
+  const pinsRef = useRef<PinItem[]>([]);
+  useEffect(() => { pinsRef.current = pins }, [pins]);
 
   // ── Core load: fetch pins + folders, update state + cache ─────────────────
-  // Shared by the mount effect and prefetch(). fetchingRef prevents duplicate
-  // in-flight requests; skipIfFresh avoids redundant network calls when data
-  // was loaded recently.
+  // Called on real demand signals only (open/toggle/openForChat/prefetch —
+  // see below) — deliberately NOT on every provider mount, since this
+  // provider wraps every authenticated page in the app (see the mount effect
+  // further down). fetchingRef prevents duplicate in-flight requests;
+  // skipIfFresh avoids redundant network calls when data was loaded recently.
   const load = useCallback((skipIfFresh = true) => {
     if (fetchingRef.current) return;
     if (skipIfFresh) {
@@ -211,23 +218,52 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  // On mount (client only — never runs on server):
-  //  1. If fresh cache exists, apply it immediately (React 18 batches the three
-  //     setStates into one re-render — no visible flash).
-  //  2. If cache is stale or missing, fetch from network.
-  // This keeps SSR/client initial HTML identical (both start with isLoading:true)
-  // while still giving instant data on return visits.
+  // open/toggle(→open)/openForChat all mean "the user is about to look at
+  // pin data" — this is the actual demand signal pin data should be fetched
+  // on. load()'s own skipIfFresh guard makes calling it here a no-op when a
+  // fresh cache (or an in-flight fetch) already covers it, so these are safe
+  // to call unconditionally on every open.
+  const open = useCallback(() => {
+    setChatFilter(null);
+    setIsOpen(true);
+    load();
+  }, [load]);
+  const close = useCallback(() => { setChatFilter(null); setIsOpen(false) }, []);
+  const toggle = useCallback(() => {
+    setIsOpen((v) => {
+      const next = !v;
+      if (next) load();
+      return next;
+    });
+  }, [load]);
+  const openForChat = useCallback((chatId: string) => {
+    setChatFilter(chatId);
+    setIsOpen(true);
+    load();
+  }, [load]);
+  const clearChatFilter = useCallback(() => setChatFilter(null), []);
+
+  // On mount (client only — never runs on server): apply a fresh/stale cache
+  // immediately if one exists — a cheap, local, synchronous localStorage read,
+  // no network call — so returning users still get instant "already pinned"
+  // badges/panel content without waiting. Deliberately does NOT call load()
+  // here: this provider wraps every authenticated page in the app (see
+  // src/app/(app)/layout.tsx), so an unconditional network fetch in this
+  // effect was firing GET /pins + GET /pins/folders/all on every page load —
+  // including pages with nothing to do with pins (e.g. /chats, /projects/new,
+  // /brain) — which is exactly the bug the Chats and Projects feature reports
+  // each independently captured as a stray 502/"Failed to load pins" error.
+  // Real pin data now loads on demand instead: open()/toggle()/openForChat()
+  // above (the panel actually being opened), prefetch() (rail-button hover),
+  // and ChatInterface's own mount-time prefetch (the "is this message
+  // pinned?" badge, which needs real data independent of the panel).
   useEffect(() => {
     const snap = readCache();
     if (snap) {
       setPins(snap.pins);
       setFolders(snap.folders);
       setIsLoading(false);
-      if (!isCacheFresh(snap)) load(false); // stale — revalidate in background
-    } else {
-      load(false); // no cache — fetch fresh
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- load is stable; intentional mount-only
   }, []);
 
   // Debounced cache write for mutations (add/remove/rename/tag updates).
@@ -248,15 +284,16 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   // â"€â"€ addPin - optimistic, persisted to backend â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {
-    let tempId: string | null = null;
-    setPins((prev) => {
-      if (prev.some((p) => p.messageId === pin.messageId)) return prev;
-      const id = `pin-temp-${Date.now()}`;
-      tempId = id;
-      return [{ ...pin, id, createdAt: new Date().toISOString() }, ...prev];
-    });
-
-    if (!tempId) return;
+    // Dedup check + id minting happen here, in the surrounding (impure-is-
+    // fine) function scope — not inside the setPins updater below, which is
+    // now a pure function of `prev`. Previously the dedup check AND the id
+    // assignment both lived inside the updater callback; if React ever
+    // invoked that updater more than once for a single update (Strict Mode's
+    // double-invoke, concurrent rendering), the outer `tempId` variable could
+    // be reassigned by a discarded extra invocation.
+    if (pinsRef.current.some((p) => p.messageId === pin.messageId)) return;
+    const tempId = `pin-temp-${Date.now()}`;
+    setPins((prev) => [{ ...pin, id: tempId, createdAt: new Date().toISOString() }, ...prev]);
 
     try {
       const backendPin = await createPin(pin.messageId);
@@ -327,12 +364,12 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   // â"€â"€ removePinByMessage â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const removePinByMessage = useCallback((messageId: string, options?: { silent?: boolean }) => {
-    let targetId: string | undefined;
-    setPins((prev) => {
-      const pin = prev.find((p) => p.messageId === messageId);
-      targetId  = pin?.id;
-      return prev.filter((p) => p.messageId !== messageId);
-    });
+    // Look up the target id from pinsRef (kept in sync via effect, not
+    // during render) before calling setPins, so the updater below is a pure
+    // function of `prev` — previously this lookup happened inside the
+    // updater itself, writing the outer `targetId` variable as a side effect.
+    const targetId = pinsRef.current.find((p) => p.messageId === messageId)?.id;
+    setPins((prev) => prev.filter((p) => p.messageId !== messageId));
     if (targetId && !targetId.startsWith("pin-temp-")) {
       deletePin(targetId)
         .then(() => {
@@ -400,45 +437,58 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   const updatePinComment = useCallback((id: string, text: string) => {
     if (id.startsWith("pin-temp-")) return;
-    setPins((prev) => {
-      const pin = prev.find((p) => p.id === id);
-      if (!pin) return prev;
-      const existingComment = pin.comments?.[0];
+    // Look up the pin + decide which branch to take (delete/edit/add) here,
+    // from pinsRef, BEFORE calling setPins — previously this lookup and the
+    // deletePinComment/editPinComment/addPinComment network calls it drives
+    // all lived inside the setPins updater itself. That's a more serious
+    // instance of the same impure-updater bug class than addPin/
+    // removePinByMessage above: a double-invoked updater here doesn't just
+    // risk a stale local variable, it would fire a real duplicate network
+    // mutation (a second comment delete/edit/create for one user action).
+    // Each setPins call below is now a pure `.map()` with no side effects.
+    const pin = pinsRef.current.find((p) => p.id === id);
+    if (!pin) return;
+    const existingComment = pin.comments?.[0];
 
-      if (!text.trim()) {
-        if (!existingComment) return prev;
-        deletePinComment(id, existingComment.id).catch((err) =>
-          console.error("[PinboardContext] Failed to delete comment", err),
-        );
-        return prev.map((p) => p.id === id ? { ...p, comments: [] } : p);
-      }
+    if (!text.trim()) {
+      if (!existingComment) return;
+      deletePinComment(id, existingComment.id).catch((err) =>
+        console.error("[PinboardContext] Failed to delete comment", err),
+      );
+      setPins((prev) => prev.map((p) => p.id === id ? { ...p, comments: [] } : p));
+      return;
+    }
 
-      if (existingComment) {
-        editPinComment(id, existingComment.id, text)
-          .then((updated) =>
-            setPins((s) => s.map((p) => p.id === id ? { ...p, comments: [updated] } : p)),
-          )
-          .catch((err) =>
-            console.error("[PinboardContext] Failed to edit comment", err),
-          );
-        return prev.map((p) =>
-          p.id === id ? { ...p, comments: [{ ...existingComment, content: text }] } : p,
-        );
-      }
-
-      addPinComment(id, text)
-        .then((created) =>
-          setPins((s) => s.map((p) => p.id === id ? { ...p, comments: [created] } : p)),
+    if (existingComment) {
+      editPinComment(id, existingComment.id, text)
+        .then((updated) =>
+          setPins((prev) => prev.map((p) => p.id === id ? { ...p, comments: [updated] } : p)),
         )
         .catch((err) =>
-          console.error("[PinboardContext] Failed to add comment", err),
+          console.error("[PinboardContext] Failed to edit comment", err),
         );
-      return prev.map((p) =>
+      setPins((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, comments: [{ ...existingComment, content: text }] } : p,
+        ),
+      );
+      return;
+    }
+
+    addPinComment(id, text)
+      .then((created) =>
+        setPins((prev) => prev.map((p) => p.id === id ? { ...p, comments: [created] } : p)),
+      )
+      .catch((err) =>
+        console.error("[PinboardContext] Failed to add comment", err),
+      );
+    setPins((prev) =>
+      prev.map((p) =>
         p.id === id
           ? { ...p, comments: [{ id: "", content: text, created_at: new Date().toISOString() }] }
           : p,
-      );
-    });
+      ),
+    );
   }, []);
 
   const pinnedMessageIds = useMemo(

@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Switch }   from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
-import { NotificationsSkeleton } from '../SettingsSkeleton'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -242,15 +241,17 @@ function CardHeader({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
-  const [mounted, setMounted] = useState(false)
+  // Previously gated behind a `mounted` flag purely to force an extra
+  // skeleton-then-real-content render pass — every value below is a static
+  // default (no props/API/localStorage read), so nothing here actually
+  // differs between the server render and the client's first render. Same
+  // root cause and fix as help/preferences/security.
   const [prefs, setPrefs] = useState<NotifMap>(DEFAULTS)
   const [budgetAlerts, setBudgetAlerts] = useState({
     pct65:  true,
     pct90:  true,
     pct100: false,
   })
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return <NotificationsSkeleton />
 
   const toggleNotifPref = (id: string, field: 'inApp' | 'email', val: boolean) => {
     setPrefs(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }))

@@ -74,7 +74,7 @@ function PurposePageContent() {
   }
 
   return (
-    <WizardShell steps={STEPS_BASICS}>
+    <WizardShell steps={STEPS_BASICS(1)}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
 
         {/* Heading */}
@@ -107,6 +107,7 @@ function PurposePageContent() {
                 value={purpose}
                 onChange={e => setPurpose(e.target.value.slice(0, MAX_CHARS))}
                 placeholder="e.g. Reviews contracts and flags risks in plain English"
+                aria-label="Agent purpose"
                 rows={2}
                 style={{
                   width: '100%',

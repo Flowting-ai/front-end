@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon, AlertCircleIcon } from '@strange-huge/icons'
-import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
+import { HighlightCard } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Tooltip } from '@/components/Tooltip'
@@ -294,6 +294,7 @@ export function HighlightPanel({
         {!(searchOpen && searchValue) && (
           <m.p
             key="filter-status"
+            layout
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -320,6 +321,7 @@ export function HighlightPanel({
         {searchOpen && searchValue && (
           <m.p
             key="result-count"
+            layout
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -360,6 +362,14 @@ export function HighlightPanel({
         {/* Horizontal padding lives on this inner wrapper, not the scrolling
             element above — keeps the scrollbar flush with the panel's edge. */}
         <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* AnimatePresence must wrap the swap itself (mode="wait"), not just
+            the individual branches — previously the loading/error/loaded
+            states were three plain ternary branches with no governing
+            AnimatePresence at all, so the exit={{ opacity: 0 }} on the
+            loading/error m.divs below was dead code: React swaps the whole
+            subtree in one commit with no AnimatePresence to intercept the
+            removal and actually play it. */}
+        <AnimatePresence mode="wait" initial={false}>
         {isLoading ? (
           <m.div
             key="loading"
@@ -429,7 +439,7 @@ export function HighlightPanel({
             )}
           </m.div>
         ) : (
-          <>
+          <m.div key="loaded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: 'contents' }}>
         <AnimatePresence initial={false}>
           {filtered.map(h => (
             <m.div
@@ -490,8 +500,9 @@ export function HighlightPanel({
             </m.div>
           )}
         </AnimatePresence>
-          </>
+          </m.div>
         )}
+        </AnimatePresence>
         </div>
       </div>
 

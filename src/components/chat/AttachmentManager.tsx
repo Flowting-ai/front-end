@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { PdfIcon } from "@hugeicons/core-free-icons";
+import PdfIcon from "@hugeicons/core-free-icons/Pdf01Icon";
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,

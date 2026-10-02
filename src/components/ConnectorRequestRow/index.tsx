@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { Button } from '@/components/Button'
 import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
 import { springs } from '@/lib/springs'
@@ -70,7 +70,7 @@ export const ConnectorRequestRow = React.forwardRef<HTMLDivElement, ConnectorReq
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0, transition: springs.moderate }}
       >
@@ -144,7 +144,7 @@ export const ConnectorRequestRow = React.forwardRef<HTMLDivElement, ConnectorReq
             )}
           </div>
         </Comp>
-      </motion.div>
+      </m.div>
     )
   },
 )

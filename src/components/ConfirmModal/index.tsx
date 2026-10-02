@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
@@ -36,6 +36,18 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
+
+  // Escape closes like any other dismissible overlay in the app — added when
+  // this component absorbed CancelCreationModal (agents wizard), which had
+  // its own identical Escape handler; every other ConfirmModal caller gets
+  // this for free too, none previously had it wired up at all.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !submitting) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, submitting])
 
   const handleConfirm = async () => {
     setSubmitting(true)

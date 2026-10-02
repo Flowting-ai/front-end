@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { m } from "framer-motion";
-import { Exchange01Icon } from "@hugeicons/core-free-icons";
+import Exchange01Icon from "@hugeicons/core-free-icons/Exchange01Icon";
 import type { ConnectorErrorData } from "@/types/chat";
 import { HIcon } from "./response-blocks-shared";
 

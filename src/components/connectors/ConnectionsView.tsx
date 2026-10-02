@@ -190,6 +190,19 @@ export function Catalog({
 }) {
   const [view, setView] = useState<CatalogView>('all')
   const [ownQuery, setOwnQuery] = useState(query)
+  // `query` (the `initialSearch` deep-link, e.g. /connectors?q=slack from a
+  // quick action) only seeds `ownQuery` once with a plain useState — a real
+  // gap if a second quick-action link changes `query` while this component
+  // stays mounted (a client-side navigation to /connectors?q=zoom while
+  // already on /connectors), since the search box would silently keep
+  // showing the old term. Re-adopt `query` during render whenever it
+  // actually changes, same "adjust state when a prop changes" pattern as
+  // SettingsTab's nickname sync in AccountDetailView.tsx.
+  const [syncedQuery, setSyncedQuery] = useState(query)
+  if (query !== syncedQuery) {
+    setSyncedQuery(query)
+    setOwnQuery(query)
+  }
   const [sort, setSort] = useState<SortMode>('name-asc')
   const [page, setPage] = useState(1)
   const cursorsRef = useRef<(string | undefined)[]>([undefined])
@@ -203,18 +216,43 @@ export function Catalog({
     return () => window.clearTimeout(handle)
   }, [ownQuery])
 
-  useEffect(() => {
+  // Was a `useEffect(() => { setPage(1); cursorsRef.current = [undefined] },
+  // [debouncedQuery, view])` — the `setPage(1)` half is a pure "reset
+  // pagination when the search term or tab changes" adjustment, not a
+  // subscription to anything external, so it converts to React's documented
+  // "adjust state when a prop/dependency changes" render-time pattern (no
+  // effect needed; self-terminating once paginationKey === syncedPaginationKey).
+  // The ref reset can't move into that same render-time block — React
+  // disallows writing a ref's `.current` during render (`react-hooks/refs`) —
+  // so it stays in a small dedicated effect below, keyed on the same value.
+  const paginationKey = `${view}::${debouncedQuery}`
+  const [syncedPaginationKey, setSyncedPaginationKey] = useState(paginationKey)
+  if (paginationKey !== syncedPaginationKey) {
+    setSyncedPaginationKey(paginationKey)
     setPage(1)
-    cursorsRef.current = [undefined]
-  }, [debouncedQuery, view])
-
+  }
   useEffect(() => {
-    if (view === 'connected' && !debouncedQuery) {
+    cursorsRef.current = [undefined]
+  }, [paginationKey])
+
+  // Same technique for the "nothing to browse-fetch" case (Connected tab,
+  // no search term — this view's rows come from `linkedRows` below, not
+  // `browseItems`): the reset itself is derivable from the current view/query,
+  // not a side effect, so it moves out of the fetch effect below instead of
+  // being its unconditional first branch.
+  const skipBrowse = view === 'connected' && !debouncedQuery
+  const [syncedSkipBrowse, setSyncedSkipBrowse] = useState(skipBrowse)
+  if (skipBrowse !== syncedSkipBrowse) {
+    setSyncedSkipBrowse(skipBrowse)
+    if (skipBrowse) {
       setBrowseItems([])
       setBrowseHasMore(false)
       setBrowseBusy(false)
-      return
     }
+  }
+
+  useEffect(() => {
+    if (skipBrowse) return
     let cancelled = false
     setBrowseBusy(true)
     const cursor = cursorsRef.current[page - 1]
@@ -239,7 +277,7 @@ export function Catalog({
         if (!cancelled) setBrowseBusy(false)
       })
     return () => { cancelled = true }
-  }, [debouncedQuery, view, page, onRows])
+  }, [skipBrowse, debouncedQuery, view, page, onRows])
 
   const byName = (a: ConnectorCatalog, b: ConnectorCatalog) =>
     sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)

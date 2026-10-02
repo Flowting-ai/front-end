@@ -109,18 +109,23 @@ function PersonaConfigureSharingContent() {
   // ── Auto-save on tab switch ────────────────────────────────────────────────
 
   const sharingAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
-  sharingAutoSaveRef.current = async () => {
-    const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Sharing'] === true
-    if (!hasDirty || !repoId || !versionId) return
-    try {
-      await updateVersion({ repoId, versionId, name: personaName || undefined })
-      setTabDirty('Sharing', false)
-      toast.success('Changes autosaved')
-    } catch (err) {
-      console.error('[SharingPage] auto-save error:', err)
-      toast.error('Failed to autosave changes')
+  // Wrapped in a deps-less effect (not assigned directly in the render body) —
+  // ref mutation during render is unsafe under concurrent rendering and blocks
+  // the React Compiler; re-runs every render to capture the latest values.
+  useEffect(() => {
+    sharingAutoSaveRef.current = async () => {
+      const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Sharing'] === true
+      if (!hasDirty || !repoId || !versionId) return
+      try {
+        await updateVersion({ repoId, versionId, name: personaName || undefined })
+        setTabDirty('Sharing', false)
+        toast.success('Changes autosaved')
+      } catch (err) {
+        console.error('[SharingPage] auto-save error:', err)
+        toast.error('Failed to autosave changes')
+      }
     }
-  }
+  })
 
   useEffect(() => {
     registerAutoSave(() => sharingAutoSaveRef.current())

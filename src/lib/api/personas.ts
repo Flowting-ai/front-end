@@ -277,8 +277,15 @@ export async function createPersonaRepo(params: {
  * POST /persona/{repoId}/use — copy a visible persona (e.g. a team-published one)
  * into the caller's own list. Returns the newly-created repo. Busts the list so
  * the copy shows up immediately.
+ *
+ * Named `copyPersonaRepo` (not `usePersonaRepo`) deliberately — a `use`-prefixed
+ * name on a plain async function trips eslint-plugin-react-hooks' rules-of-hooks
+ * heuristic (any `use[A-Z]…` identifier is treated as a hook call site) wherever
+ * this is awaited inside a conditional branch, which it legitimately is in several
+ * callers. It was never a hook; the old name was flagged as 3 "hook called
+ * conditionally" errors purely from the naming collision.
  */
-export async function usePersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
+export async function copyPersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
   const repo = personaRepoSchema.parse(await apiFetchJson<unknown>(PERSONA_USE_ENDPOINT(repoId), {
     method: "POST",
   }));
@@ -316,7 +323,7 @@ export function getExistingCopyId(sourceRepoId: string): string | null {
 }
 
 /**
- * Like usePersonaRepo but deduplicates across sessions via localStorage.
+ * Like copyPersonaRepo but deduplicates across sessions via localStorage.
  * Checks if the caller already has a copy of `repoId`; only POSTs /use when
  * no valid copy exists. Prevents unbounded copy accumulation when the
  * session-scoped caches in AddMenu / project page are cleared on refresh.
@@ -327,7 +334,7 @@ export function getExistingCopyId(sourceRepoId: string): string | null {
  * backward compatible: omitting it just means status checks fall back to
  * "assume stale" for this repo until the next copy/update records it.
  */
-export async function usePersonaRepoDeduped(repoId: string, sourceVersionId?: string | null): Promise<PersonaRepoResponse> {
+export async function copyPersonaRepoDeduped(repoId: string, sourceVersionId?: string | null): Promise<PersonaRepoResponse> {
   if (typeof window !== 'undefined') {
     try {
       const map = readJsonMap(COPY_MAP_LS_KEY)
@@ -343,7 +350,7 @@ export async function usePersonaRepoDeduped(repoId: string, sourceVersionId?: st
       }
     } catch { /* ignore parse/quota errors */ }
   }
-  const copy = await usePersonaRepo(repoId)
+  const copy = await copyPersonaRepo(repoId)
   if (typeof window !== 'undefined') {
     try {
       const map = readJsonMap(COPY_MAP_LS_KEY)

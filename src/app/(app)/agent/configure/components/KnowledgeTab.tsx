@@ -197,6 +197,9 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
           <button
             type="button"
             onClick={() => setShowActionMenu((p) => !p)}
+            aria-label="File actions"
+            aria-haspopup="menu"
+            aria-expanded={showActionMenu}
             style={{
               display: "flex",
               alignItems: "center",
@@ -346,6 +349,16 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   // flickers off the instant the cursor crosses an inner element.
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Blob URLs created by the local-state-only fallback path below (no
+  // onRawFilesSelected supplied) — tracked so they can be revoked on unmount
+  // instead of leaking for the lifetime of the tab.
+  const fallbackBlobUrlsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    return () => {
+      fallbackBlobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      fallbackBlobUrlsRef.current.clear();
+    };
+  }, []);
 
   const isEmpty = files.length === 0;
 
@@ -428,7 +441,11 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         fileType: ext,
         size: sizeStr,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        url: URL.createObjectURL(file),
+        url: (() => {
+          const blobUrl = URL.createObjectURL(file);
+          fallbackBlobUrlsRef.current.add(blobUrl);
+          return blobUrl;
+        })(),
       };
     });
     onFilesChange([...files, ...newFiles]);
@@ -774,6 +791,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search knowledge…"
+            aria-label="Search knowledge"
             style={{
               flex: 1,
               fontFamily: "var(--font-body)",

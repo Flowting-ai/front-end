@@ -154,6 +154,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       value={userSays}
                       onChange={(e) => setUserSays(e.target.value)}
                       placeholder="e.g. I need help reviewing the redesign"
+                      aria-label="User says"
                       style={{
                         flex: 1,
                         fontFamily: 'var(--font-body)',
@@ -199,6 +200,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       value={personaReplies}
                       onChange={(e) => setPersonaReplies(e.target.value)}
                       placeholder="e.g. All discovery and design work for the V2 redesign"
+                      aria-label="Agent replies"
                       style={{
                         flex: 1,
                         width: '100%',

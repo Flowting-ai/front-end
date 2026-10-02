@@ -353,6 +353,7 @@ export default function ProfileTab({
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
+                  aria-label={`Remove tag "${tag}"`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -385,6 +386,7 @@ export default function ProfileTab({
                 else { setShowTagInput(false); setNewTagInput(""); }
               }}
               placeholder="Tag name"
+              aria-label="New tag name"
               style={{
                 height: 22,
                 padding: "0 8px",

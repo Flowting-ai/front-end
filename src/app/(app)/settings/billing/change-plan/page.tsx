@@ -360,6 +360,7 @@ export default function ChangePlanPage() {
                     <div style={{ paddingLeft: 4 }}>
                       <input
                         type="range"
+                        aria-label="Monthly credits — individual plan"
                         min={0}
                         max={INDIVIDUAL_PLANS.length - 1}
                         step={1}
@@ -529,6 +530,7 @@ export default function ChangePlanPage() {
                     <div style={{ paddingLeft: 4 }}>
                       <input
                         type="range"
+                        aria-label="Monthly credits — team plan"
                         min={0}
                         max={TEAM_PLANS.length - 1}
                         step={1}

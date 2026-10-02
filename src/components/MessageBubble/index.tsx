@@ -10,7 +10,7 @@ import {
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Exchange01Icon } from '@hugeicons/core-free-icons'
+import Exchange01Icon from '@hugeicons/core-free-icons/Exchange01Icon'
 import { cn } from '@/lib/utils'
 import { ContentRenderer } from '@/lib/content-renderer'
 

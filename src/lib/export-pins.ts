@@ -1,14 +1,20 @@
 import { toast } from "sonner"
 import type { PinItem } from "@/context/pinboard-context"
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
+// Security note (see docs v2/performance report/pinboard/07-pinboard-feature-report.md
+// §10 for the full trace): this module used to build the exported document as
+// an HTML *string* (interpolating pin title/content/category/tags/chat-name —
+// all user- or model-generated text — into template literals with manual
+// escapeHtml() calls) and hand that string to `container.innerHTML = ...`.
+// Every interpolation point was in fact escaped correctly, so it was not
+// exploitable as shipped — but the safety depended entirely on every future
+// edit remembering to keep calling escapeHtml() on every new field, which is
+// a fragile invariant for a static-analysis rule (`dangerous-html-sink`) to
+// have to keep re-verifying by hand. Rebuilt below using real DOM-node
+// construction (`createElement` + `textContent`) instead: user-controlled
+// strings are assigned to `.textContent`, which the DOM never interprets as
+// markup, so there is no escaping step to forget and no `innerHTML` sink left
+// to reason about at all.
 
 function stripMarkdown(text: string): string {
   return text
@@ -22,41 +28,84 @@ function stripMarkdown(text: string): string {
     .trim()
 }
 
-function buildPinCard(pin: PinItem, chatNameById: Map<string, string>): string {
-  const chatName = (pin.chatId ? chatNameById.get(pin.chatId) : undefined) ?? pin.chatName ?? ""
-  const tags =
-    pin.tags && pin.tags.length
-      ? `<div style="margin-top:6px;font-size:11px;color:#444;">Tags: ${pin.tags.map(escapeHtml).join(", ")}</div>`
-      : ""
-  const category = `<div style="margin-top:4px;font-size:11px;color:#888;">${escapeHtml(pin.category)}</div>`
-  const chat = chatName
-    ? `<div style="margin-top:4px;font-size:11px;color:#666;">Chat: ${escapeHtml(chatName)}</div>`
-    : ""
-  return `
-    <div style="padding:12px 14px;border:1px solid #e1e1e1;border-radius:10px;margin-bottom:10px;break-inside:avoid;">
-      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:4px;">${escapeHtml(stripMarkdown(pin.title || pin.content))}</div>
-      <div style="font-size:12px;color:#222;white-space:pre-wrap;">${escapeHtml(stripMarkdown(pin.content))}</div>
-      ${category}
-      ${chat}
-      ${tags}
-    </div>`
+/** Small helper: create an element, assign text via `.textContent` (never
+ * `.innerHTML`) so the value can never be interpreted as markup, and apply a
+ * plain style object. */
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  opts?: { text?: string; style?: Partial<CSSStyleDeclaration> },
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag)
+  if (opts?.text !== undefined) node.textContent = opts.text
+  if (opts?.style) Object.assign(node.style, opts.style)
+  return node
 }
 
-function buildDocHtml(htmlPins: string, label: string, now: Date): string {
-  return `
-    <div style="font-family:Arial,sans-serif;width:760px;padding:24px;background:#fff;">
-      <div style="font-size:22px;font-weight:bold;margin-bottom:6px;color:#111;">Pinboard Export</div>
-      <div style="font-size:12px;color:#555;margin-bottom:16px;">Exported ${label} · ${now.toLocaleString()}</div>
-      ${htmlPins}
-    </div>`
+function buildPinCard(pin: PinItem, chatNameById: Map<string, string>): HTMLDivElement {
+  const chatName = (pin.chatId ? chatNameById.get(pin.chatId) : undefined) ?? pin.chatName ?? ""
+
+  const card = el("div", {
+    style: {
+      padding:       "12px 14px",
+      border:        "1px solid #e1e1e1",
+      borderRadius:  "10px",
+      marginBottom:  "10px",
+      breakInside:   "avoid",
+    },
+  })
+
+  card.appendChild(el("div", {
+    text:  stripMarkdown(pin.title || pin.content),
+    style: { fontWeight: "600", fontSize: "14px", color: "#111", marginBottom: "4px" },
+  }))
+  card.appendChild(el("div", {
+    text:  stripMarkdown(pin.content),
+    style: { fontSize: "12px", color: "#222", whiteSpace: "pre-wrap" },
+  }))
+  card.appendChild(el("div", {
+    text:  pin.category,
+    style: { marginTop: "4px", fontSize: "11px", color: "#888" },
+  }))
+  if (chatName) {
+    card.appendChild(el("div", {
+      text:  `Chat: ${chatName}`,
+      style: { marginTop: "4px", fontSize: "11px", color: "#666" },
+    }))
+  }
+  if (pin.tags && pin.tags.length) {
+    card.appendChild(el("div", {
+      text:  `Tags: ${pin.tags.join(", ")}`,
+      style: { marginTop: "6px", fontSize: "11px", color: "#444" },
+    }))
+  }
+
+  return card
+}
+
+function buildDoc(pinCards: HTMLDivElement[], label: string, now: Date): HTMLDivElement {
+  const doc = el("div", {
+    style: { fontFamily: "Arial,sans-serif", width: "760px", padding: "24px", background: "#fff" },
+  })
+  doc.appendChild(el("div", {
+    text:  "Pinboard Export",
+    style: { fontSize: "22px", fontWeight: "bold", marginBottom: "6px", color: "#111" },
+  }))
+  doc.appendChild(el("div", {
+    // `label` ("1 pin"/"N pins") and the date are computed internally, not
+    // user data — safe either way, kept as textContent for consistency.
+    text:  `Exported ${label} · ${now.toLocaleString()}`,
+    style: { fontSize: "12px", color: "#555", marginBottom: "16px" },
+  }))
+  pinCards.forEach((card) => doc.appendChild(card))
+  return doc
 }
 
 /**
- * Renders `docHtml` off-screen and saves it as a real downloaded PDF (not a
+ * Renders `docNode` off-screen and saves it as a real downloaded PDF (not a
  * print-dialog dependent popup — this generates actual PDF bytes via jsPDF +
  * html2canvas and triggers a browser download under `filename`).
  */
-async function renderAndDownloadPdf(docHtml: string, filename: string): Promise<void> {
+async function renderAndDownloadPdf(docNode: HTMLElement, filename: string): Promise<void> {
   const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
     import("jspdf"),
     import("html2canvas"),
@@ -66,7 +115,7 @@ async function renderAndDownloadPdf(docHtml: string, filename: string): Promise<
   container.style.position = "fixed"
   container.style.left = "-10000px"
   container.style.top = "0"
-  container.innerHTML = docHtml
+  container.appendChild(docNode)
   document.body.appendChild(container)
 
   try {
@@ -106,9 +155,9 @@ export function exportSinglePin(pin: PinItem, chatNameById: Map<string, string>)
   if (typeof window === "undefined") return
   const now = new Date()
   const filename = `pin-export-${now.toISOString().split("T")[0]}.pdf`
-  const docHtml = buildDocHtml(buildPinCard(pin, chatNameById), "1 pin", now)
+  const docNode = buildDoc([buildPinCard(pin, chatNameById)], "1 pin", now)
 
-  toast.promise(renderAndDownloadPdf(docHtml, filename), {
+  toast.promise(renderAndDownloadPdf(docNode, filename), {
     loading: "Generating PDF…",
     success: `Downloaded ${filename}`,
     error: "Couldn't generate the PDF. Please try again.",
@@ -139,9 +188,9 @@ export function exportPins(
   const now = new Date()
   const label = pins.length === 1 ? "1 pin" : `${pins.length} pins`
   const filename = `pins-export-${now.toISOString().split("T")[0]}.pdf`
-  const docHtml = buildDocHtml(pins.map(p => buildPinCard(p, chatNameById)).join(""), label, now)
+  const docNode = buildDoc(pins.map(p => buildPinCard(p, chatNameById)), label, now)
 
-  toast.promise(renderAndDownloadPdf(docHtml, filename), {
+  toast.promise(renderAndDownloadPdf(docNode, filename), {
     loading: "Generating PDF…",
     success: `Downloaded ${filename}`,
     error: "Couldn't generate the PDF. Please try again.",

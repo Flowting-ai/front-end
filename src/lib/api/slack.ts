@@ -74,6 +74,8 @@ export interface SlackWorkspaceStatus {
   teamId:      string
   teamName:    string
   installedAt: string
+  missingScopes: string[]
+  needsReinstall: boolean
 }
 
 export interface SlackStatus {
@@ -87,6 +89,8 @@ function normalizeStatus(data: SlackStatusResponseRaw): SlackStatus {
     teamId:      w.team_id,
     teamName:    w.team_name,
     installedAt: w.installed_at,
+    missingScopes: w.missing_scopes,
+    needsReinstall: w.needs_reinstall,
   }))
   return { connected: workspaces.length > 0, workspaces }
 }
@@ -94,8 +98,11 @@ function normalizeStatus(data: SlackStatusResponseRaw): SlackStatus {
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /** GET /slack/install — the "Add to Slack" URL (FE opens it; Slack redirects to the callback). */
-export async function getSlackInstallUrl(): Promise<string> {
-  const raw = await apiFetchJson<unknown>(SLACK_INSTALL_ENDPOINT)
+export async function getSlackInstallUrl(teamId?: string): Promise<string> {
+  const endpoint = teamId
+    ? `${SLACK_INSTALL_ENDPOINT}?${new URLSearchParams({ team_id: teamId })}`
+    : SLACK_INSTALL_ENDPOINT
+  const raw = await apiFetchJson<unknown>(endpoint)
   return slackInstallURLResponseSchema.parse(raw).url
 }
 

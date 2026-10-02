@@ -91,17 +91,24 @@ async function extractPdf(file: File): Promise<string> {
   const data   = await file.arrayBuffer()
   const task   = pdfjsLib.getDocument({ data, useSystemFonts: true })
   const pdf    = await task.promise
-  const pages: string[] = []
 
-  for (let i = 1; i <= pdf.numPages; i++) {
+  // Each page's text extraction is independent (pdf.js supports concurrent
+  // page/content-stream access on the same document) and no iteration
+  // depends on a prior one's result, so this parallelizes safely with
+  // Promise.all instead of awaiting one page at a time. Page order is
+  // preserved by Promise.all itself (results land in input order regardless
+  // of completion order), so blank pages can still be filtered out
+  // afterward without disturbing the surviving pages' relative order.
+  const pageNumbers = Array.from({ length: pdf.numPages }, (_, idx) => idx + 1)
+  const pageTexts = await Promise.all(pageNumbers.map(async (i) => {
     const page    = await pdf.getPage(i)
     const content = await page.getTextContent()
-    const text    = content.items
+    return content.items
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((item: any) => ('str' in item ? item.str : ''))
       .join(' ')
-    if (text.trim()) pages.push(text)
-  }
+  }))
+  const pages = pageTexts.filter((text) => text.trim())
 
   await pdf.destroy()
   return pages.join('\n\n')

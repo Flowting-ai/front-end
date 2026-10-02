@@ -3,23 +3,21 @@
 import { Fragment, useEffect, useId, useState, type ReactNode } from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  AiVisionRecognitionIcon,
-  AiBrain01Icon,
-  HierarchySquare01Icon,
-  Idea01Icon,
-  Task01Icon,
-  Route01Icon,
-  GitMergeIcon,
-  Search01Icon,
-  AiNetworkIcon,
-  Compass01Icon,
-  Layers01Icon,
-  Globe02Icon,
-  Brain01Icon,
-  Brain02Icon,
-  Checkmark,
-} from "@hugeicons/core-free-icons";
+import AiVisionRecognitionIcon from "@hugeicons/core-free-icons/AiVisionRecognitionIcon";
+import AiBrain01Icon from "@hugeicons/core-free-icons/AiBrain01Icon";
+import HierarchySquare01Icon from "@hugeicons/core-free-icons/HierarchySquare01Icon";
+import Idea01Icon from "@hugeicons/core-free-icons/Idea01Icon";
+import Task01Icon from "@hugeicons/core-free-icons/Task01Icon";
+import Route01Icon from "@hugeicons/core-free-icons/Route01Icon";
+import GitMergeIcon from "@hugeicons/core-free-icons/GitMergeIcon";
+import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
+import AiNetworkIcon from "@hugeicons/core-free-icons/AiNetworkIcon";
+import Compass01Icon from "@hugeicons/core-free-icons/Compass01Icon";
+import Layers01Icon from "@hugeicons/core-free-icons/Layers01Icon";
+import Globe02Icon from "@hugeicons/core-free-icons/Globe02Icon";
+import Brain01Icon from "@hugeicons/core-free-icons/Brain01Icon";
+import Brain02Icon from "@hugeicons/core-free-icons/Brain02Icon";
+import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection } from "./ActivityRow";
 import { ACTIVITY_VERB } from "@/lib/activity";

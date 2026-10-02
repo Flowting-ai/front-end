@@ -35,8 +35,7 @@ export function usePersonaRepos() {
   return state
 }
 
-/** One agent by id, from the shared collection. Named ...ById because
- *  `usePersonaRepo` in lib/api/personas is the POST /use copy call, not a hook. */
+/** One agent by id, from the shared collection. */
 export function usePersonaRepoById(repoId: string | null | undefined) {
   const { repos, isLoading, error } = usePersonaRepos()
   return { repo: repoId ? repos.get(repoId) : null, isLoading, error }

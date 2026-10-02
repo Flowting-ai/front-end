@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { MoreVerticalIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
@@ -150,12 +150,12 @@ export const ConnectorCard = React.forwardRef<HTMLDivElement, ConnectorCardProps
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative', zIndex: 0 }}>
             <ConnectorIcon iconUrl={iconUrl} iconAlt={iconAlt} iconNode={iconNode} name={name} size={44} />
             {onMore && (
-              <motion.span
+              <m.span
                 animate={{ opacity: hov ? 1 : 0 }}
                 transition={{ duration: 0.12 }}
               >
                 <IconButton size="xs" variant="ghost" aria-label="More options" icon={<MoreVerticalIcon size={14} />} onClick={onMore} />
-              </motion.span>
+              </m.span>
             )}
           </div>
 

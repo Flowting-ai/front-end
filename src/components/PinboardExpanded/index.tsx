@@ -1073,6 +1073,7 @@ export function PinboardExpanded(
                     {filterBar && hasActiveFilters && (
                       <m.div
                         key="expanded-filter-bar"
+                        layout
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{    height: 0, opacity: 0 }}

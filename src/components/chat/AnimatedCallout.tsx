@@ -2,13 +2,11 @@
 
 import { useEffect } from "react";
 import { m } from "framer-motion";
-import {
-  InformationCircleIcon,
-  Alert01Icon,
-  Cancel01Icon,
-  CheckmarkCircle01Icon,
-  Idea01Icon,
-} from "@hugeicons/core-free-icons";
+import InformationCircleIcon from "@hugeicons/core-free-icons/InformationCircleIcon";
+import Alert01Icon from "@hugeicons/core-free-icons/Alert01Icon";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import CheckmarkCircle01Icon from "@hugeicons/core-free-icons/CheckmarkCircle01Icon";
+import Idea01Icon from "@hugeicons/core-free-icons/Idea01Icon";
 import type { CalloutData } from "@/types/chat";
 import { HIcon, InlineMd } from "./response-blocks-shared";
 

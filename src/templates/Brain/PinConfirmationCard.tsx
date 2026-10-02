@@ -71,7 +71,10 @@ export function PinConfirmationCard({
   onSkip,
 }: PinConfirmationCardProps) {
   const defaultIds        = defaultSelected ?? pins.map(p => p.id)
-  const [selected,   setSelected]   = useState<Set<string>>(new Set(defaultIds))
+  // Lazy initializer — `new Set(defaultIds)` only needs to run once, on
+  // mount; passing the eager value re-constructs a throwaway Set on every
+  // render even though only the very first one is ever used.
+  const [selected,   setSelected]   = useState<Set<string>>(() => new Set(defaultIds))
   const [locked,     setLocked]     = useState<boolean>(defaultLocked)
   const [confirmedCount, setConfirmedCount] = useState<number>(
     lockedCount ?? defaultIds.length,

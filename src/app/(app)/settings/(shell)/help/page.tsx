@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { Badge } from '@/components/Badge'
-import { HelpSkeleton } from '../SettingsSkeleton'
 import { trackFeature } from '@/lib/analytics/events'
 
 // ── External link arrow icon ──────────────────────────────────────────────────
@@ -111,7 +110,7 @@ function LinkRow({
         </p>
       </div>
       <GhostButton
-        onClick={disabled ? undefined : () => href && window.open(href, '_blank')}
+        onClick={disabled ? undefined : () => href && window.open(href, '_blank', 'noopener,noreferrer')}
         disabled={disabled}
       >
         View <ArrowUpRightIcon />
@@ -174,10 +173,15 @@ function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HelpPage() {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  // Was gated behind a `mounted` flag (useState(false) flipped true by a
+  // mount-only effect) purely to force one extra skeleton-then-real-content
+  // render pass — but every value this page renders (all static copy, no
+  // props/API/localStorage read) is identical on the server and the client's
+  // first render, so there was nothing here that actually needed guarding.
+  // The gate only added a pointless flash: real content is now shown
+  // immediately. Same root cause, same fix, reapplied to
+  // notifications/preferences/security below.
   useEffect(() => { trackFeature('settings_help_opened') }, [])
-  if (!mounted) return <HelpSkeleton />
   return (
     <>
     <div

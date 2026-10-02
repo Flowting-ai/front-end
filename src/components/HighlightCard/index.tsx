@@ -6,19 +6,13 @@ import { CopyOneIcon, MessagePreviewOneIcon, CancelCircleIcon } from '@strange-h
 import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
+import { HIGHLIGHT_COLORS, type HighlightColorIndex } from './colors'
 
-// ── Color variants ─────────────────────────────────────────────────────────────
-// Auto-assigned by index (highlights.length % 4) - never set by the user.
-// fold is the -200 / -300 step of the same hue, used for the dog-ear triangle.
-
-export const HIGHLIGHT_COLORS = [
-  { key: 'sand',     bg: 'var(--yellow-100)', fold: 'var(--yellow-200)' },
-  { key: 'lavender', bg: 'var(--purple-200)', fold: 'var(--purple-300)' },
-  { key: 'sky',      bg: 'var(--blue-100)',   fold: 'var(--blue-200)'   },
-  { key: 'sage',     bg: 'var(--green-100)',  fold: 'var(--green-200)'  },
-] as const
-
-export type HighlightColorIndex = 0 | 1 | 2 | 3
+// Re-exported for backward compatibility — these used to be declared directly
+// in this file; they now live in ./colors.ts (non-component value export out
+// of a file that also exports HighlightCard, so Fast Refresh can hot-reload
+// the component without a full remount — see that file's own comment).
+export { HIGHLIGHT_COLORS, type HighlightColorIndex } from './colors'
 
 // ── Shadow constants ───────────────────────────────────────────────────────────
 // No 1px ring - the ring creates a hard right-angle at the bottom-left (BL radius = 0)

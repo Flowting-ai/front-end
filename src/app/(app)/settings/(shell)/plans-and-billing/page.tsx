@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, TokenCircleIcon } from '@strange-huge/icons'
@@ -465,6 +465,66 @@ export default function PlansAndBillingPage() {
   return orgId ? <OrgBillingView /> : <PersonalBillingView />
 }
 
+// ── Shared cancel-subscription confirmation ──────────────────────────────────
+// Decomposition pass: OrgBillingView and PersonalBillingView below each carry
+// their own giant-component/high-complexity flag (this file's two flagged
+// regions) precisely because each hand-rolls the same ~35-line cancel dialog
+// inline, differing only in which date it displays and which local
+// state/handler it closes over. Genuinely self-contained (no dependency on
+// either view's other internals beyond these explicit props) — a clean
+// extraction, not one that just relocates coupling elsewhere.
+function CancelSubscriptionDialog({
+  open,
+  periodEndLabel,
+  isCanceling,
+  onKeep,
+  onConfirmCancel,
+}: {
+  open:            boolean
+  periodEndLabel:  string
+  isCanceling:     boolean
+  onKeep:          () => void
+  onConfirmCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- backdrop click-to-dismiss; the real dialog control is the "Keep plan" button below
+    <div
+      onClick={() => { if (!isCanceling) onKeep() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
+        backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+    >
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- stops the backdrop's dismiss-click from firing when interacting with the card itself */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
+          boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
+        }}
+      >
+        <div>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+            Cancel subscription?
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+            Your plan stays active until <strong style={{ color: 'var(--neutral-900)' }}>{periodEndLabel}</strong>. After that you lose access to paid features.
+          </p>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="secondary" disabled={isCanceling} onClick={onKeep}>
+            Keep plan
+          </Button>
+          <Button variant="danger" loading={isCanceling} onClick={onConfirmCancel}>
+            Yes, cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function OrgBillingView() {
   const router = useRouter()
   const { org, orgId, orgRole, plan, refreshMembers } = useOrg()
@@ -607,7 +667,7 @@ function OrgBillingView() {
     setOpeningPortal(true)
     try {
       const url = await openBillingPortal()
-      if (url) window.open(url, '_blank')
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
       else toast.error('Could not open billing portal.')
     } catch {
       toast.error('Could not open billing portal.')
@@ -971,42 +1031,13 @@ function OrgBillingView() {
       </div>
 
       {/* Modals */}
-      {showCancelDialog && (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-        <div
-          onClick={() => { if (!isCanceling) setShowCancelDialog(false) }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
-            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-          }}
-        >
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
-              boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
-            }}
-          >
-            <div>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-                Cancel subscription?
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
-                Your plan stays active until <strong style={{ color: 'var(--neutral-900)' }}>{nextBilling}</strong>. After that you lose access to paid features.
-              </p>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button variant="secondary" disabled={isCanceling} onClick={() => setShowCancelDialog(false)}>
-                Keep plan
-              </Button>
-              <Button variant="danger" loading={isCanceling} onClick={() => { void handleCancelSubscription() }}>
-                Yes, cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        periodEndLabel={nextBilling}
+        isCanceling={isCanceling}
+        onKeep={() => setShowCancelDialog(false)}
+        onConfirmCancel={() => { void handleCancelSubscription() }}
+      />
       {isAdmin && isEnterprise && capModalOpen && (
         <SpendCapModal
           currentCapUsd={overageCapUsd}
@@ -1172,7 +1203,7 @@ function PersonalBillingView() {
     setOpeningPortal(true)
     try {
       const url = await openBillingPortal()
-      if (url) window.open(url, '_blank')
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
       else toast.error('Could not open billing portal.')
     } catch {
       toast.error('Could not open billing portal.')
@@ -1371,42 +1402,13 @@ function PersonalBillingView() {
         )}
       </div>
 
-      {showCancelDialog && (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-        <div
-          onClick={() => { if (!isCanceling) setShowCancelDialog(false) }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
-            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-          }}
-        >
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
-              boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
-            }}
-          >
-            <div>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-                Cancel subscription?
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
-                Your plan stays active until <strong style={{ color: 'var(--neutral-900)' }}>{fmtDate(periodEnd)}</strong>. After that you lose access to paid features.
-              </p>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button variant="secondary" disabled={isCanceling} onClick={() => setShowCancelDialog(false)}>
-                Keep plan
-              </Button>
-              <Button variant="danger" loading={isCanceling} onClick={() => { void handleCancelSubscription() }}>
-                Yes, cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        periodEndLabel={fmtDate(periodEnd)}
+        isCanceling={isCanceling}
+        onKeep={() => setShowCancelDialog(false)}
+        onConfirmCancel={() => { void handleCancelSubscription() }}
+      />
     </div>
   )
 }
@@ -1592,12 +1594,18 @@ function InputField({
   prefix?:      string
   placeholder?: string
 }) {
+  // `label` was a plain <p>, visually adjacent to the <input> but never
+  // programmatically associated with it (control-has-associated-label) —
+  // `htmlFor` doesn't apply to a non-<label> element, so the fix is an
+  // id/aria-labelledby pairing instead, with zero visual change.
+  const labelId = useId()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
+      <p id={labelId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         {prefix && <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', padding: '0 2px' }}>{prefix}</span>}
         <input
+          aria-labelledby={labelId}
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}

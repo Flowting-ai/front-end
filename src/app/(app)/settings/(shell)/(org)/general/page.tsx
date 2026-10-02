@@ -509,7 +509,13 @@ export default function OrgGeneralPage() {
   const { setIsDirty: setNavDirty, setGuardMessage, setSaveHandler } = useNavGuard()
   const isIdentityDirtyRef = useRef(false)
   const isIdentityDirty = workspaceName.trim() !== baseWorkspaceName.trim() || slugValue.trim() !== baseSlugValue.trim() || logoFile !== null
-  isIdentityDirtyRef.current = isIdentityDirty
+  // Was written directly during render — moved into a deps-less effect
+  // (same fix shape as /settings/account's own isDirtyRef): only ever read
+  // later, from inside the beforeunload handler below, so the one-commit
+  // delay an effect introduces is safe.
+  useEffect(() => {
+    isIdentityDirtyRef.current = isIdentityDirty
+  })
 
   useEffect(() => {
     setGuardMessage({
@@ -565,10 +571,17 @@ export default function OrgGeneralPage() {
       let preview = ''
       try {
         preview = await compressImage(file, 512, 512, 0.85)
-        const blob = await (await fetch(preview)).blob()
+        // Same pattern established in the Agents engagement's
+        // knowledge/page.tsx fix — consume the response only after
+        // confirming it actually succeeded, rather than assuming any
+        // resolved fetch means a usable body.
+        const previewRes = await fetch(preview)
+        if (!previewRes.ok) throw new Error('Failed to read compressed image')
+        const blob = await previewRes.blob()
         staged = new File([blob], 'logo.jpg', { type: blob.type || 'image/jpeg' })
       } catch {
-        // compression unsupported in this browser — fall back to the
+        // compression unsupported in this browser (or the status check above
+        // rejected it) — fall back to the
         // original file for upload, and an object URL for the preview.
         preview = URL.createObjectURL(file)
       }
@@ -642,7 +655,11 @@ export default function OrgGeneralPage() {
   // `handleSaveIdentity` closure — same stable-ref-wrapper pattern
   // /settings/account uses, since the closure is recreated every render.
   const handleSaveIdentityRef = useRef(handleSaveIdentity)
-  handleSaveIdentityRef.current = handleSaveIdentity
+  // Was written directly during render — moved into a deps-less effect, same
+  // fix shape as isIdentityDirtyRef above and /settings/account's handleSaveRef.
+  useEffect(() => {
+    handleSaveIdentityRef.current = handleSaveIdentity
+  })
   useEffect(() => {
     setSaveHandler(() => handleSaveIdentityRef.current())
     return () => setSaveHandler(null)

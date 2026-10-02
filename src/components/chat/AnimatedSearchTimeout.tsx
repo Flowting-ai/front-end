@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { m } from "framer-motion";
-import { GlobeXIcon, Exchange01Icon } from "@hugeicons/core-free-icons";
+import GlobeXIcon from "@hugeicons/core-free-icons/GlobeXIcon";
+import Exchange01Icon from "@hugeicons/core-free-icons/Exchange01Icon";
 import type { SearchTimeoutData } from "@/types/chat";
 import { HIcon } from "./response-blocks-shared";
 

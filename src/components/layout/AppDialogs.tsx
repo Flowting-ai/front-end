@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, m } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
-import CompareModels from "@/components/compare/CompareModels";
+// CompareModels pulls in @strange-huge/icons/llm (~10MB/6.5MB-gzip of every
+// LLM provider's logo data) but only ever renders once the compare dialog is
+// opened (see the `isOpen &&` guard below) — a static import here made every
+// page pay for it, since AppDialogs mounts globally via AppLayout. Deferred
+// so the chunk only loads on the first actual open.
+const CompareModels = dynamic(() => import("@/components/compare/CompareModels"), {
+  ssr: false,
+  loading: () => null,
+});
 import { useCompare } from "@/context/compare-context";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import type { AIModel } from "@/types/ai-model";

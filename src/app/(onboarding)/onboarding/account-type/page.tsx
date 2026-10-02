@@ -8,7 +8,8 @@ import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { StickyNote02Icon, OfficeChairIcon } from "@hugeicons/core-free-icons";
+import StickyNote02Icon from "@hugeicons/core-free-icons/StickyNote02Icon";
+import OfficeChairIcon from "@hugeicons/core-free-icons/OfficeChairIcon";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { ONBOARDING_IMPORT_ROUTE, ONBOARDING_PLANS_ROUTE, ONBOARDING_HELLO_ROUTE } from "@/lib/routes";
 

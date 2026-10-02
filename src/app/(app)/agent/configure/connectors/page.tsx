@@ -143,19 +143,25 @@ function PersonaConfigureConnectorsContent() {
   // ── Auto-save on tab switch ────────────────────────────────────────────────
 
   const connectorsAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
-  connectorsAutoSaveRef.current = async () => {
-    const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Connectors'] === true
-    if (!hasDirty || !repoId || !versionId) return
-    try {
-      await updateVersion({ repoId, versionId, name: personaName || undefined })
-      setTabDirty('Connectors', false)
-      resetTouchedFields('connectors')
-      toast.success('Changes autosaved')
-    } catch (err) {
-      console.error('[ConnectorsPage] auto-save error:', err)
-      toast.error('Failed to autosave changes')
+  // Assigning `.current` directly in the render body mutates a ref during
+  // render — unsafe under concurrent rendering and blocks the React Compiler.
+  // Wrapped in a deps-less effect so the write happens post-commit instead,
+  // while still re-running every render to capture this render's latest values.
+  useEffect(() => {
+    connectorsAutoSaveRef.current = async () => {
+      const hasDirty = pendingChangeTags.length > 0 || tabDirtyFlags['Connectors'] === true
+      if (!hasDirty || !repoId || !versionId) return
+      try {
+        await updateVersion({ repoId, versionId, name: personaName || undefined })
+        setTabDirty('Connectors', false)
+        resetTouchedFields('connectors')
+        toast.success('Changes autosaved')
+      } catch (err) {
+        console.error('[ConnectorsPage] auto-save error:', err)
+        toast.error('Failed to autosave changes')
+      }
     }
-  }
+  })
 
   useEffect(() => {
     registerAutoSave(() => connectorsAutoSaveRef.current())

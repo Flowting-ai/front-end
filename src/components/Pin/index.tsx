@@ -626,9 +626,14 @@ export function Pin({
     const dragInfo           = useRef({ startY: 0, startHeight: 0 })
     const rafRef             = useRef<number>(0)
     const isDraggingRef      = useRef(false)
-    const isExpandedRef      = useRef(isExpanded)
-    isExpandedRef.current    = isExpanded
-    const skipActionBarEntry = useRef(false)
+    // Whether AbsoluteActionBar should skip its entry animation — read
+    // directly in this component's render output (JSX below), so it has to
+    // be real state, not a ref: reading `.current` during render is exactly
+    // what blocks React Compiler's auto-memoization for this component (it
+    // can't prove the ref's value is stable across a render pass). Only
+    // written a few times per drag gesture (start/end), not per-frame, so
+    // the extra re-renders this causes are negligible.
+    const [skipActionBarEntry, setSkipActionBarEntry] = useState(false)
     // Set true just before calling setIsExpanded(false) so contentBounds effect
     // knows to use the collapse easing instead of the default spring.
     const collapsingRef = useRef(false)
@@ -691,8 +696,11 @@ export function Pin({
     // External collapse trigger - Pinboard increments `collapseSignal` to fold
     // every open pin. Initial value is captured and skipped so a freshly
     // mounted Pin doesn't collapse on first render.
+    // Synced via effect (after render), not written during render itself —
+    // see the highlight-context.tsx / addPin-style fix for the same pattern
+    // elsewhere in this feature.
     const isOpenRef = useRef(isOpen)
-    isOpenRef.current = isOpen
+    useEffect(() => { isOpenRef.current = isOpen }, [isOpen])
     const initialCollapseSignalRef = useRef(collapseSignal)
     useEffect(() => {
       if (collapseSignal === initialCollapseSignalRef.current) return
@@ -734,7 +742,7 @@ export function Pin({
       cardHeightMV.stop()
       const h = cardHeightMV.get()
       dragInfo.current           = { startY: e.clientY, startHeight: h }
-      skipActionBarEntry.current = isExpanded || isHovered
+      setSkipActionBarEntry(isExpanded || isHovered)
       isDraggingRef.current      = true
       e.currentTarget.setPointerCapture(e.pointerId)
       e.stopPropagation()
@@ -755,7 +763,7 @@ export function Pin({
           const clampedDelta = Math.max(minDelta, rawDelta)
           if (extraLines * LINE_HEIGHT_PX + clampedDelta > MAX_SNAP_LINES * LINE_HEIGHT_PX) {
             isDraggingRef.current      = false
-            skipActionBarEntry.current = false
+            setSkipActionBarEntry(false)
             setIsDragging(false)
             setIsExpanded(true)
             setExtraLines(0)
@@ -782,7 +790,7 @@ export function Pin({
       cancelAnimationFrame(rafRef.current)
       const rawDelta             = e.clientY - dragInfo.current.startY
       isDraggingRef.current      = false
-      skipActionBarEntry.current = false
+      setSkipActionBarEntry(false)
       setIsDragging(false)
 
       if (!isExpanded) {
@@ -1381,7 +1389,19 @@ export function Pin({
                 key="expanded-content"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: { duration: 0.15 } }}
-                exit={{   opacity: 0, transition: { duration: 0 } }}
+                // exit duration was 0 (instant) — but this element's subtree
+                // contains its OWN nested <AnimatePresence> (the comment
+                // Save/Saved button below), which declares a real exit
+                // transition (duration: 0.1) of its own. With the parent
+                // unmounting in 0ms, React tears down the whole subtree —
+                // including that nested AnimatePresence's internal exit-
+                // tracking — before it ever gets a chance to run its exit at
+                // all (motion-animate-presence-must-outlive-child). Bumped to
+                // 0.1s, just enough for the nested exit to complete; still
+                // imperceptibly brief next to the card's own 0.35s
+                // height-collapse tween, so the "snap closed" feel of
+                // collapsing a pin is unchanged.
+                exit={{   opacity: 0, transition: { duration: 0.1 } }}
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
                 <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
@@ -1540,7 +1560,7 @@ export function Pin({
               onShowInChat={onShowInChat}
               onComment={handleCommentClick}
               onToggleExpand={() => setIsExpanded(true)}
-              instant={skipActionBarEntry.current}
+              instant={skipActionBarEntry}
             />
           ) : null}
         </AnimatePresence>

@@ -174,10 +174,14 @@ export function PermissionsTab({
   }, [])
 
   useEffect(() => {
-    if (tools.length > 0) {
-      setLoadingTools(false)
-      return
-    }
+    // No fetch needed once tools are populated — and no setState needed
+    // either: loadingTools' own initializer (catalog.tools.length === 0)
+    // already starts false whenever tools arrive pre-populated, and on every
+    // other path this effect's own fetch below already flips it false itself
+    // (in the .finally() as the fetch resolves) before tools.length can ever
+    // become >0 and re-trigger this effect. A synchronous setState here was
+    // therefore always a redundant no-op — removed rather than converted.
+    if (tools.length > 0) return
     let cancelled = false
     getConnector(catalog.slug)
       .then(detail => {
@@ -411,6 +415,20 @@ function AccessTab({ account, catalog, onChanged }: { account: ConnectorConnecti
 
 function SettingsTab({ account, onChanged, onRemove }: { account: ConnectorConnection; onChanged: () => void; onRemove: () => void }) {
   const [label, setLabel] = useState(account.nickname)
+  // `label` starts from account.nickname but is then user-editable — a plain
+  // useState(account.nickname) only takes that as its *initial* value, so if
+  // this same account's nickname is ever refreshed from the server while this
+  // view stays mounted (e.g. onChanged() below re-fetches after this very
+  // save, or another tab renames it and a PermissionsTab edit triggers a
+  // refetch), `label` would silently go stale. Track the account identity we
+  // last synced from and re-adopt the field during render — React's
+  // documented "adjust state when a prop changes" pattern — instead of a
+  // one-shot initializer.
+  const [syncedNickname, setSyncedNickname] = useState(account.nickname)
+  if (account.nickname !== syncedNickname) {
+    setSyncedNickname(account.nickname)
+    setLabel(account.nickname)
+  }
   const [saving, setSaving] = useState(false)
   const owned = account.owned
   const changed = owned && label.trim() !== account.nickname && label.trim().length > 0

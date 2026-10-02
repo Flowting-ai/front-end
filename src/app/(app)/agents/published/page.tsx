@@ -565,6 +565,7 @@ function PersonaPublishedContent() {
                           inputMode="numeric"
                           value={tokenLimit}
                           placeholder="Enter a value"
+                          aria-label="Credit limit"
                           onChange={e => {
                             const raw = e.target.value.replace(/[^0-9]/g, '')
                             if (raw === '') { setTokenLimit(''); return }

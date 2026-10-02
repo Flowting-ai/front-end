@@ -24,6 +24,12 @@ import { Chip } from '@/components/Chip'
 import { PinboardExpanded, type PinboardExpandedFolder } from '@/components/PinboardExpanded'
 import { EnterChunk, PINBOARD_COMPACT_ENTER_DEFAULT, type PinboardEnterAnimation } from './enterAnimation'
 import { PIN_DRAG_MIME_TYPE } from '@/lib/pin-drag'
+import {
+  type PinboardView,
+  type PinboardSortOption,
+  DEFAULT_PINBOARD_VIEWS,
+  DEFAULT_PINBOARD_SORT_OPTIONS,
+} from './constants'
 
 export {
   PINBOARD_COMPACT_ENTER_DEFAULT,
@@ -31,46 +37,24 @@ export {
   type PinboardEnterAnimation,
 } from './enterAnimation'
 
+// Re-exported for backward compatibility — these used to be declared directly
+// in this file; they now live in ./constants.ts (see that file's own comment
+// for why: keeping non-component value exports out of a component's own file
+// is what lets Fast Refresh hot-reload the component without a full remount).
+export {
+  type PinboardView,
+  type PinboardSortOption,
+  DEFAULT_PINBOARD_VIEWS,
+  DEFAULT_PINBOARD_PERSONAL_FOLDERS,
+  DEFAULT_PINBOARD_PROJECT_FOLDERS,
+  DEFAULT_PINBOARD_SORT_OPTIONS,
+} from './constants'
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PinboardPin extends Omit<PinProps, 'fluid'> {
   id: string
 }
-
-/**
- * Item in the Pinboard view-filter dropdown (Figma 3139:36399).
- * Selecting a view tells the consumer which pins to display - the Pinboard
- * itself does not filter; it just owns the dropdown UI + selected-id state
- * and emits `onViewChange` so the consumer can swap `pins`.
- */
-export interface PinboardView {
-  /** Stable identifier - used for selected-state matching. */
-  id:    string
-  /** Row label (also shown on the trigger when this view is active). */
-  label: string
-}
-
-/**
- * Default view set: All pins, Current chat pins. Append
- * user folders to this list when constructing the consumer's `views` prop.
- */
-export const DEFAULT_PINBOARD_VIEWS: PinboardView[] = [
-  { id: 'all',          label: 'All pins'          },
-  { id: 'current-chat', label: 'Current chat' },
-]
-
-/**
- * Default personal-folder set for the view-filter dropdown's "Your folders"
- * section. Empty by default — the consumer supplies real folders fetched from
- * the API. The section auto-hides when the array is empty.
- */
-export const DEFAULT_PINBOARD_PERSONAL_FOLDERS: PinboardExpandedFolder[] = []
-
-/**
- * Default project-folder set. Empty by default — the consumer derives these
- * from the user's projects. The section auto-hides when the array is empty.
- */
-export const DEFAULT_PINBOARD_PROJECT_FOLDERS: PinboardExpandedFolder[] = []
 
 // ── Filter / Sort menu data types (Figma 3442:23357 / 3442:23366) ─────────────
 
@@ -86,11 +70,6 @@ export interface PinboardCategory {
 }
 /** Single row in the Filter dropdown's Content type submenu (Figma 3442:23386). */
 export interface PinboardContentType {
-  id:    string
-  label: string
-}
-/** Single row in the Sort dropdown (Figma 3442:23366). */
-export interface PinboardSortOption {
   id:    string
   label: string
 }
@@ -124,14 +103,6 @@ const DEFAULT_PINBOARD_CONTENT_TYPES: PinboardContentType[] = [
   { id: 'content-link',  label: 'Link'  },
   { id: 'content-table', label: 'Table' },
   { id: 'content-image', label: 'Image' },
-]
-
-export const DEFAULT_PINBOARD_SORT_OPTIONS: PinboardSortOption[] = [
-  { id: 'newest',               label: 'Newest'   },
-  { id: 'oldest',               label: 'Oldest'   },
-  { id: 'most-used',            label: 'Most used' },
-  { id: 'alphabetical',         label: 'A to Z'   },
-  { id: 'reverse-alphabetical', label: 'Z to A'   },
 ]
 
 // ── Tag search input (Figma 3442:23350 - sticky header) ─────────────────────
@@ -1535,6 +1506,7 @@ export function Pinboard(
             {hasActiveFilters && (
               <m.div
                 key="filter-bar"
+                layout
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{    height: 0, opacity: 0 }}

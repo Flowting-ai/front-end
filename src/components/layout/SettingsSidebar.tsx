@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
@@ -136,9 +136,29 @@ export function SettingsSidebar() {
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
-  const billingSnap = (() => {
-    try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
-  })()
+  // `window` doesn't exist during SSR/hook-init — reading it directly here
+  // (as this used to, via an inline IIFE evaluated every render) throws a
+  // ReferenceError on the server, not just a hydration *mismatch*, since the
+  // bare `window` identifier reference itself fails before optional chaining
+  // ever gets a chance to short-circuit. Same bug class, same fix shape, as
+  // Chats' `chat/page.tsx` (`selectedPersona`) and Brain's `brain/page.tsx`
+  // (`storedHistoryAttachments`): the value starts `null` on both the server
+  // and the client's first (hydration) render — identical output, no
+  // mismatch possible — then populates for real via an effect a tick after
+  // mount. `isTeamUser`'s other OR'd signals (orgId, user.orgId, roleFit)
+  // already cover the common case immediately; this cache is only a
+  // same-tick-faster fallback for team accounts that haven't resolved
+  // `orgId` yet, so the one-render-tick delay is the same accepted,
+  // imperceptible trade-off those prior fixes made.
+  const [billingSnap, setBillingSnap] = useState<{ isTeamAccount?: boolean } | null>(null)
+  useEffect(() => {
+    try {
+      const r = window.sessionStorage.getItem('kaya:billing:snapshot:v2')
+      setBillingSnap(r ? JSON.parse(r) : null)
+    } catch {
+      setBillingSnap(null)
+    }
+  }, [])
   const isTeamUser = Boolean(
     orgId ||
     user?.orgId ||

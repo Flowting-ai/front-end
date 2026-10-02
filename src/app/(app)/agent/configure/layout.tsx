@@ -901,6 +901,7 @@ function VersionsPanel() {
     <m.div
       key="versions-panel"
       data-help-panel="help-versions"
+      layout
       initial={{ width: 0, opacity: 0 }}
       animate={{ width: 400, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
@@ -1259,6 +1260,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
           <m.div
             key="test-chat"
             data-help-panel="help-test-chat"
+            layout
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
@@ -1281,6 +1283,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
           <m.div
             key="ai-suggest-panel"
             data-help-panel="help-ai-suggestions"
+            layout
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 400, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}

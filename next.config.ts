@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { existsSync } from "fs";
+import createBundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = createBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -171,4 +176,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
