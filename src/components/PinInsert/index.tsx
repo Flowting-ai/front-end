@@ -191,7 +191,7 @@ export function PinInsert(
         }}
         {...props}
       >
-        {/* Hover background overlay - Figma 3193:6741 (`bg-[rgba(237,225,215,0.6)]`). */}
+        {/* Hover background overlay - Figma 3193:6741 (`bg-[rgba(245, 245, 245,0.6)]`). */}
         {isActive && (
           <div
             aria-hidden

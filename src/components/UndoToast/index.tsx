@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 // Two-layer: outer lift + inner depth.
 
 const SHADOW_OUTER = '0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(247,242,237,0.6), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.6), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

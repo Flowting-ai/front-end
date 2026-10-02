@@ -3,7 +3,7 @@
  *
  * Single source of truth for BOTH:
  *   • scripts/generate-dark-theme.mjs  — defines `--legacy-*` in theme.css:
- *       light: the exact original hex  (so light is pixel-identical)
+ *       light: the original hex unless an updated light value is specified
  *       dark : the `dark` value below
  *   • scripts/migrate-inline-colors.mjs — swaps those literals for the tokens.
  *
@@ -22,9 +22,9 @@ export const LEGACY = {
   '#C0392B': { token: '--legacy-c0392b', dark: '#FA695B' },
   '#737373': { token: '--legacy-737373', dark: '#968B83' },
   // light surfaces → dark surfaces
-  '#F9F5F1': { token: '--legacy-f9f5f1', dark: '#1C1613' },
+  '#F9F5F1': { token: '--legacy-f9f5f1', light: '#FFFFFF', dark: '#1C1613' },
   '#F5F1ED': { token: '--legacy-f5f1ed', dark: '#120C08' },
   '#F0F0F0': { token: '--legacy-f0f0f0', dark: '#26211E' },
   '#E5E5E5': { token: '--legacy-e5e5e5', dark: '#3B3632' },
-  '#D5C9C0': { token: '--legacy-d5c9c0', dark: '#3B3632' },
+  '#D5C9C0': { token: '--legacy-d5c9c0', light: '#E4E0DC', dark: '#3B3632' },
 }

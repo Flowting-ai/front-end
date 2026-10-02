@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
@@ -13,7 +13,7 @@ import { InformationCircleIcon } from '@strange-huge/icons'
 import { ONBOARDING_TONE_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE, ONBOARDING_PLANS_ROUTE } from '@/lib/routes'
 
 const CANVAS_GRADIENT =
-  'linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)'
+  'linear-gradient(180deg, var(--neutral-50,#FFFFFF) 3.76%, var(--neutral-100,#F5F5F5) 75%, var(--neutral-200,#E5E5E5) 116.79%)'
 
 type Billing = 'monthly' | 'annual'
 type TeamPlanId = '50' | '100' | '250' | '500' | '1000' | '2000'
@@ -66,7 +66,7 @@ function GreenDot() {
       backgroundColor: 'var(--green-300,#bfda84)',
       flexShrink: 0,
       marginTop: 7,
-      boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px rgba(247,242,237,0.61), inset 0px -1px 0px rgba(106,98,93,0.05)',
+      boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px rgba(106,98,93,0.05)',
     }} />
   )
 }
@@ -89,11 +89,11 @@ function BeigeDot() {
       <div style={{
         width: 8, height: 8,
         borderRadius: '50%',
-        backgroundColor: 'var(--neutral-100,#ede1d7)',
+        backgroundColor: 'var(--neutral-100,#F5F5F5)',
         boxShadow: [
           '0px 1px 1.5px rgba(82,75,71,0.12)',
-          '0px 0px 0px 1px rgba(182,172,164,0.4)',
-          'inset 0px 1px 0px rgba(247,242,237,0.61)',
+          '0px 0px 0px 1px rgba(212, 212, 212,0.4)',
+          'inset 0px 1px 0px rgba(255, 255, 255,0.61)',
           'inset 0px -1px 0px rgba(106,98,93,0.05)',
         ].join(', '),
       }} />
@@ -115,7 +115,7 @@ function IndFeatureItem({ label }: { label: string }) {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p style={{
-      fontFamily: 'var(--font-code,\'Geist Mono\',monospace)',
+      fontFamily: 'var(--font-code)',
       fontWeight: 400, fontSize: 13, lineHeight: '16px',
       color: 'var(--neutral-500,#827a74)', margin: '0 0 4px 0',
     }}>
@@ -142,14 +142,14 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
 function BillingToggle({ billing, onChange }: { billing: Billing; onChange: (b: Billing) => void }) {
   const activeStyle: React.CSSProperties = {
     background: 'linear-gradient(180deg, var(--neutral-700,#524b47) 0%, var(--neutral-900,#26211e) 100%)',
-    color: 'var(--neutral-50,#f7f2ed)',
+    color: 'var(--neutral-50,#FFFFFF)',
     boxShadow: [
       '0px 0px 0px 1px black',
       '0px 1.091px 1.091px rgba(59,54,50,0.1)',
       '0px 1.455px 3.127px rgba(59,54,50,0.4)',
-      'inset 0px 1px 0.364px rgba(247,242,237,0.3)',
+      'inset 0px 1px 0.364px rgba(255, 255, 255,0.3)',
       'inset 0px -2.182px 0.364px #120c08',
-      'inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+      'inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
     ].join(', '),
   }
   const inactiveStyle: React.CSSProperties = { background: 'none', color: 'var(--neutral-500,#827a74)', boxShadow: 'none' }
@@ -157,8 +157,8 @@ function BillingToggle({ billing, onChange }: { billing: Billing; onChange: (b: 
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 4, padding: 2, borderRadius: 10,
-      backgroundColor: 'rgba(247,242,237,0.5)',
-      boxShadow: 'inset 0px -1px 0px rgba(255,255,255,0.9), inset 0px 1px 0px var(--neutral-100,#ede1d7), inset 0px 0px 4px rgba(209,198,189,0.5)',
+      backgroundColor: 'rgba(255, 255, 255,0.5)',
+      boxShadow: 'inset 0px -1px 0px rgba(255,255,255,0.9), inset 0px 1px 0px var(--neutral-100,#F5F5F5), inset 0px 0px 4px rgba(229, 229, 229,0.5)',
     }}>
       <button type="button" onClick={() => onChange('monthly')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', transition: 'background 150ms, box-shadow 150ms', ...(billing === 'monthly' ? activeStyle : inactiveStyle) }}>Monthly</button>
       <button type="button" onClick={() => onChange('annual')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '7px 8px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', transition: 'background 150ms, box-shadow 150ms', ...(billing === 'annual' ? activeStyle : inactiveStyle) }}>Yearly</button>
@@ -196,7 +196,7 @@ function TokenSquare() {
 // ── Divider ───────────────────────────────────────────────────────────────────
 
 function Divider() {
-  return <div style={{ height: 1, backgroundColor: 'var(--neutral-100,#ede1d7)', width: '100%' }} />
+  return <div style={{ height: 1, backgroundColor: 'var(--neutral-100,#F5F5F5)', width: '100%' }} />
 }
 
 // ── Animated number counter hook ──────────────────────────────────────────────
@@ -279,7 +279,7 @@ function IndSlider({ value, onChange }: { value: number; onChange: (i: number) =
 export default function OnboardingPlansPage() {
   return (
     <React.Suspense fallback={
-      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-50,#f7f2ed)' }} />
+      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-50,#FFFFFF)' }} />
     }>
       <OnboardingPlansContent />
     </React.Suspense>
@@ -356,9 +356,9 @@ function OnboardingPlansContent() {
     '0px 0px 0px 1px black',
     '0px 1.091px 1.091px rgba(59,54,50,0.1)',
     '0px 1.455px 3.127px rgba(59,54,50,0.4)',
-    'inset 0px 1px 0.364px rgba(247,242,237,0.3)',
+    'inset 0px 1px 0.364px rgba(255, 255, 255,0.3)',
     'inset 0px -2.182px 0.364px #120c08',
-    'inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+    'inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
   ].join(', ')
 
   const handleTeamPlan = async () => {
@@ -451,7 +451,7 @@ function OnboardingPlansContent() {
               </div>
 
               {/* Slack highlight */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px 12px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-50,#f7f2ed)', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px 12px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100,#EDE1D7)', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#EDE1D7)' }}>
                 <SlackLogo />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)' }}>Team-exclusive</span>
@@ -477,11 +477,11 @@ function OnboardingPlansContent() {
                         style={{ margin: 0, lineHeight: 0 }}
                       >
                         <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 40, lineHeight: '48px', color: '#fff' }}>{teamPrice}</span>
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-100,#ede1d7)' }}>/mo{billing === 'annual' && ` · billed ${teamTier.annualBilled}`}</span>
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-100,#F5F5F5)' }}>/mo{billing === 'annual' && ` · billed ${teamTier.annualBilled}`}</span>
                       </motion.p>
                     </AnimatePresence>
                   </div>
-                  <div style={{ position: 'relative', backgroundColor: 'var(--neutral-50,#f7f2ed)', borderRadius: 12, padding: '12px', width: '100%', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)', overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', backgroundColor: 'var(--neutral-100,#EDE1D7)', borderRadius: 12, padding: '12px', width: '100%', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#EDE1D7)', overflow: 'hidden' }}>
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={`team-credits-${teamTierIndex}`}
@@ -500,7 +500,7 @@ function OnboardingPlansContent() {
                     <input type="range" min={0} max={TEAM_TIERS.length - 1} step={1} value={teamTierIndex} onChange={(e) => setTeamTier(Number(e.target.value))} className="sv-team-slider" style={{ display: 'block', width: '100%', padding: 0, background: teamSliderBg }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       {TEAM_TIERS.map((t, i) => (
-                        <button key={t.sliderLabel} type="button" style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'var(--font-body)', fontWeight: i === teamTierIndex ? 600 : 400, fontSize: 14, lineHeight: '22px', color: i === teamTierIndex ? 'var(--neutral-50,#f7f2ed)' : 'rgba(255,255,255,0.38)', cursor: 'pointer' }} onClick={() => setTeamTier(i)}>
+                        <button key={t.sliderLabel} type="button" style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'var(--font-body)', fontWeight: i === teamTierIndex ? 600 : 400, fontSize: 14, lineHeight: '22px', color: i === teamTierIndex ? 'var(--neutral-50,#FFFFFF)' : 'rgba(255,255,255,0.38)', cursor: 'pointer' }} onClick={() => setTeamTier(i)}>
                           {t.sliderLabel}
                         </button>
                       ))}
@@ -539,7 +539,7 @@ function OnboardingPlansContent() {
               </div>
 
               {teamError && <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-tag-Red-text,#dc2626)', margin: 0 }}>{teamError}</p>}
-              <button type="button" disabled={teamLoading} onClick={() => void handleTeamPlan()} style={{ width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', cursor: teamLoading ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-50,#f7f2ed)', background: teamLoading ? 'var(--neutral-500,#827a74)' : 'linear-gradient(180deg, var(--neutral-700,#524b47) 0%, var(--neutral-900,#26211e) 100%)', boxShadow: teamLoading ? 'none' : ctaShadow, transition: 'background 0.15s' }}>
+              <button type="button" disabled={teamLoading} onClick={() => void handleTeamPlan()} style={{ width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', cursor: teamLoading ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-50,#FFFFFF)', background: teamLoading ? 'var(--neutral-500,#827a74)' : 'linear-gradient(180deg, var(--neutral-700,#524b47) 0%, var(--neutral-900,#26211e) 100%)', boxShadow: teamLoading ? 'none' : ctaShadow, transition: 'background 0.15s' }}>
                 {teamLoading ? 'Setting up…' : 'Start a Team Workspace'}
               </button>
             </div>
@@ -589,7 +589,7 @@ function OnboardingPlansContent() {
                   </div>
                 </div>
               </div>
-              <button type="button" onClick={() => setContactSalesOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', backgroundColor: 'var(--neutral-white)', color: 'var(--neutral-700,#524b47)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', cursor: 'pointer', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)' }}>
+              <button type="button" onClick={() => setContactSalesOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', backgroundColor: 'var(--neutral-white)', color: 'var(--neutral-700,#524b47)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', cursor: 'pointer', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#F5F5F5), inset 0px -2.182px 0.364px var(--neutral-100,#F5F5F5)' }}>
                 Contact Sales
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2.5 8h11M9.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
@@ -626,11 +626,11 @@ function OnboardingPlansContent() {
                 </div>
 
                 {/* Welcome gift card */}
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '12px 16px 12px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-50,#f7f2ed)', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15)' }}>
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '12px 16px 12px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100,#EDE1D7)', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15)' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <TokenSquare />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <p style={{ fontFamily: 'var(--font-code,\'Geist Mono\',monospace)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <p style={{ fontFamily: 'var(--font-code)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         Welcome gift
                       </p>
                       <div>
@@ -643,12 +643,12 @@ function OnboardingPlansContent() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ position: 'absolute', inset: 0, borderRadius: 12, pointerEvents: 'none', boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100,#ede1d7)' }} />
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 12, pointerEvents: 'none', boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100,#EDE1D7)' }} />
                 </div>
 
                 {/* Volume pricing panel — flex: 1 fills remaining height */}
-                <div style={{ flex: 1, minHeight: 0, backgroundColor: 'var(--neutral-100,#ede1d7)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ fontFamily: 'var(--font-code,\'Geist Mono\',monospace)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ flex: 1, minHeight: 0, backgroundColor: 'var(--neutral-100,#EDE1D7)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontFamily: 'var(--font-code)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     Pick your monthly credits
                   </p>
 
@@ -659,7 +659,7 @@ function OnboardingPlansContent() {
                   </p>
 
                   {/* Credits display — directional slide animation */}
-                  <div style={{ backgroundColor: 'var(--neutral-50,#f7f2ed)', borderRadius: 12, padding: '10px 12px', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)', overflow: 'hidden' }}>
+                  <div style={{ backgroundColor: 'var(--neutral-100,#EDE1D7)', borderRadius: 12, padding: '10px 12px', boxSizing: 'border-box', boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px var(--neutral-100,#EDE1D7)', overflow: 'hidden' }}>
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={indTierIndex}
@@ -727,7 +727,7 @@ function OnboardingPlansContent() {
               </div>
 
               {/* Column separator */}
-              <div style={{ width: 1, backgroundColor: 'var(--neutral-100,#ede1d7)', flexShrink: 0, alignSelf: 'stretch' }} />
+              <div style={{ width: 1, backgroundColor: 'var(--neutral-100,#F5F5F5)', flexShrink: 0, alignSelf: 'stretch' }} />
 
               {/* ── RIGHT COLUMN: feature sections ── */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, paddingLeft: 12 }}>

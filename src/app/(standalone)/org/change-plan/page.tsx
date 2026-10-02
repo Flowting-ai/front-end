@@ -18,7 +18,7 @@ import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
-const MONO  = "'Geist Mono', ui-monospace, monospace"
+const MONO  = "var(--font-code)"
 
 // Matches what the backend actually grants: services/stripe/catalog.py's
 // usageCredits() is a flat 80% of the monthly price, × 1000 for display units
@@ -71,7 +71,7 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
         ? '0px 1px 1.5px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)'
         : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
     }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? '#e6d5ca' : '#e9dfc9', borderRadius: 6 }} />
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? 'var(--brown-100)' : 'var(--yellow-100)', borderRadius: 6 }} />
       <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: isBrown
         ? 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)'
         : 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
@@ -108,7 +108,7 @@ function FeatureLine({ item }: { item: FeatureItemDef }) {
       {/* Checkmark, not a dot — Figma 85:22111's tick-01 glyph, matching the
           TickTwoIcon already used elsewhere in this app as a selected/included
           indicator (e.g. ModelMenu's own selected-row tick). */}
-      <TickTwoIcon size={16} color="#3b3632" />
+      <TickTwoIcon size={16} color="var(--neutral-900)" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
           {label}
@@ -175,7 +175,7 @@ function ChangePlanSkeleton() {
         minHeight: '100vh', overflowX: 'hidden',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '24px 24px 48px',
-        background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+        background: 'linear-gradient(to bottom, var(--neutral-50) 0%, var(--neutral-100) 65%, var(--neutral-200) 100%)',
       }}
     >
       <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
@@ -199,7 +199,7 @@ function ChangePlanSkeleton() {
           {/* Workspace card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'var(--neutral-white)', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '2px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
               boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
             }}>
@@ -224,7 +224,7 @@ function ChangePlanSkeleton() {
           {/* Enterprise card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'var(--neutral-white)', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', gap: 28,
               boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
             }}>
@@ -452,7 +452,7 @@ function OrgChangePlanPageInner() {
           minHeight: '100vh', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '24px 24px 48px',
-          background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+          background: 'linear-gradient(to bottom, var(--neutral-50) 0%, var(--neutral-100) 65%, var(--neutral-200) 100%)',
         }}
       >
         <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
@@ -467,9 +467,9 @@ function OrgChangePlanPageInner() {
                 padding: '6px 10px 8px 10px', borderRadius: 10,
                 border: 'none', backgroundColor: 'rgba(0,0,0,0)', cursor: 'pointer',
                 fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px',
-                color: '#524b47', transition: 'background-color 120ms ease, color 120ms ease',
+                color: 'var(--neutral-700)', transition: 'background-color 120ms ease, color 120ms ease',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.05)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-100)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)' }}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -497,8 +497,8 @@ function OrgChangePlanPageInner() {
           <div ref={billingRowRef} style={{
             position: 'relative',
             display: 'flex', alignItems: 'center', gap: 4, padding: 4,
-            borderRadius: 10, backgroundColor: 'rgba(247,242,237,0.5)',
-            boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px #ede1d7, inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+            borderRadius: 10, backgroundColor: 'var(--neutral-100)',
+            boxShadow: 'inset 0px -1px 0px 0px var(--neutral-white-90), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px var(--neutral-200-50)',
           }}>
             {/* Sliding active pill — same measure-then-animate technique as
                 TabsList's own pill (springs.fast), slid behind whichever
@@ -512,8 +512,8 @@ function OrgChangePlanPageInner() {
                 style={{
                   position: 'absolute', top: 4, bottom: 4, left: 0,
                   borderRadius: 10,
-                  background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                  boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+                  background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
+                  boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
                   pointerEvents: 'none',
                 }}
               />
@@ -531,7 +531,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      color: '#f7f2ed',
+                      color: '#FFFFFF',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -552,7 +552,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      color: '#f7f2ed',
+                      color: '#FFFFFF',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -616,8 +616,8 @@ function OrgChangePlanPageInner() {
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           width: '100%', padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                          backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                          backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px var(--color-border-interactive)',
+                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: 'var(--neutral-700)',
                         }}
                       >
                         View usage
@@ -638,12 +638,12 @@ function OrgChangePlanPageInner() {
                             style={{
                               display: 'flex', alignItems: 'center', gap: 2,
                               padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                              backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                              cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                              backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px var(--color-border-interactive)',
+                              cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: 'var(--neutral-700)',
                             }}
                           >
                             {workspacePriceLabel}
-                            <ArrowDownOneIcon size={16} color="#524b47" />
+                            <ArrowDownOneIcon size={16} color="var(--neutral-700)" />
                           </button>
                         }
                       >
@@ -664,7 +664,7 @@ function OrgChangePlanPageInner() {
                                     ? `${fmtNum(p!.credits)} credits/mo`
                                     : `${fmtNum(CREDITS_BY_PRICE[price])} credits/mo · Coming soon`}
                                   selected={available && i === workspaceIdx}
-                                  rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="#524b47" /> : undefined}
+                                  rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="var(--neutral-700)" /> : undefined}
                                   disabled={!available}
                                   onClick={available ? () => handleSelectTier(i) : undefined}
                                   fluid
@@ -711,13 +711,13 @@ function OrgChangePlanPageInner() {
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     cursor: workspaceButtonDisabled ? 'default' : 'pointer',
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
-                    background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                    boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed',
+                    background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
+                    boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px var(--neutral-white-30), inset 0px -2.182px 0.364px 0px var(--neutral-950), inset 0px -2.545px 4px -2.182px var(--neutral-white-50)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#FFFFFF',
                     textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                   }}
                 >
-                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#f7f2ed" />}
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#FFFFFF" />}
                   {workspaceButtonLabel}
                 </button>
               </div>
@@ -727,7 +727,7 @@ function OrgChangePlanPageInner() {
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 backgroundColor: 'var(--neutral-white)',
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--neutral-200)',
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', gap: 28,
@@ -750,14 +750,14 @@ function OrgChangePlanPageInner() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     backgroundColor: 'var(--neutral-white)', cursor: changingTo ? 'wait' : 'pointer',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                     fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
                   {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
                   {org.plan !== 'enterprise' && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </m.button>

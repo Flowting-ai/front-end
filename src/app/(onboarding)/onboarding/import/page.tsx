@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -112,7 +112,7 @@ export default function OnboardingImportPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        backgroundColor: "var(--neutral-50, #FFFFFF)",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- decorative background; Next Image doesn't support SVG patterns with embedded raster images */}

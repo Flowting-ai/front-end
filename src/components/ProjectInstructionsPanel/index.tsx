@@ -44,7 +44,7 @@ export function ProjectInstructionsPanel({ value, editable, onOpenEditor, ref }:
               fontWeight: 'var(--font-weight-regular)',
               fontSize:   '16px',
               lineHeight: 'var(--line-height-body)',
-              color:      '#000',
+              color:      'var(--color-text-primary)',
               margin:     0,
             }}
           >
@@ -69,7 +69,7 @@ export function ProjectInstructionsPanel({ value, editable, onOpenEditor, ref }:
               fontWeight: 'var(--font-weight-regular)',
               fontSize: '12px',
               lineHeight: '16px',
-              color:      '#857a72',
+              color:      'var(--color-text-muted)',
               margin:     0,
             }}
           >

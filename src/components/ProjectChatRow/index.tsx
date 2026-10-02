@@ -421,7 +421,7 @@ export function ProjectChatRow(
             width:          !hasPins ? '78px' : undefined,
             overflow:       'hidden',
             boxShadow:      (showPinAction && hasPins)
-              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
               : '0px 0px 0px 1px rgba(59,54,50,0.3)',
             transition:     'box-shadow 120ms ease',
           }}
@@ -433,7 +433,7 @@ export function ProjectChatRow(
               style={{
                 position:      'absolute',
                 inset:         0,
-                background:    'rgba(237,225,215,0.6)',
+                background:    'rgba(245, 245, 245,0.6)',
                 pointerEvents: 'none',
                 borderRadius:  '8px',
               }}
@@ -484,7 +484,7 @@ export function ProjectChatRow(
                 inset:         0,
                 pointerEvents: 'none',
                 borderRadius:  '8px',
-                boxShadow:     'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+                boxShadow:     'inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
               }}
             />
           )}

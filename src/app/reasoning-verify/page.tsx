@@ -119,7 +119,7 @@ export default function ReasoningVerify() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#FAF6F2', fontFamily: 'var(--font-body)' }}>
       <div style={{ flex: 1, padding: '48px 40px', minWidth: 0 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B6ACA4', marginBottom: 28 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#D4D4D4', marginBottom: 28 }}>
           Reasoning verify — {STATES[active].label}
         </div>
         <div style={{ maxWidth: 720 }} data-testid="reasoning-host">
@@ -128,8 +128,8 @@ export default function ReasoningVerify() {
         </div>
       </div>
 
-      <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid #EDE1D7', padding: '48px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B6ACA4', marginBottom: 8 }}>
+      <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid #F5F5F5', padding: '48px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#D4D4D4', marginBottom: 8 }}>
           State
         </div>
         {(Object.keys(STATES) as StateKey[]).map((key) => (

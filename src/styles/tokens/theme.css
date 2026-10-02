@@ -24,20 +24,20 @@
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
   --icon-button-secondary-bg: var(--neutral-white);
 
-  /* Agent card surface (was --neutral-white inside PersonaCard). */
-  --agent-card-bg: var(--neutral-white);
+  /* Agent cards stay warm against the white page canvas. */
+  --agent-card-bg: var(--neutral-100);
 
   /* Thinking / reasoning text: the "Thinking…" label, step meta text, bullets, icons, the
      rail and the shimmer sweep. Light = the exact literals these replaced (#9A9089 etc.). */
   --thinking-text: #9A9089;
   --thinking-text-faint: #C0B5AD;
-  --thinking-icon-strong: #D1C6BD;
+  --thinking-icon-strong: var(--neutral-200);
   --thinking-icon-active: #A89488;
-  --thinking-rule: #EDE1D7;
-  --thinking-shimmer-edge: #B6ACA4;
+  --thinking-rule: var(--neutral-100);
+  --thinking-shimmer-edge: var(--neutral-300);
   --thinking-shimmer-peak: #3B3632;
 
-  /* Legacy hard-coded colours, now themeable. Light value == the original literal. */
+  /* Legacy hard-coded colours, now themeable. Light values may be normalized to the neutral palette. */
   --legacy-1a1916: #1A1916;
   --legacy-1a1714: #1A1714;
   --legacy-1e1e1e: #1E1E1E;
@@ -45,11 +45,11 @@
   --legacy-141b34: #141B34;
   --legacy-c0392b: #C0392B;
   --legacy-737373: #737373;
-  --legacy-f9f5f1: #F9F5F1;
+  --legacy-f9f5f1: #FFFFFF;
   --legacy-f5f1ed: #F5F1ED;
   --legacy-f0f0f0: #F0F0F0;
   --legacy-e5e5e5: #E5E5E5;
-  --legacy-d5c9c0: #D5C9C0;
+  --legacy-d5c9c0: #E4E0DC;
 }
 
 :root[data-theme="dark"] {
@@ -248,7 +248,11 @@
   --text-hover: #FFFFFF;
   --sidebar-icon: #FFFFFF;
   --sidebar-icon-muted: #FFFFFF;
+  --sidebar-selected-text: #FFFFFF;
+  --sidebar-section-header-text: #B9AFA7;
+  --sidebar-section-header-muted: #8F857E;
   --tab-item-text-hover: #FFFFFF;
+  --message-bubble-action-icon: #D4D4D4;
   --tab-bg: #413D39;
   --agent-card-bg: #413D39;
   --thinking-text: #D6CDC5;
@@ -296,22 +300,22 @@
   --button-secondary-bg: #FFFFFF;
   --button-secondary-text: #524B47;
   --button-secondary-text-disabled: #3B3632;
-  --button-secondary-bg-hover: rgba(237, 225, 215, 0.60);
+  --button-secondary-bg-hover: rgba(245, 242, 239, 0.60);
   --icon-button-secondary-bg: #FFFFFF;
   --icon-button-secondary-icon: #524B47;
   --icon-button-secondary-icon-disabled: #3B3632;
-  --icon-button-secondary-bg-hover: rgba(237, 225, 215, 0.60);
+  --icon-button-secondary-bg-hover: rgba(245, 242, 239, 0.60);
   --tab-item-bg-selected: #FFFFFF;
   --tab-item-text-selected: #524B47;
   --message-bubble-user-bg: #FFFFFF;
   --message-bubble-user-text: #120C08;
-  --shadow-message-bubble-user: 0px 1.091px 1.091px 0px rgba(59, 54, 50, 0.05), 0px 1.455px 3.127px 0px rgba(38, 33, 30, 0.15), 0px 0px 0px 1px #EDE1D7;
-  --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px #EDE1D7;
-  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(59, 54, 50, 0.05), 0px 1.455px 3.127px 0px rgba(38, 33, 30, 0.15), 0px 0px 0px 1px #EDE1D7;
-  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px rgba(182, 172, 164, 0.40);
-  --shadow-button-secondary-inner: inset 0px -2.182px 0.364px 0px #EDE1D7;
-  --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(247, 242, 237, 0.61), inset 0px -1px 0px 0px rgba(106, 98, 93, 0.05);
-  --shadow-tab-item-selected: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px #EDE1D7;
+  --shadow-message-bubble-user: 0px 1.091px 1.091px 0px rgba(59, 54, 50, 0.05), 0px 1.455px 3.127px 0px rgba(38, 33, 30, 0.15), 0px 0px 0px 1px #F5F2EF;
+  --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px #F5F2EF;
+  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(59, 54, 50, 0.05), 0px 1.455px 3.127px 0px rgba(38, 33, 30, 0.15), 0px 0px 0px 1px #F5F2EF;
+  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px rgba(201, 196, 191, 0.40);
+  --shadow-button-secondary-inner: inset 0px -2.182px 0.364px 0px #F5F2EF;
+  --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.61), inset 0px -1px 0px 0px rgba(106, 98, 93, 0.05);
+  --shadow-tab-item-selected: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px #F5F2EF;
   --shadow-tab-item-selected-inner: inset 0px -1px 0px 0px rgba(38, 33, 30, 0.10);
 }
 
@@ -370,6 +374,13 @@
   --sidebar-menu-item-muted: var(--text-hover);
   --color-text-default: var(--text-hover);
   --color-text-muted: var(--text-hover);
+}
+
+:root[data-theme="dark"] [data-sidebar-selected] {
+  --sidebar-menu-item-text: var(--sidebar-selected-text);
+  --sidebar-menu-item-muted: var(--sidebar-selected-text);
+  --sidebar-icon: var(--sidebar-selected-text);
+  --sidebar-icon-muted: var(--sidebar-selected-text);
 }
 
 /* ── Raised surface (dark only) ────────────────────────────────────────────────

@@ -70,7 +70,7 @@ const BADGE_STYLES: Record<BadgeColor, {
   neutral: {
     bg:          'var(--neutral-100)',
     outerShadow: '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+    innerShadow: 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
     color:       'var(--neutral-700)',
   },
   red: {

@@ -195,7 +195,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                 padding:        2,
                 flexShrink:     0,
                 background:     'linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)',
-                boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+                boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
               }}
             >
               <ArrowDownOneIcon size={16} color="var(--neutral-500)" />

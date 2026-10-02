@@ -7,10 +7,10 @@
 :root {
 
   /* ── Neutral ──────────────────────────────────────────────────────────────── */
-  --neutral-50:    #F7F2ED;
-  --neutral-100:   #EDE1D7;
-  --neutral-200:   #D1C6BD;
-  --neutral-300:   #B6ACA4;
+   --neutral-50:    #FFFFFF;
+   --neutral-100:   #F5F2EF;
+   --neutral-200:   #E4E0DC;
+   --neutral-300:   #C9C4BF;
   --neutral-400:   #9C938B;
   --neutral-500:   #827A74;
   --neutral-600:   #6A625D;
@@ -22,13 +22,13 @@
   --neutral-black: #000000;
 
   /* Neutral opacity variants */
-  --neutral-50-30:    rgba(247, 242, 237, 0.30);
-  --neutral-50-50:    rgba(247, 242, 237, 0.50);
-  --neutral-100-60:   rgba(237, 225, 215, 0.60);
+   --neutral-50-30:    rgba(255, 255, 255, 0.30);
+   --neutral-50-50:    rgba(255, 255, 255, 0.50);
+   --neutral-100-60:   rgba(245, 242, 239, 0.60);
   --neutral-white-25: rgba(255, 255, 255, 0.25);
   --neutral-black-25: rgba(0, 0, 0, 0.25);
-  --neutral-50-61:    rgba(247, 242, 237, 0.61);
-  --neutral-300-40:   rgba(182, 172, 164, 0.40);
+   --neutral-50-61:    rgba(255, 255, 255, 0.61);
+   --neutral-300-40:   rgba(201, 196, 191, 0.40);
   --neutral-500-12:   rgba(130, 122, 116, 0.12);
   --neutral-500-60:   rgba(130, 122, 116, 0.60);
   --neutral-600-05:   rgba(106, 98, 93, 0.05);
@@ -40,7 +40,7 @@
   --neutral-800-30:   rgba(59, 54, 50, 0.30);
   --neutral-800-40:   rgba(59, 54, 50, 0.40);
   --neutral-800-50:   rgba(59, 54, 50, 0.50);
-  --neutral-200-50:   rgba(209, 198, 189, 0.50);
+   --neutral-200-50:   rgba(228, 224, 220, 0.50);
 
   /* Red opacity variants - used by InputGroup error states */
   --red-400-10:       rgba(238, 48, 48, 0.10);

@@ -16,10 +16,10 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
   const isDark = mode === 'dark'
   return (
     <div style={{
-      backgroundColor: '#f5f1ed',
+      backgroundColor: 'var(--neutral-50)',
       // The thumbnails below show what each OPTION looks like, so they use fixed
       // (light-theme) values — not tokens, which would flip when dark is active.
-      border:          `1px solid ${isDark ? '#26211E' : '#ede1d7'}`,
+      border:          `1px solid ${isDark ? '#26211E' : '#F5F5F5'}`,
       borderRadius:    4,
       height:          64,
       overflow:        'hidden',
@@ -54,7 +54,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
         </div>
         {/* Main area */}
         <div style={{
-          backgroundColor: isDark ? '#26211E' : '#f5f1ed',
+          backgroundColor: isDark ? '#26211E' : 'var(--neutral-50)',
           flex:            '1 0 0',
           minWidth:        0,
           display:         'flex',
@@ -225,9 +225,9 @@ export default function PreferencesPage() {
                     borderRadius:    8,
                     cursor:          'pointer',
                     position:        'relative',
-                    backgroundColor: selected ? 'rgba(237,225,215,0.6)' : 'white',
+                    backgroundColor: selected ? 'rgba(245, 245, 245,0.6)' : 'white',
                     boxShadow:       selected
-                      ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+                      ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
                       : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                   }}
                 >

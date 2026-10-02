@@ -16,8 +16,8 @@ export interface OptionBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const OUTER_SHADOW  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-const INNER_SHADOW  = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+const OUTER_SHADOW  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
+const INNER_SHADOW  = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ export function OptionBadge({ ref, variant = 'number', num = 1, className, ...pr
             position:        'absolute',
             inset:           0,
             borderRadius:    8,
-            backgroundColor: 'rgba(237,225,215,0.6)',
+            backgroundColor: 'rgba(245, 245, 245,0.6)',
             pointerEvents:   'none',
           }}
         />

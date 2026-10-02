@@ -15,7 +15,7 @@ import type { BadgeColor } from '@/components/Badge'
 // elevated above the surrounding Brain thread.
 
 const SHADOW_CARD  = '0px 4px 8px 0px rgba(82,75,71,0.10), 0px 0px 0px 1px rgba(59,54,50,0.12)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(247,242,237,0.5), inset 0px -1px 0px 0px rgba(82,75,71,0.06)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.5), inset 0px -1px 0px 0px rgba(82,75,71,0.06)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ const ACTION_CONFIG: Record<ApprovalActionType, { color: BadgeColor; label: stri
 // Denied: neutral-50, same as before
 const STATUS_BG: Record<Exclude<ApprovalStatus, 'pending'>, string> = {
   accepted: 'var(--neutral-white)',
-  denied:   'var(--neutral-50, #f7f2ed)',
+  denied:   'var(--neutral-50, #FFFFFF)',
 }
 
 export interface ApprovalCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -93,7 +93,7 @@ function DenyReasonChip({ label, onClick }: DenyReasonChipProps) {
         borderRadius:    8,
         border:          'none',
         cursor:          'pointer',
-        backgroundColor: hovered ? 'var(--neutral-100, #ede1d7)' : 'var(--neutral-white, white)',
+        backgroundColor: hovered ? 'var(--neutral-100, #F5F5F5)' : 'var(--neutral-white, white)',
         boxShadow:       hovered
           ? '0px 0px 0px 1px rgba(59,54,50,0.4)'
           : '0px 0px 0px 1px rgba(59,54,50,0.2)',

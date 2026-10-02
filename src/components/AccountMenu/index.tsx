@@ -95,8 +95,8 @@ const ShortcutPill = ({ label }: { label: string }) => (
       height:         '20px',
       padding:        '2px 4px',
       borderRadius:   '4px',
-      background:     'linear-gradient(to bottom, #ffffff, #f7f2ed)',
-      boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+      background:     'linear-gradient(to bottom, #ffffff, #FFFFFF)',
+      boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
       flexShrink:     0,
     }}
   >
@@ -133,7 +133,7 @@ const StatusBadge = ({ label, variant = 'neutral' }: { label: string; variant?: 
         background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
         boxShadow:      isBlue
           ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
-          : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+          : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(255, 255, 255,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
         flexShrink:     0,
       }}
     >

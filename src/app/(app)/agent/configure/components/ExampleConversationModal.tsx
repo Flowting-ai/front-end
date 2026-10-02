@@ -78,7 +78,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
               borderRadius: 18,
               padding: 12,
               boxShadow:
-                '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
             }}
           >
             {/* Header row */}
@@ -146,7 +146,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       gap: 2,
                       padding: '7px 10px',
                       borderRadius: 10,
-                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
                     }}
                   >
                     <input
@@ -192,7 +192,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       minHeight: 0,
                       padding: '7px 10px',
                       borderRadius: 10,
-                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
                       overflow: 'hidden',
                     }}
                   >
@@ -258,7 +258,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       inset: 0,
                       borderRadius: 'inherit',
                       boxShadow:
-                        'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+                        'inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
                       pointerEvents: 'none',
                     }}
                   />
@@ -269,7 +269,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       fontWeight: 500,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: '#f7f2ed',
+                      color: '#FFFFFF',
                       whiteSpace: 'nowrap',
                       textShadow:
                         '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',

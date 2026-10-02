@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -41,7 +41,7 @@ function ToneCard({
         backgroundColor: "var(--neutral-white)",
         boxShadow: selected
           ? "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px #26211e"
-          : "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+          : "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
         cursor: "pointer",
         border: "none",
         textAlign: "left",
@@ -63,7 +63,7 @@ function ToneCard({
           alignItems: "center",
           justifyContent: "center",
           boxShadow:
-            "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7",
+            "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #F5F5F5",
         }}
       >
         <span
@@ -171,7 +171,7 @@ export default function OnboardingTonePage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        backgroundColor: "var(--neutral-50, #FFFFFF)",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- decorative background; Next Image doesn't support SVG patterns with embedded raster images */}

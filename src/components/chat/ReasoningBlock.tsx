@@ -414,7 +414,7 @@ function ReasoningStep({
                   flex: 1,
                   width: 1,
                   minHeight: 12,
-                  background: "var(--neutral-200, #EDE1D7)",
+                  background: "var(--neutral-200, #F5F5F5)",
                   transformOrigin: "top",
                 }}
               />

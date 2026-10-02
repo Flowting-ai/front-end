@@ -160,7 +160,7 @@ export default function ProfileTab({
               borderRadius: 8,
               overflow: "hidden",
               flexShrink: 0,
-              boxShadow: "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7",
+              boxShadow: "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #F5F5F5",
             }}
           >
             {avatarUrl ? (
@@ -219,7 +219,7 @@ export default function ProfileTab({
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
           }}
         >
           <input
@@ -252,7 +252,7 @@ export default function ProfileTab({
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
             cursor: "default",
           }}
         >
@@ -290,7 +290,7 @@ export default function ProfileTab({
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
             minHeight: 88,
           }}
         >
@@ -320,7 +320,7 @@ export default function ProfileTab({
             right: 20,
             fontFamily: "var(--font-body)",
             fontSize: 12,
-            color: "#b6aca4",
+            color: "#D4D4D4",
           }}
         >
           {personaDescription.length}/{DESCRIPTION_MAX}
@@ -417,7 +417,7 @@ export default function ProfileTab({
                 border: "none",
                 backgroundColor: "var(--neutral-100)",
                 boxShadow:
-                  "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
+                  "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(255, 255, 255,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
               }}
             >
               <Plus size={11} strokeWidth={2.5} />

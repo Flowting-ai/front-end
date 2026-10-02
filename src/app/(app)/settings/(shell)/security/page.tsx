@@ -422,7 +422,7 @@ export default function SecurityPage() {
                 border:          'none',
                 cursor:          'pointer',
                 background:      'linear-gradient(to bottom, var(--neutral-700), var(--neutral-900))',
-                boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+                boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
                 fontFamily:      'var(--font-body)',
                 fontWeight:      500,
                 fontSize:        14,

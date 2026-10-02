@@ -791,7 +791,7 @@ export function ChatMessage({
                       style={{
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
-                        fontWeight: 500,
+                        fontWeight: 600,
                         color: "var(--neutral-700)",
                       }}
                     >
@@ -824,7 +824,7 @@ export function ChatMessage({
                 className="kaya-label-shimmer"
                 style={{
                   fontSize: 14,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   lineHeight: "18px",
                 }}
               >

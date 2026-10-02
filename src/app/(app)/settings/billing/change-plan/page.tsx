@@ -14,7 +14,7 @@ import { ContactSalesModal } from '@/components/ContactSalesModal'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
-const MONO  = "'Geist Mono', ui-monospace, monospace"
+const MONO  = "var(--font-code)"
 
 // Credits mirror the backend grants (services/users/settings/plans.yaml, USD × 1000).
 const INDIVIDUAL_PLANS: { id: UserPlanType; price: number; credits: number }[] = [
@@ -42,7 +42,7 @@ function FeatureDot() {
       <div style={{
         width: 8, height: 8, borderRadius: 19,
         backgroundColor: 'var(--neutral-100)',
-        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
       }} />
     </div>
   )
@@ -174,7 +174,7 @@ export default function ChangePlanPage() {
           border-radius: 2px;
           outline: none;
           cursor: pointer;
-          background: white;
+          background: var(--neutral-200);
         }
         .cp-slider.dark { background: rgba(255,255,255,0.25); }
         .cp-slider::-webkit-slider-thumb {
@@ -182,16 +182,16 @@ export default function ChangePlanPage() {
           appearance: none;
           width: 12px; height: 12px;
           border-radius: 50%;
-          background: white;
-          border: 1.5px solid #b6aca4;
+          background: var(--neutral-white);
+          border: 1.5px solid var(--neutral-300);
           box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
           cursor: pointer;
         }
         .cp-slider::-moz-range-thumb {
           width: 12px; height: 12px;
           border-radius: 50%;
-          background: white;
-          border: 1.5px solid #b6aca4;
+          background: var(--neutral-white);
+          border: 1.5px solid var(--neutral-300);
           box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
           cursor: pointer;
         }
@@ -230,11 +230,11 @@ export default function ChangePlanPage() {
               fontWeight:      500,
               fontSize:        13,
               lineHeight:      '18px',
-              color:           '#7a6e68',
+              color:           'var(--neutral-500)',
               transition:      'background-color 120ms ease, color 120ms ease',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#3b3632' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLButtonElement).style.color = '#7a6e68' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-100)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--neutral-800)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--neutral-500)' }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -261,13 +261,13 @@ export default function ChangePlanPage() {
             </div>
 
             {/* Title */}
-            <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 48, lineHeight: '56px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
+            <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 48, lineHeight: '56px', color: 'var(--neutral-900)', margin: 0, textAlign: 'center', maxWidth: 977 }}>
               Choose your plan,{' '}
               <span style={{ color: 'var(--neutral-600)' }}>{firstName}.</span>
             </h1>
 
             {/* Subtitle */}
-            <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0, textAlign: 'center', maxWidth: 977 }}>
+            <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, textAlign: 'center', maxWidth: 977 }}>
               Pick a plan to keep your Tasks, agents, and automations running.
             </p>
           </div>
@@ -279,7 +279,7 @@ export default function ChangePlanPage() {
             <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column', opacity: isOnTeamPlan ? 0.45 : 1, pointerEvents: isOnTeamPlan ? 'none' : undefined }}>
               <div style={{
                 backgroundColor: 'var(--neutral-white)',
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--neutral-200)',
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
@@ -287,7 +287,7 @@ export default function ChangePlanPage() {
               }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                     Individual
                   </p>
                   <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
@@ -297,9 +297,9 @@ export default function ChangePlanPage() {
 
                 {/* Welcome gift card */}
                 <div style={{
-                  backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
+                  backgroundColor: 'var(--neutral-100)', borderRadius: 12, padding: '12px 16px',
                   display: 'flex', gap: 8, alignItems: 'flex-start',
-                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
+                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                 }}>
                   <div style={{
                     width: 56, height: 56, borderRadius: 12, flexShrink: 0,
@@ -316,7 +316,7 @@ export default function ChangePlanPage() {
                     <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600)', margin: 0 }}>
                       Welcome gift
                     </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                       1,000 free credits
                     </p>
                     <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', margin: 0 }}>
@@ -334,7 +334,7 @@ export default function ChangePlanPage() {
                     Pick your monthly credits
                   </p>
                   <div>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'black' }}>
+                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'var(--neutral-900)' }}>
                       ${selectedIndividual.price}
                     </span>
                     <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
@@ -344,11 +344,11 @@ export default function ChangePlanPage() {
 
                   {/* Credits card */}
                   <div style={{
-                    backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
+                    backgroundColor: 'var(--neutral-100)', borderRadius: 12, padding: '12px 16px',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                     display: 'flex', alignItems: 'flex-end', gap: 4,
                   }}>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
+                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>
                       {fmtNum(selectedIndividual.credits)}
                     </span>
                     <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', paddingBottom: 2 }}>
@@ -422,7 +422,7 @@ export default function ChangePlanPage() {
                       cursor: isOnTeamPlan || isCurrent || changingTo ? 'default' : 'pointer',
                       opacity: changingTo ? 0.5 : 1,
                       backgroundColor: 'var(--neutral-white)',
-                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
+                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                     }}
                   >
@@ -448,7 +448,7 @@ export default function ChangePlanPage() {
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
+                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                       Team
                     </p>
                     {/* Most popular badge */}
@@ -471,9 +471,9 @@ export default function ChangePlanPage() {
 
                 {/* Team-exclusive card */}
                 <div style={{
-                  backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
+                  backgroundColor: 'var(--neutral-100)', borderRadius: 12, padding: '12px 16px',
                   display: 'flex', gap: 8, alignItems: 'flex-start',
-                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
+                  boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                 }}>
                   <div style={{
                     width: 60, height: 60, borderRadius: 12, flexShrink: 0,
@@ -486,7 +486,7 @@ export default function ChangePlanPage() {
                     <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600)', margin: 0 }}>
                       Team-exclusive
                     </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                       Souvenir Slack Manager
                     </p>
                     <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', margin: 0 }}>
@@ -497,7 +497,7 @@ export default function ChangePlanPage() {
 
                 {/* Dark price slider box */}
                 <div style={{
-                  backgroundColor: '#524b47', borderRadius: 16, padding: 16,
+                  backgroundColor: 'var(--color-interactive-primary-surface-from)', borderRadius: 16, padding: 16,
                   display: 'flex', flexDirection: 'column', gap: 8,
                 }}>
                   <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'white', margin: 0 }}>
@@ -507,18 +507,18 @@ export default function ChangePlanPage() {
                     <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'white' }}>
                       {teamPriceLabel}
                     </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#ede1d7' }}>
+                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#F5F5F5' }}>
                       /mo
                     </span>
                   </div>
 
                   {/* Credits card */}
                   <div style={{
-                    backgroundColor: 'var(--neutral-50)', borderRadius: 12, padding: '12px 16px',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px #ede1d7',
+                    backgroundColor: 'var(--neutral-100)', borderRadius: 12, padding: '12px 16px',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                     display: 'flex', alignItems: 'flex-end', gap: 4,
                   }}>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black' }}>
+                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>
                       {fmtNum(selectedTeam.credits)}
                     </span>
                     <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: 'var(--neutral-600)', paddingBottom: 2 }}>
@@ -556,7 +556,7 @@ export default function ChangePlanPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       {TEAM_PLANS.map(p => (
-                        <span key={p.price} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#f7f2ed' }}>
+                        <span key={p.price} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#FFFFFF' }}>
                           {p.label}
                         </span>
                       ))}
@@ -594,9 +594,9 @@ export default function ChangePlanPage() {
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                       cursor: teamButtonDisabled ? 'default' : 'pointer',
                       opacity: teamButtonDisabled ? 0.55 : 1,
-                      background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                      boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed',
+                      background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
+                      boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
+                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#FFFFFF',
                       textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
                     }}
                   >
@@ -610,7 +610,7 @@ export default function ChangePlanPage() {
             <div style={{ flex: '0 0 370px', maxWidth: 370, display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 backgroundColor: 'var(--neutral-white)',
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--neutral-200)',
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
@@ -619,7 +619,7 @@ export default function ChangePlanPage() {
               }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                     Enterprise
                   </p>
                   <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
@@ -659,13 +659,13 @@ export default function ChangePlanPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, textDecoration: 'none',
                       backgroundColor: 'var(--neutral-white)', border: 'none', cursor: changingTo ? 'wait' : 'pointer',
-                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
+                      boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                     }}
                   >
                     {org.plan === 'enterprise' ? 'Current plan' : 'Contact Sales'}
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                 </div>

@@ -67,7 +67,7 @@ const FILE_BADGE_COLORS: Record<string, { bg: string; border: string; text: stri
 };
 
 function FileBadge({ label }: { label: string }) {
-  const color = FILE_BADGE_COLORS[label] ?? { bg: "#ede1d7", border: "rgba(106,98,93,0.5)", text: "#524b47" };
+  const color = FILE_BADGE_COLORS[label] ?? { bg: "#F5F5F5", border: "rgba(106,98,93,0.5)", text: "#524b47" };
   return (
     <span
       style={{
@@ -125,7 +125,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
         padding: "0 12px",
         borderRadius: 12,
         backgroundColor: "var(--neutral-white)",
-        boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+        boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
         width: "100%",
         fontFamily: "var(--font-body)",
       }}
@@ -749,16 +749,16 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "#f7f2ed",
+              color: "#FFFFFF",
               position: "relative",
               overflow: "hidden",
               border: "none",
               cursor: "pointer",
               background: "linear-gradient(to bottom, #524b47, #26211e)",
-              boxShadow: "0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)",
+              boxShadow: "0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)",
             }}
           >
-            <Plus size={16} color="#f7f2ed" />
+            <Plus size={16} color="#FFFFFF" />
             Upload Files
           </button>
           <Tooltip content={ALLOWED_FILE_TYPES_LABEL} side="top" maxWidth={260}>
@@ -782,7 +782,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
           }}
         >
           <Search size={16} color="#6a625d" style={{ flexShrink: 0 }} />

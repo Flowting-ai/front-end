@@ -88,7 +88,7 @@ function TimePill({
         whiteSpace:      'nowrap',
         position:        'relative',
         background:      'var(--neutral-white)',
-        color:           active ? 'var(--neutral-50, #f7f2ed)' : 'var(--neutral-700)',
+        color:           active ? 'var(--neutral-50, #FFFFFF)' : 'var(--neutral-700)',
         boxShadow:       active ? SHADOW_PILL_ACTIVE : SHADOW_PILL,
         transition:      'box-shadow 120ms, color 120ms',
       }}
@@ -167,7 +167,7 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
       <div
         className="kaya-scrollbar"
         style={{
-          background:  'var(--neutral-50, #f7f2ed)',
+          background:  'var(--neutral-50, #FFFFFF)',
           borderRadius: 20,
           padding:      8,
           boxShadow:    SHADOW_MODAL,

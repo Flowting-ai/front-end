@@ -56,7 +56,7 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
 
   const applyHoverStyle = () => {
     if (!buttonRef.current) return
-    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'rgba(237,225,215,0.6)'
+    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'rgba(245, 245, 245,0.6)'
     buttonRef.current.style.boxShadow = selected ? SHADOW_ROW_SELECTED : SHADOW_ROW_HOVER
   }
   const clearHoverStyle = () => {

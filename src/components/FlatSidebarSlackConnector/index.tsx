@@ -54,6 +54,7 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           data-sidebar-active={isActive ? '' : undefined}
+          data-sidebar-selected={selected ? '' : undefined}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 'auto', height: 32, padding: '0 6px', borderRadius: 10,
@@ -80,6 +81,7 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-sidebar-active={isActive ? '' : undefined}
+      data-sidebar-selected={selected ? '' : undefined}
       style={{
         position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -95,7 +97,7 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
         </div>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
-          lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          lineHeight: 'var(--line-height-body)', color: selected ? 'var(--sidebar-selected-text)' : isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           Souvenir in Slack
         </p>

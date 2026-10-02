@@ -20,7 +20,7 @@ function SlackPreviewIllustration() {
       style={{
         width: "100%",
         borderRadius: 10,
-        backgroundColor: "var(--neutral-50,#f7f2ed)",
+        backgroundColor: "var(--neutral-50,#FFFFFF)",
         padding: 12,
         boxSizing: "border-box",
       }}

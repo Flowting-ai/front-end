@@ -85,7 +85,7 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
       {data.caption && <div style={{ fontSize: 12, color: "var(--neutral-500)", marginBottom: 6 }}>{data.caption}</div>}
       <div style={{ background: "#1E1A17", borderRadius: 10, overflow: "hidden", boxShadow: "0px 0px 0px 1px rgba(0,0,0,0.9), 0px 1px 1px rgba(59,54,50,0.12), 0px 2px 4px rgba(59,54,50,0.28)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px 7px 14px", borderBottom: "1px solid rgba(255,255,255,0.055)", background: "linear-gradient(180deg, rgba(82,75,71,0.30) 0%, rgba(38,33,30,0.30) 100%)" }}>
-          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(182,172,164,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(212, 212, 212,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
             {data.language ?? "code"}
           </span>
           <m.button onClick={() => { navigator.clipboard.writeText(data.code).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
@@ -98,7 +98,7 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
               display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
               padding: "5px 0 6px", borderRadius: 8, border: "none", cursor: "pointer",
               background: copyHovered ? "linear-gradient(180deg, #6A625D 0%, #3B3632 100%)" : "linear-gradient(180deg, #524B47 0%, #26211E 100%)",
-              boxShadow: ["0px 0px 0px 1px rgba(0,0,0,0.85)", "0px 1px 1px rgba(59,54,50,0.10)", "0px 1.5px 3px rgba(59,54,50,0.35)", copyHovered ? "inset 0px 1px 0.4px rgba(247,242,237,0.42)" : "inset 0px 1px 0.4px rgba(247,242,237,0.28)", "inset 0px -2px 0.4px #120C08"].join(", "),
+              boxShadow: ["0px 0px 0px 1px rgba(0,0,0,0.85)", "0px 1px 1px rgba(59,54,50,0.10)", "0px 1.5px 3px rgba(59,54,50,0.35)", copyHovered ? "inset 0px 1px 0.4px rgba(255, 255, 255,0.42)" : "inset 0px 1px 0.4px rgba(255, 255, 255,0.28)", "inset 0px -2px 0.4px #120C08"].join(", "),
               transition: "background 160ms ease, box-shadow 160ms ease",
             }}>
             <AnimatePresence mode="popLayout" initial={false}>
@@ -109,8 +109,8 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
                 </m.span>
               ) : (
                 <m.span key="copy" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <HIcon icon={Copy01Icon} size={12} color="rgba(182,172,164,0.72)" strokeWidth={1.5} />
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.72)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
+                  <HIcon icon={Copy01Icon} size={12} color="rgba(212, 212, 212,0.72)" strokeWidth={1.5} />
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.72)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
                 </m.span>
               )}
             </AnimatePresence>
@@ -139,16 +139,16 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
                   <button onClick={() => setExpanded(true)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(255,255,255,0.055)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5 L6 8 L10 4.5" stroke="rgba(182,172,164,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5 L6 8 L10 4.5" stroke="rgba(212, 212, 212,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.5)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
                   </button>
                 </div>
               ) : (
                 <button onClick={() => setExpanded(false)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(255,255,255,0.055)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5 L6 4 L10 7.5" stroke="rgba(182,172,164,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show less</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5 L6 4 L10 7.5" stroke="rgba(212, 212, 212,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.5)", fontFamily: "var(--font-body)" }}>Show less</span>
                 </button>
               )}
             </m.div>

@@ -104,7 +104,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
       <div
         className="kaya-scrollbar"
         style={{
-          background: 'var(--neutral-50, #f7f2ed)',
+          background: 'var(--neutral-50, #FFFFFF)',
           borderRadius: 20,
           padding: 8,
           boxShadow: SHADOW_MODAL,

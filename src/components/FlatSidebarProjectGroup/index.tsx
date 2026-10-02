@@ -119,6 +119,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           data-sidebar-active={isActive ? '' : undefined}
+          data-sidebar-selected={active ? '' : undefined}
           style={{
             position:        'relative',
             display:         'flex',
@@ -160,7 +161,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
               style={{
                 ...RESET_BUTTON_STYLE,
                 fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
-                lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
+                lineHeight: 'var(--line-height-body)', color: active ? 'var(--sidebar-selected-text)' : isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 0 0', minWidth: 0,
               }}
             >

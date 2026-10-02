@@ -96,23 +96,24 @@ describe("theme.css is additive and in sync", () => {
       selector: m[1].trim(),
       body: m[2],
     }));
-    // Ten blocks: the light-safe additions, the dark token block, the dark hover-text rule
-    // (many selectors, all scoped to dark), the dark active-sidebar-item rule, the dark "raised
+    // Eleven blocks: the light-safe additions, the dark token block, the dark hover-text rule
+    // (many selectors, all scoped to dark), the active and selected sidebar rules, the dark "raised
     // surface" scope, the logo-swap rules (one default-hidden block + three dark-scoped), and the
     // dark body rule.
-    expect(blocks.length).toBe(10);
+    expect(blocks.length).toBe(11);
     expect(blocks[0].selector).toBe(":root");
     expect(blocks[1].selector).toBe(':root[data-theme="dark"]');
     expect(blocks[3].selector).toBe(':root[data-theme="dark"] [data-sidebar-active]');
-    expect(blocks[4].selector).toBe(':root[data-theme="dark"] [data-surface="raised"]');
-    expect(blocks[9].selector).toBe(':root[data-theme="dark"] body');
+    expect(blocks[4].selector).toBe(':root[data-theme="dark"] [data-sidebar-selected]');
+    expect(blocks[5].selector).toBe(':root[data-theme="dark"] [data-surface="raised"]');
+    expect(blocks[10].selector).toBe(':root[data-theme="dark"] body');
     for (const sel of blocks[2].selector.split(",").map((s) => s.trim())) {
       expect(sel.startsWith(':root[data-theme="dark"] ')).toBe(true);
     }
     // Logo swap: the only non-dark-scoped rule targets classes that exist solely on the
     // dark-variant images (rendered only when theming is on), so light is unaffected.
-    expect(blocks[5].selector.split(",").map((s) => s.trim())).toEqual([".kds-logo-dark", ".kds-llm-mono"]);
-    for (const b of blocks.slice(6, 9)) {
+    expect(blocks[6].selector.split(",").map((s) => s.trim())).toEqual([".kds-logo-dark", ".kds-llm-mono"]);
+    for (const b of blocks.slice(7, 10)) {
       for (const sel of b.selector.split(",").map((s) => s.trim())) {
         expect(sel.startsWith(':root[data-theme="dark"] .kds-')).toBe(true);
       }

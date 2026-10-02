@@ -40,9 +40,9 @@ export function AnimatedFollowUps({ data, onComplete, onFollowUp, animate = true
             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => onFollowUp?.(prompt)}
-            style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--neutral-white)", border: "1px solid #EDE1D7", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "var(--neutral-700)", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 140ms", fontFamily: "var(--font-body)" }}
+            style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--neutral-white)", border: "1px solid #F5F5F5", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "var(--neutral-700)", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 140ms", fontFamily: "var(--font-body)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(104,61,27,0.04)"; e.currentTarget.style.borderColor = "rgba(104,61,27,0.2)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#EDE1D7"; }}>
+            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#F5F5F5"; }}>
             <span style={{ color: "#C0B5AD", flexShrink: 0 }}>�'</span>
             {prompt}
           </m.button>

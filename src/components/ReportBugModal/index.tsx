@@ -64,7 +64,7 @@ function SeverityPill({ label, active, onClick }: { label: string; active: boole
         padding: '6px 10px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
         whiteSpace: 'nowrap', position: 'relative', background: 'var(--neutral-white)',
-        color: active ? 'var(--neutral-50, #f7f2ed)' : 'var(--neutral-700)',
+        color: active ? 'var(--neutral-50, #FFFFFF)' : 'var(--neutral-700)',
         boxShadow: active ? SHADOW_PILL_ACTIVE : SHADOW_PILL,
         transition: 'box-shadow 120ms, color 120ms',
       }}
@@ -130,7 +130,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
         aria-label="Report a bug"
         tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--neutral-50, #FFFFFF)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

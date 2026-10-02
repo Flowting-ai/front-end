@@ -76,14 +76,13 @@ const bodyTextStyle: React.CSSProperties = {
   minWidth: 0,
 }
 
-// Figma "Sidebar / Section Header" label: Regular 400 (rows are Medium 500),
-// same size/color as a row label so the section title doesn't read as a caption.
+// Section headers are semibold while keeping the same size as a row label.
 const headerLabelTextStyle: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
-  fontWeight: 'var(--font-weight-regular)',
+  fontWeight: 'var(--font-weight-semibold)',
   fontSize: 'var(--font-size-body)',
   lineHeight: 'var(--line-height-body)',
-  color: 'var(--sidebar-menu-item-text)',
+  color: 'var(--sidebar-section-header-text)',
   whiteSpace: 'nowrap',
   margin: 0,
 }
@@ -392,6 +391,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       className: cn(className),
       style: href ? { ...containerStyle, textDecoration: 'none' } : containerStyle,
       'data-sidebar-active': !isHeader && isActive ? '' : undefined,
+      'data-sidebar-selected': !isHeader && selected ? '' : undefined,
       onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => { setIsHovered(true); externalMouseEnter?.(e) },
       onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => { setIsHovered(false); externalMouseLeave?.(e) },
       onKeyDown: handleKeyDown,

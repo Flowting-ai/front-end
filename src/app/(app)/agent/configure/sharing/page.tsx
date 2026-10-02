@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -202,8 +202,8 @@ function PersonaConfigureSharingContent() {
                 aria-hidden
                 style={{
                   position: 'absolute', top: 0, left: 0, right: 0, height: 36, borderRadius: 10,
-                  backgroundColor: 'rgba(247,242,237,0.5)',
-                  boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+                  backgroundColor: 'rgba(255, 255, 255,0.5)',
+                  boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
                 }}
               />
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>

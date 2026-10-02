@@ -83,7 +83,7 @@ function SkipButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         borderRadius: 10,
         border:       'none',
         boxShadow:    hovered ? '0px 0px 0px 1px rgba(59,54,50,0.5)' : '0px 0px 0px 1px rgba(59,54,50,0.3)',
-        background:   hovered ? 'var(--neutral-50, #f7f2ed)' : 'transparent',
+        background:   hovered ? 'var(--neutral-50, #FFFFFF)' : 'transparent',
         cursor:       disabled ? 'not-allowed' : 'pointer',
         opacity:      disabled ? 0.6 : 1,
         fontFamily:   'var(--font-body)',
@@ -144,7 +144,7 @@ function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         aria-hidden
         style={{
           position:      'absolute', inset: 0, borderRadius: 'inherit',
-          boxShadow:     'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+          boxShadow:     'inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
           pointerEvents: 'none',
         }}
       />
@@ -167,7 +167,7 @@ function RankableRow({ option, index }: { option: QuestionCardOption; index: num
       whileDrag={{
         cursor:    'grabbing',
         zIndex:    10,
-        boxShadow: '0px 8px 24px rgba(82,75,71,0.18), 0px 0px 0px 1px rgba(182,172,164,0.3)',
+        boxShadow: '0px 8px 24px rgba(82,75,71,0.18), 0px 0px 0px 1px rgba(212, 212, 212,0.3)',
       }}
       style={{
         listStyle:   'none',

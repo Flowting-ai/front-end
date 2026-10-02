@@ -245,10 +245,9 @@ function resolveFully(vars: Vars, name: string, depth = 0): string {
 describe("tab bar", () => {
   const TRACK = () => color(DARK, "--tab-bg");
 
-  it("the tab bar is the #413D39 grey in dark (and unchanged in light)", () => {
+  it("the tab bar is the #413D39 grey in dark and translucent white in light", () => {
     expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#413D39");
-    // Light is untouched: still the original translucent cream (neutral-50 @ 50%).
-    expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 247, g: 242, b: 237, a: 0.5 });
+    expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 255, g: 255, b: 255, a: 0.5 });
     expect(resolveVar(BASE, "--tab-bg")).toBe(resolveVar(LIGHT, "--tab-bg"));
   });
 
@@ -281,9 +280,9 @@ describe("agent cards (grey surface + raised scope)", () => {
   const GREY = () => color(DARK, "--agent-card-bg");
   const RAMP = ["--neutral-200", "--neutral-300", "--neutral-400", "--neutral-500"];
 
-  it("dark: the card surface is the #413D39 grey; light: still white", () => {
+  it("dark: the card surface is the #413D39 grey; light: warm neutral", () => {
     expect(resolveVar(DARK, "--agent-card-bg")?.toUpperCase()).toBe("#413D39");
-    expect(resolveVar(LIGHT, "--agent-card-bg")?.toUpperCase()).toBe("#FFFFFF");
+    expect(resolveVar(LIGHT, "--agent-card-bg")?.toUpperCase()).toBe("#F5F2EF");
   });
 
   it("the card is distinct from the page and from the dark card surface", () => {
@@ -392,9 +391,9 @@ describe("light theme is untouched", () => {
     expect(changed).toEqual([]);
   });
 
-  it("every legacy token's light value is exactly the original hard-coded hex", () => {
-    for (const [hex, v] of Object.entries(LEGACY as Record<string, { token: string; dark: string }>)) {
-      expect(LIGHT_EXTRA[v.token]?.toUpperCase(), v.token).toBe(hex.toUpperCase());
+  it("every legacy token uses its configured light value and retains its dark value", () => {
+    for (const [hex, v] of Object.entries(LEGACY as Record<string, { token: string; dark: string; light?: string }>)) {
+      expect(LIGHT_EXTRA[v.token]?.toUpperCase(), v.token).toBe((v.light ?? hex).toUpperCase());
       expect(DARK_BLOCK[v.token], `${v.token} has a dark value`).toBeDefined();
     }
   });
@@ -444,5 +443,33 @@ describe("active sidebar item", () => {
     expect(active).toEqual(hover);
     expect(resolveVar({ ...DARK, ...active }, "--sidebar-menu-item-text")!.toUpperCase()).toBe("#FFFFFF");
     expect(resolveVar({ ...DARK, ...active }, "--sidebar-menu-item-muted")!.toUpperCase()).toBe("#FFFFFF");
+  });
+});
+
+describe("selected sidebar item", () => {
+  it("uses black text in light mode and white text in dark mode without replacing the row fill", () => {
+    expect(resolveVar(LIGHT, "--sidebar-selected-text")?.toUpperCase()).toBe("#000000");
+    expect(contrast(color(LIGHT, "--sidebar-selected-text"), color(LIGHT, "--neutral-50"))).toBeGreaterThanOrEqual(7);
+    expect(resolveVar(DARK, "--sidebar-selected-text")?.toUpperCase()).toBe("#FFFFFF");
+    expect(contrast(color(DARK, "--sidebar-selected-text"), PAGE)).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe("sidebar section header colors", () => {
+  it("uses darker text in light and dark themes for both header styles", () => {
+    expect(resolveVar(LIGHT, "--sidebar-section-header-text")?.toUpperCase()).toBe("#3B3632");
+    expect(resolveVar(DARK, "--sidebar-section-header-text")?.toUpperCase()).toBe("#B9AFA7");
+    expect(resolveVar(LIGHT, "--sidebar-section-header-muted")?.toUpperCase()).toBe("#6A625D");
+    expect(resolveVar(DARK, "--sidebar-section-header-muted")?.toUpperCase()).toBe("#8F857E");
+  });
+});
+
+describe("user message action icon", () => {
+  it("is darker on the light bubble and preserves the dark-mode color", () => {
+    expect(resolveVar(LIGHT, "--message-bubble-action-icon")?.toUpperCase()).toBe("#6A625D");
+    expect(contrast(color(LIGHT, "--message-bubble-action-icon"), color(LIGHT, "--message-bubble-user-bg"))).toBeGreaterThanOrEqual(4.5);
+    expect(resolveVar(DARK, "--message-bubble-action-icon")?.toUpperCase()).toBe("#D4D4D4");
+    expect(resolveVar(LIGHT, "--message-bubble-action-timestamp")?.toUpperCase()).toBe("#6A625D");
+    expect(contrast(color(LIGHT, "--message-bubble-action-timestamp"), color(LIGHT, "--message-bubble-user-bg"))).toBeGreaterThanOrEqual(4.5);
   });
 });

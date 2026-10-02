@@ -39,7 +39,7 @@ function GhostButton({ children, onClick, disabled }: { children: React.ReactNod
         borderRadius:    8,
         border:          'none',
         cursor:          disabled ? 'not-allowed' : 'pointer',
-        backgroundColor: hovered ? 'var(--neutral-100, #ede1d7)' : 'transparent',
+        backgroundColor: hovered ? 'var(--neutral-100, #F5F5F5)' : 'transparent',
         boxShadow:       '0px 0px 0px 1px rgba(59,54,50,0.3)',
         fontFamily:      'var(--font-body)',
         fontWeight:      500,

@@ -72,7 +72,7 @@
   min-width: 0;
   flex-direction: column;
   border-left: 1px solid rgba(82, 75, 71, 0.1);
-  background: rgba(247, 242, 237, 0.38);
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .railHeader {

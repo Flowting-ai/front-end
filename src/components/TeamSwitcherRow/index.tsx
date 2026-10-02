@@ -154,7 +154,7 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
               height:          '20px',
               borderRadius:    '4px',
               backgroundColor: 'var(--neutral-white)',
-              boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+              boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
               flexShrink:      0,
               color:           'var(--neutral-600)',
               overflow:        'hidden',

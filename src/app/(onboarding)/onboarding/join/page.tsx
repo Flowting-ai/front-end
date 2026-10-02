@@ -81,7 +81,7 @@ function AvatarStack({ members, count }: { members: InvitedMember[]; count: numb
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "var(--neutral-100,#ede1d7)",
+            backgroundColor: "var(--neutral-100,#F5F5F5)",
             boxShadow: "0 0 0 2px #fff",
             fontFamily: "var(--font-body)",
             fontWeight: 500,

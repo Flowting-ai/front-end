@@ -1431,10 +1431,10 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         padding:    0,
         cursor:     'pointer',
         flexShrink: 0,
-        background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #ede1d7)',
+        background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #F5F5F5)',
         boxShadow:  checked
           ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
-          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
         transition: 'background 0.15s ease, box-shadow 0.15s ease',
       }}
     >
@@ -1448,7 +1448,7 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         background:   'var(--neutral-white)',
         boxShadow:    checked
           ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4), inset 0px -1px 0px 0px rgba(18,60,95,0.15)'
-          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
         transition:   'left 0.15s ease',
       }} />
     </button>
@@ -1554,7 +1554,7 @@ function ModalShell({
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}
     >
-      <div style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
+      <div style={{ background: 'var(--neutral-50, #FFFFFF)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Header */}
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 12px 24px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>

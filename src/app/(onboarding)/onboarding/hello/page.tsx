@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -69,7 +69,7 @@ function RoleSelect({
             border: "none",
             backgroundColor: "var(--text-field-bg,#fff)",
             boxShadow:
-              "0px 1px 1.5px 0px var(--neutral-700-12,rgba(82,75,71,0.12)), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+              "0px 1px 1.5px 0px var(--neutral-700-12,rgba(82,75,71,0.12)), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
             cursor: "pointer",
             outline: "none",
           }}

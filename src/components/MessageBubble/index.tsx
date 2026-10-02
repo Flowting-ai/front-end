@@ -30,8 +30,8 @@ const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
 // Resolved values of TEXT_STYLE tokens. Exported so future pretext integration
 // can call prepare(content, CANVAS_FONT) without recalculating. Update here
 // whenever typography tokens change.
-export const CANVAS_FONT      = "16px/22px 'Geist Variable', sans-serif"
-export const CANVAS_FONT_MONO = "14px/20px 'Geist Mono', monospace"
+export const CANVAS_FONT      = "16px/22px 'Manrope', sans-serif"
+export const CANVAS_FONT_MONO = "14px/20px 'Manrope', sans-serif"
 export const LINE_HEIGHT_PX   = 22
 
 // ── Edit CTA sizing ───────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ const WIDTH_MS = 200
 // ── Shared text style (view <p> + edit <textarea> + mirror <div> must match) ──
 const TEXT_STYLE: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
-  fontWeight:   'var(--font-weight-regular)',
+  fontWeight:   'var(--font-weight-medium)',
   fontSize:     'var(--font-size-body-lg)',
   lineHeight:   'var(--line-height-body-lg)',
   color:        'var(--message-bubble-user-text)',

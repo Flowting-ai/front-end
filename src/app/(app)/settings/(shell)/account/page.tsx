@@ -136,7 +136,7 @@ function PillSelect<T extends string>({
           borderRadius:    8,
           border:          'none',
           backgroundColor: 'var(--neutral-white,#fff)',
-          boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7)',
+          boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)',
           cursor:          pending ? 'not-allowed' : 'pointer',
           opacity:         pending ? 0.6 : 1,
           fontFamily:      'var(--font-body)',

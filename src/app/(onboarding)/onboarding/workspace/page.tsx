@@ -56,10 +56,10 @@ function SizePill({
         border: "none",
         cursor: "pointer",
         outline: "none",
-        backgroundColor: selected ? "var(--neutral-100,#ede1d7)" : "var(--neutral-white,#fff)",
+        backgroundColor: selected ? "var(--neutral-100,#F5F5F5)" : "var(--neutral-white,#fff)",
         boxShadow: selected
-          ? "0px 0px 0px 1px var(--neutral-200,#d1c6bd)"
-          : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+          ? "0px 0px 0px 1px var(--neutral-200,#E5E5E5)"
+          : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
         fontFamily: "var(--font-body)",
         fontWeight: 500,
         fontSize: 14,
@@ -162,7 +162,7 @@ export default function OnboardingWorkspacePage() {
               borderRadius: 10,
               backgroundColor: "var(--neutral-white,#fff)",
               boxSizing: "border-box",
-              boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+              boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
             }}
           >
             <input

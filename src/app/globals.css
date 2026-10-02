@@ -11,6 +11,13 @@
    Must stay AFTER the token files above so its overrides win. */
 @import "../styles/tokens/theme.css";
 
+:root [data-sidebar-active] {
+  --sidebar-menu-item-text: var(--sidebar-selected-text);
+  --sidebar-menu-item-muted: var(--sidebar-selected-text);
+  --sidebar-icon: var(--sidebar-selected-text);
+  --sidebar-icon-muted: var(--sidebar-selected-text);
+}
+
 /* KDS utility class - apply to every scrollable element */
 .kaya-scrollbar {
   scrollbar-width: thin;

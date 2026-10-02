@@ -56,7 +56,7 @@ function SpinnerIcon() {
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >
-      <HIcon icon={Spinner} size={16} color="#B6ACA4" strokeWidth={2} />
+      <HIcon icon={Spinner} size={16} color="#D4D4D4" strokeWidth={2} />
     </m.span>
   );
 }
@@ -83,7 +83,7 @@ function ErrorIcon() {
 function StoppedIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Cancel01Icon} size={16} color="#B6ACA4" strokeWidth={2} />
+      <HIcon icon={Cancel01Icon} size={16} color="#D4D4D4" strokeWidth={2} />
     </span>
   );
 }
@@ -178,21 +178,21 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
         {/* Result count */}
         {isDone && hasResults && (
-          <span style={{ fontSize: 14, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 400, color: "#D4D4D4", flexShrink: 0 }}>
             {activity.results!.length} {activity.type === "web-search" ? "result" : "file"}{activity.results!.length === 1 ? "" : "s"}
           </span>
         )}
 
         {/* Duration */}
         {isDone && activity.durationS !== undefined && (
-          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "#D4D4D4", flexShrink: 0 }}>
             {activity.durationS < 1 ? `${Math.round(activity.durationS * 1000)}ms` : `${activity.durationS.toFixed(1)}s`}
           </span>
         )}
 
         {/* Percentage — only while running; a finished row shows its duration */}
         {isActive && activity.percent !== undefined && (
-          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "#D4D4D4", flexShrink: 0 }}>
             {Math.round(activity.percent)}%
           </span>
         )}

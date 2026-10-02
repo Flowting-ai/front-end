@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -81,7 +81,7 @@ function OptionCard({
         outline: "none",
         boxShadow: selected
           ? "0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 2px var(--neutral-900,#26211e)"
-          : "0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+          : "0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
         transition: "box-shadow 120ms",
       }}
     >

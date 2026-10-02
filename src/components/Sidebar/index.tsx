@@ -1021,7 +1021,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
               {/* Tab-background card — Figma 6459:101321 / 6460:102861. For
                   admin it groups the tabs + the "Manage Organisation" row (with its
-                  "N updated" badge) on the rgba(247,242,237,0.5) surface; for other
+                  "N updated" badge) on the rgba(255, 255, 255,0.5) surface; for other
                   roles it's an unstyled wrapper around just the tabs. */}
               <div style={{
                 display:       'flex',
@@ -1030,8 +1030,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 ...(showAdmin ? {
                   padding:         '4px',
                   borderRadius:    '12px',
-                  backgroundColor: 'rgba(247,242,237,0.5)',
-                  boxShadow:       'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+                  backgroundColor: 'rgba(255, 255, 255,0.5)',
+                  boxShadow:       'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
                 } : {}),
               }}>
                 <Tabs
@@ -1067,8 +1067,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               margin:          '0 6px',
               padding:         '4px',
               borderRadius:    '10px',
-              backgroundColor: 'rgba(247,242,237,0.5)',
-              boxShadow:       'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+              backgroundColor: 'rgba(255, 255, 255,0.5)',
+              boxShadow:       'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
               display:         'flex',
               flexDirection:   'column',
               alignItems:      'center',

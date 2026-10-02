@@ -311,6 +311,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       className: cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className),
       style: isLink ? { ...containerStyle, textDecoration: 'none' } : containerStyle,
       'data-sidebar-active': !isHeader && !isEditVariant && isActive ? '' : undefined,
+      'data-sidebar-selected': !isHeader && !isEditVariant && selected ? '' : undefined,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
       onFocus: handleFocus,
@@ -327,7 +328,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
           <>
             {/* Left: label + Show/Hide toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
+              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-semibold)', color: 'var(--sidebar-section-header-muted)' }}>
                 {label}
               </p>
               {onShowClick && (

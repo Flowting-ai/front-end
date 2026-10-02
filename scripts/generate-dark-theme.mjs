@@ -298,7 +298,11 @@ const overrides = [
   // Light defines neither, so var(--sidebar-icon, <today's colour>) falls back to today's colour.
   ['--sidebar-icon', WHITE],
   ['--sidebar-icon-muted', WHITE],
+  ['--sidebar-selected-text', WHITE],
+  ['--sidebar-section-header-text', '#B9AFA7'],
+  ['--sidebar-section-header-muted', '#8F857E'],
   ['--tab-item-text-hover', WHITE],
+  ['--message-bubble-action-icon', '#D4D4D4'],
   // Tab bar: the mid grey (#413D39) behind the white selected pill. It is lighter than the
   // near-black track the labels were tuned for, so unselected labels step up one palette
   // tone (3.2:1 -> 5.0:1) and disabled ones sit at the old default (dimmer, still visible).
@@ -464,21 +468,21 @@ const css = `/* ── Theme: dark ───────────────
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
   --icon-button-secondary-bg: var(--neutral-white);
 
-  /* Agent card surface (was --neutral-white inside PersonaCard). */
-  --agent-card-bg: var(--neutral-white);
+  /* Agent cards stay warm against the white page canvas. */
+  --agent-card-bg: var(--neutral-100);
 
   /* Thinking / reasoning text: the "Thinking…" label, step meta text, bullets, icons, the
      rail and the shimmer sweep. Light = the exact literals these replaced (#9A9089 etc.). */
   --thinking-text: #9A9089;
   --thinking-text-faint: #C0B5AD;
-  --thinking-icon-strong: #D1C6BD;
+  --thinking-icon-strong: var(--neutral-200);
   --thinking-icon-active: #A89488;
-  --thinking-rule: #EDE1D7;
-  --thinking-shimmer-edge: #B6ACA4;
+  --thinking-rule: var(--neutral-100);
+  --thinking-shimmer-edge: var(--neutral-300);
   --thinking-shimmer-peak: #3B3632;
 
-  /* Legacy hard-coded colours, now themeable. Light value == the original literal. */
-${Object.entries(LEGACY).map(([hex, v]) => `  ${v.token}: ${hex};`).join('\n')}
+  /* Legacy hard-coded colours, now themeable. Light values may be normalized to the neutral palette. */
+${Object.entries(LEGACY).map(([hex, v]) => `  ${v.token}: ${v.light ?? hex};`).join('\n')}
 }
 
 :root[data-theme="dark"] {
@@ -499,6 +503,13 @@ ${HOVER_TOKENS.map((t) => `  ${t}: var(--text-hover);`).join('\n')}
    data-sidebar-active; light mode has no rule for it, so it is a no-op there. */
 :root[data-theme="dark"] [data-sidebar-active] {
 ${HOVER_TOKENS.map((t) => `  ${t}: var(--text-hover);`).join('\n')}
+}
+
+:root[data-theme="dark"] [data-sidebar-selected] {
+  --sidebar-menu-item-text: var(--sidebar-selected-text);
+  --sidebar-menu-item-muted: var(--sidebar-selected-text);
+  --sidebar-icon: var(--sidebar-selected-text);
+  --sidebar-icon-muted: var(--sidebar-selected-text);
 }
 
 /* ── Raised surface (dark only) ────────────────────────────────────────────────

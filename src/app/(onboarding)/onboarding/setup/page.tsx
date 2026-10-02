@@ -109,8 +109,8 @@ function OptionCard({
         width: "100%",
         padding: bordered === "blue" ? "24px 16px 16px" : 16,
         borderRadius: 10,
-        backgroundColor: bordered === "blue" ? "var(--color-surface-raised,#fff)" : "var(--color-surface-base,#f7f2ed)",
-        border: bordered === "blue" ? "1px solid rgba(13,110,178,0.5)" : "1px solid var(--color-border-subtle,#b6aca4)",
+        backgroundColor: bordered === "blue" ? "var(--color-surface-raised,#fff)" : "var(--color-surface-base,#FFFFFF)",
+        border: bordered === "blue" ? "1px solid rgba(13,110,178,0.5)" : "1px solid var(--color-border-subtle,#D4D4D4)",
         boxSizing: "border-box",
       }}
     >
@@ -161,7 +161,7 @@ export default function OnboardingSetupChoicePage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "var(--neutral-50,#f7f2ed)",
+        backgroundColor: "var(--neutral-50,#FFFFFF)",
         padding: "40px 16px",
         boxSizing: "border-box",
       }}
@@ -182,7 +182,7 @@ export default function OnboardingSetupChoicePage() {
               alignItems: "flex-start",
               padding: 8,
               borderRadius: 10,
-              backgroundColor: "var(--color-surface-base,#f7f2ed)",
+              backgroundColor: "var(--color-surface-base,#FFFFFF)",
             }}
           >
             <div style={{ flexShrink: 0, width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--neutral-700,#524b47)" }}>

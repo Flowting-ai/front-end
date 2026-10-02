@@ -454,7 +454,7 @@ export function ShareModal({
               />
             )}
 
-            {/* Title — Besley heading scale */}
+            {/* Title — Google Sans heading scale */}
             <span
               style={{
                 fontFamily:   'var(--font-title)',
