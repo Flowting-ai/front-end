@@ -10,7 +10,7 @@ vi.mock('./client', async importOriginal => {
   return { ...actual, apiFetch, apiFetchJson }
 })
 
-import { getOrgSlackStatus, getSlackAppConfig, linkSlackIdentity, removeOrgSlackInstallation, updateSlackAppConfig, uploadSlackSkill } from './slack'
+import { getOrgSlackStatus, getSlackInstallUrl, getSlackAppConfig, linkSlackIdentity, removeOrgSlackInstallation, updateSlackAppConfig, uploadSlackSkill } from './slack'
 
 describe('removeOrgSlackInstallation', () => {
   beforeEach(() => {
@@ -33,6 +33,8 @@ describe('removeOrgSlackInstallation', () => {
         teamId: 'T1',
         teamName: 'Souvenir',
         installedAt: '2026-06-18T00:00:00Z',
+        missingScopes: [],
+        needsReinstall: false,
       }],
     })
   })
@@ -41,6 +43,28 @@ describe('removeOrgSlackInstallation', () => {
     apiFetch.mockResolvedValue(new Response(null, { status: 204 }))
 
     await expect(removeOrgSlackInstallation('org-1')).resolves.toBeUndefined()
+  })
+
+  it('preserves the permission update status for an existing workspace', async () => {
+    apiFetchJson.mockResolvedValue({ workspaces: [{
+      team_id: 'T1', team_name: 'Souvenir', installed_at: '2026-06-18T00:00:00Z',
+      missing_scopes: ['files:read'], needs_reinstall: true,
+    }] })
+    await expect(getOrgSlackStatus('org-1')).resolves.toMatchObject({
+      workspaces: [{ teamId: 'T1', needsReinstall: true, missingScopes: ['files:read'] }],
+    })
+  })
+
+  it('binds permission updates to the existing workspace', async () => {
+    apiFetchJson.mockResolvedValue({ url: 'https://slack.com/oauth/v2/authorize' })
+    await getSlackInstallUrl('T1')
+    expect(apiFetchJson).toHaveBeenCalledWith(expect.stringMatching(/\/slack\/install\?team_id=T1$/))
+  })
+
+  it('keeps the initial install flow available', async () => {
+    apiFetchJson.mockResolvedValue({ url: 'https://slack.com/oauth/v2/authorize' })
+    await getSlackInstallUrl()
+    expect(apiFetchJson).toHaveBeenCalledWith(expect.stringMatching(/\/slack\/install$/))
   })
 
   it('surfaces backend uninstall failures', async () => {

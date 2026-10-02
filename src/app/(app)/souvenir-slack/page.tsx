@@ -8,7 +8,7 @@ import { useOrg } from '@/context/org-context'
 import { Button } from '@/components/Button'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
-import { getOrgSlackStatus, removeOrgSlackInstallation } from '@/lib/api/slack'
+import { getOrgSlackStatus, getSlackInstallUrl, removeOrgSlackInstallation } from '@/lib/api/slack'
 import type { SlackStatus } from '@/lib/api/slack'
 import { SlackWorkspaceConfig } from './SlackWorkspaceConfig'
 import styles from './slack-config.module.css'
@@ -21,10 +21,36 @@ export default function SouvenirSlackPage() {
   const [modalOpen,     setModalOpen]     = useState(false)
 
   const [removing,      setRemoving]      = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   const isAdmin = orgRole === 'admin'
   const connected = status?.connected ?? false
   const teamName  = status?.workspaces[0]?.teamName ?? null
+  const workspace = status?.workspaces[0]
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const result = url.searchParams.get('slack')
+    if (result === 'cancelled' || result === 'error') {
+      toast.error(result === 'cancelled'
+        ? 'Slack permission update cancelled. Your existing setup is still connected.'
+        : 'Could not update Slack permissions. Please try again.')
+      url.searchParams.delete('slack')
+      window.history.replaceState(null, '', url)
+    }
+  }, [])
+
+  const handleUpdatePermissions = async () => {
+    if (!isAdmin || !workspace || updating || removing) return
+    setUpdating(true)
+    try {
+      const url = await getSlackInstallUrl(workspace.teamId)
+      window.location.assign(url)
+    } catch (err) {
+      setUpdating(false)
+      toast.error(err instanceof Error ? err.message : 'Could not start Slack permission update')
+    }
+  }
 
   const loadStatus = () => {
     if (!orgId) return
@@ -58,7 +84,7 @@ export default function SouvenirSlackPage() {
   }, [orgId, orgReady, isAdmin])
 
   const handleRemoveSlack = async () => {
-    if (!orgId || removing) return
+    if (!orgId || removing || updating) return
     if (!window.confirm('Remove the Slack bot from this organization? It will be uninstalled from the workspace and all project channels stop working.')) return
     setRemoving(true)
     try {
@@ -123,14 +149,24 @@ export default function SouvenirSlackPage() {
                 <span style={{ minWidth: 0 }}>
                   <span className={styles.connectionTitle} style={{ display: 'block' }}>{teamName ?? 'Slack workspace'}</span>
                   <span className={styles.connectionMeta} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckmarkCircleTwoIcon size={12} color="var(--green-600, #16a34a)" /> Connected
+                    <CheckmarkCircleTwoIcon size={12} color="var(--green-600, #16a34a)" />
+                    {workspace?.needsReinstall ? 'Connected · Permission update needed' : 'Connected'}
                   </span>
                 </span>
               </div>
-              <Button variant="danger" size="sm" leftIcon={<CancelOneIcon size={14} />} disabled={removing} loading={removing} onClick={handleRemoveSlack}>
-                Disconnect Slack
-              </Button>
+              <div className={styles.connectionActions}>
+                <Button variant={workspace?.needsReinstall ? 'default' : 'secondary'} size="sm" disabled={removing || updating} loading={updating} onClick={handleUpdatePermissions}>
+                  Update Slack permissions
+                </Button>
+                <Button variant="danger" size="sm" leftIcon={<CancelOneIcon size={14} />} disabled={removing || updating} loading={removing} onClick={handleRemoveSlack}>
+                  Disconnect Slack
+                </Button>
+              </div>
             </div>
+            <p className={styles.permissionNotice}>
+              {workspace?.needsReinstall && 'Souvenir needs additional Slack permissions. '}
+              Updating permissions keeps your channels, automations, and settings. Slack will ask you to approve access.
+            </p>
             <SlackWorkspaceConfig orgId={orgId} teamName={teamName} />
           </div>
         )

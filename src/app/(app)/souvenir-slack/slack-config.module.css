@@ -299,6 +299,8 @@
 }
 
 .connectionStatus { display: inline-flex; min-width: 0; align-items: center; gap: 9px; }
+.connectionActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.permissionNotice { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--neutral-200); color: var(--neutral-600); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
 .connectionMark { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 8px; background: var(--neutral-50); }
 .connectionTitle { overflow: hidden; margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .connectionMeta { margin: 1px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 11px; }

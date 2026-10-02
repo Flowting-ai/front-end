@@ -10,7 +10,8 @@ All Slack wrappers live in `src/lib/api/slack.ts`. There's a real discrepancy wo
 
 ### `GET /slack/install` (Slack Install Url)
 - **`config.ts`**: `SLACK_INSTALL_ENDPOINT`
-- **Wrapper**: `getSlackInstallUrl()` (`slack.ts`) — returns the "Add to Slack" URL; the frontend opens it in a new tab and lets Slack's own OAuth flow redirect to the callback.
+- **Wrapper**: `getSlackInstallUrl(teamId?)` (`slack.ts`) — returns the Slack OAuth URL. Initial connections open it in a new tab. Permission updates pass `team_id` and navigate in the current tab, returning to `/souvenir-slack` after approval.
+- **Permission updates**: `souvenir-slack/page.tsx` exposes **Update Slack permissions** for admins of a connected workspace and highlights it when `needs_reinstall` is true. The backend signs the existing team and organization into OAuth state and validates them on callback. It refreshes the existing installation without uninstalling or deleting channel mappings, automations, or settings. Cancellation/failure returns to settings with feedback; Slack still requires consent and may require workspace admin approval. This flow adds required permissions; it does not revoke previously granted scopes.
 - **Used by**: `components/SlackConnectModal/index.tsx`'s `handleConnect()` — clicking **Connect Slack** in the shared connect modal (opened from `souvenir-slack/page.tsx` and `welcome/page.tsx`). After opening the install URL, the modal polls `getOrgSlackStatus`/`getSlackStatus` (below) every few seconds until the install completes or a timeout is hit.
 
 ### `GET /slack/status` (Slack Status)
