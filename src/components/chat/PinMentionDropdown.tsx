@@ -159,7 +159,7 @@ export function PinMentionDropdown({
             backgroundColor: "var(--neutral-white)",
             borderRadius: "12px",
             boxShadow:
-              "0 8px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--neutral-100)",
+              "0 8px 24px color-mix(in srgb, var(--static-black) 8%, transparent), 0 0 0 1px var(--neutral-100)",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",

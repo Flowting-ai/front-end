@@ -302,7 +302,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                     key={p.id}
                     agent={p}
                     superlink={isSuperlink(p)}
-                    useLabel={inProject ? 'Use in project' : 'Use'}
+                    useLabel={inProject ? 'Use agent in project' : 'Use agent'}
                     onOpen={() => setDetailsId(p.id)}
                     onUse={() => handleSelect(p)}
                   />

@@ -503,7 +503,7 @@ export function GlobalSearchModal({
             style={{
               position:        'fixed',
               inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.18)',
+              backgroundColor: 'color-mix(in srgb, var(--static-black) 18%, transparent)',
               backdropFilter:  'blur(2px)',
               zIndex:          20,
             }}

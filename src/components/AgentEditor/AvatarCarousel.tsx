@@ -112,7 +112,7 @@ export function AvatarCarousel({
                   zIndex: isMiddle ? 2 : 1, pointerEvents: near ? 'auto' : 'none',
                 }}
               >
-                <div style={{ width: BIG, height: BIG, borderRadius: '50%', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+                <div style={{ width: BIG, height: BIG, borderRadius: '50%', backgroundColor: 'var(--static-white)', overflow: 'hidden' }}>
                   <AnimatedPersonaAvatar
                     size={BIG}
                     radius="50%"

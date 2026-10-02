@@ -41,7 +41,7 @@ const inputStyle: React.CSSProperties = {
   flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', padding: '0 2px',
 }
 const fieldErrorStyle: React.CSSProperties = {
-  display: 'block', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: '#dc2626', marginTop: 2,
+  display: 'block', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--red-400)', marginTop: 2,
 }
 
 export interface RequestFeatureModalProps {
@@ -87,7 +87,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
   return (
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(18,12,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'color-mix(in srgb, var(--neutral-950) 50%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
       <div
         ref={dialogRef}
@@ -96,7 +96,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
         aria-label="Request a feature"
         tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--neutral-50, #FFFFFF)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

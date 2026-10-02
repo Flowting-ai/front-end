@@ -125,7 +125,7 @@ describe("theme.css is additive and in sync", () => {
     expect(props[0]).toBe("--color-text-on-accent");
     expect(
       props.slice(1).every((p) =>
-        ["--color-surface-container", "--surface-rgb", "--icon-button-secondary-bg", "--agent-card-bg"].includes(p) || p.startsWith("--legacy-") || p.startsWith("--thinking-"),
+        ["--color-surface-container", "--surface-rgb", "--icon-button-secondary-bg", "--agent-card-bg", "--agent-card-gradient", "--shadow-undo-toast", "--model-name-text"].includes(p) || p.startsWith("--legacy-") || p.startsWith("--thinking-"),
       ),
     ).toBe(true);
     expect(lightRoot.body).toMatch(/--color-text-on-accent:\s*var\(--neutral-white\)/); // == today's white

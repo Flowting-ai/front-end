@@ -148,6 +148,66 @@
   --purple-900: #DED0DF;
   --purple-950: #F8ECF9;
 
+  --success-50: #052E16;
+  --success-100: #14532D;
+  --success-200: #166534;
+  --success-300: #15803D;
+  --success-400: #86EFAC;
+  --success-500: #4ADE80;
+  --success-600: #4ADE80;
+  --success-700: #86EFAC;
+  --success-800: #BBF7D0;
+  --success-900: #DCFCE7;
+  --success-950: #F0FDF4;
+
+  --danger-50: #450A0A;
+  --danger-100: #7F1D1D;
+  --danger-200: #991B1B;
+  --danger-300: #B91C1C;
+  --danger-400: #FCA5A5;
+  --danger-500: #F87171;
+  --danger-600: #F87171;
+  --danger-700: #FCA5A5;
+  --danger-800: #FECACA;
+  --danger-900: #FEE2E2;
+  --danger-950: #FEF2F2;
+
+  --warning-50: #451A03;
+  --warning-100: #78350F;
+  --warning-200: #92400E;
+  --warning-300: #B45309;
+  --warning-400: #FCD34D;
+  --warning-500: #FBBF24;
+  --warning-600: #FBBF24;
+  --warning-700: #FCD34D;
+  --warning-800: #FDE68A;
+  --warning-900: #FEF3C7;
+  --warning-950: #FFFBEB;
+
+  --info-50: #172554;
+  --info-100: #1E3A8A;
+  --info-200: #1E40AF;
+  --info-300: #1D4ED8;
+  --info-400: #93C5FD;
+  --info-500: #60A5FA;
+  --info-600: #60A5FA;
+  --info-700: #93C5FD;
+  --info-800: #BFDBFE;
+  --info-900: #DBEAFE;
+  --info-950: #EFF6FF;
+
+  --violet-50: #2E1065;
+  --violet-100: #4C1D95;
+  --violet-200: #5B21B6;
+  --violet-300: #6D28D9;
+  --violet-400: #C4B5FD;
+  --violet-500: #A78BFA;
+  --violet-600: #A78BFA;
+  --violet-700: #C4B5FD;
+  --violet-800: #DDD6FE;
+  --violet-900: #EDE9FE;
+  --violet-950: #F5F3FF;
+
   /* ── Opacity variants ───────────────────────────────────────────────────── */
   --neutral-50-30: rgba(18, 12, 8, 0.3);
   --neutral-50-50: rgba(18, 12, 8, 0.5);
@@ -201,7 +261,6 @@
   --shadow-sidebar-item-shortcut: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-sidebar-item-avatar: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-tooltip: 0px 1px 4px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 0.5px rgba(255, 255, 255, 0.12);
-  --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shadow-dropdown-item-danger-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--red-600-51);
   --shadow-dropdown-item-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-item-inner: inset 0px 1px 0px 0px var(--neutral-50-61), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.1);
@@ -210,7 +269,6 @@
   --shadow-model-featured-hover-outer: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-model-featured-selected-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.2), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 1px #000000;
   --shadow-floating-menu-item-outer: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
-  --shadow-floating-menu-outer: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shadow-switch-track-off: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40), inset 0px 1px 0px 0px var(--neutral-50-61), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.1);
   --shadow-switch-track-on: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--blue-700-70), inset 0px 1px 0px 0px var(--blue-100-43), inset 0px -1px 0px 0px var(--blue-800-15);
   --shadow-switch-thumb-off: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.1);
@@ -239,13 +297,13 @@
   --color-interactive-primary-border-disabled: #6A625D;
   --color-interactive-primary-text: #FFFFFF;
   --color-interactive-primary-text-disabled: #C9BFB7;
-  /* Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#D6CDC5). */
   --color-interactive-subtle-text-disabled: #A89E96;
   --button-outline-border-disabled: rgba(255, 255, 255, 0.32);
   --icon-button-outline-border-disabled: rgba(255, 255, 255, 0.32);
   --button-default-hover-glow: linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%);
   --shadow-button-default-inner: inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5);
-  /* ⌘-shortcut pill: a raised dark chip with a soft light ring instead of the white one */
+  --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
+  --shadow-floating-menu-outer: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shortcut-pill-bg: #3B3632;
   --shortcut-pill-ring: rgba(255, 255, 255, 0.14);
   --shortcut-pill-shadow: rgba(0, 0, 0, 0.35);
@@ -253,7 +311,6 @@
   --tooltip-bg-from: #FFFFFF;
   --tooltip-bg-to: #EFEAE5;
   --tooltip-text: #26211E;
-  /* Every toast type shares the same dark surface; only the text (and border) colour differs. */
   --toast-success-bg: #1C1613;
   --toast-error-bg: #1C1613;
   --toast-warning-bg: #1C1613;
@@ -415,10 +472,13 @@
   --neutral-300: #7A716A;
   --neutral-400: #968B83;
   --neutral-500: #B4AAA2;
+  --color-enhance-step-label: var(--neutral-500);
+  --color-enhance-progress-inactive: var(--neutral-200);
   --color-text-muted: var(--neutral-500);
   --shadow-button-default-inner-disabled: inset 0px 1.455px 0.364px 0px var(--neutral-600), inset 0px -2.182px 0.364px 0px var(--neutral-800), inset 0px -2.545px 6.9px -2.182px var(--neutral-500);
   --sidebar-menu-item-muted: var(--color-text-muted);
   --tab-item-text-disabled: var(--neutral-500);
+  --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --dropdown-menu-item-muted: var(--sidebar-menu-item-muted);
   --model-select-item-icon: var(--neutral-500);
   --shadow-floating-menu-outer: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);

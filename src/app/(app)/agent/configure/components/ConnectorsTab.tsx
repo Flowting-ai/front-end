@@ -211,7 +211,7 @@ export default function ConnectorsTab({
         <>
           <div
             onClick={() => { if (!isSavingNav) setShowNavModal(false) }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'color-mix(in srgb, var(--neutral-900) 32%, transparent)', zIndex: 50 }}
           />
           <div style={{
             position:        'fixed',

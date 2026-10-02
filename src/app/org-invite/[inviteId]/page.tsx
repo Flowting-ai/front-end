@@ -44,7 +44,7 @@ function SouvenirMark({ size = 32 }: { size?: number }) {
   return <SouvenirLogo variant="gray" size={size} />;
 }
 
-const BG = "var(--neutral-50,#FFFFFF)";
+const BG = "var(--neutral-50)";
 
 export default function InviteLandingPage() {
   const { inviteId } = useParams<{ inviteId: string }>();

@@ -52,33 +52,33 @@ const STATUS_THEME: Record<ParsedEmail["status"], EmailTheme> = {
     label: "Draft",
     eyebrow: "Email draft",
     icon: PencilLine,
-    accent: "#8F7427",
-    tint: "rgba(233, 223, 201, 0.72)",
-    ring: "rgba(143, 116, 39, 0.22)",
-    surface: "linear-gradient(135deg, #FBF7EC 0%, #FFFEFB 56%, #F3EEE3 100%)",
+    accent: "var(--yellow-600)",
+    tint: "color-mix(in srgb, var(--yellow-100) 72%, transparent)",
+    ring: "color-mix(in srgb, var(--yellow-600) 22%, transparent)",
+    surface: "linear-gradient(135deg, var(--yellow-50) 0%, var(--neutral-50) 56%, var(--yellow-50) 100%)",
   },
   sent: {
     label: "Sent",
     eyebrow: "Sent email",
     icon: Send,
-    accent: "#287A47",
-    tint: "rgba(218, 239, 225, 0.76)",
-    ring: "rgba(40, 122, 71, 0.20)",
-    surface: "linear-gradient(135deg, #EFF8F2 0%, #FFFFFF 56%, #E9F3EC 100%)",
+    accent: "var(--success-800)",
+    tint: "color-mix(in srgb, var(--neutral-100) 76%, transparent)",
+    ring: "color-mix(in srgb, var(--success-800) 20%, transparent)",
+    surface: "linear-gradient(135deg, var(--neutral-100) 0%, var(--static-white) 56%, var(--neutral-100) 100%)",
   },
   received: {
     label: "Received",
     eyebrow: "Inbox message",
     icon: Inbox,
-    accent: "#496E8B",
-    tint: "rgba(222, 235, 244, 0.78)",
-    ring: "rgba(73, 110, 139, 0.20)",
-    surface: "linear-gradient(135deg, #F0F6FA 0%, #FFFFFF 56%, #EAF0F4 100%)",
+    accent: "var(--blue-700)",
+    tint: "color-mix(in srgb, var(--blue-50) 78%, transparent)",
+    ring: "color-mix(in srgb, var(--blue-700) 20%, transparent)",
+    surface: "linear-gradient(135deg, var(--blue-50) 0%, var(--static-white) 56%, var(--blue-50) 100%)",
   },
 }
 
 // Deterministic avatar hues (hex — mirror the chart palette).
-const AVATAR_HUES = ["#683D1B", "#0D6EB2", "#1E8A3C", "#A28847", "#524B47", "#B0562C"]
+const AVATAR_HUES = ["var(--brown-700)", "var(--blue-600)", "var(--success-700)", "var(--yellow-500)", "var(--neutral-700)", "var(--warning-800)"]
 
 function avatarHue(seed: string): string {
   let hash = 0
@@ -115,7 +115,7 @@ function RecipientRow({ label, value }: { label: string; value?: string }) {
           borderRadius: 999,
           color: "var(--neutral-700)",
           backgroundColor: "rgba(var(--surface-rgb), 0.72)",
-          border: "1px solid rgba(82, 75, 71, 0.10)",
+          border: "1px solid color-mix(in srgb, var(--neutral-700) 10%, transparent)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -260,10 +260,10 @@ export function XmlEmail({ xml }: { xml: string }) {
               gap: 6,
               padding: "6px 9px",
               borderRadius: 8,
-              border: `1px solid ${copied ? "rgba(40, 122, 71, 0.22)" : "rgba(82, 75, 71, 0.14)"}`,
+              border: `1px solid ${copied ? "color-mix(in srgb, var(--success-800) 22%, transparent)" : "var(--neutral-700-15)"}`,
               backgroundColor: "rgba(var(--surface-rgb), 0.78)",
               boxShadow: "0 1px 2px rgba(82, 75, 71, 0.06)",
-              color: copied ? "var(--color-tag-Green-text, #287a47)" : "var(--neutral-600)",
+              color: copied ? "var(--color-tag-Green-text, var(--success-800))" : "var(--neutral-600)",
               cursor: "pointer",
               flexShrink: 0,
               fontFamily: "var(--font-body)",
@@ -370,7 +370,7 @@ export function XmlEmail({ xml }: { xml: string }) {
             margin: "0 12px 12px",
             borderRadius: 13,
             backgroundColor: "rgba(var(--surface-rgb), 0.92)",
-            border: "1px solid rgba(82, 75, 71, 0.11)",
+            border: "1px solid var(--neutral-700-12)",
             boxShadow: "0 2px 8px rgba(82, 75, 71, 0.06)",
             overflow: "hidden",
           }}

@@ -315,7 +315,7 @@ function ConfirmModal({
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -330,7 +330,7 @@ function ConfirmModal({
           borderRadius:    20,
           backgroundColor: 'var(--neutral-white)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -596,7 +596,7 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -612,7 +612,7 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
           borderRadius:    20,
           backgroundColor: 'var(--legacy-f9f5f1)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
           flexDirection:   'column',
@@ -772,7 +772,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -788,7 +788,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
           borderRadius:    20,
           backgroundColor: 'var(--neutral-white)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
           flexDirection:   'column',

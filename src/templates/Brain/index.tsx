@@ -363,7 +363,7 @@ export function BrainShell({
                   alignItems:      'center',
                   padding:         '5px 8px',
                   borderRadius:    '8px',
-                  backgroundColor: 'var(--neutral-white, #fff)',
+                  backgroundColor: 'var(--neutral-white)',
                   boxShadow:       'inset 0 0 0 1px var(--button-outline-border)',
                   pointerEvents:   'none',
                   minWidth:        0,
@@ -421,7 +421,7 @@ export function BrainShell({
                 display:         'flex',
                 alignItems:      'center',
                 justifyContent:  'center',
-                backgroundColor: 'rgba(255,255,255,0.9)',
+                backgroundColor: 'var(--neutral-white-90)',
                 border:          '2px dashed var(--blue-400)',
                 borderRadius:    '16px',
               }}

@@ -10,12 +10,12 @@ import { HIcon } from "./response-blocks-shared";
 // �"��"� AnimatedCodeBlock �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function highlightCode(line: string): React.ReactNode[] {
-  const KW_COLOR = "#7BB8F5";
-  const STR_COLOR = "#F0B060";
-  const CMT_COLOR = "#6A625D";
-  const NUM_COLOR = "#C598E8";
-  const DEF_COLOR = "#E8DDD6";
-  const DIM_COLOR = "rgba(232,221,214,0.5)";
+  const KW_COLOR = "var(--info-300)";
+  const STR_COLOR = "var(--warning-200)";
+  const CMT_COLOR = "var(--neutral-600)";
+  const NUM_COLOR = "var(--violet-300)";
+  const DEF_COLOR = "var(--neutral-200)";
+  const DIM_COLOR = "color-mix(in srgb, var(--neutral-200) 50%, transparent)";
 
   const JS_KEYWORDS = new Set([
     "import", "export", "from", "const", "let", "var", "function", "async", "await",
@@ -83,9 +83,9 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
   return (
     <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
       {data.caption && <div style={{ fontSize: 12, color: "var(--neutral-500)", marginBottom: 6 }}>{data.caption}</div>}
-      <div style={{ background: "#1E1A17", borderRadius: 10, overflow: "hidden", boxShadow: "0px 0px 0px 1px rgba(0,0,0,0.9), 0px 1px 1px rgba(59,54,50,0.12), 0px 2px 4px rgba(59,54,50,0.28)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px 7px 14px", borderBottom: "1px solid rgba(255,255,255,0.055)", background: "linear-gradient(180deg, rgba(82,75,71,0.30) 0%, rgba(38,33,30,0.30) 100%)" }}>
-          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(212, 212, 212,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
+      <div style={{ background: "#1E1A17", borderRadius: 10, overflow: "hidden", boxShadow: "0px 0px 0px 1px color-mix(in srgb, var(--static-black) 90%, transparent), 0px 1px 1px rgba(59,54,50,0.12), 0px 2px 4px rgba(59,54,50,0.28)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px 7px 14px", borderBottom: "1px solid color-mix(in srgb, var(--static-white) 5.5%, transparent)", background: "linear-gradient(180deg, color-mix(in srgb, var(--neutral-700) 30%, transparent) 0%, color-mix(in srgb, var(--neutral-900) 30%, transparent) 100%)" }}>
+          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "color-mix(in srgb, var(--neutral-200) 55%, transparent)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
             {data.language ?? "code"}
           </span>
           <m.button onClick={() => { navigator.clipboard.writeText(data.code).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
@@ -97,20 +97,20 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
               width: 76, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
               padding: "5px 0 6px", borderRadius: 8, border: "none", cursor: "pointer",
-              background: copyHovered ? "linear-gradient(180deg, #6A625D 0%, #3B3632 100%)" : "linear-gradient(180deg, #524B47 0%, #26211E 100%)",
-              boxShadow: ["0px 0px 0px 1px rgba(0,0,0,0.85)", "0px 1px 1px rgba(59,54,50,0.10)", "0px 1.5px 3px rgba(59,54,50,0.35)", copyHovered ? "inset 0px 1px 0.4px rgba(255, 255, 255,0.42)" : "inset 0px 1px 0.4px rgba(255, 255, 255,0.28)", "inset 0px -2px 0.4px #120C08"].join(", "),
+              background: copyHovered ? "linear-gradient(180deg, var(--neutral-600) 0%, var(--neutral-800) 100%)" : "linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)",
+              boxShadow: ["0px 0px 0px 1px color-mix(in srgb, var(--static-black) 85%, transparent)", "0px 1px 1px rgba(59,54,50,0.10)", "0px 1.5px 3px rgba(59,54,50,0.35)", copyHovered ? "inset 0px 1px 0.4px color-mix(in srgb, var(--static-white) 42%, transparent)" : "inset 0px 1px 0.4px color-mix(in srgb, var(--static-white) 28%, transparent)", "inset 0px -2px 0.4px #120C08"].join(", "),
               transition: "background 160ms ease, box-shadow 160ms ease",
             }}>
             <AnimatePresence mode="popLayout" initial={false}>
               {copied ? (
                 <m.span key="done" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <HIcon icon={Checkmark} size={12} color="#80B707" strokeWidth={2.5} />
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "#80B707", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copied</span>
+                  <HIcon icon={Checkmark} size={12} color="var(--green-600)" strokeWidth={2.5} />
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "var(--green-600)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copied</span>
                 </m.span>
               ) : (
                 <m.span key="copy" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <HIcon icon={Copy01Icon} size={12} color="rgba(212, 212, 212,0.72)" strokeWidth={1.5} />
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.72)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
+                  <HIcon icon={Copy01Icon} size={12} color="color-mix(in srgb, var(--neutral-200) 72%, transparent)" strokeWidth={1.5} />
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "color-mix(in srgb, var(--neutral-200) 72%, transparent)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
                 </m.span>
               )}
             </AnimatePresence>
@@ -121,13 +121,13 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
             // eslint-disable-next-line react/no-array-index-as-key
             <m.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.08 }}
               style={{ display: "flex", gap: 14 }}>
-              <span style={{ color: "rgba(59,54,50,0.55)", userSelect: "none", fontSize: 12, minWidth: 18, textAlign: "right", flexShrink: 0, lineHeight: "20px" }}>{i + 1}</span>
+              <span style={{ color: "color-mix(in srgb, var(--neutral-800) 55%, transparent)", userSelect: "none", fontSize: 12, minWidth: 18, textAlign: "right", flexShrink: 0, lineHeight: "20px" }}>{i + 1}</span>
               <span>{highlightCode(line)}</span>
             </m.div>
           ))}
           {!streamDone && (
             <m.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 0.7, repeat: Infinity }}
-              style={{ display: "inline-block", width: 7, height: 14, background: "#683D1B", borderRadius: 1, verticalAlign: "middle", marginLeft: 32 }} />
+              style={{ display: "inline-block", width: 7, height: 14, background: "var(--brown-700)", borderRadius: 1, verticalAlign: "middle", marginLeft: 32 }} />
           )}
         </pre>
         <AnimatePresence initial={false}>
@@ -135,20 +135,20 @@ export function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: 
             <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {!expanded ? (
                 <div style={{ position: "relative" }}>
-                  <div style={{ position: "absolute", top: -48, left: 0, right: 0, height: 48, background: "linear-gradient(to bottom, transparent, #1E1A17)", pointerEvents: "none" }} />
-                  <button onClick={() => setExpanded(true)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(255,255,255,0.055)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5 L6 8 L10 4.5" stroke="rgba(212, 212, 212,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.5)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
+                  <div style={{ position: "absolute", top: -48, left: 0, right: 0, height: 48, background: "linear-gradient(to bottom, transparent, var(--neutral-900))", pointerEvents: "none" }} />
+                  <button onClick={() => setExpanded(true)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "color-mix(in srgb, var(--static-white) 3%, transparent)", borderTop: "1px solid color-mix(in srgb, var(--static-white) 5.5%, transparent)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--static-white) 6%, transparent)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--static-white) 3%, transparent)")}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5 L6 8 L10 4.5" stroke="color-mix(in srgb, var(--neutral-200) 50%, transparent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "color-mix(in srgb, var(--neutral-200) 50%, transparent)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
                   </button>
                 </div>
               ) : (
-                <button onClick={() => setExpanded(false)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(255,255,255,0.055)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5 L6 4 L10 7.5" stroke="rgba(212, 212, 212,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(212, 212, 212,0.5)", fontFamily: "var(--font-body)" }}>Show less</span>
+                <button onClick={() => setExpanded(false)} style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "color-mix(in srgb, var(--static-white) 3%, transparent)", borderTop: "1px solid color-mix(in srgb, var(--static-white) 5.5%, transparent)", border: "none", borderRadius: "0 0 10px 10px", cursor: "pointer", transition: "background 120ms" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--static-white) 6%, transparent)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--static-white) 3%, transparent)")}>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5 L6 4 L10 7.5" stroke="color-mix(in srgb, var(--neutral-200) 50%, transparent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "color-mix(in srgb, var(--neutral-200) 50%, transparent)", fontFamily: "var(--font-body)" }}>Show less</span>
                 </button>
               )}
             </m.div>

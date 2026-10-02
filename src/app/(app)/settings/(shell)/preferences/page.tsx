@@ -19,7 +19,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
       backgroundColor: 'var(--neutral-50)',
       // The thumbnails below show what each OPTION looks like, so they use fixed
       // (light-theme) values — not tokens, which would flip when dark is active.
-      border:          `1px solid ${isDark ? '#26211E' : '#F5F5F5'}`,
+      border:          `1px solid ${isDark ? 'var(--neutral-900)' : 'var(--neutral-100)'}`,
       borderRadius:    4,
       height:          64,
       overflow:        'hidden',
@@ -31,7 +31,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
       <div style={{ display: 'flex', flex: '1 0 0', minHeight: 0, overflow: 'hidden' }}>
         {/* Sidebar strip */}
         <div style={{
-          backgroundColor: isDark ? '#26211E' : 'white',
+          backgroundColor: isDark ? 'var(--neutral-900)' : 'white',
           display:         'flex',
           flexDirection:   'column',
           gap:             4,
@@ -47,14 +47,14 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
               width:           24,
               borderRadius:    3,
               backgroundColor: isDark
-                ? isActive ? 'white' : '#827A74'
-                : isActive ? '#26211e' : 'rgba(130,122,116,0.4)',
+                ? isActive ? 'white' : 'var(--neutral-500)'
+                : isActive ? 'var(--neutral-900)' : 'color-mix(in srgb, var(--neutral-500) 40%, transparent)',
             }} />
           ))}
         </div>
         {/* Main area */}
         <div style={{
-          backgroundColor: isDark ? '#26211E' : 'var(--neutral-50)',
+          backgroundColor: isDark ? 'var(--neutral-900)' : 'var(--neutral-50)',
           flex:            '1 0 0',
           minWidth:        0,
           display:         'flex',
@@ -66,19 +66,19 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
             height:          8,
             width:           50,
             borderRadius:    4,
-            backgroundColor: isDark ? '#827A74' : 'rgba(130,122,116,0.3)',
+            backgroundColor: isDark ? 'var(--neutral-500)' : 'color-mix(in srgb, var(--neutral-500) 30%, transparent)',
           }} />
           <div style={{
             height:          8,
             width:           70,
             borderRadius:    4,
-            backgroundColor: isDark ? '#827A74' : 'rgba(130,122,116,0.2)',
+            backgroundColor: isDark ? 'var(--neutral-500)' : 'color-mix(in srgb, var(--neutral-500) 20%, transparent)',
           }} />
           {/* Input bar */}
           <div style={{
             flex:            '1 0 0',
             minHeight:       0,
-            backgroundColor: isDark ? '#3B3632' : 'white',
+            backgroundColor: isDark ? 'var(--neutral-800)' : 'white',
             borderRadius:    6,
             display:         'flex',
             alignItems:      'center',
@@ -90,7 +90,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
               fontWeight: 400,
               fontSize: 12,
               lineHeight: '16px',
-              color:      isDark ? 'white' : '#26211e',
+              color:      isDark ? 'white' : 'var(--neutral-900)',
               opacity:    0.8,
               flex:       '1 0 0',
               minWidth:   0,
@@ -225,9 +225,9 @@ export default function PreferencesPage() {
                     borderRadius:    8,
                     cursor:          'pointer',
                     position:        'relative',
-                    backgroundColor: selected ? 'rgba(245, 245, 245,0.6)' : 'white',
+                    backgroundColor: selected ? 'color-mix(in srgb, var(--neutral-100) 60%, transparent)' : 'white',
                     boxShadow:       selected
-                      ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+                      ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
                       : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                   }}
                 >
@@ -357,7 +357,7 @@ export default function PreferencesPage() {
                 width:           '100%',
                 height:          96,
                 resize:          'none',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--static-white)',
                 borderRadius:    10,
                 boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                 border:          'none',
@@ -462,7 +462,7 @@ export default function PreferencesPage() {
                 borderRadius:    10,
                 border:          'none',
                 cursor:          'pointer',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--static-white)',
                 boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
                 fontFamily:      'var(--font-body)',
                 fontWeight:      500,

@@ -130,7 +130,7 @@ function StatusTicker({ messages, inline = false }: { messages: string[]; inline
         style={{
           position:        'absolute',
           ...(inline ? { bottom: -4 } : { top: -1 }),
-          ...(done ? { backgroundColor: '#C0C0C0' } : null),
+          ...(done ? { backgroundColor: 'var(--neutral-300)' } : null),
           left:            0,
           height:          2,
           borderRadius:    1,
@@ -797,7 +797,7 @@ function PersonaCardInner({
               />
               {/* Avatar: white-backed circle sitting ABOVE the halo (a positioned wrapper,
                   since the halo is absolutely positioned and would otherwise paint over it). */}
-              <div style={{ position: 'relative', zIndex: 1, borderRadius: '50%', backgroundColor: '#FFFFFF' }}>
+              <div style={{ position: 'relative', zIndex: 1, borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
               <AnimatedPersonaAvatar
                 size={AVATAR_SIZE}
                 radius="50%"

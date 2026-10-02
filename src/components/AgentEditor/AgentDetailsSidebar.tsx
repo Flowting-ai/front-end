@@ -83,13 +83,13 @@ function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () 
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               height: 32, padding: '0 14px 0 10px', border: 'none', borderRadius: 999,
-              backgroundColor: '#FFFFFF', color: '#000000',
+              backgroundColor: 'var(--static-white)', color: 'var(--static-black)',
               fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '20px',
-              boxShadow: '0px 1px 3px rgba(0,0,0,0.25), 0px 0px 0px 1px rgba(0,0,0,0.08)',
+              boxShadow: '0px 1px 3px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0px 0px 1px color-mix(in srgb, var(--static-black) 8%, transparent)',
               cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
             }}
           >
-            <TickTwoIcon size={16} color="#000000" />
+            <TickTwoIcon size={16} color="var(--static-black)" />
             {`Save ${count} ${count === 1 ? 'change' : 'changes'}`}
           </button>
         </m.div>
@@ -257,7 +257,7 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
                   {problem ? (
                     <>
                       <Badge color="Red" label="Not saved" />
-                      <p role="alert" style={{ ...HINT_STYLE, textAlign: 'center', color: 'var(--color-tag-Red-text, #9a3b34)' }}>{problem}</p>
+                      <p role="alert" style={{ ...HINT_STYLE, textAlign: 'center', color: 'var(--color-tag-Red-text, var(--red-700))' }}>{problem}</p>
                     </>
                   ) : saving ? (
                     <Badge color="Blue" label="Saving…" />

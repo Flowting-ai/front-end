@@ -6,7 +6,7 @@ import type { PieChartData } from "@/types/chat";
 
 // �"��"� AnimatedPieChart �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"];
+const PIE_COLORS_HEX = ["var(--brown-700)", "var(--blue-600)", "var(--green-600)", "var(--neutral-400)", "var(--neutral-700)", "var(--yellow-500)"];
 
 export function AnimatedPieChart({ data, onComplete, animate = true }: { data: PieChartData; onComplete: () => void; animate?: boolean }) {
   const [revealedCount, setRevealedCount] = useState(() => animate ? 0 : data.segments.length);
@@ -39,12 +39,12 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
   }, []); // eslint-disable-line
 
   return (
-    <div style={{ background: "var(--neutral-white)", border: "1px solid #F2E8E0", borderRadius: 12, padding: "18px 20px" }}>
+    <div style={{ background: "var(--neutral-white)", border: "1px solid var(--brown-50)", borderRadius: 12, padding: "18px 20px" }}>
       {data.title && <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 4 }}>{data.title}</div>}
-      <div style={{ fontSize: 12, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 16 }}>pie chart</div>
+      <div style={{ fontSize: 12, color: "var(--neutral-300)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 16 }}>pie chart</div>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
         <svg width={220} height={220} viewBox="0 0 220 220" style={{ display: "block", maxWidth: "100%" }}>
-          <circle r={R} cx={CX} cy={CY} fill="none" stroke="rgba(59,54,50,0.07)" strokeWidth={SW} />
+          <circle r={R} cx={CX} cy={CY} fill="none" stroke="color-mix(in srgb, var(--neutral-800) 7%, transparent)" strokeWidth={SW} />
           {arcs.map((arc, i) => (
             <circle key={arc.label} r={R} cx={CX} cy={CY} fill="none" stroke={arc.color}
               strokeWidth={i === hoveredIdx ? SW + 4 : SW}
@@ -59,12 +59,12 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
           {hoveredIdx !== null ? (
             <>
               <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx].color} fontSize={22} fontWeight="700" fontFamily="inherit">{Math.round(arcs[hoveredIdx].pct * 100)}%</text>
-              <text x={CX} y={CY + 16} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="inherit">{data.unit ? `${Math.round(arcs[hoveredIdx].pct * total)}${data.unit}` : arcs[hoveredIdx].label.split(" ").slice(0, 2).join(" ")}</text>
+              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="inherit">{data.unit ? `${Math.round(arcs[hoveredIdx].pct * total)}${data.unit}` : arcs[hoveredIdx].label.split(" ").slice(0, 2).join(" ")}</text>
             </>
           ) : (
             <>
-              {data.centerLabel && <text x={CX} y={CY - 4} textAnchor="middle" fill="#26211E" fontSize={24} fontWeight="700" fontFamily="inherit">{data.centerLabel}</text>}
-              <text x={CX} y={CY + 16} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="inherit">total</text>
+              {data.centerLabel && <text x={CX} y={CY - 4} textAnchor="middle" fill="var(--neutral-900)" fontSize={24} fontWeight="700" fontFamily="inherit">{data.centerLabel}</text>}
+              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="inherit">total</text>
             </>
           )}
         </svg>

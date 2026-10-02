@@ -57,7 +57,7 @@ function UsageBar({ percent }: { percent: number }) {
           top: 0,
           height: '100%',
           width: `${clamped}%`,
-          backgroundColor: '#0d6eb2',
+          backgroundColor: 'var(--blue-600)',
           borderRadius: 2,
           transition: 'width 300ms ease',
         }}
@@ -72,7 +72,7 @@ function UsageBar({ percent }: { percent: number }) {
           width: 10,
           height: 10,
           borderRadius: '50%',
-          backgroundColor: '#0d6eb2',
+          backgroundColor: 'var(--blue-600)',
           border: '1.5px solid white',
           boxShadow: '0px 0px 0px 1px rgba(13,110,178,0.5)',
         }}
@@ -432,12 +432,12 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                         fontWeight: 500,
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+                        color: isRevoking ? 'var(--neutral-400)' : 'var(--red-400)',
                         opacity: isRevoking ? 0.6 : 1,
                         transition: 'opacity 150ms',
                       }}
                     >
-                      {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
+                      {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="var(--red-400)" />}
                       {isRevoking ? 'Revoking…' : 'Revoke link'}
                     </button>
                     <Button variant="secondary" size="sm" onClick={handleCopy}>
@@ -528,7 +528,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       </div>
 
       {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
+      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--neutral-800-15)' }} />
 
       {/* ── Email sharing ────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-email" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -724,13 +724,13 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                       fontWeight: 500,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+                      color: isRevoking ? 'var(--neutral-400)' : 'var(--red-400)',
                       opacity: isRevoking ? 0.6 : 1,
                       flexShrink: 0,
                       transition: 'opacity 150ms',
                     }}
                   >
-                    {isRevoking ? <Spinner size={14} color="var(--neutral-400)" /> : <CancelOneIcon size={14} color="#ee3030" />}
+                    {isRevoking ? <Spinner size={14} color="var(--neutral-400)" /> : <CancelOneIcon size={14} color="var(--red-400)" />}
                     {isRevoking ? 'Revoking…' : 'Revoke'}
                   </button>
                 </div>

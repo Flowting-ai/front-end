@@ -100,7 +100,7 @@ export function SystemInstructionsModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            backgroundColor: 'rgba(26,23,20,0.4)',
+            backgroundColor: 'color-mix(in srgb, var(--yellow-950) 40%, transparent)',
             backdropFilter:  'blur(2px)',
           }}
         >
@@ -175,7 +175,7 @@ export function SystemInstructionsModal({
                       fontWeight:  'var(--font-weight-regular)',
                       fontSize:    '12px',
                       lineHeight:  '18px',
-                      color:       '#a39b95',
+                      color:       'var(--neutral-400)',
                       margin:      0,
                       overflow:    'hidden',
                       textOverflow:'ellipsis',
@@ -217,7 +217,7 @@ export function SystemInstructionsModal({
                   fontWeight:  'var(--font-weight-regular)',
                   fontSize:    '13px',
                   lineHeight:  '20px',
-                  color:       '#857a72',
+                  color:       'var(--neutral-500)',
                   margin:      0,
                 }}
               >
@@ -270,7 +270,7 @@ export function SystemInstructionsModal({
                     fontWeight:  'var(--font-weight-regular)',
                     fontSize: '12px',
                     lineHeight:  '16px',
-                    color:       '#a39b95',
+                    color:       'var(--neutral-400)',
                     margin:      0,
                     textAlign:   'right',
                   }}

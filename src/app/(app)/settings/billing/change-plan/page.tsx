@@ -42,7 +42,7 @@ function FeatureDot() {
       <div style={{
         width: 8, height: 8, borderRadius: 19,
         backgroundColor: 'var(--neutral-100)',
-        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
       }} />
     </div>
   )
@@ -176,7 +176,7 @@ export default function ChangePlanPage() {
           cursor: pointer;
           background: var(--neutral-200);
         }
-        .cp-slider.dark { background: rgba(255,255,255,0.25); }
+        .cp-slider.dark { background: var(--neutral-white-25); }
         .cp-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
@@ -184,7 +184,7 @@ export default function ChangePlanPage() {
           border-radius: 50%;
           background: var(--neutral-white);
           border: 1.5px solid var(--neutral-300);
-          box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
+          box-shadow: 0px 1px 2px color-mix(in srgb, var(--static-black) 20%, transparent);
           cursor: pointer;
         }
         .cp-slider::-moz-range-thumb {
@@ -192,7 +192,7 @@ export default function ChangePlanPage() {
           border-radius: 50%;
           background: var(--neutral-white);
           border: 1.5px solid var(--neutral-300);
-          box-shadow: 0px 1px 2px rgba(0,0,0,0.2);
+          box-shadow: 0px 1px 2px color-mix(in srgb, var(--static-black) 20%, transparent);
           cursor: pointer;
         }
         .cp-slider::-webkit-slider-runnable-track { border-radius: 2px; }
@@ -224,7 +224,7 @@ export default function ChangePlanPage() {
               padding:         '6px 12px 6px 8px',
               borderRadius:    8,
               border:          'none',
-              backgroundColor: 'rgba(0,0,0,0)',
+              backgroundColor: 'color-mix(in srgb, var(--static-black) 0%, transparent)',
               cursor:          'pointer',
               fontFamily:      BODY,
               fontWeight:      500,
@@ -283,7 +283,7 @@ export default function ChangePlanPage() {
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
               }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -303,13 +303,13 @@ export default function ChangePlanPage() {
                 }}>
                   <div style={{
                     width: 56, height: 56, borderRadius: 12, flexShrink: 0,
-                    backgroundColor: '#3b3632',
+                    backgroundColor: 'var(--neutral-800)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                      <path d="M8 8h16v4H8zM8 14h8v10H8zM16 14h8v10h-8z" fill="rgba(255,255,255,0.15)" />
-                      <rect x="6" y="6" width="20" height="20" rx="2" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" fill="none" />
-                      <path d="M16 6v20M6 12h20" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+                      <path d="M8 8h16v4H8zM8 14h8v10H8zM16 14h8v10h-8z" fill="color-mix(in srgb, var(--static-white) 15%, transparent)" />
+                      <rect x="6" y="6" width="20" height="20" rx="2" stroke="color-mix(in srgb, var(--static-white) 40%, transparent)" strokeWidth="1.5" fill="none" />
+                      <path d="M16 6v20M6 12h20" stroke="var(--neutral-50-30)" strokeWidth="1" />
                     </svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -443,7 +443,7 @@ export default function ChangePlanPage() {
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
               }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -477,7 +477,7 @@ export default function ChangePlanPage() {
                 }}>
                   <div style={{
                     width: 60, height: 60, borderRadius: 12, flexShrink: 0,
-                    background: 'linear-gradient(135deg, #4A154B 0%, #2EB67D 50%, #ECB22E 75%, #E01E5A 100%)',
+                    background: 'linear-gradient(135deg, var(--brand-slack-aubergine) 0%, var(--brand-slack-green) 50%, var(--brand-slack-yellow) 75%, var(--brand-slack-red) 100%)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
                   }}>
                     #
@@ -500,14 +500,14 @@ export default function ChangePlanPage() {
                   backgroundColor: 'var(--color-interactive-primary-surface-from)', borderRadius: 16, padding: 16,
                   display: 'flex', flexDirection: 'column', gap: 8,
                 }}>
-                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'white', margin: 0 }}>
+                  <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--static-white)', margin: 0 }}>
                     {"Pick your team's volume"}
                   </p>
                   <div>
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'white' }}>
+                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 40, lineHeight: '48px', color: 'var(--static-white)' }}>
                       {teamPriceLabel}
                     </span>
-                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#F5F5F5' }}>
+                    <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-100)' }}>
                       /mo
                     </span>
                   </div>
@@ -556,7 +556,7 @@ export default function ChangePlanPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       {TEAM_PLANS.map(p => (
-                        <span key={p.price} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#FFFFFF' }}>
+                        <span key={p.price} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)' }}>
                           {p.label}
                         </span>
                       ))}
@@ -595,9 +595,9 @@ export default function ChangePlanPage() {
                       cursor: teamButtonDisabled ? 'default' : 'pointer',
                       opacity: teamButtonDisabled ? 0.55 : 1,
                       background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
-                      boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
-                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#FFFFFF',
-                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                      boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px color-mix(in srgb, var(--static-white) 30%, transparent), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px color-mix(in srgb, var(--static-white) 50%, transparent)',
+                      fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)',
+                      textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }}
                   >
                     {teamButtonLabel}
@@ -614,7 +614,7 @@ export default function ChangePlanPage() {
                 borderRadius: 18,
                 padding: 12,
                 display: 'flex', flexDirection: 'column', gap: 8,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
                 height: '100%',
               }}>
                 {/* Header */}

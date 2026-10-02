@@ -60,7 +60,7 @@ function ConnectorCard({
         border: "none",
         cursor: "pointer",
         outline: "none",
-        backgroundColor: selected ? "var(--neutral-800, #3b3632)" : "var(--neutral-white, #fff)",
+        backgroundColor: selected ? "var(--neutral-800, #3b3632)" : "var(--neutral-white)",
         boxShadow:
           "0px 2px 2.8px 0px var(--neutral-200, #E5E5E5), 0px 0px 0px 1px var(--neutral-200, #E5E5E5)",
         flex: "1 1 0",
@@ -94,7 +94,7 @@ function ConnectorCard({
           fontWeight: 500,
           fontSize: 14,
           lineHeight: "22px",
-          color: selected ? "var(--neutral-50, #FFFFFF)" : "var(--neutral-900, #26211e)",
+          color: selected ? "var(--neutral-50)" : "var(--neutral-900, #26211e)",
           margin: "8px 0 0",
           overflow: "hidden",
           textOverflow: "ellipsis",

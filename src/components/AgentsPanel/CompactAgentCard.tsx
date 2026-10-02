@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { LinkSixIcon } from '@strange-huge/icons'
+import { BubbleChatAddIcon, LinkSixIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { AnimatedPersonaAvatar, defaultAvatarChoice, getAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -22,7 +23,7 @@ const HALO = 4
 export interface CompactAgentCardProps {
   agent:     SelectedPersonaInfo
   superlink: boolean
-  /** Label of the hover button. */
+  /** Accessible name + tooltip of the hover icon button. */
   useLabel?: string
   /** Row clicked — open details. */
   onOpen:    () => void
@@ -30,7 +31,7 @@ export interface CompactAgentCardProps {
   onUse:     () => void
 }
 
-export function CompactAgentCard({ agent, superlink, useLabel = 'Use', onOpen, onUse }: CompactAgentCardProps) {
+export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onOpen, onUse }: CompactAgentCardProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [bounceKey, setBounceKey] = useState(0)
@@ -93,7 +94,7 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use', onOpen, o
             transition:      'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />
-        <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: '#FFFFFF' }}>
+        <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
           <AnimatedPersonaAvatar
             size={AVATAR}
             radius="50%"
@@ -140,7 +141,10 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use', onOpen, o
               exit={{ opacity: 0, x: 10, scale: 0.92 }}
               transition={{ type: 'spring', stiffness: 520, damping: 34 }}
             >
-              <Button variant="default" size="sm" onClick={onUse}>{useLabel}</Button>
+              {/* Icon-only "use" button; the label stays as its tooltip + accessible name. */}
+              <Tooltip content={useLabel}>
+                <IconButton variant="default" size="sm" icon={<BubbleChatAddIcon animated />} aria-label={useLabel} onClick={onUse} />
+              </Tooltip>
             </m.div>
           ) : (
             <m.div

@@ -24,7 +24,7 @@ const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 const SHADOW_OUTER = 'var(--shadow-message-bubble-user)'
 const SHADOW_INNER = 'var(--shadow-message-bubble-user-inner)'
 // #4A83BF - blue focus ring for edit mode (specified by design)
-const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
+const SHADOW_FOCUS = '0 0 0 1.5px var(--blue-500)'
 
 // ── Canvas font constants (pretext prep) ─────────────────────────────────────
 // Resolved values of TEXT_STYLE tokens. Exported so future pretext integration

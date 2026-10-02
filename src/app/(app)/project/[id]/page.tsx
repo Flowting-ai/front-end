@@ -390,7 +390,7 @@ export default function ProjectPage() {
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Project not found.</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>Project not found.</p>
       </div>
     )
   }

@@ -50,7 +50,7 @@ function AvatarStack({ members, count }: { members: InvitedMember[]; count: numb
                 height: 24,
                 borderRadius: "50%",
                 flexShrink: 0,
-                boxShadow: "0 0 0 2px #fff",
+                boxShadow: "0 0 0 2px var(--static-white)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -62,7 +62,7 @@ function AvatarStack({ members, count }: { members: InvitedMember[]; count: numb
                 // eslint-disable-next-line @next/next/no-img-element -- external member avatar, arbitrary host
                 <img src={m.image} alt={m.name || m.email} width={24} height={24} style={{ objectFit: "cover", display: "block" }} />
               ) : (
-                <span style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 10, color: "#fff", lineHeight: 1 }}>
+                <span style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 10, color: "var(--static-white)", lineHeight: 1 }}>
                   {initials.slice(0, 2)}
                 </span>
               )}
@@ -82,7 +82,7 @@ function AvatarStack({ members, count }: { members: InvitedMember[]; count: numb
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "var(--neutral-100,#F5F5F5)",
-            boxShadow: "0 0 0 2px #fff",
+            boxShadow: "0 0 0 2px var(--static-white)",
             fontFamily: "var(--font-body)",
             fontWeight: 500,
             fontSize: 11,
@@ -116,7 +116,7 @@ function WorkspaceCard({
         minHeight: 101,
         padding: "16px 20px",
         borderRadius: 11.5,
-        backgroundColor: "var(--neutral-white,#fff)",
+        backgroundColor: "var(--neutral-white)",
         boxSizing: "border-box",
         boxShadow: "0px 0px 0px 1px var(--blue-600,#0d6eb2)",
       }}

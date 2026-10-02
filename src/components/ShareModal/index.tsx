@@ -114,7 +114,7 @@ function PermissionMenu({ current, onSelect, onRemove, onClose }: PermissionMenu
         <Divider
           decorative
           style={{
-            backgroundColor: 'rgba(59,54,50,0.15)',
+            backgroundColor: 'var(--neutral-800-15)',
             margin:          '4px 0',
           }}
         />
@@ -149,7 +149,7 @@ function PersonRow({ person, onPermissionChange, onRemove }: PersonRowProps) {
   const btnShadow = focused
     ? '0px 0px 0px 2px var(--blue-400), 0px 0px 0px 1px rgba(59,54,50,0.3)'
     : hovered
-      ? '0px 0px 0px 1px rgba(59,54,50,0.5)'
+      ? '0px 0px 0px 1px var(--neutral-800-50)'
       : '0px 0px 0px 1px rgba(59,54,50,0.3)'
 
   return (

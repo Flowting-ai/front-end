@@ -86,7 +86,7 @@ export function ModelField({ modelId, models, loading, onChange, disabled = fals
         </span>
       </Button>
       {problem ? (
-        <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, #9a3b34)' }}>{problem}</p>
+        <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, var(--red-700))' }}>{problem}</p>
       ) : (
         <p style={HINT_STYLE}>Picked for the work this agent does — change it any time.</p>
       )}

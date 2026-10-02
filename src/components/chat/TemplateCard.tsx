@@ -39,7 +39,7 @@ export function TemplateCard({ icon, label, onClick, layout = 'tile', bare = fal
         alignItems:    isRow ? 'center' : 'flex-start',
         gap:           isRow ? '12px' : '10px',
         textAlign:     'left',
-        boxShadow:     bare ? 'none' : hovered ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow:     bare ? 'none' : hovered ? '0 2px 8px color-mix(in srgb, var(--static-black) 8%, transparent)' : '0 1px 3px color-mix(in srgb, var(--static-black) 4%, transparent)',
         transition:    'box-shadow 150ms, border-color 150ms',
         minWidth:      0,
       }}

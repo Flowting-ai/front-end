@@ -132,11 +132,11 @@ function fmtDate(iso: string | null | undefined): string {
 /** Pill badge — blue (info), yellow (note), neutral, green / red (status). */
 function Badge({ label, tone }: { label: string; tone: 'blue' | 'yellow' | 'neutral' | 'green' | 'red' }) {
   const map = {
-    blue:    { bg: 'var(--blue-100)',    fg: 'var(--blue-700)',    ring: 'rgba(13,110,178,0.5)' },
-    yellow:  { bg: 'var(--yellow-100)',  fg: 'var(--yellow-700)',  ring: 'rgba(143,116,39,0.5)' },
-    neutral: { bg: 'var(--neutral-100)', fg: 'var(--neutral-700)', ring: 'rgba(106,98,93,0.5)' },
+    blue:    { bg: 'var(--blue-100)',    fg: 'var(--blue-700)',    ring: 'var(--blue-600-50)' },
+    yellow:  { bg: 'var(--yellow-100)',  fg: 'var(--yellow-700)',  ring: 'color-mix(in srgb, var(--yellow-600) 50%, transparent)' },
+    neutral: { bg: 'var(--neutral-100)', fg: 'var(--neutral-700)', ring: 'color-mix(in srgb, var(--neutral-600) 50%, transparent)' },
     green:   { bg: 'var(--green-50)',    fg: 'var(--green-800)',   ring: 'rgba(128,183,7,0.5)' },
-    red:     { bg: 'var(--red-100)',     fg: 'var(--red-700)',     ring: 'rgba(159,38,35,0.5)' },
+    red:     { bg: 'var(--red-100)',     fg: 'var(--red-700)',     ring: 'var(--red-600-51)' },
   }[tone]
   return (
     <span style={{
@@ -342,7 +342,7 @@ function SkeletonInvoiceCard() {
         <SkeletonBlock width={100} height={32} radius={8} />
       </div>
       <div style={{ padding: '0 24px 12px' }}>
-        <div style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
+        <div style={{ background: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
           <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
             {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
             <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
@@ -492,7 +492,7 @@ function CancelSubscriptionDialog({
     <div
       onClick={() => { if (!isCanceling) onKeep() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
         backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >
@@ -500,7 +500,7 @@ function CancelSubscriptionDialog({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
+          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
           boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
         }}
       >
@@ -1433,7 +1433,7 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         flexShrink: 0,
         background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #F5F5F5)',
         boxShadow:  checked
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-700-70)'
           : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
         transition: 'background 0.15s ease, box-shadow 0.15s ease',
       }}
@@ -1447,7 +1447,7 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         borderRadius: '50%',
         background:   'var(--neutral-white)',
         boxShadow:    checked
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4), inset 0px -1px 0px 0px rgba(18,60,95,0.15)'
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-700-40), inset 0px -1px 0px 0px var(--blue-800-15)'
           : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
         transition:   'left 0.15s ease',
       }} />
@@ -1478,7 +1478,7 @@ function InvoiceTable({ invoices, loading }: { invoices: Invoice[]; loading: boo
 
   return (
     <div style={{
-      background:   'var(--neutral-white, #fff)',
+      background:   'var(--neutral-white)',
       borderRadius: 8,
       padding:      12,
       boxShadow:    SHADOW_TILE,
@@ -1550,11 +1550,11 @@ function ModalShell({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(18,12,8,0.5)',
+        background: 'color-mix(in srgb, var(--neutral-950) 50%, transparent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}
     >
-      <div style={{ background: 'var(--neutral-50, #FFFFFF)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
+      <div style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Header */}
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 12px 24px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>

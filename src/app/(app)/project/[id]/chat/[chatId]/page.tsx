@@ -63,7 +63,7 @@ function saveProjectChatSettings(chatId: string, s: ProjectChatSettings) {
 function CentredMessage({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>{children}</p>
+      <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>{children}</p>
     </div>
   )
 }

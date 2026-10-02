@@ -68,7 +68,7 @@ function Body({
           <p style={LABEL_STYLE}>Instructions</p>
           <EnhancePromptField label={null} value={instructions} onChange={setInstructions} ariaLabel="Agent instructions" />
           {instructions.trim().length === 0 && (
-            <p role="alert" style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-tag-Red-text, #9a3b34)' }}>
+            <p role="alert" style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-tag-Red-text, var(--red-700))' }}>
               Instructions can’t be empty.
             </p>
           )}

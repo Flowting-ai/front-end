@@ -202,8 +202,8 @@ function PersonaConfigureSharingContent() {
                 aria-hidden
                 style={{
                   position: 'absolute', top: 0, left: 0, right: 0, height: 36, borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255,0.5)',
-                  boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
+                  backgroundColor: 'color-mix(in srgb, var(--static-white) 50%, transparent)',
+                  boxShadow: 'inset 0px -1px 0px 0px color-mix(in srgb, var(--static-white) 90%, transparent), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
                 }}
               />
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -227,7 +227,7 @@ function PersonaConfigureSharingContent() {
                         // stronger, blurred bottom shadow) instead of a single
                         // flat line — was previously also duplicated by a
                         // separate overlay div painting the same line on top.
-                        boxShadow: isActive ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)' : 'none',
+                        boxShadow: isActive ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 70%, transparent)' : 'none',
                         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
                         color: isActive ? 'var(--blue-600)' : 'var(--neutral-700)',
                         whiteSpace: 'nowrap',
@@ -251,8 +251,8 @@ function PersonaConfigureSharingContent() {
                       aria-hidden
                       style={{
                         width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
-                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '#27AE60' : 'var(--neutral-200)',
-                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid #1E8449' : '1px solid var(--neutral-300)',
+                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? 'var(--success-600)' : 'var(--neutral-200)',
+                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid var(--success-700)' : '1px solid var(--neutral-300)',
                         transition: 'background-color 200ms, border-color 200ms',
                       }}
                     />

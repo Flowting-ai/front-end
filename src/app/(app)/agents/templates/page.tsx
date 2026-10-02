@@ -122,8 +122,8 @@ function TemplateCard({ name, onClick, disabled }: { name: string; onClick: () =
         padding: '20px 16px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
         boxShadow: hovered
-          ? '0px 8px 16px 0px rgba(202,220,241,0.6)'
-          : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
+          ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 60%, transparent)'
+          : '0px 2.548px 3.821px 0px color-mix(in srgb, var(--blue-100) 40%, transparent)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.6 : 1,
         width: CARD_WIDTH,
@@ -197,7 +197,7 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: 764,
         boxShadow: hovered
-          ? '0px 8px 16px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--neutral-100)'
+          ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 50%, transparent), 0px 0px 0px 1px var(--neutral-100)'
           : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.6 : 1,

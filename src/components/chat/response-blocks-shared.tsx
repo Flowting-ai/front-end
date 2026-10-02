@@ -4,7 +4,7 @@ import React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
+export function HIcon({ icon, size = 14, color = "var(--neutral-500)", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
   return <HugeiconsIcon icon={icon} size={size} color={color} strokeWidth={strokeWidth} />;
 }
 
@@ -32,7 +32,7 @@ function renderInlineMd(text: string): React.ReactNode[] {
       return <code key={i} style={INLINE_CODE_STYLE}>{part.slice(1, -1)}</code>;
     const lm = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
     // eslint-disable-next-line react/no-array-index-as-key
-    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>;
+    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "var(--brown-600)", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>;
     // eslint-disable-next-line react/no-array-index-as-key
     return <span key={i}>{part}</span>;
   });

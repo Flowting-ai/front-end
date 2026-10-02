@@ -1426,9 +1426,9 @@ function PersonaConfigureInstructionsContent() {
                   top: 0, left: 0, right: 0,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255,0.5)',
+                  backgroundColor: 'color-mix(in srgb, var(--static-white) 50%, transparent)',
                   boxShadow:
-                    'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
+                    'inset 0px -1px 0px 0px color-mix(in srgb, var(--static-white) 90%, transparent), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
                 }}
               />
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1459,7 +1459,7 @@ function PersonaConfigureInstructionsContent() {
                         // previously also duplicated by a separate overlay div
                         // painting the same bottom line on top of this.
                         boxShadow: isActive
-                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)'
+                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 70%, transparent)'
                           : 'none',
                         fontFamily: 'var(--font-body)',
                         fontWeight: 500,
@@ -1487,8 +1487,8 @@ function PersonaConfigureInstructionsContent() {
                       aria-hidden
                       style={{
                         width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
-                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '#27AE60' : 'var(--neutral-200)',
-                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid #1E8449' : '1px solid var(--neutral-300)',
+                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? 'var(--success-600)' : 'var(--neutral-200)',
+                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid var(--success-700)' : '1px solid var(--neutral-300)',
                         transition: 'background-color 200ms, border-color 200ms',
                       }}
                     />
@@ -1812,11 +1812,11 @@ function PersonaConfigureInstructionsContent() {
           aria-modal="true"
           aria-label="Version limit reached"
           onClick={() => { if (!isDeletingOldest) setMaxVersionsModalOpen(false) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'color-mix(in srgb, var(--static-black) 40%, transparent)' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
           >
             <span style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' }}>
               Warning

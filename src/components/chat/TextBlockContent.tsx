@@ -91,7 +91,7 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
       // [label](url) — always render as a proper link, never as a citation chip
       const lm = match[4].match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
       if (lm) {
-        nodes.push(<a key={count++} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
+        nodes.push(<a key={count++} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "var(--brown-600)", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
       }
     } else if (match[5] !== undefined) {
       // bare URL (https?://, www., or domain/path) — auto-link it
@@ -106,7 +106,7 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
       if (cidx !== undefined) {
         nodes.push(<CitationChip key={count++} n={cidx + 1} citation={citations?.[cidx]} />)
       } else {
-        nodes.push(<a key={count++} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{display}</a>)
+        nodes.push(<a key={count++} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--brown-600)", textDecoration: "underline", textUnderlineOffset: 2 }}>{display}</a>)
       }
     }
 

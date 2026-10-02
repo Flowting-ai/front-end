@@ -230,7 +230,7 @@ function RecommendedCard({ persona }: { persona: Persona }) {
         fontWeight: 'var(--font-weight-regular)',
         fontSize: 12,
         lineHeight: '16px',
-        color: '#857a72',
+        color: 'var(--neutral-500)',
         overflow: 'hidden',
         display: '-webkit-box',
         WebkitLineClamp: 2,
@@ -291,7 +291,7 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-const SL_COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1']
+const SL_COLORS = ['var(--violet-600)', 'var(--info-400)', 'var(--success-600)', 'var(--warning-500)', 'var(--danger-500)', 'var(--danger-400)', 'var(--info-600)']
 
 function colorFromName(name: string): string {
   let h = 0
@@ -378,7 +378,7 @@ function StatTile({
 }) {
   return (
     <div style={{
-      background:    'var(--neutral-white, #fff)',
+      background:    'var(--neutral-white)',
       borderRadius:  8,
       padding:       12,
       boxShadow:     SHADOW_TILE,
@@ -2214,7 +2214,7 @@ function PersonasPageInner() {
                   position:        'fixed',
                   inset:           0,
                   zIndex:          10000,
-                  backgroundColor: 'rgba(0,0,0,0.28)',
+                  backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
                   backdropFilter:  'blur(2px)',
                 }}
               />

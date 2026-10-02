@@ -157,7 +157,7 @@
   100% { background-position: -200% 0; }
 }
 .kaya-silver-line {
-  background-image: linear-gradient(90deg, #8C8C8C 0%, #D9D9D9 25%, #FFFFFF 50%, #D9D9D9 75%, #8C8C8C 100%);
+  background-image: linear-gradient(90deg, var(--neutral-400) 0%, var(--neutral-200) 25%, var(--static-white) 50%, var(--neutral-200) 75%, var(--neutral-400) 100%);
   background-size: 200% 100%;
   animation: kayaSilverLine 1.6s linear infinite;
 }
@@ -184,7 +184,7 @@
 }
 
 .kaya-thinking-trigger:focus-visible {
-  outline: 1px solid var(--focus-ring, #6B97FF);
+  outline: 1px solid var(--focus-ring);
   outline-offset: 0;
 }
 
@@ -253,7 +253,7 @@
   .kaya-thinking-step-shimmer {
     animation: none;
     background: none;
-    color: #3B3632 !important;
+    color: var(--neutral-800) !important;
     -webkit-text-fill-color: currentColor;
   }
 }
@@ -363,7 +363,7 @@
   line-height:     var(--toast-title-line-height);
   box-shadow:
     0px 1px 1.5px 0px rgba(82, 75, 71, 0.12),
-    0px 6px 16px -4px rgba(38, 33, 30, 0.10),
+    0px 6px 16px -4px var(--neutral-900-10),
     0px 0px 0px 1px var(--toast-border);
 }
 
@@ -371,11 +371,11 @@
    only the text colour tells the types apart. !important because sonner paints type colours
    (rich colours) at the toast element and would otherwise win. */
 :root[data-theme="dark"] [data-sonner-toast] {
-  background:   #1C1613 !important;
+  background:   var(--brown-950) !important;
   border-color: transparent !important;
   box-shadow:
-    0px 4px 10px -3px rgba(192, 192, 192, 0.22),
-    0px 2px 4px -1px rgba(192, 192, 192, 0.16),
+    0px 4px 10px -3px color-mix(in srgb, var(--neutral-300) 22%, transparent),
+    0px 2px 4px -1px color-mix(in srgb, var(--neutral-300) 16%, transparent),
     0px 0px 0px 1px var(--neutral-200) !important;
 }
 :root[data-theme="dark"] [data-sonner-toast][data-type="success"] { color: var(--toast-success-text) !important; }
@@ -444,8 +444,8 @@
   background:      var(--neutral-white);
   color:           var(--neutral-600);
   box-shadow:
-    0px 1px 2px rgba(0,0,0,0.08),
-    inset 0px 1px 0px rgba(255,255,255,0.9);
+    0px 1px 2px color-mix(in srgb, var(--static-black) 8%, transparent),
+    inset 0px 1px 0px var(--neutral-white-90);
   transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
@@ -458,16 +458,16 @@
 
 /* Dark mode: white close button with a black X, on every toast type. */
 :root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close {
-  background: #FFFFFF;
-  color:      #000000;
-  box-shadow: 0px 1px 2px rgba(0,0,0,0.4);
+  background: var(--static-white);
+  color:      var(--static-black);
+  box-shadow: 0px 1px 2px color-mix(in srgb, var(--static-black) 40%, transparent);
 }
 :root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
-  background: #E6E6E6;
+  background: var(--neutral-200);
 }
 :root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close svg {
-  stroke: #000000;
-  color:  #000000;
+  stroke: var(--static-black);
+  color:  var(--static-black);
 }
 
 .kds-toast__icon   { color: inherit; }

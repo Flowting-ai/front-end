@@ -45,7 +45,7 @@ export function TemplateCardSkeleton({ count = 3, layout = 'tile', bare = false 
             flexDirection: isRow ? 'row' : 'column',
             alignItems:    isRow ? 'center' : 'flex-start',
             gap:           isRow ? '12px' : '10px',
-            boxShadow:     bare ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
+            boxShadow:     bare ? 'none' : '0 1px 3px color-mix(in srgb, var(--static-black) 4%, transparent)',
           }}
         >
           <div className="kaya-skeleton" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />

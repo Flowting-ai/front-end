@@ -102,7 +102,7 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
                 inset:         0,
                 borderRadius:  4,
                 pointerEvents: 'none',
-                boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
+                boxShadow:     'inset 0px 4px 4px 0px color-mix(in srgb, var(--static-black) 25%, transparent), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
               }}
             />
             <span

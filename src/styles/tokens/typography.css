@@ -8,7 +8,7 @@
    --font-title: var(--font-google-sans);
    --font-body:  var(--font-manrope);
    --font-code:  var(--font-body);
-   --font-ai-output: var(--font-ibm-plex-serif);
+   --font-ai-output: var(--font-geist), 'Geist', sans-serif;
 
   /* ── Font weights ─────────────────────────────────────────────────────────── */
   --font-weight-regular:  400;

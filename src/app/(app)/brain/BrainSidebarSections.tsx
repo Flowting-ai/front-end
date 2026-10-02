@@ -167,7 +167,7 @@ function BrainThreadItem({
             backgroundColor: 'var(--neutral-white)',
             borderRadius:    '12px',
             padding:         '4px',
-            boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+            boxShadow:       '0 4px 16px color-mix(in srgb, var(--static-black) 10%, transparent), 0 1px 4px color-mix(in srgb, var(--static-black) 6%, transparent), 0 0 0 1px color-mix(in srgb, var(--static-black) 4%, transparent)',
             zIndex:          5,
             minWidth:        '168px',
             outline:         'none',

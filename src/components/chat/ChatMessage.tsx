@@ -107,10 +107,10 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
                 aria-label="Download image"
                 icon={<ImageDownloadTwoIcon size={16} animated />}
                 style={{
-                  background: "rgba(0,0,0,0.55)",
+                  background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
                   backdropFilter: "blur(4px)",
                   borderRadius: "8px",
-                  color: "#fff",
+                  color: "var(--static-white)",
                   border: "none",
                   padding: "6px",
                   cursor: "pointer",
@@ -151,7 +151,7 @@ function StandaloneActivitiesBlock({
         <span
           style={{
             fontSize: 14,
-            color: "#9A9089",
+            color: "var(--neutral-400)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -186,7 +186,7 @@ function StandaloneActivitiesBlock({
           >
             <path
               d="M3 5.5 L7 9.5 L11 5.5"
-              stroke="#C0B5AD"
+              stroke="var(--neutral-300)"
               strokeWidth="1.7"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -265,7 +265,7 @@ function StreamingTextContent({
     ? content
     : displayedContent;
   const showCursor = isLoading || Boolean(displayedContent && displayedContent !== content);
-  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "#826B60" }} />;
+  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
   return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
 }
 
@@ -603,8 +603,8 @@ export function ChatMessage({
                     gap:             "5px",
                     padding:         "4px 8px",
                     borderRadius:    "8px",
-                    backgroundColor: "rgba(59,54,50,0.07)",
-                    border:          "1px solid rgba(59,54,50,0.10)",
+                    backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
+                    border:          "1px solid var(--neutral-800-10)",
                     maxWidth:        "220px",
                   }}
                 >
@@ -650,8 +650,8 @@ export function ChatMessage({
                       gap:             "5px",
                       padding:         "4px 8px",
                       borderRadius:    "8px",
-                      backgroundColor: "rgba(59,54,50,0.07)",
-                      border:          "1px solid rgba(59,54,50,0.10)",
+                      backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
+                      border:          "1px solid var(--neutral-800-10)",
                       maxWidth:        "220px",
                     }}
                   >
@@ -835,7 +835,7 @@ export function ChatMessage({
 
         {/* Waiting indicator — shown while loading before any content or thinking arrives */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
-          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "#826B60" }} />
+          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-500)" }} />
         )}
 
         {/* Reasoning block — shown when adaptive thinking is enabled */}
@@ -986,13 +986,13 @@ export function ChatMessage({
 
               const badgeColor = (() => {
                 switch (ext) {
-                  case "PDF":  return "#E53E3E"
-                  case "DOCX": case "DOC": return "#3182CE"
-                  case "XLSX": case "XLS": return "#38A169"
-                  case "CSV":  return "#2F855A"
-                  case "PPTX": case "PPT": return "#DD6B20"
-                  case "MD":   return "#805AD5"
-                  default:     return "#6A625D"
+                  case "PDF":  return "var(--danger-500)"
+                  case "DOCX": case "DOC": return "var(--blue-600)"
+                  case "XLSX": case "XLS": return "var(--success-700)"
+                  case "CSV":  return "var(--success-800)"
+                  case "PPTX": case "PPT": return "var(--warning-600)"
+                  case "MD":   return "var(--violet-500)"
+                  default:     return "var(--neutral-600)"
                 }
               })()
 
@@ -1017,7 +1017,7 @@ export function ChatMessage({
                     padding: "8px 10px 8px 8px",
                     borderRadius: "10px",
                     backgroundColor: "rgba(59,54,50,0.05)",
-                    border: "1px solid rgba(59,54,50,0.10)",
+                    border: "1px solid var(--neutral-800-10)",
                     width: "fit-content",
                     maxWidth: "420px",
                     boxSizing: "border-box",
@@ -1040,7 +1040,7 @@ export function ChatMessage({
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: "white",
+                        color: "var(--static-white)",
                         letterSpacing: "0.4px",
                         lineHeight: 1,
                       }}
@@ -1096,7 +1096,7 @@ export function ChatMessage({
                         color: "inherit",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
@@ -1106,7 +1106,7 @@ export function ChatMessage({
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                         <path
                           d="M10 2h4v4M14 2 8 8M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"
-                          stroke="#9A9089"
+                          stroke="var(--neutral-400)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1135,7 +1135,7 @@ export function ChatMessage({
                         color: "inherit",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
@@ -1145,7 +1145,7 @@ export function ChatMessage({
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                         <path
                           d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M2 13h12"
-                          stroke="#9A9089"
+                          stroke="var(--neutral-400)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"

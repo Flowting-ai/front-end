@@ -333,7 +333,7 @@ export function IconButton({
               <circle
                 ref={circleRef}
                 cx="0" cy="0" r="0"
-                fill="white"
+                fill="var(--static-white)"
                 filter={`url(#${blurId})`}
                 visibility="hidden"
               />

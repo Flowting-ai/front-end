@@ -177,7 +177,7 @@ export function AgentEditor({
               ariaLabel="Agent instructions"
             />
             {draft.instructions.trim().length === 0 && (
-              <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, #9a3b34)' }}>
+              <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, var(--red-700))' }}>
                 Add instructions — they tell the agent who it is and how to behave.
               </p>
             )}

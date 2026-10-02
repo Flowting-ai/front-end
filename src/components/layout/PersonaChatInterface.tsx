@@ -67,8 +67,8 @@ export interface PersonaChatInterfaceProps {
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  "#7C3AED", "#2563EB", "#059669", "#DC2626",
-  "#D97706", "#0891B2", "#BE185D", "#65A30D",
+  "var(--violet-600)", "var(--info-600)", "var(--success-700)", "var(--danger-600)",
+  "var(--warning-600)", "var(--blue-400)", "var(--red-600)", "var(--green-600)",
 ];
 
 function PersonaAvatar({ imageUrl, name, size = 32 }: { imageUrl: string | null; name: string; size?: number }) {
@@ -85,7 +85,7 @@ function PersonaAvatar({ imageUrl, name, size = 32 }: { imageUrl: string | null;
   return (
     <div
       aria-hidden
-      style={{ width: size, height: size, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: rad, userSelect: "none" }}
+      style={{ width: size, height: size, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--static-white)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: rad, userSelect: "none" }}
     >
       {name.charAt(0).toUpperCase()}
     </div>

@@ -84,7 +84,7 @@ export function DocumentCard({ ref, name, type, sizeLabel, onRemove, onClick }: 
                 border:         'none',
                 background:     'none',
                 cursor:         'pointer',
-                color:          '#a39b95',
+                color:          'var(--neutral-400)',
                 borderRadius:   '4px',
                 flexShrink:     0,
               }}

@@ -25,7 +25,7 @@ export function XmlSchedule({ xml }: { xml: string }) {
   const reduceMotion = Boolean(useReducedMotion())
   if (!schedule) return null
 
-  const accents = ["#496E8B", "#6D5C91", "#287A47", "#A28847"]
+  const accents = ["var(--blue-700)", "var(--purple-600)", "var(--success-800)", "var(--yellow-500)"]
   const eventCount = schedule.days.reduce((total, day) => total + day.events.length, 0)
 
   return (
@@ -38,8 +38,8 @@ export function XmlSchedule({ xml }: { xml: string }) {
         margin: "14px 0",
         padding: "15px 15px 14px",
         borderRadius: 18,
-        border: "1px solid rgba(73, 110, 139, 0.15)",
-        background: "linear-gradient(135deg, #EFF5F8 0%, #FFFEFC 52%, #F2ECE8 100%)",
+        border: "1px solid color-mix(in srgb, var(--blue-700) 15%, transparent)",
+        background: "linear-gradient(135deg, var(--blue-50) 0%, var(--neutral-50) 52%, var(--neutral-100) 100%)",
         boxShadow: "0 10px 28px rgba(82, 75, 71, 0.09), 0 2px 4px rgba(82, 75, 71, 0.07)",
         overflow: "hidden",
       }}
@@ -57,9 +57,9 @@ export function XmlSchedule({ xml }: { xml: string }) {
             placeItems: "center",
             flexShrink: 0,
             borderRadius: 11,
-            color: "#496E8B",
-            backgroundColor: "rgba(222, 235, 244, 0.78)",
-            border: "1px solid rgba(73, 110, 139, 0.17)",
+            color: "var(--blue-700)",
+            backgroundColor: "color-mix(in srgb, var(--blue-50) 78%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--blue-700) 17%, transparent)",
           }}
         >
           <CalendarDays size={17} strokeWidth={1.8} />
@@ -70,7 +70,7 @@ export function XmlSchedule({ xml }: { xml: string }) {
             {schedule.title || "Schedule"}
           </div>
         </div>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid color-mix(in srgb, var(--neutral-700) 10%, transparent)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
           <Clock3 size={12} />
           {eventCount} {eventCount === 1 ? "event" : "events"}
         </span>

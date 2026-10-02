@@ -138,7 +138,7 @@ export function PinChipStrip({ children }: PinChipStripProps) {
             style={{
               height:          2,
               borderRadius:    999,
-              backgroundColor: "rgba(59,54,50,0.06)",
+              backgroundColor: "var(--neutral-800-05)",
               position:        "relative",
               cursor:          isDragging ? "grabbing" : "pointer",
             }}

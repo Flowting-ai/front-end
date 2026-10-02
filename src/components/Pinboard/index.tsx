@@ -1851,7 +1851,7 @@ export function Pinboard(
               overflow:        'hidden',
               transformOrigin: '50% 50%',
               boxShadow:
-                '0 19px 32px 8px rgba(18,12,8,0.15), 0 2px 2.8px 0 rgba(130,122,116,0.10), 0 0 0 1px var(--neutral-100)',
+                '0 19px 32px 8px rgba(18,12,8,0.15), 0 2px 2.8px 0 color-mix(in srgb, var(--neutral-500) 10%, transparent), 0 0 0 1px var(--neutral-100)',
             }}
           >
             <PinboardExpanded

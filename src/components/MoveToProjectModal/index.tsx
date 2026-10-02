@@ -56,7 +56,7 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
 
   const applyHoverStyle = () => {
     if (!buttonRef.current) return
-    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'rgba(245, 245, 245,0.6)'
+    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'color-mix(in srgb, var(--neutral-100) 60%, transparent)'
     buttonRef.current.style.boxShadow = selected ? SHADOW_ROW_SELECTED : SHADOW_ROW_HOVER
   }
   const clearHoverStyle = () => {
@@ -97,7 +97,7 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
         width:           32,
         height:          32,
         borderRadius:    8,
-        backgroundColor: selected ? 'rgba(59,134,246,0.10)' : 'var(--neutral-100)',
+        backgroundColor: selected ? 'color-mix(in srgb, var(--info-500) 10%, transparent)' : 'var(--neutral-100)',
         flexShrink:      0,
         transition:      'background-color 120ms',
       }}>
@@ -216,7 +216,7 @@ export function MoveToProjectModal({
             style={{
               position:        'fixed',
               inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.28)',
+              backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
               zIndex:          20,
             }}
           />

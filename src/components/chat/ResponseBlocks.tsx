@@ -24,7 +24,7 @@ function BreathingDot() {
     <m.span
       animate={{ opacity: [0.15, 1, 0.15] }}
       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
+      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--neutral-500)", verticalAlign: "middle", marginLeft: 4 }}
     />
   );
 }

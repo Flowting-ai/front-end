@@ -146,6 +146,93 @@
   --purple-900: #270D2A;
   --purple-950: #120613;
 
+  /* ── Success (vivid green) ─────────────────────────────────────── */
+  --success-50:   #F0FDF4;
+  --success-100:  #DCFCE7;
+  --success-200:  #BBF7D0;
+  --success-300:  #86EFAC;
+  --success-400:  #4ADE80;
+  --success-500:  #22C55E;
+  --success-600:  #16A34A;
+  --success-700:  #15803D;
+  --success-800:  #166534;
+  --success-900:  #14532D;
+  --success-950:  #052E16;
+
+  /* ── Danger (vivid red) ────────────────────────────────────────── */
+  --danger-50:   #FEF2F2;
+  --danger-100:  #FEE2E2;
+  --danger-200:  #FECACA;
+  --danger-300:  #FCA5A5;
+  --danger-400:  #F87171;
+  --danger-500:  #EF4444;
+  --danger-600:  #DC2626;
+  --danger-700:  #B91C1C;
+  --danger-800:  #991B1B;
+  --danger-900:  #7F1D1D;
+  --danger-950:  #450A0A;
+
+  /* ── Warning (amber) ───────────────────────────────────────────── */
+  --warning-50:   #FFFBEB;
+  --warning-100:  #FEF3C7;
+  --warning-200:  #FDE68A;
+  --warning-300:  #FCD34D;
+  --warning-400:  #FBBF24;
+  --warning-500:  #F59E0B;
+  --warning-600:  #D97706;
+  --warning-700:  #B45309;
+  --warning-800:  #92400E;
+  --warning-900:  #78350F;
+  --warning-950:  #451A03;
+
+  /* ── Info (vivid blue) ─────────────────────────────────────────── */
+  --info-50:   #EFF6FF;
+  --info-100:  #DBEAFE;
+  --info-200:  #BFDBFE;
+  --info-300:  #93C5FD;
+  --info-400:  #60A5FA;
+  --info-500:  #3B82F6;
+  --info-600:  #2563EB;
+  --info-700:  #1D4ED8;
+  --info-800:  #1E40AF;
+  --info-900:  #1E3A8A;
+  --info-950:  #172554;
+
+  /* ── Violet ────────────────────────────────────────────────────── */
+  --violet-50:   #F5F3FF;
+  --violet-100:  #EDE9FE;
+  --violet-200:  #DDD6FE;
+  --violet-300:  #C4B5FD;
+  --violet-400:  #A78BFA;
+  --violet-500:  #8B5CF6;
+  --violet-600:  #7C3AED;
+  --violet-700:  #6D28D9;
+  --violet-800:  #5B21B6;
+  --violet-900:  #4C1D95;
+  --violet-950:  #2E1065;
+
+  /* ── Third-party brand colours ───────────────────────────────────────────────
+     Fixed marks of other companies (logos, connector tiles). Deliberately NOT part of the
+     themed scales: they stay the same in light and dark. */
+  --brand-slack-green:     #2EB67D;
+  --brand-slack-cyan:      #36C5F0;
+  --brand-slack-yellow:    #ECB22E;
+  --brand-slack-red:       #E01E5A;
+  --brand-slack-aubergine: #4A154B;
+  --brand-google-blue:     #4285F4;
+  --brand-google-green:    #34A853;
+  --brand-google-yellow:   #FBBC05;
+  --brand-google-red:      #EA4335;
+
+  /* ── Fixed white and black (never themed) ────────────────────────────────────
+     --neutral-white / --neutral-black are SURFACE colours and flip in dark mode (white becomes
+     the dark card, black becomes white). These two never change: use them for white text on a
+     coloured fill, glints and highlights, scrims and shadow colours, and anything else that must
+     be exactly white or black in both themes. Translucent forms:
+     color-mix(in srgb, var(--static-black) 25%, transparent). */
+  --static-white:          #FFFFFF;
+  --static-black:          #000000;
+
   /* ── Spacing ──────────────────────────────────────────────────────────────────
      One 4px-based scale for every gap, margin, and pad in the system. Steps are
      named by index, not by size, so a component references a rung rather than a

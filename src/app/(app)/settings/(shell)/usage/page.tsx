@@ -29,9 +29,9 @@ const CATEGORIES = [
 ] as const
 
 const CHIP_TOKENS: Record<string, { bg: string; text: string; ring: string }> = {
-  yellow: { bg: 'var(--yellow-100,#e9dfc9)', text: 'var(--yellow-700,#6d5921)', ring: 'rgba(143,116,39,0.5)' },
-  blue:   { bg: 'var(--blue-100,#cadcf1)',   text: 'var(--blue-700,#135487)',   ring: 'rgba(13,110,178,0.5)' },
-  red:    { bg: 'var(--red-100,#ffbfb6)',    text: 'var(--red-700,#7a201c)',    ring: 'rgba(159,38,35,0.5)' },
+  yellow: { bg: 'var(--yellow-100)', text: 'var(--yellow-700,#6d5921)', ring: 'color-mix(in srgb, var(--yellow-600) 50%, transparent)' },
+  blue:   { bg: 'var(--blue-100,#cadcf1)',   text: 'var(--blue-700,#135487)',   ring: 'var(--blue-600-50)' },
+  red:    { bg: 'var(--red-100,#ffbfb6)',    text: 'var(--red-700,#7a201c)',    ring: 'var(--red-600-51)' },
 }
 const BAR_TOKENS: Record<string, string> = {
   yellow: 'var(--yellow-300,#c7b387)',

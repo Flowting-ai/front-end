@@ -22,7 +22,7 @@ const MODAL_Z = 9999;
 const backdropStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "rgba(18,12,8,0.5)",
+  backgroundColor: "color-mix(in srgb, var(--neutral-950) 50%, transparent)",
   backdropFilter: "blur(2px)",
   zIndex: BACKDROP_Z,
 };
@@ -36,7 +36,7 @@ const modalCardStyle: React.CSSProperties = {
   maxWidth: "480px",
   maxHeight: "calc(100dvh - 64px)",
   zIndex: MODAL_Z,
-  backgroundColor: "var(--neutral-white, #fff)",
+  backgroundColor: "var(--neutral-white)",
   borderRadius: "18px",
   padding: "32px",
   boxShadow:
@@ -76,7 +76,7 @@ function ChoiceCard({
         padding: "24px 20px",
         borderRadius: "14px",
         border: "1px solid var(--neutral-200, #e2d9d1)",
-        backgroundColor: "var(--neutral-50, #FFFFFF)",
+        backgroundColor: "var(--neutral-50)",
         flex: "1 1 0",
         minWidth: "180px",
         textAlign: "center",
@@ -130,7 +130,7 @@ function TeamsWorkspacePreview() {
     <div
       style={{
         width: "100%",
-        backgroundColor: "var(--neutral-50, #FFFFFF)",
+        backgroundColor: "var(--neutral-50)",
         borderRadius: "16px",
         paddingRight: "8px",
         paddingTop: "8px",
@@ -158,29 +158,29 @@ function TeamsWorkspacePreview() {
               gap: "4px",
               padding: "5px 8px 7px",
               borderRadius: "8px",
-              background: "linear-gradient(180deg, #524b47 0%, #26211e 100%)",
+              background: "linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)",
               boxShadow:
                 "0px 0px 0px 1px black, 0px 1px 1px rgba(59,54,50,0.1), 0px 1.5px 3px rgba(59,54,50,0.4)",
             }}
           >
             {/* Globe / Souvenir mark */}
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <circle cx="10" cy="10" r="7" stroke="rgba(255, 255, 255,0.7)" strokeWidth="1.5" />
+              <circle cx="10" cy="10" r="7" stroke="var(--neutral-white-70)" strokeWidth="1.5" />
               <path
                 d="M10 3C7.5 6.5 7.5 13.5 10 17M10 3C12.5 6.5 12.5 13.5 10 17M3 10h14"
-                stroke="rgba(255, 255, 255,0.7)"
+                stroke="var(--neutral-white-70)"
                 strokeWidth="1.2"
               />
             </svg>
             <span
               style={{
-                color: "var(--neutral-50, #FFFFFF)",
+                color: "var(--neutral-50)",
                 fontSize: "11px",
                 fontWeight: 500,
                 fontFamily: "var(--font-body)",
                 whiteSpace: "nowrap",
                 textShadow:
-                  "0px 0.4px 0.4px rgba(255,255,255,0.25), 0px -0.7px 0.4px rgba(0,0,0,0.25)",
+                  "0px 0.4px 0.4px var(--neutral-white-25), 0px -0.7px 0.4px color-mix(in srgb, var(--static-black) 25%, transparent)",
               }}
             >
               Your workspace
@@ -188,7 +188,7 @@ function TeamsWorkspacePreview() {
             <svg width="8" height="8" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path
                 d="M2.5 4.5l3.5 3.5 3.5-3.5"
-                stroke="rgba(255, 255, 255,0.5)"
+                stroke="var(--neutral-50-50)"
                 strokeWidth="1.3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -203,7 +203,7 @@ function TeamsWorkspacePreview() {
                 borderRadius: "inherit",
                 pointerEvents: "none",
                 boxShadow:
-                  "inset 0px 1px 0.4px rgba(255, 255, 255,0.3), inset 0px -2px 0.4px #120c08, inset 0px -2.5px 4px -2px rgba(255, 255, 255,0.5)",
+                  "inset 0px 1px 0.4px var(--neutral-50-30), inset 0px -2px 0.4px #120c08, inset 0px -2.5px 4px -2px var(--neutral-50-50)",
               }}
             />
           </div>
@@ -211,10 +211,10 @@ function TeamsWorkspacePreview() {
           {/* Teams / grid icon */}
           <div style={{ padding: "6px", borderRadius: "8px" }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="#D4D4D4" strokeWidth="1.25" />
-              <rect x="11"   y="2.5" width="6.5" height="6.5" rx="1.5" stroke="#D4D4D4" strokeWidth="1.25" />
-              <rect x="2.5"  y="11"  width="6.5" height="6.5" rx="1.5" stroke="#D4D4D4" strokeWidth="1.25" />
-              <rect x="11"   y="11"  width="6.5" height="6.5" rx="1.5" stroke="#D4D4D4" strokeWidth="1.25" />
+              <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
+              <rect x="11"   y="2.5" width="6.5" height="6.5" rx="1.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
+              <rect x="2.5"  y="11"  width="6.5" height="6.5" rx="1.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
+              <rect x="11"   y="11"  width="6.5" height="6.5" rx="1.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
             </svg>
           </div>
         </div>
@@ -226,7 +226,7 @@ function TeamsWorkspacePreview() {
             right: "10px",
             top: "50%",
             transform: "translateY(-50%)",
-            backgroundColor: "var(--neutral-white, #fff)",
+            backgroundColor: "var(--neutral-white)",
             border: "1px solid var(--neutral-200, #E5E5E5)",
             borderRadius: "10px",
             padding: "4px",
@@ -242,7 +242,7 @@ function TeamsWorkspacePreview() {
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
               <path
                 d="M11.5 3.5l5 5-2.5 2.5-1.5-1.5-3 3v2l-1.5 1.5-3.5-3.5 1.5-1.5h2l3-3-1.5-1.5 2.5-2.5z"
-                stroke="#D4D4D4"
+                stroke="var(--neutral-200)"
                 strokeWidth="1.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -252,8 +252,8 @@ function TeamsWorkspacePreview() {
           {/* Target/circle icon */}
           <div style={{ padding: "5px", borderRadius: "6px" }}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <circle cx="10" cy="10" r="6.5" stroke="#D4D4D4" strokeWidth="1.25" />
-              <circle cx="10" cy="10" r="2.5" stroke="#D4D4D4" strokeWidth="1.25" />
+              <circle cx="10" cy="10" r="6.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
+              <circle cx="10" cy="10" r="2.5" stroke="var(--neutral-200)" strokeWidth="1.25" />
             </svg>
           </div>
           {/* Quill/pen icon */}
@@ -261,12 +261,12 @@ function TeamsWorkspacePreview() {
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
               <path
                 d="M16 4C14 2 11 4 9 6L6 9l-2.5 5.5 5.5-2.5 3-3c2-2 4-5 4-5z"
-                stroke="#D4D4D4"
+                stroke="var(--neutral-200)"
                 strokeWidth="1.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <path d="M9 6L14 11" stroke="#D4D4D4" strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M9 6L14 11" stroke="var(--neutral-200)" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
           </div>
           {/* Inner bottom shadow overlay */}
@@ -298,7 +298,7 @@ function SouvenirWordmark() {
           fontWeight: 400,
           fontSize: "34px",
           lineHeight: 1,
-          color: "black",
+          color: "var(--static-black)",
           letterSpacing: "0.34px",
         }}
       >

@@ -49,7 +49,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(26,25,22,0.3)',
+              backgroundColor: 'color-mix(in srgb, var(--neutral-900) 30%, transparent)',
               zIndex: 20,
             }}
           />
@@ -78,7 +78,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
               borderRadius: 18,
               padding: 12,
               boxShadow:
-                '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
+                '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
             }}
           >
             {/* Header row */}
@@ -246,7 +246,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
+                      background: 'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
                       pointerEvents: 'none',
                     }}
                   />
@@ -258,7 +258,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       inset: 0,
                       borderRadius: 'inherit',
                       boxShadow:
-                        'inset 0px 1px 0.364px 0px rgba(255, 255, 255,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(255, 255, 255,0.5)',
+                        'inset 0px 1px 0.364px 0px var(--neutral-50-30), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px var(--neutral-50-50)',
                       pointerEvents: 'none',
                     }}
                   />
@@ -269,10 +269,10 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       fontWeight: 500,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: '#FFFFFF',
+                      color: 'var(--static-white)',
                       whiteSpace: 'nowrap',
                       textShadow:
-                        '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                        '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px var(--neutral-white-25)',
                     }}
                   >
                     Add example conversation

@@ -15,7 +15,7 @@ import type { BadgeColor } from '@/components/Badge'
 // elevated above the surrounding Brain thread.
 
 const SHADOW_CARD  = '0px 4px 8px 0px rgba(82,75,71,0.10), 0px 0px 0px 1px rgba(59,54,50,0.12)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.5), inset 0px -1px 0px 0px rgba(82,75,71,0.06)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 50%, transparent), inset 0px -1px 0px 0px rgba(82,75,71,0.06)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ const ACTION_CONFIG: Record<ApprovalActionType, { color: BadgeColor; label: stri
 // Denied: neutral-50, same as before
 const STATUS_BG: Record<Exclude<ApprovalStatus, 'pending'>, string> = {
   accepted: 'var(--neutral-white)',
-  denied:   'var(--neutral-50, #FFFFFF)',
+  denied:   'var(--neutral-50)',
 }
 
 export interface ApprovalCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -436,7 +436,7 @@ export const ApprovalCard = React.forwardRef<HTMLDivElement, ApprovalCardProps>(
                     }}
                   >
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                      <path d="M1.5 4l2 2L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1.5 4l2 2L6.5 2" stroke="var(--static-white)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                   <span

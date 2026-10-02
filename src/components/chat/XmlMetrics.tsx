@@ -28,14 +28,14 @@ import { parseMetricsXml } from "@/components/chat/XmlMetrics.parse"
 
 const TREND_PALETTE: Record<DeltaTrend, { stroke: string; wash: string; border: string }> = {
   up: {
-    stroke: "#3F846A",
-    wash: "linear-gradient(145deg, rgba(74, 145, 113, 0.10), rgba(255,255,255,0) 48%)",
-    border: "rgba(63, 132, 106, 0.18)",
+    stroke: "var(--success-800)",
+    wash: "linear-gradient(145deg, color-mix(in srgb, var(--success-800) 10%, transparent), color-mix(in srgb, var(--static-white) 0%, transparent) 48%)",
+    border: "color-mix(in srgb, var(--success-800) 18%, transparent)",
   },
   down: {
-    stroke: "#B46258",
-    wash: "linear-gradient(145deg, rgba(180, 98, 88, 0.10), rgba(255,255,255,0) 48%)",
-    border: "rgba(180, 98, 88, 0.18)",
+    stroke: "var(--brown-500)",
+    wash: "linear-gradient(145deg, color-mix(in srgb, var(--brown-500) 10%, transparent), color-mix(in srgb, var(--static-white) 0%, transparent) 48%)",
+    border: "color-mix(in srgb, var(--brown-500) 18%, transparent)",
   },
 }
 

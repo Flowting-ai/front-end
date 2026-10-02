@@ -93,7 +93,7 @@ export function TryItBox({ repoId, versionId, pausedReason }: TryItBoxProps) {
         )}
       </div>
       {pausedReason && <p style={HINT_STYLE}>{pausedReason}</p>}
-      {error && <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, #9a3b34)' }}>{error}</p>}
+      {error && <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, var(--red-700))' }}>{error}</p>}
       {(output || streaming) && (
         <div
           className="kaya-scrollbar"

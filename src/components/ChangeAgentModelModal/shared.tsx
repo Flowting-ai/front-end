@@ -113,7 +113,7 @@ export function ModalShell({ open, onClose, ariaLabel, width = 420, children }: 
             style={{
               position:        'fixed',
               inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.28)',
+              backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
               backdropFilter:  'blur(2px)',
               zIndex:          60,
             }}

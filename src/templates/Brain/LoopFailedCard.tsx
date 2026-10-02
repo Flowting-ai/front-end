@@ -27,7 +27,7 @@ export function LoopFailedCard({
     <div style={{
       borderRadius:    12,
       padding:         20,
-      border:          '1.5px solid var(--color-tag-Red-bg, #ffd1d1)',
+      border:          '1.5px solid var(--color-tag-Red-bg, var(--red-100))',
       backgroundColor: 'var(--neutral-white)',
       display:         'flex',
       flexDirection:   'column',

@@ -16,7 +16,7 @@ import { Button } from "@/components/Button";
 // the previous team-onboarding flow. This design is flat-background, no logo,
 // with a dot-slider instead.
 
-const BG = "var(--neutral-50,#FFFFFF)";
+const BG = "var(--neutral-50)";
 
 // ── Dot / pill progress indicator ────────────────────────────────────────────
 // Figma: active segment is a 12x4 rounded pill (#6a625d); inactive segments are
@@ -141,7 +141,7 @@ export function TextField({
           width: "100%",
           padding: "7px 10px",
           borderRadius: 10,
-          backgroundColor: "var(--neutral-white,#fff)",
+          backgroundColor: "var(--neutral-white)",
           boxSizing: "border-box",
           boxShadow: error
             ? "0px 0px 0px 1px var(--red-600,#c62b29)"
@@ -265,7 +265,7 @@ export function LeaveGuardModal({
         position: "fixed",
         inset: 0,
         zIndex: 10000,
-        backgroundColor: "rgba(18,12,8,0.4)",
+        backgroundColor: "color-mix(in srgb, var(--neutral-950) 40%, transparent)",
         backdropFilter: "blur(2px)",
         display: "flex",
         alignItems: "center",
@@ -278,7 +278,7 @@ export function LeaveGuardModal({
         aria-label="Unsaved changes"
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "var(--neutral-white,#fff)",
+          backgroundColor: "var(--neutral-white)",
           borderRadius: 16,
           padding: 24,
           width: 380,

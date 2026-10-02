@@ -251,7 +251,7 @@ export default function OnboardingInvitePage() {
             overscrollBehaviorY: "contain",
             padding: "7px 10px",
             borderRadius: 10,
-            backgroundColor: "var(--neutral-white,#fff)",
+            backgroundColor: "var(--neutral-white)",
             boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
             boxSizing: "border-box",
             alignContent: "flex-start",

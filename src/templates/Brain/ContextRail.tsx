@@ -85,7 +85,7 @@ function UsageSubHeader({ active }: { active: boolean }) {
           width:           6,
           height:          6,
           borderRadius:    '50%',
-          backgroundColor: 'var(--color-tag-Green-text, #1e8a3c)',
+          backgroundColor: 'var(--color-tag-Green-text, var(--success-700))',
           flexShrink:      0,
         }} />
       )}
@@ -132,8 +132,8 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
 
 function ConnectorLogo({ connector: c }: { connector: ContextRailConnector }) {
   const dotColor =
-    c.status === 'connected' ? 'var(--color-tag-Green-text, #1e8a3c)' :
-    c.status === 'failed'    ? 'var(--color-tag-Red-text, #c0392b)'   :
+    c.status === 'connected' ? 'var(--color-tag-Green-text, var(--success-700))' :
+    c.status === 'failed'    ? 'var(--color-tag-Red-text, var(--red-500))'   :
                                'var(--neutral-300)'
 
   return (
@@ -291,7 +291,7 @@ function ConnectorRow({ connector: c, index, dimmed }: { connector: ContextRailC
         fontFamily:    'var(--font-body)',
         fontSize:      'var(--font-size-caption)',
         lineHeight:    'var(--line-height-caption)',
-        color:         c.status === 'failed' ? 'var(--color-tag-Red-text, #c0392b)' : 'var(--neutral-400)',
+        color:         c.status === 'failed' ? 'var(--color-tag-Red-text, var(--red-500))' : 'var(--neutral-400)',
         textTransform: 'capitalize',
         flexShrink:    0,
       }}>

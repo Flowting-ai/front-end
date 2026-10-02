@@ -69,13 +69,13 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
       position: 'relative', borderRadius: 6, overflow: 'hidden',
       boxShadow: isBrown
         ? '0px 1px 1.5px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)'
-        : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
+        : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px color-mix(in srgb, var(--yellow-600) 50%, transparent)',
     }}>
       <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? 'var(--brown-100)' : 'var(--yellow-100)', borderRadius: 6 }} />
       <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: isBrown
         ? 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)'
         : 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
-      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: isBrown ? '#683d1b' : '#6d5921', position: 'relative', padding: '2px 6px' }}>
+      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: isBrown ? 'var(--brown-700)' : 'var(--yellow-700)', position: 'relative', padding: '2px 6px' }}>
         {label}
       </span>
     </div>
@@ -88,10 +88,10 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
 function SlackMark() {
   return (
     <svg width="12" height="12" viewBox="0 0 54 54" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="#36C5F0"/>
-      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="#2EB67D"/>
-      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="#ECB22E"/>
-      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="#E01E5A"/>
+      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="var(--brand-slack-cyan)"/>
+      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="var(--brand-slack-green)"/>
+      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="var(--brand-slack-yellow)"/>
+      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="var(--brand-slack-red)"/>
     </svg>
   )
 }
@@ -201,7 +201,7 @@ function ChangePlanSkeleton() {
             <div style={{
               backgroundColor: 'var(--neutral-white)', border: '2px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
-              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+              boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -226,7 +226,7 @@ function ChangePlanSkeleton() {
             <div style={{
               backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', gap: 28,
-              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+              boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Bone w={60} h={28} r={8} />
@@ -465,12 +465,12 @@ function OrgChangePlanPageInner() {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '6px 10px 8px 10px', borderRadius: 10,
-                border: 'none', backgroundColor: 'rgba(0,0,0,0)', cursor: 'pointer',
+                border: 'none', backgroundColor: 'color-mix(in srgb, var(--static-black) 0%, transparent)', cursor: 'pointer',
                 fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px',
                 color: 'var(--neutral-700)', transition: 'background-color 120ms ease, color 120ms ease',
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-100)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'color-mix(in srgb, var(--static-black) 0%, transparent)' }}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -531,8 +531,8 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      color: '#FFFFFF',
-                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                      color: 'var(--static-white)',
+                      textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
               }}
@@ -552,8 +552,8 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      color: '#FFFFFF',
-                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                      color: 'var(--static-white)',
+                      textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
               }}
@@ -570,11 +570,11 @@ function OrgChangePlanPageInner() {
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 backgroundColor: 'var(--neutral-white)',
-                border: '2px solid #683d1b',
+                border: '2px solid var(--brown-700)',
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
                 height: '100%',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -593,7 +593,7 @@ function OrgChangePlanPageInner() {
                   {isOnFreePlan && (
                     <div style={{
                       position: 'relative',
-                      backgroundColor: 'var(--neutral-white)', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
+                      backgroundColor: 'var(--neutral-white)', border: '1px solid var(--blue-600-50)', borderRadius: 10,
                       padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
                     }}>
                       <div style={{
@@ -713,11 +713,11 @@ function OrgChangePlanPageInner() {
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
                     background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
                     boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px var(--neutral-white-30), inset 0px -2.182px 0.364px 0px var(--neutral-950), inset 0px -2.545px 4px -2.182px var(--neutral-white-50)',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#FFFFFF',
-                    textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)',
+                    textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                   }}
                 >
-                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#FFFFFF" />}
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--static-white)" />}
                   {workspaceButtonLabel}
                 </button>
               </div>
@@ -731,7 +731,7 @@ function OrgChangePlanPageInner() {
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', gap: 28,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
                 height: '100%',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

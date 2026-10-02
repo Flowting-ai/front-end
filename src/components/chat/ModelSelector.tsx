@@ -226,7 +226,7 @@ export function ModelSelector({
               position: "fixed",
               inset: 0,
               zIndex: 50,
-              backgroundColor: "rgba(0,0,0,0.3)",
+              backgroundColor: "color-mix(in srgb, var(--static-black) 30%, transparent)",
             }}
           />
 

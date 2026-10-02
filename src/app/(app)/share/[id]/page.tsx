@@ -350,7 +350,7 @@ function ShareAcceptContent() {
       {/* What you get */}
       <div
         style={{
-          backgroundColor: 'rgba(13,110,178,0.06)',
+          backgroundColor: 'color-mix(in srgb, var(--blue-600) 6%, transparent)',
           borderRadius: 10,
           padding: '10px 14px',
           boxShadow: '0px 0px 0px 1px rgba(13,110,178,0.15)',
@@ -434,7 +434,7 @@ const cardStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 480,
   boxShadow:
-    '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+    '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
 }
 
 const footerStyle: React.CSSProperties = {

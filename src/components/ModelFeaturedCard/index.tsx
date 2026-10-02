@@ -15,11 +15,11 @@ const SHADOW_SELECTED_INNER = 'var(--shadow-model-featured-selected-inner)'
 
 // Selected-state text shadow - emboss letters on the dark gradient.
 const TEXT_SHADOW_SELECTED =
-  '0px -0.5px 0.364px rgba(0,0,0,0.25), 0px 0.5px 0.364px rgba(255,255,255,0.25)'
+  '0px -0.5px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.5px 0.364px var(--neutral-white-25)'
 
 // Blurred rainbow gradient - persistent selected layer and gradient fill flood.
 const SELECTED_GRADIENT =
-  'linear-gradient(180deg, rgba(221,221,221,0.5) 0%, rgba(143,116,39,0.5) 21.635%, rgba(104,61,27,0.5) 36.058%, rgba(39,13,42,0.5) 63.462%, rgba(11,53,127,0.5) 82.212%, rgba(13,110,178,0.5) 97.115%)'
+  'linear-gradient(180deg, color-mix(in srgb, var(--neutral-200) 50%, transparent) 0%, color-mix(in srgb, var(--yellow-600) 50%, transparent) 21.635%, color-mix(in srgb, var(--brown-700) 50%, transparent) 36.058%, color-mix(in srgb, var(--purple-900) 50%, transparent) 63.462%, color-mix(in srgb, var(--info-900) 50%, transparent) 82.212%, var(--blue-600-50) 97.115%)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -138,7 +138,7 @@ export function ModelFeaturedCard({
       ? 'transparent'
       : showHover
         ? 'var(--neutral-100-60)'
-        : '#FFFFFF'
+        : 'var(--static-white)'
 
     const titleColor = isSelected ? 'var(--neutral-50)'  : 'var(--neutral-700)'
     const descColor  = isSelected ? 'var(--neutral-200)' : 'var(--neutral-600)'
@@ -247,7 +247,7 @@ export function ModelFeaturedCard({
                 width:           112,
                 height:          112,
                 borderRadius:    '50%',
-                background:      'radial-gradient(circle, rgba(255,248,215,0.9) 0%, rgba(210,165,75,0.5) 40%, transparent 70%)',
+                background:      'radial-gradient(circle, color-mix(in srgb, var(--green-50) 90%, transparent) 0%, color-mix(in srgb, var(--yellow-500) 50%, transparent) 40%, transparent 70%)',
                 filter:          'blur(7px)',
                 pointerEvents:   'none',
                 transformOrigin: 'center',

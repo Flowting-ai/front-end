@@ -29,10 +29,10 @@ export function XmlKanban({ xml }: { xml: string }) {
   if (!kanban) return null
 
   const columnThemes = [
-    { accent: "#496E8B", soft: "rgba(73, 110, 139, 0.10)" },
-    { accent: "#A28847", soft: "rgba(162, 136, 71, 0.11)" },
-    { accent: "#6D5C91", soft: "rgba(109, 92, 145, 0.10)" },
-    { accent: "#287A47", soft: "rgba(40, 122, 71, 0.10)" },
+    { accent: "var(--blue-700)", soft: "color-mix(in srgb, var(--blue-700) 10%, transparent)" },
+    { accent: "var(--yellow-500)", soft: "color-mix(in srgb, var(--yellow-500) 11%, transparent)" },
+    { accent: "var(--purple-600)", soft: "color-mix(in srgb, var(--purple-600) 10%, transparent)" },
+    { accent: "var(--success-800)", soft: "color-mix(in srgb, var(--success-800) 10%, transparent)" },
   ]
   const cardCount = kanban.columns.reduce((total, column) => total + column.cards.length, 0)
 
@@ -45,8 +45,8 @@ export function XmlKanban({ xml }: { xml: string }) {
         margin: "14px 0",
         padding: "14px 14px 12px",
         borderRadius: 18,
-        border: "1px solid rgba(73, 110, 139, 0.14)",
-        background: "linear-gradient(135deg, #F2F6F8 0%, #FFFDFC 50%, #F1ECE7 100%)",
+        border: "1px solid color-mix(in srgb, var(--blue-700) 14%, transparent)",
+        background: "linear-gradient(135deg, var(--neutral-100) 0%, var(--neutral-50) 50%, var(--neutral-100) 100%)",
         boxShadow: "0 10px 28px rgba(82, 75, 71, 0.09), 0 2px 4px rgba(82, 75, 71, 0.07)",
         overflow: "hidden",
       }}
@@ -64,9 +64,9 @@ export function XmlKanban({ xml }: { xml: string }) {
             placeItems: "center",
             flexShrink: 0,
             borderRadius: 11,
-            color: "#496E8B",
-            backgroundColor: "rgba(222, 235, 244, 0.78)",
-            border: "1px solid rgba(73, 110, 139, 0.16)",
+            color: "var(--blue-700)",
+            backgroundColor: "color-mix(in srgb, var(--blue-50) 78%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--blue-700) 16%, transparent)",
           }}
         >
           <Columns3 size={17} strokeWidth={1.8} />
@@ -77,7 +77,7 @@ export function XmlKanban({ xml }: { xml: string }) {
             {kanban.title || "Task board"}
           </div>
         </div>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.62)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.62)", border: "1px solid color-mix(in srgb, var(--neutral-700) 10%, transparent)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
           <Layers3 size={12} />
           {cardCount} {cardCount === 1 ? "card" : "cards"}
         </span>
@@ -121,7 +121,7 @@ export function XmlKanban({ xml }: { xml: string }) {
               >
                 {column.label}
               </span>
-              <span style={{ minWidth: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid rgba(82,75,71,0.08)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+              <span style={{ minWidth: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 999, backgroundColor: "rgba(var(--surface-rgb), 0.65)", border: "1px solid color-mix(in srgb, var(--neutral-700) 8%, transparent)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
                 {column.cards.length}
               </span>
             </div>
@@ -140,7 +140,7 @@ export function XmlKanban({ xml }: { xml: string }) {
                   padding: "10px 11px 9px",
                   borderRadius: 11,
                   backgroundColor: "rgba(var(--surface-rgb), 0.92)",
-                  border: "1px solid rgba(82,75,71,0.10)",
+                  border: "1px solid color-mix(in srgb, var(--neutral-700) 10%, transparent)",
                   boxShadow: "0 2px 6px rgba(82,75,71,0.07)",
                   overflow: "hidden",
                 }}

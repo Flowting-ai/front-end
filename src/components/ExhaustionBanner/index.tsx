@@ -23,16 +23,16 @@ export function ExhaustionBanner({ children }: { children?: React.ReactNode }) {
   const textColor = level === 'normal'
     ? 'var(--neutral-500)'
     : level === 'low'
-      ? '#b45309'
-      : '#b91c1c'
+      ? 'var(--warning-700)'
+      : 'var(--red-500)'
 
   return (
     <div
       style={{
         width:           '100%',
         borderRadius:    28,
-        backgroundColor: 'rgba(251, 146, 60, 0.10)',
-        border:          '1px solid rgba(251, 146, 60, 0.18)',
+        backgroundColor: 'color-mix(in srgb, var(--warning-600) 10%, transparent)',
+        border:          '1px solid color-mix(in srgb, var(--warning-600) 18%, transparent)',
         padding:         '0 4px 4px',
         boxSizing:       'border-box',
       }}

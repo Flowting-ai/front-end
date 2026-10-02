@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Google_Sans, IBM_Plex_Serif, Manrope } from "next/font/google";
+import { Geist, Google_Sans, Manrope } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/Toast";
 import { MotionProvider } from "@/components/MotionProvider";
@@ -29,10 +29,11 @@ const manrope = Manrope({
   display: "swap",
 });
 
-const ibmPlexSerif = IBM_Plex_Serif({
+// AI-generated output (chat answers, task results) is set in Geist.
+const geist = Geist({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex-serif",
+  weight: "variable",
+  variable: "--font-geist",
   display: "swap",
 });
 
@@ -53,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`h-full ${googleSans.variable} ${manrope.variable} ${ibmPlexSerif.variable}`}
+      className={`h-full ${googleSans.variable} ${manrope.variable} ${geist.variable}`}
       // The theme init script may set data-theme before React hydrates; only
       // relevant (and only enabled) when theming is on.
       suppressHydrationWarning={THEMING_ENABLED || undefined}

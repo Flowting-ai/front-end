@@ -56,7 +56,7 @@ function SizePill({
         border: "none",
         cursor: "pointer",
         outline: "none",
-        backgroundColor: selected ? "var(--neutral-100,#F5F5F5)" : "var(--neutral-white,#fff)",
+        backgroundColor: selected ? "var(--neutral-100,#F5F5F5)" : "var(--neutral-white)",
         boxShadow: selected
           ? "0px 0px 0px 1px var(--neutral-200,#E5E5E5)"
           : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
@@ -160,7 +160,7 @@ export default function OnboardingWorkspacePage() {
               width: "100%",
               padding: "7px 10px",
               borderRadius: 10,
-              backgroundColor: "var(--neutral-white,#fff)",
+              backgroundColor: "var(--neutral-white)",
               boxSizing: "border-box",
               boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
             }}

@@ -66,7 +66,7 @@ export function ProjectChatEmptyRow() {
           fontWeight:   'var(--font-weight-regular)',
           fontSize:     '14px',
           lineHeight:   '22px',
-          color:        '#857a72',
+          color:        'var(--neutral-500)',
           margin:       0,
           overflow:     'hidden',
           textOverflow: 'ellipsis',
@@ -153,7 +153,7 @@ export function ProjectChatRow(
 
     const boxShadow = (() => {
       if (active && rowElevated) {
-        return '0px 2px 2.8px 0px rgba(13,110,178,0.12), 0px 0px 0px 1.5px var(--blue-500)'
+        return '0px 2px 2.8px 0px color-mix(in srgb, var(--blue-600) 12%, transparent), 0px 0px 0px 1.5px var(--blue-500)'
       }
       if (rowElevated) {
         return 'var(--shadow-item-inner)'
@@ -223,7 +223,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        '#a39b95',
+                color:        'var(--neutral-400)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -264,7 +264,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        '#a39b95',
+                color:        'var(--neutral-400)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -433,7 +433,7 @@ export function ProjectChatRow(
               style={{
                 position:      'absolute',
                 inset:         0,
-                background:    'rgba(245, 245, 245,0.6)',
+                background:    'color-mix(in srgb, var(--neutral-100) 60%, transparent)',
                 pointerEvents: 'none',
                 borderRadius:  '8px',
               }}
@@ -444,7 +444,7 @@ export function ProjectChatRow(
             <>
               <PinIcon
                 animated
-                style={{ width: 16, height: 16, color: '#857a72', flexShrink: 0, position: 'relative' }}
+                style={{ width: 16, height: 16, color: 'var(--neutral-500)', flexShrink: 0, position: 'relative' }}
               />
               <span
                 style={{
@@ -467,7 +467,7 @@ export function ProjectChatRow(
                 fontWeight: 'var(--font-weight-medium)',
                 fontSize:   '13px',
                 lineHeight: '20px',
-                color:      '#857a72',
+                color:      'var(--neutral-500)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -484,7 +484,7 @@ export function ProjectChatRow(
                 inset:         0,
                 pointerEvents: 'none',
                 borderRadius:  '8px',
-                boxShadow:     'inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+                boxShadow:     'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
               }}
             />
           )}

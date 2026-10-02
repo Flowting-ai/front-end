@@ -527,7 +527,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >
@@ -601,7 +601,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >
@@ -684,7 +684,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >

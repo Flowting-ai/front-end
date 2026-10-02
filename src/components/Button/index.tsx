@@ -293,7 +293,7 @@ export function Button({
                 <feGaussianBlur stdDeviation={8} />
               </filter>
               <mask id={maskId} maskUnits="userSpaceOnUse" x="-200" y="-200" width="600" height="600">
-                <circle ref={circleRef} cx="0" cy="0" r="0" fill="white" filter={`url(#${blurId})`} visibility="hidden" />
+                <circle ref={circleRef} cx="0" cy="0" r="0" fill="var(--static-white)" filter={`url(#${blurId})`} visibility="hidden" />
               </mask>
             </defs>
           </svg>

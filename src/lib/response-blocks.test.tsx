@@ -44,7 +44,7 @@ describe("structured response blocks", () => {
     expect(html).toContain("Risk categories")
     expect(html).toContain("DS handoff timing")
     expect(html).toContain("First user batch")
-    expect(html).toContain("border-left:3px solid #C8920A")
+    expect(html).toContain("border-left:3px solid var(--warning-500)")
     expect(html).toContain("border-radius:99px")
     expect(html).toContain("font-family:var(--font-body)")
   })

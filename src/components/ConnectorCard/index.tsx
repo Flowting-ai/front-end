@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 // ── Shadows — exact values from ConnectorRow ──────────────────────────────────
 const SHADOW_CARD = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_ICON = '0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.5), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 50%, transparent), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

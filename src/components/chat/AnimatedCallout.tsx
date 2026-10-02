@@ -13,11 +13,11 @@ import { HIcon, InlineMd } from "./response-blocks-shared";
 // �"��"� AnimatedCallout �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 const CALLOUT_CFG = {
-  info:    { bg: "rgba(13,110,178,0.07)",  border: "#0D6EB2", icon: InformationCircleIcon, color: "var(--blue-600)" },
-  warning: { bg: "rgba(200,146,10,0.08)",  border: "#C8920A", icon: Alert01Icon,           color: "#C8920A" },
-  success: { bg: "rgba(128,183,7,0.07)",   border: "#80B707", icon: CheckmarkCircle01Icon, color: "#80B707" },
-  error:   { bg: "rgba(200,50,50,0.07)",   border: "#C83232", icon: Cancel01Icon,          color: "#C83232" },
-  tip:     { bg: "rgba(104,61,27,0.07)",   border: "#683D1B", icon: Idea01Icon,            color: "var(--brown-700)" },
+  info:    { bg: "color-mix(in srgb, var(--blue-600) 7%, transparent)",  border: "var(--blue-600)", icon: InformationCircleIcon, color: "var(--blue-600)" },
+  warning: { bg: "color-mix(in srgb, var(--warning-500) 8%, transparent)",  border: "var(--warning-500)", icon: Alert01Icon,           color: "var(--warning-500)" },
+  success: { bg: "color-mix(in srgb, var(--green-600) 7%, transparent)",   border: "var(--green-600)", icon: CheckmarkCircle01Icon, color: "var(--green-600)" },
+  error:   { bg: "color-mix(in srgb, var(--red-500) 7%, transparent)",   border: "var(--red-500)", icon: Cancel01Icon,          color: "var(--red-500)" },
+  tip:     { bg: "color-mix(in srgb, var(--brown-700) 7%, transparent)",   border: "var(--brown-700)", icon: Idea01Icon,            color: "var(--brown-700)" },
 } as const;
 
 /** How long the callout holds the sequence before the next block starts. A flat

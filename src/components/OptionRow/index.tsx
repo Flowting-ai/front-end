@@ -28,13 +28,13 @@ export interface OptionRowProps extends React.HTMLAttributes<HTMLDivElement> {
 // ── Token shorthands ──────────────────────────────────────────────────────────
 
 const BG_WHITE       = 'var(--neutral-white, white)'
-const BG_NEUTRAL_50  = 'var(--neutral-50, #FFFFFF)'
+const BG_NEUTRAL_50  = 'var(--neutral-50)'
 const BG_NEUTRAL_100 = 'var(--neutral-100, #F5F5F5)'
 const BORDER_BLUE    = '1px solid var(--focus-ring)'
 
 // Shadow for the numbered badge - shared constant
 const BADGE_OUTER_SHADOW = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
-const BADGE_INNER_SHADOW = 'inset 0px 1px 0px 0px rgba(255, 255, 255,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+const BADGE_INNER_SHADOW = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 // Shadow for the check/checkbox badge - white with yellow inner glow
 const CHECK_INNER_SHADOW = 'inset 0px 1px 0px 0px var(--yellow-200, #d8c9a7), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 

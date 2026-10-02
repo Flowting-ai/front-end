@@ -135,7 +135,7 @@ const StatusBadge = ({ label, variant = 'neutral', onClick }: { label: string; v
     background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
     boxShadow:      isBlue
       ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
-      : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(255, 255, 255,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+      : '0px 1px 1.5px 0px var(--neutral-950-20), 0px 0px 0px 1px color-mix(in srgb, var(--neutral-600) 50%, transparent), inset 0px 1px 0px 0px var(--neutral-white-70), inset 0px -1px 0px 0px color-mix(in srgb, var(--neutral-600) 10%, transparent)',
     flexShrink:     0,
     cursor:         clickable ? 'pointer' : 'default',
   }

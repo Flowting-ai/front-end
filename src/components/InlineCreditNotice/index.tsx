@@ -29,7 +29,7 @@ const LEVEL_TOKENS: Record<Level, { bg: string; text: string; border: string; Ic
 // plus a hairline ring in the level's own border color, instead of a flat
 // CSS border.
 const elevation = (border: string) =>
-  `0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 6px 16px -4px rgba(38,33,30,0.10), 0px 0px 0px 1px ${border}`
+  `0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 6px 16px -4px var(--neutral-900-10), 0px 0px 0px 1px ${border}`
 
 interface NoticeConfig {
   level:     Level
@@ -161,7 +161,7 @@ export function InlineCreditNotice({
             borderRadius:    7,
             backgroundColor: 'var(--neutral-white)',
             color:           'var(--neutral-600)',
-            boxShadow:       '0px 1px 2px rgba(0,0,0,0.08), inset 0px 1px 0px rgba(255,255,255,0.9)',
+            boxShadow:       '0px 1px 2px color-mix(in srgb, var(--static-black) 8%, transparent), inset 0px 1px 0px color-mix(in srgb, var(--static-white) 90%, transparent)',
             cursor:          'pointer',
             flexShrink:      0,
             padding:         0,

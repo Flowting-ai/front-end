@@ -72,7 +72,7 @@ export function ScheduleCard({
   const [focused, setFocused] = useState(false)
 
   const backgroundColor = focused
-    ? 'rgba(74,131,191,0.07)'
+    ? 'color-mix(in srgb, var(--blue-500) 7%, transparent)'
     : hovered
       ? 'var(--neutral-50)'
       : 'var(--neutral-white)'
@@ -128,7 +128,7 @@ export function ScheduleCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {drift && (
             <span title="This schedule's last edit may not have fully synced">
-              <AlertTwoIcon size={14} color="var(--yellow-600, #ca8a04)" />
+              <AlertTwoIcon size={14} color="var(--yellow-600)" />
             </span>
           )}
           {isRunning && <Badge color="Blue" label="Running" />}

@@ -40,8 +40,8 @@ function ToneCard({
         borderRadius: "16px",
         backgroundColor: "var(--neutral-white)",
         boxShadow: selected
-          ? "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px #26211e"
-          : "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
+          ? "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--neutral-900)"
+          : "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)",
         cursor: "pointer",
         border: "none",
         textAlign: "left",
@@ -57,13 +57,13 @@ function ToneCard({
           width: 65,
           height: 65,
           borderRadius: "8px",
-          backgroundColor: "#cfbeac",
+          backgroundColor: "var(--brown-200)",
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           boxShadow:
-            "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #F5F5F5",
+            "0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)",
         }}
       >
         <span
@@ -71,7 +71,7 @@ function ToneCard({
             fontFamily: "var(--font-title)",
             fontWeight: 400,
             fontSize: "18px",
-            color: "rgba(255,255,255,0.9)",
+            color: "var(--neutral-white-90)",
             letterSpacing: "0.5px",
           }}
         >
@@ -99,7 +99,7 @@ function ToneCard({
             fontWeight: 400,
             fontSize: "14px",
             lineHeight: "22px",
-            color: "#857a72",
+            color: "var(--neutral-500)",
             margin: 0,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -171,7 +171,7 @@ export default function OnboardingTonePage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "var(--neutral-50, #FFFFFF)",
+        backgroundColor: "var(--neutral-50)",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- decorative background; Next Image doesn't support SVG patterns with embedded raster images */}
@@ -197,7 +197,7 @@ export default function OnboardingTonePage() {
             fontWeight: 400,
             fontSize: "24px",
             lineHeight: "32px",
-            color: "#000",
+            color: "var(--static-black)",
             margin: 0,
           }}
         >

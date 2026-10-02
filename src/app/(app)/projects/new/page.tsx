@@ -272,7 +272,7 @@ function NewProjectPageInner() {
                 fontWeight:  'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:  '16px',
-                color:       '#857a72',
+                color:       'var(--neutral-500)',
                 margin:      0,
               }}
             >
@@ -334,7 +334,7 @@ function NewProjectPageInner() {
                 />
               )}
             </div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: '12px', lineHeight: '16px', color: '#857a72', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
               {tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
             </p>
           </div>

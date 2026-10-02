@@ -1,0 +1,2468 @@
+[
+  {
+    "value": "rgba(82, 75, 71, 0.12)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 151,
+    "files": 87,
+    "note": "111 of 151 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-700-12) (exact)."
+  },
+  {
+    "value": "#F5F5F5",
+    "proposed": "var(--neutral-100)",
+    "confidence": "close",
+    "dE": 2.1,
+    "uses": 45,
+    "files": 22,
+    "note": "light colour shifts #F5F5F5 → #F5F2EF (25 of 45 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.05)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 43,
+    "files": 24,
+    "note": "26 of 43 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-05) (exact)."
+  },
+  {
+    "value": "rgba(38, 33, 30, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 32,
+    "files": 20,
+    "note": "26 of 32 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-900-15) (exact)."
+  },
+  {
+    "value": "#524B47",
+    "proposed": "var(--neutral-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 28,
+    "files": 19,
+    "note": "(3 of 28 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "#26211E",
+    "proposed": "var(--neutral-900)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 28,
+    "files": 18,
+    "note": "(3 of 28 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "#6A625D",
+    "proposed": "var(--neutral-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 25,
+    "files": 10,
+    "note": ""
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.3)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 24,
+    "files": 16,
+    "note": "15 of 24 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-30) (exact)."
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 19,
+    "files": 14,
+    "note": "14 of 19 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-10) (exact)."
+  },
+  {
+    "value": "#827A74",
+    "proposed": "var(--neutral-500)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 17,
+    "files": 8,
+    "note": "(2 of 17 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.4)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 15,
+    "files": 13,
+    "note": "10 of 15 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-40) (exact)."
+  },
+  {
+    "value": "rgba(212, 212, 212, 0.4)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 15,
+    "files": 12,
+    "note": "10 of 15 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-200) 40%, transparent) (near). base colour #D4D4D4 → #E4E0DC"
+  },
+  {
+    "value": "#9C938B",
+    "proposed": "var(--neutral-400)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 14,
+    "files": 8,
+    "note": ""
+  },
+  {
+    "value": "#E5E5E5",
+    "proposed": "var(--neutral-200)",
+    "confidence": "close",
+    "dE": 3,
+    "uses": 14,
+    "files": 7,
+    "note": "light colour shifts #E5E5E5 → #E4E0DC (2 of 14 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(2, 15, 24, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 12,
+    "files": 12,
+    "note": "8 of 12 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--blue-950-20) (exact)."
+  },
+  {
+    "value": "#FFFFFF",
+    "proposed": "var(--neutral-white)  — or keep pinned",
+    "confidence": "decide",
+    "dE": 0,
+    "uses": 12,
+    "files": 5,
+    "note": "surface → neutral-white (dark: #1C1613). White TEXT on a coloured fill must stay white (neutral-50/white both flip to dark)."
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 11,
+    "files": 11,
+    "note": "10 of 11 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 15%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(106, 98, 93, 0.05)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 11,
+    "files": 9,
+    "note": "7 of 11 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-600-05) (exact)."
+  },
+  {
+    "value": "#120C08",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 10,
+    "files": 9,
+    "note": "6 of 10 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-950) (exact)."
+  },
+  {
+    "value": "rgba(130, 122, 116, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 10,
+    "files": 10,
+    "note": "10 of 10 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-500) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(13, 110, 178, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 9,
+    "files": 9,
+    "note": "9 of 9 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--blue-600-50) (exact)."
+  },
+  {
+    "value": "rgba(229, 229, 229, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 9,
+    "files": 8,
+    "note": "7 of 9 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-200) 50%, transparent) (close). base colour #E5E5E5 → #E4E0DC"
+  },
+  {
+    "value": "#EDE1D7",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 9,
+    "files": 1,
+    "note": "8 of 9 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-200) (near). light colour shifts #EDE1D7 → #E4E0DC"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.12)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 9,
+    "files": 7,
+    "note": "9 of 9 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-800) 12%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#DC2626",
+    "proposed": "var(--danger-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 8,
+    "files": 5,
+    "note": ""
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.18)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 8,
+    "files": 8,
+    "note": "7 of 8 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 18%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(38, 33, 30, 0.16)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 7,
+    "files": 7,
+    "note": "5 of 7 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-900-15) (close). alpha 0.16 → 0.15"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.08)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 7,
+    "files": 5,
+    "note": "5 of 7 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-800) 8%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(24, 2, 2, 0.05)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 7,
+    "files": 5,
+    "note": "7 of 7 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 5%, transparent) (near). base colour #180202 → #120C08"
+  },
+  {
+    "value": "rgba(24, 2, 2, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 7,
+    "files": 5,
+    "note": "7 of 7 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 15%, transparent) (near). base colour #180202 → #120C08"
+  },
+  {
+    "value": "#3B3632",
+    "proposed": "var(--neutral-800)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 7,
+    "files": 5,
+    "note": "(1 of 7 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(20, 12, 5, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 6,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 20%, transparent) (close). base colour #140C05 → #120C08"
+  },
+  {
+    "value": "rgba(126, 84, 53, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 6,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--brown-600) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(250, 241, 235, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 6,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-100) 70%, transparent) (close). base colour #FAF1EB → #F5F2EF"
+  },
+  {
+    "value": "rgba(126, 84, 53, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 6,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--brown-600) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(20, 16, 5, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 6,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 20%, transparent) (near). base colour #141005 → #120C08"
+  },
+  {
+    "value": "rgba(26, 23, 20, 0.24)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 4,
+    "note": "6 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 24%, transparent) (near). base colour #1A1714 → #120C08"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.09)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 6,
+    "files": 5,
+    "note": "4 of 6 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 9%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(231, 244, 253, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "5 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--blue-50-70) (exact)."
+  },
+  {
+    "value": "rgba(13, 110, 178, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "5 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--blue-600-10) (exact)."
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 3,
+    "note": "4 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-950-20) (exact)."
+  },
+  {
+    "value": "rgba(106, 98, 93, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 3,
+    "note": "4 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-600) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(128, 183, 7, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "3 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--green-600) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(250, 246, 235, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "3 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-100) 70%, transparent) (near). base colour #FAF6EB → #F5F2EF"
+  },
+  {
+    "value": "rgba(143, 116, 39, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "3 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--yellow-600) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#0D6EB2",
+    "proposed": "var(--blue-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 5,
+    "files": 4,
+    "note": "(2 of 5 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(130, 122, 116, 0.12)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 5,
+    "note": "5 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-500-12) (exact)."
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.08)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 5,
+    "files": 4,
+    "note": "5 of 5 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 8%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#6E98CB",
+    "proposed": "var(--blue-400)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 4,
+    "files": 2,
+    "note": "(1 of 4 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "#FFF5F5",
+    "proposed": "var(--neutral-100)",
+    "confidence": "near",
+    "dE": 3.4,
+    "uses": 4,
+    "files": 3,
+    "note": "light colour shifts #FFF5F5 → #F5F2EF"
+  },
+  {
+    "value": "rgba(143, 116, 39, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "4 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--yellow-600) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(17, 25, 1, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "3 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--green-950) 20%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(247, 254, 230, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "3 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--green-50) 70%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(128, 183, 7, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "3 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--green-600) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.06)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 3,
+    "note": "3 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 6%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.28)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "3 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-800) 28%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.05)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 4,
+    "note": "4 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 5%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.07)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 3,
+    "note": "4 of 4 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 7%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#5E6AD2",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 4,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(38, 33, 30, 0.18)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 3,
+    "note": "3 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-900) 18%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.10)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 3,
+    "note": "2 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-10) (exact)."
+  },
+  {
+    "value": "#CADCF1",
+    "proposed": "var(--blue-100)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 3,
+    "files": 3,
+    "note": "(1 of 3 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(74, 131, 191, 0.25)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 3,
+    "note": "3 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-500) 25%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#F87171",
+    "proposed": "var(--danger-400)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 3,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "#6D5921",
+    "proposed": "var(--yellow-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 3,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "rgba(114, 105, 98, 0.08)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 1,
+    "note": "3 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-600) 8%, transparent) (near). base colour #726962 → #6A625D"
+  },
+  {
+    "value": "#C62B29",
+    "proposed": "var(--red-500)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 3,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 2,
+    "note": "2 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-800) 20%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#A09890",
+    "proposed": "var(--neutral-400)",
+    "confidence": "close",
+    "dE": 1.9,
+    "uses": 3,
+    "files": 2,
+    "note": "light colour shifts #A09890 → #9C938B"
+  },
+  {
+    "value": "#004A97",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EF4444",
+    "proposed": "var(--danger-500)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 3,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.06)",
+    "proposed": "var(--neutral-800-05)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 3,
+    "files": 2,
+    "note": "alpha 0.06 → 0.05 (1 of 3 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(18, 60, 95, 0.65)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 3,
+    "files": 3,
+    "note": "3 of 3 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-800) 65%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#D4D4D4",
+    "proposed": "var(--neutral-200)",
+    "confidence": "near",
+    "dE": 5.1,
+    "uses": 2,
+    "files": 2,
+    "note": "light colour shifts #D4D4D4 → #E4E0DC"
+  },
+  {
+    "value": "rgba(106, 98, 93, 0.1)",
+    "proposed": "color-mix(in srgb, var(--neutral-600) 10%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 2,
+    "files": 2,
+    "note": "no opacity primitive for this alpha — consider adding one (1 of 2 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(110, 152, 203, 0.85)",
+    "proposed": "color-mix(in srgb, var(--blue-400) 85%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 2,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#EFF6FF",
+    "proposed": "var(--neutral-50)",
+    "confidence": "near",
+    "dE": 6.2,
+    "uses": 2,
+    "files": 2,
+    "note": "light colour shifts #EFF6FF → #FFFFFF"
+  },
+  {
+    "value": "#BFDBFE",
+    "proposed": "var(--info-200)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 2,
+    "files": 2,
+    "note": "(1 of 2 uses are inside a shadow — leave those pinned.)"
+  },
+  {
+    "value": "rgba(238, 48, 48, 0.22)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--red-400) 22%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#FECACA",
+    "proposed": "var(--danger-200)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 2,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "#135487",
+    "proposed": "var(--blue-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 2,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "#16A34A",
+    "proposed": "var(--success-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 2,
+    "files": 2,
+    "note": ""
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.18)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 18%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.10)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#E21836",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#999999",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.14)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-15) (close). alpha 0.14 → 0.15"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-50) (exact)."
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.22)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 22%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(30, 28, 27, .28)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 2,
+    "note": "2 of 2 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-900) 28%, transparent) (near). base colour #1E1C1B → #26211E"
+  },
+  {
+    "value": "#111111",
+    "proposed": "var(--neutral-950)",
+    "confidence": "near",
+    "dE": 3,
+    "uses": 2,
+    "files": 1,
+    "note": "light colour shifts #111111 → #120C08"
+  },
+  {
+    "value": "#000000",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E01E5A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#36C5F0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#2EB67D",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#ECB22E",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 2,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#C2600F",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--warning-700) (near). light colour shifts #C2600F → #B45309"
+  },
+  {
+    "value": "#9CA3AF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-400) (review). light colour shifts #9CA3AF → #9C938B"
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.45)",
+    "proposed": "color-mix(in srgb, var(--neutral-700) 45%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(255, 255, 255, 0.7)",
+    "proposed": "var(--neutral-white-70)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#FFEDD5",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--yellow-100) (near). light colour shifts #FFEDD5 → #E9DFC9"
+  },
+  {
+    "value": "#C2410C",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--warning-700) (review). light colour shifts #C2410C → #B45309"
+  },
+  {
+    "value": "rgba(194, 65, 12, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--warning-700) 20%, transparent) (review). base colour #C2410C → #B45309"
+  },
+  {
+    "value": "rgba(110, 152, 203, 0.08)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-400) 8%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(110, 152, 203, 0.35)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-400) 35%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(110, 152, 203, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-400) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#3B6FA8",
+    "proposed": "var(--blue-600)",
+    "confidence": "near",
+    "dE": 7.5,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #3B6FA8 → #0D6EB2"
+  },
+  {
+    "value": "rgba(110, 152, 203, 0.4)",
+    "proposed": "color-mix(in srgb, var(--blue-400) 40%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.07)",
+    "proposed": "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#2563EB",
+    "proposed": "var(--info-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "rgba(220, 38, 38, 0.4)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--danger-600) 40%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.08)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 8%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(17, 25, 1, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--green-950) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(38, 33, 30, 0.55)",
+    "proposed": "color-mix(in srgb, var(--neutral-900) 55%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#FFBFB6",
+    "proposed": "var(--red-100)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#7A201C",
+    "proposed": "var(--red-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#C7B387",
+    "proposed": "var(--yellow-300)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#0485F7",
+    "proposed": "var(--info-500)",
+    "confidence": "near",
+    "dE": 4.9,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #0485F7 → #3B82F6"
+  },
+  {
+    "value": "#EE3030",
+    "proposed": "var(--red-400)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-800-15) (exact)."
+  },
+  {
+    "value": "rgba(13, 110, 178, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--blue-600) 15%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, .03)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 3%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(82, 75, 71, .14)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-700-15) (close). alpha 0.14 → 0.15"
+  },
+  {
+    "value": "rgba(82, 75, 71, .12)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-700-12) (exact)."
+  },
+  {
+    "value": "rgba(82, 75, 71, 0.04)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-700) 4%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#DCD1C8",
+    "proposed": "var(--neutral-300)",
+    "confidence": "near",
+    "dE": 5.9,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #DCD1C8 → #C9C4BF"
+  },
+  {
+    "value": "#8A8078",
+    "proposed": "var(--neutral-500)",
+    "confidence": "close",
+    "dE": 2.8,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #8A8078 → #827A74"
+  },
+  {
+    "value": "#BFDA84",
+    "proposed": "var(--green-300)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#EEF4FB",
+    "proposed": "var(--neutral-50)",
+    "confidence": "near",
+    "dE": 5.8,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #EEF4FB → #FFFFFF"
+  },
+  {
+    "value": "rgba(24, 2, 2, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 20%, transparent) (near). base colour #180202 → #120C08"
+  },
+  {
+    "value": "rgba(159, 38, 35, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--red-600-51) (close). alpha 0.50 → 0.51"
+  },
+  {
+    "value": "rgba(253, 231, 231, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-100) 70%, transparent) (near). base colour #FDE7E7 → #F5F2EF"
+  },
+  {
+    "value": "rgba(159, 38, 35, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--red-600) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(10, 2, 24, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 20%, transparent) (review). base colour #0A0218 → #120C08"
+  },
+  {
+    "value": "rgba(109, 40, 217, 0.5)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--violet-700) 50%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "rgba(237, 233, 254, 0.7)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-100) 70%, transparent) (review). base colour #EDE9FE → #F5F2EF"
+  },
+  {
+    "value": "rgba(109, 40, 217, 0.1)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--violet-700) 10%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#6D28D9",
+    "proposed": "var(--violet-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "rgba(0, 0, 0, 0.2)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#1A1F71",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#252525",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#006FCF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EB001B",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F79E1B",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FF5F00",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FF6600",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#0E4C96",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#007B40",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#BBBBBB",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(220, 195, 140, 0.6)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--yellow-300) 60%, transparent) (review). base colour #DCC38C → #C7B387"
+  },
+  {
+    "value": "rgba(220, 195, 140, 0.25)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--yellow-300) 25%, transparent) (review). base colour #DCC38C → #C7B387"
+  },
+  {
+    "value": "#D8C9A7",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--yellow-200) (exact)."
+  },
+  {
+    "value": "#8A7F79",
+    "proposed": "var(--neutral-500)",
+    "confidence": "close",
+    "dE": 2.5,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #8A7F79 → #827A74"
+  },
+  {
+    "value": "#4A4A4A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#030303",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#8CC8FF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#0A4FB0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#B4CEF0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#2F5F9E",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#D9A28A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#8A3F22",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#A9C7B9",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#2F6A55",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#C3BDE6",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#4B4392",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(212, 212, 212, 0.3)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-200) 30%, transparent) (near). base colour #D4D4D4 → #E4E0DC"
+  },
+  {
+    "value": "#1D4ED8",
+    "proposed": "var(--info-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "rgba(38, 33, 30, 0.04)",
+    "proposed": "color-mix(in srgb, var(--neutral-900) 4%, transparent)",
+    "confidence": "close",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": "no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#1E1A17",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--neutral-900) (near). light colour shifts #1E1A17 → #26211E"
+  },
+  {
+    "value": "rgba(59, 54, 50, 0.35)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-800) 35%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#683D1B",
+    "proposed": "var(--brown-700)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#80B707",
+    "proposed": "var(--green-600)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#EEF5FC",
+    "proposed": "var(--neutral-50)",
+    "confidence": "near",
+    "dE": 5.7,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #EEF5FC → #FFFFFF"
+  },
+  {
+    "value": "#A8CDEC",
+    "proposed": "var(--blue-200)",
+    "confidence": "near",
+    "dE": 4.3,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #A8CDEC → #ACC5E4"
+  },
+  {
+    "value": "rgba(18, 12, 8, 0.28)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: color-mix(in srgb, var(--neutral-950) 28%, transparent) (close). no opacity primitive for this alpha — consider adding one"
+  },
+  {
+    "value": "#FFF8E8",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FFFDF8",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F8EBDD",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#D98A21",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(217, 138, 33, 0.18)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(244, 177, 61, 0.30)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#7B4C16",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F2F7FC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FCFAF7",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EEE8E0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#6684A5",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(102, 132, 165, 0.16)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(123, 161, 199, 0.25)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#3F5870",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F1F2F3",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FCFBFA",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E9E6E2",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#75808A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(117, 128, 138, 0.16)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(144, 153, 162, 0.24)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#505961",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EAF3FA",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F8FBFC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E5ECF2",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#3979A7",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(57, 121, 167, 0.16)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(71, 142, 193, 0.24)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#285A7D",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#ECEAF1",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F8F7FA",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E3DFE8",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#6D5C91",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(109, 92, 145, 0.16)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(114, 90, 161, 0.24)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#4F426B",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#ECF7FA",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E7F0F4",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#5C92A8",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(92, 146, 168, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(114, 180, 204, 0.22)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#416B7B",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F0F0ED",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FCFBF8",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E8E6E1",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#7F817D",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(127, 129, 125, 0.14)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(154, 155, 151, 0.22)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#5C5E5A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EDF7F5",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FAFCFB",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E5EFEC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#4D8B7B",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(77, 139, 123, 0.15)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(83, 158, 139, 0.22)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#356558",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F5F1EC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FFFDFC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EEE9E3",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#82766C",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(130, 118, 108, 0.14)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(149, 134, 121, 0.20)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#5F564F",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "rgba(255, 255, 255, 0.72)",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E2D9D1",
+    "proposed": "var(--neutral-200)",
+    "confidence": "near",
+    "dE": 3.6,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #E2D9D1 → #E4E0DC"
+  },
+  {
+    "value": "#E1E1E1",
+    "proposed": "var(--neutral-200)",
+    "confidence": "close",
+    "dE": 2.5,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #E1E1E1 → #E4E0DC"
+  },
+  {
+    "value": "#222222",
+    "proposed": "var(--neutral-900)",
+    "confidence": "near",
+    "dE": 3.4,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #222222 → #26211E"
+  },
+  {
+    "value": "#888888",
+    "proposed": "var(--neutral-500)",
+    "confidence": "near",
+    "dE": 6.9,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #888888 → #827A74"
+  },
+  {
+    "value": "#666666",
+    "proposed": "var(--neutral-600)",
+    "confidence": "near",
+    "dE": 4.7,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #666666 → #6A625D"
+  },
+  {
+    "value": "#444444",
+    "proposed": "var(--neutral-700)",
+    "confidence": "near",
+    "dE": 5.4,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #444444 → #524B47"
+  },
+  {
+    "value": "#555555",
+    "proposed": "var(--neutral-700)",
+    "confidence": "near",
+    "dE": 5.5,
+    "uses": 1,
+    "files": 1,
+    "note": "light colour shifts #555555 → #524B47"
+  },
+  {
+    "value": "#92400E",
+    "proposed": "var(--warning-800)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#4FACDE",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#2D8BBF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#9B6FE0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#7B4FC0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F59542",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#D4742A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#4CAF78",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#2D8F58",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#E06060",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#B83C3C",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#60A8E0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#3C80C0",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#22C55E",
+    "proposed": "var(--success-500)",
+    "confidence": "exact",
+    "dE": 0,
+    "uses": 1,
+    "files": 1,
+    "note": ""
+  },
+  {
+    "value": "#FEF08A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "1 of 1 uses are inside a shadow — mapping would turn the shadow into a light glow in dark mode. Was: var(--warning-200) (near). light colour shifts #FEF08A → #FDE68A"
+  },
+  {
+    "value": "#7856FF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#EA4335",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#4285F4",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F24E1E",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#181717",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#18BFFF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#F06A6A",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#0052CC",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FF7A59",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#635BFF",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#FF4F00",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#03363D",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#1F8EED",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  },
+  {
+    "value": "#146EF5",
+    "proposed": "keep",
+    "confidence": "keep",
+    "dE": null,
+    "uses": 1,
+    "files": 1,
+    "note": "only used in brand / illustration / avatar-art files"
+  }
+]

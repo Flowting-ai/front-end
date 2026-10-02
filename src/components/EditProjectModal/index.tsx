@@ -185,7 +185,7 @@ export function EditProjectModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            backgroundColor: 'rgba(26,23,20,0.4)',
+            backgroundColor: 'color-mix(in srgb, var(--neutral-950) 40%, transparent)',
             backdropFilter:  'blur(2px)',
           }}
         >
@@ -291,7 +291,7 @@ export function EditProjectModal({
                             padding:         '8px 12px',
                             borderRadius:    '10px',
                             border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-200)',
-                            background:      selected ? 'rgba(59,134,246,0.06)' : 'var(--neutral-white)',
+                            background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
                             cursor:          'pointer',
                             textAlign:       'left',
                           }}

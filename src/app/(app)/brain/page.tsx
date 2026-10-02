@@ -436,8 +436,8 @@ function AttachmentChips({ attachments }: { attachments: UserAttachment[] }) {
               gap:             '5px',
               padding:         '4px 8px',
               borderRadius:    '8px',
-              backgroundColor: 'rgba(59,54,50,0.07)',
-              border:          '1px solid rgba(59,54,50,0.10)',
+              backgroundColor: 'color-mix(in srgb, var(--neutral-800) 7%, transparent)',
+              border:          '1px solid var(--neutral-800-10)',
               maxWidth:        '220px',
             }}
           >
@@ -773,7 +773,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       </span>
 
       {error && (
-        <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--color-tag-Red-text, #c0392b)' }}>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--color-tag-Red-text, var(--red-500))' }}>
           {error}
         </span>
       )}
@@ -979,9 +979,9 @@ function BrainGeneratedImage({ url, index }: { url: string; index: number }) {
           width:          28,
           height:         28,
           borderRadius:   8,
-          background:     'rgba(0,0,0,0.55)',
+          background:     'color-mix(in srgb, var(--static-black) 55%, transparent)',
           backdropFilter: 'blur(4px)',
-          color:          '#fff',
+          color:          'var(--static-white)',
           textDecoration: 'none',
           opacity:        hovered ? 1 : 0,
           transition:     'opacity 0.15s',

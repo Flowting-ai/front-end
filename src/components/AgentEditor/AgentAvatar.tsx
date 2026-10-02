@@ -54,7 +54,7 @@ export function AgentAvatar({
           transition:      'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />
-      <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: '#FFFFFF' }}>
+      <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
         <AnimatedPersonaAvatar
           size={size}
           radius="50%"

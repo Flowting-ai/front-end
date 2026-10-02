@@ -80,7 +80,7 @@ function PromptButton({
   const variants: Record<string, React.CSSProperties> = {
     primary: {
       backgroundColor: 'var(--neutral-900)',
-      color:           '#fff',
+      color:           'var(--static-white)',
     },
     outline: {
       backgroundColor: 'transparent',
@@ -227,8 +227,8 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
       <PromptCard>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="8" fill="#22C55E" />
-            <path d="M4.5 8.5L7 11L11.5 6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="8" cy="8" r="8" fill="var(--success-500)" />
+            <path d="M4.5 8.5L7 11L11.5 6" stroke="var(--static-white)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
             {prompt.connector.name} connected
@@ -316,7 +316,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                         outline:         'none',
                         width:           '100%',
                         boxSizing:       'border-box',
-                        backgroundColor: 'var(--neutral-0, #fff)',
+                        backgroundColor: 'var(--neutral-0, var(--static-white))',
                       }}
                     />
                   </div>
