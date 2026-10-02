@@ -4,7 +4,7 @@ import React from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/Button'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
-import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
+import { AgentAvatar } from './AgentAvatar'
 import { AGENT_EDIT_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { BOX_STYLE, HINT_STYLE } from './styles'
 
@@ -35,12 +35,7 @@ export function AgentCreatedCard({ agent, published, inUse, onUse }: AgentCreate
         {published ? 'Your agent is ready and saved.' : 'Your agent was created but isn’t live yet.'}
       </p>
       <div style={{ ...BOX_STYLE, borderRadius: 16, padding: 14, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- avatar may be a signed remote URL */}
-        <img
-          src={agent.imageUrl ?? getPersonaFallbackAvatar(agent.id)}
-          alt=""
-          style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
-        />
+        <AgentAvatar name={agent.name} repoId={agent.id} size={48} />
         <div style={{ flex: '1 1 220px', minWidth: 0 }}>
           <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)' }}>{agent.name}</p>
           <p style={{ ...HINT_STYLE, fontSize: 13, lineHeight: '20px' }}>{agent.handle}</p>

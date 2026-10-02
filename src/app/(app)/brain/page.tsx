@@ -30,6 +30,10 @@ import {
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
+import { AgentCreatedCard } from '@/components/AgentEditor/AgentCreatedCard'
+import { CreateAgentInChat, toComposerAgent, type CreatedInChat } from '@/components/AgentEditor/CreateAgentInChat'
+import { detectCreateAgentIntent } from '@/lib/agent-intent'
+import type { SelectedPersonaInfo as CreatedAgentInfo } from '@/lib/chat-personas'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
@@ -2612,12 +2616,46 @@ function BrainPageInner() {
     queueMicrotask(() => seedBrainInput(prompt))
   }, [searchParams, seedBrainInput])
 
+  // ── Create-an-agent in a task ─────────────────────────────────────────────────
+  // "Create an agent that…" opens the same dialog as chat instead of going to the model;
+  // once the agent exists, the request and an agent card are added to the thread. Cards
+  // are local to this session (like chat's), positioned after the last turn that existed
+  // when they were created so a later turn doesn't jump above them.
+  const [agentCreator, setAgentCreator] = useState<{ purpose: string; message: string; sendAnyway: () => void } | null>(null)
+  const [agentCardTurns, setAgentCardTurns] = useState<Array<{ key: string; atTurn: number; message: string; persona: CreatedAgentInfo; published: boolean }>>([])
+  const skipCreateIntentRef = useRef(false)
+  const handleSendRef = useRef<(value: string) => void>(() => {})
+
+  // Switching to a different existing task drops the previous task's cards. (null → id is the
+  // first message of a new task creating its chat, which must keep them.)
+  const prevCardChatIdRef = useRef(chatId)
+  useEffect(() => {
+    const prev = prevCardChatIdRef.current
+    prevCardChatIdRef.current = chatId
+    if (prev !== null && prev !== chatId) setAgentCardTurns([])
+  }, [chatId])
+
   // ── Send handler ──────────────────────────────────────────────────────────────
 
   const handleSend = useCallback((value: string) => {
     // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
     // already disabled, so block silently.
     if (creditStatus.blocked) return
+
+    // Plain text only, and no agent already attached — same rule as chat.
+    if (skipCreateIntentRef.current) {
+      skipCreateIntentRef.current = false
+    } else if (!selectedPersona && brainAttachments.length === 0) {
+      const intent = detectCreateAgentIntent(value.trim())
+      if (intent) {
+        setAgentCreator({
+          purpose: intent.purpose,
+          message: value,
+          sendAnyway: () => { skipCreateIntentRef.current = true; handleSendRef.current(value) },
+        })
+        return
+      }
+    }
 
     if (PINS_ENABLED && selectedFolders.length > 0 && pinboardLoading) {
       toast.info('Your pin context is still loading. Try sending again in a moment.')
@@ -2698,6 +2736,7 @@ function BrainPageInner() {
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading, timeline, liveToolCalls,
   ])
+  useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
   // ── Clarification prompt handlers ───────────────────────────────────────────
   // user_prompt events (kinds 'choice' / 'input' / 'confirm' / 'permission')
@@ -3532,6 +3571,26 @@ function BrainPageInner() {
     </m.div>
   ))
 
+  // Agent cards created in this task, slotted in after the turns that existed when they were made.
+  const agentCardElement = (card: (typeof agentCardTurns)[number]) => (
+    <m.div key={card.key} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate} style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 40 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        <MessageBubble role="user" content={card.message} maxWidth="75%" />
+      </div>
+      <AgentCreatedCard
+        agent={card.persona}
+        published={card.published}
+        inUse={!!selectedPersona && selectedPersona.activeVersionId === card.persona.activeVersionId}
+        onUse={setSelectedPersona}
+      />
+    </m.div>
+  )
+  const mergedTurnElements: React.ReactNode[] = []
+  for (let i = 0; i <= localTurnElements.length; i++) {
+    for (const card of agentCardTurns) if (Math.min(card.atTurn, localTurnElements.length) === i) mergedTurnElements.push(agentCardElement(card))
+    if (i < localTurnElements.length) mergedTurnElements.push(localTurnElements[i])
+  }
+
   // ── Thread: active turn ───────────────────────────────────────────────────────
 
   // Keep the agent rows visible when Brain asks a mid-turn question.
@@ -4118,7 +4177,7 @@ function BrainPageInner() {
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
-  const hasContent = historyMessages.length > 0 || localTurns.length > 0 || !!userMessage
+  const hasContent = historyMessages.length > 0 || localTurns.length > 0 || !!userMessage || agentCardTurns.length > 0
 
   return (
     <>
@@ -4217,11 +4276,27 @@ function BrainPageInner() {
         <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: 20 }}>
           {!historyLoaded && <ChatMessagesSkeleton />}
           {historyLoaded && historyElements}
-          {historyLoaded && localTurnElements}
+          {historyLoaded && mergedTurnElements}
           {historyLoaded && activeTurnContent}
         </div>
       ) : null}
     </BrainShell>
+    <CreateAgentInChat
+      open={agentCreator !== null}
+      initialPurpose={agentCreator?.purpose ?? ''}
+      originalMessage={agentCreator?.message ?? ''}
+      onClose={() => setAgentCreator(null)}
+      onCreated={({ draft, created, message }: CreatedInChat) => {
+        setAgentCardTurns(prev => [...prev, {
+          key: `agent-card-${created.repoId}`,
+          atTurn: localTurns.length,
+          message,
+          persona: toComposerAgent(draft, created),
+          published: created.published,
+        }])
+      }}
+      onSendAsMessage={() => agentCreator?.sendAnyway()}
+    />
     </>
   )
 }

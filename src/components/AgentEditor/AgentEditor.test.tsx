@@ -39,9 +39,9 @@ function render(over: Partial<React.ComponentProps<typeof AgentEditor>> = {}) {
       handle="contract-reviewer"
       onRegenerateName={noop}
       onRegenerateDescription={noop}
-      onRegenerateAvatar={noop}
+      avatarChoice="guide"
+      onAvatarChoice={noop}
       onRegenerateInstructions={noop}
-      onOpenAdvanced={noop}
       {...over}
     />,
   )
@@ -56,17 +56,21 @@ describe('AgentEditor', () => {
     expect(html).toContain('contract-reviewer')
     expect(html).toContain('Pro Model')
     expect(html).toContain('Live preview')
-    expect(html).toContain('Advanced personalize')
+    // Instructions, tone and creativity are all on the page, so there is no Advanced personalize button.
+    expect(html).not.toContain('Advanced personalize')
     expect(html).toContain('Creativity')
     expect(html).toContain('0.30 · Precise')
   })
 
-  it('offers regenerate for name, description, avatar and instructions when handlers are given', () => {
+  it('offers regenerate for name, description and instructions, and an avatar carousel, when handlers are given', () => {
     const html = render()
     expect(html).toContain('Suggest another name')
     expect(html).toContain('Rewrite from the purpose')
-    expect(html).toContain('Regenerate')
     expect(html).toContain('Generate new instructions')
+    // The avatar is picked from the animated ones now — no upload or regenerate.
+    expect(html).toContain('Change avatar')
+    expect(html).not.toContain('Choose an avatar')
+    expect(html).not.toContain('Upload')
   })
 
   it('hides the name and description regenerate controls when there is no purpose to work from', () => {

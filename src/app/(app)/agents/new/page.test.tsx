@@ -207,7 +207,7 @@ describe('/agents/new', () => {
 
   it('creates and publishes the agent on Finish, then opens its details', async () => {
     await toEditor()
-    await click(byText('Finish — create agent'))
+    await click(byText('Finish Agent Creation'))
 
     expect(api.createPersonaRepo).toHaveBeenCalledTimes(1)
     expect(api.createPersonaRepo).toHaveBeenCalledWith(expect.objectContaining({
@@ -226,7 +226,7 @@ describe('/agents/new', () => {
     let release!: () => void
     api.createPersonaRepo.mockReturnValue(new Promise(resolve => { release = () => resolve({ id: 'repo-1', active_version: { id: 'ver-1', image_url: null } }) }))
     await toEditor()
-    const finish = byText('Finish — create agent')
+    const finish = byText('Finish Agent Creation')
     await click(finish)
     await click(finish)
     await click(finish)
@@ -239,16 +239,16 @@ describe('/agents/new', () => {
   it('re-enables Finish and reports the error when creation fails', async () => {
     api.createPersonaRepo.mockRejectedValue(new Error('boom'))
     await toEditor()
-    await click(byText('Finish — create agent'))
+    await click(byText('Finish Agent Creation'))
     expect(toast.error).toHaveBeenCalledWith('boom')
     expect(nav.push).not.toHaveBeenCalled()
-    expect((byText('Finish — create agent') as HTMLButtonElement).disabled).toBe(false)
+    expect((byText('Finish Agent Creation') as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('sends the user to the editor when the agent was created but could not be published', async () => {
     api.publishPersonaVersion.mockRejectedValue(new Error('nope'))
     await toEditor()
-    await click(byText('Finish — create agent'))
+    await click(byText('Finish Agent Creation'))
     expect(nav.push).toHaveBeenCalledWith('/agents/repo-1/edit')
     expect(toast.warning).toHaveBeenCalled()
   })
@@ -256,7 +256,7 @@ describe('/agents/new', () => {
   it('blocks Finish with a message when a required field is missing', async () => {
     await toEditor()
     await type(document.getElementById('agent-editor-name') as HTMLInputElement, '   ')
-    await click(byText('Finish — create agent'))
+    await click(byText('Finish Agent Creation'))
     expect(toast.error).toHaveBeenCalledWith('Give the agent a name.')
     expect(api.createPersonaRepo).not.toHaveBeenCalled()
   })
@@ -291,7 +291,7 @@ describe('/agents/new', () => {
     await click(byText('Continue'))
     expect(api.enhancePrompt).not.toHaveBeenCalled()
     expect((document.getElementById('agent-editor-name') as HTMLInputElement).value).toBe('Legal Advisor')
-    await click(byText('Finish — create agent'))
+    await click(byText('Finish Agent Creation'))
     expect(api.createPersonaRepo).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Legal Advisor',
       prompt: expect.stringContaining('Tone: Precise & professional'),

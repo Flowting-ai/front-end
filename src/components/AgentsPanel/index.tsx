@@ -4,13 +4,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, CancelCircleIcon, ArrowDownOneIcon, UserAiIcon, PlusSignIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, ArrowDownOneIcon, ArrowLeftOneIcon, UserAiIcon, PlusSignIcon } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
-import { PersonaCard } from '@/components/PersonaCard'
+import { CompactAgentCard } from './CompactAgentCard'
+import { TemplateCardList } from '@/components/chat/TemplateCardList'
+import { AgentDetailsBody } from '@/components/AgentEditor/AgentDetailsSidebar'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { listShares } from '@/lib/api/persona-shares'
 import { useProjectPanel } from '@/context/project-panel-context'
@@ -29,6 +31,9 @@ export function emitAgentSelect(persona: SelectedPersonaInfo) {
   }
 }
 
+/** Breathing room (px) around the panel's clipped content for button shadows and focus rings. */
+const EDGE = 8
+
 type AgentFilter = 'mine' | 'team' | 'superlink'
 
 const FILTER_LABEL: Record<AgentFilter, string> = {
@@ -42,37 +47,24 @@ const FILTER_LABEL: Record<AgentFilter, string> = {
 // branch below stay intact so this can be re-shown without rebuilding it.
 const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']
 
-// Loading placeholder shaped like a PersonaCard row (65px avatar, name/handle,
-// two description lines, a badge pill) so the list doesn't jump when real
-// cards swap in. Uses the shared .kaya-skeleton pulse utility (globals.css).
+// Loading placeholder shaped like a CompactAgentCard row (round avatar, name + one
+// description line) so the list doesn't jump when real cards swap in. Uses the shared
+// .kaya-skeleton pulse utility (globals.css).
 function PersonaCardSkeleton() {
   return (
     <div
       aria-hidden
       style={{
-        width:        '100%',
-        minHeight:    132,
-        borderRadius: 16,
-        boxSizing:    'border-box',
-        padding:      12,
-        display:      'flex',
-        flexDirection: 'column',
-        gap:          10,
+        width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 14,
+        display: 'flex', alignItems: 'center', gap: 12,
         backgroundColor: 'var(--neutral-white)',
-        boxShadow:    '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
+        boxShadow: '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="kaya-skeleton" style={{ width: 40, height: 40, borderRadius: 8, flexShrink: 0 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-          <div className="kaya-skeleton" style={{ height: 14, width: '55%', borderRadius: 6 }} />
-          <div className="kaya-skeleton" style={{ height: 11, width: '35%', borderRadius: 6 }} />
-        </div>
-      </div>
-      <div className="kaya-skeleton" style={{ height: 20, width: '40%', borderRadius: 20 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div className="kaya-skeleton" style={{ height: 11, width: '100%', borderRadius: 6 }} />
-        <div className="kaya-skeleton" style={{ height: 11, width: '70%', borderRadius: 6 }} />
+      <div className="kaya-skeleton" style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+        <div className="kaya-skeleton" style={{ height: 13, width: '50%', borderRadius: 6 }} />
+        <div className="kaya-skeleton" style={{ height: 11, width: '80%', borderRadius: 6 }} />
       </div>
     </div>
   )
@@ -86,6 +78,8 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [filter, setFilter] = useState<AgentFilter>('mine')
   const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+  // The agent whose details are showing (slides in over the list); null = the list.
+  const [detailsId, setDetailsId] = useState<string | null>(null)
   const { personas, loading } = useSelectableChatPersonas(true)
   const { setPanel } = useProjectPanel()
   const router = useRouter()
@@ -160,6 +154,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const handleSelect = (persona: SelectedPersonaInfo) => {
     emitAgentSelect(persona)
     setPanel(null)
+    toast.success(inProject ? `Using “${persona.name}” in this project chat` : `Using “${persona.name}” in this chat`)
   }
 
   const handleManageAgents = () => {
@@ -172,7 +167,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
     router.push(AGENTS_NEW_ROUTE)
   }
 
-  return (
+  const listView = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', flexShrink: 0 }}>
         {/* Filter dropdown - same "view filter" pattern as Pinboard's
@@ -208,7 +203,6 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                         onClick={() => {
                           setFilter(f)
                           setFilterMenuOpen(false)
-                          toast.info(`Showing ${FILTER_LABEL[f]}`)
                         }}
                         fluid
                       />
@@ -302,29 +296,18 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => <PersonaCardSkeleton key={i} />)
             ) : filtered.length > 0 ? (
-              filtered.map(p => (
-                <PersonaCard
-                  key={p.id}
-                  variant="default"
-                  name={p.name}
-                  handle={p.handle}
-                  description={p.description}
-                  tags={p.tags}
-                  paused={p.paused}
-                  // Super Link only — `p.shared` also folds in team-visibility
-                  // sharing, which is hidden from the UI here (isSuperlink(p) is
-                  // already computed independently below for the superlink prop).
-                  shared={isSuperlink(p)}
-                  avatarUrl={p.imageUrl ?? undefined}
-                  avatarSeed={p.id}
-                  // "Team" badge hidden along with the rest of the shared-agent UI.
-                  visibility="private"
-                  superlink={isSuperlink(p)}
-                  onUseInChat={() => handleSelect(p)}
-                  useInChatLabel={inProject ? 'Use in project chat' : undefined}
-                  style={{ width: '100%' }}
-                />
-              ))
+              <TemplateCardList>
+                {filtered.map(p => (
+                  <CompactAgentCard
+                    key={p.id}
+                    agent={p}
+                    superlink={isSuperlink(p)}
+                    useLabel={inProject ? 'Use in project' : 'Use'}
+                    onOpen={() => setDetailsId(p.id)}
+                    onUse={() => handleSelect(p)}
+                  />
+                ))}
+              </TemplateCardList>
             ) : search ? (
               <p style={{ margin: 0, padding: '8px 10px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-500)' }}>
                 No agents matching &quot;{search}&quot;
@@ -462,6 +445,56 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
           Manage Agents
         </Button>
       </div>
+    </div>
+  )
+
+  const detailsAgent = detailsId ? personas.find(p => p.id === detailsId) : undefined
+
+  return (
+    // overflow:hidden is needed to clip the sliding layers, but it also clips the buttons' own
+    // shadows / focus rings at the edges. So the clip box is grown by EDGE px on every side
+    // (negative margin) and the content gets the same padding back — nothing moves, nothing is cut.
+    <div style={{ position: 'relative', height: `calc(100% + ${EDGE * 2}px)`, margin: -EDGE, overflow: 'hidden' }}>
+      {/* The list stays mounted underneath (keeps its search / filter / scroll) and drifts
+          left while the details slide in from the right. */}
+      <m.div
+        animate={{ x: detailsId ? -32 : 0, opacity: detailsId ? 0 : 1 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        style={{ height: '100%', boxSizing: 'border-box', padding: EDGE, pointerEvents: detailsId ? 'none' : undefined }}
+        aria-hidden={detailsId ? true : undefined}
+      >
+        {listView}
+      </m.div>
+
+      <AnimatePresence initial={false}>
+        {detailsId && (
+          <m.div
+            key="agent-details"
+            initial={{ x: '100%', opacity: 0.4 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0.4 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 36 }}
+            style={{ position: 'absolute', inset: 0, boxSizing: 'border-box', padding: EDGE, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--neutral-50)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingBottom: 12 }}>
+              <Tooltip content="Back to agents">
+                <IconButton variant="ghost" size="sm" icon={<ArrowLeftOneIcon size={20} />} aria-label="Back to agents" onClick={() => setDetailsId(null)} />
+              </Tooltip>
+              <p style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-700)' }}>
+                {detailsAgent?.name ?? 'Agent details'}
+              </p>
+            </div>
+            <div className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: 3 }}>
+              <AgentDetailsBody
+                key={detailsId}
+                repoId={detailsId}
+                canEdit={detailsAgent ? detailsAgent.ownedByViewer : false}
+                onClose={() => setDetailsId(null)}
+              />
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

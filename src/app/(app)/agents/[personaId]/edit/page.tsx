@@ -7,11 +7,9 @@ import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { Spinner } from '@/components/Spinner'
-import { AdvancedPersonalizeModal } from '@/components/AgentEditor/AdvancedPersonalizeModal'
 import { AgentEditor } from '@/components/AgentEditor/AgentEditor'
 import { SyncNotice } from '@/components/AgentEditor/SyncNotice'
-import { TryItBox } from '@/components/AgentEditor/TryItBox'
-import { BOX_STYLE, HINT_STYLE, LABEL_STYLE } from '@/components/AgentEditor/styles'
+import { HINT_STYLE } from '@/components/AgentEditor/styles'
 import { AgentPageHeader, AgentPageShell } from '../../_components/AgentPageShell'
 import { useAgentDraftSync } from '@/hooks/use-agent-draft-sync'
 import { useSaveAgent } from '@/hooks/use-save-agent'
@@ -32,9 +30,9 @@ import {
 } from '@/lib/agent-draft'
 import { recordFromRepo } from '@/lib/agent-record'
 import { regenerateInstructions } from '@/lib/agent-generate'
-import { pickDifferentTemplateAvatar } from '@/lib/persona-template-avatars'
+import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
 import {
-  AGENT_CONFIGURE_TAB_ROUTE,
   AGENT_EDIT_ROUTE,
   AGENTS_ROUTE,
 } from '@/lib/routes'
@@ -62,32 +60,6 @@ function StatusPanel({ title, children }: { title: string; children?: React.Reac
   )
 }
 
-function ResourcesCard({ onOpen }: { onOpen: (route: string) => void }) {
-  const links: Array<{ label: string; hint: string; route: string }> = [
-    { label: 'Knowledge',  hint: 'Files and links this agent can read.', route: 'knowledge' },
-    { label: 'Connectors', hint: 'Apps this agent can use.',             route: 'connectors' },
-    { label: 'Sharing',    hint: 'Share this agent or manage its links.', route: 'sharing' },
-  ]
-  return (
-    <section aria-labelledby="agent-editor-resources" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <h2 id="agent-editor-resources" style={{ ...LABEL_STYLE, fontSize: 12 }}>Resources</h2>
-      <div style={{ ...BOX_STYLE, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {links.map(link => (
-          <div key={link.route} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>
-                {link.label}
-              </p>
-              <p style={HINT_STYLE}>{link.hint}</p>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpen(link.route)}>Open</Button>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function EditAgentContent() {
   const { personaId } = useParams<{ personaId: string }>()
   const { push } = useRouter()
@@ -96,12 +68,12 @@ function EditAgentContent() {
 
   const { repo, isLoading: repoLoading } = usePersonaRepoById(personaId)
   const record = useMemo(() => (repo ? recordFromRepo(repo) : null), [repo])
+  const storedAvatar = useStoredAvatarChoice(personaId)
   const { draft, baseline, dirty, notice, edit, markSaved, accept, dismissNotice } = useAgentDraftSync(record)
   const { save, saving } = useSaveAgent({ record, baseline, markSaved })
 
   const [models, setModels] = useState<AIModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(true)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [copying, setCopying] = useState(false)
   const [confirm, setConfirm] = useState<{ kind: 'leave' | 'instructions'; route?: string } | null>(null)
@@ -140,7 +112,7 @@ function EditAgentContent() {
     const toastId = toast.loading(`Copying “${persona.name}”…`)
     try {
       const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
-      toast.dismiss(toastId)
+      toast.success(`Copied “${persona.name}” — editing your copy`, { id: toastId })
       push(AGENT_EDIT_ROUTE(copy.id))
     } catch {
       toast.dismiss(toastId)
@@ -164,6 +136,7 @@ function EditAgentContent() {
       const fresh = await regenerateInstructions({ name: draft.name.trim() || draft.name, purpose: draft.description, answers: [] })
       const previous = readTone(draft.instructions, FALLBACK_TONES)
       edit({ instructions: previous.kind === 'known' ? applyTone(fresh.instructions, previous.tone) : fresh.instructions })
+      toast.success('New instructions generated — review them, then save')
     } catch {
       toast.error('Couldn’t generate new instructions. Please try again.')
     } finally {
@@ -218,7 +191,11 @@ function EditAgentContent() {
     if (!draft || saving) return
     const [problem] = draftProblems(draft)
     if (problem) { toast.error(PROBLEM_MESSAGE[problem]); return }
-    await save(draft)
+    // Saved: back to the agents list. (leavingRef lets the unsaved-changes guard stand aside.)
+    if (await save(draft)) {
+      leavingRef.current = true
+      push(AGENTS_ROUTE)
+    }
   }
 
   return (
@@ -257,33 +234,14 @@ function EditAgentContent() {
         handle={handle}
         disabled={saving}
         onRegenerateName={() => edit({ name: nextAgentName(draft.description, draft.name) })}
-        onRegenerateAvatar={() => edit({ avatarUrl: pickDifferentTemplateAvatar(draft.avatarUrl) })}
+        avatarChoice={storedAvatar ?? defaultAvatarChoice(draft.name || 'agent', personaId)}
+        onAvatarChoice={choice => { setStoredAvatarChoice(personaId, choice); toast.success('Avatar updated') }}
         onRegenerateInstructions={() => {
           // Existing instructions are real work — always confirm before replacing them.
           if (draft.instructions.trim()) setConfirm({ kind: 'instructions' })
           else void runRegenerateInstructions()
         }}
         regeneratingInstructions={regenerating}
-        onOpenAdvanced={() => setAdvancedOpen(true)}
-        aside={
-          record && (
-            <TryItBox
-              repoId={record.repoId}
-              versionId={record.versionId}
-              pausedReason={dirty ? 'Save your changes to try the latest version.' : undefined}
-            />
-          )
-        }
-        below={<ResourcesCard onOpen={tab => go(`${AGENT_CONFIGURE_TAB_ROUTE(tab)}?repoId=${record?.repoId}&versionId=${record?.versionId}`)} />}
-      />
-
-      <AdvancedPersonalizeModal
-        open={advancedOpen}
-        onClose={() => setAdvancedOpen(false)}
-        values={{ instructions: draft.instructions, temperature: draft.temperature }}
-        tones={FALLBACK_TONES}
-        saveLabel="Apply"
-        onSave={values => edit(values)}
       />
 
       {confirm?.kind === 'leave' && (

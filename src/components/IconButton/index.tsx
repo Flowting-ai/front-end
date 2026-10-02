@@ -22,7 +22,7 @@ const SHADOW_SECONDARY_OUTER_HOVER    = 'var(--shadow-button-secondary-outer-hov
 const SHADOW_SECONDARY_INNER          = 'var(--shadow-button-secondary-inner)'
 const SHADOW_SECONDARY_INNER_HOVER    = 'var(--shadow-button-secondary-inner-hover)'
 
-const HOVER_GLOW_GRADIENT = 'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%)'
+const HOVER_GLOW_GRADIENT = 'var(--button-default-hover-glow)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

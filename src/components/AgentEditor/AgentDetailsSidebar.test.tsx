@@ -37,6 +37,7 @@ vi.mock('@/lib/analytics/events', () => ({ trackBrowserEvent: vi.fn(), trackFeat
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
 
 import { AgentDetailsSidebar } from './AgentDetailsSidebar'
+import { ProjectPanelProvider, useProjectPanel } from '@/context/project-panel-context'
 import { toast } from 'sonner'
 
 const MODELS: AIModel[] = [
@@ -95,8 +96,29 @@ afterEach(async () => {
 async function settle() {
   for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
 }
+// Stand-in for AppLayout's slide-in slot: the component hands its panel to the shared
+// project-panel context, so the tests render that slot (header + close button + content).
+// `tick` changes on every render() call and is cloned onto the content: in the app the panel body
+// re-renders itself from the persona store, but this file's mocked store hook has no subscription.
+function PanelOutlet({ tick }: { tick: number }) {
+  const { panel } = useProjectPanel()
+  if (!panel) return null
+  return (
+    <aside aria-label="Agent details">
+      <h2>{panel.title}</h2>
+      <button type="button" aria-label="Close details" onClick={panel.onClose} />
+      {React.isValidElement(panel.content) ? React.cloneElement(panel.content as React.ReactElement<{ tick?: number }>, { tick }) : panel.content}
+    </aside>
+  )
+}
+let renderTick = 0
 async function render(props: Partial<React.ComponentProps<typeof AgentDetailsSidebar>> = {}) {
-  await act(async () => root.render(<AgentDetailsSidebar repoId="repo-1" canEdit onClose={onClose} {...props} />))
+  await act(async () => root.render(
+    <ProjectPanelProvider>
+      <AgentDetailsSidebar repoId="repo-1" canEdit onClose={onClose} {...props} />
+      <PanelOutlet tick={++renderTick} />
+    </ProjectPanelProvider>,
+  ))
   await settle()
 }
 function byText(text: string, selector = 'button'): HTMLElement {
@@ -139,62 +161,104 @@ describe('AgentDetailsSidebar', () => {
     expect(descriptionBox().value).toBe('Sorts support emails.')
     expect(document.body.textContent).toContain('@support-triage')
     expect(document.body.textContent).toContain('Pro Model')
+    expect(document.body.textContent).toContain('Change avatar')
   })
 
-  it('saves the name when the field is left, and only the name', async () => {
+  it('shows one avatar and a Change avatar button, and only opens the carousel on click', async () => {
     await render()
-    await type(nameBox(), 'Triage Pro')
-    expect(api.updateVersion).not.toHaveBeenCalled()
-    await blur(nameBox())
-
-    expect(api.updateVersion).toHaveBeenCalledTimes(1)
-    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({
-      repoId: 'repo-1', versionId: 'ver-1', name: 'Triage Pro',
-      description: undefined, prompt: undefined, modelId: undefined, temperature: undefined, image: null,
-    }))
-    expect(api.publishPersonaVersion).not.toHaveBeenCalled()
-    expect(document.body.textContent).toContain('Saved')
-    // A quiet save: no toast on success.
-    expect(toast.success).not.toHaveBeenCalled()
+    expect(document.querySelector('[aria-label="Choose an avatar"]')).toBeNull()
+    await click(byText('Change avatar'))
+    expect(document.querySelector('[aria-label="Choose an avatar"]')).not.toBeNull()
+    await click(byText('Cancel'))
+    expect(document.querySelector('[aria-label="Choose an avatar"]')).toBeNull()
   })
 
-  it('does not save when a field is left unchanged', async () => {
-    await render()
-    await blur(nameBox())
-    await blur(descriptionBox())
-    expect(api.updateVersion).not.toHaveBeenCalled()
-  })
+  const saveButton = () => Array.from(document.querySelectorAll<HTMLElement>('button')).find(b => /^Save \d+ changes?$/.test(b.textContent ?? ''))
+  const hasSave = () => saveButton() !== undefined
 
-  it('saves the description when the field is left', async () => {
-    await render()
-    await type(descriptionBox(), 'Routes tickets to the right team.')
-    await blur(descriptionBox())
-    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ description: 'Routes tickets to the right team.' }))
-  })
+  describe('saving', () => {
+    it('shows no Save button until something is edited, and does not save while typing or on leaving a field', async () => {
+      await render()
+      expect(hasSave()).toBe(false)
+      await type(nameBox(), 'Triage Pro')
+      await blur(nameBox())
+      expect(api.updateVersion).not.toHaveBeenCalled()
+      expect(saveButton()!.textContent).toBe('Save 1 change')
+      expect(document.body.textContent).toContain('Unsaved changes')
+    })
 
-  it('refuses to save a blank name and says why', async () => {
-    await render()
-    await type(nameBox(), '   ')
-    await blur(nameBox())
-    expect(api.updateVersion).not.toHaveBeenCalled()
-    expect(document.body.textContent).toContain('Give the agent a name.')
-  })
+    it('one Save saves everything unsaved — name and description together', async () => {
+      await render()
+      await type(nameBox(), 'Triage Pro')
+      await type(descriptionBox(), 'Routes tickets to the right team.')
+      expect(saveButton()!.textContent).toBe('Save 2 changes')
 
-  it('reports a failed save and keeps the typed value', async () => {
-    api.updateVersion.mockRejectedValue(new Error('network down'))
-    await render()
-    await type(nameBox(), 'Triage Pro')
-    await blur(nameBox())
-    expect(toast.error).toHaveBeenCalledWith('network down')
-    expect(nameBox().value).toBe('Triage Pro')
-  })
+      await click(saveButton()!)
+      expect(api.updateVersion).toHaveBeenCalledTimes(1)
+      expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({
+        repoId: 'repo-1', versionId: 'ver-1', name: 'Triage Pro', description: 'Routes tickets to the right team.',
+        prompt: undefined, modelId: undefined, temperature: undefined, image: null,
+      }))
+      expect(api.publishPersonaVersion).not.toHaveBeenCalled()
+      expect(toast.success).toHaveBeenCalledWith('2 changes saved')
+      // Nothing left to save, so the button is gone.
+      expect(hasSave()).toBe(false)
+      expect(document.body.textContent).toContain('Saved')
+    })
 
-  it('saves a model change straight away', async () => {
-    await render()
-    await click(byText('Pro Model'))
-    const fast = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] [role="button"]')).find(el => el.textContent?.includes('Fast Model'))!
-    await click(fast)
-    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ modelId: 'fast', name: 'Support Triage' }))
+    it('saves only the one field that changed when only one did', async () => {
+      await render()
+      await type(descriptionBox(), 'Routes tickets to the right team.')
+      expect(saveButton()!.textContent).toBe('Save 1 change')
+      await click(saveButton()!)
+      expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ description: 'Routes tickets to the right team.', name: 'Support Triage' }))
+      expect(toast.success).toHaveBeenCalledWith('Description updated')
+    })
+
+    it('Enter in the name field saves everything unsaved', async () => {
+      await render()
+      await type(nameBox(), 'Triage Pro')
+      await type(descriptionBox(), 'Routes tickets to the right team.')
+      await act(async () => { nameBox().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
+      await settle()
+      expect(api.updateVersion).toHaveBeenCalledTimes(1)
+      expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ name: 'Triage Pro', description: 'Routes tickets to the right team.' }))
+    })
+
+    it('refuses to save a blank name and says why', async () => {
+      await render()
+      await type(nameBox(), '   ')
+      await click(saveButton()!)
+      expect(api.updateVersion).not.toHaveBeenCalled()
+      expect(document.body.textContent).toContain('Give the agent a name.')
+      expect(document.body.textContent).toContain('Not saved')
+    })
+
+    it('reports a failed save, keeps every typed value and the Save button', async () => {
+      api.updateVersion.mockRejectedValue(new Error('network down'))
+      await render()
+      await type(nameBox(), 'Triage Pro')
+      await type(descriptionBox(), 'Routes tickets.')
+      await click(saveButton()!)
+      expect(toast.error).toHaveBeenCalledWith('network down')
+      expect(nameBox().value).toBe('Triage Pro')
+      expect(descriptionBox().value).toBe('Routes tickets.')
+      expect(saveButton()!.textContent).toBe('Save 2 changes')
+    })
+
+    it('saves a model change immediately, with no other field swept along', async () => {
+      await render()
+      await type(descriptionBox(), 'Half typed')
+      await click(byText('Pro Model'))
+      const fast = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] [role="button"]')).find(el => el.textContent?.includes('Fast Model'))!
+      await click(fast)
+      expect(api.updateVersion).toHaveBeenCalledTimes(1)
+      expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ modelId: 'fast', name: 'Support Triage', description: undefined }))
+      expect(toast.success).toHaveBeenCalledWith('Model updated')
+      // The half-typed description is still there, still waiting for the Save button.
+      expect(descriptionBox().value).toBe('Half typed')
+      expect(saveButton()!.textContent).toBe('Save 1 change')
+    })
   })
 
   it('persists Advanced personalize edits directly', async () => {
@@ -220,10 +284,12 @@ describe('AgentDetailsSidebar', () => {
     expect(document.querySelector('[aria-label="Advanced personalize"]')).not.toBeNull()
   })
 
-  it('opens the full editor page', async () => {
+  it('has only Advanced personalize at the bottom — no Edit details and no link to the edit page', async () => {
     await render()
-    await click(byText('Edit page'))
-    expect(nav.push).toHaveBeenCalledWith('/agents/repo-1/edit')
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('button')).map(b => b.textContent)
+    expect(labels).toContain('Advanced personalize')
+    expect(labels).not.toContain('Edit details')
+    expect(labels).not.toContain('Edit page')
   })
 
   it('closes from the close button and from Escape, but not from Escape inside a field', async () => {

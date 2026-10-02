@@ -150,6 +150,42 @@ const THEME_KEYWORDS: [AvatarTheme, RegExp][] = [
 ]
 
 /** Picks a theme from the agent's name, or null when nothing matches. */
+/** The sphere's [highlight, shadow] colours for a theme/seed — same pick the avatar itself renders with. */
+export function getAvatarColors(theme: AvatarTheme | null, seed: string): [string, string] {
+  return theme ? AVATAR_THEMES[theme].colors : FALLBACK_COLORS[hashSeed(seed) % FALLBACK_COLORS.length]
+}
+
+/** A pickable avatar: one of the themed ones, or a plain sphere in a fixed colourway. */
+export type AvatarChoice = AvatarTheme | 'ember' | 'mint' | 'dusk'
+
+export interface AvatarChoiceConfig {
+  id:     AvatarChoice
+  label:  string
+  theme:  AvatarTheme | null
+  colors: [string, string]
+}
+
+/** Every avatar the picker cycles through, in order. */
+export const AVATAR_CHOICES: AvatarChoiceConfig[] = [
+  { id: 'guide',   label: 'Voyager', theme: 'guide',   colors: AVATAR_THEMES.guide.colors },
+  { id: 'weather', label: 'Stormy',  theme: 'weather', colors: AVATAR_THEMES.weather.colors },
+  { id: 'scout',   label: 'Scout',   theme: 'scout',   colors: AVATAR_THEMES.scout.colors },
+  { id: 'ember',   label: 'Ember',   theme: null,      colors: FALLBACK_COLORS[0] },
+  { id: 'mint',    label: 'Mint',    theme: null,      colors: FALLBACK_COLORS[1] },
+  { id: 'dusk',    label: 'Dusk',    theme: null,      colors: FALLBACK_COLORS[2] },
+]
+
+export function getAvatarChoice(id: AvatarChoice): AvatarChoiceConfig {
+  return AVATAR_CHOICES.find(choice => choice.id === id) ?? AVATAR_CHOICES[0]
+}
+
+/** The avatar an agent gets when nobody has picked one: from its name, else a plain sphere by seed. */
+export function defaultAvatarChoice(name: string, seed: string): AvatarChoice {
+  const theme = pickAvatarTheme(name)
+  if (theme) return theme
+  return AVATAR_CHOICES[3 + (hashSeed(seed) % FALLBACK_COLORS.length)].id
+}
+
 export function pickAvatarTheme(name: string): AvatarTheme | null {
   for (const [theme, re] of THEME_KEYWORDS) if (re.test(name)) return theme
   return null
@@ -177,9 +213,12 @@ export interface AnimatedPersonaAvatarProps {
   /** Increment to play the hop/squash/ring bounce (e.g. on card click). */
   bounceKey?: number
   size?:   number
-  radius?: number
+  /** Corner radius of the avatar tile — a px number, or e.g. '50%' for a circle. */
+  radius?: number | string
   /** Freezes hover/bounce reactions (paused agents) — idle bob still plays. */
   inert?:  boolean
+  /** Forces the sphere colours (a picked avatar); otherwise they come from the theme / seed. */
+  colors?: [string, string]
 }
 
 export function AnimatedPersonaAvatar({
@@ -190,6 +229,7 @@ export function AnimatedPersonaAvatar({
   size      = 64,
   radius    = 8,
   inert     = false,
+  colors: colorsProp,
 }: AnimatedPersonaAvatarProps) {
   const reduceMotion = useReducedMotion() ?? false
   const uid  = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -197,7 +237,7 @@ export function AnimatedPersonaAvatar({
   // Per-card phase offset (radians-ish) so neighbouring cards never bob in sync.
   const phase = (Math.imul(hash, 2654435761) >>> 0) / 4294967296 * Math.PI * 2
   const config = theme ? AVATAR_THEMES[theme] : null
-  const [c0, c1] = config?.colors ?? FALLBACK_COLORS[hash % FALLBACK_COLORS.length]
+  const [c0, c1] = colorsProp ?? config?.colors ?? FALLBACK_COLORS[hash % FALLBACK_COLORS.length]
   const interior = config?.interior
 
   const rootRef  = useRef<HTMLDivElement>(null)
@@ -300,7 +340,8 @@ export function AnimatedPersonaAvatar({
         borderRadius:    radius,
         overflow:        'hidden',
         flexShrink:      0,
-        backgroundColor: '#fff',
+        // Always white behind the spheres, in light and dark.
+        backgroundColor: '#FFFFFF',
       }}
     >
       <svg viewBox="0 0 64 64" width={size} height={size} style={{ display: 'block' }}>

@@ -8,7 +8,7 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { TemplateCard } from '@/components/chat/TemplateCard'
-import { m } from 'framer-motion'
+import { TemplateCardList } from '@/components/chat/TemplateCardList'
 import { useRecommendationsState } from '@/hooks/use-recommendations'
 import { TemplateCardSkeleton } from '@/components/chat/TemplateCardSkeleton'
 import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
@@ -265,17 +265,7 @@ export function BrainHome({
           {/* Same TemplateCard as new chat. Default align-items (stretch) keeps
               every card in the row at the height of the tallest one. */}
           {recommendations ? (
-            <m.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              style={{
-                display:    'flex',
-                gap:        '10px',
-                alignItems: 'stretch',
-                width:      '100%',
-              }}
-            >
+            <TemplateCardList>
               {recommendations.cards.map(card => {
                 const { Icon, color } = RECOMMENDATION_ICONS[card.icon]
                 return (
@@ -283,13 +273,15 @@ export function BrainHome({
                     key={card.label}
                     icon={<Icon size={24} color={color} animated />}
                     label={card.label}
+                    layout="row"
+                    bare
                     onClick={() => onSuggestion?.(card.prompt)}
                   />
                 )
               })}
-            </m.div>
+            </TemplateCardList>
           ) : (
-            <TemplateCardSkeleton />
+            <TemplateCardSkeleton layout="row" bare />
           )}
         </div>
       )}

@@ -5,6 +5,24 @@
 
 :root {
 
+  /* ── Enhance (instructions enhancer) + diff lines ─────────────────────────────
+     Built on the scales / the pink focus ring, so dark mode follows without separate values. */
+  --color-enhance-surface-open:     var(--neutral-50);
+  --color-enhance-border-open:      var(--color-focus-ring);
+  --color-enhance-step-label:       var(--neutral-500);
+  --color-enhance-primary:          var(--color-focus-ring);
+  --color-enhance-primary-bg:       color-mix(in srgb, var(--color-focus-ring) 10%, transparent);
+  --color-enhance-primary-tint:     color-mix(in srgb, var(--color-focus-ring) 18%, transparent);
+  --color-enhance-primary-accent:   var(--color-focus-ring);
+  --color-enhance-progress-inactive: var(--neutral-200);
+  --color-enhance-card-indicator:   var(--color-focus-ring);
+  --color-enhance-card-text:        var(--neutral-800);
+  --color-enhance-audit:            var(--purple-600);
+  --color-diff-added-text:          var(--neutral-900);
+  --color-diff-removed-text:        var(--red-700);
+  --color-diff-removed-border:      var(--red-400);
+  --color-diff-unchanged-text:      var(--neutral-700);
+
   /* ── Interactive / Primary (Default button) ───────────────────────────────── */
   --color-interactive-primary-surface-from:            var(--neutral-700);   /* #524b47 */
   --color-interactive-primary-surface-to:              var(--neutral-900);   /* #26211e */
@@ -27,7 +45,7 @@
   --color-border-interactive: var(--neutral-800-30);  /* rgba(59,54,50,0.3) */
 
   /* ── Focus ────────────────────────────────────────────────────────────────── */
-  --color-focus-ring: #0081DB;
+  --color-focus-ring: #F92064;
 
   /* ── Text ─────────────────────────────────────────────────────────────────── */
   --color-text-primary:     var(--neutral-900);  /* #26211e - input text, primary content */

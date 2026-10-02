@@ -27,7 +27,6 @@ import { PINS_ENABLED } from "@/lib/feature-flags";
 import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
-import { Button } from "@/components/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
@@ -55,7 +54,7 @@ import type { UIMessage } from "@/types/chat";
 import { buildAgentCardMessages } from "@/lib/agent-card-messages";
 import { MentionChip } from "@/components/chat/MentionChip";
 import { TemplateCard } from "@/components/chat/TemplateCard";
-import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
+import { type ChatMode, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
 import { useRecommendationsState } from "@/hooks/use-recommendations";
 import { TemplateCardSkeleton } from "@/components/chat/TemplateCardSkeleton";
 import { RECOMMENDATION_ICONS } from "@/lib/recommendation-icons";
@@ -917,41 +916,6 @@ function ChatPageInner() {
                     />
                   </div>
                   </ExhaustionBanner>
-
-                  {/* ── Action mode buttons ─────────────────────────────────── */}
-                  <div
-                    style={{
-                      display:        "flex",
-                      justifyContent: "center",
-                      gap:            "8px",
-                      marginTop:      "16px",
-                      flexWrap:       "wrap",
-                    }}
-                  >
-                    {ACTION_BUTTONS.map((btn) => (
-                      <div
-                        key={btn.mode}
-                        style={{
-                          opacity:    btn.disabled ? 0.4 : 1,
-                          transition: "opacity 150ms",
-                        }}
-                      >
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={btn.icon}
-                          disabled={btn.disabled}
-                          active={selectedMode === btn.mode}
-                          aria-pressed={selectedMode === btn.mode}
-                          onClick={btn.disabled ? undefined : () =>
-                            setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))
-                          }
-                        >
-                          {btn.label}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; skeleton until it lands. */}

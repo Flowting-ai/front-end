@@ -62,7 +62,7 @@ export function TryItBox({ repoId, versionId, pausedReason }: TryItBoxProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <p style={LABEL_STYLE}>Try it</p>
-      <div style={{ ...BOX_STYLE, padding: '8px 10px' }}>
+      <div className="kaya-field" style={{ ...BOX_STYLE, padding: '8px 10px' }}>
         <textarea
           value={input}
           rows={3}

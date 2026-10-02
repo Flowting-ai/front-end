@@ -66,7 +66,12 @@ const PRIMARY_TO = '#26211E'
 const PRIMARY_DISABLED_TO = '#3B3632'
 const PRIMARY_BORDER = '#6A625D'
 const TOOLTIP_TO = '#2E2824'
-const GREY_SURFACE = '#413D39' // the mid grey (white @20% over the dark page) that tabs and agent cards sit on
+// Dark-mode brand pink for the default Button + Tooltip (light mode stays black).
+const PINK_FROM = '#F92064'
+const PINK_TO = '#C4124C'
+const PINK_BORDER = '#FF6B97'
+const PINK_TOOLTIP_TO = '#D81857'
+const GREY_SURFACE = '#1C1613' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
 const TAB_TRACK = GREY_SURFACE
 const AGENT_CARD = GREY_SURFACE
 
@@ -267,17 +272,37 @@ lines.push('  /* ── Role overrides ─────────────�
 const overrides = [
   // Primary button / icon button / tooltip / toast action: a dark ELEVATED brown with
   // white text and a visible border — never a light fill.
-  ['--color-interactive-primary-surface-from', PRIMARY_FROM],
-  ['--color-interactive-primary-surface-to', PRIMARY_TO],
+  ['--color-interactive-primary-surface-from', PINK_FROM],
+  ['--color-interactive-primary-surface-to', PINK_TO],
   ['--color-interactive-primary-surface-disabled-from', PRIMARY_FROM],
   ['--color-interactive-primary-surface-disabled-to', PRIMARY_DISABLED_TO],
-  ['--color-interactive-primary-border', PRIMARY_BORDER],
-  ['--color-interactive-primary-border-disabled', DARK_NEUTRAL['200']],
+  ['--color-interactive-primary-border', PINK_BORDER],
+  ['--color-interactive-primary-border-disabled', '#6A625D'],
   ['--color-interactive-primary-text', WHITE],
-  ['--color-interactive-primary-text-disabled', DARK_NEUTRAL['400']],
-  ['--tooltip-bg-from', PRIMARY_FROM],
-  ['--tooltip-bg-to', TOOLTIP_TO],
-  ['--tooltip-text', WHITE],
+  ['--color-interactive-primary-text-disabled', '#C9BFB7'],
+  // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#D6CDC5).
+  ['--color-interactive-subtle-text-disabled', '#A89E96'],
+  ['--button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
+  ['--icon-button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
+  ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%)'],
+  // Default-button 3D edge: light pink instead of the (dark-mirrored) white neutral-950.
+  ['--shadow-button-default-inner', 'inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5)'],
+  // Dropdown / popover / floating-menu 1px ring: light silver, with a deep drop shadow.
+  ['--shadow-popover', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
+  ['--shadow-floating-menu-outer', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
+  // ⌘-shortcut pill: a raised dark chip with a soft light ring instead of the white one.
+  ['--shortcut-pill-bg', '#3B3632'],
+  ['--shortcut-pill-ring', 'rgba(255, 255, 255, 0.14)'],
+  ['--shortcut-pill-shadow', 'rgba(0, 0, 0, 0.35)'],
+  ['--shortcut-pill-text', '#D6CDC5'],
+  ['--tooltip-bg-from', '#FFFFFF'],
+  ['--tooltip-bg-to', '#EFEAE5'],
+  ['--tooltip-text', '#26211E'],
+  // Every toast type shares the same dark surface; only the text (and border) colour differs.
+  ['--toast-success-bg', '#1C1613'],
+  ['--toast-error-bg', '#1C1613'],
+  ['--toast-warning-bg', '#1C1613'],
+  ['--toast-info-bg', '#1C1613'],
   ['--toast-action-bg', PRIMARY_FROM],
   ['--toast-action-text', WHITE],
   // Hover / borders / glass.
@@ -308,16 +333,19 @@ const overrides = [
   // tone (3.2:1 -> 5.0:1) and disabled ones sit at the old default (dimmer, still visible).
   ['--tab-bg', TAB_TRACK],
   ['--agent-card-bg', AGENT_CARD],
+  ['--agent-card-gradient', 'linear-gradient(to bottom right, #2B2522 0%, #120C08 50%, #231D1A 100%)'],
+  ['--shadow-undo-toast', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 0px 0px 1px var(--neutral-200)'],
   // Thinking text, high contrast on dark: label/meta ≈ 11:1, icons/bullets ≈ 8:1, and the
   // shimmer sweeps WHITE across a clearly visible resting colour (light mode sweeps dark
   // across light — that pairing vanishes into the dark page).
-  ['--thinking-text', '#D6CDC5'],
-  ['--thinking-text-faint', '#B9AFA7'],
-  ['--thinking-icon-strong', '#B9AFA7'],
-  ['--thinking-icon-active', '#D6CDC5'],
+  ['--thinking-text', '#8E857E'],
+  ['--thinking-text-faint', '#756C66'],
+  ['--thinking-icon-strong', '#756C66'],
+  ['--thinking-icon-active', '#8E857E'],
   ['--thinking-rule', '#524B47'],
-  ['--thinking-shimmer-edge', '#968B83'],
-  ['--thinking-shimmer-peak', WHITE],
+  ['--thinking-shimmer-edge', '#5A524D'],
+  ['--thinking-shimmer-peak', '#A89E96'],
+  ['--model-name-text', '#8E857E'],
   ['--tab-item-text-default', 'var(--neutral-600)'],
   ['--tab-item-text-disabled', 'var(--neutral-500)'],
 ]
@@ -470,6 +498,8 @@ const css = `/* ── Theme: dark ───────────────
 
   /* Agent cards stay warm against the white page canvas. */
   --agent-card-bg: var(--neutral-100);
+  --agent-card-gradient: none;
+  --shadow-undo-toast: 0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10);
 
   /* Thinking / reasoning text: the "Thinking…" label, step meta text, bullets, icons, the
      rail and the shimmer sweep. Light = the exact literals these replaced (#9A9089 etc.). */
@@ -480,6 +510,9 @@ const css = `/* ── Theme: dark ───────────────
   --thinking-rule: var(--neutral-100);
   --thinking-shimmer-edge: var(--neutral-300);
   --thinking-shimmer-peak: #3B3632;
+
+  /* Assistant model name in the message header. Light = the neutral-700 it replaced. */
+  --model-name-text: var(--neutral-700);
 
   /* Legacy hard-coded colours, now themeable. Light values may be normalized to the neutral palette. */
 ${Object.entries(LEGACY).map(([hex, v]) => `  ${v.token}: ${v.light ?? hex};`).join('\n')}

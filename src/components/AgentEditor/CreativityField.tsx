@@ -35,7 +35,7 @@ export function CreativityField({ value, onChange, disabled = false }: Creativit
           step={0.01}
           showValue
           valueFormat={v => `${v.toFixed(2)} · ${temperatureLabel(v)}`}
-          fillColor="var(--blue-600)"
+          fillColor="var(--focus-ring)"
           disabled={disabled}
           aria-label="Creativity"
         />

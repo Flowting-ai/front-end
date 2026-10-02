@@ -5,6 +5,12 @@
 
 :root {
 
+  /* ── Keyboard-shortcut pill (⌘ ,) in menus ─────────────────────────────────── */
+  --shortcut-pill-bg:     #FFFFFF;
+  --shortcut-pill-ring:   rgba(212, 212, 212, 0.4);
+  --shortcut-pill-shadow: rgba(82, 75, 71, 0.12);
+  --shortcut-pill-text:   var(--neutral-500);
+
   /* ── Button / Default ─────────────────────────────────────────────────────── */
   --button-default-bg-from:          var(--color-interactive-primary-surface-from);
   --button-default-bg-to:            var(--color-interactive-primary-surface-to);
@@ -14,6 +20,7 @@
   --button-default-bg-disabled-to:   var(--color-interactive-primary-surface-disabled-to);
   --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
   --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
+  --button-default-hover-glow:       linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%);
 
   /* ── Button / Ghost ───────────────────────────────────────────────────────── */
   --button-ghost-text:          var(--color-interactive-subtle-text);
@@ -243,9 +250,10 @@
 
   /* Large diffuse lift + tight drop shadow + 1px border ring */
   --shadow-popover:
-    0px 12px 16px -4px var(--neutral-500-12),
-    0px 2px 2.8px 0px var(--neutral-700-12),
-    0px 0px 0px 1px var(--neutral-800-10);
+    0px 10px 20px -6px rgba(0, 0, 0, 0.16),
+    0px 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1),
+    0px 0px 0px 1px var(--neutral-200);
 
   /* ── DropdownMenuItem ───────────────────────────────────────────────────────
      Shares the same warm-neutral hover language as SidebarMenuItem.
@@ -334,8 +342,9 @@
   /* ── FloatingMenu ──────────────────────────────────────────────────────────── */
   /* Outer: two-layer lift + 1px warm border ring - applied via box-shadow on the container */
   --shadow-floating-menu-outer:
-    0px 1.091px 1.091px 0px var(--neutral-800-05),
-    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 10px 20px -6px rgba(0, 0, 0, 0.16),
+    0px 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1),
     0px 0px 0px 1px var(--neutral-200);
 
   /* Inner: bottom-only depth shadow - applied via box-shadow on an overlay div */
@@ -346,7 +355,7 @@
   --divider-color: var(--neutral-800-15);  /* rgba(59,54,50,0.15) */
 
   /* ── Focus ring ───────────────────────────────────────────────────────────── */
-  --focus-ring: var(--color-focus-ring);  /* #0081DB */
+  --focus-ring: var(--color-focus-ring);  /* #F92064 */
 
   /* ── Switch ────────────────────────────────────────────────────────────────── */
   --switch-track-bg-off:   var(--neutral-100);     /* #F5F5F5 */
@@ -779,7 +788,7 @@
 
 /* ── Shared focus-visible ring ───────────────────────────────────────────────
    Every interactive KDS component must show a 2px keyboard-focus ring using
-   `--focus-ring` (#0081DB). Per-component class hooks below own the offset and
+   `--focus-ring` (#F92064). Per-component class hooks below own the offset and
    radius to avoid clipping. Mouse / touch interactions never trigger it because
    `:focus-visible` is keyboard-driven. Defined per-class instead of via a
    shared utility so each component can tune the offset to its own border-radius

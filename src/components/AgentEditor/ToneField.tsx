@@ -32,10 +32,10 @@ function Chip({
         fontWeight:   'var(--font-weight-medium)',
         fontSize:     13,
         lineHeight:   '20px',
-        color:        selected ? 'var(--blue-700)' : 'var(--neutral-700)',
-        backgroundColor: selected ? 'var(--blue-50, #eef4fb)' : 'var(--neutral-white)',
+        color:        selected ? 'var(--focus-ring)' : 'var(--neutral-700)',
+        backgroundColor: selected ? 'color-mix(in srgb, var(--focus-ring) 12%, transparent)' : 'var(--neutral-white)',
         boxShadow:    selected
-          ? '0px 0px 0px 1px var(--blue-400)'
+          ? '0px 0px 0px 1px var(--focus-ring)'
           : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         transition:   'box-shadow 150ms, background-color 150ms, color 150ms',
       }}

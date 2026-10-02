@@ -951,7 +951,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             display:        'flex',
             alignItems:     'center',
             justifyContent: isCollapsed ? 'center' : 'space-between',
-            paddingTop:     '24px',
+            paddingTop:     '17px', // matches the footer: 12px footer padding + 5px account-row padding
             paddingBottom:  '8px',
             paddingLeft:    isCollapsed ? '8px' : '20px',
             paddingRight:   '8px',

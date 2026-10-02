@@ -4,14 +4,12 @@ import type { CSSProperties } from 'react'
 // across the app's forms (white box, 10px radius, hairline ring).
 
 export const LABEL_STYLE: CSSProperties = {
-  margin:        0,
-  fontFamily:    'var(--font-body)',
-  fontWeight:    'var(--font-weight-medium)',
-  fontSize:      12,
-  lineHeight:    '16px',
-  letterSpacing: '0.04em',
-  textTransform: 'uppercase',
-  color:         'var(--neutral-600)',
+  margin:     0,
+  fontFamily: 'var(--font-body)',
+  fontWeight: 'var(--font-weight-medium)',
+  fontSize:   14,
+  lineHeight: '20px',
+  color:      'var(--neutral-800)',
 }
 
 export const HINT_STYLE: CSSProperties = {

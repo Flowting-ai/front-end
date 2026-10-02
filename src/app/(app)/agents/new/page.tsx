@@ -7,7 +7,6 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { Spinner } from '@/components/Spinner'
-import { AdvancedPersonalizeModal } from '@/components/AgentEditor/AdvancedPersonalizeModal'
 import { AgentEditor } from '@/components/AgentEditor/AgentEditor'
 import { QuestionStep } from '@/components/AgentEditor/QuestionStep'
 import { AgentPageHeader, AgentPageShell } from '../_components/AgentPageShell'
@@ -38,7 +37,8 @@ import {
   seedFromPreset,
 } from '@/lib/agent-generate'
 import { AgentSaveError, createAgent } from '@/lib/agent-save'
-import { pickDifferentTemplateAvatar } from '@/lib/persona-template-avatars'
+import { defaultAvatarChoice, type AvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { setStoredAvatarChoice } from '@/lib/avatar-choice'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { AGENT_EDIT_ROUTE, AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from '@/lib/routes'
 
@@ -202,6 +202,8 @@ function NewAgentContent() {
   const [questions, setQuestions] = useState<ClarifyingQuestion[]>([])
   const [answers, setAnswers] = useState<ClarifyingAnswer[]>([])
   const [draft, setDraft] = useState<AgentDraft | null>(null)
+  // The avatar picked in the editor; saved against the new agent's id once it exists.
+  const [pickedAvatar, setPickedAvatar] = useState<AvatarChoice | null>(null)
   const [tones, setTones] = useState<PersonaSound[]>(FALLBACK_TONES)
 
   const [models, setModels] = useState<AIModel[]>([])
@@ -210,7 +212,6 @@ function NewAgentContent() {
 
   const [saving, setSaving] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [confirm, setConfirm] = useState<'cancel' | 'instructions' | null>(null)
 
   // Drops the result of any generation the user has since left behind.
@@ -317,6 +318,7 @@ function NewAgentContent() {
       generatedRef.current = generatedRef.current ? { ...generatedRef.current, instructions: next } : generatedRef.current
       setTones(fresh.tones)
       setDraft(current => (current ? { ...current, instructions: next } : current))
+      toast.success('New instructions generated')
     } catch {
       toast.error('Couldn’t generate new instructions. Please try again.')
     } finally {
@@ -341,6 +343,8 @@ function NewAgentContent() {
     setSaving(true)
     try {
       const created = await createAgent(draft, { templateSlug: preset ? templateSlug : undefined })
+      // Keep exactly the avatar the user saw in the editor (a name-based default can differ once the id is the seed).
+      setStoredAvatarChoice(created.repoId, pickedAvatar ?? defaultAvatarChoice(draft.name || 'agent', draft.name || 'agent'))
       leavingRef.current = true
       if (created.published) {
         toast.success(`“${draft.name.trim()}” is ready`)
@@ -384,7 +388,7 @@ function NewAgentContent() {
             <>
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
               <Button variant="default" size="sm" onClick={() => void handleFinish()} loading={saving} disabled={saving}>
-                Finish — create agent
+                Finish Agent Creation
               </Button>
             </>
           }
@@ -399,19 +403,10 @@ function NewAgentContent() {
           disabled={saving}
           onRegenerateName={() => editDraft({ name: nextAgentName(purpose, draft.name) })}
           onRegenerateDescription={() => editDraft({ description: deriveDescription(purpose) })}
-          onRegenerateAvatar={() => editDraft({ avatarUrl: pickDifferentTemplateAvatar(draft.avatarUrl) })}
+          avatarChoice={pickedAvatar ?? defaultAvatarChoice(draft.name || 'agent', draft.name || 'agent')}
+          onAvatarChoice={setPickedAvatar}
           onRegenerateInstructions={handleRegenerateInstructions}
           regeneratingInstructions={regenerating}
-          onOpenAdvanced={() => setAdvancedOpen(true)}
-        />
-
-        <AdvancedPersonalizeModal
-          open={advancedOpen}
-          onClose={() => setAdvancedOpen(false)}
-          values={{ instructions: draft.instructions, temperature: draft.temperature }}
-          tones={tones}
-          saveLabel="Apply"
-          onSave={values => editDraft(values)}
         />
 
         {confirm === 'cancel' && (
@@ -442,6 +437,8 @@ function NewAgentContent() {
   // ── Everything before the editor ────────────────────────────────────────────
   return (
     <AgentPageShell maxWidth={720}>
+      {/* Vertically + horizontally centred in the page, whichever pre-editor step is showing. */}
+      <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
       {stage === 'purpose' && (
         <PurposeStep
           purpose={purpose}
@@ -471,6 +468,7 @@ function NewAgentContent() {
           onEditPurpose={() => { runRef.current += 1; setStage('purpose') }}
         />
       )}
+      </div>
     </AgentPageShell>
   )
 }

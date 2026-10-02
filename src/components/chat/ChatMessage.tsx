@@ -792,8 +792,7 @@ export function ChatMessage({
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
                         fontWeight: 600,
-                        color: "var(--neutral-700)",
-                      }}
+                        color: "var(--model-name-text)",                      }}
                     >
                       {label}
                     </m.span>

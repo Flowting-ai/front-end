@@ -178,7 +178,8 @@ describe('/agents/[personaId]/edit', () => {
     expect(api.publishPersonaVersion).not.toHaveBeenCalled()
     expect(api.urlToImageFile).not.toHaveBeenCalled()
     expect(toast.success).toHaveBeenCalledWith('Agent saved')
-    expect(saveButton().disabled).toBe(true)
+    // …and then back to the agents list.
+    expect(nav.push).toHaveBeenCalledWith('/agents')
   })
 
   it('publishes an agent that was only a draft when saving', async () => {
@@ -200,6 +201,8 @@ describe('/agents/[personaId]/edit', () => {
     expect(toast.error).toHaveBeenCalledWith('403 forbidden')
     expect(nameBox().value).toBe('Renamed')
     expect(saveButton().disabled).toBe(false)
+    // A failed save stays on the page.
+    expect(nav.push).not.toHaveBeenCalled()
   })
 
   it('blocks saving a blank name', async () => {
@@ -209,13 +212,15 @@ describe('/agents/[personaId]/edit', () => {
     expect(api.updateVersion).not.toHaveBeenCalled()
   })
 
-  it('applies Advanced personalize edits to the draft, saved with the page', async () => {
+  it('has no Advanced personalize button — instructions, tone and creativity are on the page', async () => {
     await render()
-    await click(byText('Advanced personalize'))
-    expect(document.body.textContent).toContain('Fine-tune how this agent behaves.')
-    const modalTone = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] button')).find(b => b.textContent === 'Warm & approachable')!
-    await click(modalTone)
-    await click(byText('Apply'))
+    expect(document.body.textContent).not.toContain('Advanced personalize')
+  })
+
+  it('applies a tone picked on the page to the draft, saved with the page', async () => {
+    await render()
+    const tone = Array.from(document.querySelectorAll<HTMLElement>('button')).find(b => b.textContent === 'Warm & approachable')!
+    await click(tone)
     expect(api.updateVersion).not.toHaveBeenCalled()
 
     await click(saveButton())
@@ -311,23 +316,15 @@ describe('/agents/[personaId]/edit', () => {
       expect(nav.push).toHaveBeenCalledWith('/agents')
     })
 
-    it('opens the existing Knowledge / Connectors / Sharing pages for this agent', async () => {
+    it('no longer shows the Resources card (Knowledge / Connectors / Sharing) for now', async () => {
       await render()
-      const open = Array.from(document.querySelectorAll<HTMLElement>('button')).filter(b => b.textContent === 'Open')
-      expect(open).toHaveLength(3)
-      await click(open[0])
-      expect(nav.push).toHaveBeenCalledWith('/agent/configure/knowledge?repoId=repo-1&versionId=ver-1')
-      await click(open[1])
-      expect(nav.push).toHaveBeenCalledWith('/agent/configure/connectors?repoId=repo-1&versionId=ver-1')
-      await click(open[2])
-      expect(nav.push).toHaveBeenCalledWith('/agent/configure/sharing?repoId=repo-1&versionId=ver-1')
+      expect(document.body.textContent).not.toContain('Resources')
+      expect(Array.from(document.querySelectorAll<HTMLElement>('button')).filter(b => b.textContent === 'Open')).toHaveLength(0)
     })
   })
 
-  it('pauses Try it while there are unsaved changes', async () => {
+  it('has no Try it section (and so no divider under the live preview)', async () => {
     await render()
-    expect(document.body.textContent).not.toContain('Save your changes to try the latest version.')
-    await type(nameBox(), 'Renamed')
-    expect(document.body.textContent).toContain('Save your changes to try the latest version.')
+    expect(document.body.textContent).not.toContain('Try it')
   })
 })

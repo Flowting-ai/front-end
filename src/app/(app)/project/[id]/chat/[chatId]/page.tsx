@@ -41,6 +41,7 @@ import type { PinFolder } from '@/lib/api/pins'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionChip } from '@/components/chat/MentionChip'
 import { TemplateCard } from '@/components/chat/TemplateCard'
+import { TemplateCardList } from '@/components/chat/TemplateCardList'
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from '@/lib/chat-modes'
 
 // ── Per-chat settings persistence ────────────────────────────────────────────
@@ -700,7 +701,7 @@ function ProjectChatPageInner() {
                       >
                         Not sure where to start?
                       </p>
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <TemplateCardList>
                         {recommendations.cards.map((card) => {
                           const { Icon, color } = RECOMMENDATION_ICONS[card.icon]
                           return (
@@ -708,11 +709,12 @@ function ProjectChatPageInner() {
                               key={card.label}
                               icon={<Icon size={24} color={color} animated />}
                               label={card.label}
+                              layout="row"
                               onClick={() => handleSend(card.prompt)}
                             />
                           )
                         })}
-                      </div>
+                      </TemplateCardList>
                     </div>
                   )}
                 </m.div>

@@ -245,8 +245,8 @@ function resolveFully(vars: Vars, name: string, depth = 0): string {
 describe("tab bar", () => {
   const TRACK = () => color(DARK, "--tab-bg");
 
-  it("the tab bar is the #413D39 grey in dark and translucent white in light", () => {
-    expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#413D39");
+  it("the tab bar is the #1C1613 dark surface in dark and translucent white in light", () => {
+    expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#1C1613");
     expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 255, g: 255, b: 255, a: 0.5 });
     expect(resolveVar(BASE, "--tab-bg")).toBe(resolveVar(LIGHT, "--tab-bg"));
   });
@@ -280,8 +280,8 @@ describe("agent cards (grey surface + raised scope)", () => {
   const GREY = () => color(DARK, "--agent-card-bg");
   const RAMP = ["--neutral-200", "--neutral-300", "--neutral-400", "--neutral-500"];
 
-  it("dark: the card surface is the #413D39 grey; light: warm neutral", () => {
-    expect(resolveVar(DARK, "--agent-card-bg")?.toUpperCase()).toBe("#413D39");
+  it("dark: the card surface is the #1C1613 dark surface; light: warm neutral", () => {
+    expect(resolveVar(DARK, "--agent-card-bg")?.toUpperCase()).toBe("#1C1613");
     expect(resolveVar(LIGHT, "--agent-card-bg")?.toUpperCase()).toBe("#F5F2EF");
   });
 

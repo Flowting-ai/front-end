@@ -12,10 +12,15 @@ export interface TemplateCardProps {
   icon:    React.ReactNode
   label:   string
   onClick: () => void
+  /** `tile` = icon above label (3-up grid). `row` = icon beside label (stacked list). @default 'tile' */
+  layout?: 'tile' | 'row'
+  /** Drops the card background, border and shadow. */
+  bare?:   boolean
 }
 
-export function TemplateCard({ icon, label, onClick }: TemplateCardProps) {
+export function TemplateCard({ icon, label, onClick, layout = 'tile', bare = false }: TemplateCardProps) {
   const [hovered, setHovered] = useState(false)
+  const isRow = layout === 'row'
   return (
     <button
       type="button"
@@ -24,17 +29,17 @@ export function TemplateCard({ icon, label, onClick }: TemplateCardProps) {
       onMouseLeave={() => setHovered(false)}
       style={{
         flex:          1,
-        background:    'var(--neutral-white)',
-        border:        `1px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-200)'}`,
+        background:    bare ? 'transparent' : 'var(--neutral-white)',
+        border:        bare ? '1px solid transparent' : `1px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-200)'}`,
         borderRadius:  '12px',
-        padding:       '14px 12px',
+        padding:       isRow ? '12px' : '14px 12px',
         cursor:        'pointer',
         display:       'flex',
-        flexDirection: 'column',
-        alignItems:    'flex-start',
-        gap:           '10px',
+        flexDirection: isRow ? 'row' : 'column',
+        alignItems:    isRow ? 'center' : 'flex-start',
+        gap:           isRow ? '12px' : '10px',
         textAlign:     'left',
-        boxShadow:     hovered ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow:     bare ? 'none' : hovered ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
         transition:    'box-shadow 150ms, border-color 150ms',
         minWidth:      0,
       }}

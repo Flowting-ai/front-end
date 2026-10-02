@@ -1,18 +1,18 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { AnimatePresence, m } from 'framer-motion'
-import { useRouter } from 'next/navigation'
-import { ArrowUpRightOneIcon, CancelOneIcon, SettingsOneIcon } from '@strange-huge/icons'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
+import { SettingsOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { AnimatePresence, m } from 'framer-motion'
+import { ModelIcon } from '@/components/ModelIcon'
 import { Spinner } from '@/components/Spinner'
-import { useMounted } from '@/hooks/use-mounted'
+import { useProjectPanel } from '@/context/project-panel-context'
 import { useAgentDraftSync } from '@/hooks/use-agent-draft-sync'
 import { usePersonaRepoById } from '@/hooks/use-persona-repos'
 import { useSaveAgent } from '@/hooks/use-save-agent'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { fetchModelsWithCache, modelIconSource } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import {
@@ -20,19 +20,18 @@ import {
   FALLBACK_TONES,
   NAME_MAX,
   draftProblems,
-  isDraftDirty,
   type AgentDraft,
 } from '@/lib/agent-draft'
 import { recordFromRepo } from '@/lib/agent-record'
-import { AGENT_EDIT_ROUTE } from '@/lib/routes'
-import { getPersonaFallbackAvatar, pickDifferentTemplateAvatar } from '@/lib/persona-template-avatars'
+import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
 import { AdvancedPersonalizeModal } from './AdvancedPersonalizeModal'
 import { AvatarField } from './AvatarField'
+import { AgentAvatar } from './AgentAvatar'
 import { ModelField } from './ModelField'
 import { SyncNotice } from './SyncNotice'
 import { BOX_STYLE, HINT_STYLE, INPUT_STYLE, LABEL_STYLE } from './styles'
 
-const PANEL_WIDTH = 400
 
 const PROBLEM_MESSAGE = {
   name:         'Give the agent a name.',
@@ -59,8 +58,48 @@ function ReadOnlyRow({ label, children }: { label: string; children: React.React
   )
 }
 
-function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean; onClose: () => void }) {
-  const { push } = useRouter()
+/**
+ * ONE save for everything unsaved in the panel (name and description together): a white
+ * rounded button with a black tick that appears only while there is something to save and
+ * says how many changes it will save. Always white and black (not themed), so it reads the
+ * same on the light and dark panel.
+ */
+function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () => void; disabled?: boolean }) {
+  return (
+    <AnimatePresence initial={false}>
+      {count > 0 && (
+        <m.div
+          key="save-changes"
+          initial={{ opacity: 0, scale: 0.9, height: 0 }}
+          animate={{ opacity: 1, scale: 1, height: 'auto' }}
+          exit={{ opacity: 0, scale: 0.9, height: 0 }}
+          transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+          style={{ display: 'flex', justifyContent: 'flex-end', overflow: 'visible' }}
+        >
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onClick}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 32, padding: '0 14px 0 10px', border: 'none', borderRadius: 999,
+              backgroundColor: '#FFFFFF', color: '#000000',
+              fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '20px',
+              boxShadow: '0px 1px 3px rgba(0,0,0,0.25), 0px 0px 0px 1px rgba(0,0,0,0.08)',
+              cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
+            }}
+          >
+            <TickTwoIcon size={16} color="#000000" />
+            {`Save ${count} ${count === 1 ? 'change' : 'changes'}`}
+          </button>
+        </m.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+/** The details content itself (model saves as you pick; name and description have their own save tick; Advanced personalize) — no header or frame. */
+export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean; onClose: () => void }) {
   const { repo, isLoading } = usePersonaRepoById(repoId)
   const record = useMemo(() => (repo ? recordFromRepo(repo) : null), [repo])
   const { draft, baseline, notice, edit, markSaved, accept, dismissNotice } = useAgentDraftSync(record)
@@ -71,7 +110,6 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState(false)
-
   useEffect(() => {
     let cancelled = false
     fetchModelsWithCache()
@@ -95,50 +133,58 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  /** Saves `next` if it differs from what is saved and is complete. */
-  async function commit(next: AgentDraft) {
-    if (!baseline || saving || !isDraftDirty(next, baseline)) return
+  /**
+   * Saves just the given fields. The rest of the agent is sent as last saved, and any OTHER
+   * field still being typed is put back into the draft afterwards, so saving the name never
+   * swallows (or saves) half of a description.
+   */
+  async function saveFields(patch: Partial<AgentDraft>, saved: string) {
+    if (!draft || !baseline || saving) return
+    const next = { ...baseline, ...patch }
     const [first] = draftProblems(next)
     if (first) { setProblem(PROBLEM_MESSAGE[first]); return }
     setProblem(null)
     setJustSaved(false)
-    if (await save(next, { quiet: true })) setJustSaved(true)
+    const pending: Partial<AgentDraft> = {}
+    if (!('name' in patch) && draft.name !== baseline.name) pending.name = draft.name
+    if (!('description' in patch) && draft.description !== baseline.description) pending.description = draft.description
+    if (!('modelId' in patch) && draft.modelId !== baseline.modelId) pending.modelId = draft.modelId
+    if (await save(next, { quiet: true })) {
+      if (Object.keys(pending).length > 0) edit(pending)
+      setJustSaved(true)
+      toast.success(saved)
+    }
   }
 
-  function change(patch: Partial<AgentDraft>, saveNow: boolean) {
-    if (!draft) return
+  function change(patch: Partial<AgentDraft>) {
     setJustSaved(false)
+    setProblem(null)
     edit(patch)
-    if (saveNow) void commit({ ...draft, ...patch })
   }
 
-  const modelName = draft?.modelId
-    ? models.find(model => stableKey(model) === draft.modelId)?.modelName ?? null
-    : null
+  const nameDirty = !!draft && !!baseline && draft.name !== baseline.name
+  const descriptionDirty = !!draft && !!baseline && draft.description !== baseline.description
+  const unsavedCount = (nameDirty ? 1 : 0) + (descriptionDirty ? 1 : 0)
 
+  /** Saves every unsaved field in one go. */
+  function saveChanges() {
+    if (!draft || unsavedCount === 0) return
+    const patch: Partial<AgentDraft> = {}
+    if (nameDirty) patch.name = draft.name
+    if (descriptionDirty) patch.description = draft.description
+    void saveFields(patch, unsavedCount > 1 ? `${unsavedCount} changes saved` : nameDirty ? 'Name updated' : 'Description updated')
+  }
+
+  const storedAvatar = useStoredAvatarChoice(repoId)
+  const selectedModel = draft?.modelId ? models.find(model => stableKey(model) === draft.modelId) ?? null : null
+  const modelName = selectedModel?.modelName ?? null
+
+  // Rendered inside the shared right-hand slide-in panel (see project-panel-context),
+  // which supplies the header, close button, background and scrolling.
   return (
-    <m.aside
-      role="complementary"
-      aria-label="Agent details"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 24 }}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        position: 'fixed', top: 10, right: 10, bottom: 10, width: PANEL_WIDTH, maxWidth: 'calc(100vw - 20px)', zIndex: 40,
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        backgroundColor: 'var(--neutral-white)', borderRadius: 18,
-        boxShadow: '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 12px 20px', borderBottom: '1px solid var(--neutral-100)', flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)' }}>
-          Agent details
-        </h2>
-        <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close details" onClick={onClose} />
-      </div>
-
-      <div className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <>
+      {/* 6px of padding all round: the pink focus ring extends ~5px and the panel's scroll area clips overflow. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6 }}>
         {isLoading || (repo && record && !draft) ? (
           <div role="status" aria-live="polite" style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}><Spinner size={22} /></div>
         ) : !repo || !record || !draft || !baseline ? (
@@ -152,25 +198,23 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
             {canEdit ? (
               <>
                 <AvatarField
-                  avatarUrl={draft.avatarUrl}
                   name={draft.name}
-                  onChange={avatarUrl => change({ avatarUrl }, true)}
-                  onRegenerate={() => change({ avatarUrl: pickDifferentTemplateAvatar(draft.avatarUrl) }, true)}
+                  value={storedAvatar ?? defaultAvatarChoice(draft.name || 'agent', repoId)}
+                  onChange={choice => { setStoredAvatarChoice(repoId, choice); toast.success('Avatar updated') }}
                   disabled={saving}
                 />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label htmlFor="agent-details-name" style={LABEL_STYLE}>Name</label>
-                  <div style={{ ...BOX_STYLE, padding: '8px 10px' }}>
+                  <div className="kaya-field" style={{ ...BOX_STYLE, padding: '8px 10px' }}>
                     <input
                       id="agent-details-name"
                       type="text"
                       value={draft.name}
                       maxLength={NAME_MAX}
                       disabled={saving}
-                      onChange={event => change({ name: event.target.value }, false)}
-                      onBlur={() => void commit(draft)}
-                      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      onChange={event => change({ name: event.target.value })}
+                      onKeyDown={event => { if (event.key === 'Enter') saveChanges() }}
                       style={INPUT_STYLE}
                     />
                   </div>
@@ -181,7 +225,7 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
                   modelId={draft.modelId}
                   models={models}
                   loading={modelsLoading}
-                  onChange={modelId => change({ modelId }, true)}
+                  onChange={modelId => void saveFields({ modelId }, 'Model updated')}
                   disabled={saving}
                 />
 
@@ -190,53 +234,57 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
                     <label htmlFor="agent-details-description" style={LABEL_STYLE}>Description</label>
                     <span style={HINT_STYLE}>{draft.description.length}/{DESCRIPTION_MAX}</span>
                   </div>
-                  <div style={{ ...BOX_STYLE, padding: '8px 10px' }}>
+                  <div className="kaya-field" style={{ ...BOX_STYLE, padding: '8px 10px' }}>
                     <textarea
                       id="agent-details-description"
                       value={draft.description}
                       rows={4}
                       disabled={saving}
-                      onChange={event => change({ description: event.target.value.slice(0, DESCRIPTION_MAX) }, false)}
-                      onBlur={() => void commit(draft)}
+                      onChange={event => change({ description: event.target.value.slice(0, DESCRIPTION_MAX) })}
                       style={{ ...INPUT_STYLE, resize: 'none' }}
                     />
                   </div>
                 </div>
 
-                <div aria-live="polite" style={{ minHeight: 18 }}>
-                  {problem ? (
-                    <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, #9a3b34)' }}>{problem}</p>
-                  ) : saving ? (
-                    <p style={HINT_STYLE}>Saving…</p>
-                  ) : justSaved ? (
-                    <p style={HINT_STYLE}>Saved</p>
-                  ) : null}
-                </div>
+                <SaveChanges count={unsavedCount} disabled={saving} onClick={saveChanges} />
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <Button variant="outline" size="sm" leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={() => setAdvancedOpen(true)}>
-                    Advanced personalize
-                  </Button>
-                  <Button variant="outline" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />} onClick={() => push(AGENT_EDIT_ROUTE(record.repoId))}>
-                    Edit page
-                  </Button>
+                <Button variant="outline" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={() => setAdvancedOpen(true)}>
+                  Advanced personalize
+                </Button>
+
+                {/* Save status */}
+                <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  {problem ? (
+                    <>
+                      <Badge color="Red" label="Not saved" />
+                      <p role="alert" style={{ ...HINT_STYLE, textAlign: 'center', color: 'var(--color-tag-Red-text, #9a3b34)' }}>{problem}</p>
+                    </>
+                  ) : saving ? (
+                    <Badge color="Blue" label="Saving…" />
+                  ) : nameDirty || descriptionDirty ? (
+                    <Badge color="Yellow" label="Unsaved changes" />
+                  ) : justSaved ? (
+                    <Badge color="Green" label="Saved" />
+                  ) : (
+                    <Badge color="Neutral" label="All changes saved" />
+                  )}
                 </div>
               </>
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL */}
-                  <img
-                    src={draft.avatarUrl ?? getPersonaFallbackAvatar(draft.name || 'agent')}
-                    alt=""
-                    style={{ width: 65, height: 65, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-                  />
+                  <AgentAvatar name={draft.name} repoId={record.repoId} size={56} />
                   <div style={{ minWidth: 0 }}>
                     <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)' }}>{draft.name}</p>
                     <p style={HINT_STYLE}>{record.handle}</p>
                   </div>
                 </div>
-                <ReadOnlyRow label="Model">{modelName ?? 'Unavailable model'}</ReadOnlyRow>
+                <ReadOnlyRow label="Model">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {selectedModel && <ModelIcon model={modelIconSource(selectedModel)} size={16} />}
+                    {modelName ?? 'Unavailable model'}
+                  </span>
+                </ReadOnlyRow>
                 <ReadOnlyRow label="Description">{draft.description || '—'}</ReadOnlyRow>
                 <p style={HINT_STYLE}>Only the owner can edit this agent.</p>
               </>
@@ -258,7 +306,7 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
           }}
         />
       )}
-    </m.aside>
+    </>
   )
 }
 
@@ -269,12 +317,25 @@ function Panel({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean;
  * up there (and the other way round) straight away.
  */
 export function AgentDetailsSidebar({ repoId, canEdit, onClose }: AgentDetailsSidebarProps) {
-  const mounted = useMounted()
-  if (!mounted) return null
-  return createPortal(
-    <AnimatePresence>
-      {repoId && <Panel key={repoId} repoId={repoId} canEdit={canEdit} onClose={onClose} />}
-    </AnimatePresence>,
-    document.body,
-  )
+  const { setPanel } = useProjectPanel()
+  // Keep the latest onClose without re-registering the panel on every parent render.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  // Hand the panel to AppLayout's slide-in slot: it animates open beside the page (pushing the
+  // content over) instead of floating on top of it.
+  useEffect(() => {
+    if (!repoId) { setPanel(null); return }
+    setPanel({
+      title: 'Agent details',
+      sidePadding: 20,
+      onClose: () => onCloseRef.current(),
+      content: <AgentDetailsBody key={repoId} repoId={repoId} canEdit={canEdit} onClose={() => onCloseRef.current()} />,
+    })
+  }, [repoId, canEdit, setPanel])
+
+  // Closing the page (or switching away) releases the slot.
+  useEffect(() => () => setPanel(null), [setPanel])
+
+  return null
 }

@@ -2686,6 +2686,9 @@ function LeftSidebarImpl({
         ? 'Free Trial'
         : undefined
 
+  // On the Pro plan (an individual Pro, or a workspace on Pro): the menu offers no "Upgrade Plan".
+  const isProPlan = planTypeLabel === 'Pro'
+
   // Blue tag for "Free Plan" (running on starting credits, no plan selected
   // yet); default color once a real plan is selected, and always for
   // individuals. Irrelevant when planWarning is set (that state has its own
@@ -2815,6 +2818,9 @@ function LeftSidebarImpl({
                 )}
                 onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
                 onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
+                onPlanStatusClick={() => push(ORG_PLANS_ROUTE)}
+                // On the Pro plan there is nothing to upgrade to from here.
+                showUpgradePlan={!isProPlan}
                 onSettings={() => push(SETTINGS_ROUTE)}
                 onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
                 onHelp={() => push(SETTINGS_HELP_ROUTE)}
@@ -2925,6 +2931,9 @@ function LeftSidebarImpl({
             placement="top-start"
             onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
             onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
+                onPlanStatusClick={() => push(ORG_PLANS_ROUTE)}
+                // On the Pro plan there is nothing to upgrade to from here.
+                showUpgradePlan={!isProPlan}
             onSettings={() => push(SETTINGS_ROUTE)}
             onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onHelp={() => push(SETTINGS_HELP_ROUTE)}

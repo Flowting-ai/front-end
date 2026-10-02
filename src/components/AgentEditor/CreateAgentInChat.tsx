@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CancelOneIcon } from '@strange-huge/icons'
@@ -126,6 +127,8 @@ function Body({
         const created = await createAgent(draft)
         if (run !== runRef.current) return
         onCreated({ draft, created, message: originalMessage })
+        if (created.published) toast.success(`“${draft.name.trim()}” is ready`)
+        else toast.warning('Your agent was created but isn’t live yet. Open it to finish.')
         onClose()
       } catch (error) {
         if (run !== runRef.current) return
@@ -176,7 +179,7 @@ function Body({
       {stage.kind === 'purpose' && (
         <>
           <p style={{ ...HINT_STYLE, fontSize: 14, lineHeight: '22px' }}>What should this agent do? One sentence is enough.</p>
-          <div style={{ ...BOX_STYLE, padding: '10px 12px' }}>
+          <div className="kaya-field" style={{ ...BOX_STYLE, padding: '10px 12px' }}>
             <textarea
               autoFocus
               rows={3}

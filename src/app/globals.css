@@ -62,9 +62,9 @@
   background-color: var(--neutral-800-50);
 }
 
-/* EnhancePromptField textarea — Figma placeholder colour #524B47 */
+/* EnhancePromptField textarea — Figma placeholder colour #524B47 in light (neutral-700, which is light in dark) */
 .kaya-enhance-textarea::placeholder {
-  color: #524B47;
+  color: var(--neutral-700);
   opacity: 1;
 }
 
@@ -149,6 +149,17 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: kaya-shimmer 2s ease-in-out infinite;
+}
+
+/* Shimmering silver progress line (agent card hover status ticker). */
+@keyframes kayaSilverLine {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.kaya-silver-line {
+  background-image: linear-gradient(90deg, #8C8C8C 0%, #D9D9D9 25%, #FFFFFF 50%, #D9D9D9 75%, #8C8C8C 100%);
+  background-size: 200% 100%;
+  animation: kayaSilverLine 1.6s linear infinite;
 }
 
 .kaya-label-shimmer {
@@ -356,6 +367,22 @@
     0px 0px 0px 1px var(--toast-border);
 }
 
+/* Dark mode: every toast type sits on the same dark secondary surface with a silver ring;
+   only the text colour tells the types apart. !important because sonner paints type colours
+   (rich colours) at the toast element and would otherwise win. */
+:root[data-theme="dark"] [data-sonner-toast] {
+  background:   #1C1613 !important;
+  border-color: transparent !important;
+  box-shadow:
+    0px 4px 10px -3px rgba(192, 192, 192, 0.22),
+    0px 2px 4px -1px rgba(192, 192, 192, 0.16),
+    0px 0px 0px 1px var(--neutral-200) !important;
+}
+:root[data-theme="dark"] [data-sonner-toast][data-type="success"] { color: var(--toast-success-text) !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="error"]   { color: var(--toast-error-text)   !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="warning"] { color: var(--toast-warning-text) !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="info"]    { color: var(--toast-info-text)    !important; }
+
 .kds-toast [data-content] { flex: 1 1 auto; min-width: 0; }
 .kds-toast [data-button],
 .kds-toast [data-cancel-button] { flex-shrink: 0; margin-left: auto; }
@@ -427,6 +454,20 @@
 [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Dark mode: white close button with a black X, on every toast type. */
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close {
+  background: #FFFFFF;
+  color:      #000000;
+  box-shadow: 0px 1px 2px rgba(0,0,0,0.4);
+}
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
+  background: #E6E6E6;
+}
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close svg {
+  stroke: #000000;
+  color:  #000000;
 }
 
 .kds-toast__icon   { color: inherit; }
@@ -516,4 +557,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   .persona-card-desc-reading { animation: none; }
+}
+
+/* ── Field focus ring ─────────────────────────────────────────────────────────
+   Boxed text fields (a bordered wrapper around a bare <input>/<textarea>) get the same
+   pink focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
+   anything inside it has focus. Outlines paint outside layout, so nothing shifts. A
+   scroll container that clips it needs ~6px of padding around the field. */
+.kaya-field { outline: 2px solid transparent; outline-offset: 3px; transition: outline-color 150ms; }
+.kaya-field:focus-within { outline-color: var(--focus-ring); }
+
+/* ── Logos on always-light surfaces ───────────────────────────────────────────
+   In dark mode provider / Souvenir logos switch to flat WHITE marks (see "Logos" in
+   theme.css). On a surface that stays white in dark (e.g. the pinned-white secondary
+   button) that is invisible, so inside `.kds-light-surface` the full-colour logos come back. */
+:root[data-theme="dark"] .kds-light-surface .kds-llm-color,
+:root[data-theme="dark"] .kds-light-surface .kds-logo-light {
+  display: inline-block !important;
+}
+:root[data-theme="dark"] .kds-light-surface .kds-llm-mono,
+:root[data-theme="dark"] .kds-light-surface .kds-logo-dark {
+  display: none !important;
 }

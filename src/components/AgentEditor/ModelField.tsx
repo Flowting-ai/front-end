@@ -8,7 +8,7 @@ import { IconButton } from '@/components/IconButton'
 import { ModelIcon } from '@/components/ModelIcon'
 import { ModalHeader, ModalShell, ModelPickerList } from '@/components/ChangeAgentModelModal/shared'
 import { stableKey } from '@/hooks/use-model-selection'
-import { sortModels } from '@/lib/ai-models'
+import { modelIconSource, sortModels } from '@/lib/ai-models'
 import { agentModelRestriction, pickModelForAgent } from '@/lib/agent-draft'
 import type { AIModel } from '@/types/ai-model'
 import { HINT_STYLE, LABEL_STYLE } from './styles'
@@ -55,7 +55,7 @@ export function ModelField({ modelId, models, loading, onChange, disabled = fals
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 24 }}>
         <p style={LABEL_STYLE}>Model</p>
         {!modelId && <Badge label="Required" color="Red" />}
       </div>
@@ -66,15 +66,24 @@ export function ModelField({ modelId, models, loading, onChange, disabled = fals
         disabled={disabled}
         aria-haspopup="dialog"
         aria-invalid={problem !== null || undefined}
+        // The provider logo (Claude, OpenAI, Gemini…), sized up so it reads at a glance; the Button
+        // clips its icon slot, so the slot size is raised to match.
+        iconSize={20}
+        // The button stays white in dark mode, so the logo keeps its full colour there (see .kds-light-surface).
         leftIcon={
-          selected
-            ? <ModelIcon model={selected.companyName ?? selected.modelName} size={16} />
-            : <AtomOneIcon size={16} />
+          <span className="kds-light-surface" style={{ display: 'inline-flex' }}>
+            {selected
+              ? <ModelIcon model={modelIconSource(selected)} size={20} />
+              : <AtomOneIcon size={20} color="var(--neutral-900)" />}
+          </span>
         }
         rightIcon={<ArrowDownOneIcon size={16} />}
         onClick={() => setOpen(true)}
       >
-        {selected?.modelName ?? (modelId && !loading ? 'Unavailable model' : modelId ? 'Loading…' : 'Select model')}
+        {/* The gap lives on the label: padding on the icon would overflow its fixed-size slot and clip the logo. */}
+        <span style={{ paddingLeft: 8 }}>
+          {selected?.modelName ?? (modelId && !loading ? 'Unavailable model' : modelId ? 'Loading…' : 'Select model')}
+        </span>
       </Button>
       {problem ? (
         <p role="alert" style={{ ...HINT_STYLE, color: 'var(--color-tag-Red-text, #9a3b34)' }}>{problem}</p>
@@ -94,7 +103,6 @@ export function ModelField({ modelId, models, loading, onChange, disabled = fals
           selectedId={modelId}
           recommendedId={recommended}
           onSelect={id => { onChange(id); setOpen(false) }}
-          maxHeight={360}
         />
         <div style={{ height: 16 }} />
       </ModalShell>

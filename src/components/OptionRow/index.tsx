@@ -30,7 +30,7 @@ export interface OptionRowProps extends React.HTMLAttributes<HTMLDivElement> {
 const BG_WHITE       = 'var(--neutral-white, white)'
 const BG_NEUTRAL_50  = 'var(--neutral-50, #FFFFFF)'
 const BG_NEUTRAL_100 = 'var(--neutral-100, #F5F5F5)'
-const BORDER_BLUE    = '1px solid var(--blue-400, #6e98cb)'
+const BORDER_BLUE    = '1px solid var(--focus-ring)'
 
 // Shadow for the numbered badge - shared constant
 const BADGE_OUTER_SHADOW = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
@@ -95,7 +95,7 @@ export function OptionRow({
           borderRadius:    12,
           backgroundColor: bg,
           border:          hasBorder ? BORDER_BLUE : 'none',
-          outline:         focused ? `2px solid var(--blue-400, #6e98cb)` : 'none',
+          outline:         focused ? `2px solid var(--focus-ring)` : 'none',
           outlineOffset:   '-2px',
           position:        'relative',
           userSelect:      'none',
