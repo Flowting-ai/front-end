@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import {
@@ -21,12 +21,10 @@ import { CustomApiModal } from './CustomApiModal'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { RemoveModal } from './RemoveModal'
 
-type View = 'connections' | 'connector' | 'permissions' | 'access' | 'settings'
+type View = 'connections' | 'connector' | 'account'
 
 export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: string }) {
   const { orgId, orgReady } = useOrg()
-  const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [catalog, setCatalog] = useState<ConnectorCatalog[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,17 +92,6 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
-
-  useEffect(() => {
-    const isTabView = view === 'permissions' || view === 'access' || view === 'settings'
-    const nextTab = isTabView ? view : null
-    if (searchParams.get('tab') === nextTab) return
-    const params = new URLSearchParams(searchParams.toString())
-    if (nextTab) params.set('tab', nextTab)
-    else params.delete('tab')
-    const query = params.toString()
-    router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false })
-  }, [view, pathname, router, searchParams])
 
   const active = catalog.find(row => row.slug === activeSlug) ?? null
   const activeAccount = active?.connections.find(row => row.id === activeAccountId) ?? null
@@ -176,7 +163,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const openAccount = useCallback((account: ConnectorConnection) => {
     setActiveAccountId(account.id)
-    setView('permissions')
+    setView('account')
   }, [])
 
   const reconnectAccount = useCallback((account: ConnectorConnection) => {
@@ -257,7 +244,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} addCustomApi={() => setCustomApiOpen(true)} pendingSlug={pendingSlug} initialSearch={initialSearch} onRows={mergeRows} />
       )}
 
-      {view === 'connector' && active && (
+      {(view === 'connector' || view === 'account') && active && (
         <ConnectorDetailView
           catalog={active}
           back={backToConnections}
@@ -268,13 +255,11 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         />
       )}
 
-      {(view === 'permissions' || view === 'access' || view === 'settings') && active && activeAccount && (
+      {view === 'account' && active && activeAccount && (
         <AccountDetailView
           account={activeAccount}
           catalog={active}
-          active={view}
-          back={backToConnector}
-          change={setView}
+          close={backToConnector}
           // Was `fetchAll()` — the list endpoint intentionally omits each
           // connector's tools and each account's per-tool permissions (backend:
           // page_user_connectors always calls withPermissions=False and never
