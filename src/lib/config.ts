@@ -268,6 +268,9 @@ export const CONNECTORS_ENDPOINT            = withBase('/connectors')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
 export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
 export const CONNECTOR_COMPLETE_ENDPOINT    = (slug: string) => withBase(`/connectors/${slug}/complete`)
+// Defines a custom REST API; its token then links like any api_key connector.
+export const CONNECTOR_CUSTOM_ENDPOINT      = withBase('/connectors/custom')
+export const CONNECTOR_CUSTOM_DETAIL_ENDPOINT = (slug: string) => withBase(`/connectors/custom/${slug}`)
 // One account, addressed by id. Sharing, renaming, permissions and unlinking
 // all land here — the owner is the only one the backend lets through.
 export const CONNECTOR_ACCOUNT_ENDPOINT     = (accountId: string) => withBase(`/connectors/accounts/${accountId}`)

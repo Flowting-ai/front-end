@@ -2096,7 +2096,7 @@ function BrainPageInner() {
         // together from whichever fields the wire used.
         const connector    = toConnector(d)
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
-        const provider     = (['pipedream', 'mcp', 'zapier'] as const).find(value => value === d.provider)
+        const provider     = (['pipedream', 'mcp', 'zapier', 'api'] as const).find(value => value === d.provider)
         const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
         const request_id   = typeof d.prompt_id      === 'string' ? d.prompt_id      : ''
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can

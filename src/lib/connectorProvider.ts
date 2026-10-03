@@ -30,6 +30,12 @@ export function isMcpProviderConnector(
   return MCP_PROVIDER_CONNECTOR_SLUGS.has(slug.toLowerCase())
 }
 
+// A custom REST API the person described. The link call files its token
+// itself, so there is no page to open and no redirect comes back.
+export function isApiProviderConnector(provider?: string | null): boolean {
+  return provider === 'api'
+}
+
 export function isZapierProviderConnector(
   provider?: string | null,
   redirectUrl?: string | null,

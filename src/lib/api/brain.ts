@@ -215,7 +215,7 @@ export interface ToolConnectPromptEvent {
    *  out one by one is what dropped the logo and rendered a grey initial. */
   connector:       import('@/lib/connector').Connector
   auth_mode:       string
-  provider?:       'pipedream' | 'mcp' | 'zapier'
+  provider?:       'pipedream' | 'mcp' | 'zapier' | 'api'
   /** The action that needs the app. Empty when the run is binding the app
    *  itself rather than calling one operation — the card says so instead of
    *  naming a tool. */

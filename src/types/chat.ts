@@ -94,7 +94,7 @@ export interface ConnectorConnectPrompt {
    *  from the raw event so no call site re-derives them. */
   connector:       import('@/lib/connector').Connector
   auth_mode:       'oauth2' | 'api_key'
-  provider?:       'pipedream' | 'mcp' | 'zapier'
+  provider?:       'pipedream' | 'mcp' | 'zapier' | 'api'
   /** The action that needs the app. Empty when the run is binding the app
    *  itself rather than calling one operation. */
   tool_name:       string
