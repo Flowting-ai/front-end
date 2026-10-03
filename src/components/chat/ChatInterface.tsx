@@ -59,8 +59,8 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   /** Whether web search is currently enabled (controlled by parent). */
   webSearchEnabled?: boolean;
-  /** Whether adaptive reasoning is enabled (sends enable_thinking to backend). */
-  enableReasoning?: boolean;
+  /** Thinking effort for the turn; `null` is thinking off, `undefined` sends no thinking field. */
+  reasoningEffort?: string | null;
   /** Files selected via the add-menu file picker (controlled by parent). */
   addMenuFiles?: File[];
   /** Called after send to let the parent clear its add-menu file list. */
@@ -171,7 +171,7 @@ export function ChatInterface({
   modelMenu,
   initialPrompt,
   webSearchEnabled,
-  enableReasoning,
+  reasoningEffort,
   addMenuFiles,
   onClearAddMenuFiles,
   initialFiles,
@@ -267,6 +267,7 @@ export function ChatInterface({
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
   const { selectedModel: contextModel } = useModelSelectorContext();
+  const enableReasoning = reasoningEffort === undefined ? undefined : reasoningEffort !== null;
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -495,6 +496,7 @@ export function ChatInterface({
       fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        reasoningEffort,
         algorithm,
         files: files.length > 0 ? files : undefined,
         userMessageId: userMsgId,
@@ -738,6 +740,7 @@ export function ChatInterface({
       await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        reasoningEffort,
         algorithm,
         files: allFiles.length > 0 ? allFiles : undefined,
         userMessageId: userMsgId,
@@ -807,7 +810,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       selectedModelId,
-      { enableReasoning, algorithm, chatOwnershipConfirmed },
+      { enableReasoning, reasoningEffort, algorithm, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -878,6 +881,7 @@ export function ChatInterface({
     fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
+      reasoningEffort,
       algorithm,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
@@ -1091,7 +1095,6 @@ export function ChatInterface({
                     isLast={idx === messages.length - 1}
                     isNewMessage={idx === messages.length - 1 && isStreaming}
                     chatId={chatId}
-                    showReasoning={enableReasoning}
                     pinned={message.role === 'assistant' ? isPinned(message.id) : false}
                     archived={archived}
                     onRegenerate={

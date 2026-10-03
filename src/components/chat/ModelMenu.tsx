@@ -30,10 +30,15 @@ const MODEL_ROW_GAP = 4
 const MODEL_LIST_MAX_HEIGHT =
   VISIBLE_MODEL_ROWS * MODEL_ROW_HEIGHT + (VISIBLE_MODEL_ROWS - 1) * MODEL_ROW_GAP
 
+function effortLabel(effort: string | null): string {
+  if (!effort) return 'Off'
+  return effort.charAt(0).toUpperCase() + effort.slice(1)
+}
+
 export interface ModelMenuProps {
-  /** Called right after a selection is made or the adaptive-thinking switch
-   *  is toggled — lets the caller (ChatInput, via a cloned prop) close the
-   *  dropdown hosting this menu. None of those is a reason to keep it open. */
+  /** Called right after a model, tier or effort is picked — lets the caller
+   *  (ChatInput, via a cloned prop) close the dropdown hosting this menu.
+   *  None of those is a reason to keep it open. */
   onClose?: () => void
 }
 
@@ -41,7 +46,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   const {
     models, selectedModel, selectModel,
     algorithm, selectAlgorithm,
-    enableReasoning, setEnableReasoning,
+    effortOptions, reasoningEffort, setReasoningEffort,
   } = useModelSelectorContext()
   // The catalog can carry entries literally named "Souvenir Pro"/"Souvenir
   // Standard" (aliases for the Auto Routing tiers above) alongside the real
@@ -94,6 +99,24 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
         onClick={() => {
           trackFeature('model_selector_manual', { model_id: `algorithm:${value}`, model_type: 'algorithm' })
           selectAlgorithm(value)
+          onClose?.()
+        }}
+      />
+    )
+  }
+
+  const renderEffortItem = (effort: string | null) => {
+    const selected = reasoningEffort === effort
+    return (
+      <Dropdown.Item
+        key={effort ?? 'off'}
+        fluid
+        label={effortLabel(effort)}
+        selected={selected}
+        rightIcon={<TickTwoIcon style={{ opacity: selected ? 1 : 0 }} />}
+        onClick={() => {
+          trackFeature('effort_level_changed', { effort: effort ?? 'off' })
+          setReasoningEffort(effort)
           onClose?.()
         }}
       />
@@ -166,22 +189,26 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
           </Dropdown>
         </Dropdown.Submenu>
       </Dropdown.Section>
-      <Dropdown.Section label="Thinking" fluid divider>
-        <Dropdown.Item
-          label="Adaptive thinking"
-          subLabel="Enable extended reasoning"
-          showSwitch
-          switchChecked={enableReasoning}
-          onSwitchChange={(checked) => {
-            trackFeature('effort_level_changed', { enabled: checked })
-            setEnableReasoning(checked)
-            // Unlike picking a model, give the switch's own toggle animation
-            // time to finish before the menu closes out from under it.
-            setTimeout(() => onClose?.(), 400)
-          }}
-          fluid
-        />
-      </Dropdown.Section>
+      {effortOptions.length > 0 && (
+        <Dropdown.Section label="Thinking" fluid divider>
+          <Dropdown.Submenu
+            trigger={
+              <Dropdown.Item
+                fluid
+                label="Effort"
+                subLabel={effortLabel(reasoningEffort)}
+                rightIcon={<ArrowRightOneIcon />}
+              />
+            }
+          >
+            <Dropdown size="md" maxHeight={false}>
+              <Dropdown.Section fluid>
+                {[null, ...effortOptions].map(renderEffortItem)}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Submenu>
+        </Dropdown.Section>
+      )}
     </Dropdown>
   )
 }

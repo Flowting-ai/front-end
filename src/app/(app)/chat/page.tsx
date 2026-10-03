@@ -413,7 +413,7 @@ function ChatPageInner() {
     selectedModel,
     selectModel,
     open: openModelSelector,
-    enableReasoning,
+    reasoningEffort,
     algorithm,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -948,7 +948,7 @@ function ChatPageInner() {
               initialPrompt={initialPrompt}
               initialMentionedPins={initialMentionedPins}
               webSearchEnabled={webSearchEnabled}
-              enableReasoning={enableReasoning}
+              reasoningEffort={reasoningEffort}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}

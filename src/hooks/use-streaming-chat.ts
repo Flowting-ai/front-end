@@ -214,7 +214,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -292,6 +292,7 @@ export function useStreamingChat({
         if (options?.toneId) fd.append("tone_id", options.toneId)
         if (options?.enableReasoning !== undefined) {
           fd.append("thinking", options.enableReasoning ? "true" : "false")
+          if (options.reasoningEffort) fd.append("effort", options.reasoningEffort)
         }
         if (options?.replaceMessageId && isExistingChat) fd.append("replace_message_id", options.replaceMessageId)
       } else {
@@ -301,6 +302,7 @@ export function useStreamingChat({
         if (options?.webSearch) fd.append("webSearch", "true")
         if (options?.enableReasoning !== undefined) {
           fd.append("enable_thinking", options.enableReasoning ? "true" : "false")
+          if (options.reasoningEffort) fd.append("effort", options.reasoningEffort)
         }
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("personaId", options.personaId)

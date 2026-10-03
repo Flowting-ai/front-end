@@ -276,7 +276,7 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, algorithm, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, reasoningEffort, algorithm, setPersonaActive } = useModelSelectorContext()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   // Reset to the default model tier on a genuinely blank "new chat" landing —
@@ -759,7 +759,7 @@ function ProjectChatPageInner() {
               onClearInitialFiles={() => setInitialFiles([])}
               initialMentionedPins={initialMentionedPins}
               webSearchEnabled={webSearchEnabled}
-              enableReasoning={enableReasoning}
+              reasoningEffort={reasoningEffort}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={() => setAddMenuFiles([])}
               chips={newChatChips}
