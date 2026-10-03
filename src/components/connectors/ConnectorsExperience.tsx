@@ -38,7 +38,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
   const [setupAccount, setSetupAccount] = useState<ConnectorConnection | undefined>(undefined)
 
-  const [customApiOpen, setCustomApiOpen] = useState(false)
+  // `?add=api` is the link the model hands out for adding a custom API.
+  const [customApiOpen, setCustomApiOpen] = useState(() => searchParams.get('add') === 'api')
   const [deleteApiOpen, setDeleteApiOpen] = useState(false)
 
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
@@ -144,6 +145,18 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       })
       .finally(() => setPendingSlug(null))
   }, [mergeRows, openConnectorDetail])
+
+  // `?connector=<slug>` is the link Slack's Connect buttons and the model open:
+  // land on that app, not the whole catalog.
+  const linkedSlug = searchParams.get('connector')
+  useEffect(() => {
+    if (!linkedSlug || !orgReady) return
+    let cancelled = false
+    void getConnector(linkedSlug)
+      .then(entry => { if (!cancelled) selectFromCatalog(entry) })
+      .catch(() => { if (!cancelled) toast.error(`Couldn't find the ${linkedSlug} connector`) })
+    return () => { cancelled = true }
+  }, [linkedSlug, orgReady, selectFromCatalog])
 
   // A new custom API has no account yet: link its token like any catalog app.
   const customApiCreated = useCallback((entry: ConnectorCatalog) => {
