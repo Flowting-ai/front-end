@@ -1,0 +1,170 @@
+.header,
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 132px 140px 80px;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: var(--font-body);
+}
+
+.header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--neutral-100);
+  background: var(--neutral-50);
+  color: var(--neutral-500);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.row {
+  min-height: 76px;
+  padding: 16px 20px;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name,
+.email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--neutral-900);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.email,
+.date {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.visibility {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pill {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pill[data-tone='shared'] {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.permissionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--neutral-600);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.permissionLabel[data-permission='blocked'] {
+  color: var(--red-600);
+}
+
+.warning {
+  color: var(--neutral-700);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mobileDateLabel {
+  display: none;
+}
+
+@container (max-width: 760px) {
+  .header {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .identity {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .action {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: start;
+  }
+
+  .visibility {
+    grid-column: 1;
+    grid-row: 2;
+    padding-right: 112px;
+  }
+
+  .permission {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .date {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .mobileDateLabel {
+    display: inline;
+  }
+}
+
+@container (max-width: 440px) {
+  .row {
+    padding: 16px;
+  }
+
+  .visibility {
+    padding-right: 0;
+  }
+
+  .permission {
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  .permission:empty {
+    display: none;
+  }
+
+  .date {
+    grid-row: 4;
+  }
+}

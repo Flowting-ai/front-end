@@ -7,13 +7,6 @@ const SIDEBAR_CLOSE_EVENT = "sidebar:close";
 const SIDEBAR_NEW_CHAT_EVENT = "sidebar:new-chat";
 export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
 const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
-export const BRAIN_THREAD_CREATED_EVENT = "brain:thread-created";
-// Fired by the shared LeftSidebar's "New thread" button while on a brain page.
-// The brain page listens and runs its imperative new-thread reset (the reset
-// can't be driven by URL navigation alone — see handleNewChat in brain/page).
-export const BRAIN_NEW_THREAD_EVENT = "brain:new-thread";
-export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
-export const BRAIN_THREAD_DELETED_EVENT = "brain:thread-deleted";
 export const CHAT_CREATED_EVENT = "chat:created";
 // Fired by the sidebar's per-project "New chat" quick-add button while a
 // project chat that was created via the new→real-id URL swap (see the
@@ -27,14 +20,14 @@ export const CHAT_CREATED_EVENT = "chat:created";
 export const PROJECT_NEW_CHAT_EVENT = "project:new-chat";
 // Fired by the shared LeftSidebar's "See all agents" row while already on
 // /agents — a plain push() to the same URL won't reset tab state on an
-// already-mounted page (same reasoning as BRAIN_NEW_THREAD_EVENT above), so
+// already-mounted page (same reasoning as SIDEBAR_NEW_CHAT_EVENT above), so
 // the agents page listens and switches itself back to the "My Agents" tab.
 export const AGENTS_SEE_ALL_EVENT = "agents:see-all";
 // Fired by the shared LeftSidebar whenever it navigates to a persona/agent
 // chat (new chat with a persona, or selecting one of that persona's existing
 // chats) — /agents/[personaId]/chat's own instanceKey logic derives its reset
-// from useSearchParams()/useParams() reactivity alone, which /chat and /brain's
-// own comments document as unreliable across Suspense transitions. This event
+// from useSearchParams()/useParams() reactivity alone, which /chat's own
+// comments document as unreliable across Suspense transitions. This event
 // fires synchronously from the click itself, independent of that, so the page
 // can force a remount even if the router's reactive params lag or get missed.
 export const PERSONA_CHAT_NAV_EVENT = "persona:chat-nav";
@@ -43,15 +36,6 @@ export interface PersonaChatEventDetail {
   personaId: string;
   chatId: string;
   title: string;
-}
-
-export interface BrainThreadEventDetail {
-  chatId: string;
-  title: string;
-}
-
-export interface BrainThreadDeletedEventDetail {
-  chatId: string;
 }
 
 export interface ChatCreatedEventDetail {
@@ -109,33 +93,9 @@ export function emitChatCreated(detail: ChatCreatedEventDetail) {
   }
 }
 
-export function emitBrainNewThread() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(BRAIN_NEW_THREAD_EVENT));
-  }
-}
-
 export function emitAgentsSeeAll() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(AGENTS_SEE_ALL_EVENT));
-  }
-}
-
-export function emitBrainThreadCreated(detail: BrainThreadEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(BRAIN_THREAD_CREATED_EVENT, { detail }));
-  }
-}
-
-export function emitBrainThreadTitleUpdated(detail: BrainThreadEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(BRAIN_THREAD_TITLE_UPDATED_EVENT, { detail }));
-  }
-}
-
-export function emitBrainThreadDeleted(detail: BrainThreadDeletedEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(BRAIN_THREAD_DELETED_EVENT, { detail }));
   }
 }
 

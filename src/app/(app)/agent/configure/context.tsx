@@ -33,7 +33,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
-import type { ActivityItem, ExternalOutputAction, GeneratedFile, GeneratedImage } from '@/types/chat'
+import type { ActivityItem, GeneratedFile, GeneratedImage } from '@/types/chat'
 import type { ChatPrompt } from '@/lib/api/prompts'
 import { createReasoningAccumulator, type ReasoningSection } from '@/lib/reasoning'
 import { webSearchResults } from '@/lib/activity'
@@ -67,7 +67,6 @@ export type ChatMsg = {
   reasoningSections?: ReasoningSection[]
   images?: GeneratedImage[]
   generatedFiles?: GeneratedFile[]
-  externalOutputActions?: ExternalOutputAction[]
   attachments?: Array<{ file_name: string; mime_type: string; file_size?: number }>
 }
 
@@ -790,9 +789,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         : m)),
       onGeneratedFile: (file) => setChatMessages(prev => prev.map(m => m.id === asstMsgId
         ? { ...m, generatedFiles: [...(m.generatedFiles ?? []), file] }
-        : m)),
-      onExternalOutput: (actions) => setChatMessages(prev => prev.map(m => m.id === asstMsgId
-        ? { ...m, externalOutputActions: actions }
         : m)),
       onMemoryUpdated: (event) => window.dispatchEvent(new CustomEvent('souvenir:memory-updated', { detail: event })),
     }

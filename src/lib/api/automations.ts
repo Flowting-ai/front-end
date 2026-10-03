@@ -58,7 +58,7 @@ export interface OrganizationAutomation extends Automation {
   connectors: AutomationConnector[]
 }
 
-/** A Brain chat holding the source's program, and the request that sets it up. */
+/** A chat holding the source's program, and the request that sets it up. */
 export interface AutomationCopy {
   chat_id: string
   prompt:  string
@@ -107,7 +107,7 @@ export function listOrganizationAutomations(): Promise<OrganizationAutomation[]>
   return apiFetchJson<OrganizationAutomation[]>(ORGANIZATION_AUTOMATIONS)
 }
 
-/** POST /automations/{id}/copy — open a Brain chat that rebuilds it as the user's own. */
+/** POST /automations/{id}/copy — open a chat that rebuilds it as the user's own. */
 export function copyAutomation(id: string): Promise<AutomationCopy> {
   return apiFetchJson<AutomationCopy>(AUTOMATION_COPY(id), { method: 'POST' })
 }

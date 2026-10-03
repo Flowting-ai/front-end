@@ -37,7 +37,7 @@ interface PersonalBillingSnapshot {
   creditsUsed:      number
   chatCredits:      number
   slackCredits:     number
-  brainCredits:     number
+  automationCredits: number
   nextBilling:      string
   periodEnd:        string | null
   cancelAtPeriodEnd: boolean
@@ -407,7 +407,7 @@ function TeamsPlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
 }
 
 /** Personal (individual, non-org) branch: same two-card row, plus the
- *  "This month's usage" card (Chat/Slack/Brain) real page adds. */
+ *  "This month's usage" card (Chat/Slack/Automations) real page adds. */
 function PersonalPlansSkeleton() {
   return (
     <>
@@ -416,7 +416,7 @@ function PersonalPlansSkeleton() {
         <SkeletonPageHeader />
         <SkeletonTwoCardRow />
 
-        {/* This month's usage — Chat / Slack / Brain */}
+        {/* This month's usage — Chat / Slack / Automations */}
         <SkeletonSectionCard>
           {[0, 1, 2].map(i => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1154,7 +1154,7 @@ function PersonalBillingView() {
         creditsUsed:      usage.ownSpendCredits,
         chatCredits:      usage.byCategory.chatCredits,
         slackCredits:     usage.byCategory.slackCredits,
-        brainCredits:     usage.byCategory.brainCredits,
+        automationCredits: usage.byCategory.automationCredits,
         nextBilling:      nextBillingLive,
         periodEnd:        billing?.currentPeriodEnd ?? user?.currentPeriodEnd ?? null,
         cancelAtPeriodEnd: billing?.cancelAtPeriodEnd ?? false,
@@ -1177,12 +1177,12 @@ function PersonalBillingView() {
   const isTrialUser      = Boolean(usage?.isTrial || (!planType && creditsTotal > 0 && !teamsTier))
   const planName         = teamsTier ? `Teams · $${teamsTier.price}` : (isTrialUser ? 'Trial' : null)
   const planPrice        = teamsTier?.price ?? 0
-  const planFeatures     = teamsTier ? ['Shared workspace', 'Chat, Slack, and Brain', 'Admin billing'] : []
+  const planFeatures     = teamsTier ? ['Shared workspace', 'Chat, Slack, and Automations', 'Admin billing'] : []
   const hasActiveSub     = Boolean(teamsTier)
   const hasPlan          = hasActiveSub || isTrialUser
   const chatCredits      = display?.chatCredits    ?? 0
   const slackCredits     = display?.slackCredits   ?? 0
-  const brainCredits     = display?.brainCredits   ?? 0
+  const automationCredits = display?.automationCredits ?? 0
   const nextBilling      = display?.nextBilling    ?? '—'
   const periodEnd        = display?.periodEnd      ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
@@ -1362,7 +1362,7 @@ function PersonalBillingView() {
         <SectionCard title="This month's usage" subtitle={cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`} bodyGap={16}>
           <PersonalUsageRow label="Chat"  used={chatCredits}  total={creditsTotal} />
           <PersonalUsageRow label="Slack" used={slackCredits} total={creditsTotal} />
-          <PersonalUsageRow label="Brain" used={brainCredits} total={creditsTotal} />
+          <PersonalUsageRow label="Automations" used={automationCredits} total={creditsTotal} />
         </SectionCard>
 
         {billing && (

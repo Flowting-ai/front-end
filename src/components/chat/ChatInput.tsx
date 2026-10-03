@@ -14,6 +14,7 @@ import { ModelIcon } from "@/components/ModelIcon";
 import { Button } from "@/components/Button";
 import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
+import { useMounted } from "@/hooks/use-mounted";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
@@ -171,6 +172,7 @@ export function ChatInput(
     hasAttachments = false,
     contextUsedPct,
     className,
+    style: callerStyle,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
     ref,
@@ -188,7 +190,7 @@ export function ChatInput(
     const [isMicHovered,  setIsMicHovered]  = useState(false);
     const [addMenuOpen,   setAddMenuOpen]   = useState(false);
     const [modelMenuOpen, setModelMenuOpen] = useState(false);
-    const [mounted,       setMounted]       = useState(false);
+    const mounted = useMounted();
     const [isPinDragOver, setIsPinDragOver] = useState(false);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
@@ -207,8 +209,6 @@ export function ChatInput(
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
-
-    useEffect(() => { setMounted(true); }, []);
 
     // Track chips scroll position + overflow so the indicator stays in sync.
     useEffect(() => {
@@ -552,6 +552,7 @@ export function ChatInput(
           outlineOffset: 2,
           transition: "box-shadow 150ms, outline-color 150ms",
           cursor: disabled ? "not-allowed" : undefined,
+          ...callerStyle,
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}

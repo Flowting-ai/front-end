@@ -12,7 +12,7 @@ import type { BadgeColor } from '@/components/Badge'
 // ── Shadows ───────────────────────────────────────────────────────────────────
 // Two-layer shadow system: outer elevation + inner depth overlay (KDS standard).
 // Slightly warmer than CARD_SHADOW (QuestionCard) to distinguish this as
-// elevated above the surrounding Brain thread.
+// elevated above the surrounding chat thread.
 
 const SHADOW_CARD  = '0px 4px 8px 0px rgba(82,75,71,0.10), 0px 0px 0px 1px rgba(59,54,50,0.12)'
 const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(247,242,237,0.5), inset 0px -1px 0px 0px rgba(82,75,71,0.06)'

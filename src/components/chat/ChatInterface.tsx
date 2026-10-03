@@ -59,6 +59,8 @@ interface ChatInterfaceProps {
   modelMenu?: React.ReactNode;
   /** If provided, ChatInterface auto-sends this message on mount (new chat). */
   initialPrompt?: string | null;
+  /** Prefills the input for the user to review and send. */
+  draft?: string | null;
   /** Whether web search is currently enabled (controlled by parent). */
   webSearchEnabled?: boolean;
   /** Thinking effort for the turn; `null` is thinking off, `undefined` sends no thinking field. */
@@ -115,7 +117,7 @@ interface ChatInterfaceProps {
   endpoint?: string;
   /**
    * Custom backend stop handler. When provided, called instead of the default
-   * POST /chats/{id}/stop. Use for persona or brain stop endpoints.
+   * POST /chats/{id}/stop. Use for persona stop endpoints.
    */
   onStopBackend?: (chatId: string) => void;
   /**
@@ -173,6 +175,7 @@ export function ChatInterface({
   addMenu,
   modelMenu,
   initialPrompt,
+  draft,
   webSearchEnabled,
   reasoningEffort,
   addMenuFiles,
@@ -201,6 +204,9 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
+  useEffect(() => {
+    if (draft) setInputValue(draft);
+  }, [draft]);
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const {

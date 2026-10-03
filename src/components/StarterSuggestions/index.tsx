@@ -45,7 +45,7 @@ export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelec
   )
 }
 
-/** A tile per card with what it gets back — Brain's multi-step jobs. */
+/** A tile per card with what it gets back — multi-step jobs. */
 export function StarterTiles({ cards, onSelect }: { cards: StarterCard[]; onSelect: (card: StarterCard) => void }) {
   return (
     <div className={styles.tiles}>

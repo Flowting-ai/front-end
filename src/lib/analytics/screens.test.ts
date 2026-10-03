@@ -5,15 +5,13 @@ describe("routeToScreen", () => {
   it("maps primary surfaces to their screen concepts", () => {
     expect(routeToScreen("/chat")).toBe("chat");
     expect(routeToScreen("/chats")).toBe("chat_history");
-    expect(routeToScreen("/brain")).toBe("brain");
+    expect(routeToScreen("/schedules")).toBe("brain");
     expect(routeToScreen("/agents")).toBe("agent_library");
     expect(routeToScreen("/projects")).toBe("projects");
     expect(routeToScreen("/welcome")).toBe("welcome");
   });
 
-  it("treats /brain sub-views and /agents variants as their parent concept", () => {
-    expect(routeToScreen("/brain/schedules")).toBe("brain");
-    expect(routeToScreen("/brain/threads")).toBe("brain");
+  it("treats /agents variants as their parent concept", () => {
     expect(routeToScreen("/agents/templates")).toBe("agent_library");
     expect(routeToScreen("/agents/published")).toBe("agent_library");
   });

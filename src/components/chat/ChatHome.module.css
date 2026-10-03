@@ -1,0 +1,97 @@
+.home {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: clamp(88px, 22vh, 200px) clamp(20px, 5vw, 64px) 64px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 620px;
+  margin-inline: auto;
+}
+
+.composer {
+  width: 100%;
+  min-width: 0;
+}
+
+.contextBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--neutral-200);
+  border-top: 1px solid var(--neutral-100);
+  border-radius: 0 0 16px 16px;
+  background: var(--neutral-50);
+}
+
+.contextAction,
+.createProject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  max-width: 260px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--neutral-600);
+  font: 400 12px/20px var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.contextAction svg,
+.createProject svg {
+  flex: none;
+}
+
+.contextAction:hover,
+.createProject:hover {
+  color: var(--neutral-900);
+  background: var(--neutral-100);
+}
+
+.contextAction:focus-visible,
+.createProject:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.actionLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.createProject {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+@media (max-width: 540px) {
+  .home {
+    padding: 48px 16px;
+  }
+
+  .content {
+    gap: 20px;
+  }
+
+  .contextBar {
+    gap: 2px 4px;
+    padding: 6px;
+  }
+
+  .contextAction {
+    max-width: 100%;
+  }
+}

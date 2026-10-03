@@ -40,9 +40,8 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
-import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
-import { ArtifactCard } from '@/templates/Brain/ArtifactCard'
-import { ExternalOutputCard } from '@/templates/Brain/ExternalOutputCard'
+import { StreamingMessageBubble } from '@/components/chat/StreamingMessageBubble'
+import { ArtifactCard } from '@/components/chat/ArtifactCard'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
 import { getAllVersionTags } from '@/lib/version-tags'
 import { formatServerDateTime } from '@/lib/utils/format-utils'
@@ -665,16 +664,6 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                       onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}
                     />
                   ))}
-                  {msg.externalOutputActions && msg.externalOutputActions.length > 0 && (
-                    <ExternalOutputCard actions={msg.externalOutputActions.map((action) => ({
-                      verb: action.verb,
-                      target: action.target,
-                      connector: action.connector,
-                      logoSrc: action.logo_url ?? undefined,
-                      detail: action.detail ?? undefined,
-                      onView: action.view_url ? () => window.open(action.view_url!, '_blank', 'noopener,noreferrer') : undefined,
-                    }))} />
-                  )}
                   {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
                   {msg.permissionPrompts?.map(p => (
                     <PermissionPromptCard

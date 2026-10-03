@@ -70,8 +70,8 @@ export function routeToScreen(pathname: string): ScreenName | null {
       return "chat";
     case "chats":
       return "chat_history";
-    case "brain":
-      return "brain"; // + /brain/chats|threads|schedules
+    case "schedules":
+      return "brain"; // was /brain/schedules; Brain's chats are plain /chat now
     case "agent":
       // Singular: /agent/configure and its tabs.
       return segments[1] === "configure" ? "agent_configure" : null;

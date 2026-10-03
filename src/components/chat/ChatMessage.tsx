@@ -12,7 +12,6 @@ import { SourceList } from "./CitationChip";
 import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import { ChatPromptCard } from "./ChatPromptCard";
-import { ExternalOutputCard } from "@/templates/Brain/ExternalOutputCard";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
 import { usePinboardActions } from "@/context/pinboard-context";
@@ -924,20 +923,6 @@ export function ChatMessage({
           </div>
         )}
 
-        {message.externalOutputActions && message.externalOutputActions.length > 0 && (
-          <ExternalOutputCard
-            actions={message.externalOutputActions.map((action) => ({
-              verb: action.verb,
-              target: action.target,
-              connector: action.connector,
-              logoSrc: action.logo_url ?? undefined,
-              detail: action.detail ?? undefined,
-              onView: action.view_url
-                ? () => window.open(action.view_url!, '_blank', 'noopener,noreferrer')
-                : undefined,
-            }))}
-          />
-        )}
 
         {/* Generated images */}
         {message.images && message.images.length > 0 && (

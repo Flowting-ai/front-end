@@ -1,0 +1,261 @@
+'use client'
+
+import React from 'react'
+import { ContentRenderer } from '@/lib/content-renderer'
+import { toConnector } from '@/lib/connector'
+import { Button } from '@/components/Button'
+
+// ── Connector result detection ─────────────────────────────────────────────────
+// When the model outputs a raw connector result JSON blob as content,
+// detect it and render a clean summary card instead of the raw JSON.
+
+interface ConnectorResultJson {
+  _saved_to_file?: string
+  _note?: string
+  _schema?: unknown
+  preview?: string
+}
+
+interface PreviewMeta {
+  connector?: string
+  tool?: string
+  arguments?: Record<string, unknown>
+  fetched_at?: string
+}
+
+interface PreviewResult {
+  exports?: Record<string, unknown>
+}
+
+function tryParseConnectorResult(content: string): ConnectorResultJson | null {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{')) return null
+  // Fast path: only attempt full parse if the key sentinel is present
+  if (!trimmed.includes('"_saved_to_file"') && !trimmed.includes('"_note"')) return null
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>
+    if (typeof parsed !== 'object' || !parsed) return null
+    if (!('_saved_to_file' in parsed) && !('_note' in parsed)) return null
+    return parsed as ConnectorResultJson
+  } catch {
+    return null
+  }
+}
+
+function isPartialConnectorResult(content: string): boolean {
+  const trimmed = content.trim()
+  return (
+    trimmed.startsWith('{"_saved_to_file"') ||
+    trimmed.startsWith('{ "_saved_to_file"') ||
+    trimmed.startsWith('{"_note"')
+  )
+}
+
+// ── Display helpers ────────────────────────────────────────────────────────────
+
+function toolDisplayLabel(toolSlug: string, connectorSlug: string): string {
+  const lower = toolSlug.toLowerCase()
+  const prefix = connectorSlug.toLowerCase() + '-'
+  const withoutPrefix = lower.startsWith(prefix) ? lower.slice(prefix.length) : lower
+  return withoutPrefix
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+// ── Leaked connector-connect instruction detection ──────────────────────────
+// The backend's connector-connect tool sometimes hands the MODEL an
+// instruction ("the user MUST be shown this URL... you MUST NOT modify it")
+// and the model relays that verbatim as its answer — trailing raw dict repr
+// of the automation included. None of that scaffolding is meant for a person
+// to read. This detects the leak via its distinctive, stable marker phrase
+// and renders a clean "connect your account" prompt instead of the raw text.
+// (Backend-owned content bug — this is a defensive display fix, not a proper
+// structured connector-connect event, which doesn't exist yet.)
+
+const CONNECT_LEAK_RE = /must be shown the following url[^:]*:\s*(https?:\/\/[^\s\])}>"']+)/i
+
+interface ConnectLeak {
+  url:      string
+  appLabel: string
+}
+
+function tryParseConnectLeak(content: string): ConnectLeak | null {
+  const match = content.match(CONNECT_LEAK_RE)
+  if (!match) return null
+  const url = match[1]
+  let appSlug: string | undefined
+  try { appSlug = new URL(url).searchParams.get('app') ?? undefined } catch { /* not a valid absolute URL */ }
+  return { url, appLabel: appSlug ? toConnector(appSlug).name : 'your account' }
+}
+
+function ConnectPromptCard({ url, appLabel }: ConnectLeak) {
+  return (
+    <div
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        gap:             12,
+        padding:         '14px 16px',
+        borderRadius:    10,
+        border:          '1px solid var(--neutral-200)',
+        backgroundColor: 'var(--neutral-50)',
+        margin:          '4px 0',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontFamily:  'var(--font-body)',
+          fontSize:    'var(--font-size-body)',
+          fontWeight:  'var(--font-weight-medium)',
+          color:       'var(--neutral-800)',
+          margin:      0,
+          lineHeight:  'var(--line-height-body)',
+        }}>
+          Connect {appLabel}
+        </p>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          color:      'var(--neutral-500)',
+          margin:     '2px 0 0',
+          lineHeight: 'var(--line-height-caption)',
+        }}>
+          Authorize access to finish setting this up.
+        </p>
+      </div>
+      <Button
+        variant="default"
+        size="sm"
+        onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+      >
+        Connect
+      </Button>
+    </div>
+  )
+}
+
+// ── Connector result card ──────────────────────────────────────────────────────
+
+function ConnectorResultCard({ data }: { data: ConnectorResultJson }) {
+  let meta: PreviewMeta | null = null
+  let result: PreviewResult | null = null
+  if (data.preview) {
+    try {
+      const preview = JSON.parse(data.preview) as Record<string, unknown>
+      meta   = (preview._meta   as PreviewMeta)   ?? null
+      result = (preview.result  as PreviewResult)  ?? null
+    } catch { /* incomplete JSON during streaming — already handled above */ }
+  }
+
+  const connectorSlug  = meta?.connector ?? ''
+  const connectorName  = connectorSlug ? toConnector(connectorSlug).name : ''
+  const toolSlug       = meta?.tool ?? ''
+  const actionLabel    = toolSlug ? toolDisplayLabel(toolSlug, connectorSlug) : 'Action completed'
+  const summary        = typeof result?.exports?.['$summary'] === 'string'
+    ? result.exports['$summary'] as string
+    : null
+  const heading        = [connectorName, actionLabel].filter(Boolean).join(' · ')
+
+  return (
+    <div
+      style={{
+        display:         'flex',
+        alignItems:      'flex-start',
+        gap:             10,
+        padding:         '10px 14px',
+        borderRadius:    10,
+        border:          '1px solid var(--neutral-200)',
+        backgroundColor: 'var(--neutral-50)',
+        margin:          '4px 0',
+      }}
+    >
+      {/* Success icon */}
+      <div style={{ flexShrink: 0, marginTop: 2, color: 'var(--green-500, #22c55e)' }}>
+        <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+          <circle cx={8} cy={8} r={7.5} stroke="currentColor" strokeOpacity={0.35} />
+          <path
+            d="M4.75 8.25 7 10.5l4.25-5"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontFamily:  'var(--font-body)',
+          fontSize:    'var(--font-size-body)',
+          fontWeight:  'var(--font-weight-medium)',
+          color:       'var(--neutral-800)',
+          margin:      0,
+          lineHeight:  'var(--line-height-body)',
+        }}>
+          {heading || 'Action completed'}
+        </p>
+        {summary && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            color:      'var(--neutral-500)',
+            margin:     '2px 0 0',
+            lineHeight: 'var(--line-height-caption)',
+          }}>
+            {summary}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── StreamingContentRenderer ───────────────────────────────────────────────────────
+
+export interface StreamingContentRendererProps {
+  content: string
+}
+
+export function StreamingContentRenderer({ content }: StreamingContentRendererProps) {
+  const trimmed = content.trim()
+
+  // Leaked "you MUST show this connect URL" tool instruction → clean prompt,
+  // discarding the raw instruction text and any trailing debug dict.
+  const connectLeak = tryParseConnectLeak(trimmed)
+  if (connectLeak) {
+    return <ConnectPromptCard {...connectLeak} />
+  }
+
+  // Fully-parsed connector result → clean card
+  const parsed = tryParseConnectorResult(trimmed)
+  if (parsed) {
+    return <ConnectorResultCard data={parsed} />
+  }
+
+  // Partially-streamed connector result (JSON not yet complete) → placeholder
+  if (isPartialConnectorResult(trimmed)) {
+    return (
+      <div style={{
+        display:         'flex',
+        alignItems:      'center',
+        gap:             8,
+        padding:         '10px 14px',
+        borderRadius:    10,
+        border:          '1px dashed var(--neutral-200)',
+        backgroundColor: 'var(--neutral-50)',
+        margin:          '4px 0',
+        fontFamily:      'var(--font-body)',
+        fontSize:        'var(--font-size-caption)',
+        color:           'var(--neutral-400)',
+      }}>
+        <svg width={12} height={12} viewBox="0 0 12 12" fill="none" aria-hidden>
+          <circle cx={6} cy={6} r={5} stroke="currentColor" strokeOpacity={0.4} />
+          <circle cx={6} cy={6} r={2} fill="currentColor" opacity={0.5} />
+        </svg>
+        Processing result…
+      </div>
+    )
+  }
+
+  return <ContentRenderer content={content} />
+}

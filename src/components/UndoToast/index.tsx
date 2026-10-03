@@ -7,7 +7,7 @@ import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
-// Sits inline in a Brain thread — slightly elevated above the thread surface.
+// Sits inline in a chat thread — slightly elevated above the thread surface.
 // Two-layer: outer lift + inner depth.
 
 const SHADOW_OUTER = '0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10)'

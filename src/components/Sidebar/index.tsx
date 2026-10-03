@@ -6,14 +6,10 @@ import { cn } from '@/lib/utils'
 import {
   SearchOneIcon,
   UserAiIcon,
-  NeuralNetworkIcon,
   FolderOneIcon,
   SidebarLeftIcon,
-  MoreHorizontalIcon,
   BubbleChatIcon,
   BubbleChatAddIcon,
-  CalendarFoldIcon,
-  AlertTwoIcon,
   UserAddOneIcon,
   TokenCircleIcon,
   SettingsOneIcon,
@@ -116,15 +112,6 @@ function SouvenirWordmark() {
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-export interface SidebarSchedule {
-  id:        string
-  label:     string
-  /** Visual status indicator rendered to the left of the label */
-  status:    'active' | 'warning'
-  /** Count shown as a "X New" badge on the right */
-  newCount?: number
-}
 
 export interface SidebarAdminItem {
   id:    string
@@ -251,9 +238,9 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   defaultCollapsed?: boolean
   /** Active tab. @default 'chats' */
-  defaultSection?: 'chats' | 'agents' | 'brain' | 'admin'
+  defaultSection?: 'chats' | 'agents' | 'admin'
   /** Back-compat active body section name used by app integrations. */
-  defaultBodySection?: 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects'
+  defaultBodySection?: 'chats' | 'agents' | 'admin' | 'new-chat' | 'projects'
   /** Back-compat initial selected row id. */
   defaultSelectedItem?: string
   /** Back-compat selected state for the search row. */
@@ -267,11 +254,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onChatsClick?: () => void
   onProjectsClick?: () => void
   onPersonasClick?: () => void
-  onBrainClick?: () => void
-  onAllBrainThreadsClick?: () => void
   /** Back-compat switches for callers that own these sections. */
   hideProjects?: boolean
-  scheduledTasksItems?: React.ReactNode
   /**
    * Organisation name shown in the badge to the right of the wordmark.
    * When omitted, no badge renders. e.g. 'Flowting'.
@@ -314,44 +298,16 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onAdminSectionClick?: (id: string) => void
   /** Fully custom org section content — replaces the default admin nav. */
   adminItems?: React.ReactNode
-  /**
-   * When true, shows a 6px filled red dot (top-right of the Brain icon) signalling
-   * that a Brain run is paused and waiting for user action (HITL approval gate).
-   * D-1 Level 1 — outermost signal: "something in Brain needs you."
-   */
-  brainNeedsInput?: boolean
-  /**
-   * Brain section schedules. Section renders only when at least one schedule exists.
-   * Works like `projects` — the Sidebar renders the header, show/hide toggle, and items.
-   */
-  schedules?: SidebarSchedule[]
-  /** Fires when a schedule row is clicked. Falls back to internal selection when omitted. */
-  onScheduleClick?: (id: string) => void
-  /** Called when "New thread" is clicked (Brain tab primary action). */
-  onNewBrainThread?: () => void
   /** Fully custom Agents section content — replaces the entire agents area including header. */
   agentItems?: React.ReactNode
   /** Called when "New agent chat" is clicked (Agents tab primary action). */
   onNewAgentChat?: () => void
   /** Back-compat hook: fires when the org section is entered (via the org badge or the collapsed-rail Organisation icon). */
   onOrganisationClick?: () => void
-  /** Called when the Schedules quick-access item in the fixed menu is clicked (Brain tab). */
-  onSchedulesClick?: () => void
   /** Called when "Chatboard" is clicked in the Chats nav strip (individual only). Only rendered when provided. */
   onChatboardClick?: () => void
   /** Called when "All Agents" is clicked in the Agents nav strip (individual only). When provided, replaces "New agent chat". */
   onAllAgentsClick?: () => void
-  /** Called when "Manage All Threads" is clicked in the Brain nav strip (individual only). Only rendered when provided. */
-  onManageAllThreadsClick?: () => void
-  /** Called when "See all" is clicked in the Schedules section (Brain tab). */
-  onShowAllSchedules?: () => void
-  /** Custom Brain section thread items — replaces default recents when Brain is active */
-  brainRecentItems?: React.ReactNode
-  /**
-   * Override: replaces the entire Schedules section including header.
-   * Prefer the `schedules` data prop for standard usage.
-   */
-  brainScheduleItems?: React.ReactNode
   /**
    * Controlled "current chat" id — driven by the app router. When set, the
    * Sidebar highlights the matching chat row (in Recents or inside a project)
@@ -423,104 +379,6 @@ const sectionItemVariants = {
 }
 
 // ── Default content ────────────────────────────────────────────────────────────
-
-// Persists across mounts — false on first sidebar load, true on every return to that section.
-let schedulesAnimatedOnce = false
-
-// ── DefaultBrainScheduleItems ─────────────────────────────────────────────────
-// Same three-layer stagger pattern as DefaultProjectItems.
-// Renders only when schedules.length > 0 — the parent gates on this condition.
-
-const SCHEDULE_LIMIT = 2
-
-interface DefaultBrainScheduleItemsProps {
-  schedules:           SidebarSchedule[]
-  selectedItem:        string | null
-  onSelect:            (id: string) => void
-  onScheduleClick?:    (id: string) => void
-  onShowAllSchedules?: () => void
-}
-
-function DefaultBrainScheduleItems({ schedules, selectedItem, onSelect, onScheduleClick, onShowAllSchedules }: DefaultBrainScheduleItemsProps) {
-  const [shown,    setShown]    = useState(true)
-  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
-  const shouldAnimate = schedulesAnimatedOnce
-  useEffect(() => { schedulesAnimatedOnce = true }, [])
-
-  const visibleSchedules = schedules.slice(0, SCHEDULE_LIMIT)
-  const hasMore = schedules.length > SCHEDULE_LIMIT
-
-  const handleClick = (id: string) => {
-    onSelect(id)
-    onScheduleClick?.(id)
-  }
-
-  return (
-    <>
-      <SidebarMenuItem
-        fluid
-        variant="header"
-        label="Recent schedules"
-        shown={shown}
-        onShowClick={() => setShown(s => !s)}
-        onViewAllClick={onShowAllSchedules ? () => onShowAllSchedules() : undefined}
-      />
-      <motion.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <motion.div
-          animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
-          variants={sectionStaggerVariants}
-          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
-        >
-          {visibleSchedules.map((schedule) => (
-            <motion.div key={schedule.id} variants={sectionItemVariants}>
-              <SidebarMenuItem
-                fluid
-                variant="default"
-                label={schedule.label}
-                selected={selectedItem === schedule.id}
-                icon={
-                  schedule.status === 'warning'
-                    ? (
-                      <span style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <AlertTwoIcon size={16} color="var(--color-yellow-500)" />
-                      </span>
-                    )
-                    : (
-                      <span style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-blue-500)', flexShrink: 0 }} />
-                      </span>
-                    )
-                }
-                shortcut={schedule.newCount ? `${schedule.newCount} New` : undefined}
-                onClick={() => handleClick(schedule.id)}
-              />
-            </motion.div>
-          ))}
-
-          {hasMore && (
-            <motion.div variants={sectionItemVariants}>
-              <SidebarMenuItem
-                fluid
-                variant="default"
-                icon={<MoreHorizontalIcon size={20} />}
-                label="See all"
-                onClick={onShowAllSchedules}
-              />
-            </motion.div>
-          )}
-        </motion.div>
-      </motion.div>
-    </>
-  )
-}
 
 // ── DefaultAdminItems ─────────────────────────────────────────────────────────
 // Organisation/admin body — a grouped launcher nav. Each row routes the main pane
@@ -660,7 +518,7 @@ interface DefaultRecentItemsProps {
   sectionKey: string
   /** Recent chat rows; defaults to five "Label" placeholders. */
   recents: SidebarRecentItem[]
-  /** Section header label. Defaults to "Recents". Pass "Threads" for Brain mode. */
+  /** Section header label. Defaults to "Recents". */
   sectionLabel?: string
 }
 
@@ -715,7 +573,7 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
           >
             {recents.length === 0 ? (
               <div style={{ padding: '8px 6px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-400)' }}>
-                {sectionKey === 'brain' ? 'No tasks yet' : sectionKey === 'agents' ? 'No agent chats yet' : 'No recent chats'}
+                {sectionKey === 'agents' ? 'No agent chats yet' : 'No recent chats'}
               </div>
             ) : recents.map(({ id }) => {
               const isSelected = activeChatId != null
@@ -770,14 +628,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onChatsClick,
       onProjectsClick,
       onPersonasClick,
-      onBrainClick,
-      onAllBrainThreadsClick,
       hideProjects = false,
-      scheduledTasksItems,
-      brainNeedsInput   = false,
-      schedules        = [],
-      onScheduleClick,
-      onNewBrainThread,
       agentItems,
       onNewAgentChat,
       onOrganisationClick,
@@ -791,13 +642,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       adminGroups         = DEFAULT_ADMIN_GROUPS,
       onAdminSectionClick,
       adminItems,
-      onSchedulesClick,
       onChatboardClick,
       onAllAgentsClick,
-      onManageAllThreadsClick,
-      onShowAllSchedules,
-      brainRecentItems,
-      brainScheduleItems,
       activeChatId,
       onSelectChat,
       accountMenu,
@@ -869,20 +715,19 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     }
 
     const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultSelectedItem ?? null)
-    // bodySection mirrors the active tab: 'chats' | 'agents' | 'brain' | 'admin'.
+    // bodySection mirrors the active tab: 'chats' | 'agents' | 'admin'.
     const initialBodySection =
       defaultBodySection === 'projects' ? 'chats'
       : defaultBodySection === 'new-chat' ? 'chats'
       : defaultBodySection ?? defaultSection
-    const [bodySection, setBodySection] = useState<'chats' | 'agents' | 'brain' | 'admin'>(initialBodySection)
+    const [bodySection, setBodySection] = useState<'chats' | 'agents' | 'admin'>(initialBodySection)
 
     // Switch tab — clears folder/item selection so body starts fresh.
     // Entering Admin also fires onOrganisationClick (back-compat "opened org space" hook).
-    const onSelectSection = (section: 'chats' | 'agents' | 'brain' | 'admin') => {
+    const onSelectSection = (section: 'chats' | 'agents' | 'admin') => {
       setBodySection(section)
       if (section === 'chats') onChatTabClick?.()
       if (section === 'agents') onPersonasClick?.()
-      if (section === 'brain') onBrainClick?.()
       if (section === 'admin') onOrganisationClick?.()
     }
     // Select any non-section item (chat items, new-project, etc.) — preserves bodySection
@@ -1013,7 +858,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             </Tooltip>
           </div>
 
-          {/* ── Tab strip — 3 fluid tabs (Chats / Agents / Brain), all labels shown.
+          {/* ── Tab strip — 2 fluid tabs (Chats / Agents), all labels shown.
                 Org/admin is NOT a tab — it's entered via the badge (see logo row).
                 When in org mode (bodySection 'admin') no tab is active, so the pill
                 retracts. Hidden when collapsed (replaced by the vertical icon rail). ── */}
@@ -1036,12 +881,11 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               }}>
                 <Tabs
                   value={bodySection === 'admin' ? '' : bodySection}
-                  onValueChange={(v) => onSelectSection(v as 'chats' | 'agents' | 'brain')}
+                  onValueChange={(v) => onSelectSection(v as 'chats' | 'agents')}
                 >
                   <TabsList fluid>
-                    <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />}>Chats</TabsTrigger>
-                    <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />}>Agents</TabsTrigger>
-                    <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Tasks</TabsTrigger>
+                    <TabsTrigger value="chats"  icon={<BubbleChatIcon size={16} />}>Chats</TabsTrigger>
+                    <TabsTrigger value="agents" icon={<UserAiIcon     size={16} />}>Agents</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 {showAdmin && (
@@ -1059,7 +903,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             </div>
           )}
 
-          {/* ── Collapsed-only: section-switch card (Chats / Agents / Brain).
+          {/* ── Collapsed-only: section-switch card (Chats / Agents).
               Sits immediately below the collapse button, enclosed in the same
               inset-card surface as the expanded tab strip. ── */}
           {isCollapsed && (
@@ -1098,18 +942,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   />
                 </div>
               </Tooltip>
-              <Tooltip content="Tasks" side="right" delayDuration={300}>
-                <div>
-                  <SidebarMenuItem
-                    collapsed
-                    variant="default"
-                    icon={<NeuralNetworkIcon size={20} />}
-                    label="Tasks"
-                    selected={bodySection === 'brain'}
-                    onClick={() => onSelectSection('brain')}
-                  />
-                </div>
-              </Tooltip>
               {showAdmin && (
                 <Tooltip content="Manage Organization" side="right" delayDuration={300}>
                   <div>
@@ -1139,31 +971,22 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingRight:  '8px',
             overflow:      'hidden',
           }}>
-            {/* New chat / New agent chat / New thread — primary action.
+            {/* New chat / New agent chat — primary action.
                 Admin has no primary action: its body IS the org nav list.
                 Individual agents tab: "All Agents" replaces this button when onAllAgentsClick is provided. */}
             {bodySection !== 'admin' && !(bodySection === 'agents' && onAllAgentsClick) && (
               <CollapsedTooltip
                 isCollapsed={isCollapsed}
-                content={
-                  bodySection === 'brain' ? 'New Task'
-                  : bodySection === 'agents' ? 'New Agent Chat'
-                  : 'New Chat'
-                }
+                content={bodySection === 'agents' ? 'New Agent Chat' : 'New Chat'}
               >
                 <SidebarMenuItem
                   {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                   variant="new-chat"
-                  label={newChatLabel ?? (
-                    bodySection === 'agents' ? 'New agent chat'
-                    : bodySection === 'brain' ? 'New thread'
-                    : 'New chat'
-                  )}
+                  label={newChatLabel ?? (bodySection === 'agents' ? 'New agent chat' : 'New chat')}
                   selected={newChatButtonSelected ?? selectedItem === 'new-item'}
                   onClick={() => {
                     setSelectedItem('new-item')
                     if (bodySection === 'agents') onNewAgentChat?.()
-                    else if (bodySection === 'brain') onNewBrainThread?.()
                     else onNewChat?.()
                   }}
                 />
@@ -1206,30 +1029,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 />
               </CollapsedTooltip>
             )}
-            {/* All Tasks — Brain tab, both individual and teams. */}
-            {bodySection === 'brain' && onManageAllThreadsClick && (
-              <CollapsedTooltip isCollapsed={isCollapsed} content="All Tasks">
-                <SidebarMenuItem
-                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                  variant="default"
-                  icon={<BubbleChatIcon size={20} />}
-                  label="All Tasks"
-                  onClick={onManageAllThreadsClick}
-                />
-              </CollapsedTooltip>
-            )}
-            {/* Schedules quick-access — Brain only. Visible collapsed too (icon-only). */}
-            {bodySection === 'brain' && (
-              <CollapsedTooltip isCollapsed={isCollapsed} content="Schedules">
-                <SidebarMenuItem
-                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                  variant="default"
-                  icon={<CalendarFoldIcon size={20} />}
-                  label="Schedules"
-                  onClick={onSchedulesClick}
-                />
-              </CollapsedTooltip>
-            )}
           </div>
         </div>
 
@@ -1250,7 +1049,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           gap:           '4px',
         }}>
 
-          {/* Projects/Agents/Brain + Recents — always mounted so shown/scroll state survives collapse/expand.
+          {/* Projects/Agents + Recents — always mounted so shown/scroll state survives collapse/expand.
               motion.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <motion.div
             animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
@@ -1258,7 +1057,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}
           >
-            {/* Projects (chats) / Agents / Brain Projects + Schedules (brain) — mutually exclusive */}
+            {/* Projects (chats) / Agents — mutually exclusive */}
             <AnimatePresence initial={false}>
               {bodySection === 'chats' && !hideProjects && (
                 <div key="projects-section" style={{
@@ -1287,33 +1086,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {agentItems}
-                  </div>
-                </div>
-              )}
-              {bodySection === 'brain' && (
-                <div key="brain-section" style={{
-                  display:       'flex',
-                  flexDirection: 'column',
-                  paddingLeft:   '8px',
-                  paddingRight:  '8px',
-                  paddingTop:    '8px',
-                  paddingBottom: '8px',
-                  flexShrink:    0,
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {scheduledTasksItems}
-                    {/* Schedules — only when at least one exists */}
-                    {(schedules.length > 0 || brainScheduleItems != null) && (
-                      brainScheduleItems ?? (
-                        <DefaultBrainScheduleItems
-                          schedules={schedules}
-                          selectedItem={selectedItem}
-                          onSelect={onSelect}
-                          onScheduleClick={onScheduleClick}
-                          onShowAllSchedules={onShowAllSchedules}
-                        />
-                      )
-                    )}
                   </div>
                 </div>
               )}
@@ -1354,9 +1126,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {recentItems ?? (
-                    bodySection === 'brain' && brainRecentItems != null
-                      ? brainRecentItems
-                      : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'brain' ? 'Recent tasks' : bodySection === 'agents' ? 'Recent agent chats' : 'Recent chats'} />
+                    <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'agents' ? 'Recent agent chats' : 'Recent chats'} />
                   )}
                 </div>
               </div>

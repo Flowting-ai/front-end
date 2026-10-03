@@ -90,7 +90,8 @@ export interface UserUsage {
   by_category?: {
     chat?: number;
     slack?: number;
-    brain?: number;
+    automation?: number;
+    subtask?: number;
   };
   // ── Legacy mirrors (kept populated by normalizeUserProfile for back-compat) ──
   monthly_limit: number;
@@ -107,7 +108,8 @@ export interface UserUsage {
   daily_by_category?: {
     chat?: number;
     slack?: number;
-    brain?: number;
+    automation?: number;
+    subtask?: number;
   };
 }
 
@@ -134,7 +136,8 @@ export interface BillingCredits {
   by_category?: {
     chat?: number;
     slack?: number;
-    brain?: number;
+    automation?: number;
+    subtask?: number;
   } | null;
 }
 
@@ -263,7 +266,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       root.usage && typeof root.usage === "object"
         ? (() => {
             const u = root.usage as Record<string, unknown>;
-            // Current API shape: { credits, spent_this_period, by_category{chat,slack,brain} }.
+            // Current API shape: { credits, spent_this_period, by_category{chat,slack,automation,subtask} }.
             // `credits` is the period allowance; `spent_this_period` is consumption.
             // Older payloads used monthly_limit/monthly_used — fall back to those.
             const credits =

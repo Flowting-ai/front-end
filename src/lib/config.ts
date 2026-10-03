@@ -85,8 +85,8 @@ export const directUpload = (endpoint: string): string => {
 /**
  * True when a multipart request should skip the same-origin Next.js proxy
  * and go straight to the backend (see `directUpload` above). Callers that
- * build their own absolute backend URL (bespoke proxies like /api/chat,
- * /api/brain-chat rather than the generic /api/backend/[...path] rewrite)
+ * build their own absolute backend URL (bespoke proxies like /api/chat
+ * rather than the generic /api/backend/[...path] rewrite)
  * use this to decide whether to bypass their proxy entirely.
  */
 export const shouldUseDirectBackend = (): boolean => {

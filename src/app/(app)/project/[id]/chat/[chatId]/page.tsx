@@ -88,7 +88,7 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
-  const recommendations = useRecommendations('chat')
+  const recommendations = useRecommendations()
 
   const {
     loading: projectsContextLoading,

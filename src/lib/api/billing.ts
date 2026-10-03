@@ -41,28 +41,31 @@ export function dollarsToCredits(usd: number): number {
 export class CategorySpend {
   readonly chat: number;
   readonly slack: number;
-  readonly brain: number;
+  readonly automation: number;
+  readonly subtask: number;
 
   constructor(wire: CategorySpendWire) {
     this.chat = wire.chat;
     this.slack = wire.slack;
-    this.brain = wire.brain;
+    this.automation = wire.automation;
+    this.subtask = wire.subtask;
   }
 
+  // Subtask spend comes from agents a chat turn hands work to, so it counts as chat.
   get chatCredits(): number {
-    return dollarsToCredits(this.chat);
+    return dollarsToCredits(this.chat + this.subtask);
   }
 
   get slackCredits(): number {
     return dollarsToCredits(this.slack);
   }
 
-  get brainCredits(): number {
-    return dollarsToCredits(this.brain);
+  get automationCredits(): number {
+    return dollarsToCredits(this.automation);
   }
 
   get total(): number {
-    return this.chat + this.slack + this.brain;
+    return this.chat + this.slack + this.automation + this.subtask;
   }
 }
 

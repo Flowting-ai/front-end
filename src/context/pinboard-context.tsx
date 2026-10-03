@@ -251,7 +251,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   // src/app/(app)/layout.tsx), so an unconditional network fetch in this
   // effect was firing GET /pins + GET /pins/folders/all on every page load —
   // including pages with nothing to do with pins (e.g. /chats, /projects/new,
-  // /brain) — which is exactly the bug the Chats and Projects feature reports
+  // /schedules) — which is exactly the bug the Chats and Projects feature reports
   // each independently captured as a stray 502/"Failed to load pins" error.
   // Real pin data now loads on demand instead: open()/toggle()/openForChat()
   // above (the panel actually being opened), prefetch() (rail-button hover),

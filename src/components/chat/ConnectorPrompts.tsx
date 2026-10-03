@@ -373,4 +373,4 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
 }
 
 // The permission card lives in components/shared/PermissionPromptCard —
-// one implementation for chat, persona, agent configure, compare, and brain.
+// one implementation for chat, persona, agent configure, and compare.

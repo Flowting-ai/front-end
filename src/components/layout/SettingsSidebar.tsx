@@ -141,8 +141,7 @@ export function SettingsSidebar() {
   // ReferenceError on the server, not just a hydration *mismatch*, since the
   // bare `window` identifier reference itself fails before optional chaining
   // ever gets a chance to short-circuit. Same bug class, same fix shape, as
-  // Chats' `chat/page.tsx` (`selectedPersona`) and Brain's `brain/page.tsx`
-  // (`storedHistoryAttachments`): the value starts `null` on both the server
+  // Chats' `chat/page.tsx` (`selectedPersona`): the value starts `null` on both the server
   // and the client's first (hydration) render — identical output, no
   // mismatch possible — then populates for real via an effect a tick after
   // mount. `isTeamUser`'s other OR'd signals (orgId, user.orgId, roleFit)

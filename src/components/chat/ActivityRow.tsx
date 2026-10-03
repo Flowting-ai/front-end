@@ -10,6 +10,7 @@ import AiSheetsIcon from "@hugeicons/core-free-icons/AiSheetsIcon";
 import Link01Icon from "@hugeicons/core-free-icons/Link01Icon";
 import Doc01Icon from "@hugeicons/core-free-icons/Doc01Icon";
 import AiBrain01Icon from "@hugeicons/core-free-icons/AiBrain01Icon";
+import AiUserIcon from "@hugeicons/core-free-icons/AiUserIcon";
 import Spinner from "@hugeicons/core-free-icons/Loading01Icon";
 import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
@@ -30,6 +31,7 @@ const ACTIVITY_ICON: Record<ActivityType, IconEntry> = {
   "doc-execute":   { icon: QuillWriteOneIcon,  isHuge: false },
   "docx-progress": { icon: Doc01Icon,          isHuge: true  },
   "skills":        { icon: NeuralNetworkIcon,  isHuge: false },
+  "agent":         { icon: AiUserIcon,         isHuge: true  },
   "other":         { icon: AiBrain01Icon,      isHuge: true  },
 };
 
@@ -118,6 +120,8 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
   const isWebSearch = activity.type === "web-search";
   const [manualOpen, setManualOpen] = useState(false);
   const resultsVisible = isWebSearch ? (isDone && hasResults) : manualOpen;
+  const hasOutput = activity.type === "agent" && Boolean(activity.output);
+  const expandable = !isWebSearch && (hasResults || hasOutput);
 
   // Build detail text
   const detailText = activity.detail || activity.toolName?.replace(/_/g, " ") || "";
@@ -126,7 +130,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Header row - clickable when has results */}
       <button
-        onClick={() => !isWebSearch && hasResults && setManualOpen(!manualOpen)}
+        onClick={() => expandable && setManualOpen(!manualOpen)}
         type="button"
         style={{
           display: "flex",
@@ -134,7 +138,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           gap: 8,
           background: "transparent",
           border: "none",
-          cursor: (!isWebSearch && hasResults) ? "pointer" : "default",
+          cursor: expandable ? "pointer" : "default",
           padding: 0,
           minHeight: 22,
           width: "100%",
@@ -236,7 +240,46 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
             </m.svg>
           </>
         )}
+
+        {hasOutput && (
+          <m.svg
+            width="14" height="14" viewBox="0 0 14 14" fill="none"
+            animate={{ rotate: manualOpen ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            style={{ display: "block", flexShrink: 0 }}
+          >
+            <path d="M3 5.5 L7 9.5 L11 5.5" stroke="var(--neutral-400, #9C938B)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </m.svg>
+        )}
       </button>
+
+      {hasOutput && (
+        <div
+          aria-hidden={!manualOpen}
+          style={{
+            display: "grid",
+            gridTemplateRows: manualOpen ? "1fr" : "0fr",
+            opacity: manualOpen ? 1 : 0,
+            visibility: manualOpen ? "visible" : "hidden",
+            transition: `grid-template-rows 280ms cubic-bezier(0.16,1,0.3,1), opacity 200ms ease, visibility 0s linear ${manualOpen ? "0s" : "280ms"}`,
+          }}
+        >
+          <div style={{ overflow: "hidden", minHeight: 0 }}>
+            <div
+              className="kaya-scrollbar"
+              style={{
+                marginLeft: 48, marginTop: 4, padding: "8px 10px",
+                maxHeight: 240, overflowY: "auto",
+                fontSize: 13, lineHeight: 1.5, color: "#6A625D",
+                whiteSpace: "pre-wrap", wordBreak: "break-word",
+                background: "rgba(59,54,50,0.04)", borderRadius: 8,
+              }}
+            >
+              {activity.output}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results list - web-search auto-expands, others behind chevron.
           Grid-rows collapse instead of animating `height`: the row stays

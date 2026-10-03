@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Usage } from '@/lib/api/billing'
 import { useAuth } from '@/context/auth-context'
 
-// Settings → PERSONAL → Usage. Everyone sees their own Slack / Tasks / Chat
+// Settings → PERSONAL → Usage. Everyone sees their own Slack / Automations / Chat
 // spend plus remaining credits on GET /stripe/usage.
 
 const C = {
@@ -19,12 +19,11 @@ const BODY  = 'var(--font-body)'
 const CARD_RING = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SECTION_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
 
-// "Brain" was renamed to "Tasks" — the `key: 'brain'` stays as-is (it maps to
-// the API's `byCategory.brainCredits` field below), only the display label/
-// copy changed. Order is Slack > Tasks > Chat throughout this page.
+// Chat includes subtask spend (agents a chat turn hands work to). Order is
+// Slack > Automations > Chat throughout this page.
 const CATEGORIES = [
   { key: 'slack', label: 'Slack', chipColor: 'blue',   subtitle: 'Messages and actions in Slack' },
-  { key: 'brain', label: 'Tasks', chipColor: 'yellow', subtitle: 'Scheduled and automated task runs' },
+  { key: 'automation', label: 'Automations', chipColor: 'yellow', subtitle: 'Scheduled and automated runs' },
   { key: 'chat',  label: 'Chat',  chipColor: 'red',    subtitle: 'Direct conversations' },
 ] as const
 
@@ -125,7 +124,7 @@ export default function UsagePage() {
     ...c,
     credits: c.key === 'chat' ? usage.byCategory.chatCredits
       : c.key === 'slack' ? usage.byCategory.slackCredits
-      : usage.byCategory.brainCredits,
+      : usage.byCategory.automationCredits,
   }))
   // "This period's usage" said that repeatedly with no date to anchor it to
   // for anyone not on a trial — `nextBillingDate` (from the user's own
@@ -150,7 +149,7 @@ export default function UsagePage() {
             Usage
           </h1>
           <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-            Your spend this period, split by Slack, Tasks, and Chat.
+            Your spend this period, split by Slack, Automations, and Chat.
           </p>
         </div>
 

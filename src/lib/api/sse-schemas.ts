@@ -10,16 +10,6 @@ const promptOption = z.looseObject({
   style: z.string().optional(),
 })
 
-export const externalOutputActionSchema = z.looseObject({
-  verb: z.string(),
-  target: z.string(),
-  connector: z.string(),
-  connector_slug: z.string().nullable().optional(),
-  logo_url: z.string().nullable().optional(),
-  detail: z.string().nullable().optional(),
-  view_url: z.string().nullable().optional(),
-})
-
 const toolProgressFields = {
   label: z.string().nullable().optional(),
   step: z.string().nullable().optional(),
@@ -71,10 +61,6 @@ export const customEventSchemas = {
     filename: z.string(),
     mime_type: z.string().optional(),
     file_size: z.number().optional(),
-  }),
-  external_output: z.looseObject({
-    actions: z.array(externalOutputActionSchema).optional().default([]),
-    completed_at: z.string().nullable().optional(),
   }),
   memory_updated: z.looseObject({
     scope: z.string(),
@@ -139,17 +125,6 @@ export const customEventSchemas = {
     preview_xml: z.string().optional().default(""),
     arguments: z.looseObject({}).optional().default({}),
     options: z.array(promptOption).optional().default([]),
-  }),
-  context: z.looseObject({
-    persona: z.looseObject({}).nullable().optional(),
-    user_context: z.looseObject({}).nullable().optional(),
-    pins: z.array(z.looseObject({})).optional().default([]),
-    files: z.array(z.looseObject({})).optional().default([]),
-    connectors: z.array(z.looseObject({})).optional().default([]),
-    available_models: z.array(z.looseObject({})).optional().default([]),
-    project: z.looseObject({}).nullable().optional(),
-    documents: z.array(z.looseObject({})).optional().default([]),
-    loaded_skills: z.array(z.string()).optional().default([]),
   }),
   agent_started: z.looseObject({
     agent: z.string(),

@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
-import { useBrainThreadContext } from "@/context/brain-thread-context";
 import { Button } from "@/components/Button";
 // ModelIcon pulls in @strange-huge/icons/llm (~10MB/6.5MB-gzip of every LLM
 // provider's logo data) but only ever renders here when a persona/model tag
@@ -41,7 +40,6 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   const router   = useRouter();
   const searchParams = useSearchParams();
   const { chats: chatHistoryChats } = useChatHistoryContext();
-  const { threads: brainThreads } = useBrainThreadContext();
 
   // Track the real browser pathname — may differ from Next.js pathname when
   // window.history.replaceState is used (e.g. project chat new→real chatId).
@@ -96,20 +94,11 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   const isPersonaChatPage     = !!personaChatMatch;
   const personaId             = personaChatMatch?.[1] ?? null;
   const isPersonaConfigurePage = actualPathname.startsWith('/agent/configure');
-  // Brain/Task pages source their title from the separate BrainThreadContext,
-  // not the regular chat-history one — excluded from isPlainChatPage so the
-  // two never get looked up against the wrong list.
-  const isBrainPage = actualPathname.startsWith('/brain');
-  // Plain /chat?id=… page only — project/persona/brain chats use their own
+  // Plain /chat?id=… page only — project/persona chats use their own
   // ownership model, not the /chats library's can_edit/visibility fields.
-  const isPlainChatPage = !isProjectChatPage && !isProjectDetailPage && !isChatsPage && !isPersonaChatPage && !isPersonaConfigurePage && !isBrainPage;
+  const isPlainChatPage = !isProjectChatPage && !isProjectDetailPage && !isChatsPage && !isPersonaChatPage && !isPersonaConfigurePage;
   const activeChatIdFromUrl = isPlainChatPage ? (searchParams.get('id') ?? undefined) : undefined;
   const activeChatFromUrl = activeChatIdFromUrl ? chatHistoryChats.find(c => c.id === activeChatIdFromUrl) : undefined;
-  // Same idea for the active Brain thread's title, live-synced via
-  // BrainThreadContext (a rename/pin from the sidebar or /chats Tasks mode
-  // updates this same shared state, so this label updates immediately too).
-  const activeBrainThreadIdFromUrl = isBrainPage ? (searchParams.get('id') ?? undefined) : undefined;
-  const activeBrainThreadFromUrl = activeBrainThreadIdFromUrl ? brainThreads.find(t => t.id === activeBrainThreadIdFromUrl) : undefined;
   const isArchivedChat = activeChatFromUrl?.visibility === 'archived';
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
@@ -312,14 +301,14 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
         </>
       ) : (
         <>
-          {/* ── Left: current chat/task name — sourced from the shared
-              ChatHistoryContext / BrainThreadContext, so a rename or the
-              backend's async auto-title (via listBrainChats/listChats) from
+          {/* ── Left: current chat name — sourced from the shared
+              ChatHistoryContext, so a rename or the
+              backend's async auto-title (via listChats) from
               ANY surface (sidebar, /chats) is reflected here immediately,
               same live state, no extra event wiring needed. ── */}
           <div style={{ display: "flex", alignItems: "center", minWidth: 0, flex: "1 1 0" }}>
             {(() => {
-              const name = isBrainPage ? activeBrainThreadFromUrl?.chat_title : activeChatFromUrl?.title;
+              const name = activeChatFromUrl?.title;
               if (!name) return null;
               return (
                 <span

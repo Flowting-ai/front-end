@@ -36,7 +36,7 @@ import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
-import type { ExternalOutputAction, GeneratedFile } from "@/types/chat";
+import type { ActivityType, GeneratedFile } from "@/types/chat";
 import { toConnector } from "@/lib/connector";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
@@ -967,9 +967,7 @@ export interface PersonaImageEvent {
   s3_key: string;
 }
 
-export type PersonaActivityType =
-  | 'web-search' | 'browser' | 'read-pages' | 'csv-execute' | 'fetch-resource'
-  | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
+export type PersonaActivityType = ActivityType
 
 export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error' | 'stopped'
 
@@ -1014,8 +1012,6 @@ export interface PersonaChatStreamCallbacks {
   onImage?: (event: PersonaImageEvent) => void;
   /** Called when a tool produces a downloadable file. */
   onGeneratedFile?: (event: GeneratedFile) => void;
-  /** Called with confirmed external side effects performed by connector tools. */
-  onExternalOutput?: (actions: ExternalOutputAction[]) => void;
   /** Called after user or project memory is updated. */
   onMemoryUpdated?: (event: Record<string, unknown>) => void;
   /** Called when a tool starts executing, progresses, or completes. Upsert by id. */
@@ -1039,7 +1035,7 @@ export interface PersonaChatStreamCallbacks {
  *
  * Multipart bodies POSTed through Next.js dev's streaming proxy can be
  * buffered until the body completes, which breaks SSE — using urlencoded
- * for the text-only path avoids that and matches what the brain client does.
+ * for the text-only path avoids that.
  */
 function buildStreamBody(
   input: string,
@@ -1150,11 +1146,6 @@ async function readPersonaSSEStream(
                   s3Key: str(parsed.s3_key) || undefined,
                   mimeType: str(parsed.mime_type) || undefined,
                 });
-              }
-              break;
-            case "external_output":
-              if (Array.isArray(parsed.actions)) {
-                callbacks.onExternalOutput?.(parsed.actions as ExternalOutputAction[]);
               }
               break;
             case "memory_updated":

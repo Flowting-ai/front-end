@@ -1867,7 +1867,7 @@ function PersonaConfigureInstructionsContent() {
 // mounted component rather than remounting it. Without this, the form (and
 // Save/Publish) would keep operating on the PREVIOUS agent's repoId while the
 // URL claims to show the new one. Forcing a remount via `key` on repoId is the
-// same fix already applied to /chat, /brain, and the Sharing tab.
+// same fix already applied to /chat and the Sharing tab.
 //
 // Keyed on repoId ONLY, not versionId: when opened with just `?repoId=X` (no
 // version yet), `initialise()` itself resolves a version and calls

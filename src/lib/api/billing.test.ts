@@ -3,13 +3,18 @@ import { Billing, CategorySpend, Invoice, TeamsTier, UpcomingInvoice, Usage } fr
 import { billingInfoSchema, parseInvoices, usageResponseSchema } from "./billing-schemas";
 
 describe("usageResponseSchema", () => {
-  it("requires chat / slack / brain and rejects persona", () => {
+  it("reads chat / slack / automation / subtask and drops unknown keys", () => {
     const parsed = usageResponseSchema.parse({
       credits: 40,
       spent_this_period: 4,
-      by_category: { chat: 1, slack: 2, brain: 1 },
+      by_category: { chat: 1, slack: 2, automation: 0.5, subtask: 0.5, brain: 9 },
     });
-    expect(parsed.by_category).toEqual({ chat: 1, slack: 2, brain: 1 });
+    expect(parsed.by_category).toEqual({ chat: 1, slack: 2, automation: 0.5, subtask: 0.5 });
+  });
+
+  it("defaults a missing breakdown to zeros", () => {
+    const parsed = usageResponseSchema.parse({ credits: 40 });
+    expect(parsed.by_category).toEqual({ chat: 0, slack: 0, automation: 0, subtask: 0 });
   });
 });
 
@@ -21,14 +26,23 @@ describe("Usage", () => {
       topup_credits: 0,
       used: 4,
       spent_this_period: 4,
-      by_category: { chat: 0, slack: 4, brain: 0 },
+      by_category: { chat: 1, slack: 4, automation: 2, subtask: 0.5 },
     });
     expect(usage).toBeInstanceOf(Usage);
     expect(usage.byCategory).toBeInstanceOf(CategorySpend);
     expect(usage.remainingCredits).toBe(56000);
     expect(usage.ownSpendCredits).toBe(4000);
     expect(usage.byCategory.slackCredits).toBe(4000);
-    expect(usage.byCategory.chatCredits).toBe(0);
+    expect(usage.byCategory.automationCredits).toBe(2000);
+  });
+
+  it("folds subtask spend into chat", () => {
+    const usage = Usage.parse({
+      credits: 10,
+      by_category: { chat: 1, slack: 0, automation: 0, subtask: 0.5 },
+    });
+    expect(usage.byCategory.chatCredits).toBe(1500);
+    expect(usage.byCategory.total).toBe(1.5);
   });
 });
 
@@ -42,7 +56,7 @@ describe("billingInfoSchema", () => {
         remaining: 200,
         used: 0,
         total_credits: 200,
-        by_category: { chat: 0, slack: 0, brain: 0 },
+        by_category: { chat: 0, slack: 0, automation: 0, subtask: 0 },
       },
     });
     expect(parsed.plan_id).toBe("250");

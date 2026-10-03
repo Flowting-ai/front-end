@@ -245,6 +245,8 @@ export function useStreamingChat({
     // Tool names that errored — tool_complete still fires right after tool_error,
     // so this stops it from clobbering the "error" status back to "done".
     const erroredToolNames = new Set<string>()
+    // Agent name → its open activity row, between agent_started and agent_finished.
+    const agentActivityIds = new Map<string, string>()
 
     try {
       // ── Resolve transport: direct-to-backend vs proxy ─────────────────────
@@ -1089,30 +1091,54 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "external_output") {
-            const actions: import("@/types/chat").ExternalOutputAction[] =
-              Array.isArray(parsed.actions) ? parsed.actions.flatMap((action) => {
-                if (!action || typeof action !== "object") return []
-                const row = action as Record<string, unknown>
-                const verb = asString(row.verb)
-                const target = asString(row.target)
-                const connector = asString(row.connector)
-                if (!verb || !target || !connector) return []
-                return [{
-                  verb,
-                  target,
-                  connector,
-                  connector_slug: asString(row.connector_slug),
-                  logo_url: asString(row.logo_url),
-                  detail: asString(row.detail),
-                  view_url: asString(row.view_url),
-                }]
-              }) : []
+          if (eventName === "agent_started") {
+            const agent = asString(parsed.agent)
             const msgId = loadingMessageIdRef.current
-            if (msgId && actions.length > 0) {
-              setMessages((prev) => prev.map((msg) =>
-                msg.id === msgId ? { ...msg, externalOutputActions: actions } : msg,
-              ))
+            if (agent && msgId) {
+              const activityId = `agent-${agent}-${Date.now()}`
+              agentActivityIds.set(agent, activityId)
+              reasoning.activity(activityId, eventRoundIndex(parsed))
+              flushPending()
+              const activity: import("@/types/chat").ActivityItem = {
+                id: activityId,
+                type: "agent",
+                toolName: "ask_agent",
+                label: agent,
+                detail: asString(parsed.task),
+                status: "executing",
+              }
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === msgId
+                    ? { ...msg, activities: [...(msg.activities ?? []), activity], reasoningTimeline: reasoning.timeline() }
+                    : msg,
+                ),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "agent_content" || eventName === "agent_finished") {
+            const agent = asString(parsed.agent)
+            const activityId = agent ? agentActivityIds.get(agent) : undefined
+            const msgId = loadingMessageIdRef.current
+            if (activityId && msgId) {
+              const content = typeof parsed.content === "string" ? parsed.content : ""
+              const failed = eventName === "agent_finished" && Boolean(asString(parsed.error))
+              if (eventName === "agent_finished") agentActivityIds.delete(agent!)
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  return {
+                    ...msg,
+                    activities: (msg.activities ?? []).map((a) => {
+                      if (a.id !== activityId) return a
+                      if (eventName === "agent_content") return { ...a, output: (a.output ?? "") + content }
+                      return { ...a, status: failed ? "error" as const : "done" as const }
+                    }),
+                  }
+                }),
+              )
             }
             continue
           }

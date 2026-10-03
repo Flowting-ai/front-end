@@ -1037,7 +1037,7 @@ function PersonasPageInner() {
       // /chat may already be mounted (e.g. the user was just there) — a plain
       // push() to the same route won't remount it, so the pending-persona
       // sessionStorage read (a mount-time-only lazy initializer) never fires
-      // and the chip silently never appears. Same fix as BRAIN_NEW_THREAD_EVENT/
+      // and the chip silently never appears. Same fix as SIDEBAR_NEW_CHAT_EVENT/
       // PROJECT_NEW_CHAT_EVENT elsewhere: force the same reset the sidebar's
       // own "New chat" button uses.
       emitSidebarNewChat()
