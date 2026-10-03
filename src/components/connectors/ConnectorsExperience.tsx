@@ -158,11 +158,15 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     return () => { cancelled = true }
   }, [linkedSlug, orgReady, selectFromCatalog])
 
-  // A new custom API has no account yet: link its token like any catalog app.
+  // The modal linked its token already: land on the new API's page.
   const customApiCreated = useCallback((entry: ConnectorCatalog) => {
     setCustomApiOpen(false)
-    selectFromCatalog(entry)
-  }, [selectFromCatalog])
+    toast.success(`${entry.name} connected`)
+    void fetchAll().then(rows => {
+      const row = rows?.find(candidate => candidate.slug === entry.slug)
+      if (row) openConnectorDetail(row)
+    })
+  }, [fetchAll, openConnectorDetail])
 
   const addAccount = useCallback(() => {
     setSetupMode('connect')
