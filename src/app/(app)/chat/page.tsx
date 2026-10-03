@@ -14,7 +14,7 @@ const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDia
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { pickDefaultModel } from "@/lib/ai-models";
+import { modelIconSource, pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
@@ -500,6 +500,7 @@ function ChatPageInner() {
   }, [selectedPersona, models])
 
   const modelButtonLabel = selectedModel?.modelName;
+  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null;
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId
@@ -830,6 +831,7 @@ function ChatPageInner() {
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
+                      modelIcon={modelButtonIcon}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
@@ -939,6 +941,7 @@ function ChatPageInner() {
               onTitleUpdate={handleTitleUpdate}
               onChatMoveToTop={handleChatMoveToTop}
               selectedModel={modelButtonLabel}
+              selectedModelIcon={modelButtonIcon}
               selectedModelId={selectedModel?.id}
               algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}

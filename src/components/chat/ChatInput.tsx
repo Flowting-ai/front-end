@@ -10,6 +10,7 @@ import {
   StopCircleIcon,
 } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
+import { ModelIcon } from "@/components/ModelIcon";
 import { Button } from "@/components/Button";
 import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,8 @@ export interface ChatInputProps
   onAdd?: () => void;
   onStop?: () => void;
   modelName?: string;
+  /** Provider or name the selector button's logo resolves from (see ModelIcon). Defaults to `modelName`. */
+  modelIcon?: string | null;
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
   /**
    * When set, the leading `+` IconButton opens a Dropdown.Float panel
@@ -146,6 +149,7 @@ export function ChatInput(
     onAdd,
     onStop,
     modelName = "Souvenir",
+    modelIcon,
     onModelClick,
     addMenu,
     modelMenu,
@@ -792,6 +796,7 @@ export function ChatInput(
                 <Button
                   variant="ghost"
                   size={szBtn}
+                  leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
                   rightIcon={<ArrowDownOneIcon size={16} />}
                   style={{ opacity: 0.45, pointerEvents: "none" }}
                 >
@@ -808,6 +813,7 @@ export function ChatInput(
                   <Button
                     variant="ghost"
                     size={szBtn}
+                    leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
                     rightIcon={<ArrowDownOneIcon size={16} />}
                     disabled={disabled}
                   >
@@ -830,6 +836,7 @@ export function ChatInput(
               <Button
                 variant="ghost"
                 size={szBtn}
+                leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
                 rightIcon={<ArrowDownOneIcon size={16} />}
                 onClick={onModelClick}
                 disabled={disabled}

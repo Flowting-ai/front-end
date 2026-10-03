@@ -13,7 +13,7 @@ import { ModelSwitchDialog }                               from '@/components/ch
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
-import { pickDefaultModel }                                from '@/lib/ai-models'
+import { modelIconSource, pickDefaultModel }               from '@/lib/ai-models'
 import { useWorkspaceCreditNotice }                        from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice }                              from '@/components/InlineCreditNotice'
 import { useProjects }                                     from '@/context/projects-context'
@@ -294,6 +294,7 @@ function ProjectChatPageInner() {
   }, [])
 
   const modelButtonLabel = selectedModel?.modelName
+  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 
@@ -637,6 +638,7 @@ function ProjectChatPageInner() {
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
+                      modelIcon={modelButtonIcon}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
@@ -748,6 +750,7 @@ function ProjectChatPageInner() {
               }}
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}
+              selectedModelIcon={modelButtonIcon}
               selectedModelId={selectedModel?.id}
               algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}

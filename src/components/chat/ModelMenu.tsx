@@ -219,3 +219,11 @@ export function useModelButtonLabel(): string | undefined {
   if (algorithm) return ALGORITHM_LABELS[algorithm]
   return selectedModel?.modelName
 }
+
+/** The provider the model button's logo resolves from — `null` for an
+ *  auto-routing tier, which falls back to the Souvenir mark. */
+export function useModelButtonIcon(): string | null {
+  const { selectedModel, algorithm } = useModelSelectorContext()
+  if (algorithm || !selectedModel) return null
+  return modelIconSource(selectedModel)
+}

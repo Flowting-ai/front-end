@@ -44,7 +44,7 @@ import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
-import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
+import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
@@ -82,6 +82,7 @@ export default function ProjectPage() {
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
+  const modelButtonIcon = useModelButtonIcon()
 
   const { orgId, org, caps, members } = useOrg()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
@@ -794,6 +795,7 @@ export default function ProjectPage() {
               onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
               hasAttachments={newChatAttachments.length > 0}
               modelName={modelButtonLabel}
+              modelIcon={modelButtonIcon}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
               disabledModelSelector={!!selectedPersona}

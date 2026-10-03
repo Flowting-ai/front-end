@@ -44,6 +44,8 @@ interface ChatInterfaceProps {
   onTitleUpdate?: (chatId: string, title: string) => void;
   onChatMoveToTop?: (chatId: string) => void;
   selectedModel?: string;
+  /** Provider the model button's logo resolves from; defaults to the model name. */
+  selectedModelIcon?: string | null;
   selectedModelId?: string | number | null;
   /** Souvenir's own auto-routing tier ('base'/'pro'), when the composer's
    *  model menu has that selected instead of a direct `selectedModelId`. The
@@ -164,6 +166,7 @@ export function ChatInterface({
   onTitleUpdate,
   onChatMoveToTop,
   selectedModel,
+  selectedModelIcon,
   selectedModelId,
   algorithm,
   onModelClick,
@@ -1237,6 +1240,7 @@ export function ChatInterface({
             hasAttachments={attachments.length > 0}
             onModelClick={onModelClick}
             modelName={selectedModel ?? "Souvenir"}
+            modelIcon={selectedModelIcon}
             addMenu={addMenu}
             modelMenu={modelMenu}
             disabledModelSelector={disabledModelSelector}
