@@ -49,10 +49,9 @@ import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
 import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
 import { MentionChip } from "@/components/chat/MentionChip";
-import { TemplateCard } from "@/components/chat/TemplateCard";
+import { StarterList } from "@/components/StarterSuggestions";
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
 import { useRecommendations } from "@/hooks/use-recommendations";
-import { RECOMMENDATION_ICONS } from "@/lib/recommendation-icons";
 
 const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
   write:    "Write",
@@ -914,32 +913,8 @@ function ChatPageInner() {
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}
                   {recommendations && (
-                    <div style={{ marginTop: "28px" }}>
-                      <p
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize:   "13px",
-                          fontWeight: 500,
-                          color:      "var(--neutral-500)",
-                          margin:     "0 0 10px",
-                          textAlign:  "left",
-                        }}
-                      >
-                        Not sure where to start?
-                      </p>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        {recommendations.cards.map((card) => {
-                          const { Icon, color } = RECOMMENDATION_ICONS[card.icon];
-                          return (
-                            <TemplateCard
-                              key={card.label}
-                              icon={<Icon size={24} color={color} animated />}
-                              label={card.label}
-                              onClick={() => handleNewChatSend(card.prompt)}
-                            />
-                          );
-                        })}
-                      </div>
+                    <div style={{ marginTop: "20px", textAlign: "left" }}>
+                      <StarterList cards={recommendations.cards} onSelect={(card) => handleNewChatSend(card.prompt)} />
                     </div>
                   )}
                 </m.div>

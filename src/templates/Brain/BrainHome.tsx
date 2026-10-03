@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { m } from 'framer-motion'
 import {
   CalendarThreeIcon,
   ArrowRightOneIcon,
@@ -9,77 +8,9 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { useRecommendations } from '@/hooks/use-recommendations'
-import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
+import { StarterTiles } from '@/components/StarterSuggestions'
 import type { DigestItem } from './BrainDigestCard'
 
-
-// ── SuggestionCard ─────────────────────────────────────────────────────────
-
-interface SuggestionCardProps {
-  Icon:    React.ComponentType<{ size?: number }>
-  label:   string
-  onClick: () => void
-}
-
-function SuggestionCard({ Icon, label, onClick }: SuggestionCardProps) {
-  const [hovered, setHovered] = React.useState(false)
-  return (
-    <m.button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
-      style={{
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             '8px',
-        alignItems:      'flex-start',
-        flex:            '1 1 0',
-        minWidth:        0,
-        padding:         '12px 12px 16px',
-        borderRadius:    12,
-        backgroundColor: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
-        boxShadow:       hovered ? 'var(--shadow-card-hover)' : 'var(--shadow-card-default)',
-        border:          'none',
-        cursor:          'pointer',
-        textAlign:       'left',
-        transition:      'box-shadow 150ms ease, background-color 200ms ease',
-      }}
-    >
-      {/* Icon badge */}
-      <div style={{
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px',
-        borderRadius:    '8px',
-        backgroundColor: 'var(--neutral-100)',
-        color:           'var(--neutral-600)',
-        flexShrink:      0,
-      }}>
-        <Icon size={32} />
-      </div>
-
-      {/* Label */}
-      <p style={{
-        margin:           0,
-        fontFamily:       'var(--font-body)',
-        fontSize:         'var(--font-size-body-lg)',
-        fontWeight:       'var(--font-weight-medium)',
-        lineHeight:       'var(--line-height-body-lg)',
-        color:            'var(--neutral-900)',
-        overflow:         'hidden',
-        display:          '-webkit-box',
-        WebkitLineClamp:  3,
-        WebkitBoxOrient:  'vertical',
-      }}>
-        {label}
-      </p>
-    </m.button>
-  )
-}
 
 // ── DigestBanner ───────────────────────────────────────────────────────────
 // Compact single-row signal shown on home when scheduled runs completed while away.
@@ -313,24 +244,9 @@ export function BrainHome({
             Not sure where to start?
           </p>
 
-          <div style={{
-            display:    'flex',
-            gap:        '16px',
-            alignItems: 'flex-start',
-            width:      '100%',
-          }}>
-            {recommendations?.cards.map(card => {
-              const { Icon } = RECOMMENDATION_ICONS[card.icon]
-              return (
-                <SuggestionCard
-                  key={card.label}
-                  Icon={Icon}
-                  label={card.label}
-                  onClick={() => onSuggestion?.(card.prompt)}
-                />
-              )
-            })}
-          </div>
+          {recommendations && (
+            <StarterTiles cards={recommendations.cards} onSelect={card => onSuggestion?.(card.prompt)} />
+          )}
         </div>
       )}
 
