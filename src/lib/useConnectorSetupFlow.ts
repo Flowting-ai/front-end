@@ -20,7 +20,7 @@ import {
   pollConnectorUntilActive,
   ConnectorCatalog,
 } from '@/lib/api/connectors'
-import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
+import { isApiProviderConnector, isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
 
@@ -75,6 +75,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     const known = knownAccountIds ?? []
     const target = reconnecting ? { healthy: reconnecting } : { known }
     const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
+    const isApi = isApiProviderConnector(connectorProvider)
     // Opened without the noopener FEATURE deliberately — passing noopener to
     // window.open() makes it return null in most browsers, and this code
     // needs the real reference below to set popup.location once the OAuth
@@ -84,7 +85,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     // that reference: set .opener directly on the child after opening it.
     // This is settable cross-origin and doesn't invalidate `popup` itself —
     // popup.location/.closed/.close() below all keep working.
-    const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
+    const popup = isMcp || isApi ? null : window.open('', '_blank', 'width=900,height=700')
     if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     popupRef.current = popup
     setState('opening')
@@ -94,11 +95,11 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
       .then(link => {
         if (abortedRef.current) { popup?.close(); return }
         const url = link.redirectUrl
-        if (!url) {
+        if (!url && !isApi) {
           popup?.close()
           throw new Error(`${connectorName} did not return an OAuth URL. The connector provider may be misconfigured on the backend.`)
         }
-        if (isMcp) {
+        if (url && isMcp) {
           // Native MCP connectors' OAuth callback redirects back to our own
           // app domain, so this must navigate the current tab — a popup would
           // just land the app inside the small popup window.
@@ -113,12 +114,14 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           return
         }
         const hosted = isZapierProviderConnector(connectorProvider, url)
-        const openUrl = hosted ? zapierConnectHref(url) : url
-        if (popup && !popup.closed) popup.location.href = openUrl
-        // This call's return value is never read (the pre-opened `popup`
-        // above is what's tracked/closed elsewhere), so it's safe to pass
-        // noopener directly rather than needing the .opener=null trick.
-        else window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'noopener')
+        if (url) {
+          const openUrl = hosted ? zapierConnectHref(url) : url
+          if (popup && !popup.closed) popup.location.href = openUrl
+          // This call's return value is never read (the pre-opened `popup`
+          // above is what's tracked/closed elsewhere), so it's safe to pass
+          // noopener directly rather than needing the .opener=null trick.
+          else window.open(openUrl, hosted ? 'zapier-connect' : '_blank', 'noopener')
+        }
         setState('polling')
 
         pollAbortRef.current?.abort()

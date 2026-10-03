@@ -9,6 +9,8 @@ import {
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
   CONNECTOR_COMPLETE_ENDPOINT,
+  CONNECTOR_CUSTOM_ENDPOINT,
+  CONNECTOR_CUSTOM_DETAIL_ENDPOINT,
 } from '@/lib/config'
 import {
   connectionResponseSchema,
@@ -412,6 +414,38 @@ export function resolveConnectors(slugs: string[]): Connector[] {
 export async function getConnector(slug: string): Promise<ConnectorCatalog> {
   const raw = await apiFetchJson<unknown>(CONNECTOR_DETAIL_ENDPOINT(slug))
   return remember(ConnectorCatalog.parse(raw))
+}
+
+export type CustomApiAuth =
+  | { type: 'bearer' }
+  | { type: 'header'; name: string }
+  | { type: 'query'; name: string }
+  | { type: 'basic' }
+
+export interface CustomApiRequest {
+  name: string
+  base_url: string
+  auth: CustomApiAuth
+  docs_url?: string
+}
+
+/** Define a custom REST API. Its token links through initiateLink like any api_key app. */
+export async function createCustomApi(body: CustomApiRequest): Promise<ConnectorCatalog> {
+  const raw = await apiFetchJson<unknown>(CONNECTOR_CUSTOM_ENDPOINT, {
+    method: 'POST',
+    body:   JSON.stringify(body),
+  })
+  bustConnectorCatalogCache()
+  return remember(ConnectorCatalog.parse(raw))
+}
+
+/** Owner only. Every account of it goes with it, shared ones included. */
+export async function deleteCustomApi(slug: string): Promise<void> {
+  const res = await apiFetch(CONNECTOR_CUSTOM_DETAIL_ENDPOINT(slug), { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Failed to delete API: ${res.status}`)
+  }
+  bustConnectorCatalogCache()
 }
 
 export async function initiateLink(

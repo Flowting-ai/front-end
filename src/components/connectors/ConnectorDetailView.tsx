@@ -9,11 +9,12 @@
 // worse than omitting the row.
 
 import React from 'react'
-import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, DeleteTwoIcon, PlusSignIcon } from '@strange-huge/icons'
 import { AccountRow, AccountRowHeader } from '@/components/AccountRow'
 import { Button } from '@/components/Button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
+import { isApiProviderConnector } from '@/lib/connectorProvider'
 import { ConnectorsShell } from './ConnectionsView'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
@@ -89,14 +90,20 @@ function AccountPanel({ accounts, tools, tone, open, reconnect }: { accounts: Co
 }
 
 export function ConnectorDetailView({
-  catalog, back, addAccount, openAccount, reconnectAccount,
+  catalog, back, addAccount, openAccount, reconnectAccount, deleteApi,
 }: {
   catalog: ConnectorCatalog
   back: () => void
   addAccount: () => void
   openAccount: (account: ConnectorConnection) => void
   reconnectAccount: (account: ConnectorConnection) => void
+  deleteApi: () => void
 }) {
+  // Only its owner links a custom API, so whoever reaches it with no account
+  // of their own, or with one they own, is the owner. Everyone else holds a
+  // shared account they do not own.
+  const ownsApi = isApiProviderConnector(catalog.provider)
+    && (catalog.connections.length === 0 || catalog.ownedConnections.length > 0)
   return (
     <ConnectorsShell>
       <Back onClick={back}>Connections</Back>
@@ -110,7 +117,12 @@ export function ConnectorDetailView({
               </h1>
             </div>
           </div>
-          <Button size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
+          <div style={{ display: 'flex', gap: SPACE.md }}>
+            {ownsApi && (
+              <Button variant="outline" size="sm" leftIcon={<DeleteTwoIcon size={16} />} onClick={deleteApi}>Delete API</Button>
+            )}
+            <Button size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
+          </div>
         </div>
         <p style={{ ...muted, margin: `${SPACE.xxl}px 0`, maxWidth: 680 }}>{catalog.description}</p>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SPACE.lg, marginBottom: SPACE.lg }}>

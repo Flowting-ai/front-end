@@ -7,6 +7,7 @@ import { useOrg } from '@/context/org-context'
 import {
   ConnectorCatalog,
   ConnectorConnection,
+  deleteCustomApi,
   getConnector,
   listLinkedConnectors,
   unlinkAccount,
@@ -16,6 +17,8 @@ import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
 import { AccountDetailView } from './AccountDetailView'
 import { SetupModal } from './SetupModal'
+import { CustomApiModal } from './CustomApiModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { RemoveModal } from './RemoveModal'
 
 type View = 'connections' | 'connector' | 'permissions' | 'access' | 'settings'
@@ -34,6 +37,9 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
   const [setupAccount, setSetupAccount] = useState<ConnectorConnection | undefined>(undefined)
+
+  const [customApiOpen, setCustomApiOpen] = useState(false)
+  const [deleteApiOpen, setDeleteApiOpen] = useState(false)
 
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
   const [removeBusy, setRemoveBusy] = useState(false)
@@ -139,6 +145,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       .finally(() => setPendingSlug(null))
   }, [mergeRows, openConnectorDetail])
 
+  // A new custom API has no account yet: link its token like any catalog app.
+  const customApiCreated = useCallback((entry: ConnectorCatalog) => {
+    setCustomApiOpen(false)
+    selectFromCatalog(entry)
+  }, [selectFromCatalog])
+
   const addAccount = useCallback(() => {
     setSetupMode('connect')
     setSetupAccount(undefined)
@@ -185,6 +197,15 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     void fetchAll()
   }, [fetchAll])
 
+  // Throws on failure so ConfirmModal stays open and toasts the error.
+  const confirmDeleteApi = useCallback(async () => {
+    if (!active) return
+    await deleteCustomApi(active.slug)
+    toast.success(`${active.name} deleted`)
+    backToConnections()
+    void fetchAll()
+  }, [active, backToConnections, fetchAll])
+
   const requestRemove = useCallback((account: ConnectorConnection) => {
     setRemoveAccount(account)
   }, [])
@@ -210,13 +231,13 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [removeAccount, backToConnector, backToConnections, fetchAll])
 
   if (!orgReady) {
-    return <ConnectionsView catalog={[]} loading select={() => {}} />
+    return <ConnectionsView catalog={[]} loading select={() => {}} addCustomApi={() => {}} />
   }
 
   return (
     <>
       {view === 'connections' && (
-        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} pendingSlug={pendingSlug} initialSearch={initialSearch} onRows={mergeRows} />
+        <ConnectionsView catalog={catalog} loading={loading} select={selectFromCatalog} addCustomApi={() => setCustomApiOpen(true)} pendingSlug={pendingSlug} initialSearch={initialSearch} onRows={mergeRows} />
       )}
 
       {view === 'connector' && active && (
@@ -226,6 +247,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           addAccount={addAccount}
           openAccount={openAccount}
           reconnectAccount={reconnectAccount}
+          deleteApi={() => setDeleteApiOpen(true)}
         />
       )}
 
@@ -260,6 +282,24 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           cancel={() => setSetupOpen(false)}
           onConnected={handleSetupConnected}
         />
+      )}
+
+      {deleteApiOpen && active && (
+        <ConfirmModal
+          title={`Delete ${active.name}?`}
+          description={
+            active.connections.length > 0
+              ? 'Its accounts go with it, shared ones included, along with any agents or automations that call it.'
+              : 'Souvenir stops calling this API.'
+          }
+          confirmLabel="Delete"
+          onConfirm={confirmDeleteApi}
+          onClose={() => setDeleteApiOpen(false)}
+        />
+      )}
+
+      {customApiOpen && (
+        <CustomApiModal cancel={() => setCustomApiOpen(false)} onCreated={customApiCreated} />
       )}
 
       {removeAccount && active && (

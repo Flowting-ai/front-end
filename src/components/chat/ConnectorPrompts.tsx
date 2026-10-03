@@ -12,7 +12,7 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
+import { isApiProviderConnector, isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -147,6 +147,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     // our own app domain on success/failure, so this must navigate the
     // current tab rather than a popup. No popup to pre-open in that case.
     const isMcp = isMcpProviderConnector(prompt.connector.slug, prompt.provider)
+    const isApi = isApiProviderConnector(prompt.provider)
 
     // Open WITHOUT the noopener FEATURE so window.open() still returns a
     // reference — we need it below to navigate popup.location once the
@@ -155,7 +156,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     // without that feature string: setting popup.opener = null right after
     // opening severs the popup's own window.opener (settable cross-origin)
     // while leaving this `popup` reference fully usable for .location/.close().
-    const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
+    const popup = isMcp || isApi ? null : window.open('', '_blank', 'width=900,height=700')
     if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     setState('connecting')
     setErrorMsg('')
@@ -165,6 +166,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     initiateLink(prompt.connector.slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
+        if (isApi) return pollConnectorUntilActive(prompt.connector.slug)
         if (!link.redirectUrl) {
           popup?.close()
           throw new Error('No redirect URL returned by server')

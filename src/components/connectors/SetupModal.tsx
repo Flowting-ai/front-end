@@ -36,7 +36,7 @@ const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', f
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
-function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
+export function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'rgba(30,28,27,.58)' }} onClick={onDismiss}>
       <div

@@ -867,7 +867,7 @@ export function useStreamingChat({
               // resolve together from whichever fields the wire used.
               connector:       toConnector(parsed),
               auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
-              provider:        (['pipedream', 'mcp', 'zapier'] as const).find(value => value === parsed.provider),
+              provider:        (['pipedream', 'mcp', 'zapier', 'api'] as const).find(value => value === parsed.provider),
               tool_name:       asString(parsed.tool_slug) ?? "",
               api_key_fields:  apiKeyFields,
             }

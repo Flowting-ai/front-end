@@ -340,11 +340,12 @@ export function Catalog({
 }
 
 export function ConnectionsView({
-  catalog, loading, select, initialSearch = '', onRows, pendingSlug,
+  catalog, loading, select, addCustomApi, initialSearch = '', onRows, pendingSlug,
 }: {
   catalog: ConnectorCatalog[]
   loading: boolean
   select: (summary: ConnectorCatalog) => void
+  addCustomApi: () => void
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
   onRows?: (rows: ConnectorCatalog[]) => void
@@ -368,7 +369,11 @@ export function ConnectionsView({
 
   return (
     <ConnectorsShell>
-      <Header title="Connectors" subtitle="Tools your workspace can use across chat" />
+      <Header
+        title="Connectors"
+        subtitle="Tools your workspace can use across chat"
+        tools={<Button variant="outline" size="sm" onClick={addCustomApi}>Add custom API</Button>}
+      />
       {attention.length > 0 && (
         <div style={{ ...panel, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.xl, flexWrap: 'wrap', padding: SPACE.lg, marginBottom: SPACE.xxl, background: 'var(--yellow-50)' }}>
           <strong>{attention.length} account{attention.length === 1 ? '' : 's'} need attention</strong>
