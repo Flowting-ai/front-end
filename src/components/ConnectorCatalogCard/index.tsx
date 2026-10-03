@@ -64,7 +64,7 @@ function status(
   switch (state) {
     case 'connected':
       if (density === 'detailed') {
-        return { label: accountCount > 1 ? `${accountCount} accounts` : 'Connected', color: 'Green' }
+        return accountCount > 1 ? { label: `${accountCount} accounts`, color: 'Green' } : null
       }
       return {
         label: `${accountCount} ${accountCount === 1 ? 'account' : 'accounts'} connected`,
@@ -105,8 +105,8 @@ export function ConnectorCatalogCard({
   const badge = status(state, density, accountCount)
   const isLoading = state === 'loading'
   const isCompact = density === 'compact'
-  const logoSize = isCompact ? 40 : 56
-  const artworkSize = isCompact ? '100%' : 40
+  const logoSize = isCompact ? 40 : 36
+  const artworkSize = isCompact ? '100%' : 32
 
   return (
     <div
@@ -118,9 +118,9 @@ export function ConnectorCatalogCard({
         minWidth: 0,
         alignItems: 'center',
         gap: isCompact ? 8 : 12,
-        padding: isCompact ? '10px 12px' : 16,
+        padding: isCompact ? '10px 12px' : '12px 14px',
         background: 'var(--neutral-white)',
-        borderRadius: isCompact ? 16 : 24,
+        borderRadius: isCompact ? 16 : 14,
         boxShadow: 'var(--shadow-surface-card, 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200))',
         color: 'var(--color-text-default)',
         fontFamily: 'var(--font-body)',
@@ -131,7 +131,7 @@ export function ConnectorCatalogCard({
       aria-label={isLoading ? `Loading ${name}` : undefined}
       {...props}
     >
-      {/* 56/40px tile holding 40px artwork — the tile is the touch target, the artwork is the mark. */}
+      {/* 36/40px tile holding 32px artwork — the tile is the touch target, the artwork is the mark. */}
       <div
         aria-hidden={iconAlt === '' || undefined}
         style={{
@@ -211,7 +211,9 @@ export function ConnectorCatalogCard({
             >
               {highlight ? highlightMatch(name, highlight, 'background') : name}
             </span>
-            {description && density === 'detailed' && state === 'available' ? (
+            {badge ? (
+              <Badge label={badge.label} color={badge.color} />
+            ) : description && density === 'detailed' ? (
               <span
                 style={{
                   maxWidth: '100%',
@@ -226,8 +228,6 @@ export function ConnectorCatalogCard({
               >
                 {description}
               </span>
-            ) : badge ? (
-              <Badge label={badge.label} color={badge.color} />
             ) : null}
           </>
         )}

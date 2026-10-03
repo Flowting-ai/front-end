@@ -1,8 +1,8 @@
 'use client'
 
-// Add a custom REST API. This only describes the API — base URL and how its
-// token is sent. The token itself links through SetupModal afterwards, like
-// any api_key connector, so naming, sharing and reconnecting work the same.
+// Add a custom REST API: describe it, then link its token in the same click.
+// The token is linked like any api_key connector's, so renaming, sharing and
+// reconnecting afterwards go through the usual account screens.
 
 import React, { useState } from 'react'
 import { z } from 'zod'
@@ -11,7 +11,7 @@ import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
-import { ConnectorCatalog, createCustomApi, type CustomApiAuth } from '@/lib/api/connectors'
+import { ConnectorCatalog, createCustomApi, initiateLink, type CustomApiAuth } from '@/lib/api/connectors'
 import { Modal } from './SetupModal'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
@@ -43,6 +43,12 @@ const customApiSchema = z.object({
   ]),
   docs_url: z.string().trim().url().optional(),
 })
+
+// What the link call files, keyed by the backend's api_key field names.
+const credentialsSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('basic'), username: z.string().trim().min(1), password: z.string().min(1) }),
+  z.object({ type: z.enum(['bearer', 'header', 'query']), token: z.string().trim().min(1) }),
+])
 
 function AuthDropdown({ value, onChange }: { value: AuthType; onChange: (value: AuthType) => void }) {
   const [open, setOpen] = useState(false)
@@ -77,7 +83,7 @@ export function CustomApiModal({
   cancel, onCreated,
 }: {
   cancel: () => void
-  /** The new connector, ready for SetupModal to link its token. */
+  /** The new connector, with its token linked. */
   onCreated: (entry: ConnectorCatalog) => void
 }) {
   const [name, setName] = useState('')
@@ -85,7 +91,12 @@ export function CustomApiModal({
   const [authType, setAuthType] = useState<AuthType>('bearer')
   const [credentialNameValue, setCredentialNameValue] = useState('')
   const [docsUrl, setDocsUrl] = useState('')
+  const [token, setToken] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  // Kept once created, so retrying a failed token link does not define it twice.
+  const [created, setCreated] = useState<ConnectorCatalog | null>(null)
 
   const authOption = AUTH_OPTIONS.find(option => option.value === authType)
   const auth = authOption?.nameLabel ? { type: authType, name: credentialNameValue } : { type: authType }
@@ -95,13 +106,20 @@ export function CustomApiModal({
     auth,
     docs_url: docsUrl.trim() || undefined,
   })
+  const credentials = credentialsSchema.safeParse({ type: authType, token, username, password })
   const baseUrlInvalid = Boolean(baseUrl.trim()) && !z.string().trim().url().startsWith('https://').safeParse(baseUrl).success
 
   async function submit() {
-    if (!validation.success || busy) return
+    if (!validation.success || !credentials.success || busy) return
     setBusy(true)
     try {
-      onCreated(await createCustomApi(validation.data))
+      const entry = created ?? await createCustomApi(validation.data)
+      setCreated(entry)
+      const secret = credentials.data
+      await initiateLink(entry.slug, secret.type === 'basic'
+        ? { username: secret.username, password: secret.password }
+        : { token: secret.token })
+      onCreated(entry)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add API')
       setBusy(false)
@@ -112,7 +130,7 @@ export function CustomApiModal({
     <Modal label="Add custom API" onDismiss={cancel}>
       <h2 style={heading}>Add custom API</h2>
       <p style={{ ...muted, marginTop: SPACE.xs }}>
-        Connect any REST API so Souvenir can call it with your credentials. You&apos;ll add the token next.
+        Connect any REST API so Souvenir can call it with your credentials.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xl, marginTop: SPACE.xxl }}>
@@ -144,6 +162,22 @@ export function CustomApiModal({
           />
         )}
 
+        {authType === 'basic' ? (
+          <>
+            <InputField label="Username" value={username} onChange={setUsername} fluid />
+            <InputField label="Password" type="password" value={password} onChange={setPassword} fluid />
+          </>
+        ) : (
+          <InputField
+            label={authType === 'bearer' ? 'API token' : 'API key'}
+            type="password"
+            value={token}
+            onChange={setToken}
+            placeholder="sk-..."
+            fluid
+          />
+        )}
+
         <InputField
           label="Documentation URL"
           labelSuffix={<span style={{ color: 'var(--neutral-400)' }}> (optional)</span>}
@@ -158,7 +192,7 @@ export function CustomApiModal({
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
         <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Cancel</Button>
-        <Button variant="default" size="sm" onClick={() => void submit()} loading={busy} disabled={!validation.success}>Next</Button>
+        <Button variant="default" size="sm" onClick={() => void submit()} loading={busy} disabled={!validation.success || !credentials.success}>Add API</Button>
       </div>
     </Modal>
   )

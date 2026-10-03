@@ -39,7 +39,7 @@ const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutra
 // this (an earlier version of this file had one, guessed at `calc(100vh -
 // 360px)`) has no relation to the ancestor's real height and just leaves an
 // arbitrary gap — one scroll region, correctly sized, is simpler and correct.
-export function ConnectorsShell({ children }: { children: React.ReactNode }) {
+export function ConnectorsShell({ children, maxWidth = 1040 }: { children: React.ReactNode; maxWidth?: number }) {
   return (
     <main
       className="kaya-scrollbar"
@@ -55,7 +55,7 @@ export function ConnectorsShell({ children }: { children: React.ReactNode }) {
         fontFamily: 'var(--font-body)',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 1040, margin: '0 auto' }}>{children}</div>
+      <div style={{ width: '100%', maxWidth, margin: '0 auto' }}>{children}</div>
     </main>
   )
 }
@@ -143,9 +143,9 @@ function CatalogToolbar({
   )
 }
 
-// 360px min track: two per row at every desktop width (the shell caps content
-// at 1040px), one column below ~730px.
-const CATALOG_GRID: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: SPACE.lg }
+// 300px min track: three per row at full width (the shell caps content at
+// 1040px), two on a laptop sidebar-open layout, one on a phone.
+const CATALOG_GRID: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: SPACE.md }
 
 function catalogCardState(summary: ConnectorCatalog): ConnectorCatalogCardState {
   if (summary.needsAttention) return 'reconnect-required'
@@ -167,7 +167,7 @@ function CatalogCell({ summary, select, highlight, pendingSlug }: { summary: Con
     <ConnectorCatalogCard
       name={summary.name}
       description={summary.description}
-      icon={<ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={40} />}
+      icon={<ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={32} />}
       density="detailed"
       state={state}
       action={state === 'available' ? 'icon-add' : state === 'reconnect-required' ? 'reconnect' : state === 'connected' ? 'manage' : 'none'}
@@ -197,7 +197,7 @@ export function Catalog({
   // already on /connectors), since the search box would silently keep
   // showing the old term. Re-adopt `query` during render whenever it
   // actually changes, same "adjust state when a prop changes" pattern as
-  // SettingsTab's nickname sync in AccountDetailView.tsx.
+  // AccountName's nickname sync in AccountDetailView.tsx.
   const [syncedQuery, setSyncedQuery] = useState(query)
   if (query !== syncedQuery) {
     setSyncedQuery(query)
