@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon, LinkSixIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { useProjects } from '@/context/projects-context'
-import { ORG_CONNECTORS_ROUTE, PROJECTS_NEW_ROUTE } from '@/lib/routes'
+import { PROJECTS_NEW_ROUTE } from '@/lib/routes'
+import { ConnectAppMenu } from './ConnectAppMenu'
 import styles from './ChatHome.module.css'
 
 export function ChatHomeActions({
@@ -62,10 +63,7 @@ export function ChatHomeActions({
           </Dropdown.Section>
         </Dropdown>
       </Dropdown.Float>
-      <Link href={ORG_CONNECTORS_ROUTE} className={styles.contextAction}>
-        <LinkSixIcon size={16} />
-        <span>Connect an app</span>
-      </Link>
+      <ConnectAppMenu />
     </div>
   )
 }

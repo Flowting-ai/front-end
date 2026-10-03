@@ -1,7 +1,7 @@
 .home {
   box-sizing: border-box;
   min-height: 100%;
-  padding: clamp(88px, 22vh, 200px) clamp(20px, 5vw, 64px) 64px;
+  padding: clamp(96px, 30vh, 320px) clamp(20px, 5vw, 64px) 64px;
 }
 
 .content {
@@ -68,6 +68,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.appStack {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.appStackItem {
+  box-sizing: content-box;
+  padding: 1px;
+  border-radius: 5px;
+  background: var(--neutral-white);
+  box-shadow: 0 0 0 1px var(--neutral-200);
+}
+
+.appStackItem + .appStackItem {
+  margin-left: -5px;
+}
+
+.connectIntro {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  color: var(--neutral-600);
+  font: 400 12px/18px var(--font-body);
 }
 
 .createProject {
