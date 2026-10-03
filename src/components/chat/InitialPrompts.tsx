@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from 'next/image';
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 import { getGreeting, getSubheading } from "@/lib/greetings";
 import { useAuth } from "@/context/auth-context";
 import { useMounted } from "@/hooks/use-mounted";
@@ -48,13 +48,9 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
           lineHeight: 1.25,
         }}
       >
-        <Image
-          src="/icons/souvenir-logo-gray.svg"
-          alt=""
-          aria-hidden="true"
-          width={compact ? 22 : 28}
-          height={compact ? 22 : 28}
-          unoptimized
+        <SouvenirLogo
+          variant="gray"
+          size={compact ? 22 : 28}
           style={{
             display: "inline-block",
             verticalAlign: "middle",
