@@ -398,3 +398,50 @@ This contract is currently **v1** - the first cut after migrating away from
 PNG charts. Additive changes (new chart types, new optional attributes) are
 backward compatible. Renaming or repurposing existing tags/attributes
 requires bumping to v2 and updating both the prompt and this doc together.
+
+## Schedule / calendar
+
+`<schedule>` renders an interactive month calendar when explicit dates are
+provided, with a Month/Agenda switch, month navigation, and a selected-day
+agenda. Navigation only changes the local view: this widget displays the
+provided event snapshot and does not fetch, create, or edit calendar events.
+An empty day means no events were provided, not verified availability.
+
+```xml
+<schedule title="This week" date="2026-10-05">
+  <event date="2026-10-05" time="09:00–09:30" title="Standup" sub="Zoom"/>
+  <event date="2026-10-07" time="14:00–15:00" title="Roadmap review"/>
+</schedule>
+```
+
+- Optional `schedule.date` sets the initial calendar date; otherwise use the
+  first event with a valid date.
+- Optional `event.date` is a complete valid `YYYY-MM-DD` calendar date, in the
+  source calendar's timezone. `time` is a display label in that same timezone;
+  include the timezone in the title or subtitle where needed.
+- `event.title` is required. `time`, `sub`, and the legacy `day` label are optional.
+- An ISO date in `day` also supports calendar placement for compatibility.
+- Legacy labels such as `day="Mon, Jul 20"` remain in the agenda. The frontend
+  never infers a year or places ambiguous labels onto the calendar.
+- Invalid dates stay in the agenda. Undated events remain visible below the
+  calendar. Groups retain first-appearance order.
+- To enable this consistently, the backend formatting prompt must emit explicit
+  dates from the tool results. The backend prompt is outside this repository;
+  this change adds frontend support without requiring a new endpoint.
+
+## Email
+
+`<email status="draft|sent|received" subject="…" from="…" to="…" cc="…"
+bcc="…" date="…">` renders a KDS reading pane. The body supports Markdown;
+`<attachment name="…" size="…"/>` describes attachment metadata. Drafts offer
+Copy draft, and long messages can be expanded. Status reflects the supplied
+payload; the widget does not send email or download attachments.
+
+## Widget design
+
+Email, schedule, and task-board widgets share `ChatWidgetShell`: white KDS
+surfaces, neutral borders, the surface-card shadow, and body/caption typography.
+Use the existing `Button`, `IconButton`, and `Badge` for controls and status.
+Metrics reuse `StatCard`, `DeltaPill`, and semantic trend colors. Avoid custom
+status gradients, arbitrary palettes, perpetual status animations, and hover
+movement on static content.
