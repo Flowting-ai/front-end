@@ -310,6 +310,8 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       'aria-pressed': (!isHeader && !isEditVariant) ? selected : undefined,
       className: cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className),
       style: isLink ? { ...containerStyle, textDecoration: 'none' } : containerStyle,
+      'data-sidebar-active': !isHeader && !isEditVariant && isActive ? '' : undefined,
+      'data-sidebar-selected': !isHeader && !isEditVariant && selected ? '' : undefined,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
       onFocus: handleFocus,
@@ -326,7 +328,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
           <>
             {/* Left: label + Show/Hide toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
+              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-semibold)', color: 'var(--sidebar-section-header-muted)' }}>
                 {label}
               </p>
               {onShowClick && (
@@ -389,7 +391,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
                 <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
                   View all
                 </p>
-                <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', transform: 'rotate(-90deg)' }}>
+                <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-icon-muted, var(--sidebar-menu-item-muted))', transform: 'rotate(-90deg)' }}>
                   <ArrowDownOneIcon size={16} />
                 </span>
               </button>
@@ -401,7 +403,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
         {variant === 'default' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+              <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
                 {React.cloneElement(icon, { triggered: isHovered })}
               </div>
               <AnimatePresence mode="popLayout" initial={false}>
@@ -485,7 +487,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
                   }}
                 />
               )}
-              <div style={{ position: 'relative', color: 'var(--sidebar-menu-item-text)', lineHeight: 0 }}>
+              <div style={{ position: 'relative', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', lineHeight: 0 }}>
                 <BubbleChatAddIcon size={20} triggered={isHovered} />
               </div>
             </div>
@@ -700,7 +702,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
                     style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexShrink: 0 }}
                   >
                     <p style={bodyTextStyle}>{label}</p>
-                    <p style={{ ...captionTextStyle, color: sublabelWarning ? 'var(--color-tag-Yellow-text,#854d0e)' : 'var(--sidebar-menu-item-text)', fontWeight: 'var(--font-weight-regular)' }}>
+                    <p style={{ ...captionTextStyle, color: sublabelWarning ? 'var(--color-tag-Yellow-text,var(--warning-800))' : 'var(--sidebar-menu-item-text)', fontWeight: 'var(--font-weight-regular)' }}>
                       {sublabel}
                     </p>
                   </motion.div>

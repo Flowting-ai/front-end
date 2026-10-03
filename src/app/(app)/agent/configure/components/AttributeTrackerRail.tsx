@@ -86,7 +86,7 @@ function AttributeTocRow({
           flexShrink:      0,
           marginLeft:      2,
           borderRadius:    '50%',
-          backgroundColor: touched ? '#F97316' : '#D1D5DB',
+          backgroundColor: touched ? 'var(--warning-600)' : 'var(--neutral-200)',
           boxShadow:       `0 0 0 1px ${touched ? '#C2600F' : '#9CA3AF'}`,
         }}
       />

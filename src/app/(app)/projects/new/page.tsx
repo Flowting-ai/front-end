@@ -96,7 +96,7 @@ function NewProjectPageInner() {
         }}
         aria-label="Back to Projects"
       >
-        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
+        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: 'var(--neutral-700)' }} />
       </button>
 
       {/* Horizontal padding lives here, not on the scrolling element above —
@@ -120,7 +120,7 @@ function NewProjectPageInner() {
               fontWeight:  'var(--font-weight-regular)',
               fontSize:    '24px',
               lineHeight:  '32px',
-              color:       '#1a1916',
+              color:       'var(--legacy-1a1916)',
               margin:      0,
             }}
           >
@@ -138,7 +138,7 @@ function NewProjectPageInner() {
                 fontWeight:  'var(--font-weight-medium)',
                 fontSize:    '14px',
                 lineHeight:  '22px',
-                color:       '#524b47',
+                color:       'var(--neutral-700)',
               }}
             >
               What are we working on
@@ -174,7 +174,7 @@ function NewProjectPageInner() {
                     fontWeight:  'var(--font-weight-medium)',
                     fontSize:    '14px',
                     lineHeight:  '22px',
-                    color:       '#524b47',
+                    color:       'var(--neutral-700)',
                   }}
                 >
                   Who can see this
@@ -226,7 +226,7 @@ function NewProjectPageInner() {
                 fontWeight:  'var(--font-weight-medium)',
                 fontSize:    '14px',
                 lineHeight:  '22px',
-                color:       '#524b47',
+                color:       'var(--neutral-700)',
               }}
             >
               What are we trying to achieve
@@ -242,7 +242,7 @@ function NewProjectPageInner() {
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize:     '14px',
                 lineHeight:   '22px',
-                color:        '#1a1714',
+                color:        'var(--legacy-1a1714)',
                 background:   'var(--neutral-white)',
                 border:       '1px solid var(--neutral-300)',
                 borderRadius: '10px',
@@ -272,7 +272,7 @@ function NewProjectPageInner() {
                 fontWeight:  'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:  '16px',
-                color:       '#857a72',
+                color:       'var(--neutral-500)',
                 margin:      0,
               }}
             >
@@ -284,7 +284,7 @@ function NewProjectPageInner() {
               tag editor, so a project's tags look and behave identically
               whether they were set here or added later. */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '22px', color: '#524b47' }}>
+            <label style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '22px', color: 'var(--neutral-700)' }}>
               Tags
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
@@ -334,7 +334,7 @@ function NewProjectPageInner() {
                 />
               )}
             </div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: '12px', lineHeight: '16px', color: '#857a72', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
               {tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
             </p>
           </div>

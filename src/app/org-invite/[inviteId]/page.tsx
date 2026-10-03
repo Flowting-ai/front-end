@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE } from "@/lib/routes";
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 
 // ── B1/B2 — pre-login invite landing ("You're on the list!") ────────────────
 // Figma: node 55:2884 / 58:4249. Deliberately generic and static — no API call
@@ -40,13 +41,10 @@ import { AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE } from "@/lib/routes";
 // elsewhere via `screen_hint=signup`.
 
 function SouvenirMark({ size = 32 }: { size?: number }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- static local icon, Next Image adds no value here
-    <img src="/icons/souvenir-logo-gray.svg" alt="" width={size} height={size} style={{ display: "block" }} aria-hidden />
-  );
+  return <SouvenirLogo variant="gray" size={size} />;
 }
 
-const BG = "var(--neutral-50,#f7f2ed)";
+const BG = "var(--neutral-50)";
 
 export default function InviteLandingPage() {
   const { inviteId } = useParams<{ inviteId: string }>();

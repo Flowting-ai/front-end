@@ -214,8 +214,8 @@ export function EnhancePromptField(
       borderColor:     'var(--color-enhance-border-open)',
       borderWidth:     1.5,
     } : {
-      backgroundColor: '#FFFFFF',
-      borderColor:     '#E5E5E5',
+      backgroundColor: 'var(--neutral-white)',
+      borderColor:     'var(--neutral-200)',
       borderWidth:     1,
     }
 
@@ -305,7 +305,7 @@ export function EnhancePromptField(
                 fontWeight: 400,
                 fontSize:   14,
                 lineHeight: 1.29,
-                color:      '#524B47',
+                color:      'var(--neutral-700)',
               }}
             />
             <div
@@ -402,6 +402,11 @@ export function EnhancePromptField(
                   display:             'flex',
                   flexDirection:       'column',
                   gap:                 16,
+                  // This scroll area clips overflow, which cut off the left edge of the custom input and
+                  // its pink focus ring. 8px of padding gives the ring room; the matching negative
+                  // margin eats into the panel's own 20px padding, so nothing shifts.
+                  padding:             8,
+                  margin:              -8,
                 }}
               >
               {state === 'scanning' && <EnhanceScanningState />}

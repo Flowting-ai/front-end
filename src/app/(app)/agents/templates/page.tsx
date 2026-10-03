@@ -1,8 +1,8 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowRightOneIcon, PlusSignIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { trackFeature } from '@/lib/analytics/events'
 import CustomerService01Icon from '@hugeicons/core-free-icons/CustomerService01Icon'
@@ -21,8 +21,13 @@ import Analytics01Icon from '@hugeicons/core-free-icons/Analytics01Icon'
 import MentoringIcon from '@hugeicons/core-free-icons/MentoringIcon'
 import BrowserIcon from '@hugeicons/core-free-icons/BrowserIcon'
 import { Button } from '@/components/Button'
-import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
-import { AGENTS_BASICS_PURPOSE_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
+import Tabs from '@/components/Tabs'
+import { AgentPageShell } from '../_components/AgentPageShell'
+import { TEMPLATE_PRESETS } from '../_data/template-presets'
+import { listLinkedConnectors } from '@/lib/api/connectors'
+import { fetchPersonas } from '@/lib/api/personas'
+import { recommendTemplates, type TemplateRecommendation } from '@/lib/agent-templates'
+import { AGENTS_NEW_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 
 // ── Template categories ───────────────────────────────────────────────────────
 
@@ -117,8 +122,8 @@ function TemplateCard({ name, onClick, disabled }: { name: string; onClick: () =
         padding: '20px 16px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
         boxShadow: hovered
-          ? '0px 8px 16px 0px rgba(202,220,241,0.6)'
-          : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
+          ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 60%, transparent)'
+          : '0px 2.548px 3.821px 0px color-mix(in srgb, var(--blue-100) 40%, transparent)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.6 : 1,
         width: CARD_WIDTH,
@@ -192,7 +197,7 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: 764,
         boxShadow: hovered
-          ? '0px 8px 16px 0px rgba(202,220,241,0.5), 0px 0px 0px 1px var(--neutral-100)'
+          ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 50%, transparent), 0px 0px 0px 1px var(--neutral-100)'
           : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.6 : 1,
@@ -246,6 +251,70 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// ── Recommended grid ──────────────────────────────────────────────────────────
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = []
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size))
+  return rows
+}
+
+function RecommendedGrid({
+  recommendation, disabled, onPick, onBrowseAll,
+}: {
+  recommendation: { items: TemplateRecommendation[]; personalized: boolean } | null
+  disabled: boolean
+  onPick: (name: string) => void
+  onBrowseAll: () => void
+}) {
+  if (!recommendation) {
+    return (
+      <div role="status" aria-live="polite" style={{ display: 'flex', gap: 16 }}>
+        {[0, 1, 2, 3].map(i => <div key={i} className="kaya-skeleton" style={{ width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 15 }} />)}
+      </div>
+    )
+  }
+  const { items, personalized } = recommendation
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+        {personalized
+          ? 'Picked from the apps you’ve connected.'
+          : 'Connect apps to get suggestions that fit how you work. Until then, here are popular starting points.'}
+      </p>
+      {items.length === 0 ? (
+        <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)' }}>
+          You already have an agent for each of our suggestions.{' '}
+          <button type="button" onClick={onBrowseAll} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', color: 'inherit', font: 'inherit' }}>
+            Browse all templates
+          </button>
+        </p>
+      ) : (
+        chunk(items, 4).map((row, ri) => (
+          <div key={ri} style={{ display: 'flex', gap: 16 }}>
+            {row.map(item => (
+              <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, width: CARD_WIDTH }}>
+                <TemplateCard name={item.name} onClick={() => onPick(item.name)} disabled={disabled} />
+                {item.because.length > 0 && (
+                  <span
+                    title={`Works with ${item.because.join(', ')}`}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+                      color: 'var(--neutral-500)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Works with {item.because.join(', ')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 export default function PersonaTemplatesPage() {
   const { push } = useRouter()
 
@@ -265,41 +334,53 @@ export default function PersonaTemplatesPage() {
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => { setHydrated(true) }, [])
 
-  // Only show the Continue button when the user has already stepped into the wizard
-  // (i.e. navigated back from the purpose page mid-flow).
-  const [hasWizardDraft, setHasWizardDraft] = useState(false)
-  useEffect(() => {
-    try {
-      const draft = JSON.parse(sessionStorage.getItem('persona_wizard_draft') ?? '{}')
-      setHasWizardDraft(!!(draft.name || draft.purpose || draft.template))
-    } catch { /* ignore */ }
-  }, [])
-
   // Analytics: the template gallery was browsed (Layer 4 feature).
   useEffect(() => { trackFeature('agent_template_browsed') }, [])
 
-  function continueToBasics(name?: string) {
-    // Starting fresh — clear any previously created wizard repo so a new one is made.
-    try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-    const q = name ? `?template=${encodeURIComponent(name)}` : ''
-    push(`${AGENTS_BASICS_PURPOSE_ROUTE}${q}`)
+  // "Recommended for you": ranked from the apps the user has connected and the
+  // agents they already have. Both lookups are best-effort — without them the
+  // tab simply falls back to popular starting points.
+  const [tab, setTab] = useState<'recommended' | 'general'>('recommended')
+  const [signals, setSignals] = useState<{ linked: Array<{ slug: string; displayName: string }>; agents: string[] } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      listLinkedConnectors().then(list => list.map(c => ({ slug: c.slug, displayName: c.displayName }))).catch(() => []),
+      fetchPersonas().then(list => list.map(p => p.name)).catch(() => [] as string[]),
+    ]).then(([linked, agents]) => { if (!cancelled) setSignals({ linked, agents }) })
+    return () => { cancelled = true }
+  }, [])
+
+  const recommended = useMemo(() => {
+    if (!signals) return null
+    return recommendTemplates({
+      templates: TEMPLATE_ROWS.flat(),
+      linked: signals.linked,
+      existingAgents: signals.agents,
+      presetNames: Object.fromEntries(Object.entries(TEMPLATE_PRESETS).map(([name, preset]) => [name, preset.name])),
+    })
+  }, [signals])
+
+  // A template pre-fills the purpose on the new-agent screen.
+  function startFromTemplate(name: string) {
+    push(`${AGENTS_NEW_ROUTE}?template=${encodeURIComponent(name)}`)
   }
 
   return (
-    <WizardShell steps={STEPS_TEMPLATE}>
+    <AgentPageShell maxWidth={780}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 36, alignItems: 'center', width: '100%' }}>
 
         {/* Heading */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', textAlign: 'center' }}>
           <p style={{
             fontFamily: 'var(--font-title)', fontWeight: 400,
-            fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0,
+            fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0,
           }}>
             Choose a starting point
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 400,
-            fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0,
+            fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0,
           }}>
             Start with a template or build from scratch
           </p>
@@ -309,18 +390,33 @@ export default function PersonaTemplatesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
           {/* Custom / start blank row */}
-          <CustomCard onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)} disabled={!hydrated} />
+          <CustomCard onClick={() => push(AGENTS_NEW_ROUTE)} disabled={!hydrated} />
 
-          {/* Template card rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {TEMPLATE_ROWS.map((row, ri) => (
-              <div key={ri} style={{ display: 'flex', gap: 16 }}>
-                {row.map(name => (
-                  <TemplateCard key={name} name={name} onClick={() => continueToBasics(name)} disabled={!hydrated} />
-                ))}
-              </div>
-            ))}
-          </div>
+          <Tabs value={tab} onValueChange={value => setTab(value as 'recommended' | 'general')}>
+            <Tabs.List>
+              <Tabs.Trigger value="recommended">Recommended for you</Tabs.Trigger>
+              <Tabs.Trigger value="general">General</Tabs.Trigger>
+            </Tabs.List>
+          </Tabs>
+
+          {tab === 'general' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {TEMPLATE_ROWS.map((row, ri) => (
+                <div key={ri} style={{ display: 'flex', gap: 16 }}>
+                  {row.map(name => (
+                    <TemplateCard key={name} name={name} onClick={() => startFromTemplate(name)} disabled={!hydrated} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <RecommendedGrid
+              recommendation={recommended}
+              disabled={!hydrated}
+              onPick={startFromTemplate}
+              onBrowseAll={() => setTab('general')}
+            />
+          )}
         </div>
 
         {/* Footer */}
@@ -336,19 +432,9 @@ export default function PersonaTemplatesPage() {
           >
             Library
           </Button>
-          {hasWizardDraft && (
-            <Button
-              variant="default"
-              size="sm"
-              rightIcon={<ArrowRightOneIcon size={16} />}
-              onClick={() => continueToBasics()}
-            >
-              Continue
-            </Button>
-          )}
         </div>
 
       </div>
-    </WizardShell>
+    </AgentPageShell>
   )
 }

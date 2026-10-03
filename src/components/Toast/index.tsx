@@ -42,6 +42,7 @@ import {
   InformationCircleIcon,
 } from '@strange-huge/icons'
 import { Spinner } from '@/components/Spinner'
+import { useTheme } from '@/context/theme-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -102,10 +103,14 @@ export function Toaster({
   duration    = 4500,
   richColors  = true,
   closeButton = true,
+  theme: themeProp,
   toastOptions,
   icons,
   ...rest
 }: ToasterProps) {
+  const { enabled, resolved } = useTheme()
+  const theme = themeProp ?? (enabled ? resolved : 'light')
+
   // Merge KDS default classNames with any consumer-provided ones.
   const mergedToastOptions: SonnerToasterProps['toastOptions'] = {
     ...DEFAULT_TOAST_OPTIONS,
@@ -124,6 +129,7 @@ export function Toaster({
 
   return (
     <SonnerToaster
+      theme={theme}
       position={position}
       duration={duration}
       richColors={richColors}

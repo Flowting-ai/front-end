@@ -17,6 +17,7 @@ import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 
 const AGENTS_PANEL_TITLE = 'Agents'
 
@@ -136,7 +137,7 @@ function FloatingPanelImpl() {
     <>
       {/* Gutter - right edge of chat, between TopBar and FloatingMenu */}
       <AnimatePresence>
-        {gutterMarks.length > 0 && (
+        {HIGHLIGHTS_ENABLED && gutterMarks.length > 0 && (
           <m.div
             key="chat-gutter"
             initial={{ opacity: 0 }}
@@ -157,7 +158,7 @@ function FloatingPanelImpl() {
 
       {/* Floating toolbar - vertically centered. Hidden entirely (not just
           disabled) on an archived chat — see isArchivedChat above. */}
-      {!isArchivedChat && (
+      {!isArchivedChat && (PINS_ENABLED || HIGHLIGHTS_ENABLED || isChatPage) && (
         <div
           style={{
             position:  'absolute',
@@ -168,14 +169,16 @@ function FloatingPanelImpl() {
           }}
         >
           <FloatingMenu aria-label="Chat tools">
-            <FloatingMenuItem
-              icon={<PinIcon size={20} />}
-              label="Pinboard"
-              active={pinboardOpen}
-              disabled={isReadOnlyChat}
-              onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
-              onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
-            />
+            {PINS_ENABLED && (
+              <FloatingMenuItem
+                icon={<PinIcon size={20} />}
+                label="Pinboard"
+                active={pinboardOpen}
+                disabled={isReadOnlyChat}
+                onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
+                onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
+              />
+            )}
             {isChatPage && (
               <FloatingMenuItem
                 icon={<UserAiIcon size={20} />}
@@ -185,13 +188,15 @@ function FloatingPanelImpl() {
                 onClick={isReadOnlyChat ? undefined : handleToggleAgents}
               />
             )}
-            <FloatingMenuItem
-              icon={<QuillWriteOneIcon size={20} />}
-              label="Highlights"
-              active={highlightOpen}
-              disabled={isReadOnlyChat}
-              onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
-            />
+            {HIGHLIGHTS_ENABLED && (
+              <FloatingMenuItem
+                icon={<QuillWriteOneIcon size={20} />}
+                label="Highlights"
+                active={highlightOpen}
+                disabled={isReadOnlyChat}
+                onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
+              />
+            )}
           </FloatingMenu>
         </div>
       )}

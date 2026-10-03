@@ -27,9 +27,9 @@ function fmtK(n: number): string {
 }
 
 function colourForPct(pct: number): { fill: string, text: string } {
-  if (pct >= 0.85) return { fill: '#ef4444', text: '#b91c1c' }
-  if (pct >= 0.60) return { fill: '#f59e0b', text: '#b45309' }
-  return                 { fill: '#22c55e', text: '#15803d' }
+  if (pct >= 0.85) return { fill: 'var(--red-400)', text: 'var(--red-500)' }
+  if (pct >= 0.60) return { fill: 'var(--warning-500)', text: 'var(--warning-700)' }
+  return                 { fill: 'var(--success-500)', text: 'var(--success-700)' }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

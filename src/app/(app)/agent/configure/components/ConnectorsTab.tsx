@@ -211,7 +211,7 @@ export default function ConnectorsTab({
         <>
           <div
             onClick={() => { if (!isSavingNav) setShowNavModal(false) }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'color-mix(in srgb, var(--neutral-900) 32%, transparent)', zIndex: 50 }}
           />
           <div style={{
             position:        'fixed',
@@ -219,7 +219,7 @@ export default function ConnectorsTab({
             left:            '50%',
             transform:       'translate(-50%, -50%)',
             zIndex:          51,
-            backgroundColor: 'white',
+            backgroundColor: 'var(--neutral-white)',
             borderRadius:    16,
             boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
             width:           400,
@@ -271,7 +271,7 @@ export default function ConnectorsTab({
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-        <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0 }}>
+        <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0 }}>
           Connectors
         </h2>
         <Button
@@ -285,7 +285,7 @@ export default function ConnectorsTab({
       </div>
 
       {/* Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'white', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'var(--neutral-white)', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
         <SearchIcon />
         <input
           type="text"
@@ -293,7 +293,7 @@ export default function ConnectorsTab({
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search connectors…"
           aria-label="Search connectors"
-          style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#6a625d', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
+          style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
         />
         {searchQuery && (
           <button onClick={() => setSearchQuery('')} aria-label="Clear search" style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
@@ -321,7 +321,7 @@ export default function ConnectorsTab({
           </p>
           <button
             onClick={() => void load()}
-            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)' }}
+            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--neutral-white)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)' }}
           >
             Retry
           </button>

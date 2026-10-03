@@ -9,7 +9,7 @@ import { Button } from "@/components/Button";
 // from screen to screen. Figma 5795:41421 — neutral-50 → neutral-100 → neutral-200.
 
 const CANVAS_GRADIENT =
-  "linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)";
+  "linear-gradient(180deg, var(--neutral-50) 3.76%, var(--neutral-100,#F5F5F5) 75%, var(--neutral-200,#E5E5E5) 116.79%)";
 
 // ── Logo glyph ──────────────────────────────────────────────────────────────────
 

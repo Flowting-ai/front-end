@@ -23,7 +23,8 @@ const SHADOW_SECONDARY_OUTER_HOVER = 'var(--shadow-button-secondary-outer-hover)
 const SHADOW_SECONDARY_INNER       = 'var(--shadow-button-secondary-inner)'
 const SHADOW_SECONDARY_INNER_HOVER = 'var(--shadow-button-secondary-inner-hover)'
 
-const HOVER_GLOW_GRADIENT = 'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%)'
+// Theme token: black/yellow/blue tints in light, pink tints in dark.
+const HOVER_GLOW_GRADIENT = 'var(--button-default-hover-glow)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -194,12 +195,15 @@ export function Button({
     ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
     ...(variant === 'default'
       ? {
+          // Tokens, not hex: these resolve to the same #524b47 / #26211e / #3b3632 in
+          // light (the primary-surface aliases point at neutral-700/800/900), and let
+          // the dark theme restyle the button instead of leaving a fixed gradient.
           backgroundImage: isDisabled
             ? isMd
-              ? 'linear-gradient(180deg, #524b47 0%, #3b3632 100%)'
+              ? 'linear-gradient(180deg, var(--color-interactive-primary-surface-disabled-from) 0%, var(--color-interactive-primary-surface-disabled-to) 100%)'
               : undefined
-            : 'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
-          backgroundColor: isDisabled && !isMd ? '#3b3632' : undefined,
+            : 'linear-gradient(180deg, var(--color-interactive-primary-surface-from) 0%, var(--color-interactive-primary-surface-to) 100%)',
+          backgroundColor: isDisabled && !isMd ? 'var(--color-interactive-primary-surface-disabled-to)' : undefined,
         }
       : {}),
     ...(isSecondary ? {
@@ -289,7 +293,7 @@ export function Button({
                 <feGaussianBlur stdDeviation={8} />
               </filter>
               <mask id={maskId} maskUnits="userSpaceOnUse" x="-200" y="-200" width="600" height="600">
-                <circle ref={circleRef} cx="0" cy="0" r="0" fill="white" filter={`url(#${blurId})`} visibility="hidden" />
+                <circle ref={circleRef} cx="0" cy="0" r="0" fill="var(--static-white)" filter={`url(#${blurId})`} visibility="hidden" />
               </mask>
             </defs>
           </svg>

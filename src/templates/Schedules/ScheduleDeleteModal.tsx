@@ -40,7 +40,7 @@ export function ScheduleDeleteModal({
           style={{
             position:        'fixed',
             inset:           0,
-            backgroundColor: 'rgba(10, 10, 10, 0.4)',
+            backgroundColor: 'color-mix(in srgb, var(--neutral-black) 40%, transparent)',
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
@@ -64,7 +64,7 @@ export function ScheduleDeleteModal({
               display:         'flex',
               flexDirection:   'column',
               gap:             16,
-              boxShadow:       '0 8px 40px rgba(0,0,0,0.12)',
+              boxShadow:       '0 8px 40px color-mix(in srgb, var(--static-black) 12%, transparent)',
             }}
           >
             {/* Header */}

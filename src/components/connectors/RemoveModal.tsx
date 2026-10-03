@@ -29,7 +29,7 @@ export function RemoveModal({
   confirm: () => void
 }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'rgba(30,28,27,.58)' }} onClick={cancel}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'color-mix(in srgb, var(--neutral-900) 58%, transparent)' }} onClick={cancel}>
       <div
         role="dialog"
         aria-modal="true"

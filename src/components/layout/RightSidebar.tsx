@@ -12,6 +12,7 @@ import { PinboardSkeleton } from "@/components/PinboardSkeleton"
 import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
 import { CHAT_ROUTE } from "@/lib/routes"
+import { PINS_ENABLED } from "@/lib/feature-flags"
 import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
@@ -526,7 +527,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >
@@ -600,7 +601,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >
@@ -683,7 +684,7 @@ function RightSidebarImpl() {
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
-              backgroundColor: "rgba(26,23,20,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--yellow-950) 40%, transparent)",
               backdropFilter:  "blur(2px)",
             }}
           >
@@ -775,5 +776,6 @@ function RightSidebarImpl() {
 }
 
 export function RightSidebar() {
+  if (!PINS_ENABLED) return null
   return <Suspense fallback={null}><RightSidebarImpl /></Suspense>
 }

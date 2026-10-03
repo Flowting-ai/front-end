@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type Dispatch, type SetStateAction } from "react"
 import { toast } from "sonner"
 import { usePinboard, type PinItem } from "@/context/pinboard-context"
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { PinMentionable } from "@/components/chat/PinMentionDropdown"
 
 interface MentionedPin {
@@ -40,7 +41,7 @@ export function usePinMentions(
   // outcome as picking it from the PinMentionDropdown — rather than splicing
   // its raw content into the input text.
   useEffect(() => {
-    if (!pinInsertListenerEnabled) return;
+    if (!PINS_ENABLED || !pinInsertListenerEnabled) return;
     const handler = (e: Event) => {
       const pin = (e as CustomEvent<PinMentionable>).detail;
       if (!pin?.id) return;
@@ -89,6 +90,7 @@ export function usePinMentions(
   }, [showPinDropdown]);
 
   const handleMentionChange = useCallback((query: string | null) => {
+    if (!PINS_ENABLED) return;
     if (query === null) {
       setShowPinDropdown(false);
       setPinQuery("");
@@ -99,6 +101,7 @@ export function usePinMentions(
   }, []);
 
   const handlePinSelect = useCallback((pin: PinMentionable) => {
+    if (!PINS_ENABLED) return;
     const label = (pin.title || pin.content).slice(0, 50) || pin.id;
     // Strip the `@query` fragment that the user typed from the input value.
     setInputValue((prev) => {

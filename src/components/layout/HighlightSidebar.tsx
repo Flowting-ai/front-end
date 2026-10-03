@@ -11,6 +11,7 @@ import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 
 function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
@@ -207,5 +208,6 @@ function HighlightSidebarImpl() {
 }
 
 export function HighlightSidebar() {
+  if (!HIGHLIGHTS_ENABLED) return null
   return <Suspense fallback={null}><HighlightSidebarImpl /></Suspense>
 }

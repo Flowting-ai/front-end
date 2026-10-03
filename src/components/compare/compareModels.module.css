@@ -11,7 +11,7 @@
   display: inline-block;
   width: 8px;
   height: 16px;
-  background-color: #171717;
+  background-color: var(--neutral-950);
   margin-left: 2px;
   animation: blink 1s infinite;
 }
@@ -28,13 +28,13 @@
 .title {
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: var(--blue-950);
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: #6B7280;
+  color: var(--neutral-500);
   width: 20px;
   height: 20px;
   cursor: pointer;
@@ -47,7 +47,7 @@
   height: 32px;
   padding: 0 20px 12px 20px;
   font-size: 13px;
-  color: #6B7280;
+  color: var(--neutral-500);
   display: flex;
   align-items: center;
 }
@@ -71,12 +71,12 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #9CA3AF;
+  color: var(--neutral-400);
   position: relative;
 }
 
 .emptySlot {
-  color: #9CA3AF;
+  color: var(--neutral-400);
   font-size: 12px;
 }
 
@@ -86,8 +86,8 @@
   gap: 12px;
   width: 100%;
   height: 100%;
-  background: #F9FAFB;
-  border: 1px solid #D4D4D4;
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
   border-radius: 8px;
   padding: 0 12px;
   position: relative;
@@ -105,24 +105,24 @@
 .modelName {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--blue-950);
 }
 
 .modelMeta {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--neutral-400);
 }
 
 .removeBtn {
   background: none;
   border: none;
-  color: #6B7280;
+  color: var(--neutral-500);
   cursor: pointer;
   padding: 2px;
 }
 
 .divider {
-  border-bottom: 1px dashed #E5E7EB;
+  border-bottom: 1px dashed var(--neutral-200);
   margin-top: 12px;
   margin-bottom: 12px;
   width: 100%;
@@ -132,7 +132,7 @@
   padding: 0 20px 8px 20px;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--neutral-800);
 }
 
 .filterRow {
@@ -149,7 +149,7 @@
   border-radius: 999px;
   font-size: 12px;
   background: transparent;
-  color: #6B7280;
+  color: var(--neutral-500);
   border: none;
   cursor: pointer;
 }
@@ -159,8 +159,8 @@
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
-  background: #EEF2FF;
-  color: #4F46E5;
+  background: var(--blue-50);
+  color: var(--violet-500);
   border: none;
   cursor: pointer;
 }
@@ -178,24 +178,24 @@
   width: 470px;
   height: 120px;
   border-radius: 12px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--neutral-200);
   padding: 16px;
   display: flex;
   gap: 12px;
-  background: #fff;
+  background: var(--static-white);
   align-items: center;
   cursor: pointer;
   transition: box-shadow 0.2s;
 }
 
 .modelCard:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--static-black) 4%, transparent);
 }
 
 .modelCardSelectedGrid {
   composes: modelCard;
-  background: #F3F4F6;
-  border: 1.5px solid #6366F1;
+  background: var(--neutral-100);
+  border: 1.5px solid var(--info-600);
 }
 
 .modelCardDisabled {
@@ -223,7 +223,7 @@
 
 .modelDesc {
   font-size: 12px;
-  color: #6B7280;
+  color: var(--neutral-500);
   max-height: 32px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -238,20 +238,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--neutral-200);
 }
 
 .footerText {
   font-size: 12px;
-  color: #6B7280;
+  color: var(--neutral-500);
 }
 
 .primaryBtn {
   height: 36px;
   padding: 0 16px;
   border-radius: 8px;
-  background: #E5E7EB;
-  color: #9CA3AF;
+  background: var(--neutral-200);
+  color: var(--neutral-400);
   border: none;
   font-size: 14px;
   font-weight: 600;
@@ -260,12 +260,12 @@
 }
 
 .primaryBtn:enabled {
-  background: #4F46E5;
-  color: #fff;
+  background: var(--violet-500);
+  color: var(--static-white);
 }
 
 .primaryBtn:disabled {
-  background: #E5E7EB;
-  color: #9CA3AF;
+  background: var(--neutral-200);
+  color: var(--neutral-400);
   cursor: not-allowed;
 }

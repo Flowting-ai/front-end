@@ -18,6 +18,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
@@ -504,7 +505,7 @@ function ChatsPageInner() {
                   gap:             12,
                   padding:         '12px 16px',
                   borderRadius:    12,
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--neutral-white)',
                   boxShadow:       '0px 1px 2px rgba(18,12,8,0.08), 0px 0px 0px 1px var(--neutral-100)',
                 }}
               >
@@ -550,9 +551,9 @@ function ChatsPageInner() {
                 <ChatRow
                   title={chat.title}
                   timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
-                  pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
-                  pinBoardOpen={isOpen && chatFilter === chat.id}
-                  onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                  pinCount={PINS_ENABLED ? (pinCountMap[chat.id] ?? chat.pins_count ?? 0) : 0}
+                  pinBoardOpen={PINS_ENABLED && isOpen && chatFilter === chat.id}
+                  onPinClick={PINS_ENABLED && pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
                   starred={chat.starred}
                   archived
                   onClick={() => handleOpenChat(chat.id)}
@@ -641,9 +642,9 @@ function ChatsPageInner() {
                       <ChatRow
                         title={chat.title}
                         timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
-                        pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
-                        pinBoardOpen={isOpen && chatFilter === chat.id}
-                        onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                        pinCount={PINS_ENABLED ? (pinCountMap[chat.id] ?? chat.pins_count ?? 0) : 0}
+                        pinBoardOpen={PINS_ENABLED && isOpen && chatFilter === chat.id}
+                        onPinClick={PINS_ENABLED && pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
                         starred={chat.starred}
                         selectionMode={selectionMode}
                         selected={selectedIds.has(chat.id)}

@@ -69,7 +69,7 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
           fontFamily: "var(--font-body)",
           fontSize:   compact ? "13px" : "16px",
           fontWeight: 400,
-          color:      compact ? "var(--color-text-muted)" : "#3B3632",
+          color:      compact ? "var(--color-text-muted)" : "var(--neutral-800)",
           margin:     "0",
           lineHeight: 1.5,
           maxWidth:   "480px",

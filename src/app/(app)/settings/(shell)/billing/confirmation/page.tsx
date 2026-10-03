@@ -16,8 +16,8 @@ const BODY  = 'var(--font-body)'
 const C = {
   ink:     'var(--neutral-900)',
   muted:   'var(--neutral-500)',
-  green:   '#16A34A',
-  greenBg: '#DCFCE7',
+  green:   'var(--success-600)',
+  greenBg: 'var(--green-50)',
 } as const
 
 function CheckCircleIcon() {

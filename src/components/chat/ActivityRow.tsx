@@ -38,13 +38,13 @@ const ACTIVITY_ICON: Record<ActivityType, IconEntry> = {
 // ── Icon helper ───────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
+function HIcon({ icon, size = 14, color = "var(--neutral-500)", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
   return <HugeiconsIcon icon={icon} size={size} color={color} strokeWidth={strokeWidth} />;
 }
 
 function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean }) {
   const { icon, isHuge } = ACTIVITY_ICON[type] ?? ACTIVITY_ICON["other"];
-  const color = isDone ? "#80B707" : "#827A74";
+  const color = isDone ? "var(--green-600)" : "var(--neutral-500)";
   if (isHuge) return <HIcon icon={icon} size={16} color={color} strokeWidth={1.5} />;
   const Icon = icon as React.ComponentType<{ size?: number; color?: string }>;
   return <Icon size={16} color={color} />;
@@ -58,7 +58,7 @@ function SpinnerIcon() {
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >
-      <HIcon icon={Spinner} size={16} color="#B6ACA4" strokeWidth={2} />
+      <HIcon icon={Spinner} size={16} color="var(--neutral-200)" strokeWidth={2} />
     </m.span>
   );
 }
@@ -67,7 +67,7 @@ function SpinnerIcon() {
 function CheckmarkIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Checkmark} size={16} color="#80B707" strokeWidth={2.5} />
+      <HIcon icon={Checkmark} size={16} color="var(--green-600)" strokeWidth={2.5} />
     </span>
   );
 }
@@ -76,7 +76,7 @@ function CheckmarkIcon() {
 function ErrorIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Cancel01Icon} size={16} color="var(--red-500, #DC3545)" strokeWidth={2} />
+      <HIcon icon={Cancel01Icon} size={16} color="var(--red-500)" strokeWidth={2} />
     </span>
   );
 }
@@ -85,7 +85,7 @@ function ErrorIcon() {
 function StoppedIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Cancel01Icon} size={16} color="#B6ACA4" strokeWidth={2} />
+      <HIcon icon={Cancel01Icon} size={16} color="var(--neutral-200)" strokeWidth={2} />
     </span>
   );
 }
@@ -158,7 +158,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         </span>
 
         {/* Verb */}
-        <span style={{ fontSize: 14, fontWeight: 500, color: "#524B47", flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-700)", flexShrink: 0 }}>
           {verb}
         </span>
 
@@ -168,7 +168,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
             style={{
               fontSize: 14,
               fontWeight: 400,
-              color: "#9A9089",
+              color: "var(--neutral-400)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -182,21 +182,21 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
         {/* Result count */}
         {isDone && hasResults && (
-          <span style={{ fontSize: 14, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-200)", flexShrink: 0 }}>
             {activity.results!.length} {activity.type === "web-search" ? "result" : "file"}{activity.results!.length === 1 ? "" : "s"}
           </span>
         )}
 
         {/* Duration */}
         {isDone && activity.durationS !== undefined && (
-          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--neutral-200)", flexShrink: 0 }}>
             {activity.durationS < 1 ? `${Math.round(activity.durationS * 1000)}ms` : `${activity.durationS.toFixed(1)}s`}
           </span>
         )}
 
         {/* Percentage — only while running; a finished row shows its duration */}
         {isActive && activity.percent !== undefined && (
-          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--neutral-200)", flexShrink: 0 }}>
             {Math.round(activity.percent)}%
           </span>
         )}
@@ -206,7 +206,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           <m.span
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-            style={{ fontSize: 14, fontWeight: 400, color: "#C0B5AD", flexShrink: 0 }}
+            style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300)", flexShrink: 0 }}
           >
             working…
           </m.span>
@@ -221,7 +221,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                 fontWeight: 600,
                 color: "var(--neutral-600, #6A625D)",
                 letterSpacing: "0.4px",
-                background: "rgba(59,54,50,0.08)",
+                background: "color-mix(in srgb, var(--neutral-800) 8%, transparent)",
                 borderRadius: 4,
                 padding: "1px 5px",
                 flexShrink: 0,
@@ -324,15 +324,15 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
                   <FaviconImg domain={r.domain} size={13} />
-                  {!r.domain && <span style={{ color: "#C0B5AD", flexShrink: 0 }}>·</span>}
-                  <span style={{ color: "#3B3632", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {!r.domain && <span style={{ color: "var(--neutral-300)", flexShrink: 0 }}>·</span>}
+                  <span style={{ color: "var(--neutral-800)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.title}
                   </span>
                   {r.domain && r.domain !== "pin" && (
-                    <span style={{ color: "#C0B5AD", flexShrink: 0, fontSize: 12 }}>{r.domain}</span>
+                    <span style={{ color: "var(--neutral-300)", flexShrink: 0, fontSize: 12 }}>{r.domain}</span>
                   )}
                   {r.domain === "pin" && (
-                    <span style={{ color: "#C0B5AD", flexShrink: 0, fontStyle: "italic", fontSize: 12 }}>pin</span>
+                    <span style={{ color: "var(--neutral-300)", flexShrink: 0, fontStyle: "italic", fontSize: 12 }}>pin</span>
                   )}
                 </m.a>
               ))}
@@ -343,7 +343,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
       {/* Progress message (for tool_progress / docx_progress) */}
       {isActive && activity.progressMessage && (
-        <div style={{ paddingLeft: 44, fontSize: 13, color: "#C0B5AD", fontStyle: "italic", paddingTop: 4 }}>
+        <div style={{ paddingLeft: 44, fontSize: 13, color: "var(--neutral-300)", fontStyle: "italic", paddingTop: 4 }}>
           {activity.progressMessage}
         </div>
       )}

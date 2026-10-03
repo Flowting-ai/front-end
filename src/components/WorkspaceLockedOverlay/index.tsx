@@ -20,7 +20,7 @@ export function WorkspaceLockedOverlay({ isAdmin, onAdminAction }: WorkspaceLock
         display:              'flex',
         alignItems:           'center',
         justifyContent:       'center',
-        backgroundColor:      'rgba(250, 248, 245, 0.88)',
+        backgroundColor:      'color-mix(in srgb, var(--neutral-100) 88%, transparent)',
         backdropFilter:       'blur(4px)',
         WebkitBackdropFilter: 'blur(4px)',
         borderRadius:         'inherit',
@@ -36,7 +36,7 @@ export function WorkspaceLockedOverlay({ isAdmin, onAdminAction }: WorkspaceLock
           borderRadius:    20,
           backgroundColor: 'var(--neutral-white)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 4px 20px rgba(0,0,0,0.08)',
+          boxShadow:       '0px 4px 20px color-mix(in srgb, var(--static-black) 8%, transparent)',
           maxWidth:        360,
           textAlign:       'center' as const,
         }}

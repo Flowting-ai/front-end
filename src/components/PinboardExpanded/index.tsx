@@ -644,7 +644,7 @@ export function PinboardExpanded(
                     minWidth:       1,
                   }}
                 >
-                  {/* Title - Figma 2579:35173. pl-[4px], font Besley regular 24/32 */}
+                  {/* Title - Figma 2579:35173. pl-[4px], Google Sans regular 24/32 */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4, width: '100%', overflow: 'hidden' }}>
                     <p
                       style={{

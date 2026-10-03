@@ -23,8 +23,8 @@ import { CHAT_CHART_PALETTE } from "@/components/chat/chat-chart-theme"
 // ---------------------------------------------------------------------------
 
 // Hex values needed for SVG attributes that cannot use CSS vars
-const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"]
-const LINE_COLORS    = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B"]
+const PIE_COLORS_HEX = ["var(--brown-700)", "var(--blue-600)", "var(--green-600)", "var(--neutral-400)", "var(--neutral-700)", "var(--yellow-500)"]
+const LINE_COLORS    = ["var(--brown-700)", "var(--blue-600)", "var(--green-600)", "var(--neutral-400)"]
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -189,7 +189,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
         <svg width={220} height={220} viewBox="0 0 220 220" style={{ display: "block", maxWidth: "100%" }}>
           {/* Track ring */}
-          <circle r={R} cx={CX} cy={CY} fill="none" stroke="rgba(59,54,50,0.07)" strokeWidth={SW} />
+          <circle r={R} cx={CX} cy={CY} fill="none" stroke="color-mix(in srgb, var(--neutral-800) 7%, transparent)" strokeWidth={SW} />
           {arcs.map((arc, i) => (
             <circle key={arc.label} r={R} cx={CX} cy={CY} fill="none"
               stroke={arc.color}
@@ -208,10 +208,10 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
               <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx]!.color} fontSize={20} fontWeight="700" fontFamily="var(--font-body)">
                 {formatNum(arcs[hoveredIdx]!.value)}
               </text>
-              <text x={CX} y={CY + 10} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="var(--font-body)">
+              <text x={CX} y={CY + 10} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="var(--font-body)">
                 {Math.round(arcs[hoveredIdx]!.pct * 100)}%
               </text>
-              <text x={CX} y={CY + 23} textAnchor="middle" fill="#9C938B" fontSize={9} fontFamily="var(--font-body)">
+              <text x={CX} y={CY + 23} textAnchor="middle" fill="var(--neutral-400)" fontSize={9} fontFamily="var(--font-body)">
                 {arcs[hoveredIdx]!.label.split(" ").slice(0, 2).join(" ")}
               </text>
             </>
@@ -220,7 +220,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
               <text x={CX} y={CY + 5} textAnchor="middle" fill="var(--neutral-600)" fontSize={16} fontWeight="600" fontFamily="var(--font-body)">
                 {formatNum(total)}
               </text>
-              <text x={CX} y={CY + 20} textAnchor="middle" fill="#9C938B" fontSize={9} fontFamily="var(--font-body)">total</text>
+              <text x={CX} y={CY + 20} textAnchor="middle" fill="var(--neutral-400)" fontSize={9} fontFamily="var(--font-body)">total</text>
             </>
           )}
         </svg>
@@ -319,7 +319,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
             const yv = PAD.top + pct * chartH
             return (
               <m.line key={pct} x1={PAD.left} x2={PAD.left + chartW} y1={yv} y2={yv}
-                stroke="rgba(59,54,50,0.07)" strokeWidth={1}
+                stroke="color-mix(in srgb, var(--neutral-800) 7%, transparent)" strokeWidth={1}
                 initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.3, delay: 0.1 }}
               />
             )
@@ -329,7 +329,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           {[0, 0.5, 1].map((pct) => {
             const val = maxY - pct * range
             return (
-              <text key={pct} x={PAD.left - 6} y={PAD.top + pct * chartH + 4} textAnchor="end" fill="#C0B5AD" fontSize={11} fontFamily="var(--font-body)">
+              <text key={pct} x={PAD.left - 6} y={PAD.top + pct * chartH + 4} textAnchor="end" fill="var(--neutral-300)" fontSize={11} fontFamily="var(--font-body)">
                 {formatNum(val)}
               </text>
             )
@@ -362,14 +362,14 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           })}
 
           {/* X-axis baseline */}
-          <line x1={PAD.left} x2={PAD.left + chartW} y1={PAD.top + chartH} y2={PAD.top + chartH} stroke="rgba(59,54,50,0.14)" strokeWidth={0.8} />
+          <line x1={PAD.left} x2={PAD.left + chartW} y1={PAD.top + chartH} y2={PAD.top + chartH} stroke="var(--neutral-800-15)" strokeWidth={0.8} />
 
           {/* X-axis labels - sparse */}
           {points.map((p, i) => {
             if (i % skip !== 0 && i !== points.length - 1) return null
             const { x } = toSVGPt(i, 0)
             return (
-              <text key={String(p.x)} x={x} y={H - 6} textAnchor="middle" fill="#C0B5AD" fontSize={11} fontFamily="var(--font-body)">
+              <text key={String(p.x)} x={x} y={H - 6} textAnchor="middle" fill="var(--neutral-300)" fontSize={11} fontFamily="var(--font-body)">
                 {String(p.x)}
               </text>
             )
@@ -378,7 +378,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           {/* Crosshair */}
           {hoverIdx !== null && (
             <line x1={crosshairSvgX} x2={crosshairSvgX} y1={PAD.top} y2={PAD.top + chartH}
-              stroke="rgba(59,54,50,0.18)" strokeWidth={0.8} strokeDasharray="4 3" />
+              stroke="color-mix(in srgb, var(--neutral-800) 18%, transparent)" strokeWidth={0.8} strokeDasharray="4 3" />
           )}
         </svg>
 

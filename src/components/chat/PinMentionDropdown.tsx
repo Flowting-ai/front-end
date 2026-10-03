@@ -6,6 +6,7 @@ import { ArrowDownTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
 import { PinInsert } from "@/components/PinInsert";
 import type { PinTag } from "@/components/PinInsert";
 import { Badge, type BadgeColor } from "@/components/Badge";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 
 // ── Shortcut chip for keyboard navigation hints ────────────────────────────────
 
@@ -138,6 +139,7 @@ export function PinMentionDropdown({
     item?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex]);
 
+  if (!PINS_ENABLED) return null;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -157,7 +159,7 @@ export function PinMentionDropdown({
             backgroundColor: "var(--neutral-white)",
             borderRadius: "12px",
             boxShadow:
-              "0 8px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--neutral-100)",
+              "0 8px 24px color-mix(in srgb, var(--static-black) 8%, transparent), 0 0 0 1px var(--neutral-100)",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",

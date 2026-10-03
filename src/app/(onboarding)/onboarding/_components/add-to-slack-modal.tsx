@@ -20,7 +20,7 @@ function SlackPreviewIllustration() {
       style={{
         width: "100%",
         borderRadius: 10,
-        backgroundColor: "var(--neutral-50,#f7f2ed)",
+        backgroundColor: "var(--neutral-50)",
         padding: 12,
         boxSizing: "border-box",
       }}
@@ -59,7 +59,7 @@ export function AddSouvenirToSlackModal({ isOpen, onClose }: { isOpen: boolean; 
         position: "fixed",
         inset: 0,
         zIndex: 1100,
-        backgroundColor: "rgba(18,12,8,0.52)",
+        backgroundColor: "color-mix(in srgb, var(--neutral-950) 52%, transparent)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -77,7 +77,7 @@ export function AddSouvenirToSlackModal({ isOpen, onClose }: { isOpen: boolean; 
           width: 412,
           maxWidth: "100%",
           borderRadius: 18,
-          backgroundColor: "var(--neutral-white,#fff)",
+          backgroundColor: "var(--neutral-white)",
           padding: 16,
           boxSizing: "border-box",
           boxShadow: "0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)",

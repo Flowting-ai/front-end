@@ -419,7 +419,7 @@ export function HighlightPanel({
               textAlign:      'center',
             }}
           >
-            <AlertCircleIcon size={32} color="var(--red-400, #e08787)" />
+            <AlertCircleIcon size={32} color="var(--red-400)" />
             <p
               style={{
                 margin:     0,

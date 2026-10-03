@@ -37,7 +37,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
 
   const base = funnel.stages[0].value || 1
   const finalConversion = Math.max(0, Math.min(1, funnel.stages.at(-1)!.value / base))
-  const stageColors = ["#683D1B", "#A35F2D", "#C88A3D", "#4F8870", "#496E8B", "#6D5C91"]
+  const stageColors = ["var(--brown-700)", "var(--warning-800)", "var(--yellow-500)", "var(--success-800)", "var(--blue-700)", "var(--purple-600)"]
 
   return (
     <m.div
@@ -49,8 +49,8 @@ export function XmlFunnel({ xml }: { xml: string }) {
         margin: "14px 0",
         padding: "15px 16px 16px",
         borderRadius: 18,
-        border: "1px solid rgba(104, 61, 27, 0.16)",
-        background: "linear-gradient(135deg, #FBF4EC 0%, #FFFDFC 52%, #F4EEE8 100%)",
+        border: "1px solid color-mix(in srgb, var(--brown-700) 16%, transparent)",
+        background: "linear-gradient(135deg, var(--brown-50) 0%, var(--neutral-50) 52%, var(--brown-50) 100%)",
         boxShadow: "0 10px 28px rgba(82, 75, 71, 0.09), 0 2px 4px rgba(82, 75, 71, 0.07)",
         overflow: "hidden",
       }}
@@ -67,9 +67,9 @@ export function XmlFunnel({ xml }: { xml: string }) {
             display: "grid",
             placeItems: "center",
             borderRadius: 11,
-            color: "#683D1B",
-            background: "rgba(199, 151, 105, 0.18)",
-            border: "1px solid rgba(104, 61, 27, 0.14)",
+            color: "var(--brown-700)",
+            background: "color-mix(in srgb, var(--yellow-400) 18%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--brown-700) 14%, transparent)",
           }}
         >
           <Filter size={17} strokeWidth={1.8} />
@@ -83,7 +83,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: 17, lineHeight: "21px", fontWeight: "var(--font-weight-semibold)", color: "#683D1B", fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 17, lineHeight: "21px", fontWeight: "var(--font-weight-semibold)", color: "var(--brown-700)", fontVariantNumeric: "tabular-nums" }}>
             {Math.round(finalConversion * 100)}%
           </div>
           <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)" }}>final conversion</div>
@@ -109,7 +109,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 11 }}>
                     {Math.round(retained * 100)}% continued
                   </span>
-                  {retained < 1 && <TrendingDown size={11} color="#A35F2D" />}
+                  {retained < 1 && <TrendingDown size={11} color="var(--warning-800)" />}
                 </m.div>
               )}
               <m.div
@@ -119,8 +119,8 @@ export function XmlFunnel({ xml }: { xml: string }) {
                 style={{
                   padding: "9px 10px 10px",
                   borderRadius: 12,
-                  backgroundColor: "rgba(255,255,255,0.62)",
-                  border: "1px solid rgba(82, 75, 71, 0.08)",
+                  backgroundColor: "rgba(var(--surface-rgb), 0.62)",
+                  border: "1px solid color-mix(in srgb, var(--neutral-700) 8%, transparent)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 7 }}>
@@ -134,7 +134,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
                     {Math.round(pct * 100)}%
                   </span>
                 </div>
-                <div style={{ height: 9, borderRadius: 999, backgroundColor: "rgba(82,75,71,0.08)", overflow: "hidden" }}>
+                <div style={{ height: 9, borderRadius: 999, backgroundColor: "color-mix(in srgb, var(--neutral-700) 8%, transparent)", overflow: "hidden" }}>
                   <m.div
                     initial={reduceMotion ? false : { scaleX: 0 }}
                     animate={{ scaleX: Math.max(pct, 0.015) }}

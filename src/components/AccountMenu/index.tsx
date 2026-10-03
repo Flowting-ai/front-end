@@ -76,6 +76,8 @@ export interface AccountMenuProps {
   showOrganization?: boolean
   onProfile?:      () => void
   onUpgradePlan?:  () => void
+  /** Clicking the plan | credits tag in the menu (goes to the plan page). The tag is plain text without it. */
+  onPlanStatusClick?: () => void
   onSettings?:     () => void
   /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and Help. */
   onOrganization?:     () => void
@@ -95,8 +97,8 @@ const ShortcutPill = ({ label }: { label: string }) => (
       height:         '20px',
       padding:        '2px 4px',
       borderRadius:   '4px',
-      background:     'linear-gradient(to bottom, #ffffff, #f7f2ed)',
-      boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+      background:     'var(--shortcut-pill-bg)',
+      boxShadow:      '0px 1px 1.5px 0px var(--shortcut-pill-shadow), 0px 0px 0px 1px var(--shortcut-pill-ring)',
       flexShrink:     0,
     }}
   >
@@ -106,7 +108,7 @@ const ShortcutPill = ({ label }: { label: string }) => (
         fontWeight: 'var(--font-weight-regular)',
         fontSize:   'var(--font-size-caption)',
         lineHeight: 'var(--line-height-caption)',
-        color:      'var(--neutral-500)',
+        color:      'var(--shortcut-pill-text)',
         whiteSpace: 'nowrap',
       }}
     >
@@ -120,37 +122,47 @@ const ShortcutPill = ({ label }: { label: string }) => (
 // component's Blue color uses, for the "Free Plan" (no plan selected yet,
 // still on starting credits) state.
 
-const StatusBadge = ({ label, variant = 'neutral' }: { label: string; variant?: 'neutral' | 'blue' }) => {
+const StatusBadge = ({ label, variant = 'neutral', onClick }: { label: string; variant?: 'neutral' | 'blue'; onClick?: () => void }) => {
   const isBlue = variant === 'blue'
-  return (
-    <div
+  const clickable = !!onClick
+  const style: React.CSSProperties = {
+    display:        'flex',
+    alignItems:     'center',
+    justifyContent: 'center',
+    padding:        '2px 6px',
+    borderRadius:   '6px',
+    border:         'none',
+    background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
+    boxShadow:      isBlue
+      ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
+      : '0px 1px 1.5px 0px var(--neutral-950-20), 0px 0px 0px 1px color-mix(in srgb, var(--neutral-600) 50%, transparent), inset 0px 1px 0px 0px var(--neutral-white-70), inset 0px -1px 0px 0px color-mix(in srgb, var(--neutral-600) 10%, transparent)',
+    flexShrink:     0,
+    cursor:         clickable ? 'pointer' : 'default',
+  }
+  const text = (
+    <span
       style={{
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        '2px 4px',
-        borderRadius:   '6px',
-        background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
-        boxShadow:      isBlue
-          ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
-          : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
-        flexShrink:     0,
+        fontFamily: 'var(--font-body)',
+        fontWeight: 'var(--font-weight-medium)',
+        // 2px larger than caption text so the plan and credits read at a glance.
+        fontSize:   'calc(var(--font-size-caption) + 2px)',
+        lineHeight: 'calc(var(--line-height-caption) + 2px)',
+        color:      isBlue ? 'var(--color-tag-Blue-text)' : 'var(--neutral-700)',
+        whiteSpace: 'nowrap',
       }}
     >
-      <span
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      isBlue ? 'var(--color-tag-Blue-text)' : 'var(--neutral-700)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </span>
-    </div>
+      {label}
+    </span>
   )
+  // Clickable: a real button that opens the plan page.
+  if (clickable) {
+    return (
+      <button type="button" aria-label={`${label} — view plan`} onClick={onClick} style={style}>
+        {text}
+      </button>
+    )
+  }
+  return <div style={style}>{text}</div>
 }
 
 // ── Avatar content ─────────────────────────────────────────────────────────────
@@ -238,7 +250,7 @@ const IdentityRow = ({ name, plan, avatarSrc }: {
         <p
           style={{
             fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-medium)',
+            fontWeight:   'var(--font-weight-semibold)',
             fontSize:     'var(--font-size-body)',
             lineHeight:   'var(--line-height-body)',
             color:        'var(--neutral-700)',
@@ -255,7 +267,7 @@ const IdentityRow = ({ name, plan, avatarSrc }: {
             style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   'var(--font-weight-regular)',
-              fontSize:     'var(--font-size-caption)',
+              fontSize:     'calc(var(--font-size-caption) + 1px)',
               lineHeight:   'var(--line-height-caption)',
               color:        'var(--neutral-500)',
               whiteSpace:   'nowrap',
@@ -278,13 +290,13 @@ const IdentityRow = ({ name, plan, avatarSrc }: {
 // {x} credits left" (e.g. "Workspace | 250 credits left") — the two are
 // mutually exclusive so this always renders exactly one. ──
 
-const PlanStatusRow = ({ planWarning, planType, credits, planStatusVariant = 'neutral' }: { planWarning?: boolean; planType?: string; credits?: number; planStatusVariant?: 'neutral' | 'blue' }) => {
+const PlanStatusRow = ({ planWarning, planType, credits, planStatusVariant = 'neutral', onClick }: { planWarning?: boolean; planType?: string; credits?: number; planStatusVariant?: 'neutral' | 'blue'; onClick?: () => void }) => {
   if (!planWarning && credits === undefined) return null
   const creditsLabel = `${Math.round(credits ?? 0).toLocaleString()} credits left`
   const label = planWarning ? 'No Plan Selected' : (planType ? `${planType} | ${creditsLabel}` : creditsLabel)
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
-      <StatusBadge label={label} variant={planWarning ? 'neutral' : planStatusVariant} />
+      <StatusBadge label={label} variant={planWarning ? 'neutral' : planStatusVariant} onClick={onClick} />
     </div>
   )
 }
@@ -312,6 +324,7 @@ export function AccountMenu({
   showOrganization = false,
   onProfile,
   onUpgradePlan,
+  onPlanStatusClick,
   onSettings,
   onOrganization,
   onHelp,
@@ -371,7 +384,13 @@ export function AccountMenu({
           <Dropdown.Section fluid>
             <IdentityRow name={name} plan={plan} avatarSrc={avatarSrc} />
 
-            <PlanStatusRow planWarning={planWarning} planType={planType} credits={credits} planStatusVariant={planStatusVariant} />
+            <PlanStatusRow
+              planWarning={planWarning}
+              planType={planType}
+              credits={credits}
+              planStatusVariant={planStatusVariant}
+              onClick={onPlanStatusClick ? () => { onPlanStatusClick(); close() } : undefined}
+            />
 
             <Dropdown.Item
               icon={<UserIcon />}

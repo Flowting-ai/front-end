@@ -6,6 +6,7 @@ import { GlobalSearchModal, type SearchResult } from "@/components/GlobalSearchM
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { usePinboard } from "@/context/pinboard-context";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { fetchPersonas, fetchPersonaChats } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import {
@@ -210,7 +211,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       .slice(0, 10)
       .map(p => ({ id: p.id, type: 'persona' as const, title: p.name, subtitle: p.handle || undefined }));
 
-    const pinResults: SearchResult[] = pins
+    const pinResults: SearchResult[] = (PINS_ENABLED ? pins : [])
       .filter(p =>
         (p.title || '').toLowerCase().includes(q) ||
         (p.content || '').toLowerCase().includes(q) ||
@@ -263,6 +264,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       case 'project': push(PROJECT_ROUTE(result.id));        break;
       case 'persona': push(AGENT_CHAT_ROUTE(result.id));     break;
       case 'pin': {
+        if (!PINS_ENABLED) break;
         const pin = pins.find(p => p.id === result.id);
         if (pin?.chatId) { push(`${CHAT_ROUTE}?id=${pin.chatId}`); openPinboardForChat(pin.chatId); }
         else openPinboard();

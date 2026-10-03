@@ -35,7 +35,7 @@ export function ModelSwitchDialog({
               position: "fixed",
               inset: 0,
               zIndex: 60,
-              backgroundColor: "rgba(0,0,0,0.4)",
+              backgroundColor: "color-mix(in srgb, var(--static-black) 40%, transparent)",
             }}
           />
 

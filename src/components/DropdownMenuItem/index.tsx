@@ -11,8 +11,10 @@ import { AnimatePresence, m } from 'framer-motion'
 // DropdownMenuItem is a foundational primitive used almost everywhere (via
 // Dropdown), so a static import here made every page with any dropdown pay
 // for it. Deferred so the chunk only loads when a caller actually passes `llm`.
-const LlmIcon = dynamic(
-  () => import('@strange-huge/icons/llm').then((m) => ({ default: m.LlmIcon })),
+// ThemedLlmIcon wraps LlmIcon (colour in light, white in dark) and imports it statically, so
+// loading it lazily here keeps exactly the same chunk boundary as before.
+const ThemedLlmIcon = dynamic(
+  () => import('@/components/ThemedLlmIcon').then((m) => ({ default: m.ThemedLlmIcon })),
   { ssr: false, loading: () => null },
 )
 import { Switch } from '@/components/Switch'
@@ -536,7 +538,7 @@ export function DropdownMenuItem(
                       lineHeight:   0,
                     }}
                   >
-                    <LlmIcon id={llm} variant="color" size={avatarSize} />
+                    <ThemedLlmIcon id={llm} size={avatarSize} />
                   </div>
                 )
               })()}

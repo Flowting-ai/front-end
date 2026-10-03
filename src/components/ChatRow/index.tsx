@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { PinIcon, MoreHorizontalIcon, PenOneIcon, FolderOneIcon, FolderLibraryIcon, ShareOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
@@ -16,8 +17,8 @@ import { cn } from '@/lib/utils'
 
 // Chip: rest = ghost ring, elevated (row hovered/focused) = filled with inner highlight
 const SHADOW_CHIP_REST     = '0px 0px 0px 1px rgba(59,54,50,0.3)'
-const SHADOW_CHIP_ELEVATED = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-const SHADOW_CHIP_INNER    = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+const SHADOW_CHIP_ELEVATED = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
+const SHADOW_CHIP_INNER    = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -112,7 +113,7 @@ function PinCountChip({ pinCount, pinBoardOpen, rowElevated, title, onClick }: P
         padding:         '5px 8px',
         borderRadius:    8,
         border:          'none',
-        backgroundColor: elevated ? 'rgba(237,225,215,0.6)' : 'rgba(255,255,255,0)',
+        backgroundColor: elevated ? 'color-mix(in srgb, var(--neutral-100) 60%, transparent)' : 'color-mix(in srgb, var(--static-white) 0%, transparent)',
         cursor:          'pointer',
         fontFamily:      'var(--font-body)',
         fontSize:        'var(--font-size-body)',
@@ -447,7 +448,7 @@ function ChatRowInner(
                     fontSize:        'var(--font-size-body-lg)',
                     fontWeight:      400,
                     lineHeight:      'var(--line-height-body-lg)',
-                    color:           '#1a1714',
+                    color:           'var(--legacy-1a1714)',
                     border:          'none',
                     borderBottom:    '1.5px solid var(--blue-400)',
                     outline:         'none',
@@ -464,7 +465,7 @@ function ChatRowInner(
                     fontSize:     'var(--font-size-body-lg)',
                     fontWeight:   400,
                     lineHeight:   'var(--line-height-body-lg)',
-                    color:        '#1a1714',
+                    color:        'var(--legacy-1a1714)',
                     overflow:     'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace:   'nowrap',
@@ -482,7 +483,7 @@ function ChatRowInner(
                     fontSize:     'var(--font-size-caption)',
                     fontWeight:   400,
                     lineHeight:   'var(--line-height-caption)',
-                    color:        '#a39b95',
+                    color:        'var(--neutral-400)',
                     overflow:     'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace:   'nowrap',
@@ -588,7 +589,7 @@ function ChatRowInner(
                   </Dropdown>
                 </Dropdown.Float>
               )}
-              {onPinClick !== undefined && (
+              {PINS_ENABLED && onPinClick !== undefined && (
                 <PinCountChip
                   pinCount={pinCount}
                   pinBoardOpen={pinBoardOpen}

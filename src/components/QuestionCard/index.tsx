@@ -83,7 +83,7 @@ function SkipButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         borderRadius: 10,
         border:       'none',
         boxShadow:    hovered ? '0px 0px 0px 1px rgba(59,54,50,0.5)' : '0px 0px 0px 1px rgba(59,54,50,0.3)',
-        background:   hovered ? 'var(--neutral-50, #f7f2ed)' : 'transparent',
+        background:   hovered ? 'var(--neutral-50)' : 'transparent',
         cursor:       disabled ? 'not-allowed' : 'pointer',
         opacity:      disabled ? 0.6 : 1,
         fontFamily:   'var(--font-body)',
@@ -135,7 +135,7 @@ function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         style={{
           position:      'absolute', inset: 0, borderRadius: 'inherit',
           background:    hovered
-            ? 'linear-gradient(180deg, #6a625d 0%, #3b3632 100%)'
+            ? 'linear-gradient(180deg, var(--neutral-600) 0%, var(--neutral-800) 100%)'
             : 'linear-gradient(180deg, var(--neutral-700, #524b47) 0%, var(--neutral-900, #26211e) 100%)',
           pointerEvents: 'none', transition: 'background 120ms ease',
         }}
@@ -144,7 +144,7 @@ function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         aria-hidden
         style={{
           position:      'absolute', inset: 0, borderRadius: 'inherit',
-          boxShadow:     'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+          boxShadow:     'inset 0px 1px 0.364px 0px color-mix(in srgb, var(--static-white) 30%, transparent), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px color-mix(in srgb, var(--static-white) 50%, transparent)',
           pointerEvents: 'none',
         }}
       />
@@ -167,7 +167,7 @@ function RankableRow({ option, index }: { option: QuestionCardOption; index: num
       whileDrag={{
         cursor:    'grabbing',
         zIndex:    10,
-        boxShadow: '0px 8px 24px rgba(82,75,71,0.18), 0px 0px 0px 1px rgba(182,172,164,0.3)',
+        boxShadow: '0px 8px 24px rgba(82,75,71,0.18), 0px 0px 0px 1px rgba(212, 212, 212,0.3)',
       }}
       style={{
         listStyle:   'none',
@@ -224,9 +224,9 @@ function InfoCardBody({ options, selected, onSelect }: {
             display:         'flex',
             flexDirection:   'column',
             gap:             6,
-            backgroundColor: 'rgba(13,110,178,0.08)',
+            backgroundColor: 'color-mix(in srgb, var(--blue-600) 8%, transparent)',
             borderRadius:    10,
-            border:          '1px solid rgba(13,110,178,0.18)',
+            border:          '1px solid color-mix(in srgb, var(--blue-600) 18%, transparent)',
           }}
         >
           {/* Number badge + label row */}
@@ -465,11 +465,11 @@ export function QuestionCard(
                       display:         'flex',
                       alignItems:      'center',
                       justifyContent:  'center',
-                      backgroundColor: isCurrent ? BLUE : isPast ? 'rgba(13,110,178,0.14)' : 'var(--neutral-50)',
+                      backgroundColor: isCurrent ? BLUE : isPast ? 'color-mix(in srgb, var(--blue-600) 14%, transparent)' : 'var(--neutral-50)',
                       boxShadow:       isCurrent
-                        ? `0 0 0 4px rgba(13,110,178,0.18)`
+                        ? `0 0 0 4px color-mix(in srgb, var(--blue-600) 18%, transparent)`
                         : isPast
-                          ? `0 0 0 1.5px rgba(13,110,178,0.45)`
+                          ? `0 0 0 1.5px color-mix(in srgb, var(--blue-600) 45%, transparent)`
                           : `0 0 0 1.5px var(--neutral-200)`,
                       transition: 'all 250ms ease',
                     }}>
@@ -498,7 +498,7 @@ export function QuestionCard(
                     fontSize:   10,
                     lineHeight: '14px',
                     fontWeight: isCurrent ? 'var(--font-weight-semibold)' : 'var(--font-weight-regular)',
-                    color:      isCurrent ? BLUE : isPast ? 'rgba(13,110,178,0.7)' : 'var(--neutral-400)',
+                    color:      isCurrent ? BLUE : isPast ? 'color-mix(in srgb, var(--blue-600) 70%, transparent)' : 'var(--neutral-400)',
                     textAlign:  'center',
                     whiteSpace: 'nowrap',
                     transition: 'color 250ms',

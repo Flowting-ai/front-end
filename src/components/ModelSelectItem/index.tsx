@@ -4,7 +4,7 @@ import React, { use, useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, m } from 'framer-motion'
 import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@strange-huge/icons'
-import { LlmIcon } from '@strange-huge/icons/llm'
+import { ThemedLlmIcon } from '@/components/ThemedLlmIcon'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip, type TooltipSide } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
@@ -177,7 +177,7 @@ export function ModelSelectItem({
     // and `overflow: hidden` (matching the original Figma design) so square
     // fills (e.g. Anthropic's solid-orange Claude tile) round their corners.
     const resolvedAvatar =
-      image ?? (llm ? <LlmIcon id={llm} variant="color" size={18} /> : null)
+      image ?? (llm ? <ThemedLlmIcon id={llm} size={18} /> : null)
     const resolvedImage = resolvedAvatar ? (
       <span
         style={{

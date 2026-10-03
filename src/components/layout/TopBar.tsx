@@ -21,7 +21,7 @@ import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
 import { fetchModelsWithCache, normalizeModels, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import { fetchAllModels } from "@/lib/api/models";
-import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, CHATS_ROUTE } from "@/lib/routes";
+import { AGENT_EDIT_ROUTE, CHATS_ROUTE } from "@/lib/routes";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                 gap:             "5px",
                 padding:         "5px 8px",
                 borderRadius:    "8px",
-                backgroundColor: "var(--neutral-white, #fff)",
+                backgroundColor: "var(--neutral-white)",
                 boxShadow:       "inset 0 0 0 1px var(--button-outline-border)",
                 pointerEvents:   "none",
                 minWidth:        0,
@@ -291,7 +291,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                 size="sm"
                 leftIcon={<PenOneIcon animated />}
                 onClick={() =>
-                  router.push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(personaId!, { name: persona.name }))
+                  router.push(AGENT_EDIT_ROUTE(personaId!))
                 }
               >
                 Edit
@@ -317,7 +317,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
                     alignItems:      "center",
                     padding:         "5px 8px",
                     borderRadius:    "8px",
-                    backgroundColor: "var(--neutral-white, #fff)",
+                    backgroundColor: "var(--neutral-white)",
                     boxShadow:       "inset 0 0 0 1px var(--button-outline-border)",
                     pointerEvents:   "none",
                     minWidth:        0,

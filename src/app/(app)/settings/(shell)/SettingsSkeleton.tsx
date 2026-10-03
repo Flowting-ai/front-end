@@ -200,13 +200,13 @@ export function AccountSkeleton() {
           </Section>
         </div>
 
-        {/* Personalisation — Style + Default Model rows */}
+        {/* Personalisation — Screen mode + Style + Default Model rows */}
         <div style={CARD}>
           <Section divider>
             <Bone w={130} h={16} />
           </Section>
-          {[0, 1].map(i => (
-            <Section key={i} divider={i === 0}>
+          {[0, 1, 2].map(i => (
+            <Section key={i} divider={i < 2}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <Bone w={110} h={14} />

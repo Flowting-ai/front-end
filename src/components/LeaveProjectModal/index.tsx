@@ -97,7 +97,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
     <div
       onClick={() => { if (!submitting) onClose() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
         backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >
@@ -105,7 +105,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',
+          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',
           boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
         }}
       >

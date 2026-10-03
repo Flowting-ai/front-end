@@ -13,10 +13,10 @@ import { Copy, Check } from "lucide-react"
 
 function lineStyle(line: string): React.CSSProperties {
   if (line.startsWith("+") && !line.startsWith("+++")) {
-    return { backgroundColor: "rgba(30, 138, 60, 0.10)", color: "var(--color-tag-Green-text, #1e8a3c)" }
+    return { backgroundColor: "color-mix(in srgb, var(--success-700) 10%, transparent)", color: "var(--color-tag-Green-text, var(--success-700))" }
   }
   if (line.startsWith("-") && !line.startsWith("---")) {
-    return { backgroundColor: "rgba(192, 57, 43, 0.08)", color: "var(--color-tag-Red-text, #c0392b)" }
+    return { backgroundColor: "color-mix(in srgb, var(--red-500) 8%, transparent)", color: "var(--color-tag-Red-text, var(--red-500))" }
   }
   if (line.startsWith("@@") || line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ")) {
     return { color: "var(--neutral-400)" }

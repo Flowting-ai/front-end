@@ -21,6 +21,7 @@ import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
 import { ModelIcon } from '@/components/ModelIcon'
 import { cn } from '@/lib/utils'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import Image from 'next/image'
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
 import { toast } from 'sonner'
@@ -358,7 +359,7 @@ function DefaultAddMenu({
             onSelect={onSelectedPersonaChange}
           />
         </Dropdown.Submenu>
-        <Dropdown.Submenu
+        {PINS_ENABLED && <Dropdown.Submenu
           trigger={
             <Dropdown.Item
               label="Pin folders"
@@ -375,7 +376,7 @@ function DefaultAddMenu({
             personalFolders={personalFolders}
             projectFolders={projectFolders}
           />
-        </Dropdown.Submenu>
+        </Dropdown.Submenu>}
       </Dropdown.Section>
     </Dropdown>
   )

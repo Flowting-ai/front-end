@@ -21,12 +21,12 @@ export const RECOMMENDATION_ICONS: Record<
   { Icon: typeof SearchOneIcon; color: string }
 > = {
   research:  { Icon: SearchOneIcon,     color: 'var(--blue-500)'   },
-  write:     { Icon: QuillWriteOneIcon, color: '#141B34'           },
+  write:     { Icon: QuillWriteOneIcon, color: 'var(--legacy-141b34)'           },
   plan:      { Icon: AtomOneIcon,       color: 'var(--purple-500)' },
   compare:   { Icon: AuctionIcon,       color: 'var(--green-500)'  },
   schedule:  { Icon: CalendarFoldIcon,  color: 'var(--yellow-500)' },
   analyze:   { Icon: AnalyticsOneIcon,  color: 'var(--blue-500)'   },
-  summarize: { Icon: StickyNoteTwoIcon, color: '#141B34'           },
+  summarize: { Icon: StickyNoteTwoIcon, color: 'var(--legacy-141b34)'           },
   code:      { Icon: SourceCodeIcon,    color: 'var(--purple-500)' },
   automate:  { Icon: TargetTwoIcon,     color: 'var(--green-500)'  },
   connect:   { Icon: LinkSixIcon,       color: 'var(--blue-500)'   },

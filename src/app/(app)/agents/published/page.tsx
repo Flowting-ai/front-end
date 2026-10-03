@@ -37,7 +37,7 @@ function UsageBar({ percent }: { percent: number }) {
       style={{
         position: 'relative',
         height: 4,
-        backgroundColor: 'white',
+        backgroundColor: 'var(--neutral-white)',
         borderRadius: 2,
         width: '100%',
       }}
@@ -49,7 +49,7 @@ function UsageBar({ percent }: { percent: number }) {
           top: 0,
           height: '100%',
           width: `${clamped}%`,
-          backgroundColor: '#0d6eb2',
+          backgroundColor: 'var(--blue-600)',
           borderRadius: 2,
         }}
       />
@@ -63,7 +63,7 @@ function UsageBar({ percent }: { percent: number }) {
           width: 10,
           height: 10,
           borderRadius: '50%',
-          backgroundColor: '#0d6eb2',
+          backgroundColor: 'var(--blue-600)',
           border: '1.5px solid white',
           boxShadow: '0px 0px 0px 1px rgba(13,110,178,0.5)',
           pointerEvents: 'none',
@@ -106,7 +106,7 @@ function SuperLinkSection({
             fontSize: 14,
             lineHeight: 1.5,
             letterSpacing: '0.07px',
-            color: '#0a0a0a',
+            color: 'var(--legacy-0a0a0a)',
           }}
         >
           Super Link
@@ -117,7 +117,7 @@ function SuperLinkSection({
             fontWeight: 500,
             fontSize: 12,
             lineHeight: '16px',
-            color: '#6a625d',
+            color: 'var(--neutral-600)',
           }}
         >
           Generate a shareable URL anyone can chat without a Souvenir account. You cover the credit cost.
@@ -130,7 +130,7 @@ function SuperLinkSection({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--neutral-white)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 10,
           padding: '8px 7px',
@@ -171,12 +171,12 @@ function SuperLinkSection({
               fontWeight: 500,
               fontSize: 14,
               lineHeight: '22px',
-              color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+              color: isRevoking ? 'var(--neutral-400)' : 'var(--red-400)',
               opacity: isRevoking ? 0.6 : 1,
               transition: 'opacity 150ms',
             }}
           >
-            {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="#ee3030" />}
+            {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="var(--red-400)" />}
             {isRevoking ? 'Revoking…' : 'Revoke link'}
           </button>
           <Button variant="secondary" size="sm" onClick={handleCopy}>
@@ -330,7 +330,7 @@ function PersonaPublishedContent() {
   return (
     <div
       style={{
-        backgroundColor: '#f7f2ed',
+        backgroundColor: 'var(--neutral-50)',
         display: 'flex',
         flexDirection: 'column',
         flex: '1 0 0',
@@ -341,7 +341,7 @@ function PersonaPublishedContent() {
       {/* Inner card */}
       <div
         style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
+          backgroundColor: 'var(--color-surface-container)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 22,
           display: 'flex',
@@ -394,7 +394,7 @@ function PersonaPublishedContent() {
                 filter: 'blur(108px)',
                 mixBlendMode: 'hard-light',
                 background:
-                  'radial-gradient(ellipse at 50% 26%, rgba(212,126,81,0.21) 14.4%, rgba(157,129,111,0.45) 38%, rgba(101,132,141,0.7) 61.5%, rgba(95,120,135,0.7) 100%)',
+                  'radial-gradient(ellipse at 50% 26%, color-mix(in srgb, var(--red-200) 21%, transparent) 14.4%, color-mix(in srgb, var(--brown-400) 45%, transparent) 38%, color-mix(in srgb, var(--neutral-500) 70%, transparent) 61.5%, color-mix(in srgb, var(--neutral-500) 70%, transparent) 100%)',
                 pointerEvents: 'none',
                 zIndex: 0,
               }}
@@ -497,7 +497,7 @@ function PersonaPublishedContent() {
                   flexDirection:   'column',
                   gap:             14,
                   alignItems:      'center',
-                  backgroundColor: 'rgba(255,255,255,0.5)',
+                  backgroundColor: 'rgba(var(--surface-rgb), 0.5)',
                   border:          '1px solid var(--neutral-200)',
                   borderRadius:    20,
                   padding:         '24px 28px',
@@ -552,7 +552,7 @@ function PersonaPublishedContent() {
                       </span>
                       <div
                         style={{
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--neutral-white)',
                           border: '1px solid var(--neutral-200)',
                           borderRadius: 8,
                           padding: '4px 8px',
@@ -582,7 +582,7 @@ function PersonaPublishedContent() {
                             fontWeight: 400,
                             fontSize: 12,
                             lineHeight: 'normal',
-                            color: '#3b3632',
+                            color: 'var(--neutral-800)',
                           }}
                         />
                       </div>

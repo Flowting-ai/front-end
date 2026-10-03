@@ -16,8 +16,8 @@ export interface OptionBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const OUTER_SHADOW  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-const INNER_SHADOW  = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+const OUTER_SHADOW  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
+const INNER_SHADOW  = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -48,14 +48,14 @@ export function OptionBadge({ ref, variant = 'number', num = 1, className, ...pr
             position:        'absolute',
             inset:           0,
             borderRadius:    8,
-            backgroundColor: 'rgba(237,225,215,0.6)',
+            backgroundColor: 'color-mix(in srgb, var(--neutral-100) 60%, transparent)',
             pointerEvents:   'none',
           }}
         />
 
         {variant === 'number' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', position: 'relative', flexShrink: 0 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body, 14px)', lineHeight: 'var(--line-height-body, 22px)', color: 'var(--neutral-700, #524b47)', margin: 0, whiteSpace: 'nowrap' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body, 14px)', lineHeight: 'var(--line-height-body, 22px)', color: 'var(--neutral-700)', margin: 0, whiteSpace: 'nowrap' }}>
               {num}
             </p>
           </div>
@@ -63,7 +63,7 @@ export function OptionBadge({ ref, variant = 'number', num = 1, className, ...pr
 
         {variant === 'edit' && (
           <div style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0, overflow: 'clip' }}>
-            <PenOneIcon size={16} color="var(--neutral-600, #6a625d)" />
+            <PenOneIcon size={16} color="var(--neutral-600)" />
           </div>
         )}
 

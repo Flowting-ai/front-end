@@ -5,11 +5,29 @@
 
 :root {
 
+  /* ── Enhance (instructions enhancer) + diff lines ─────────────────────────────
+     Built on the scales / the pink focus ring, so dark mode follows without separate values. */
+  --color-enhance-surface-open:     var(--neutral-50);
+  --color-enhance-border-open:      var(--color-focus-ring);
+  --color-enhance-step-label:       var(--neutral-500);
+  --color-enhance-primary:          var(--color-focus-ring);
+  --color-enhance-primary-bg:       color-mix(in srgb, var(--color-focus-ring) 10%, transparent);
+  --color-enhance-primary-tint:     color-mix(in srgb, var(--color-focus-ring) 18%, transparent);
+  --color-enhance-primary-accent:   var(--color-focus-ring);
+  --color-enhance-progress-inactive: var(--neutral-200);
+  --color-enhance-card-indicator:   var(--color-focus-ring);
+  --color-enhance-card-text:        var(--neutral-800);
+  --color-enhance-audit:            var(--purple-600);
+  --color-diff-added-text:          var(--neutral-900);
+  --color-diff-removed-text:        var(--red-700);
+  --color-diff-removed-border:      var(--red-400);
+  --color-diff-unchanged-text:      var(--neutral-700);
+
   /* ── Interactive / Primary (Default button) ───────────────────────────────── */
   --color-interactive-primary-surface-from:            var(--neutral-700);   /* #524b47 */
   --color-interactive-primary-surface-to:              var(--neutral-900);   /* #26211e */
   --color-interactive-primary-border:                  var(--neutral-950);   /* #120c08 */
-  --color-interactive-primary-text:                    var(--neutral-50);    /* #f7f2ed */
+   --color-interactive-primary-text:                    #F7F2ED;
   --color-interactive-primary-text-disabled:           var(--neutral-400);   /* #9c938b */
   --color-interactive-primary-surface-disabled-from:   var(--neutral-700);   /* #524b47 */
   --color-interactive-primary-surface-disabled-to:     var(--neutral-800);   /* #3b3632 */
@@ -18,16 +36,16 @@
   /* ── Interactive / Subtle (Ghost + Outline shared) ───────────────────────── */
   --color-interactive-subtle-text:          var(--neutral-700);     /* #524b47 */
   --color-interactive-subtle-text-disabled: var(--neutral-800);     /* #3b3632 */
-  --color-interactive-subtle-surface-hover: var(--neutral-100-60);  /* rgba(237,225,215,0.6) */
+   --color-interactive-subtle-surface-hover: var(--neutral-100-60);  /* rgba(245,242,239,0.6) */
 
   /* ── Interactive / Subtle - hover border ─────────────────────────────────── */
-  --color-interactive-subtle-border-hover: var(--neutral-300-40);  /* rgba(182,172,164,0.4) */
+   --color-interactive-subtle-border-hover: var(--neutral-300-40);  /* rgba(201,196,191,0.4) */
 
   /* ── Borders ──────────────────────────────────────────────────────────────── */
   --color-border-interactive: var(--neutral-800-30);  /* rgba(59,54,50,0.3) */
 
   /* ── Focus ────────────────────────────────────────────────────────────────── */
-  --color-focus-ring: #0081DB;
+  --color-focus-ring: #F92064;
 
   /* ── Text ─────────────────────────────────────────────────────────────────── */
   --color-text-primary:     var(--neutral-900);  /* #26211e - input text, primary content */
@@ -37,7 +55,7 @@
 
   /* ── Surface ──────────────────────────────────────────────────────────────── */
   --color-surface-default: var(--neutral-white);  /* #ffffff - cards, inputs, panels */
-  --color-surface-badge:   var(--neutral-100);    /* #ede1d7 - badge backgrounds */
+   --color-surface-badge:   var(--neutral-100);    /* #f5f2ef - badge backgrounds */
   --color-surface-glass:   rgba(255, 255, 255, 0.20);  /* translucent fill — Brain / ChatBoard inner container */
 
   /* ── Scrollbar ────────────────────────────────────────────────────────────── */
@@ -117,11 +135,11 @@
   --color-tag-Brown-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(126,84,53,0.3);
 
   /* Neutral */
-  --color-tag-Neutral-bg:            var(--neutral-100); /* #EDE1D7 */
+   --color-tag-Neutral-bg:            var(--neutral-100); /* #F5F2EF */
   --color-tag-Neutral-text:          var(--neutral-700); /* #524B47 */
   --color-tag-Neutral-text-strong:   var(--neutral-600); /* #6A625D */
   --color-tag-Neutral-ring:          rgba(106,98,93,0.5);
-  --color-tag-Neutral-highlight:     rgba(247,242,237,0.7);
+  --color-tag-Neutral-highlight:     rgba(255, 255, 255,0.7);
   --color-tag-Neutral-depth:         rgba(106,98,93,0.1);
   --color-tag-Neutral-shadow:        0px 1px 1.5px 0px rgba(18,12,8,0.2),     0px 0px 0px 1px var(--color-tag-Neutral-ring);
   --color-tag-Neutral-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Neutral-highlight), inset 0px -1px 0px 0px var(--color-tag-Neutral-depth);

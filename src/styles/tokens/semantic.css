@@ -5,6 +5,12 @@
 
 :root {
 
+  /* ── Keyboard-shortcut pill (⌘ ,) in menus ─────────────────────────────────── */
+  --shortcut-pill-bg:     #FFFFFF;
+  --shortcut-pill-ring:   rgba(212, 212, 212, 0.4);
+  --shortcut-pill-shadow: rgba(82, 75, 71, 0.12);
+  --shortcut-pill-text:   var(--neutral-500);
+
   /* ── Button / Default ─────────────────────────────────────────────────────── */
   --button-default-bg-from:          var(--color-interactive-primary-surface-from);
   --button-default-bg-to:            var(--color-interactive-primary-surface-to);
@@ -14,6 +20,7 @@
   --button-default-bg-disabled-to:   var(--color-interactive-primary-surface-disabled-to);
   --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
   --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
+  --button-default-hover-glow:       linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%);
 
   /* ── Button / Ghost ───────────────────────────────────────────────────────── */
   --button-ghost-text:          var(--color-interactive-subtle-text);
@@ -155,6 +162,9 @@
   /* ── SidebarMenuItem ────────────────────────────────────────────────────────── */
   --sidebar-menu-item-text:              var(--color-text-default);
   --sidebar-menu-item-muted:             var(--color-text-muted);
+  --sidebar-selected-text:               #000000;
+  --sidebar-section-header-text:         var(--neutral-800);
+  --sidebar-section-header-muted:        var(--neutral-600);
   --sidebar-menu-item-hover-bg:          var(--color-interactive-subtle-surface-hover);
   --sidebar-menu-item-new-chat-badge-bg: var(--color-surface-badge);
 
@@ -188,7 +198,7 @@
      ─────────────────────────────────────────────────────────────────────────── */
   --tooltip-bg-from: var(--neutral-700);  /* #524b47 */
   --tooltip-bg-to:   var(--neutral-900);  /* #26211e */
-  --tooltip-text:    var(--neutral-50);   /* #f7f2ed */
+  --tooltip-text:    #F7F2ED;
 
   /* Outer: 1px soft drop + 0.5px black border ring */
   --shadow-tooltip:
@@ -240,9 +250,10 @@
 
   /* Large diffuse lift + tight drop shadow + 1px border ring */
   --shadow-popover:
-    0px 12px 16px -4px var(--neutral-500-12),
-    0px 2px 2.8px 0px var(--neutral-700-12),
-    0px 0px 0px 1px var(--neutral-800-10);
+    0px 10px 20px -6px rgba(0, 0, 0, 0.16),
+    0px 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1),
+    0px 0px 0px 1px var(--neutral-200);
 
   /* ── DropdownMenuItem ───────────────────────────────────────────────────────
      Shares the same warm-neutral hover language as SidebarMenuItem.
@@ -250,7 +261,7 @@
   --dropdown-menu-item-text:     var(--sidebar-menu-item-text);     /* neutral-700 */
   --dropdown-menu-item-muted:    var(--sidebar-menu-item-muted);    /* neutral-500 */
   --dropdown-menu-item-sublabel: var(--neutral-600);                /* neutral-600 - sublabel under primary label */
-  --dropdown-menu-item-hover-bg: var(--sidebar-menu-item-hover-bg); /* rgba(237,225,215,0.6) */
+  --dropdown-menu-item-hover-bg: var(--sidebar-menu-item-hover-bg); /* rgba(245, 245, 245,0.6) */
 
   /* Danger variant - destructive-action row (e.g. Delete, Remove).
      Figma 3139:36351 / 3139:36360. */
@@ -314,10 +325,10 @@
   /* Shares the same hover shadow + bg as DropdownMenuItem. */
   --model-select-item-text:      var(--neutral-700);                  /* #524b47 */
   --model-select-item-icon:      var(--neutral-500);                  /* #827a74 */
-  --model-select-item-bg-active: var(--dropdown-menu-item-hover-bg);  /* rgba(237,225,215,0.6) */
+  --model-select-item-bg-active: var(--dropdown-menu-item-hover-bg);  /* rgba(245, 245, 245,0.6) */
 
   /* ── FloatingMenuItem ──────────────────────────────────────────────────────── */
-  --floating-menu-item-hover-bg: var(--neutral-100-60);  /* rgba(237,225,215,0.6) */
+  --floating-menu-item-hover-bg: var(--neutral-100-60);  /* rgba(245, 245, 245,0.6) */
   --floating-menu-item-label:    var(--neutral-700);
 
   /* Outer: drop shadow + 1px ring - applied via box-shadow on the element */
@@ -331,8 +342,9 @@
   /* ── FloatingMenu ──────────────────────────────────────────────────────────── */
   /* Outer: two-layer lift + 1px warm border ring - applied via box-shadow on the container */
   --shadow-floating-menu-outer:
-    0px 1.091px 1.091px 0px var(--neutral-800-05),
-    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 10px 20px -6px rgba(0, 0, 0, 0.16),
+    0px 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1),
     0px 0px 0px 1px var(--neutral-200);
 
   /* Inner: bottom-only depth shadow - applied via box-shadow on an overlay div */
@@ -343,10 +355,10 @@
   --divider-color: var(--neutral-800-15);  /* rgba(59,54,50,0.15) */
 
   /* ── Focus ring ───────────────────────────────────────────────────────────── */
-  --focus-ring: var(--color-focus-ring);  /* #0081DB */
+  --focus-ring: var(--color-focus-ring);  /* #F92064 */
 
   /* ── Switch ────────────────────────────────────────────────────────────────── */
-  --switch-track-bg-off:   var(--neutral-100);     /* #EDE1D7 */
+  --switch-track-bg-off:   var(--neutral-100);     /* #F5F5F5 */
   --switch-track-bg-on:    var(--blue-400);        /* #6E98CB - Figma 2794:27442 */
   --switch-thumb-bg:       var(--neutral-white);
 
@@ -377,7 +389,7 @@
      track - drop + ring + inner highlight + inner depth. The off ring uses
      neutral-300-40, the on ring uses blue-700-70.
      ─────────────────────────────────────────────────────────────────────────── */
-  --checkbox-bg-off:  var(--neutral-100);     /* #EDE1D7 */
+  --checkbox-bg-off:  var(--neutral-100);     /* #F5F5F5 */
   --checkbox-bg-on:   var(--blue-400);        /* #6E98CB */
   --checkbox-tick:    var(--neutral-white);
 
@@ -491,8 +503,8 @@
      ─────────────────────────────────────────────────────────────────────────── */
   --message-bubble-user-bg:          var(--neutral-white);
   --message-bubble-user-text:        var(--neutral-950);
-  --message-bubble-action-timestamp: #B6ACA4;
-  --message-bubble-action-icon:      #B6ACA4;
+  --message-bubble-action-timestamp: var(--neutral-600);
+  --message-bubble-action-icon:      var(--neutral-600);
 
   /* Outer: two-layer lift + 1px warm border ring */
   --shadow-message-bubble-user:
@@ -561,7 +573,7 @@
   --prose-text:         var(--neutral-800);           /* #3B3632 - body copy */
   --prose-heading:      var(--color-text-primary);    /* #26211E - h1/h2/h3, bold leads */
   --prose-quote-text:   var(--neutral-600);           /* #6A625D */
-  --prose-quote-border: var(--neutral-100);           /* #EDE1D7 */
+  --prose-quote-border: var(--neutral-100);           /* #F5F5F5 */
 
   --prose-block-gap:     var(--space-4);  /* 16px - paragraph to paragraph, block to block */
   --prose-list-item-gap: var(--space-2);  /*  8px - item to item inside one list */
@@ -606,7 +618,7 @@
   --toast-info-border:        var(--blue-300);
 
   --toast-action-bg:          var(--neutral-900);
-  --toast-action-text:        var(--neutral-50);
+  --toast-action-text:        #F7F2ED;
   --toast-cancel-bg:          var(--neutral-100);
   --toast-cancel-text:        var(--neutral-700);
 
@@ -776,7 +788,7 @@
 
 /* ── Shared focus-visible ring ───────────────────────────────────────────────
    Every interactive KDS component must show a 2px keyboard-focus ring using
-   `--focus-ring` (#0081DB). Per-component class hooks below own the offset and
+   `--focus-ring` (#F92064). Per-component class hooks below own the offset and
    radius to avoid clipping. Mouse / touch interactions never trigger it because
    `:focus-visible` is keyboard-driven. Defined per-class instead of via a
    shared utility so each component can tune the offset to its own border-radius

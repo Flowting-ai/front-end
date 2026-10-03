@@ -249,6 +249,8 @@ export async function createPersonaRepo(params: {
   prompt?: string;
   description?: string;
   temperature?: number | null;
+  /** Persona tags (a JSON array on the wire). */
+  tags?: string[];
   image?: File | null;
 }): Promise<PersonaRepoResponse> {
   const form = new FormData();
@@ -257,6 +259,7 @@ export async function createPersonaRepo(params: {
   if (params.prompt) form.append("prompt", params.prompt);
   if (params.description) form.append("description", params.description);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
+  if (params.tags && params.tags.length > 0) form.append("persona_tags", JSON.stringify(params.tags));
   if (params.image) form.append("image", params.image);
   // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
   const repo = personaRepoSchema.parse(await apiFetchJson<unknown>(directUpload(PERSONAS_ENDPOINT), {
@@ -786,7 +789,20 @@ export async function personaStarter(
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
 
-export async function enhancePrompt(prompt: string, answers: string[] = []): Promise<EnhancePromptResponse> {
+/** A question the model asked earlier plus the user's answer — the backend's
+ *  `EnhanceAnswer` (`services/persona/schemas.py`). */
+export interface EnhanceAnswerRequest {
+  question: string;
+  answer: string;
+}
+
+/**
+ * POST /persona/enhance-prompt
+ * Returns an enhanced draft plus up to 3 clarifying questions (each with options).
+ * Earlier answers are sent back as `{ question, answer }` pairs and folded into the
+ * next enhancement. Nothing is saved.
+ */
+export async function enhancePrompt(prompt: string, answers: EnhanceAnswerRequest[] = []): Promise<EnhancePromptResponse> {
   return enhancePromptSchema.parse(await apiFetchJson<unknown>(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ prompt, answers }),

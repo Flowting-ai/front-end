@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils'
 // Sits inline in a chat thread — slightly elevated above the thread surface.
 // Two-layer: outer lift + inner depth.
 
-const SHADOW_OUTER = '0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(247,242,237,0.6), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
+const SHADOW_OUTER = 'var(--shadow-undo-toast)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 60%, transparent), inset 0px -1px 0px 0px rgba(82,75,71,0.05)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ export const UndoToast = React.forwardRef<HTMLDivElement, UndoToastProps>(
               fontWeight:      'var(--font-weight-medium)',
               fontSize:        'var(--font-size-caption)',
               lineHeight:      'var(--line-height-caption)',
-              color:           'var(--neutral-600, #6a625d)',
+              color:           'var(--neutral-600)',
               whiteSpace:      'nowrap',
               flexShrink:      0,
             }}
@@ -184,7 +184,7 @@ export const UndoToast = React.forwardRef<HTMLDivElement, UndoToastProps>(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize:     'var(--font-size-body)',
                 lineHeight:   'var(--line-height-body)',
-                color:        status === 'undone' ? 'var(--neutral-500)' : 'var(--neutral-700, #524b47)',
+                color:        status === 'undone' ? 'var(--neutral-500)' : 'var(--neutral-700)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',

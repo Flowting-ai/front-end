@@ -325,21 +325,21 @@ const BASE_COMPONENTS: Components = {
   },
   h1({ children, ...props }) {
     return (
-      <h2 style={{ fontSize: "var(--prose-size-h1)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h1)", margin: "var(--prose-h1-space-before) 0 var(--prose-h1-space-after)" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h1)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h1)", margin: "var(--prose-h1-space-before) 0 var(--prose-h1-space-after)" }} {...props}>
         {children}
       </h2>
     );
   },
   h2({ children, ...props }) {
     return (
-      <h2 style={{ fontSize: "var(--prose-size-h2)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h2)", margin: "var(--prose-h2-space-before) 0 var(--prose-h2-space-after)" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h2)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h2)", margin: "var(--prose-h2-space-before) 0 var(--prose-h2-space-after)" }} {...props}>
         {children}
       </h2>
     );
   },
   h3({ children, ...props }) {
     return (
-      <h3 style={{ fontSize: "var(--prose-size-h3)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h3)", margin: "var(--prose-h3-space-before) 0 var(--prose-h3-space-after)" }} {...props}>
+      <h3 style={{ fontSize: "var(--prose-size-h3)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h3)", margin: "var(--prose-h3-space-before) 0 var(--prose-h3-space-after)" }} {...props}>
         {children}
       </h3>
     );
@@ -440,7 +440,7 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     <div
       className="kaya-chat-markdown"
       style={{
-        fontFamily: "var(--font-body)",
+        fontFamily: "var(--font-ai-output)",
         fontSize: "var(--prose-size-body)",
         lineHeight: "var(--prose-line-body)",
         color: "var(--prose-text)",

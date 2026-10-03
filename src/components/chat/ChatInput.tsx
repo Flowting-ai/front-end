@@ -22,14 +22,18 @@ import { toast } from "sonner";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { trackFeature } from "@/lib/analytics/events";
 import { PIN_DRAG_MIME_TYPE, type PinDragPayload } from "@/lib/pin-drag";
+import { PINS_ENABLED } from "@/lib/feature-flags";
+import { useAgentMention } from "@/hooks/use-agent-mention";
+import { AgentMentionMenu } from "@/components/chat/AgentMentionMenu";
+import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 
-// ── Shadow tokens ──────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Shadow tokens Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const SHADOW_DEFAULT = "var(--shadow-chat-input)";
 const SHADOW_HOVER = "var(--shadow-chat-input-hover)";
 const SHADOW_FOCUS = "var(--shadow-chat-input-focus)";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export interface ChatInputProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
@@ -57,7 +61,7 @@ export interface ChatInputProps
    */
   modelMenu?: React.ReactNode;
   /**
-   * Overrides the model-menu Dropdown.Float's placement — defaults to
+   * Overrides the model-menu Dropdown.Float's placement Ã¢â‚¬â€ defaults to
    * "top-end" (a dropup, right for a composer anchored to the bottom of the
    * viewport). Pages that instead center this composer vertically (e.g. the
    * project pages' "new chat" state) don't have room above the trigger for a
@@ -131,14 +135,17 @@ export interface ChatInputProps
    */
   hasAttachments?: boolean;
   /**
-   * Fraction of the model's context window currently used (0–1).
-   * A progress ring is shown around the send button for all values.
-   * Green at 0–60%, amber at 60–85%, red at 85%+.
+   * Turns on `@agent` mentions: typing `@` offers the user's agents, and picking
+   * one removes the `@word` from the text and hands the agent to `onSelect`.
    */
-  contextUsedPct?: number;
+  agentMention?: {
+    onSelect: (agent: SelectedPersonaInfo) => void;
+    /** The agent already attached to the chat, shown as selected in the list. */
+    selectedAgentId?: string | null;
+  };
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export function ChatInput(
   {
@@ -170,7 +177,7 @@ export function ChatInput(
     hideAddButton = false,
     onFilePaste,
     hasAttachments = false,
-    contextUsedPct,
+    agentMention,
     className,
     style: callerStyle,
     onMouseEnter: externalMouseEnter,
@@ -210,6 +217,24 @@ export function ChatInput(
       onChangeRef.current = onChange;
     }, [onChange]);
 
+    // `@agent` mentions. Picking an agent rewrites the text (the `@word` is removed)
+    // and puts the caret back where it was.
+    const applyMentionText = (next: string, caret: number) => {
+      if (!isControlled) setInternalValue(next);
+      onChange?.(next);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      });
+    };
+    const mention = useAgentMention({
+      enabled: !!agentMention,
+      applyText: applyMentionText,
+      onSelect: (agent) => agentMention?.onSelect(agent),
+    });
+
     // Track chips scroll position + overflow so the indicator stays in sync.
     useEffect(() => {
       const el = chipsScrollRef.current;
@@ -229,7 +254,7 @@ export function ChatInput(
       };
     }, [chips]);
 
-    // Global mouse handlers for thumb drag — attached once, use only refs.
+    // Global mouse handlers for thumb drag Ã¢â‚¬â€ attached once, use only refs.
     useEffect(() => {
       const onMouseMove = (e: MouseEvent) => {
         if (!isDraggingRef.current || !chipsScrollRef.current) return;
@@ -298,7 +323,7 @@ export function ChatInput(
       el.style.height = `${el.scrollHeight}px`;
     }, [value]);
 
-    // Live transcript → textarea value during recording
+    // Live transcript Ã¢â€ â€™ textarea value during recording
     useEffect(() => {
       if (!isRecording) return;
       const base = preRecordingTextRef.current;
@@ -308,7 +333,7 @@ export function ChatInput(
       onChangeRef.current?.(combined);
     }, [transcript, isRecording, isControlled]);
 
-    // ── Recording toggle ─────────────────────────────────────────────────────
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Recording toggle Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     const startRecording = async () => {
       if (!browserSupportsSpeechRecognition) return;
@@ -372,8 +397,10 @@ export function ChatInput(
       if (!isControlled) setInternalValue(newValue);
       onChange?.(newValue);
 
+      if (agentMention) mention.update(newValue, e.target.selectionStart ?? newValue.length);
+
       // @-mention detection - only when the parent opts in via onMentionChange.
-      if (onMentionChange) {
+      if (PINS_ENABLED && onMentionChange) {
         const lastChar = newValue[newValue.length - 1];
         if (lastChar === "@") {
           // User just typed @: open the dropdown with an empty query.
@@ -419,13 +446,16 @@ export function ChatInput(
         e.preventDefault();
         onFilePaste(files);
       }
-      // Text paste: no preventDefault — let the textarea handle it natively
+      // Text paste: no preventDefault Ã¢â‚¬â€ let the textarea handle it natively
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // The agent list, while open, owns arrows / Enter / Tab / Escape.
+      if (agentMention && mention.onKeyDown(e)) return;
+
       // While the pin dropdown is open, delegate arrow keys / Enter / Escape
       // to the parent so it can move the highlighted selection or confirm.
-      if (isPinDropdownOpen && onPinNavigate) {
+      if (PINS_ENABLED && isPinDropdownOpen && onPinNavigate) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
           onPinNavigate("down");
@@ -466,10 +496,10 @@ export function ChatInput(
 
     // Dropping a pin card from the Pinboard here fires the same `pin:insert`
     // CustomEvent its own "Insert" button dispatches (see RightSidebar.tsx's
-    // toPinboardPin) — ChatInterface.tsx's existing listener does the actual
+    // toPinboardPin) Ã¢â‚¬â€ ChatInterface.tsx's existing listener does the actual
     // work (dedupe + add as an @-mention chip), so there's nothing to wire here.
     const handlePinDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
-      if (!e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
+      if (!PINS_ENABLED || !e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       setIsPinDragOver(true);
@@ -480,6 +510,7 @@ export function ChatInput(
     };
 
     const handlePinDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+      if (!PINS_ENABLED) return;
       const raw = e.dataTransfer.getData(PIN_DRAG_MIME_TYPE);
       if (!raw) return;
       e.preventDefault();
@@ -489,7 +520,7 @@ export function ChatInput(
         if (!pin?.id) return;
         window.dispatchEvent(new CustomEvent("pin:insert", { detail: pin }));
       } catch {
-        // Malformed payload — ignore rather than throw on drop.
+        // Malformed payload Ã¢â‚¬â€ ignore rather than throw on drop.
       }
     };
 
@@ -561,7 +592,7 @@ export function ChatInput(
         onDragLeave={handlePinDragLeave}
         onDrop={handlePinDrop}
       >
-        {/* ── Recording state announcer (screen readers only) ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Recording state announcer (screen readers only) Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <span
           role="status"
           aria-live="polite"
@@ -581,10 +612,22 @@ export function ChatInput(
           {isRecording ? "Recording started. Listening." : ""}
         </span>
 
-        {/* ── Attachments slot - chip strip rendered above the textarea ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ @agent list Ã¢â‚¬â€ floats above the box while typing a mention Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {agentMention && mention.open && (
+          <AgentMentionMenu
+            items={mention.items}
+            loading={mention.loading}
+            activeIndex={mention.activeIndex}
+            selectedId={agentMention.selectedAgentId ?? null}
+            onPick={mention.select}
+            onHover={mention.setActive}
+          />
+        )}
+
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Attachments slot - chip strip rendered above the textarea Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {attachmentsSlot}
 
-        {/* ── Main content - textarea + animated placeholder ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Main content - textarea + animated placeholder Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <div style={{ position: "relative" }}>
           {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
@@ -666,11 +709,11 @@ export function ChatInput(
           />
         </div>
 
-        {/* ── Footer bar ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer bar Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: "6px" }}>
 
-          {/* Pin items row — @-mention pins and pin-folder chips, separate from feature badges */}
-          {pinChips && (
+          {/* Pin items row Ã¢â‚¬â€ @-mention pins and pin-folder chips, separate from feature badges */}
+          {PINS_ENABLED && pinChips && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", paddingLeft: "3px", paddingRight: "3px" }}>
               {pinChips}
             </div>
@@ -755,7 +798,7 @@ export function ChatInput(
                         style={{
                           height: 2,
                           borderRadius: 999,
-                          backgroundColor: "rgba(59,54,50,0.06)",
+                          backgroundColor: "var(--neutral-800-05)",
                           position: "relative",
                           cursor: isThumbDragging ? "grabbing" : "pointer",
                         }}
@@ -782,7 +825,7 @@ export function ChatInput(
               )}
             </div>
 
-            {/* Right: model selector + action button — never shrinks */}
+            {/* Right: model selector + action button Ã¢â‚¬â€ never shrinks */}
             <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
             {hideModelSelector ? null : disabledModelSelector ? (
               <span
@@ -823,7 +866,7 @@ export function ChatInput(
                 }
               >
                 {/* Picking a model or toggling adaptive thinking isn't a reason
-                    to keep this dropdown open — clone in an onClose that closes
+                    to keep this dropdown open Ã¢â‚¬â€ clone in an onClose that closes
                     it. `modelMenu` is always a <ModelMenu/> in practice, which
                     reads this prop; a caller-supplied node without it just
                     ignores the prop. */}
@@ -851,41 +894,6 @@ export function ChatInput(
               onMouseLeave={() => setIsMicHovered(false)}
               style={{ display: "inline-flex", position: "relative" }}
             >
-              {/* Context window exhaustion ring — visible at all usage levels (0–100%) */}
-              {contextUsedPct !== undefined && (() => {
-                const CIRC = 125.66; // 2π × r20
-                const pct  = Math.min(1, Math.max(0, contextUsedPct))
-                const color = pct >= 0.85
-                  ? "#ef4444"
-                  : pct >= 0.60
-                    ? "#f59e0b"
-                    : "#22c55e";
-                return (
-                  <svg
-                    aria-hidden
-                    width={44}
-                    height={44}
-                    viewBox="0 0 44 44"
-                    style={{
-                      position:      "absolute",
-                      top:           -4,
-                      left:          -4,
-                      pointerEvents: "none",
-                      zIndex:        1,
-                      overflow:      "visible",
-                    }}
-                  >
-                    <circle cx={22} cy={22} r={20} fill="none"
-                      stroke={color} strokeWidth={1.5} strokeOpacity={0.15} />
-                    <circle cx={22} cy={22} r={20} fill="none"
-                      stroke={color} strokeWidth={1.5} strokeLinecap="round"
-                      strokeDasharray={CIRC}
-                      strokeDashoffset={CIRC * (1 - pct)}
-                      transform="rotate(-90 22 22)"
-                    />
-                  </svg>
-                );
-              })()}
               <IconButton
                 variant="default"
                 size="md"

@@ -280,10 +280,10 @@ export function ScheduleDetailView({
           gap:             8,
           padding:         '10px 12px',
           borderRadius:    10,
-          backgroundColor: 'var(--yellow-50, #fefce8)',
+          backgroundColor: 'var(--yellow-50)',
           boxShadow:       '0px 0px 0px 1px var(--yellow-200, #fef08a)',
         }}>
-          <AlertTwoIcon size={16} color="var(--yellow-600, #ca8a04)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <AlertTwoIcon size={16} color="var(--yellow-600)" style={{ flexShrink: 0, marginTop: 1 }} />
           <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-700)' }}>
             This schedule's last change may not have fully synced — the timer that's actually running could still be on the old cadence. Try editing and saving it again.
           </p>

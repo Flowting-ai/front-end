@@ -117,9 +117,9 @@ export default function ReasoningVerify() {
   const [active, setActive] = useState<StateKey>('settled-batch')
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#FAF6F2', fontFamily: 'var(--font-body)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--neutral-100)', fontFamily: 'var(--font-body)' }}>
       <div style={{ flex: 1, padding: '48px 40px', minWidth: 0 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B6ACA4', marginBottom: 28 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--neutral-200)', marginBottom: 28 }}>
           Reasoning verify — {STATES[active].label}
         </div>
         <div style={{ maxWidth: 720 }} data-testid="reasoning-host">
@@ -128,8 +128,8 @@ export default function ReasoningVerify() {
         </div>
       </div>
 
-      <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid #EDE1D7', padding: '48px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B6ACA4', marginBottom: 8 }}>
+      <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid var(--neutral-100)', padding: '48px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--neutral-200)', marginBottom: 8 }}>
           State
         </div>
         {(Object.keys(STATES) as StateKey[]).map((key) => (
@@ -140,8 +140,8 @@ export default function ReasoningVerify() {
             style={{
               padding: '8px 10px', borderRadius: 7, border: 0, cursor: 'pointer', textAlign: 'left',
               fontSize: 12, fontFamily: 'var(--font-body)',
-              background: active === key ? 'rgba(104,61,27,0.12)' : 'rgba(59,54,50,0.04)',
-              color: active === key ? '#683D1B' : '#524B47',
+              background: active === key ? 'color-mix(in srgb, var(--brown-700) 12%, transparent)' : 'var(--neutral-800-05)',
+              color: active === key ? 'var(--brown-700)' : 'var(--neutral-700)',
               fontWeight: active === key ? 600 : 400,
             }}
           >

@@ -10,6 +10,7 @@ export const CHAT_ROUTE = "/chat";
 export const CHATS_ROUTE = "/chats";
 export const AGENTS_ROUTE = "/agents";
 export const AGENTS_TEMPLATES_ROUTE = "/agents/templates";
+export const AGENTS_NEW_ROUTE = "/agents/new";
 export const AGENTS_BASICS_NAME_ROUTE = "/agents/basics/name";
 export const AGENTS_BASICS_PURPOSE_ROUTE = "/agents/basics/purpose";
 export const AGENTS_BASICS_TONE_ROUTE = "/agents/basics/tone";
@@ -20,18 +21,18 @@ export const PROJECTS_ROUTE = "/projects";
 export const PROJECTS_NEW_ROUTE = "/projects/new";
 
 // NOTE: General/Members/Teams/Plans/Analytics/Activity moved from /org/* to
-// /settings/* (Souvenir V1.5) — old /org/{page} paths are now thin redirect
+// /settings/* (Souvenir V1.5) â€” old /org/{page} paths are now thin redirect
 // stubs to these. Connectors and "Souvenir in Slack" moved further still,
-// to their own top-level routes — each has its own
+// to their own top-level routes â€” each has its own
 // dedicated sidebar destination (see FlatDestinations in LeftSidebar.tsx) and
 // its own layout guard (src/app/(app)/connectors, src/app/(app)/souvenir-slack).
 // Constant names keep their historical ORG_ prefix to avoid touching every
-// call site for a rename — only the string values changed.
+// call site for a rename â€” only the string values changed.
 export const ORG_BASE_ROUTE = "/org";
 export const ORG_GENERAL_ROUTE = "/settings/general";
 export const ORG_ACTIVITY_ROUTE = "/settings/activity";
 // Merged with the individual "Usage & Billing" page (SETTINGS_BILLING_ROUTE
-// below) so every account type — individual, org member, org owner/admin —
+// below) so every account type â€” individual, org member, org owner/admin â€”
 // lands on one page. Constant name kept per this file's own precedent (see
 // the note above): only the string value changed.
 export const ORG_PLANS_ROUTE = "/settings/plans-and-billing";
@@ -45,13 +46,13 @@ export const SETTINGS_ROUTE = "/settings";
 export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
 export const SETTINGS_HELP_ROUTE = "/settings/help";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
-// Retired — plans/payment/invoices for every account type now live on
+// Retired â€” plans/payment/invoices for every account type now live on
 // ORG_PLANS_ROUTE (/settings/plans-and-billing). This route is now just a
 // redirect stub (src/app/(app)/settings/(shell)/billing/page.tsx) kept for old
 // bookmarks/links; its sub-routes (change-plan, confirmation) are still real
 // pages, just no longer linked from here.
 export const SETTINGS_BILLING_ROUTE = "/settings/billing";
-// Settings v1.5 — PERSONAL > Usage (node 17-22980), split out of the old
+// Settings v1.5 â€” PERSONAL > Usage (node 17-22980), split out of the old
 // combined "Usage & Billing" page. This page is personal credit-consumption only.
 export const SETTINGS_USAGE_ROUTE = "/settings/usage";
 export const SETTINGS_BILLING_CHANGE_PLAN_ROUTE = "/settings/billing/change-plan";
@@ -62,12 +63,12 @@ export const TEAM_INVITE_BASE_ROUTE = "/team-invite";
 export const SLACK_LINK_ROUTE = "/slack/link";
 
 // B1/B2 (pre-login invite landing, "You're on the list! You've been invited
-// to join X's workspace" — Sign in vs Sign up depending on whether the
+// to join X's workspace" â€” Sign in vs Sign up depending on whether the
 // invited email already has an account). Genuinely public: proxy.ts must
-// exempt this route from its logged-out → /auth/login redirect, since this
+// exempt this route from its logged-out â†’ /auth/login redirect, since this
 // page IS the "decide sign in vs sign up" screen for a logged-out invitee.
 // Path must match what the backend's build_invite_url() actually emails
-// (back-end/services/organizations/service.py) — it puts recipients at
+// (back-end/services/organizations/service.py) â€” it puts recipients at
 // `${FRONTEND_BASE_URL}/org-invite/{invite_id}`, not `/invite/...`.
 export const INVITE_LANDING_BASE_ROUTE = "/org-invite";
 export const INVITE_LANDING_ROUTE = (inviteId: string) => `${INVITE_LANDING_BASE_ROUTE}/${inviteId}`;
@@ -84,12 +85,12 @@ export const ONBOARDING_BASE_ROUTE = "/onboarding";
 export const ONBOARDING_TEAM_BASE_ROUTE = "/onboarding/team";
 export const ONBOARDING_TONE_ROUTE = "/onboarding/tone";
 
-// ── v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md) ───────
+// â”€â”€ v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md) â”€â”€â”€â”€â”€â”€â”€
 // ONBOARDING_WORKSPACE_ROUTE above is reused for this flow's step 2 (same URL,
-// new content) — only these two are new routes.
+// new content) â€” only these two are new routes.
 export const ONBOARDING_SETUP_ROUTE = "/onboarding/setup";
 export const ONBOARDING_PROFILE_ROUTE = "/onboarding/profile";
-// A2 (join an existing workspace) — screen 1 only; screens 2/3 reuse the
+// A2 (join an existing workspace) â€” screen 1 only; screens 2/3 reuse the
 // ONBOARDING_PROFILE_ROUTE page and the add-to-slack-modal above verbatim.
 export const ONBOARDING_JOIN_ROUTE = "/onboarding/join";
 
@@ -109,6 +110,7 @@ export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
 export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
+export const AGENT_EDIT_ROUTE = (personaId: string) => `/agents/${personaId}/edit`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 
 export const ONBOARDING_TEAM_WELCOME_ROUTE = (inviteId: string) => `${ONBOARDING_TEAM_BASE_ROUTE}/${inviteId}`;
