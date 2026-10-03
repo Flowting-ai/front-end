@@ -584,7 +584,7 @@ ${raisedLines.join('\n')}
 
 if (process.argv.includes('--check')) {
   const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
-  if (current !== css) { console.error('theme.css is out of date — run: node scripts/generate-dark-theme.mjs'); process.exit(1) }
+  if (current.replace(/\r\n/g, '\n') !== css.replace(/\r\n/g, '\n')) { console.error('theme.css is out of date — run: node scripts/generate-dark-theme.mjs'); process.exit(1) }
   console.log('theme.css is up to date')
 } else {
   writeFileSync(OUT, css, 'utf8')

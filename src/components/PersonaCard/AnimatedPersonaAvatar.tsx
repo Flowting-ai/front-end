@@ -341,7 +341,7 @@ export function AnimatedPersonaAvatar({
         overflow:        'hidden',
         flexShrink:      0,
         // Always white behind the spheres, in light and dark.
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--neutral-50)',
       }}
     >
       <svg viewBox="0 0 64 64" width={size} height={size} style={{ display: 'block' }}>

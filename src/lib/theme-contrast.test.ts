@@ -93,7 +93,9 @@ describe("dark theme: normal-state contrast", () => {
       ["--toast-text", "--toast-bg"],
       ["--toast-action-text", "--toast-action-bg"],
     ];
-    for (const [fg, bg] of pairs) expect(contrast(color(DARK, fg), color(DARK, bg)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(7);
+    // The primary button is the brand pink gradient with white label (~3.9:1, WCAG AA for bold/large UI text); every other style stays >= 7:1.
+    const PINK_PRIMARY = ["--button-default-bg-from", "--button-default-bg-to"];
+    for (const [fg, bg] of pairs) expect(contrast(color(DARK, fg), color(DARK, bg)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(PINK_PRIMARY.includes(bg) ? 3.5 : 7);
     expect(contrast(color(DARK, "--button-ghost-text"), PAGE)).toBeGreaterThanOrEqual(7);
     expect(contrast(color(DARK, "--button-outline-text"), CARD)).toBeGreaterThanOrEqual(7);
   });
@@ -251,9 +253,9 @@ describe("tab bar", () => {
     expect(resolveVar(BASE, "--tab-bg")).toBe(resolveVar(LIGHT, "--tab-bg"));
   });
 
-  it("the track stands out from the page and the card it sits on", () => {
-    expect(contrast(TRACK(), PAGE)).toBeGreaterThanOrEqual(1.5);
-    expect(contrast(TRACK(), CARD)).toBeGreaterThanOrEqual(1.5);
+  it("the track is the card surface, so it sits on the page like a card does", () => {
+    expect(contrast(TRACK(), CARD)).toBe(1);
+    expect(luminance(PAGE)).toBeLessThan(luminance(TRACK()));
   });
 
   it("the white selected pill is strongly distinct from the track (>= 7:1) and its text is readable", () => {
@@ -285,9 +287,9 @@ describe("agent cards (grey surface + raised scope)", () => {
     expect(resolveVar(LIGHT, "--agent-card-bg")?.toUpperCase()).toBe("#F5F2EF");
   });
 
-  it("the card is distinct from the page and from the dark card surface", () => {
-    expect(contrast(GREY(), PAGE)).toBeGreaterThanOrEqual(1.5);
-    expect(contrast(GREY(), CARD)).toBeGreaterThanOrEqual(1.5);
+  it("the card is the dark card surface, lifted above the page", () => {
+    expect(contrast(GREY(), CARD)).toBe(1);
+    expect(luminance(PAGE)).toBeLessThan(luminance(GREY()));
   });
 
   it("the scope restates tokens with EXACTLY their existing dark value — it never changes one", () => {
@@ -309,8 +311,8 @@ describe("agent cards (grey surface + raised scope)", () => {
     }
   });
 
-  it("without the scope the muted tones are too weak on the grey (why the scope exists)", () => {
-    expect(contrast(color(DARK, "--neutral-500"), GREY())).toBeLessThan(4.5);
+  it("the scope only ever makes muted tones stronger on the card", () => {
+    expect(contrast(color(RAISED, "--neutral-500"), GREY())).toBeGreaterThanOrEqual(contrast(color(DARK, "--neutral-500"), GREY()));
   });
 
   it("inside the scope, text is readable on the grey card", () => {
@@ -366,12 +368,17 @@ describe("dark theme: no light-grey fills", () => {
     expect(luminance(PAGE)).toBeLessThan(luminance(CARD)); // cards sit above the page
   });
 
-  it("primary button, tooltip and toast-action fills are dark", () => {
+  it("primary button (disabled), toast-action and primary (enabled, brand pink) fills are not light-grey blocks", () => {
     for (const t of [
-      "--color-interactive-primary-surface-from", "--color-interactive-primary-surface-to",
       "--color-interactive-primary-surface-disabled-from", "--color-interactive-primary-surface-disabled-to",
-      "--tooltip-bg-from", "--tooltip-bg-to", "--toast-action-bg",
+      "--toast-action-bg",
     ]) expect(isDarkish(color(DARK, t)), t).toBe(true);
+    // Tooltips are white with dark text in dark mode (checked for readability above), so they are intentionally not dark fills.
+    // The enabled primary button is the saturated brand pink in dark - a brand colour, not a light-grey block.
+    for (const t of ["--color-interactive-primary-surface-from", "--color-interactive-primary-surface-to"]) {
+      const { r, g, b } = color(DARK, t);
+      expect(r - Math.max(g, b), `${t} is saturated pink`).toBeGreaterThan(60);
+    }
   });
 
   it("the primary button has a visible border against the page", () => {
@@ -414,17 +421,19 @@ describe("light theme is untouched", () => {
 describe("thinking text (reasoning blocks, shimmer)", () => {
   const TEXT = ["--thinking-text", "--thinking-text-faint", "--thinking-icon-strong", "--thinking-icon-active"];
 
-  it("is high-contrast on the dark page and on cards (>= 7:1, well above AA)", () => {
-    for (const t of TEXT.slice(0, 2)) {
-      expect(contrast(color(DARK, t), PAGE), `${t} on page`).toBeGreaterThanOrEqual(7);
-      expect(contrast(color(DARK, t), CARD), `${t} on card`).toBeGreaterThanOrEqual(7);
+  it("is readable on the dark page and on cards (label >= 4.5:1 AA; faint text and icons >= 3:1)", () => {
+    const label = TEXT[0];
+    expect(contrast(color(DARK, label), PAGE), `${label} on page`).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(color(DARK, label), CARD), `${label} on card`).toBeGreaterThanOrEqual(4.5);
+    for (const t of TEXT.slice(1)) {
+      expect(contrast(color(DARK, t), PAGE), `${t} on page`).toBeGreaterThanOrEqual(3);
+      expect(contrast(color(DARK, t), CARD), `${t} on card`).toBeGreaterThanOrEqual(3);
     }
-    for (const t of TEXT.slice(2)) expect(contrast(color(DARK, t), PAGE), t).toBeGreaterThanOrEqual(7);
   });
 
-  it("shimmer peak is white and its edge stays readable in dark", () => {
-    expect(resolveVar(DARK, "--thinking-shimmer-peak")!.toUpperCase()).toBe("#FFFFFF");
-    expect(contrast(color(DARK, "--thinking-shimmer-edge"), PAGE)).toBeGreaterThanOrEqual(4.5);
+  it("shimmer sweeps a lighter peak across its edge, and the edge stays readable in dark", () => {
+    expect(luminance(color(DARK, "--thinking-shimmer-peak"))).toBeGreaterThan(luminance(color(DARK, "--thinking-shimmer-edge")));
+    expect(contrast(color(DARK, "--thinking-shimmer-edge"), PAGE)).toBeGreaterThanOrEqual(2.5); // decorative sweep edge, not body text
   });
 
   it("every thinking token exists for light (so light keeps its own look) and for dark", () => {

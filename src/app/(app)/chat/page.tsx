@@ -59,7 +59,7 @@ import { StarterList } from "@/components/StarterSuggestions";
 import { useRecommendations } from "@/hooks/use-recommendations";
 
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Per-chat settings helpers ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+// ── Per-chat settings helpers ─────────────────────────────────────────────────
 // Settings (webSearch, persona) are stored per-chatId so each chat remembers
 // its own state and navigating between chats never bleeds settings across.
 
@@ -79,16 +79,16 @@ function saveChatSettings(chatId: string, settings: ChatSettings): void {
   try { localStorage.setItem(`souvenir_chat_${chatId}`, JSON.stringify(settings)); } catch {}
 }
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Page ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   // Forces a genuinely fresh mount of ChatPageInner on "New chat" from the
-  // sidebar ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â belt-and-suspenders alongside handleSidebarNewChat's own
+  // sidebar — belt-and-suspenders alongside handleSidebarNewChat's own
   // synchronous reset inside ChatPageInner. That reset depends on this
   // instance's effects actually re-running; if the client router ever serves
   // this route from its cache instead of a true remount, that can lag or get
   // superseded. A key change is the one thing React always honors regardless
-  // of what the router did underneath ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â it discards the old instance (and
+  // of what the router did underneath — it discards the old instance (and
   // whatever state/highlights it was still carrying) outright, no race
   // possible. Lives here, not inside ChatPageInner, so the counter survives
   // the very remounts it triggers.
@@ -112,7 +112,7 @@ function ChatPageInner() {
 
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
-  // Deep-link trigger for the Share modal (?share=1) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set by the sidebar's
+  // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
   // "Share" chat-menu item, which navigates here instead of opening the
   // modal directly since ChatShareOverlay lives on this page, not the sidebar.
   const shouldAutoOpenShare = searchParams.get("share") != null;
@@ -124,7 +124,7 @@ function ChatPageInner() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
-  // The "Create an agent thatÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" flow, open while set.
+  // The "Create an agent that…" flow, open while set.
   const [agentCreator, setAgentCreator] = useState<{ purpose: string; message: string; sendAnyway: () => void } | null>(null);
   // The just-created agent, shown in the thread as a card (browser-only messages).
   const [injectedMessages, setInjectedMessages] = useState<UIMessage[] | null>(null);
@@ -132,7 +132,7 @@ function ChatPageInner() {
   const [newChatInput, setNewChatInput] = useState("");
   const recommendations = useRecommendations();
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Add-menu feature state ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
   const [styleChipOpen,       setStyleChipOpen]       = useState(false);
@@ -153,7 +153,7 @@ function ChatPageInner() {
 
   // Tracks which chatIds were created in this session as persona chats.
   // This prevents routing an existing regular chatId through the persona endpoint.
-  const personaChatIds = useRef(new Map<string, string>()); // chatId ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ personaId
+  const personaChatIds = useRef(new Map<string, string>()); // chatId → personaId
 
   // Tracks a newly-created chat so handleChatMoveToTop can schedule a title
   // refresh, AND so the settings-reload effect below can recognize "this is
@@ -162,11 +162,11 @@ function ChatPageInner() {
   const newlyCreatedChatIdRef = useRef<string | null>(null);
 
   // When the URL chatId changes (navigation), load that chat's stored settings.
-  // Settings are per-chat ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â navigating away resets to defaults so no cross-chat bleed.
+  // Settings are per-chat — navigating away resets to defaults so no cross-chat bleed.
   useEffect(() => {
     if (chatIdFromUrl) {
       // Skip the reload for the chat we JUST created via handleChatCreated in
-      // this session ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â it already set selectedPersona/webSearchEnabled
+      // this session — it already set selectedPersona/webSearchEnabled
       // synchronously from live state, which is authoritative. Re-reading
       // from localStorage here for that same chat id is redundant, and it's
       // the one path capable of nulling out a freshly-attached persona chip
@@ -183,7 +183,7 @@ function ChatPageInner() {
       if (restoredVersionId) personaChatIds.current.set(chatIdFromUrl, restoredVersionId);
     } else if (cameFromPendingPersonaRef.current) {
       // Blank /chat, but the persona lazy-initializer above just populated
-      // selectedPersona from agents/published's "Use this Agent" handoff ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+      // selectedPersona from agents/published's "Use this Agent" handoff —
       // don't immediately stomp it back to null. Consume the flag so any
       // LATER navigation back to a blank /chat (not from that handoff) still
       // resets normally.
@@ -224,7 +224,7 @@ function ChatPageInner() {
 
   const { pins } = usePinboard();
 
-  // Listen for the Agents floating-panel's selection ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same cross-tree
+  // Listen for the Agents floating-panel's selection — same cross-tree
   // pattern as pin:insert above (the panel renders via the shared AppLayout's
   // ProjectPanelSidebar, outside this page's own component tree).
   useEffect(() => {
@@ -236,7 +236,7 @@ function ChatPageInner() {
     return () => window.removeEventListener(AGENT_SELECT_EVENT, handler);
   }, []);
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ File handling ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── File handling ─────────────────────────────────────────────────────────
 
   const handleAddFilesClick = () => {
     fileInputRef.current?.click();
@@ -244,7 +244,7 @@ function ChatPageInner() {
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      // Capture into a stable Array before clearing the input ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â e.target.value = ""
+      // Capture into a stable Array before clearing the input — e.target.value = ""
       // causes the browser to replace e.target.files with a new empty FileList, and
       // React's setState updater runs after the clear, so it would see an empty list.
       const files = Array.from(e.target.files);
@@ -259,7 +259,7 @@ function ChatPageInner() {
 
   const clearAddMenuFiles = () => setAddMenuFiles([]);
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Chips (style + folders + web search + mentioned pins) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── Chips (style + folders + web search + mentioned pins) ───────────────────
 
   const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
 
@@ -362,7 +362,7 @@ function ChatPageInner() {
       <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
         <Dropdown.Section fluid>
           {loadingChipPersonas
-            ? <Dropdown.Item label="LoadingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" fluid disabled />
+            ? <Dropdown.Item label="Loading…" fluid disabled />
             : chipPersonas.length > 0
               ? chipPersonas.map(p => (
                   <Dropdown.Item
@@ -396,7 +396,7 @@ function ChatPageInner() {
     </>
   );
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Add menu ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── Add menu ──────────────────────────────────────────────────────────────
 
   const addMenu = (
     <ChatAddMenu
@@ -415,7 +415,7 @@ function ChatPageInner() {
     />
   );
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Model selector ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── Model selector ────────────────────────────────────────────────────────
 
   const {
     models,
@@ -429,7 +429,7 @@ function ChatPageInner() {
 
   // Keep a stable ref to selectModel so the effect below doesn't re-run every render
   // due to the context function being recreated on each render. Assigned in an
-  // effect (not during render) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â mutating a ref's `.current` while rendering is
+  // effect (not during render) — mutating a ref's `.current` while rendering is
   // unsafe under Strict Mode / concurrent rendering, where a render pass can be
   // discarded or retried after the mutation already happened.
   const selectModelRef = useRef(selectModel)
@@ -449,7 +449,7 @@ function ChatPageInner() {
   useEffect(() => {
     if (!selectedPersona) return
 
-    // Version data already cached ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â just apply model
+    // Version data already cached — just apply model
     if (selectedPersona.systemPrompt !== null) {
       if (selectedPersona.modelId && models.length > 0) {
         const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
@@ -458,7 +458,7 @@ function ChatPageInner() {
       return
     }
 
-    // No activeVersionId ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â apply model from list data if available, can't fetch prompt
+    // No activeVersionId — apply model from list data if available, can't fetch prompt
     if (!selectedPersona.activeVersionId) {
       if (selectedPersona.modelId && models.length > 0) {
         const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
@@ -490,7 +490,7 @@ function ChatPageInner() {
       .catch(() => {
         if (cancelled) return
         // getVersion() can 404 (e.g. the agent's published version was since
-        // deleted ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â manually, or auto-evicted by the 5-version cap) or fail
+        // deleted — manually, or auto-evicted by the 5-version cap) or fail
         // for any other reason. Previously this left systemPrompt stuck at
         // null forever, and personaConfigLoading (derived from it, below)
         // permanently disabled Send with no recovery short of removing the
@@ -505,7 +505,6 @@ function ChatPageInner() {
         )
       })
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
   const modelButtonLabel = selectedModel?.modelName;
@@ -516,7 +515,7 @@ function ChatPageInner() {
     ? chatHistory.find(chat => chat.id === activeChatId)
     : undefined;
   const activeChatArchived = activeChatRecord?.visibility === 'archived';
-  // "readOnly" here means specifically "shared chat the viewer doesn't own" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+  // "readOnly" here means specifically "shared chat the viewer doesn't own" —
   // that's the only case that should offer a "Create a copy" affordance.
   // An owned-but-archived chat is disabled the same way but must NOT get
   // that copy option, so it stays a separate flag (see ChatInterface's and
@@ -525,9 +524,9 @@ function ChatPageInner() {
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
-  // Load highlights whenever the URL chat ID changes ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â reads chatIdFromUrl directly
-  // to avoid an effect chain (layoutEffect sets activeChatId ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ effect reacts to it).
-  // Navigating to a chat-id-less route (blank new-chat screen) clears instead ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+  // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
+  // to avoid an effect chain (layoutEffect sets activeChatId → effect reacts to it).
+  // Navigating to a chat-id-less route (blank new-chat screen) clears instead —
   // otherwise the previous chat's highlights would linger in the panel/gutter.
   useEffect(() => {
     if (chatIdFromUrl) loadHighlightsForChat(chatIdFromUrl);
@@ -535,13 +534,15 @@ function ChatPageInner() {
   }, [chatIdFromUrl, loadHighlightsForChat, clearHighlights]);
 
   // Sync URL param into local state (e.g. sidebar navigation).
-  // useLayoutEffect so the state update commits before the browser paints ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+  // useLayoutEffect so the state update commits before the browser paints —
   // prevents a stale render of the old ChatInterface when navigating to new chat.
   useLayoutEffect(() => {
     // Read directly from the live URL to avoid stale/transient undefined values
     // that useSearchParams() can return during Suspense transitions or hydration.
     const liveId = new URLSearchParams(window.location.search).get("id") ?? undefined;
     if (liveId !== activeChatId) {
+      // Intentional: layout effect so the state commits before paint (see comment above).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
@@ -566,7 +567,7 @@ function ChatPageInner() {
     setInitialPrompt(null);
     setSelectedProjectId(null);
     // Highlights ("jump gutter" markers) otherwise only clear via the
-    // chatIdFromUrl-watching effect above ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same unreliable-on-this-path
+    // chatIdFromUrl-watching effect above — same unreliable-on-this-path
     // issue as the rest of this handler exists to work around, so the
     // previous chat's highlight gutter could still be showing on the new,
     // blank chat. Cleared directly here for the same reason.
@@ -654,7 +655,7 @@ function ChatPageInner() {
   };
 
   const handleChatMoveToTop = (chatId: string) => {
-    // Reorder the existing chat to the top ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â preserves its title.
+    // Reorder the existing chat to the top — preserves its title.
     // (addOptimistic would reset the title to "New chat", overwriting the SSE-set title)
     moveToTop(chatId);
     // For a brand-new chat the backend generates the title asynchronously after the
@@ -675,9 +676,9 @@ function ChatPageInner() {
     }
   };
 
-  // "Create an agent thatÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" starts the agent-creation flow instead of going to the
+  // "Create an agent that…" starts the agent-creation flow instead of going to the
   // model. Only for plain text (no attachments) and when no agent is attached;
-  // `sendAnyway` is the flow's "not an agent ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â send it as a normal message" escape.
+  // `sendAnyway` is the flow's "not an agent — send it as a normal message" escape.
   const interceptCreateAgent = (text: string, sendAnyway: () => void): boolean => {
     if (selectedPersona) return false;
     const intent = detectCreateAgentIntent(text);
@@ -715,7 +716,7 @@ function ChatPageInner() {
     submitNewChat(value);
   };
 
-  // Capture typed message from new-chat landing ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ transition to ChatInterface
+  // Capture typed message from new-chat landing → transition to ChatInterface
   const submitNewChat = (value: string) => {
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
@@ -883,7 +884,7 @@ function ChatPageInner() {
                   </ExhaustionBanner>
                   <ChatHomeActions projectId={selectedProjectId} onProjectChange={setSelectedProjectId} />
 
-                  {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Starter cards ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+                  {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}
                   {recommendations && (
                     <div style={{ marginTop: "20px", textAlign: "left" }}>

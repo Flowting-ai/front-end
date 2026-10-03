@@ -27,13 +27,13 @@ import { useAgentMention } from "@/hooks/use-agent-mention";
 import { AgentMentionMenu } from "@/components/chat/AgentMentionMenu";
 import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Shadow tokens Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Shadow tokens ──────────────────────────────────────────────────────────────
 
 const SHADOW_DEFAULT = "var(--shadow-chat-input)";
 const SHADOW_HOVER = "var(--shadow-chat-input-hover)";
 const SHADOW_FOCUS = "var(--shadow-chat-input-focus)";
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ChatInputProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
@@ -61,7 +61,7 @@ export interface ChatInputProps
    */
   modelMenu?: React.ReactNode;
   /**
-   * Overrides the model-menu Dropdown.Float's placement Ã¢â‚¬â€ defaults to
+   * Overrides the model-menu Dropdown.Float's placement — defaults to
    * "top-end" (a dropup, right for a composer anchored to the bottom of the
    * viewport). Pages that instead center this composer vertically (e.g. the
    * project pages' "new chat" state) don't have room above the trigger for a
@@ -145,7 +145,7 @@ export interface ChatInputProps
   };
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function ChatInput(
   {
@@ -254,7 +254,7 @@ export function ChatInput(
       };
     }, [chips]);
 
-    // Global mouse handlers for thumb drag Ã¢â‚¬â€ attached once, use only refs.
+    // Global mouse handlers for thumb drag — attached once, use only refs.
     useEffect(() => {
       const onMouseMove = (e: MouseEvent) => {
         if (!isDraggingRef.current || !chipsScrollRef.current) return;
@@ -323,7 +323,7 @@ export function ChatInput(
       el.style.height = `${el.scrollHeight}px`;
     }, [value]);
 
-    // Live transcript Ã¢â€ â€™ textarea value during recording
+    // Live transcript → textarea value during recording
     useEffect(() => {
       if (!isRecording) return;
       const base = preRecordingTextRef.current;
@@ -333,7 +333,7 @@ export function ChatInput(
       onChangeRef.current?.(combined);
     }, [transcript, isRecording, isControlled]);
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Recording toggle Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // ── Recording toggle ─────────────────────────────────────────────────────
 
     const startRecording = async () => {
       if (!browserSupportsSpeechRecognition) return;
@@ -446,7 +446,7 @@ export function ChatInput(
         e.preventDefault();
         onFilePaste(files);
       }
-      // Text paste: no preventDefault Ã¢â‚¬â€ let the textarea handle it natively
+      // Text paste: no preventDefault — let the textarea handle it natively
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -496,7 +496,7 @@ export function ChatInput(
 
     // Dropping a pin card from the Pinboard here fires the same `pin:insert`
     // CustomEvent its own "Insert" button dispatches (see RightSidebar.tsx's
-    // toPinboardPin) Ã¢â‚¬â€ ChatInterface.tsx's existing listener does the actual
+    // toPinboardPin) — ChatInterface.tsx's existing listener does the actual
     // work (dedupe + add as an @-mention chip), so there's nothing to wire here.
     const handlePinDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
       if (!PINS_ENABLED || !e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
@@ -520,7 +520,7 @@ export function ChatInput(
         if (!pin?.id) return;
         window.dispatchEvent(new CustomEvent("pin:insert", { detail: pin }));
       } catch {
-        // Malformed payload Ã¢â‚¬â€ ignore rather than throw on drop.
+        // Malformed payload — ignore rather than throw on drop.
       }
     };
 
@@ -592,7 +592,7 @@ export function ChatInput(
         onDragLeave={handlePinDragLeave}
         onDrop={handlePinDrop}
       >
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Recording state announcer (screen readers only) Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── Recording state announcer (screen readers only) ── */}
         <span
           role="status"
           aria-live="polite"
@@ -612,7 +612,7 @@ export function ChatInput(
           {isRecording ? "Recording started. Listening." : ""}
         </span>
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ @agent list Ã¢â‚¬â€ floats above the box while typing a mention Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── @agent list — floats above the box while typing a mention ── */}
         {agentMention && mention.open && (
           <AgentMentionMenu
             items={mention.items}
@@ -624,10 +624,10 @@ export function ChatInput(
           />
         )}
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Attachments slot - chip strip rendered above the textarea Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── Attachments slot - chip strip rendered above the textarea ── */}
         {attachmentsSlot}
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Main content - textarea + animated placeholder Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── Main content - textarea + animated placeholder ── */}
         <div style={{ position: "relative" }}>
           {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
@@ -709,10 +709,10 @@ export function ChatInput(
           />
         </div>
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer bar Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── Footer bar ── */}
         <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: "6px" }}>
 
-          {/* Pin items row Ã¢â‚¬â€ @-mention pins and pin-folder chips, separate from feature badges */}
+          {/* Pin items row — @-mention pins and pin-folder chips, separate from feature badges */}
           {PINS_ENABLED && pinChips && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", paddingLeft: "3px", paddingRight: "3px" }}>
               {pinChips}
@@ -825,7 +825,7 @@ export function ChatInput(
               )}
             </div>
 
-            {/* Right: model selector + action button Ã¢â‚¬â€ never shrinks */}
+            {/* Right: model selector + action button — never shrinks */}
             <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
             {hideModelSelector ? null : disabledModelSelector ? (
               <span
@@ -866,7 +866,7 @@ export function ChatInput(
                 }
               >
                 {/* Picking a model or toggling adaptive thinking isn't a reason
-                    to keep this dropdown open Ã¢â‚¬â€ clone in an onClose that closes
+                    to keep this dropdown open — clone in an onClose that closes
                     it. `modelMenu` is always a <ModelMenu/> in practice, which
                     reads this prop; a caller-supplied node without it just
                     ignores the prop. */}

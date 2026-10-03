@@ -270,7 +270,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
               style={{
                 marginLeft: 48, marginTop: 4, padding: "8px 10px",
                 maxHeight: 240, overflowY: "auto",
-                fontSize: 13, lineHeight: 1.5, color: "#6A625D",
+                fontSize: 13, lineHeight: 1.5, color: "var(--neutral-600)",
                 whiteSpace: "pre-wrap", wordBreak: "break-word",
                 background: "rgba(59,54,50,0.04)", borderRadius: 8,
               }}

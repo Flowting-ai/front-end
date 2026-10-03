@@ -43,7 +43,7 @@ import { MentionChip } from '@/components/chat/MentionChip'
 import { StarterList } from '@/components/StarterSuggestions'
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from '@/lib/chat-modes'
 
-// â”€â”€ Per-chat settings persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Per-chat settings persistence ────────────────────────────────────────────
 
 const PROJECT_CHAT_SETTINGS_PREFIX = 'souvenir_project_chat_'
 
@@ -57,7 +57,7 @@ function saveProjectChatSettings(chatId: string, s: ProjectChatSettings) {
   try { localStorage.setItem(PROJECT_CHAT_SETTINGS_PREFIX + chatId, JSON.stringify(s)) } catch {}
 }
 
-// â”€â”€ Loading / not-found screens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Loading / not-found screens ───────────────────────────────────────────────
 
 function CentredMessage({ children }: { children: React.ReactNode }) {
   return (
@@ -68,7 +68,7 @@ function CentredMessage({ children }: { children: React.ReactNode }) {
 }
 
 // Same shape the real chat interface settles into once the project/chat data
-// arrives â€” reused instead of a bare "Loadingâ€¦" message so the route guard's
+// arrives — reused instead of a bare "Loading…" message so the route guard's
 // wait doesn't flash empty text.
 function LoadingChatSkeleton() {
   return (
@@ -80,7 +80,7 @@ function LoadingChatSkeleton() {
   )
 }
 
-// â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Page ──────────────────────────────────────────────────────────────────────
 import { useRecommendations } from '@/hooks/use-recommendations'
 
 
@@ -108,19 +108,19 @@ function ProjectChatPageInner() {
   const chats   = getChats(params.id)
   const chat    = isNewChat ? undefined : chats.find(c => c.id === params.chatId)
 
-  // â”€â”€ Chat-loading state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chat-loading state ────────────────────────────────────────────────────
   // Start as true so we never flash "Chat not found" before data arrives.
   const [chatsLoading, setChatsLoading] = useState(true)
 
-  // â”€â”€ Project-loading state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Project-loading state ─────────────────────────────────────────────────
   // getProject() only reads whatever's already in the shared ProjectsContext
-  // list â€” populated by the app-wide fetchProjects() bootstrap, which isn't
+  // list — populated by the app-wide fetchProjects() bootstrap, which isn't
   // guaranteed to include every project (e.g. team-shared ones, or ones
   // created after that bootstrap already ran). The parent /project/[id] page
   // covers this with its own loadProject(id) call; this route read the
   // project passively and had no equivalent, so `projectsContextLoading`
   // (tied only to the bootstrap fetch, not this specific project) could
-  // already be false while this project still hadn't been fetched â€” showing
+  // already be false while this project still hadn't been fetched — showing
   // "Project not found." for a project that genuinely exists. Mirrors the
   // chats-loading pattern directly above.
   const [projectLoading, setProjectLoading] = useState(true)
@@ -133,7 +133,7 @@ function ProjectChatPageInner() {
   // setActiveChatId, so this doesn't add an extra render tick in practice.
   const [justCreatedChatId, setJustCreatedChatId] = useState<string | null>(null)
 
-  // Local chatId state â€” mirrors the main chat page pattern.
+  // Local chatId state — mirrors the main chat page pattern.
   // Updated immediately (same React batch) when onChatCreated fires so that
   // markChatAsOptimistic + the chatId prop change land in the SAME commit,
   // preventing useChatState from clearing streaming messages via fetch-and-clear.
@@ -145,13 +145,13 @@ function ProjectChatPageInner() {
   )
 
   // Looked up by activeChatId (not the stale params.chatId) so this stays correct
-  // for a chat just created this session â€” window.history.replaceState updates
+  // for a chat just created this session — window.history.replaceState updates
   // activeChatId locally without Next.js re-resolving params.chatId.
   const activeChatRecord    = activeChatId ? chats.find(c => c.id === activeChatId) : undefined
   const activeChatCanManage = activeChatRecord?.canEdit === true
   const activeChatReadOnly  = activeChatRecord?.canEdit === false
 
-  // Load highlights whenever the active project chat changes â€” mirrors the
+  // Load highlights whenever the active project chat changes — mirrors the
   // main chat page's effect on chatIdFromUrl. Without this, the shared
   // HighlightProvider keeps whichever other chat's highlights were loaded
   // last, so returning to this chat renders zero highlight marks even
@@ -232,11 +232,11 @@ function ProjectChatPageInner() {
   const [selectedFolders,    setSelectedFolders]    = useState<PinFolder[]>([])
   // selectedPersona always starts `null` on both server and client (no
   // hydration mismatch), then gets the real value synchronously via
-  // usePendingPersonaHandoff's useLayoutEffect â€” layout effects run before
+  // usePendingPersonaHandoff's useLayoutEffect — layout effects run before
   // the browser paints or allows any interaction, so this is still available
   // before the initial-send path can possibly fire. The old lazy `useState`
   // initializer branched on `typeof window` directly, which made its return
-  // value differ between the server render and the client's first render â€” a
+  // value differ between the server render and the client's first render — a
   // real hydration mismatch whenever a pending persona was actually present
   // (same bug, same fix, as chat/page.tsx's identical pending-persona key).
   const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(null)
@@ -261,7 +261,7 @@ function ProjectChatPageInner() {
     clearMentions: clearMentionedPins,
   } = usePinMentions(setNewChatInput)
 
-  // â”€â”€ File handling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── File handling ─────────────────────────────────────────────────────────
 
   const { isDragging } = useFileDrop({
     onFiles: files => { setNewChatAttachments(prev => processFiles(files, prev)) },
@@ -276,16 +276,16 @@ function ProjectChatPageInner() {
     }
   }
 
-  // â”€â”€ Model selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Model selector ────────────────────────────────────────────────────────
 
   const { models, selectedModel, selectModel, open: openModelSelector, reasoningEffort, algorithm, setPersonaActive } = useModelSelectorContext()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
-  // Reset to the default model tier on a genuinely blank "new chat" landing â€”
+  // Reset to the default model tier on a genuinely blank "new chat" landing —
   // matches the regular chat page's reset-on-new-chat behaviour, so a model
   // picked in a previous chat doesn't silently carry over. Gated on
   // `initialPrompt` being empty AT MOUNT (not reactive) so this does NOT fire
-  // when arriving here with a `?q=` from the project page's own input â€” that
+  // when arriving here with a `?q=` from the project page's own input — that
   // transition already reflects a deliberate model pick made one click earlier
   // on that page, which this must not clobber.
   useEffect(() => {
@@ -342,7 +342,7 @@ function ProjectChatPageInner() {
       })
       .catch(() => {
         // getVersion() can 404 if the agent's published version was since
-        // deleted (manually or auto-evicted by the version cap) â€” see the
+        // deleted (manually or auto-evicted by the version cap) — see the
         // matching fix + comment in chat/page.tsx. Fall back to a non-null
         // systemPrompt so a persona chip here can't get silently stuck with
         // incomplete config.
@@ -382,7 +382,7 @@ function ProjectChatPageInner() {
     saveProjectChatSettings(activeChatId, { webSearch: webSearchEnabled, persona: selectedPersona })
   }, [activeChatId, webSearchEnabled, selectedPersona])
 
-  // â”€â”€ Chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chips ─────────────────────────────────────────────────────────────────
 
   const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
 
@@ -449,7 +449,7 @@ function ProjectChatPageInner() {
           <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
             <Dropdown.Section fluid>
               {loadingChipPersonas
-                ? <Dropdown.Item label="Loadingâ€¦" fluid disabled />
+                ? <Dropdown.Item label="Loading…" fluid disabled />
                 : chipPersonas.length > 0
                   ? chipPersonas.map(p => (
                       <Dropdown.Item
@@ -486,7 +486,7 @@ function ProjectChatPageInner() {
     />
   )
 
-  // â”€â”€ Send â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Send ──────────────────────────────────────────────────────────────────
 
   const handleSend = (value: string) => {
     if (!value.trim() && !newChatAttachments.length) return
@@ -501,15 +501,15 @@ function ProjectChatPageInner() {
     setSelectedMode(null)
   }
 
-  // â”€â”€ Route guard â€” with loading gates to prevent instant "not found" â”€â”€â”€â”€â”€â”€â”€
+  // ── Route guard — with loading gates to prevent instant "not found" ───────
   //
   // Priority:
   //   1. Project still loading (either the app-wide bootstrap list, or this
-  //      route's own loadProject(id) call) â†’ show spinner.
-  //   2. Project definitively not found â†’ show error.
-  //   3. Existing chat: chats still loading â†’ show spinner.
-  //   4. Existing chat: just created in this session (race-condition window) â†’ let through.
-  //   5. Existing chat: definitively not found after chats loaded â†’ show error.
+  //      route's own loadProject(id) call) → show spinner.
+  //   2. Project definitively not found → show error.
+  //   3. Existing chat: chats still loading → show spinner.
+  //   4. Existing chat: just created in this session (race-condition window) → let through.
+  //   5. Existing chat: definitively not found after chats loaded → show error.
 
   if (!project) {
     if (projectsContextLoading || projectLoading) {
@@ -686,7 +686,7 @@ function ProjectChatPageInner() {
                     ))}
                   </div>
 
-                  {/* Starter cards â€” generated per user by /recommendations. */}
+                  {/* Starter cards — generated per user by /recommendations. */}
                   {recommendations && (
                     <div style={{ marginTop: '20px', textAlign: 'left' }}>
                       <StarterList cards={recommendations.cards} onSelect={(card) => handleSend(card.prompt)} />
@@ -718,18 +718,18 @@ function ProjectChatPageInner() {
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
                 // Update the browser URL without triggering a Next.js navigation.
                 // router.replace() changes params.chatId (path param), which causes
-                // Next.js App Router to remount this page â€” resetting justCreatedChatId
+                // Next.js App Router to remount this page — resetting justCreatedChatId
                 // and optimisticChatIdsRef mid-stream and clearing streaming messages.
                 //
                 // Next.js 16 patches window.history.replaceState to sync usePathname()/
-                // useSearchParams() with ANY url argument â€” unless the history `data` we
+                // useSearchParams() with ANY url argument — unless the history `data` we
                 // pass already carries `__NA` (its internal marker for "app-router-owned
                 // entry"), in which case it skips that sync and calls the native
                 // replaceState directly (see node_modules/next/dist/client/components/
                 // app-router.js, patched replaceState + copyNextJsInternalHistoryState).
-                // Without this, the plain URL change here (new â†’ real chatId, an actual
+                // Without this, the plain URL change here (new → real chatId, an actual
                 // pathname change) still re-syncs usePathname(), which changes
-                // ErrorBoundary's `key={pathname}` and remounts this whole page â€” and the
+                // ErrorBoundary's `key={pathname}` and remounts this whole page — and the
                 // remount lands on a STALE router tree where params.chatId is still "new"
                 // and the ?q= param is gone, so it re-renders as an empty "new chat" state
                 // until a hard reload. Spreading the current history.state preserves its
@@ -746,7 +746,7 @@ function ProjectChatPageInner() {
                 renameChat(params.id, chatId, title)
                 // projectId + chatId ride along so TopBar (mounted once at
                 // the app-layout level, never remounted across navigation)
-                // can ignore this if the user has since navigated away â€”
+                // can ignore this if the user has since navigated away —
                 // this fires async whenever the backend's auto-generated
                 // title SSE event arrives, which can be well after the user
                 // has left this chat/project entirely.
@@ -804,12 +804,12 @@ function ProjectChatPageInner() {
 export default function ProjectChatPage() {
   const params = useParams<{ id: string; chatId: string }>()
   // Forces a genuinely fresh mount of ProjectChatPageInner on "New chat" from
-  // the sidebar's per-project quick-add â€” see PROJECT_NEW_CHAT_EVENT. A chat
-  // created earlier this session (new â†’ real id via the URL-swap trick in
+  // the sidebar's per-project quick-add — see PROJECT_NEW_CHAT_EVENT. A chat
+  // created earlier this session (new → real id via the URL-swap trick in
   // ProjectChatPageInner) leaves the router believing it never left
   // `/project/[id]/chat/new`, so a plain push() there again is a no-op and
   // the page keeps showing the old conversation. A key change is the one
-  // thing React always honors regardless of what the router did underneath â€”
+  // thing React always honors regardless of what the router did underneath —
   // same reasoning as chat/page.tsx's own newChatEpoch.
   const [resetEpoch, setResetEpoch] = useState(0)
   useEffect(() => {
@@ -822,11 +822,11 @@ export default function ProjectChatPage() {
   }, [params.id])
 
   // Also remount on a genuine route-param change (switching to a DIFFERENT
-  // existing chat, in this project or another) â€” ProjectChatPageInner froze
+  // existing chat, in this project or another) — ProjectChatPageInner froze
   // activeChatId into a lazy useState initializer with no resync effect, so
   // without this the chat pane/share overlay/highlights/per-chat settings
   // kept showing the PREVIOUS chat after clicking a different one in the
-  // sidebar. Safe alongside the event above: the newâ†’real-id URL swap uses
+  // sidebar. Safe alongside the event above: the new→real-id URL swap uses
   // window.history.replaceState (bypassing the router), so params.chatId
   // stays "new" through that transition and doesn't also trigger this.
   return (
