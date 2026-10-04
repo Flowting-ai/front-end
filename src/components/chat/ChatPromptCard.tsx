@@ -42,9 +42,16 @@ export function ChatPromptCard({ prompt, onDecided }: ChatPromptCardProps) {
   }))
   const multi = question.type === "multi_choice"
 
-  const submit = async (value: unknown) => {
+  const submit = (value: unknown) => advance({ ...answers, [question.id]: value }, value)
+
+  const skip = () => {
+    const collected = { ...answers }
+    delete collected[question.id]
+    void advance(collected, null)
+  }
+
+  const advance = async (collected: Record<string, unknown>, value: unknown) => {
     if (submitting) return
-    const collected = { ...answers, [question.id]: value }
     if (cursor < questions.length - 1) {
       setAnswers(collected)
       setCursor((current) => current + 1)
@@ -93,6 +100,7 @@ export function ChatPromptCard({ prompt, onDecided }: ChatPromptCardProps) {
         openEndedLabel={question.placeholder || (options.length === 0 ? "Type your answer…" : undefined)}
         onSelect={handleSelect}
         onOpenEndedSubmit={(text) => void submit(text)}
+        onSkip={skip}
         onSend={() => {
           if (Array.isArray(selected) ? selected.length > 0 : Boolean(selected)) {
             void submit(selected)
