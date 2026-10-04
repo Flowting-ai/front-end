@@ -5,6 +5,7 @@ import { apiFetch, apiFetchJson } from './client'
 import { toConnector, type Connector } from '@/lib/connector'
 import {
   CONNECTORS_ENDPOINT,
+  CONNECTOR_CATEGORIES_ENDPOINT,
   CONNECTOR_ACCOUNT_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
@@ -343,6 +344,7 @@ export type ConnectorListQuery = {
   cursor?: string
   limit?: number
   linked?: boolean
+  category?: string
 }
 
 export type ConnectorListPage = {
@@ -372,6 +374,8 @@ export function connectorsListUrl(query: ConnectorListQuery = {}): string {
   if (cursor) params.set('cursor', cursor)
   if (query.limit != null) params.set('limit', String(query.limit))
   if (query.linked != null) params.set('linked', String(query.linked))
+  const category = query.category?.trim()
+  if (category) params.set('category', category)
   const qs = params.toString()
   return qs ? `${CONNECTORS_ENDPOINT}?${qs}` : CONNECTORS_ENDPOINT
 }
@@ -389,6 +393,18 @@ export function listConnectors(query: ConnectorListQuery = {}): Promise<Connecto
     .finally(() => { listInFlight.delete(url) })
   listInFlight.set(url, request)
   return request
+}
+
+let categoriesRequest: Promise<string[]> | null = null
+
+export function listConnectorCategories(): Promise<string[]> {
+  categoriesRequest ??= apiFetchJson<unknown>(CONNECTOR_CATEGORIES_ENDPOINT)
+    .then(raw => z.array(z.string()).parse(raw))
+    .catch(error => {
+      categoriesRequest = null
+      throw error
+    })
+  return categoriesRequest
 }
 
 export async function listLinkedConnectors(): Promise<ConnectorCatalog[]> {

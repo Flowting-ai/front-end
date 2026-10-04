@@ -265,6 +265,8 @@ export const PERSONA_SHARE_ACCEPT_ENDPOINT     = (id: string) => withBase(`/pers
 
 // ── Connectors ────────────────────────────────────────────────────────────────
 export const CONNECTORS_ENDPOINT            = withBase('/connectors')
+// Every category the catalog files apps under, most used first.
+export const CONNECTOR_CATEGORIES_ENDPOINT  = withBase('/connectors/categories')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
 export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
 export const CONNECTOR_COMPLETE_ENDPOINT    = (slug: string) => withBase(`/connectors/${slug}/complete`)

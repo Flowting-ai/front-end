@@ -12,6 +12,7 @@ import {
   completeZapierLink,
   ConnectorCatalog,
   connectorsListUrl,
+  listConnectorCategories,
   listConnectors,
   listLinkedConnectors,
   pollConnectorUntilActive,
@@ -200,6 +201,16 @@ describe('listConnectors', () => {
     expect(connectorsListUrl({ q: 'hubspot', cursor: 'gmail', limit: 10, linked: false }))
       .toContain('q=hubspot')
     expect(connectorsListUrl({ linked: true })).toContain('linked=true')
+    expect(connectorsListUrl({ category: ' Communication ' })).toMatch(/category=Communication$/)
+    expect(connectorsListUrl({ category: '  ' })).toMatch(/\/connectors$/)
+  })
+
+  it('reads the category list once', async () => {
+    apiFetchJson.mockResolvedValue(['Communication', 'Developer Tools'])
+    expect(await listConnectorCategories()).toEqual(['Communication', 'Developer Tools'])
+    expect(await listConnectorCategories()).toEqual(['Communication', 'Developer Tools'])
+    expect(apiFetchJson).toHaveBeenCalledTimes(1)
+    expect(apiFetchJson).toHaveBeenCalledWith(expect.stringMatching(/\/connectors\/categories$/))
   })
 
   it('parses a page from GET /connectors', async () => {

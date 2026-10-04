@@ -21,11 +21,12 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'
-import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
+import { fetchRecommendations, type ConnectorPick } from '@/lib/api/recommendations'
+import { ConnectorCatalog, getConnector, listConnectorCategories, listConnectors } from '@/lib/api/connectors'
 
 const AVAILABLE_PAGE_SIZE = 10
 
-// Catalogue pages, cached by (search term, cursor). Each page request takes seconds on a cold backend,
+// Catalogue pages, cached by (search term, category, cursor). Each page request takes seconds on a cold backend,
 // and the list used to sit on the OLD page the whole time, so Next/Previous looked dead. Pages are now
 // served from this cache when seen before (Previous is instant), and the page after the current one is
 // prefetched in the background (Next is usually instant). Entries expire so connect/disconnect state
@@ -33,18 +34,22 @@ const AVAILABLE_PAGE_SIZE = 10
 const PAGE_TTL_MS = 60_000
 type BrowsePage = Awaited<ReturnType<typeof listConnectors>>
 const pageCache = new Map<string, { at: number; page: BrowsePage }>()
-const pageKey = (q: string, cursor: string | undefined) => `${q}::${cursor ?? ''}`
-function cachedPage(q: string, cursor: string | undefined): BrowsePage | null {
-  const hit = pageCache.get(pageKey(q, cursor))
+const pageKey = (q: string, category: string, cursor: string | undefined) => `${q}::${category}::${cursor ?? ''}`
+function cachedPage(q: string, category: string, cursor: string | undefined): BrowsePage | null {
+  const hit = pageCache.get(pageKey(q, category, cursor))
   return hit && Date.now() - hit.at < PAGE_TTL_MS ? hit.page : null
 }
-async function fetchBrowsePage(q: string, cursor: string | undefined): Promise<BrowsePage> {
-  const hit = cachedPage(q, cursor)
+async function fetchBrowsePage(q: string, category: string, cursor: string | undefined): Promise<BrowsePage> {
+  const hit = cachedPage(q, category, cursor)
   if (hit) return hit
-  const page = q
-    ? await listConnectors({ q, cursor, limit: AVAILABLE_PAGE_SIZE })
-    : await listConnectors({ linked: false, cursor, limit: AVAILABLE_PAGE_SIZE })
-  pageCache.set(pageKey(q, cursor), { at: Date.now(), page })
+  const page = await listConnectors({
+    q: q || category,
+    category,
+    linked: q ? undefined : false,
+    cursor,
+    limit: AVAILABLE_PAGE_SIZE,
+  })
+  pageCache.set(pageKey(q, category, cursor), { at: Date.now(), page })
   return page
 }
 
@@ -103,13 +108,10 @@ const Search = React.forwardRef<HTMLInputElement, { value: string; onChange: (va
   )
 })
 
-type CatalogView = 'all' | 'connected' | 'not-connected'
-const VIEW_LABELS: [CatalogView, string][] = [['all', 'All'], ['connected', 'Connected'], ['not-connected', 'Not connected']]
+type CatalogView = 'discover' | 'all' | 'connected' | 'not-connected'
+const VIEW_LABELS: [CatalogView, string][] = [['discover', 'Discover'], ['all', 'All'], ['connected', 'Connected'], ['not-connected', 'Not connected']]
 
-// Plain alphabetical, both directions — no "Recommended" mode: the backend
-// has no curation field to rank by (GET /connectors just orders by slug),
-// so a "Recommended" option was really just an alias for "however the
-// backend happened to return them," not a real ranking.
+// Alphabetical sorting applies within each connector view.
 type SortMode = 'name-asc' | 'name-desc'
 const SORT_LABELS: [SortMode, string, string][] = [
   ['name-asc', 'Name A–Z', 'Alphabetical, A to Z'],
@@ -144,12 +146,42 @@ function SortMenu({ value, change }: { value: SortMode; change: (value: SortMode
   )
 }
 
+function CategoryMenu({ categories, value, change }: { categories: string[]; value: string; change: (value: string) => void }) {
+  const [open, setOpen] = useState(false)
+  if (categories.length === 0) return null
+  const options = ['', ...[...categories].sort((a, b) => a.localeCompare(b))]
+  return (
+    <Dropdown.Float
+      trigger={<Button type="button" variant="outline" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>{value || 'All categories'}</Button>}
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+    >
+      <Dropdown size="sm">
+        <Dropdown.Section fluid>
+          {options.map(id => (
+            <Dropdown.Item
+              key={id || 'all'}
+              label={id || 'All categories'}
+              rightIcon={id === value ? <TickTwoIcon /> : undefined}
+              selected={id === value}
+              fluid
+              onClick={() => { change(id); setOpen(false) }}
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+}
+
 function CatalogToolbar({
-  view, changeView, query, setQuery, sort, setSort,
+  view, changeView, query, setQuery, sort, setSort, categories, category, setCategory,
 }: {
   view: CatalogView; changeView: (value: CatalogView) => void
   query: string; setQuery: (value: string) => void
   sort: SortMode; setSort: (value: SortMode) => void
+  categories: string[]; category: string; setCategory: (value: string) => void
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.lg, flexWrap: 'wrap', marginBottom: SPACE.xxl }}>
@@ -158,8 +190,9 @@ function CatalogToolbar({
           {VIEW_LABELS.map(([id, label]) => <TabsTrigger key={id} value={id}>{label}</TabsTrigger>)}
         </TabsList>
       </TabsRoot>
-      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, flexWrap: 'wrap' }}>
         <Search value={query} onChange={setQuery} />
+        <CategoryMenu categories={categories} value={category} change={setCategory} />
         <SortMenu value={sort} change={setSort} />
       </div>
     </div>
@@ -176,20 +209,30 @@ function catalogCardState(summary: ConnectorCatalog): ConnectorCatalogCardState 
   return 'available'
 }
 
-function CatalogSectionLabel({ label }: { label: string }) {
+function CatalogSectionLabel({ label, sub }: { label: string; sub?: string }) {
   return (
-    <p style={{ margin: `0 0 ${SPACE.lg}px`, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, letterSpacing: 0.2, textTransform: 'uppercase', color: 'var(--neutral-500)' }}>
-      {label}
-    </p>
+    <div style={{ margin: `0 0 ${SPACE.lg}px` }}>
+      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, letterSpacing: 0.2, textTransform: 'uppercase', color: 'var(--neutral-500)' }}>
+        {label}
+      </p>
+      {sub && <p style={{ ...muted, marginTop: 2, fontSize: 'var(--font-size-caption)' }}>{sub}</p>}
+    </div>
   )
 }
 
-function CatalogCell({ summary, select, highlight, pendingSlug }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog) => void; highlight?: string; pendingSlug?: string | null }) {
+// The category the card names: the one being filtered on when the row has
+// it, otherwise the first the catalog filed it under.
+function shownCategory(categories: string[], filter: string): string | undefined {
+  return filter && categories.includes(filter) ? filter : categories[0]
+}
+
+function CatalogCell({ summary, select, highlight, pendingSlug, category }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog | ConnectorPick) => void; highlight?: string; pendingSlug?: string | null; category: string }) {
   const state = catalogCardState(summary)
   return (
     <ConnectorCatalogCard
       name={summary.name}
       description={summary.description}
+      category={shownCategory(summary.categories, category)}
       icon={<ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={32} />}
       density="detailed"
       state={state}
@@ -202,16 +245,153 @@ function CatalogCell({ summary, select, highlight, pendingSlug }: { summary: Con
   )
 }
 
+function PickSection({ label, sub, picks, select, pendingSlug, category }: { label: string; sub: string; picks: ConnectorPick[]; select: (summary: ConnectorPick) => void; pendingSlug?: string | null; category: string }) {
+  if (picks.length === 0) return null
+  return (
+    <div style={{ marginBottom: SPACE.section }}>
+      <CatalogSectionLabel label={label} sub={sub} />
+      <div style={CATALOG_GRID}>
+        {picks.map(pick => (
+          <ConnectorCatalogCard
+            key={pick.slug}
+            title={pick.reason}
+            name={pick.name}
+            description={pick.description || pick.reason}
+            category={shownCategory(pick.categories, category)}
+            icon={<ConnectorGlyph slug={pick.slug} name={pick.name} logoUrl={pick.logoUrl} size={32} />}
+            action="icon-add"
+            actionPending={pendingSlug === pick.slug}
+            onAction={() => select(pick)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const DISCOVER_CATEGORY_COUNT = 6
+const DISCOVER_SECTION_SIZE = 6
+// Over-fetched so the client-side category check below still fills a
+// section against a backend that ignores `category` and only searches.
+const DISCOVER_FETCH_SIZE = 24
+
+// `category` narrows GET /connectors exactly. The same word goes in as `q`
+// too (search already matches catalog categories) and rows are checked again
+// here, so a backend that predates the param still returns the right apps.
+function inCategory(filed: string[], category: string): boolean {
+  return !category || filed.includes(category)
+}
+
+function CategorySection({
+  category, connectedSlugs, select, pendingSlug, onRows, viewAll,
+}: {
+  category: string
+  connectedSlugs: Set<string>
+  select: (summary: ConnectorCatalog | ConnectorPick) => void
+  pendingSlug?: string | null
+  onRows?: (rows: ConnectorCatalog[]) => void
+  viewAll: () => void
+}) {
+  const [rows, setRows] = useState<ConnectorCatalog[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void listConnectors({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE })
+      .then(page => {
+        if (!live) return
+        setRows(page.connectors)
+        onRows?.(page.connectors)
+      })
+      .catch(() => { if (live) setRows([]) })
+    return () => { live = false }
+  }, [category, onRows])
+
+  const shown = rows
+    ?.filter(row => inCategory(row.categories, category) && !connectedSlugs.has(row.slug))
+    .slice(0, DISCOVER_SECTION_SIZE)
+  if (shown?.length === 0) return null
+  return (
+    <div style={{ marginBottom: SPACE.section }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.md }}>
+        <CatalogSectionLabel label={category} />
+        <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>
+      </div>
+      <div style={CATALOG_GRID}>
+        {shown
+          ? shown.map(row => <CatalogCell key={row.slug} summary={row} select={select} pendingSlug={pendingSlug} category={category} />)
+          : Array.from({ length: 3 }).map((_, i) => (
+            <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
+          ))}
+      </div>
+    </div>
+  )
+}
+
+// Categories the person already works in lead Discover: each one their
+// connected apps and recommended picks are filed under counts once. Ties keep
+// the catalog's own most-used-first order.
+function rankCategories(categories: string[], theirs: string[][]): string[] {
+  const weight = new Map<string, number>()
+  for (const filed of theirs) for (const category of filed) weight.set(category, (weight.get(category) ?? 0) + 1)
+  return [...categories].sort((a, b) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0))
+}
+
+type PicksState = { sure: ConnectorPick[]; maybe: ConnectorPick[]; loading: boolean }
+
+// A backend that predates `description` on picks sends none; the catalog
+// entry has it.
+function withDescriptions(picks: ConnectorPick[]): Promise<ConnectorPick[]> {
+  return Promise.all(picks.map(pick => pick.description
+    ? pick
+    : getConnector(pick.slug).then(row => ({ ...pick, description: row.description }), () => pick)))
+}
+
+// The connectors half of GET /recommendations: `sureConnectors` are what
+// Slack onboarding detected in their workspace, `maybeConnectors` what their
+// memory profile suggests they use. A failed read reads as "none yet".
+function useConnectorPicks(): PicksState {
+  const [state, setState] = useState<PicksState>({ sure: [], maybe: [], loading: true })
+  useEffect(() => {
+    let live = true
+    void fetchRecommendations()
+      .then(result => Promise.all([withDescriptions(result.sureConnectors), withDescriptions(result.maybeConnectors)]))
+      .then(([sure, maybe]) => { if (live) setState({ sure, maybe, loading: false }) })
+      .catch(() => { if (live) setState({ sure: [], maybe: [], loading: false }) })
+    return () => { live = false }
+  }, [])
+  return state
+}
+
+// Null until GET /connectors/categories answers, and for good if it fails.
+function useConnectorCategories(): string[] | null {
+  const [categories, setCategories] = useState<string[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void listConnectorCategories()
+      .then(result => { if (live) setCategories(result) })
+      .catch(() => { /* derived from the rows on screen instead */ })
+    return () => { live = false }
+  }, [])
+  return categories
+}
+
 export function Catalog({
   catalog, query, select, onRows, pendingSlug,
 }: {
   catalog: ConnectorCatalog[]
   query: string
-  select: (summary: ConnectorCatalog) => void
+  select: (summary: ConnectorCatalog | ConnectorPick) => void
   onRows?: (rows: ConnectorCatalog[]) => void
   pendingSlug?: string | null
 }) {
-  const [view, setView] = useState<CatalogView>('all')
+  // A deep-linked search lands on All — Discover would hide most matches.
+  const [view, setView] = useState<CatalogView>(query ? 'all' : 'discover')
+  const picks = useConnectorPicks()
+  const catalogCategories = useConnectorCategories()
+  const [category, setCategory] = useState('')
+  const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
+  const theirCategories = [...linkedRows, ...picks.sure, ...picks.maybe].map(row => row.categories)
+  // Without GET /connectors/categories, the categories of the apps on screen.
+  const categories = rankCategories(catalogCategories ?? [...new Set(theirCategories.flat())], theirCategories)
   const [ownQuery, setOwnQuery] = useState(query)
   // `query` (the `initialSearch` deep-link, e.g. /connectors?q=slack from a
   // quick action) only seeds `ownQuery` once with a plain useState — a real
@@ -225,6 +405,7 @@ export function Catalog({
   if (query !== syncedQuery) {
     setSyncedQuery(query)
     setOwnQuery(query)
+    if (query) setView('all')
   }
   const [sort, setSort] = useState<SortMode>('name-asc')
   const [page, setPage] = useState(1)
@@ -250,7 +431,7 @@ export function Catalog({
   // The ref reset can't move into that same render-time block — React
   // disallows writing a ref's `.current` during render (`react-hooks/refs`) —
   // so it stays in a small dedicated effect below, keyed on the same value.
-  const paginationKey = `${view}::${debouncedQuery}`
+  const paginationKey = `${view}::${debouncedQuery}::${category}`
   const [syncedPaginationKey, setSyncedPaginationKey] = useState(paginationKey)
   if (paginationKey !== syncedPaginationKey) {
     setSyncedPaginationKey(paginationKey)
@@ -260,12 +441,12 @@ export function Catalog({
     cursorsRef.current = [undefined]
   }, [paginationKey])
 
-  // Same technique for the "nothing to browse-fetch" case (Connected tab,
-  // no search term — this view's rows come from `linkedRows` below, not
-  // `browseItems`): the reset itself is derivable from the current view/query,
-  // not a side effect, so it moves out of the fetch effect below instead of
-  // being its unconditional first branch.
-  const skipBrowse = view === 'connected' && !debouncedQuery
+  // Same technique for the "nothing to browse-fetch" case (Recommended, or
+  // Connected with no search term — those rows come from the picks and
+  // `linkedRows` below, not `browseItems`): the reset itself is derivable
+  // from the current view/query, not a side effect, so it moves out of the
+  // fetch effect below instead of being its unconditional first branch.
+  const skipBrowse = view === 'discover' || (view === 'connected' && !debouncedQuery)
   const [syncedSkipBrowse, setSyncedSkipBrowse] = useState(skipBrowse)
   if (skipBrowse !== syncedSkipBrowse) {
     setSyncedSkipBrowse(skipBrowse)
@@ -280,10 +461,10 @@ export function Catalog({
     if (skipBrowse) return
     let cancelled = false
     const cursor = cursorsRef.current[page - 1]
-    const hit = cachedPage(debouncedQuery, cursor)
+    const hit = cachedPage(debouncedQuery, category, cursor)
     // Not cached: show the loading skeleton until it arrives. Cached: no flash, apply right away.
     if (!hit) setBrowseBusy(true)
-    const request = hit ? Promise.resolve(hit) : fetchBrowsePage(debouncedQuery, cursor)
+    const request = hit ? Promise.resolve(hit) : fetchBrowsePage(debouncedQuery, category, cursor)
     void request
       .then(result => {
         if (cancelled) return
@@ -293,7 +474,7 @@ export function Catalog({
         if (result.nextCursor) {
           cursorsRef.current[page] = result.nextCursor
           // Warm the next page so clicking Next is instant.
-          if (result.hasMore) void fetchBrowsePage(debouncedQuery, result.nextCursor).catch(() => {})
+          if (result.hasMore) void fetchBrowsePage(debouncedQuery, category, result.nextCursor).catch(() => {})
         }
       })
       .catch(() => {
@@ -306,7 +487,7 @@ export function Catalog({
         if (!cancelled) setBrowseBusy(false)
       })
     return () => { cancelled = true }
-  }, [skipBrowse, debouncedQuery, view, page, onRows])
+  }, [skipBrowse, debouncedQuery, category, view, page, onRows])
 
   // Changing page keeps the scroll position, so the new connectors landed off-screen: bring the top of
   // the list back into view.
@@ -315,12 +496,12 @@ export function Catalog({
     lastPageRef.current = page
   }, [page])
 
-  const byName = (a: ConnectorCatalog, b: ConnectorCatalog) =>
+  const byName = (a: { name: string }, b: { name: string }) =>
     sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+  const filed = (row: { categories: string[] }) => inCategory(row.categories, category)
 
   const searching = Boolean(debouncedQuery)
-  const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
-  const source = searching || view !== 'connected' ? browseItems : linkedRows
+  const source = (searching || view !== 'connected' ? browseItems : linkedRows).filter(filed)
   const pool = source.filter(summary => {
     const connected = summary.connections.length > 0 || summary.linked
     if (view === 'connected' && !connected) return false
@@ -335,7 +516,7 @@ export function Catalog({
   // in that branch, so it needs its own sort rather than reusing `sorted`.
   const connectedItems = searching
     ? sorted.filter(summary => summary.connections.length > 0 || summary.linked)
-    : view === 'all' ? [...linkedRows].sort(byName)
+    : view === 'all' ? linkedRows.filter(filed).sort(byName)
     : view === 'connected' ? sorted : []
   const availableItems = view === 'connected' && !searching
     ? []
@@ -344,9 +525,75 @@ export function Catalog({
   const loadingPage = browseBusy && !skipBrowse
   const empty = !browseBusy && connectedItems.length === 0 && availableItems.length === 0
 
+  const connectedSlugs = new Set(linkedRows.map(row => row.slug))
+  const needle = debouncedQuery.toLowerCase()
+  const worthShowing = (pick: ConnectorPick) =>
+    !connectedSlugs.has(pick.slug) && filed(pick) && pick.name.toLowerCase().includes(needle)
+  const sure = picks.sure.filter(worthShowing).sort(byName)
+  const sureSlugs = new Set(sure.map(pick => pick.slug))
+  const maybe = picks.maybe.filter(pick => worthShowing(pick) && !sureSlugs.has(pick.slug)).sort(byName)
+
+  // Discover is for browsing; typing a search moves to All's results.
+  const changeQuery = (value: string) => {
+    setOwnQuery(value)
+    if (value.trim() && view === 'discover') setView('all')
+  }
+  const viewCategory = (value: string) => {
+    setCategory(value)
+    setView('all')
+  }
+  const discoverSections = category ? [category] : categories.slice(0, DISCOVER_CATEGORY_COUNT)
+
+  const toolbar = (
+    <CatalogToolbar
+      view={view} changeView={setView}
+      query={ownQuery} setQuery={changeQuery}
+      sort={sort} setSort={setSort}
+      categories={categories} category={category} setCategory={setCategory}
+    />
+  )
+
+  if (view === 'discover') {
+    const nothing = !picks.loading && sure.length + maybe.length === 0 && discoverSections.length === 0
+    return (
+      <section id="all-connectors">
+        {toolbar}
+        {picks.loading ? (
+          <div aria-hidden style={{ ...CATALOG_GRID, marginBottom: SPACE.section }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <PickSection label="Detected in your workspace" sub="Apps your Slack workspace already uses" picks={sure} select={select} pendingSlug={pendingSlug} category={category} />
+            <PickSection label="Suggested for you" sub="Apps your work points to" picks={maybe} select={select} pendingSlug={pendingSlug} category={category} />
+          </>
+        )}
+        {discoverSections.map(name => (
+          <CategorySection
+            key={name}
+            category={name}
+            connectedSlugs={connectedSlugs}
+            select={select}
+            pendingSlug={pendingSlug}
+            onRows={onRows}
+            viewAll={() => viewCategory(name)}
+          />
+        ))}
+        {nothing && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SPACE.lg, padding: SPACE.section }}>
+            <p style={{ ...muted, textAlign: 'center' }}>Nothing to recommend yet. Recommendations appear as Souvenir learns how you work.</p>
+            <Button variant="outline" size="sm" onClick={() => setView('all')}>Browse all connectors</Button>
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <section id="all-connectors" ref={sectionRef}>
-      <CatalogToolbar view={view} changeView={setView} query={ownQuery} setQuery={setOwnQuery} sort={sort} setSort={setSort} />
+      {toolbar}
       {empty ? (
         <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No connectors found.</p>
       ) : (
@@ -355,13 +602,13 @@ export function Catalog({
             <div style={{ marginBottom: availableItems.length > 0 ? SPACE.xxl : 0 }}>
               {showConnectedLabel && <CatalogSectionLabel label="Connected" />}
               <div style={CATALOG_GRID}>
-                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
+                {connectedItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} category={category} />)}
               </div>
             </div>
           )}
           {(availableItems.length > 0 || loadingPage) && (
             <div>
-              {showConnectedLabel && <CatalogSectionLabel label="All connectors" />}
+              {showConnectedLabel && <CatalogSectionLabel label={category ? `All ${category}` : 'All connectors'} />}
               {loadingPage ? (
                 <div aria-busy aria-label="Loading connectors" style={CATALOG_GRID}>
                   {Array.from({ length: AVAILABLE_PAGE_SIZE }).map((_, i) => (
@@ -370,7 +617,7 @@ export function Catalog({
                 </div>
               ) : (
                 <div style={CATALOG_GRID}>
-                  {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
+                  {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} category={category} />)}
                 </div>
               )}
               {/* Locked while a page is loading, so a double-click cannot skip a page. */}
@@ -390,7 +637,7 @@ export function ConnectionsView({
 }: {
   catalog: ConnectorCatalog[]
   loading: boolean
-  select: (summary: ConnectorCatalog) => void
+  select: (summary: ConnectorCatalog | ConnectorPick) => void
   addCustomApi: () => void
   /** Pre-fills the catalog search — e.g. /connectors?q=slack from the welcome page's quick actions. */
   initialSearch?: string
