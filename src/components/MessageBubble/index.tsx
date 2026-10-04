@@ -17,7 +17,7 @@ import { ContentRenderer } from '@/lib/content-renderer'
 // ── Animation constants (KDS in-place swap pattern) ────────────────────────────
 const SPRING       = { type: 'spring', stiffness: 500, damping: 30 } as const
 const SWAP_INITIAL = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
-const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
+const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }
 const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 
 // ── Shadow / focus constants ──────────────────────────────────────────────────
@@ -50,7 +50,7 @@ const WIDTH_MS = 200
 // ── Shared text style (view <p> + edit <textarea> + mirror <div> must match) ──
 const TEXT_STYLE: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
-  fontWeight:   'var(--font-weight-medium)',
+  fontWeight:   'var(--font-weight-regular)',
   fontSize:     'var(--font-size-body-lg)',
   lineHeight:   'var(--line-height-body-lg)',
   color:        'var(--message-bubble-user-text)',

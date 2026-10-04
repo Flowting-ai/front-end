@@ -47,25 +47,25 @@ const FILTER_LABEL: Record<AgentFilter, string> = {
 // branch below stay intact so this can be re-shown without rebuilding it.
 const VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']
 
-// Loading placeholder shaped like a CompactAgentCard row (round avatar, name + one
-// description line) so the list doesn't jump when real cards swap in. Uses the shared
+// Loading placeholder shaped like a CompactAgentCard (a colour tile, the name and one description
+// line, and the pill) so the list doesn't jump when real cards swap in. Uses the shared
 // .kaya-skeleton pulse utility (globals.css).
 function PersonaCardSkeleton() {
   return (
     <div
       aria-hidden
       style={{
-        width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 14,
-        display: 'flex', alignItems: 'center', gap: 12,
+        width: '100%', boxSizing: 'border-box', padding: 8, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 10,
         backgroundColor: 'var(--neutral-white)',
         boxShadow: '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
       }}
     >
-      <div className="kaya-skeleton" style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+      <div className="kaya-skeleton" style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
         <div className="kaya-skeleton" style={{ height: 13, width: '50%', borderRadius: 6 }} />
         <div className="kaya-skeleton" style={{ height: 11, width: '80%', borderRadius: 6 }} />
       </div>
+      <div className="kaya-skeleton" style={{ height: 28, width: 80, borderRadius: 14, flexShrink: 0 }} />
     </div>
   )
 }

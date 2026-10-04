@@ -10,6 +10,7 @@ import {
   StopCircleIcon,
 } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
+import { orbitEasing } from "@/lib/orbit-easing";
 import { ModelIcon } from "@/components/ModelIcon";
 import { Button } from "@/components/Button";
 import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
@@ -207,6 +208,23 @@ export function ChatInput(
     const chipsScrollRef = useRef<HTMLDivElement>(null);
     const [chipsScroll, setChipsScroll] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
     const [isThumbDragging, setIsThumbDragging] = useState(false);
+    // Generating-indicator ring: keep its sweep speed constant around the box as it resizes.
+    const orbitRef = useRef<HTMLSpanElement>(null);
+    useEffect(() => {
+      const el = orbitRef.current;
+      // An unsupported linear() would invalidate the whole animation (and CSS is absent in tests); without it the sweep
+      // just runs at constant angle (uneven on wide boxes) instead of stopping.
+      if (!el || typeof CSS === "undefined" || !CSS.supports?.("animation-timing-function", "linear(0, 1)")) return;
+      const apply = () => {
+        const { width, height } = el.getBoundingClientRect();
+        if (width > 0 && height > 0) el.style.setProperty("--kaya-orbit-ease", orbitEasing(width, height));
+      };
+      apply();
+      const observer = new ResizeObserver(apply);
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, []);
+
     const isDraggingRef        = useRef(false);
     const dragStartXRef        = useRef(0);
     const dragStartScrollLeft  = useRef(0);
@@ -592,6 +610,14 @@ export function ChatInput(
         onDragLeave={handlePinDragLeave}
         onDrop={handlePinDrop}
       >
+        {/* ── Generating indicator: gradient sweep circling the input border ── */}
+        <span
+          ref={orbitRef}
+          aria-hidden
+          className="kaya-input-orbit"
+          data-active={isStreaming ? "" : undefined}
+        />
+
         {/* ── Recording state announcer (screen readers only) ── */}
         <span
           role="status"
@@ -638,7 +664,7 @@ export function ChatInput(
                 initial={{ opacity: 0, filter: "blur(2px)" }}
                 animate={{
                   opacity: 1,
-                  filter: "blur(0px)",
+                  filter: "blur(0px)", transitionEnd: { filter: "none" },
                   transition: { duration: 0.2 },
                 }}
                 exit={{
@@ -663,7 +689,7 @@ export function ChatInput(
                   <m.span
                     key={isRecording ? "listening" : "default"}
                     initial={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
-                    animate={{ scale: 1, opacity: 1, filter: "none" }}
+                    animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                     exit={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     style={{ display: "block", transformOrigin: "left center" }}
@@ -923,7 +949,7 @@ export function ChatInput(
                           animate={
                             isWave
                               ? { scale: 1, opacity: 1 }
-                              : { scale: 1, opacity: 1, filter: "blur(0px)" }
+                              : { scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }
                           }
                           exit={{ scale: 0.5, opacity: 0, filter: "blur(4px)" }}
                           transition={{

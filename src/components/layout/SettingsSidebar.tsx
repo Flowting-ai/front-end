@@ -453,6 +453,7 @@ export function SettingsSidebar() {
               <SidebarMenuItem
                 fluid
                 variant="default"
+                danger
                 icon={<LogoutIcon />}
                 label="Log out"
                 selected={false}

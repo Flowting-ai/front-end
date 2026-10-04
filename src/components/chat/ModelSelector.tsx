@@ -89,7 +89,7 @@ function ModelSelectorItem({
               <m.span
                 key="info"
                 initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
-                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                 exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{
@@ -106,7 +106,7 @@ function ModelSelectorItem({
               <m.span
                 key="logo"
                 initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
-                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                 exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{ display: "flex", lineHeight: 0 }}

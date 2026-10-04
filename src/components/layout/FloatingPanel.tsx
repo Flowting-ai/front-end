@@ -3,8 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
-import { FloatingMenu } from '@/components/FloatingMenu'
+import { DashboardSquareOneIcon, PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { JumpTimestampGutter, type GutterMark } from '@/components/JumpTimestampGutter'
 import { springs } from '@/lib/springs'
@@ -13,6 +12,7 @@ import { useHighlight } from '@/context/highlight-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { AgentsPanelContent } from '@/components/AgentsPanel'
+import { ContextPanelContent } from '@/components/ContextPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
@@ -20,6 +20,10 @@ import { CHAT_ROUTE } from '@/lib/routes'
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 
 const AGENTS_PANEL_TITLE = 'Agents'
+const CONTEXT_PANEL_TITLE = 'Context'
+
+// The top bar's Share button ends 44px down the page; the toolbar starts 12px below it.
+const TOOLBAR_TOP = 56
 
 // Derives the active chat ID from the URL so the gutter can be filtered
 // per-chat. Handles both URL patterns used in the app:
@@ -38,6 +42,7 @@ function FloatingPanelImpl() {
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
   const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
+  const contextOpen = sidePanel?.title === CONTEXT_PANEL_TITLE
   const currentChatId = useCurrentChatId()
   const pathname = usePathname()
   // A read-only chat — not owned by the viewer, or owned but archived (see
@@ -58,36 +63,39 @@ function FloatingPanelImpl() {
   // (project chat, /chats, persona chat, etc.), so the trigger would be a
   // dead button there.
   const isChatPage = pathname === CHAT_ROUTE
+  // Context describes whatever chat is open, so it also belongs on project chats
+  // (which share this toolbar), unlike Agents above.
+  const isContextPage = isChatPage || /^\/project\/[^/]+\/chat\//.test(pathname)
 
   // If the panel is open and the user navigates off /chat, force it closed —
   // otherwise the side panel context (global, outside this page) would keep
   // showing "Agents" content on a page whose floating menu no longer offers it.
   useEffect(() => {
-    if (!isChatPage && agentsOpen) setSidePanel(null)
-  }, [isChatPage, agentsOpen, setSidePanel])
+    if ((!isChatPage && agentsOpen) || (!isContextPage && contextOpen)) setSidePanel(null)
+  }, [isChatPage, isContextPage, agentsOpen, contextOpen, setSidePanel])
 
   // The effect above only fires while this component stays mounted. AppLayout
   // unmounts FloatingPanel entirely on some routes (e.g. /projects), which
   // skips it — leaving stale "Agents" content in the (still-mounted) side
   // panel context/sidebar. Close it on unmount too, using a ref so the
   // cleanup sees the latest agentsOpen without re-running on every toggle.
-  const agentsOpenRef = useRef(agentsOpen)
+  const ownPanelOpenRef = useRef(agentsOpen || contextOpen)
   useEffect(() => {
-    agentsOpenRef.current = agentsOpen
-  }, [agentsOpen])
+    ownPanelOpenRef.current = agentsOpen || contextOpen
+  }, [agentsOpen, contextOpen])
   useEffect(() => {
     return () => {
-      if (agentsOpenRef.current) setSidePanel(null)
+      if (ownPanelOpenRef.current) setSidePanel(null)
     }
   }, [setSidePanel])
 
   const handleTogglePinboard = () => {
-    if (!pinboardOpen) { closeHighlight(); if (agentsOpen) setSidePanel(null) }
+    if (!pinboardOpen) { closeHighlight(); if (agentsOpen || contextOpen) setSidePanel(null) }
     togglePinboard()
   }
 
   const handleToggleHighlight = () => {
-    if (!highlightOpen) { closePinboard(); if (agentsOpen) setSidePanel(null) }
+    if (!highlightOpen) { closePinboard(); if (agentsOpen || contextOpen) setSidePanel(null) }
     toggleHighlight()
   }
 
@@ -106,6 +114,21 @@ function FloatingPanelImpl() {
     setSidePanel({
       title:   AGENTS_PANEL_TITLE,
       content: <AgentsPanelContent />,
+      onClose: () => setSidePanel(null),
+      sidePadding: 8,
+    })
+  }
+
+  const handleToggleContext = () => {
+    if (contextOpen) {
+      setSidePanel(null)
+      return
+    }
+    closePinboard()
+    closeHighlight()
+    setSidePanel({
+      title:   CONTEXT_PANEL_TITLE,
+      content: <ContextPanelContent />,
       onClose: () => setSidePanel(null),
       sidePadding: 8,
     })
@@ -147,7 +170,7 @@ function FloatingPanelImpl() {
             style={{
               position: 'absolute',
               right:    28,
-              top:      120,
+              top:      TOOLBAR_TOP + 200,
               zIndex:   10,
             }}
           >
@@ -156,27 +179,26 @@ function FloatingPanelImpl() {
         )}
       </AnimatePresence>
 
-      {/* Floating toolbar - vertically centered. Hidden entirely (not just
-          disabled) on an archived chat — see isArchivedChat above. */}
-      {!isArchivedChat && (PINS_ENABLED || HIGHLIGHTS_ENABLED || isChatPage) && (
+      {/* Floating toolbar - pinned just below the top bar (Share button). Hidden entirely (not
+          just disabled) on an archived chat — see isArchivedChat above. */}
+      {!isArchivedChat && (PINS_ENABLED || HIGHLIGHTS_ENABLED || isChatPage || isContextPage) && (
         <div
           style={{
             position:  'absolute',
-            right:     26,
-            top:       '50%',
-            transform: 'translateY(-50%)',
+            right:     16,
+            top:       TOOLBAR_TOP + 4,
             zIndex:    10,
           }}
         >
-          <FloatingMenu aria-label="Chat tools">
-            {PINS_ENABLED && (
+          {/* Bare icon buttons, no panel chrome. The top offset above includes the 4px the
+              old panel padded them by; the right offset lines the buttons up with the Share button above. */}
+          <div role="toolbar" aria-label="Chat tools" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {isContextPage && (
               <FloatingMenuItem
-                icon={<PinIcon size={20} />}
-                label="Pinboard"
-                active={pinboardOpen}
-                disabled={isReadOnlyChat}
-                onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
-                onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
+                icon={<DashboardSquareOneIcon size={20} />}
+                label="Context"
+                active={contextOpen}
+                onClick={handleToggleContext}
               />
             )}
             {isChatPage && (
@@ -188,6 +210,16 @@ function FloatingPanelImpl() {
                 onClick={isReadOnlyChat ? undefined : handleToggleAgents}
               />
             )}
+            {PINS_ENABLED && (
+              <FloatingMenuItem
+                icon={<PinIcon size={20} />}
+                label="Pinboard"
+                active={pinboardOpen}
+                disabled={isReadOnlyChat}
+                onClick={isReadOnlyChat ? undefined : handleTogglePinboard}
+                onMouseEnter={isReadOnlyChat ? undefined : prefetchPinboard}
+              />
+            )}
             {HIGHLIGHTS_ENABLED && (
               <FloatingMenuItem
                 icon={<QuillWriteOneIcon size={20} />}
@@ -197,7 +229,7 @@ function FloatingPanelImpl() {
                 onClick={isReadOnlyChat ? undefined : handleToggleHighlight}
               />
             )}
-          </FloatingMenu>
+          </div>
         </div>
       )}
     </>

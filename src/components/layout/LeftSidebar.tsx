@@ -2450,6 +2450,10 @@ function LeftSidebarImpl({
   const accountCredits = orgId
     ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
     : (planWarning ? undefined : (user?.creditsRemaining ?? undefined));
+  // Total for the same pool, so the menu can show how much of it is left.
+  const accountCreditsTotal = orgId
+    ? (orgHasPlan ? org?.creditPool?.total : undefined)
+    : (planWarning ? undefined : (user?.creditsTotal ?? undefined));
 
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
@@ -2526,6 +2530,9 @@ function LeftSidebarImpl({
                 planWarning={planWarning}
                 planType={planTypeLabel}
                 credits={accountCredits}
+                creditsTotal={accountCreditsTotal}
+                showUpgradePlan={planTypeLabel !== 'Pro'}
+                email={user?.email ?? undefined}
                 planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
@@ -2639,6 +2646,9 @@ function LeftSidebarImpl({
             planWarning={planWarning}
             planType={planTypeLabel}
             credits={accountCredits}
+                creditsTotal={accountCreditsTotal}
+                showUpgradePlan={planTypeLabel !== 'Pro'}
+                email={user?.email ?? undefined}
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}

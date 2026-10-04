@@ -348,8 +348,8 @@ const overrides = [
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
-  ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(0, 0, 0, 0.35), 0px 0px 0px 1px rgba(255, 255, 255, 0.08)'],
-  ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(0, 0, 0, 0.22)'],
+  ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
+  ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1)'],
   // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
   // invisible on a near-black page). Hover and focus step the glow up.
   ['--shadow-chat-input', '0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07)'],

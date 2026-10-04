@@ -1116,7 +1116,7 @@ export function ChatInput({
                 key="placeholder"
                 aria-hidden
                 initial={{ opacity: 0, filter: 'blur(2px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.2 } }}
+                animate={{ opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' }, transition: { duration: 0.2 } }}
                 exit={{ opacity: 0, filter: 'blur(2px)', transition: { duration: 0.15 } }}
                 style={{
                   position:      'absolute',
@@ -1135,7 +1135,7 @@ export function ChatInput({
                   <m.span
                     key={isRecording ? 'listening' : 'default'}
                     initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                    animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                    animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
                     exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     style={{ display: 'block', transformOrigin: 'left center' }}
@@ -1325,7 +1325,7 @@ export function ChatInput({
                         <m.span
                           key={iconKey}
                           initial={isWave ? { scale: 0.5, opacity: 0 }               : { scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
-                          animate={isWave ? { scale: 1,   opacity: 1 }               : { scale: 1,   opacity: 1, filter: 'blur(0px)' }}
+                          animate={isWave ? { scale: 1,   opacity: 1 }               : { scale: 1,   opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
                           exit={isWave    ? { scale: 0.5, opacity: 0 }               : { scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}

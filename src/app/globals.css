@@ -183,6 +183,82 @@
   animation: kayaSilverLine 1.6s linear infinite;
 }
 
+/* Generating indicator: a full-lap gradient sweeping the chat input border. The ring is a
+   conic gradient (transparent tail -> two-colour head) masked to a 3px band and rotated by
+   animating the registered --kaya-orbit-angle. ChatInput sets --kaya-orbit-ease (a linear()
+   curve from lib/orbit-easing) so the head travels the border at constant speed instead of
+   constant angle. Colours come from the neutral tokens, so both themes stay consistent. Always mounted so it can fade in/out; the
+   animation is paused while inactive so an idle input costs nothing. */
+@property --kaya-orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:root {
+  /* Thumb of the Light / Dark / System slider (ThemeModeSwitcher). */
+  --kaya-seg-thumb-bg: var(--neutral-white);
+}
+
+:root[data-theme="dark"] {
+  --kaya-seg-thumb-bg: var(--neutral-200);
+}
+
+:root {
+  /* Soft warm neutrals; the neutral scale flips in dark mode, so the same tokens read as a
+     light-on-dark sweep there. Light mode steps one shade paler so it stays airy. */
+  --kaya-orbit-color-a: var(--neutral-200);
+  --kaya-orbit-color-b: var(--neutral-400);
+}
+
+:root[data-theme="dark"] {
+  --kaya-orbit-color-a: var(--neutral-300);
+  --kaya-orbit-color-b: var(--neutral-500);
+}
+
+.kaya-input-orbit {
+  position: absolute;
+  inset: 0;
+  padding: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--kaya-orbit-angle),
+    transparent 0deg,
+    var(--kaya-orbit-color-a) 200deg,
+    var(--kaya-orbit-color-b) 345deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  animation: kayaInputOrbit 2.8s var(--kaya-orbit-ease, linear) infinite;
+  animation-play-state: paused;
+}
+
+.kaya-input-orbit[data-active] {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+@keyframes kayaInputOrbit {
+  to { --kaya-orbit-angle: 360deg; }
+}
+
+/* Reduced motion: no sweep — a still, faint ring marks the generating state instead. */
+@media (prefers-reduced-motion: reduce) {
+  .kaya-input-orbit {
+    animation: none;
+    background: linear-gradient(90deg, var(--kaya-orbit-color-a), var(--kaya-orbit-color-b));
+    opacity: 0;
+  }
+  .kaya-input-orbit[data-active] {
+    opacity: 0.4;
+  }
+}
+
 .kaya-label-shimmer {
   background-image: linear-gradient(90deg, var(--thinking-shimmer-edge) 0%, var(--thinking-shimmer-peak) 45%, var(--thinking-shimmer-peak) 55%, var(--thinking-shimmer-edge) 100%);
   background-size: 200% 100%;

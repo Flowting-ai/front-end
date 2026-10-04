@@ -19,6 +19,7 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { registerChatScroller } from "@/lib/chat-scroller";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
+import { publishChatContext, clearChatContext } from "@/lib/chat-context-store";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
 import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { UIMessage } from "@/types/chat";
@@ -349,6 +350,16 @@ export function ChatInterface({
   } = useChatState(chatId, chatStateOptions);
 
   const messages = rawMessages ?? [];
+
+  // Hand the live messages to the Context panel, which renders in the app shell outside
+  // this tree. Cleared on unmount (only if still ours) so a closed chat leaves no stale data.
+  useEffect(() => {
+    publishChatContext({ chatId, messages });
+  }, [chatId, messages]);
+  // Separate from the publish above so a normal message update doesn't clear and
+  // republish (which would flash the panel's empty state); this only runs on
+  // unmount or when the chat changes.
+  useEffect(() => () => clearChatContext(chatId), [chatId]);
 
   // Append host-supplied local messages once. Declared after useChatState so, on a
   // fresh mount, its "no chat yet" reset has already run and cannot clear them.
@@ -1133,9 +1144,12 @@ export function ChatInterface({
                     left:       0,
                     width:      '100%',
                     transform:  `translateY(${vRow.start}px)`,
-                    // Promote each row to its own compositor layer so
-                    // translateY updates don't trigger a full-page repaint.
-                    willChange: 'transform',
+                    // Promote only the row that is still streaming to its own
+                    // compositor layer so translateY updates don't trigger a
+                    // full-page repaint. Settled rows drop the hint: a permanent
+                    // layer rasterizes text with grayscale anti-aliasing, which
+                    // reads as a slight blur.
+                    willChange: message.isLoading ? 'transform' : undefined,
                     // Contain layout so height changes to this row (e.g. the
                     // last streaming message growing) don't cause ancestor
                     // reflows that disturb the scroll position of other rows.

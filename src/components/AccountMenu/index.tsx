@@ -14,33 +14,33 @@ import {
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
+import { ThemeModeSwitcher } from '@/components/ThemeModeSwitcher'
+import { useTheme } from '@/context/theme-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface AccountMenuProps {
-  /** Display name shown in both trigger and identity header. */
+  /** Display name shown in the trigger; the menu header falls back to it when there is no `email`. */
   name: string
-  /** Workspace identity line under the name — e.g. "Acme Corp". Omit for
+  /** Workspace identity line under the name in the trigger — e.g. "Acme Corp". Omit for
    *  an individual account with no workspace context. */
   plan?: string
-  /** True when the viewer has no active plan — renders a "No Plan Selected"
-   *  status tag instead of the credit count. */
+  /** True when the viewer has no active plan — the plan card shows a "No plan selected"
+   *  chip instead of the credits. */
   planWarning?: boolean
-  /** Plan-type label prefixed onto the credit count in the status tag — e.g.
-   *  "Workspace" or "Pro", giving "Workspace | 250 credits left". Omit to
-   *  show just the credit count with no prefix. Ignored when `planWarning`. */
+  /** Plan name shown as the plan card's chip, e.g. "Free Plan", "Core", "Pro". The chip
+   *  colour is derived from it. */
   planType?: string
-  /** Credit count shown in the status tag beneath the identity row. Ignored
-   *  when `planWarning` is true. */
+  /** Credits remaining, shown in the plan card. Ignored when `planWarning` is true. */
   credits?: number
-  /** Status-tag color — 'blue' for a workspace running on its starting
-   *  credit grant with no plan selected yet (e.g. "Free Plan | 25000 credits
-   *  left"); 'neutral' (default) once a real plan is selected, and always
-   *  for individuals. Ignored when `planWarning` (that state has its own
-   *  look). @default 'neutral' */
+  /** @deprecated Ignored. The plan chip colour now comes from `planType`. */
   planStatusVariant?: 'neutral' | 'blue'
   /** Avatar image URL. Falls back to initials if absent. */
   avatarSrc?: string
+  /** Signed-in email, shown at the top of the menu. Falls back to `name`. */
+  email?: string
+  /** Total credits for the period; with `credits` it draws the remaining-credits bar. */
+  creditsTotal?: number
   /** Controlled open state. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -117,186 +117,148 @@ const ShortcutPill = ({ label }: { label: string }) => (
   </div>
 )
 
-// ── Status badge — "No Plan Selected" / "{x} credits left" pill ──────────────────
-// 'blue' variant reuses the same --color-tag-Blue-* tokens the shared Badge
-// component's Blue color uses, for the "Free Plan" (no plan selected yet,
-// still on starting credits) state.
+// ── Email header ─────────────────────────────────────────────────────────────────
+// Who the menu belongs to. The email alone: name and workspace already show on the
+// sidebar trigger, so repeating them (and the avatar) here only added noise.
 
-const StatusBadge = ({ label, variant = 'neutral', onClick }: { label: string; variant?: 'neutral' | 'blue'; onClick?: () => void }) => {
-  const isBlue = variant === 'blue'
-  const clickable = !!onClick
-  const style: React.CSSProperties = {
-    display:        'flex',
-    alignItems:     'center',
-    justifyContent: 'center',
-    padding:        '2px 6px',
-    borderRadius:   '6px',
-    border:         'none',
-    background:     isBlue ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
-    boxShadow:      isBlue
-      ? 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)'
-      : '0px 1px 1.5px 0px var(--neutral-950-20), 0px 0px 0px 1px color-mix(in srgb, var(--neutral-600) 50%, transparent), inset 0px 1px 0px 0px var(--neutral-white-70), inset 0px -1px 0px 0px color-mix(in srgb, var(--neutral-600) 10%, transparent)',
-    flexShrink:     0,
-    cursor:         clickable ? 'pointer' : 'default',
-  }
-  const text = (
+const EmailHeader = ({ email }: { email: string }) => (
+  <div style={{ padding: '6px 8px 2px' }}>
+    <p
+      title={email}
+      style={{
+        margin:       0,
+        fontFamily:   'var(--font-body)',
+        fontWeight:   'var(--font-weight-medium)',
+        fontSize:     'var(--font-size-body)',
+        lineHeight:   'var(--line-height-body)',
+        color:        'var(--neutral-700)',
+        whiteSpace:   'nowrap',
+        overflow:     'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {email}
+    </p>
+  </div>
+)
+
+// ── Plan card ──────────────────────────────────────────────────────────────────
+// Plan + credits in one card. The plan name is a chip coloured by plan, with the plan's
+// total credits beneath. The theme slider rides at the top right.
+
+type PlanTone = 'blue' | 'purple' | 'green' | 'brown' | 'yellow' | 'neutral'
+
+const PLAN_TONE_TOKENS: Record<PlanTone, { bg: string; text: string; shadow: string }> = {
+  blue:    { bg: 'var(--color-tag-Blue-bg)',    text: 'var(--color-tag-Blue-text)',    shadow: 'var(--color-tag-Blue-shadow), var(--color-tag-Blue-inner-shadow)' },
+  purple:  { bg: 'var(--color-tag-Purple-bg)',  text: 'var(--color-tag-Purple-text)',  shadow: 'var(--color-tag-Purple-shadow), var(--color-tag-Purple-inner-shadow)' },
+  green:   { bg: 'var(--color-tag-Green-bg)',   text: 'var(--color-tag-Green-text)',   shadow: 'var(--color-tag-Green-shadow), var(--color-tag-Green-inner-shadow)' },
+  brown:   { bg: 'var(--color-tag-Brown-bg)',   text: 'var(--color-tag-Brown-text)',   shadow: 'var(--color-tag-Brown-shadow), var(--color-tag-Brown-inner-shadow)' },
+  yellow:  { bg: 'var(--color-tag-Yellow-bg)',  text: 'var(--color-tag-Yellow-text)',  shadow: 'var(--color-tag-Yellow-shadow), var(--color-tag-Yellow-inner-shadow)' },
+  neutral: { bg: 'var(--color-tag-Neutral-bg)', text: 'var(--color-tag-Neutral-text)', shadow: 'var(--color-tag-Neutral-shadow), var(--color-tag-Neutral-inner-shadow)' },
+}
+
+/** One colour per plan so it reads at a glance: Free Plan blue, Free Trial purple, Core green, Pro brown. */
+function planTone(label: string, planWarning: boolean): PlanTone {
+  if (planWarning) return 'yellow'
+  const key = label.toLowerCase()
+  if (key.includes('trial')) return 'purple'
+  if (key.includes('free')) return 'blue'
+  if (key.includes('core')) return 'green'
+  if (key.includes('pro')) return 'brown'
+  return 'neutral'
+}
+
+const PlanChip = ({ label, tone }: { label: string; tone: PlanTone }) => {
+  const t = PLAN_TONE_TOKENS[tone]
+  return (
     <span
       style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 'var(--font-weight-medium)',
-        // 2px larger than caption text so the plan and credits read at a glance.
-        fontSize:   'calc(var(--font-size-caption) + 2px)',
-        lineHeight: 'calc(var(--line-height-caption) + 2px)',
-        color:      isBlue ? 'var(--color-tag-Blue-text)' : 'var(--neutral-700)',
-        whiteSpace: 'nowrap',
+        display:         'inline-flex',
+        alignItems:      'center',
+        gap:             5,
+        padding:         '2px 8px',
+        borderRadius:    6,
+        backgroundColor: t.bg,
+        boxShadow:       t.shadow,
+        color:           t.text,
+        fontFamily:      'var(--font-body)',
+        fontWeight:      'var(--font-weight-medium)',
+        fontSize:        'var(--font-size-caption)',
+        lineHeight:      'var(--line-height-caption)',
+        whiteSpace:      'nowrap',
+        minWidth:        0,
       }}
     >
-      {label}
+      <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'currentColor', flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
     </span>
   )
-  // Clickable: a real button that opens the plan page.
-  if (clickable) {
-    return (
-      <button type="button" aria-label={`${label} — view plan`} onClick={onClick} style={style}>
-        {text}
-      </button>
-    )
-  }
-  return <div style={style}>{text}</div>
 }
 
-// ── Avatar content ─────────────────────────────────────────────────────────────
+const formatCredits = (n: number) => Math.max(0, Math.round(n)).toLocaleString()
 
-const AvatarContent = ({ name, avatarSrc }: { name: string; avatarSrc?: string }) => {
-  if (avatarSrc) {
-    return (
-      <img
-        src={avatarSrc}
-        alt={name}
-        style={{
-          position:      'absolute',
-          inset:         0,
-          width:         '100%',
-          height:        '100%',
-          objectFit:     'cover',
-          display:       'block',
-          pointerEvents: 'none',
-        }}
-      />
-    )
-  }
-  return (
-    <div
-      style={{
-        position:       'absolute',
-        inset:          0,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        background:     'var(--neutral-100)',
-        fontFamily:     'var(--font-body)',
-        fontWeight:     'var(--font-weight-medium)',
-        fontSize:       'var(--font-size-caption)',
-        color:          'var(--neutral-600)',
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  )
-}
-
-// ── Identity row ──────────────────────────────────────────────────────────────
-
-const BODY_LH    = 22  // var(--line-height-body)    = 22px
-const CAPTION_LH = 16  // var(--line-height-caption) = 16px
-
-const IdentityRow = ({ name, plan, avatarSrc }: {
-  name: string; plan?: string; avatarSrc?: string
+const PlanCard = ({
+  planWarning,
+  planType,
+  credits,
+  creditsTotal,
+  onClick,
+}: {
+  planWarning?: boolean
+  planType?: string
+  /** Remaining credits. Only used as a fallback when the total is unknown. */
+  credits?: number
+  creditsTotal?: number
+  onClick?: () => void
 }) => {
-  const avatarSize = plan ? BODY_LH + CAPTION_LH : BODY_LH
+  const { enabled: themingEnabled } = useTheme()
+  // The plan's total credits; falls back to the balance when no total is known.
+  const shownCredits = planWarning ? undefined : (creditsTotal ?? credits)
+  if (!planWarning && !planType && shownCredits === undefined && !themingEnabled) return null
+
+  const planLabel = planWarning ? 'No plan selected' : (planType ?? 'Plan')
+
+  const creditsBlock = shownCredits !== undefined ? (
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+      <span style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 20, lineHeight: '24px', color: 'var(--neutral-900)', whiteSpace: 'nowrap' }}>
+        {formatCredits(shownCredits)}
+      </span>
+      <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
+        credits
+      </span>
+    </span>
+  ) : null
 
   return (
-    <div
-      style={{
-        display:      'flex',
-        alignItems:   'center',
-        padding:      '5px 6px',
-        borderRadius: '6px',
-        overflow:     'hidden',
-        gap:          '8px',
-      }}
-    >
+    <div style={{ padding: '4px 6px 6px' }}>
       <div
         style={{
-          width:        avatarSize,
-          height:       avatarSize,
-          overflow:     'hidden',
-          borderRadius: '6px',
-          flexShrink:   0,
-          position:     'relative',
+          display:         'flex',
+          flexDirection:   'column',
+          gap:             8,
+          padding:         10,
+          borderRadius:    10,
+          backgroundColor: 'var(--neutral-100)',
+          boxShadow:       'inset 0px 0px 0px 1px var(--neutral-200)',
         }}
       >
-        <AvatarContent name={name} avatarSrc={avatarSrc} />
-      </div>
-
-      <div
-        style={{
-          display:       'flex',
-          flexDirection: 'column',
-          flex:          '1 0 0',
-          minWidth:      1,
-        }}
-      >
-        <p
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-semibold)',
-            fontSize:     'var(--font-size-body)',
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--neutral-700)',
-            whiteSpace:   'nowrap',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            margin:       0,
-          }}
-        >
-          {name}
-        </p>
-        {plan && (
-          <p
-            style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   'var(--font-weight-regular)',
-              fontSize:     'calc(var(--font-size-caption) + 1px)',
-              lineHeight:   'var(--line-height-caption)',
-              color:        'var(--neutral-500)',
-              whiteSpace:   'nowrap',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              margin:       0,
-            }}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <PlanChip label={planLabel} tone={planTone(planLabel, !!planWarning)} />
+          <ThemeModeSwitcher />
+        </div>
+        {creditsBlock && (onClick ? (
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label="View plan"
+            style={{ display: 'flex', width: '100%', margin: 0, padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
           >
-            {plan}
-          </p>
-        )}
+            {creditsBlock}
+          </button>
+        ) : (
+          <div style={{ display: 'flex' }}>{creditsBlock}</div>
+        ))}
       </div>
-
-    </div>
-  )
-}
-
-// ── Plan status row — centered standalone row beneath the identity row.
-// "No Plan Selected" when there's no active plan, otherwise "{planType} |
-// {x} credits left" (e.g. "Workspace | 250 credits left") — the two are
-// mutually exclusive so this always renders exactly one. ──
-
-const PlanStatusRow = ({ planWarning, planType, credits, planStatusVariant = 'neutral', onClick }: { planWarning?: boolean; planType?: string; credits?: number; planStatusVariant?: 'neutral' | 'blue'; onClick?: () => void }) => {
-  if (!planWarning && credits === undefined) return null
-  const creditsLabel = `${Math.round(credits ?? 0).toLocaleString()} credits left`
-  const label = planWarning ? 'No Plan Selected' : (planType ? `${planType} | ${creditsLabel}` : creditsLabel)
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 6px' }}>
-      <StatusBadge label={label} variant={planWarning ? 'neutral' : planStatusVariant} onClick={onClick} />
     </div>
   )
 }
@@ -310,8 +272,9 @@ export function AccountMenu({
   planWarning = false,
   planType,
   credits,
-  planStatusVariant = 'neutral',
   avatarSrc,
+  email,
+  creditsTotal,
   open: controlledOpen,
   onOpenChange,
   placement = 'top-start',
@@ -382,13 +345,13 @@ export function AccountMenu({
       >
         <Dropdown maxHeight={false} style={{ width: typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth }}>
           <Dropdown.Section fluid>
-            <IdentityRow name={name} plan={plan} avatarSrc={avatarSrc} />
+            <EmailHeader email={email ?? name} />
 
-            <PlanStatusRow
+            <PlanCard
               planWarning={planWarning}
               planType={planType}
               credits={credits}
-              planStatusVariant={planStatusVariant}
+              creditsTotal={creditsTotal}
               onClick={onPlanStatusClick ? () => { onPlanStatusClick(); close() } : undefined}
             />
 
@@ -443,6 +406,7 @@ export function AccountMenu({
             <Dropdown.Item
               icon={<LoginOneIcon animated />}
               label="Log out"
+              variant="danger"
               fluid
               onClick={() => { onLogOut?.(); close() }}
             />

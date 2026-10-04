@@ -105,7 +105,7 @@ export function AnimatedLogo({
         {!showModel ? (
           <m.div key="souvenir"
             initial={{ opacity: 0, scale: 0.5, rotate: -8, filter: "blur(6px)" }}
-            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
+            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
             exit={{ opacity: 0, scale: 0.25, rotate: -20, y: -5, filter: "blur(10px)" }}
             transition={{ type: "spring", stiffness: 420, damping: 26 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -114,7 +114,7 @@ export function AnimatedLogo({
         ) : (
           <m.div key={`model-${currentModelKey}`}
             initial={{ opacity: 0, scale: 0.15, rotate: 14, filter: "blur(8px)" }}
-            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
+            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={16} />
@@ -201,7 +201,7 @@ function CyclingLabel({ words }: { words: string[] }) {
       <m.span
         key={words[index]}
         initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-        animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+        animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" }, scale: 1 }}
         exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
         transition={{ type: "spring", stiffness: 520, damping: 32 }}
         style={{ display: "block", transformOrigin: "left center" }}
@@ -241,7 +241,7 @@ function ResearchTitle({ text }: { text: string }) {
     <m.span
       key={text}
       initial={shouldReduceMotion ? false : { opacity: 0, x: 10, filter: "blur(8px)" }}
-      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+      animate={{ opacity: 1, x: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
       transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
       style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
     >

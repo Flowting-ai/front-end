@@ -288,7 +288,6 @@
   --shadow-text-field-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-200);
   --shadow-text-field-filled: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 2px var(--neutral-100);
   --shadow-text-field-error: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--red-500);
-  --shadow-message-bubble-user: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-100);
   --shadow-surface-card: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-100);
   --shadow-surface-card-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-surface-card-selected: 0px 2px 2.8px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1.5px rgba(0, 0, 0, 0.3);
@@ -351,8 +350,8 @@
   --text-field-ring-hover: rgba(255, 255, 255, 0.24);
   --message-bubble-user-bg: #2A2A2A;
   --message-bubble-user-text: var(--neutral-900);
-  --shadow-message-bubble-user: 0px 1px 2px 0px rgba(0, 0, 0, 0.35), 0px 0px 0px 1px rgba(255, 255, 255, 0.08);
-  --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px rgba(0, 0, 0, 0.22);
+  --shadow-message-bubble-user: 0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
+  --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1);
   --shadow-chat-input: 0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07);
   --shadow-chat-input-hover: 0px 0px 0px 1px rgba(255, 255, 255, 0.16), 0px 0px 26px -2px rgba(255, 255, 255, 0.10), 0px 0px 0px 3px rgba(255, 255, 255, 0.04);
   --shadow-chat-input-focus: 0px 0px 0px 1px rgba(255, 255, 255, 0.26), 0px 0px 30px -2px rgba(255, 255, 255, 0.13), 0px 0px 0px 5px rgba(255, 255, 255, 0.06);

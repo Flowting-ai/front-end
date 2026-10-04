@@ -510,8 +510,9 @@
 
   /* Outer: two-layer lift + 1px warm border ring */
   --shadow-message-bubble-user:
-    0px 1.091px 1.091px 0px var(--neutral-800-05),
-    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 1.091px 1.091px 0px rgba(38, 33, 30, 0.08),
+    0px 2px 5px 0px        rgba(38, 33, 30, 0.17),
+    0px 5px 12px -2px      rgba(38, 33, 30, 0.10),
     0px 0px 0px 1px        var(--neutral-100);
 
   /* Inner: bottom-only depth shadow — grounds the bubble. Blur bumped up from
@@ -519,7 +520,7 @@
      a small/short bubble (it needs enough surface for anti-aliasing to catch
      it), so the groove was only visible on wider bubbles. */
   --shadow-message-bubble-user-inner:
-    inset 0px -2px 1.5px 0px var(--neutral-100);
+    inset 0px -2px 1.5px 0px var(--neutral-200);
 
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);

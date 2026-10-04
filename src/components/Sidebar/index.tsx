@@ -1052,7 +1052,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           {/* Projects/Agents + Recents — always mounted so shown/scroll state survives collapse/expand.
               motion.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <motion.div
-            animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
+            animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)', transitionEnd: isCollapsed ? {} : { filter: 'none' } }}
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}

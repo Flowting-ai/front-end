@@ -32,16 +32,19 @@ function Lead({ card, size }: { card: StarterCard; size: number }) {
 /** One row per card — the chat home's suggestions under the composer. */
 export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelect: (card: StarterCard) => void }) {
   return (
-    <ul className={styles.list}>
-      {cards.map(card => (
-        <li key={card.label}>
-          <button type="button" className={styles.row} title={card.detail ?? undefined} onClick={() => onSelect(card)}>
-            <span className={styles.lead}><Lead card={card} size={20} /></span>
-            <span className={styles.rowLabel}>{card.label}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <p className={styles.heading}>Ideas for you</p>
+      <ul className={`${styles.list} ${styles.listSnug}`}>
+        {cards.map(card => (
+          <li key={card.label}>
+            <button type="button" className={styles.row} title={card.detail ?? undefined} onClick={() => onSelect(card)}>
+              <span className={styles.lead}><Lead card={card} size={20} /></span>
+              <span className={styles.rowLabel}>{card.label}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
 
@@ -49,14 +52,17 @@ export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelec
 export function StarterListSkeleton({ count = 3 }: { count?: number }) {
   const widths = ['58%', '66%', '46%', '60%']
   return (
-    <ul className={styles.list} aria-hidden>
-      {Array.from({ length: count }, (_, i) => (
-        <li key={i} className={styles.skelRow}>
-          <span className={`kaya-skeleton ${styles.skelLead}`} />
-          <span className={`kaya-skeleton ${styles.skelBar}`} style={{ width: widths[i % widths.length] }} />
-        </li>
-      ))}
-    </ul>
+    <div aria-hidden>
+      <p className={styles.heading}>Ideas for you</p>
+      <ul className={styles.list}>
+        {Array.from({ length: count }, (_, i) => (
+          <li key={i} className={styles.skelRow}>
+            <span className={`kaya-skeleton ${styles.skelLead}`} />
+            <span className={`kaya-skeleton ${styles.skelBar}`} style={{ width: widths[i % widths.length] }} />
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

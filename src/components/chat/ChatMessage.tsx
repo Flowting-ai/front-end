@@ -227,11 +227,14 @@ function StreamingTextContent({
   citations,
   animate,
   isLoading,
+  stopped,
 }: {
   content: string;
   citations?: WebCitation[];
   animate: boolean;
   isLoading: boolean;
+  /** User pressed Stop: freeze the reveal where it is instead of draining the buffered text. */
+  stopped: boolean;
 }) {
   const shouldReduceMotion = useReducedMotion() ?? false;
   const targetRef = useRef(content);
@@ -244,7 +247,7 @@ function StreamingTextContent({
   }, [content]);
 
   useEffect(() => {
-    if (shouldReduceMotion || !animateOnMountRef.current) return;
+    if (shouldReduceMotion || !animateOnMountRef.current || stopped) return;
 
     const interval = window.setInterval(() => {
       setDisplayedContent((current) => {
@@ -258,12 +261,17 @@ function StreamingTextContent({
     }, 28);
 
     return () => window.clearInterval(interval);
-  }, [shouldReduceMotion]);
+  }, [shouldReduceMotion, stopped]);
 
-  const shownContent = shouldReduceMotion || (!isLoading && !displayedContent)
-    ? content
-    : displayedContent;
-  const showCursor = isLoading || Boolean(displayedContent && displayedContent !== content);
+  // A stopped message that was being revealed stays frozen at what the user saw.
+  // One that was never animated (e.g. loaded from history) shows in full.
+  const frozen = stopped && animateOnMountRef.current && !shouldReduceMotion;
+  const shownContent = frozen
+    ? displayedContent
+    : shouldReduceMotion || (!isLoading && !displayedContent)
+      ? content
+      : displayedContent;
+  const showCursor = !stopped && (isLoading || Boolean(displayedContent && displayedContent !== content));
   const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
   return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
 }
@@ -756,7 +764,7 @@ export function ChatMessage({
             <m.div
               key="model-header"
               initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
-              animate={{ opacity: 1, y: 0, filter: "none" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
               transition={{ type: "spring", stiffness: 420, damping: 30 }}
               draggable={false}
               style={{
@@ -785,12 +793,12 @@ export function ChatMessage({
                     <m.span
                       key={label}
                       initial={{ opacity: 0, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, filter: "none" }}
+                      animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                       transition={{ type: "spring", stiffness: 520, damping: 32 }}
                       style={{
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
-                        fontWeight: 600,
+                        fontWeight: 500,
                         color: "var(--model-name-text)",                      }}
                     >
                       {label}
@@ -822,7 +830,7 @@ export function ChatMessage({
                 className="kaya-label-shimmer"
                 style={{
                   fontSize: 14,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   lineHeight: "18px",
                 }}
               >
@@ -867,6 +875,7 @@ export function ChatMessage({
               citations={message.webCitations}
               animate={isNewMessage}
               isLoading={!!message.isLoading}
+              stopped={!!message.stoppedByUser}
             />
           </m.div>
         ) : null}
