@@ -5,7 +5,16 @@ import React from 'react'
 // The backend's catalog logo_url is the single source of connector imagery —
 // it covers the whole ~150-slug live catalog, so nothing is bundled locally
 // and no icon package is consulted. When a catalog entry carries no logo_url
-// (today: the native-MCP seed rows), a deterministic letter tile stands in.
+// (today: the native-MCP seed rows), a bundled logo for the few apps that need
+// one, else a deterministic letter tile, stands in.
+
+const BUNDLED_LOGOS: Record<string, string> = {
+  slack: '/icons/slack.svg',
+}
+
+function bundledLogo(id: string): string | undefined {
+  return BUNDLED_LOGOS[id] ?? BUNDLED_LOGOS[id.split(/[-_]/)[0]]
+}
 
 export interface ConnectorGlyphProps {
   /** Connector slug, e.g. "notion", "google-drive". */
@@ -29,11 +38,12 @@ function hueFromSlug(slug: string): number {
 
 export function ConnectorGlyph({ slug, name, logoUrl, size = 24, className, style }: ConnectorGlyphProps) {
   const id = slug.trim().toLowerCase()
-  if (logoUrl) {
+  const src = logoUrl || bundledLogo(id)
+  if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- provider-hosted image at a runtime URL
       <img
-        src={logoUrl}
+        src={src}
         alt={name ?? slug}
         width={size}
         height={size}
