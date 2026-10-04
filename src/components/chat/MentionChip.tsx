@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { X } from 'lucide-react'
 
 // ── Mention chip ──────────────────────────────────────────────────────────────
@@ -14,6 +15,7 @@ export interface MentionChipProps {
 }
 
 export function MentionChip({ label, onRemove }: MentionChipProps) {
+  if (!PINS_ENABLED) return null
   return (
     <span
       style={{

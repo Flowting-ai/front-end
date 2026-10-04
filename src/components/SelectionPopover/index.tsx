@@ -17,10 +17,10 @@ const BG = 'var(--neutral-800)'
 
 // Container shadow: stronger lift than light FloatingMenu
 const SHADOW_OUTER =
-  '0px 4px 20px 0px rgba(0,0,0,0.32), ' +
-  '0px 1px 3px 0px rgba(0,0,0,0.20), ' +
-  '0px 0px 0px 1px rgba(0,0,0,0.18)'
-const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255,255,255,0.06)'
+  '0px 4px 20px 0px color-mix(in srgb, var(--static-black) 32%, transparent), ' +
+  '0px 1px 3px 0px color-mix(in srgb, var(--static-black) 20%, transparent), ' +
+  '0px 0px 0px 1px color-mix(in srgb, var(--static-black) 18%, transparent)'
+const SHADOW_INNER = 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 6%, transparent)'
 
 // Caret triangle pointing toward the selection
 const CARET_H = 6   // height (tip length) in px
@@ -34,7 +34,7 @@ const SWAP_SPRING  = { type: 'spring', stiffness: 500, damping: 30 } as const
 
 // Corrosion hover gradient - identical to Button Primary hover
 const HOVER_GLOW_GRADIENT =
-  'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%)'
+  'var(--button-default-hover-glow)'
 
 // ── Internal action button ─────────────────────────────────────────────────────
 // Implements Button ghost sm padding (5px 8px) with the exact same corrosion
@@ -116,7 +116,7 @@ function PopoverAction({
             <circle
               ref={circleRef}
               cx="0" cy="0" r="0"
-              fill="white"
+              fill="var(--static-white)"
               filter={`url(#${blurId})`}
               visibility="hidden"
             />

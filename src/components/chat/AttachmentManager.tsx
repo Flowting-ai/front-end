@@ -283,16 +283,16 @@ export function AttachmentManager({
                       display:         "flex",
                       alignItems:      "center",
                       justifyContent:  "center",
-                      backgroundColor: "rgba(0,0,0,0.2)",
+                      backgroundColor: "color-mix(in srgb, var(--static-black) 20%, transparent)",
                       borderRadius:    "8px",
                     }}
                   >
                     <svg width="26" height="26" viewBox="0 0 28 28">
-                      <circle cx="14" cy="14" r="10" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" />
+                      <circle cx="14" cy="14" r="10" fill="none" stroke="var(--neutral-50-30)" strokeWidth="2.5" />
                       <circle
                         cx="14" cy="14" r="10"
                         fill="none"
-                        stroke="#22C55E"
+                        stroke="var(--success-500)"
                         strokeWidth="2.5"
                         strokeDasharray={`${((attachment.uploadProgress ?? 0) * 62.83) / 100} 62.83`}
                         strokeLinecap="round"
@@ -310,8 +310,8 @@ export function AttachmentManager({
                       position:        "absolute",
                       bottom:          "2px",
                       left:            "2px",
-                      backgroundColor: attachment.error ? "var(--red-600, #dc2626)" : "rgba(0,0,0,0.55)",
-                      color:           "#fff",
+                      backgroundColor: attachment.error ? "var(--red-600, #dc2626)" : "color-mix(in srgb, var(--static-black) 55%, transparent)",
+                      color:           "var(--static-white)",
                       fontSize: "12px",
                       fontFamily:      "var(--font-body)",
                       fontWeight:      600,
@@ -343,8 +343,8 @@ export function AttachmentManager({
                       height:          "15px",
                       borderRadius:    "50%",
                       border:          "none",
-                      backgroundColor: "rgba(0,0,0,0.55)",
-                      color:           "#fff",
+                      backgroundColor: "color-mix(in srgb, var(--static-black) 55%, transparent)",
+                      color:           "var(--static-white)",
                       cursor:          disabled ? "not-allowed" : "pointer",
                       padding:         0,
                     }}
@@ -471,7 +471,7 @@ export function AttachmentManager({
                       style={{
                         width:           "100%",
                         height:          "100%",
-                        backgroundColor: "#22C55E",
+                        backgroundColor: "var(--success-500)",
                         borderRadius:    "0 0 8px 8px",
                         transformOrigin: "left",
                       }}
@@ -499,11 +499,11 @@ export function AttachmentManager({
                       height:          "15px",
                       borderRadius:    "50%",
                       border:          "1px solid var(--neutral-200)",
-                      backgroundColor: "#fff",
+                      backgroundColor: "var(--neutral-white)",
                       color:           "var(--neutral-600)",
                       cursor:          disabled ? "not-allowed" : "pointer",
                       padding:         0,
-                      boxShadow:       "0 1px 2px rgba(0,0,0,0.06)",
+                      boxShadow:       "0 1px 2px color-mix(in srgb, var(--static-black) 6%, transparent)",
                     }}
                   >
                     <CancelOneIcon size={9} />
@@ -532,9 +532,9 @@ export function AttachmentManager({
               height:          "28px",
               borderRadius:    "50%",
               border:          "1px solid var(--neutral-200)",
-              backgroundColor: "#fff",
+              backgroundColor: "var(--neutral-white)",
               color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px rgba(0,0,0,0.10)",
+              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
               cursor:          "pointer",
               padding:         0,
               zIndex:          2,
@@ -563,9 +563,9 @@ export function AttachmentManager({
               height:          "28px",
               borderRadius:    "50%",
               border:          "1px solid var(--neutral-200)",
-              backgroundColor: "#fff",
+              backgroundColor: "var(--neutral-white)",
               color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px rgba(0,0,0,0.10)",
+              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
               cursor:          "pointer",
               padding:         0,
               zIndex:          2,

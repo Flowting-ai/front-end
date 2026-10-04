@@ -47,7 +47,7 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 100 }}
+        style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)', zIndex: 100 }}
       />
       <div
         style={{
@@ -69,7 +69,7 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
           height:          projectVisibility === 'shared' ? 600 : undefined,
           overflow:        'hidden',
           borderRadius:    16,
-          backgroundColor: 'white',
+          backgroundColor: 'var(--neutral-white)',
           boxShadow:       '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
           padding:         24,
           display:         'flex',

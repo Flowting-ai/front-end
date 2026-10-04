@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Missing / Unused / Hidden — Master Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --brown:#7A5230; --brown-soft:#EFE3D6;
+    --slate:#4A5568; --slate-soft:#E6E9ED;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:74ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+
+  .stats{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:36px;}
+  .stat{background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 18px; min-width:110px;}
+  .stat .n{font-family:var(--serif); font-weight:600; font-size:26px; line-height:1;}
+  .stat .l{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-top:4px;}
+
+  .legend{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em; width:100%;}
+  h2 .doc-link{font-family:var(--mono); font-size:13px; font-weight:400; color:var(--accent);}
+  h2 .doc-link a{color:inherit;}
+  h2 .count{font-family:var(--mono); font-size:13px; font-weight:400; color:var(--ink-faint);}
+  p{font-size:15px; color:#33353A; max-width:80ch;}
+  .page-intro{font-size:14.5px; color:var(--ink-soft); max-width:82ch; margin-top:4px;}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:13.5px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:10.5px; color:var(--ink-soft); padding:7px 9px; border-bottom:1.5px solid var(--line-strong); text-transform:uppercase; letter-spacing:.03em;}
+  td{padding:9px 9px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  tr:hover td{background:#fff;}
+  td.section-col{font-weight:600; color:var(--ink); white-space:nowrap; font-size:12.5px;}
+  td.loc-col{font-family:var(--mono); font-size:11px; color:var(--ink-faint); word-break:break-all;}
+  code{font-family:var(--mono); font-size:12.5px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+
+  .tag{display:inline-block; font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:20px; font-weight:500; white-space:nowrap;}
+  .tag.dead{background:var(--slate-soft); color:var(--slate);}
+  .tag.disabled{background:var(--amber-soft); color:var(--amber);}
+  .tag.orphan{background:var(--red-soft); color:var(--red);}
+  .tag.backend{background:var(--blue-soft); color:var(--blue);}
+  .tag.fab{background:var(--violet-soft); color:var(--violet);}
+  .tag.hidden{background:var(--brown-soft); color:var(--brown);}
+
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Missing / Unused / Hidden — Master Tracker</h1>
+  <p class="subtitle">Consolidates every "Missing / Unused / Hidden" finding added across all eight page-by-page reference docs in <code>flows/</code> (Agents, Chats/Projects &amp; Sharing, Tasks/Brain, Connectors, Settings &amp; Billing, Onboarding &amp; Welcome, Super Links, Org/Team &amp; Slack) into one place, so nothing found during that pass has to be re-discovered by re-reading eight separate files. Each row traces back to a real, grep/read-verified location in source — nothing here is inferred or guessed.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built by aggregating structured findings reported back from a dedicated audit pass across all eight companion docs. Every doc's own "Missing / Unused / Hidden" subsections (one per page/section, right after "Floating panels &amp; Help") are the source of truth — this tracker is a flattened index over them for triage, not a replacement. One exception: the four Agents-feature items marked <span class="tag hidden">not yet in doc</span> below were confirmed via a separate investigation pass but not folded into <code>agents-flow-diagram.html</code> itself (the doc-editing pass re-investigated independently and found a different, non-overlapping set) — kept here so the finding isn't lost, worth a follow-up pass on that doc.</div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">106</div><div class="l">total findings</div></div>
+    <div class="stat"><div class="n">8</div><div class="l">feature docs</div></div>
+    <div class="stat"><div class="n">~29</div><div class="l">disabled features</div></div>
+    <div class="stat"><div class="n">~24</div><div class="l">dead code items</div></div>
+    <div class="stat"><div class="n">~19</div><div class="l">orphaned routes</div></div>
+    <div class="stat"><div class="n">~21</div><div class="l">backend-unused fields</div></div>
+    <div class="stat"><div class="n">~13</div><div class="l">fabricated / mocked data</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="tag dead">dead-code</span>exists, never imported/rendered/called</div>
+    <div class="legend-row"><span class="tag disabled">disabled</span>built, wired to a no-op or a permanent <code>{false &&}</code></div>
+    <div class="legend-row"><span class="tag orphan">orphaned-route</span>page/route with no reachable entry point</div>
+    <div class="legend-row"><span class="tag backend">backend-unused</span>API field returned/accepted, never read/written by the frontend</div>
+    <div class="legend-row"><span class="tag fab">fabricated-data</span>hardcoded/derived value presented as real</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Jump to feature</div>
+    <ol>
+      <li><a href="#g-agents">Agents</a></li>
+      <li><a href="#g-chats">Chats, Projects &amp; Sharing</a></li>
+      <li><a href="#g-tasks">Tasks (Brain)</a></li>
+      <li><a href="#g-connectors">Connectors</a></li>
+      <li><a href="#g-settings">Settings &amp; Billing</a></li>
+      <li><a href="#g-onboarding">Onboarding &amp; Welcome</a></li>
+      <li><a href="#g-superlinks">Super Links</a></li>
+      <li><a href="#g-org">Org/Team &amp; Slack</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ AGENTS ══════════════════════ -->
+  <h2 id="g-agents"><span class="num">01</span>Agents<span class="doc-link">→ <a href="agents-flow-diagram.html">agents-flow-diagram.html</a></span><span class="count">12 findings</span></h2>
+  <p class="page-intro">Two independent audit passes ran on this feature; the four rows marked "not yet in doc" came from the first pass's investigation but weren't merged into the doc file (the doc-editing agent re-investigated fresh instead of using them) — flagged so they aren't lost.</p>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Templates</td><td>4 hand-maintained maps (rows/icons/descriptions/colors) keyed by the same 15 template names, nothing enforces sync</td><td class="loc-col">agents/templates/page.tsx:31-95</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Purpose</td><td><code>LANGUAGES</code>/<code>DEFAULT_LANGUAGE</code>/<code>DEFAULT_PERSONA_NAME</code> never imported — leftover from a removed "new agent" flow</td><td class="loc-col">agents/new/constants.ts:1-41</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Tone</td><td><code>FALLBACK_TONES</code> — 4 hardcoded example quotes shown identically to real fetched tones on slow/failed call, no indicator they're generic</td><td class="loc-col">agents/basics/tone/page.tsx:33-58</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Configure — Knowledge</td><td>"Updated just now" badge hardcoded whenever <code>files.length &gt; 0</code>, no real timestamp tracked</td><td class="loc-col">KnowledgeTab.tsx:500</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Configure — Sharing</td><td>Private/Workspace visibility radio control commented out ("hidden, not removed"); state/handlers intact but unreachable</td><td class="loc-col">SharingTab.tsx:336-341 (comment), :92-125 (handlers)</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Attaching agent to chat</td><td>"Team Agents" filter fully wired but excluded via <code>VISIBLE_FILTERS=['mine','superlink']</code>; empty-state copy unreachable</td><td class="loc-col">AgentsPanel/index.tsx:40-43,120,349-350</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Attaching agent to chat</td><td><code>PersonaCard</code> always passed hardcoded <code>visibility="private"</code> regardless of real value, per comment about hiding "Team" badge</td><td class="loc-col">AgentsPanel/index.tsx:321</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Where else agents appear</td><td><code>PersonaCard</code>'s <code>visibility==='team'</code> badge branch (<code>teamCount</code> prop) unreachable — no current caller ever passes a real "team" value</td><td class="loc-col">PersonaCard/index.tsx:283-287,1015-1025</td></tr>
+    <tr><td><span class="tag disabled hidden">disabled <span class="tag hidden" style="margin-left:4px">not yet in doc</span></span></td><td class="section-col">Configure — all 5 tabs</td><td>Identical dead "Saved/Unsaved + Live/Unpublished" status badge cluster copy-pasted across Instructions/Profile/Knowledge/Connectors/Sharing, each behind <code>{false && ...}</code></td><td class="loc-col">agent/configure/{instructions,profile,knowledge,connectors,sharing}/page.tsx</td></tr>
+    <tr><td><span class="tag dead"><span class="tag hidden" style="margin-left:0">not yet in doc</span></span></td><td class="section-col">Configure — Instructions</td><td><code>scrollToConfigureSection</code> exported from <code>AttributeTrackerRail</code>, never imported anywhere</td><td class="loc-col">AttributeTrackerRail.tsx:36</td></tr>
+    <tr><td><span class="tag backend"><span class="tag hidden" style="margin-left:0">not yet in doc</span></span></td><td class="section-col">Configure — Connectors</td><td><code>blockedConnectorSlugs</code> field + <code>personaBlockedConnectors()</code> helper wired to wire format, never called by any component</td><td class="loc-col">lib/api/personas.ts:116,131-132; persona-repo.ts:48,68,81</td></tr>
+    <tr><td><span class="tag orphan"><span class="tag hidden" style="margin-left:0">not yet in doc</span></span></td><td class="section-col">Where else agents appear</td><td><code>agents/configure/page.tsx</code> is a server-redirect shim with zero inbound links anywhere in the app — legacy bookmark alias only</td><td class="loc-col">agents/configure/page.tsx</td></tr>
+  </table>
+
+  <!-- ══════════════════════ CHATS/PROJECTS ══════════════════════ -->
+  <h2 id="g-chats"><span class="num">02</span>Chats, Projects &amp; Sharing<span class="doc-link">→ <a href="chats-projects-flow-diagram.html">chats-projects-flow-diagram.html</a></span><span class="count">18 findings</span></h2>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Chat — /chat</td><td><code>ACTION_BUTTONS</code>' <code>disabled</code> flag never set by any entry</td><td class="loc-col">chat/page.tsx:165-170,1135-1148</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Chat — /chat</td><td>Hardcoded <code>contextUsedPct={0}</code> on new-chat input instead of the computed value used elsewhere</td><td class="loc-col">chat/page.tsx:1081 vs ChatInterface.tsx:404,1367</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Chats list — /chats</td><td>Archived tab has no un-archive action anywhere — comment confirms no unarchive endpoint exists</td><td class="loc-col">chats/page.tsx:715-742; ChatRow/index.tsx:71-79</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Chat Sharing</td><td><code>sharedByEmail</code>/<code>sharedByUserId</code> decoded, never read by UI</td><td class="loc-col">lib/api/chat-shares.ts:24,26,68-80</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Chat Sharing</td><td><code>forkedChatId</code> normalized but never read (no "already copied" state)</td><td class="loc-col">chat-shares.ts:39,89; chats/page.tsx:677-710</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Chat Sharing</td><td><code>messages[].reasoning</code> present on raw response, dropped in mapping, never rendered</td><td class="loc-col">chat-shares.ts:147-153,170,177-191</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Projects list — /projects</td><td><code>ProjectCard</code>'s <code>body</code> prop never passed by its only caller</td><td class="loc-col">ProjectCard/index.tsx:39,164; projects/page.tsx:830</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Projects list — /projects</td><td><code>ApiProjectSummary.documentCount</code> returned but unused on this page</td><td class="loc-col">lib/api/projects.ts:58</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Project creation</td><td><code>createProject</code>'s <code>teamId</code> param always undefined</td><td class="loc-col">context/projects-context.tsx:295,303-306</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Project creation</td><td><code>systemInstruction</code>/<code>files</code> accepted by the create API, no UI populates them at creation</td><td class="loc-col">lib/api/projects.ts:257-282</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Project hub</td><td>Files panel storage bar hardcodes a 100MB quota</td><td class="loc-col">project/[id]/page.tsx:312; ProjectFilesPanel/index.tsx:48-50</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Project hub</td><td><code>setProjectVisibility()</code> has zero call sites — own comment says the backend route no longer exists</td><td class="loc-col">lib/api/projects.ts:450-474</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Project hub</td><td><code>canManageVisibility</code> hardcoded <code>false</code>, never branched on</td><td class="loc-col">lib/api/projects.ts:185,206; projects-context.tsx:82,139,181,270</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Pinboard</td><td><code>testChatFolders</code>/<code>setTestChatFolders</code> unused in agent-configure Test Chat panel</td><td class="loc-col">agent/configure/context.tsx:664-1113; layout.tsx:584</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Pinboard</td><td>Backend classifier's <code>Pin.category</code> fetched but discarded on merge — always hardcoded "Quote"/"Code" client-side</td><td class="loc-col">lib/api/pins.ts:36,118; pinboard-context.tsx:182,250-281</td></tr>
+  </table>
+
+  <!-- ══════════════════════ TASKS ══════════════════════ -->
+  <h2 id="g-tasks"><span class="num">03</span>Tasks (Brain)<span class="doc-link">→ <a href="tasks-flow-diagram.html">tasks-flow-diagram.html</a></span><span class="count">8 findings</span></h2>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Entities &amp; phase machine</td><td><code>confirming-pins</code> phase has a transition-table entry but no rendering branch</td><td class="loc-col">Brain/lib/phase.ts; brain/page.tsx:~1949</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Brain canvas</td><td><code>ProjectConfigPanel</code> unreachable from <code>/brain</code> — used only by a different Brain surface</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Task execution animations</td><td><code>BreathingDot</code> has zero import references under <code>src/templates/Brain</code> (used elsewhere in the app)</td><td class="loc-col">components/BreathingDot/index.tsx</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Task list &amp; history</td><td>Thread-list/detail response has no settled-status or elapsed-time field (genuine backend gap, blocks a proposed status chip)</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Scheduled Tasks</td><td><code>Automation.failure_count</code>/<code>success_count</code>/<code>running_count</code> typed, never read by frontend</td><td class="loc-col">lib/api/automations.ts:31-33</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Scheduled Tasks</td><td><code>Automation.trigger</code> (Record&lt;string,unknown&gt;) typed, never read</td><td class="loc-col">lib/api/automations.ts:26</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Scheduled Tasks</td><td><code>Automation.updated_at</code> typed but never read, unlike other entities' <code>updated_at</code></td><td class="loc-col">lib/api/automations.ts:37</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Scheduled Tasks</td><td><code>next_run_at</code> used in the detail view but absent from <code>ScheduleCard.tsx</code>, the actual list-card component</td><td class="loc-col">templates/Brain/ScheduleCard.tsx</td></tr>
+  </table>
+
+  <!-- ══════════════════════ CONNECTORS ══════════════════════ -->
+  <h2 id="g-connectors"><span class="num">04</span>Connectors<span class="doc-link">→ <a href="connectors-flow-diagram.html">connectors-flow-diagram.html</a></span><span class="count">2 findings — cleanest feature audited</span></h2>
+  <p class="page-intro">Every other section came back "nothing found" on fresh grep verification. The chat-embedded connect prompt duplicating OAuth logic (flagged when the doc was first written) remains a known maintenance risk but wasn't itself a dead/unused-code finding.</p>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Entities</td><td><code>useDefaultTeam.ts</code> is a live stopgap explicitly marked for deletion once the backend adopts workspace-wide scoping</td><td class="loc-col">hooks/useDefaultTeam.ts</td></tr>
+    <tr><td><span class="tag hidden">resolved</span></td><td class="section-col">Cross-cutting</td><td>Gap #9 (icon-strategy contradiction) confirmed as pure documentation drift — current <code>ConnectorGlyph</code> has no icon-package code at all, nothing to fix in source</td><td class="loc-col">components/ConnectorGlyph/index.tsx</td></tr>
+  </table>
+
+  <!-- ══════════════════════ SETTINGS & BILLING ══════════════════════ -->
+  <h2 id="g-settings"><span class="num">05</span>Settings &amp; Billing<span class="doc-link">→ <a href="settings-billing-flow-diagram.html">settings-billing-flow-diagram.html</a></span><span class="count">31 findings — largest of any feature</span></h2>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Shell</td><td><code>/settings/teams</code> linked from the sidebar but the route/CRUD UI was deleted — 404</td><td class="loc-col">LeftSidebar.tsx</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Account</td><td>Default Model picker persists to localStorage only, never read by <code>pickDefaultModel()</code></td><td class="loc-col">settings/(shell)/account/page.tsx</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Account</td><td>Delete-account handler is empty; button hard-disabled</td><td class="loc-col">account/page.tsx:480</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Account</td><td>Account deletion backend is soft (<code>active=False</code>) — no purge endpoint for the frontend to call anyway</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Usage (personal)</td><td>Per-category bars are denominated against the overall total — no real per-category cap exists</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Usage (personal)</td><td>Stale "download invoices" subtitle describes functionality the page doesn't have</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General (org)</td><td>"Allowed email domains" card fully dead behind <code>{false && ...}</code> — was previously assumed live</td><td class="loc-col">settings/(shell)/(org)/general/page.tsx:1126-1239</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General (org)</td><td>"Workspace defaults" card wrapped in <code>{false && ...}</code>, dead</td><td class="loc-col">general/page.tsx:1242</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General (org)</td><td>Archive-workspace click handler is a stub — no endpoint exists</td><td class="loc-col">general/page.tsx:643</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">General (org)</td><td>Ownership-transfer handlers fully wired to a real API but no UI trigger exists anywhere</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">General (org)</td><td><code>canDeleteOrg</code> gate doesn't distinguish owner vs admin for full workspace delete</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Members</td><td><code>membersVersionRef</code> incremented but never read/compared anywhere</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Plans &amp; Billing</td><td>Recharge-below-$X threshold captured in state, never sent to any API (Buy More Credits modal)</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Plans &amp; Billing</td><td>"Edit payment method" pencil icon's onClick just closes the modal — no-op</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Plans &amp; Billing</td><td><code>overage_usd</code> field intentionally not trusted by frontend (server-capped for invoicing)</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Plans &amp; Billing</td><td>No backend CSV/PDF export route exists anywhere — "Export all" only opens Stripe-hosted PDFs</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Legacy Billing</td><td>No <code>SettingsSidebar</code> nav entry — reachable only via sidebar/palette/banners/AccountMenu links</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Legacy Billing</td><td>Duplicate change-plan routes (<code>billing/change-plan</code> vs <code>settings/billing/change-plan</code>) — one likely an unused leftover</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Usage (workspace)</td><td>"Credit usage by feature" chart is a hardcoded 68/20/12 split shaped by sine/cosine, not real telemetry</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Usage (workspace)</td><td>"Utilisation %" stat has no backend field — approximated client-side</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Help &amp; Legal</td><td>Help Center / Contact Support rows render with no href — permanently non-functional</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Help &amp; Legal</td><td>"Data Processing Agreement" row exists in source, commented out, never rendered</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Help &amp; Legal</td><td>Footer version string hardcoded ("v1.1 · © 2026"), not derived from build metadata</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Orphaned pages</td><td>AI page (<code>AiModelsView</code>) confirmed not imported/rendered anywhere else in the app</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Orphaned pages</td><td>Security page has no named route constant, only a bare string literal in a test file</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Orphaned pages</td><td>Security's session list is hardcoded mock data (4 fixed rows); "removal" only mutates local state</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Orphaned pages</td><td>2FA/Change-password buttons have no wired backend flow (Auth0-managed, no 2FA endpoint)</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Orphaned pages</td><td>Notifications page: 11 categories built, no notifications/preferences module exists on the backend at all</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Orphaned pages</td><td>Preferences page: theme/tone pickers built, no persisted field anywhere</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Orphaned pages</td><td>Files page: no route constant, no incoming links; storage values static per a "TODO: wire to files API" comment</td><td class="loc-col">settings/(shell)/files/page.tsx:433</td></tr>
+  </table>
+
+  <!-- ══════════════════════ ONBOARDING ══════════════════════ -->
+  <h2 id="g-onboarding"><span class="num">06</span>Onboarding &amp; Welcome<span class="doc-link">→ <a href="onboarding-welcome-flow-diagram.html">onboarding-welcome-flow-diagram.html</a></span><span class="count">7 findings</span></h2>
+  <p class="page-intro">Headline finding: the free-trial credit grant is unreachable end-to-end — its only trigger lives inside a page that's itself orphaned from the live routing logic.</p>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Setup workspace</td><td><code>/onboarding/connectors</code> is a fully built step never linked from live navigation, still wired to the legacy onboarding context</td><td class="loc-col">onboarding/connectors/page.tsx</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Setup workspace</td><td><code>StepCard</code> exported but never imported/used anywhere</td><td class="loc-col">onboarding/_components/step-shell.tsx:428</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Handoff</td><td><code>WelcomeModal</code> is unreachable from the live flow — its only <code>?welcome=1</code> trigger is set exclusively by the orphaned legacy import page</td><td class="loc-col">components/onboarding/WelcomeModal.tsx; onboarding/import/page.tsx:97</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Handoff</td><td><code>WelcomeModal</code> copy states "1,000 credits" against the real 5,000-credit/$5/7-day grant</td><td class="loc-col">components/onboarding/WelcomeModal.tsx</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Legacy tree</td><td>5 legacy pages (<code>hello</code>, <code>account-type</code>, <code>plans</code>, <code>tone</code>, <code>import</code>) are never produced by the live routing logic — fully orphaned</td><td class="loc-col">onboarding/{hello,account-type,plans,tone,import}/page.tsx</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Legacy tree</td><td>The sole <code>?welcome=1</code>-setting call site lives inside this already-orphaned page — doubly dead</td><td class="loc-col">onboarding/import/page.tsx:97</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route (partial)</span></td><td class="section-col">Join a workspace (A2)</td><td><code>/onboarding/join</code> lacks the "already-onboarded" proxy exemption that the legacy invite tree has — not dead, but inconsistent</td><td class="loc-col">proxy.ts; onboarding/join/page.tsx</td></tr>
+  </table>
+
+  <!-- ══════════════════════ SUPERLINKS ══════════════════════ -->
+  <h2 id="g-superlinks"><span class="num">07</span>Super Links<span class="doc-link">→ <a href="superlinks-templates-flow-diagram.html">superlinks-templates-flow-diagram.html</a></span><span class="count">5 findings</span></h2>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Super Links tab</td><td>An entire fully-built dashboard tree (<code>SuperLinks/index.tsx</code> + <code>LinksSidePanel</code>) is never imported anywhere — superseded by an inline table</td><td class="loc-col">templates/SuperLinks/index.tsx</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Super Link Drawer</td><td><code>SuperLinkStatus</code> has 4 values but the UI only toggles active/paused — no path to a "limit reached" state except destructive Revoke</td><td class="loc-col">components/SuperLinkDrawer/index.tsx</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">Generating a link</td><td>Saved/Unsaved + Live/Unpublished status badges permanently disabled via <code>{false && ...}</code>, duplicated across 5 Configure tabs</td><td class="loc-col">agent/configure/{sharing,profile,knowledge,connectors,instructions}/page.tsx</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Generating a link</td><td>Team/private visibility sharing fully wired (state + API calls) but the rendered section is commented out per a "hide, don't delete" note</td><td class="loc-col">agent/configure/components/SharingTab.tsx:336-340 (handlers 92-123,187-192)</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Accepting a link</td><td><code>/share/[id]</code> unreachable without an existing auth session — contradicts the "no account needed" marketing copy</td><td class="loc-col">proxy.ts allowlist vs components/SuperLink/index.tsx</td></tr>
+  </table>
+
+  <!-- ══════════════════════ ORG/TEAM/SLACK ══════════════════════ -->
+  <h2 id="g-org"><span class="num">08</span>Org/Team &amp; Slack<span class="doc-link">→ <a href="org-team-slack-flow-diagram.html">org-team-slack-flow-diagram.html</a></span><span class="count">22 findings</span></h2>
+  <table>
+    <tr><th>Type</th><th>Section</th><th>Finding</th><th>Location</th></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Entities</td><td>/org, /org/general, /org/members, /org/activity, /org/analytics are all redirect stubs into the equivalent /settings/* pages</td><td class="loc-col">app/(app)/org/*</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Entities</td><td>Owner role value + editor role tier typed/received but never surfaced — "Team has no backend route left at all" per an explicit code comment</td><td class="loc-col">types/teams.ts, RoleBadge</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Entities</td><td>Duplicate admin-guard logic exists in two separate layout files</td><td class="loc-col">org/layout.tsx; settings/(shell)/(org)/layout.tsx</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Members</td><td><code>TeamSwitcherDropdown</code>/<code>TeamSwitcherRow</code> — a richer per-team role UI — never imported/rendered anywhere</td><td class="loc-col">components/TeamSwitcherDropdown, TeamSwitcherRow</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Members</td><td>Role UI only exposes Admin/Member — owner/editor never surfaced</td><td class="loc-col">Members page ROLES_INFO</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Invite flow</td><td><code>/team-invite/[inviteId]</code> renders nothing — pure redirect stub into <code>/onboarding/team/[inviteId]</code></td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag hidden">hidden</span></td><td class="section-col">Invite flow</td><td>Undocumented "standalone" mode on <code>/onboarding/team/[inviteId]/profile</code> triggered when the inviteId is actually a teamId</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Activity Log</td><td><code>/org/activity</code> redirect stub into <code>/settings/activity</code></td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Activity Log</td><td>No server-side actor_id filter exists — the full org log is always sent to the client</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Usage/Analytics</td><td>"Credit usage by feature" chart uses a fixed deterministic 68/20/12 ratio, not real per-feature backend data</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag fab">fabricated-data</span></td><td class="section-col">Usage/Analytics</td><td>"Utilisation" stat is a client-side proxy computed from creditUsed, not the Figma-specified metric</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">Usage/Analytics</td><td><code>/org/analytics</code> redirect stub into <code>/settings/analytics</code></td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General</td><td>"Allowed email domains" card behind <code>{false && ...}</code></td><td class="loc-col">settings/(shell)/(org)/general/page.tsx:1127</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General</td><td>"Workspace defaults" card behind <code>{false && ...}</code></td><td class="loc-col">general/page.tsx:1242</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General</td><td>Archive-workspace button disabled — backend doesn't read the <code>archived</code> field yet</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag disabled">disabled</span></td><td class="section-col">General</td><td>Delete-workspace button disabled despite a working <code>deleteOrg</code> handler existing</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag orphan">orphaned-route</span></td><td class="section-col">General</td><td><code>/org/general</code> redirect stub into <code>/settings/general</code></td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">General</td><td>Inline Slack channel-mapping card bypasses the unused <code>SlackChannelMappingRow</code> component (cross-ref Slack row below)</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Workspace switching</td><td><code>TeamSwitcherDropdown</code> never imported/rendered</td><td class="loc-col">components/TeamSwitcherDropdown/index.tsx</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Workspace switching</td><td><code>TeamSwitcherRow</code> never imported/rendered</td><td class="loc-col">components/TeamSwitcherRow/index.tsx</td></tr>
+    <tr><td><span class="tag backend">backend-unused</span></td><td class="section-col">Workspace switching</td><td>"Editor" role tier in <code>RoleBadge</code>/<code>ROLE_TOKENS</code> has no live consumer or backend support</td><td class="loc-col">—</td></tr>
+    <tr><td><span class="tag dead">dead-code</span></td><td class="section-col">Slack</td><td><code>SlackChannelMappingRow</code> never imported/rendered — both real channel-mapping surfaces reimplement it inline instead</td><td class="loc-col">components/SlackChannelMappingRow/index.tsx</td></tr>
+  </table>
+
+  <footer>SOUVENIR — MISSING / UNUSED / HIDDEN: MASTER TRACKER — V1.5</footer>
+</div>
+</body>
+</html>

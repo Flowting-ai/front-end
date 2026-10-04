@@ -216,7 +216,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
-              backgroundColor: 'rgba(26,23,20,0.4)',
+              backgroundColor: 'color-mix(in srgb, var(--yellow-950) 40%, transparent)',
               backdropFilter:  'blur(2px)',
             }}
           >
@@ -245,7 +245,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
             >
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', flexShrink: 0 }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: '#1a1714', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: 'var(--legacy-1a1714)', margin: 0 }}>
                   Share chat
                 </p>
                 <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setChatShareOpen(false)} />

@@ -8,7 +8,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { ModelIcon } from '@/components/ModelIcon'
-import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModels, modelIconSource } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export function ModalShell({ open, onClose, ariaLabel, width = 420, children }: 
             style={{
               position:        'fixed',
               inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.28)',
+              backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
               backdropFilter:  'blur(2px)',
               zIndex:          60,
             }}
@@ -228,8 +228,16 @@ export interface ModelPickerListProps {
   /** Stable id of the model to tag "Recommended" (from `pickReplacementModel`). */
   recommendedId?: string | null
   onSelect:      (modelId: string) => void
+  /** Explicit cap in px. Omit to show up to `maxVisibleRows` rows, then scroll. */
   maxHeight?:    number
+  /** How many model rows show before the list scrolls. @default 10 */
+  maxVisibleRows?: number
 }
+
+// A model row is 36px tall with a 4px gap, inside 2px of list padding.
+const ROW_HEIGHT = 36
+const ROW_GAP = 4
+const listHeightFor = (rows: number) => rows * ROW_HEIGHT + (rows - 1) * ROW_GAP + 4
 
 export function ModelPickerList({
   models,
@@ -237,7 +245,8 @@ export function ModelPickerList({
   selectedId,
   recommendedId,
   onSelect,
-  maxHeight = 320,
+  maxVisibleRows = 10,
+  maxHeight = listHeightFor(maxVisibleRows),
 }: ModelPickerListProps) {
   const message = loading
     ? 'Loading models…'
@@ -247,7 +256,7 @@ export function ModelPickerList({
 
   return (
     <div
-      className="kaya-scrollbar"
+      className="kaya-scrollbar kaya-no-gutter"
       style={{
         display:             'flex',
         flexDirection:       'column',
@@ -273,7 +282,7 @@ export function ModelPickerList({
               role="button"
               tabIndex={0}
               aria-pressed={key === selectedId}
-              image={<ModelIcon model={model.companyName ?? model.modelName} size={18} />}
+              image={<ModelIcon model={modelIconSource(model)} size={18} />}
               label={model.modelName}
               selected={key === selectedId}
               icons={key === recommendedId ? <Badge label="Recommended" color="Green" /> : undefined}

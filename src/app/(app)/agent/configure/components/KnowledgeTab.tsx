@@ -60,14 +60,14 @@ function isPreviewable(file: KnowledgeFile): boolean {
 }
 
 const FILE_BADGE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  PDF:  { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  PPTX: { bg: "#f1d9ca", border: "rgba(178,80,13,0.5)",  text: "#87350d" },
-  URL:  { bg: "#ffbfb6", border: "rgba(159,38,35,0.5)",  text: "#7a201c" },
-  URLs: { bg: "#ffbfb6", border: "rgba(159,38,35,0.5)",  text: "#7a201c" },
+  PDF:  { bg: "var(--blue-100)", border: "var(--blue-600-50)", text: "var(--blue-700)" },
+  PPTX: { bg: "var(--brown-100)", border: "color-mix(in srgb, var(--warning-700) 50%, transparent)",  text: "var(--warning-800)" },
+  URL:  { bg: "var(--red-100)", border: "var(--red-600-51)",  text: "var(--red-700)" },
+  URLs: { bg: "var(--red-100)", border: "var(--red-600-51)",  text: "var(--red-700)" },
 };
 
 function FileBadge({ label }: { label: string }) {
-  const color = FILE_BADGE_COLORS[label] ?? { bg: "#ede1d7", border: "rgba(106,98,93,0.5)", text: "#524b47" };
+  const color = FILE_BADGE_COLORS[label] ?? { bg: "var(--neutral-100)", border: "color-mix(in srgb, var(--neutral-600) 50%, transparent)", text: "var(--neutral-700)" };
   return (
     <span
       style={{
@@ -124,8 +124,8 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
         height: 56,
         padding: "0 12px",
         borderRadius: 12,
-        backgroundColor: "white",
-        boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+        backgroundColor: "var(--neutral-white)",
+        boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
         width: "100%",
         fontFamily: "var(--font-body)",
       }}
@@ -137,14 +137,14 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
             height: 35,
             flexShrink: 0,
             marginRight: 8,
-            backgroundColor: "#f0f0f0",
+            backgroundColor: "var(--legacy-f0f0f0)",
             borderRadius: 6,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#827a74" strokeWidth="1.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
           </svg>
         </div>
@@ -155,7 +155,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
           minWidth: 0,
           fontSize: 14,
           fontWeight: 500,
-          color: "#3b3632",
+          color: "var(--neutral-800)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -168,23 +168,23 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
 
       <div style={{ display: "flex", gap: 17, alignItems: "center", width: 265, flexShrink: 0 }}>
         {isDeleting ? (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#c0392b", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--legacy-c0392b)", whiteSpace: "nowrap" }}>
             Deleting…
           </span>
         ) : isUploading ? (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
             Uploading…
           </span>
         ) : (
           <>
             <FileBadge label={badgeLabel} />
             {file.size && file.size !== "-" && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
                 {file.size}
               </span>
             )}
             {file.date && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", whiteSpace: "nowrap" }}>
                 {file.date}
               </span>
             )}
@@ -212,7 +212,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
               cursor: "pointer",
             }}
           >
-            <MoreHorizontal size={20} color="#524b47" />
+            <MoreHorizontal size={20} color="var(--neutral-700)" />
           </button>
           {showActionMenu && (
             <div
@@ -220,10 +220,10 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                 position: "absolute",
                 top: 36,
                 right: 0,
-                backgroundColor: "white",
-                border: "1px solid #d1c6bd",
+                backgroundColor: "var(--neutral-white)",
+                border: "1px solid var(--neutral-200)",
                 borderRadius: 8,
-                boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
+                boxShadow: "0px 4px 12px color-mix(in srgb, var(--static-black) 10%, transparent)",
                 zIndex: 5,
                 minWidth: 120,
                 overflow: "hidden",
@@ -233,7 +233,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                 <button
                   type="button"
                   onClick={() => { onPreview(file); setShowActionMenu(false); }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(59,54,50,0.06)" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--neutral-800-05)" }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
                   style={{
                     width: "100%",
@@ -241,10 +241,10 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                     padding: "8px 12px",
                     fontSize: 14,
                     fontFamily: "var(--font-body)",
-                    color: "#3b3632",
+                    color: "var(--neutral-800)",
                     backgroundColor: "transparent",
                     border: "none",
-                    borderBottom: "1px solid #ede1d7",
+                    borderBottom: "1px solid var(--neutral-100)",
                     cursor: "pointer",
                   }}
                 >
@@ -254,7 +254,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
               <button
                 type="button"
                 onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(192,57,43,0.08)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "color-mix(in srgb, var(--red-500) 8%, transparent)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
                 style={{
                   width: "100%",
@@ -262,7 +262,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                   padding: "8px 12px",
                   fontSize: 14,
                   fontFamily: "var(--font-body)",
-                  color: "#c0392b",
+                  color: "var(--legacy-c0392b)",
                   backgroundColor: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -278,13 +278,13 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
       {/* Clip layer — overflow:hidden scoped to card bounds, dropdown sits outside this */}
       <div style={{ position: "absolute", inset: 0, borderRadius: 12, overflow: "hidden", pointerEvents: "none" }}>
         {isUploading && (
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(13,110,178,0.12)" }}>
-            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "#0d6eb2", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "color-mix(in srgb, var(--blue-600) 12%, transparent)" }}>
+            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "var(--blue-600)", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
           </div>
         )}
         {isDeleting && (
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(192,57,43,0.12)" }}>
-            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "#c0392b", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "color-mix(in srgb, var(--red-500) 12%, transparent)" }}>
+            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "var(--red-500)", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
           </div>
         )}
       </div>
@@ -308,16 +308,16 @@ function DropOverlay({ visible }: { visible: boolean }) {
         justifyContent: "center",
         gap: 8,
         borderRadius: 18,
-        border: "2px dashed #0d6eb2",
-        backgroundColor: "rgba(13,110,178,0.08)",
+        border: "2px dashed var(--blue-600)",
+        backgroundColor: "color-mix(in srgb, var(--blue-600) 8%, transparent)",
         backdropFilter: "blur(2px)",
         fontFamily: "var(--font-body)",
-        color: "#0d6eb2",
+        color: "var(--blue-600)",
       }}
     >
-      <ArrowUp size={28} color="#0d6eb2" />
+      <ArrowUp size={28} color="var(--blue-600)" />
       <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Drop files to upload</p>
-      <p style={{ margin: 0, fontSize: 12, color: "#3b3632" }}>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--neutral-800)" }}>
         PDF, DOCX, XLSX, images and more · max 30 MB per file
       </p>
     </div>
@@ -531,14 +531,14 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-title)",
               fontSize: 24,
               fontWeight: 400,
-              color: "black",
+              color: "var(--static-black)",
               lineHeight: "1.3",
               margin: 0,
             }}
           >
             Add knowledge to your Agent
           </h2>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "black", margin: 0 }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--static-black)", margin: 0 }}>
             Upload files - the agent retrieves relevant content during conversations
           </p>
         </div>
@@ -546,8 +546,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         <div data-help-id="help-knowledge-upload" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div
             style={{
-              backgroundColor: "#f7f2ed",
-              border: "1px dashed #b6aca4",
+              backgroundColor: "var(--neutral-50)",
+              border: "1px dashed var(--neutral-300)",
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -569,13 +569,13 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 width: "100%",
               }}
             >
-              <ArrowUp size={25} color="#524b47" />
+              <ArrowUp size={25} color="var(--neutral-700)" />
               <p
                 style={{
                   fontFamily: "var(--font-body)",
                   fontSize: 24,
                   fontWeight: 400,
-                  color: "black",
+                  color: "var(--static-black)",
                   margin: 0,
                 }}
               >
@@ -585,7 +585,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 style={{
                   fontFamily: "var(--font-body)",
                   fontSize: 14,
-                  color: "#737373",
+                  color: "var(--legacy-737373)",
                   textAlign: "center",
                   maxWidth: 362,
                   margin: 0,
@@ -615,10 +615,10 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   fontFamily: "var(--font-body)",
                   fontSize: 14,
                   fontWeight: 500,
-                  color: "#524b47",
+                  color: "var(--neutral-700)",
                 }}
               >
-                <Upload size={16} color="#524b47" />
+                <Upload size={16} color="var(--neutral-700)" />
                 Upload Files
               </button>
               <Tooltip content={ALLOWED_FILE_TYPES_LABEL} side="top" maxWidth={260}>
@@ -639,7 +639,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
             }}
           >
             <span>0 files</span>
@@ -666,7 +666,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-title)",
               fontSize: 24,
               fontWeight: 400,
-              color: "#1a1916",
+              color: "var(--legacy-1a1916)",
               lineHeight: "1.3",
               margin: 0,
             }}
@@ -686,8 +686,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -706,8 +706,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -726,8 +726,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: "#524b47",
-                  backgroundColor: "#ede1d7",
+                  color: "var(--neutral-700)",
+                  backgroundColor: "var(--neutral-100)",
                   boxShadow: "0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)",
                 }}
               >
@@ -749,16 +749,16 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "#f7f2ed",
+              color: "var(--static-white)",
               position: "relative",
               overflow: "hidden",
               border: "none",
               cursor: "pointer",
-              background: "linear-gradient(to bottom, #524b47, #26211e)",
-              boxShadow: "0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)",
+              background: "linear-gradient(to bottom, var(--neutral-700), var(--neutral-900))",
+              boxShadow: "0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px color-mix(in srgb, var(--static-white) 30%, transparent), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px color-mix(in srgb, var(--static-white) 50%, transparent)",
             }}
           >
-            <Plus size={16} color="#f7f2ed" />
+            <Plus size={16} color="var(--static-white)" />
             Upload Files
           </button>
           <Tooltip content={ALLOWED_FILE_TYPES_LABEL} side="top" maxWidth={260}>
@@ -776,16 +776,16 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         <div
           style={{
             flex: 1,
-            backgroundColor: "white",
+            backgroundColor: "var(--text-field-bg)",
             display: "flex",
             alignItems: "center",
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5",
           }}
         >
-          <Search size={16} color="#6a625d" style={{ flexShrink: 0 }} />
+          <Search size={16} color="var(--neutral-600)" style={{ flexShrink: 0 }} />
           <input
             type="text"
             value={searchQuery}
@@ -796,7 +796,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#6a625d",
+              color: "var(--neutral-600)",
               backgroundColor: "transparent",
               border: "none",
               outline: "none",
@@ -814,7 +814,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
       {regularFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Files</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "var(--legacy-0a0a0a)", margin: 0 }}>Files</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {regularFiles.map((f) => (
               <FileRow key={f.id} file={f} onRemove={requestRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
@@ -825,7 +825,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
       {urlFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "var(--legacy-0a0a0a)", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
               <FileRow key={f.id} file={f} onRemove={requestRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
@@ -843,7 +843,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             fontFamily: "var(--font-body)",
             fontSize: 14,
             fontWeight: 500,
-            color: "#6a625d",
+            color: "var(--neutral-600)",
           }}
         >
           <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""}</span>

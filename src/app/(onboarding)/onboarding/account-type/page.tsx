@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -32,10 +32,10 @@ const OPTIONS: OptionConfig[] = [
     title: "Just me",
     description: "A personal space, tuned to how you work — and it remembers across every chat.",
     icon: <HugeiconsIcon icon={StickyNote02Icon} size={24} strokeWidth={1.6} />,
-    iconBg: "#ffbfb6",
-    iconRing: "rgba(159,38,35,0.5)",
-    iconColor: "#9f2623",
-    iconInner: "inset 0px 2px 0px 0px rgba(253,231,231,0.7), inset 0px -2px 0px 0px rgba(159,38,35,0.1)",
+    iconBg: "var(--red-100)",
+    iconRing: "var(--red-600-51)",
+    iconColor: "var(--red-600)",
+    iconInner: "inset 0px 2px 0px 0px color-mix(in srgb, var(--red-50) 70%, transparent), inset 0px -2px 0px 0px color-mix(in srgb, var(--red-600) 10%, transparent)",
     badge: <Badge label="Try for free" color="Blue" />,
   },
   {
@@ -43,10 +43,10 @@ const OPTIONS: OptionConfig[] = [
     title: "Set up a team",
     description: "A shared workspace — one credit pool, shared knowledge, and the teammates you invite.",
     icon: <HugeiconsIcon icon={OfficeChairIcon} size={24} strokeWidth={1.6} />,
-    iconBg: "#cadcf1",
-    iconRing: "rgba(13,110,178,0.5)",
-    iconColor: "#135487",
-    iconInner: "inset 0px 2px 0px 0px rgba(231,244,253,0.7), inset 0px -2px 0px 0px rgba(13,110,178,0.1)",
+    iconBg: "var(--blue-100)",
+    iconRing: "var(--blue-600-50)",
+    iconColor: "var(--blue-700)",
+    iconInner: "inset 0px 2px 0px 0px var(--blue-50-70), inset 0px -2px 0px 0px var(--blue-600-10)",
   },
 ];
 
@@ -75,13 +75,13 @@ function OptionCard({
         textAlign: "left",
         padding: 12,
         borderRadius: 12,
-        backgroundColor: "var(--neutral-white,#fff)",
+        backgroundColor: "var(--neutral-white)",
         border: "none",
         cursor: "pointer",
         outline: "none",
         boxShadow: selected
           ? "0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 2px var(--neutral-900,#26211e)"
-          : "0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7)",
+          : "0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
         transition: "box-shadow 120ms",
       }}
     >

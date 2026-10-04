@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 
 interface PinChipStripProps {
   children: React.ReactNode;
@@ -100,6 +101,7 @@ export function PinChipStrip({ children }: PinChipStripProps) {
     ? (scroll.scrollLeft / maxScrollLeft) * (100 - thumbWidthPct)
     : 0;
 
+  if (!PINS_ENABLED) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
       {/* Single-row scrollable strip */}
@@ -136,7 +138,7 @@ export function PinChipStrip({ children }: PinChipStripProps) {
             style={{
               height:          2,
               borderRadius:    999,
-              backgroundColor: "rgba(59,54,50,0.06)",
+              backgroundColor: "var(--neutral-800-05)",
               position:        "relative",
               cursor:          isDragging ? "grabbing" : "pointer",
             }}

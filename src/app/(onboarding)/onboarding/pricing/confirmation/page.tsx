@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -17,12 +17,12 @@ const C = {
   ink:        'var(--neutral-900, #26211e)',
   sub:        'var(--neutral-700, #524b47)',
   muted:      'var(--neutral-500, #827a74)',
-  bg:         'var(--neutral-50, #f7f2ed)',
-  white:      'var(--neutral-white, #fff)',
-  green:      '#16A34A',
-  greenBg:    '#DCFCE7',
-  red:        '#DC2626',
-  redBg:      '#FEE2E2',
+  bg:         'var(--neutral-50)',
+  white:      'var(--neutral-white)',
+  green:      'var(--success-600)',
+  greenBg:    'var(--green-50)',
+  red:        'var(--red-400)',
+  redBg:      'var(--red-50)',
 } as const
 
 // ── Icons ──────────────────────────────────────────────────────────────────────

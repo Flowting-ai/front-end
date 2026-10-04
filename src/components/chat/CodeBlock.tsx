@@ -83,7 +83,7 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: 
 
 export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
   // ```mermaid and ```diff fences are widgets, not code — every markdown path
-  // (chat, brain, line renderer) funnels through here, so this is the one hook point.
+  // (chat, line renderer) funnels through here, so this is the one hook point.
   if (language === "mermaid") return <MermaidDiagram code={value} />;
   if (language === "diff") return <DiffBlock code={value} />;
 

@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import Logout01Icon from '@hugeicons/core-free-icons/Logout01Icon'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { IconButton } from '@/components/IconButton'
@@ -16,8 +18,8 @@ import type { WorkspaceRole } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useGuardedRouter } from '@/context/nav-guard-context'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
+import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -27,6 +29,12 @@ import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT
 // SettingsOneIcon used elsewhere), and 1:1 fidelity was the ask. `triggered`
 // is accepted-and-ignored so SidebarMenuItem's `cloneElement(icon, {
 // triggered })` doesn't warn about an unknown prop landing on a plain <img>.
+// Log out glyph, sized/aligned like the asset icons. `triggered` is accepted-and-ignored for the
+// same cloneElement reason as SidebarAssetIcon.
+function LogoutIcon({ triggered: _triggered }: { triggered?: boolean }) {
+  return <HugeiconsIcon icon={Logout01Icon} size={20} color="currentColor" strokeWidth={1.5} style={{ display: 'block' }} />
+}
+
 function SidebarAssetIcon({ src, triggered: _triggered }: { src: string; triggered?: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- static local icon, Next Image adds no value here
@@ -120,7 +128,8 @@ export function SettingsSidebar() {
   // whether the user clicks a Settings nav item or the main app sidebar.
   const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
+  const { guardedNavigate } = useNavGuard()
   const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
   const [reportBugOpen,  setReportBugOpen]  = useState(false)
   const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
@@ -141,8 +150,7 @@ export function SettingsSidebar() {
   // ReferenceError on the server, not just a hydration *mismatch*, since the
   // bare `window` identifier reference itself fails before optional chaining
   // ever gets a chance to short-circuit. Same bug class, same fix shape, as
-  // Chats' `chat/page.tsx` (`selectedPersona`) and Brain's `brain/page.tsx`
-  // (`storedHistoryAttachments`): the value starts `null` on both the server
+  // Chats' `chat/page.tsx` (`selectedPersona`): the value starts `null` on both the server
   // and the client's first (hydration) render — identical output, no
   // mismatch possible — then populates for real via an effect a tick after
   // mount. `isTeamUser`'s other OR'd signals (orgId, user.orgId, roleFit)
@@ -438,6 +446,17 @@ export function SettingsSidebar() {
                 label="Feature request"
                 selected={false}
                 onClick={() => setRequestFeatureOpen(true)}
+              />
+            </m.div>
+            <Divider decorative style={{ margin: '4px 0' }} />
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<LogoutIcon />}
+                label="Log out"
+                selected={false}
+                onClick={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
               />
             </m.div>
           </m.div>

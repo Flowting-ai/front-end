@@ -1,28 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from 'next/image';
+import { useState } from "react";
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 import { getGreeting, getSubheading } from "@/lib/greetings";
 import { useAuth } from "@/context/auth-context";
+import { useMounted } from "@/hooks/use-mounted";
 
-export function InitialPrompts() {
+export function InitialPrompts({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState("");
-  const [subheading, setSubheading] = useState("");
-
-  useEffect(() => {
-    const name = user?.firstName || user?.name || "there";
-    setGreeting(getGreeting(name));
-    setSubheading(getSubheading());
-  }, [user]);
+  const mounted = useMounted();
+  const name = user?.firstName || user?.name || "there";
 
   return (
     <div
       style={{
         display:       "flex",
         flexDirection: "column",
+        // Centred in both layouts (new chat landing and project/compare chats).
         alignItems:    "center",
-        padding:       "0 24px",
+        padding:       compact ? "0" : "0 24px",
         textAlign:     "center",
         maxWidth:      "640px",
         margin:        "0 auto",
@@ -30,23 +26,32 @@ export function InitialPrompts() {
         userSelect:    "none",
       }}
     >
+      {mounted && <GreetingContent key={name} name={name} compact={compact} />}
+    </div>
+  );
+}
+
+function GreetingContent({ name, compact }: { name: string; compact: boolean }) {
+  const [{ greeting, subheading }] = useState(() => ({
+    greeting: getGreeting(name),
+    subheading: getSubheading(),
+  }));
+
+  return (
+    <>
       <h1
         style={{
-          fontFamily: "var(--font-title)",
-          fontSize:   "28px",
-          fontWeight: 200,
+          fontFamily: "var(--font-title)", // Google Sans
+          fontSize:   compact ? "24px" : "28px",
+          fontWeight: 400,
           color:      "var(--neutral-800)",
           margin:     "0 0 6px",
           lineHeight: 1.25,
         }}
       >
-        <Image
-          src="/icons/souvenir-logo-gray.svg"
-          alt=""
-          aria-hidden="true"
-          width={28}
-          height={28}
-          unoptimized
+        <SouvenirLogo
+          variant="gray"
+          size={compact ? 22 : 28}
           style={{
             display: "inline-block",
             verticalAlign: "middle",
@@ -58,10 +63,10 @@ export function InitialPrompts() {
 
       <p
         style={{
-          fontFamily: "var(--font-body)",
-          fontSize:   "16px",
+          fontFamily: "var(--font-title)", // Google Sans
+          fontSize:   compact ? "13px" : "16px",
           fontWeight: 400,
-          color:      "#3B3632",
+          color:      compact ? "var(--color-text-muted)" : "var(--neutral-800)",
           margin:     "0",
           lineHeight: 1.5,
           maxWidth:   "480px",
@@ -69,6 +74,6 @@ export function InitialPrompts() {
       >
         {subheading}
       </p>
-    </div>
+    </>
   );
 }

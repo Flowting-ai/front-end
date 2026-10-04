@@ -16,6 +16,9 @@ import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from 
 import { LeaveWorkspaceModal } from '@/components/LeaveWorkspaceModal'
 import { CHAT_ROUTE } from '@/lib/routes'
 
+// Hidden for now: flip to true to show the Danger Zone card again.
+const SHOW_DANGER_ZONE = false
+
 // ── Text input ────────────────────────────────────────────────────────────────
 
 function TextInput({
@@ -214,7 +217,7 @@ function VisibilitySelect({
             padding:         '0 10px',
             borderRadius:    10,
             border:          'none',
-            backgroundColor: 'white',
+            backgroundColor: 'var(--neutral-50)',
             boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
             cursor:          disabled ? 'not-allowed' : 'pointer',
             opacity:         disabled ? 0.6 : 1,
@@ -399,6 +402,7 @@ function GeneralPageSkeleton() {
       </SkeletonCard>
 
       {/* Danger Zone */}
+      {SHOW_DANGER_ZONE && (
       <SkeletonCard danger>
         <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <SkeletonBlock width={110} height={16} radius={5} />
@@ -420,6 +424,7 @@ function GeneralPageSkeleton() {
           </div>
         </div>
       </SkeletonCard>
+      )}
     </div>
   )
 }
@@ -1019,7 +1024,7 @@ export default function OrgGeneralPage() {
                   width:           '100%',
                   height:          96,
                   resize:          'none',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--neutral-50)',
                   borderRadius:    10,
                   boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                   border:          'none',
@@ -1294,6 +1299,7 @@ export default function OrgGeneralPage() {
         )}
 
         {/* ── Danger Zone card — node 18:23867 ── */}
+{SHOW_DANGER_ZONE && (
         <Card danger>
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--red-400)', margin: '0 0 2px' }}>
@@ -1403,6 +1409,7 @@ export default function OrgGeneralPage() {
             </button>
           </div>
         </Card>
+        )}
 
       </div>
 

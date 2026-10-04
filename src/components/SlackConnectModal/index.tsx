@@ -6,6 +6,7 @@ import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { toast } from 'sonner'
 import { LinkSixIcon, MessagePreviewOneIcon, UserIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { SouvenirLogo } from '@/components/SouvenirLogo'
 import { getOrgSlackStatus, getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ function LogoBridge() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
       <div style={{ ...tileStyle, backgroundColor: 'var(--neutral-white)', boxShadow: SHADOW_CARD_BORDER }}>
-        <img src="/icons/souvenir-logo-gray.svg" alt="Souvenir" width={28} height={28} style={{ display: 'block' }} />
+        <SouvenirLogo variant="gray" size={28} alt="Souvenir" />
       </div>
       <LinkSixIcon size={20} color="var(--neutral-500)" />
       <div style={{ ...tileStyle, backgroundColor: 'var(--neutral-white)', boxShadow: SHADOW_CARD_BORDER }}>
@@ -137,7 +138,7 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.52)', zIndex: 1100 }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', zIndex: 1100 }}
         />
         <Dialog.Content
           aria-label="Connect Souvenir to Slack"

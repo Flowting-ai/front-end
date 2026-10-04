@@ -50,9 +50,12 @@ import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
-import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE, CHAT_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_NEW_ROUTE, AGENT_EDIT_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
-import { PersonaCard } from '@/components/PersonaCard'
+import { PersonaCard, PERSONA_CARD_HEIGHT, PERSONA_CARD_WIDTH } from '@/components/PersonaCard'
+import { PersonaCardSkeleton } from '@/components/PersonaCard/PersonaCardSkeleton'
+import { AgentDetailsSidebar } from '@/components/AgentEditor/AgentDetailsSidebar'
+import { AgentShareModal } from '@/components/AgentShareModal'
 import type { SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
@@ -227,7 +230,7 @@ function RecommendedCard({ persona }: { persona: Persona }) {
         fontWeight: 'var(--font-weight-regular)',
         fontSize: 12,
         lineHeight: '16px',
-        color: '#857a72',
+        color: 'var(--neutral-500)',
         overflow: 'hidden',
         display: '-webkit-box',
         WebkitLineClamp: 2,
@@ -288,7 +291,7 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-const SL_COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1']
+const SL_COLORS = ['var(--violet-600)', 'var(--info-400)', 'var(--success-600)', 'var(--warning-500)', 'var(--danger-500)', 'var(--danger-400)', 'var(--info-600)']
 
 function colorFromName(name: string): string {
   let h = 0
@@ -375,7 +378,7 @@ function StatTile({
 }) {
   return (
     <div style={{
-      background:    'var(--neutral-white, #fff)',
+      background:    'var(--neutral-white)',
       borderRadius:  8,
       padding:       12,
       boxShadow:     SHADOW_TILE,
@@ -545,6 +548,23 @@ function PersonasPageInner() {
     replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
   }
 
+  // The agent whose details panel is open lives in the URL (?agent=<id>) so a
+  // reload, a shared link, or landing here right after creating an agent shows it.
+  const detailsId = searchParams.get('agent')
+
+  function openDetails(id: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('agent', id)
+    replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
+
+  function closeDetails() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('agent')
+    const query = params.toString()
+    replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+  }
+
   // The sidebar's "See all agents" row emits this while this page is already
   // mounted (a same-URL push wouldn't reset activeTab on its own) — always
   // land back on "My Agents", regardless of which tab was active.
@@ -589,6 +609,8 @@ function PersonasPageInner() {
   const [sharesLoading,      setSharesLoading]      = useState(true)
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false)
   const [selectedShareId,    setSelectedShareId]    = useState<string | null>(null)
+  // The agent whose share modal is open (card Share button, ⋯ → Share, Super Links tab).
+  const [shareTarget,        setShareTarget]        = useState<{ repoId: string; name: string } | null>(null)
   const [slRange,            setSlRange]            = useState<'7d' | '30d' | '90d'>('30d')
   // "My Superlinks" (outgoing) vs "Shared Superlinks" (incoming) sub-tab —
   // replaces the old side-by-side two-column layout with a single switchable table.
@@ -976,16 +998,32 @@ function PersonasPageInner() {
   }, [filterPanelFiltered, search, sort])
 
   const personasScrollRef = useRef<HTMLDivElement>(null)
-  const GRID_COLS = 3
+  // How many 314px cards fit across: 3 when there is room, fewer when the details panel (or a
+  // narrow window) squeezes the list. Measured from the list itself so it reacts to the panel
+  // opening and closing; the loading skeleton uses the same number.
+  const GRID_GAP = 16
+  const [gridWidth, setGridWidth] = useState(0)
+  useEffect(() => {
+    const el = personasScrollRef.current
+    if (!el) return
+    const measure = () => setGridWidth(el.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [activeTab])
+  const GRID_COLS = gridWidth === 0
+    ? 3
+    : Math.min(3, Math.max(1, Math.floor((gridWidth + GRID_GAP) / (PERSONA_CARD_WIDTH + GRID_GAP))))
   const gridRows = useMemo(() => {
     const rows: typeof filtered[] = []
     for (let i = 0; i < filtered.length; i += GRID_COLS) rows.push(filtered.slice(i, i + GRID_COLS))
     return rows
-  }, [filtered])
+  }, [filtered, GRID_COLS])
   const gridVirtualizer = useVirtualizer({
     count:            gridRows.length,
     getScrollElement: () => personasScrollRef.current,
-    estimateSize:     () => 172,
+    estimateSize:     () => PERSONA_CARD_HEIGHT + GRID_GAP,
     overscan:         2,
   })
 
@@ -1015,8 +1053,8 @@ function PersonasPageInner() {
     const toastId = toast.loading(`Copying "${persona.name}"…`)
     try {
       const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
-      toast.dismiss(toastId)
-      push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(copy.id, { name: persona.name }))
+      toast.success(`Copied "${persona.name}" — editing your copy`, { id: toastId })
+      push(AGENT_EDIT_ROUTE(copy.id))
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to copy agent. Please try again.')
@@ -1037,7 +1075,7 @@ function PersonasPageInner() {
       // /chat may already be mounted (e.g. the user was just there) — a plain
       // push() to the same route won't remount it, so the pending-persona
       // sessionStorage read (a mount-time-only lazy initializer) never fires
-      // and the chip silently never appears. Same fix as BRAIN_NEW_THREAD_EVENT/
+      // and the chip silently never appears. Same fix as SIDEBAR_NEW_CHAT_EVENT/
       // PROJECT_NEW_CHAT_EVENT elsewhere: force the same reset the sidebar's
       // own "New chat" button uses.
       emitSidebarNewChat()
@@ -1133,7 +1171,7 @@ function PersonasPageInner() {
     <>
       <div
         style={{
-          background: 'rgba(255,255,255,0.2)',
+          background: 'var(--color-surface-container)',
           border: '1px solid var(--neutral-200)',
           borderRadius: 22,
           flex: '1 1 0',
@@ -1186,7 +1224,7 @@ function PersonasPageInner() {
                 fontWeight: 'var(--font-weight-regular)',
                 fontSize: 24,
                 lineHeight: '32px',
-                color: '#1a1916',
+                color: 'var(--legacy-1a1916)',
                 margin: 0,
               }}>
                 {activeTab === 'super-links' ? 'Super Links' : 'Agents'}
@@ -1213,7 +1251,7 @@ function PersonasPageInner() {
                     <Button
                       variant="default"
                       leftIcon={<PlusSignIcon size={16} />}
-                      onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+                      onClick={() => push(AGENTS_NEW_ROUTE)}
                     >
                       New agent
                     </Button>
@@ -1253,8 +1291,8 @@ function PersonasPageInner() {
                     gap: 2,
                     padding: '7px 10px',
                     borderRadius: 10,
-                    background: 'white',
-                    boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                    background: 'var(--text-field-bg)',
+                    boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
                     width: 450,
                   }}>
                     <SearchOneIcon size={16} style={{ color: 'var(--neutral-500)', flexShrink: 0 }} />
@@ -1421,16 +1459,13 @@ function PersonasPageInner() {
               {isLoading ? (
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 314px)',
-                  gap: 16,
+                  gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, ${PERSONA_CARD_WIDTH}px))`,
+                  justifyContent: 'center',
+                  gap: GRID_GAP,
                 }}>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} style={{
-                      height: 140,
-                      borderRadius: 16,
-                      background: 'var(--neutral-100)',
-                      animation: 'pulse 0.9s ease-in-out infinite',
-                    }} />
+                  {/* Two rows of cards, in as many columns as the real grid has right now. */}
+                  {Array.from({ length: GRID_COLS * 2 }).map((_, i) => (
+                    <PersonaCardSkeleton key={i} />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
@@ -1486,7 +1521,7 @@ function PersonasPageInner() {
                         fontWeight: 'var(--font-weight-regular)',
                         fontSize: 24,
                         lineHeight: '32px',
-                        color: '#1a1916',
+                        color: 'var(--legacy-1a1916)',
                         margin: 0,
                         whiteSpace: 'nowrap',
                       }}>
@@ -1497,7 +1532,7 @@ function PersonasPageInner() {
                         fontWeight: 'var(--font-weight-regular)',
                         fontSize: 16,
                         lineHeight: '22px',
-                        color: '#1a1916',
+                        color: 'var(--legacy-1a1916)',
                         textAlign: 'center',
                         maxWidth: 427,
                         margin: 0,
@@ -1505,7 +1540,7 @@ function PersonasPageInner() {
                         Agents are your custom AI configurations - define behavior, connect knowledge, and share via link.
                       </p>
                     </div>
-                    <Button variant="default" onClick={() => push(AGENTS_TEMPLATES_ROUTE)}>
+                    <Button variant="default" onClick={() => push(AGENTS_NEW_ROUTE)}>
                       Create your first agent
                     </Button>
                   </div>
@@ -1526,9 +1561,9 @@ function PersonasPageInner() {
                         // Match may-day: every card is a uniform 314px wide
                         // (caps at 314, shrinks equally on narrow widths) and the
                         // row is centred so cards never stretch unevenly.
-                        gridTemplateColumns: 'repeat(3, minmax(0, 314px))',
+                        gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, ${PERSONA_CARD_WIDTH}px))`,
                         justifyContent:      'center',
-                        gap:                 16,
+                        gap:                 GRID_GAP,
                         paddingBottom:       16,
                       }}
                     >
@@ -1543,6 +1578,7 @@ function PersonasPageInner() {
                           style={{ width: '100%' }}
                           variant={isDraftLike(persona) ? 'draft' : 'default'}
                           avatarSeed={persona.activeVersionId ?? persona.workingVersionId ?? persona.id}
+                          repoId={persona.id}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={
@@ -1558,7 +1594,7 @@ function PersonasPageInner() {
                           // SharingTab.tsx), not deleted from `Persona.visibility` itself.
                           shared={persona.sourceShareId !== null}
                           createdBy={createdByForPersona[persona.id]}
-                          useInChatLabel="Chat with agent"
+                          useInChatLabel="Use in chat"
                           // Draft cards already have their own "finish setup" treatment —
                           // only live/published agents get the model-unavailable overlay.
                           modelUnavailable={!isDraftLike(persona) && !!modelUnavailableReason(persona.modelId)}
@@ -1572,6 +1608,12 @@ function PersonasPageInner() {
                               : undefined
                           }
                           superlink={activeShareRepoIds.has(persona.id)}
+                          // Clicking the card itself (not one of its buttons or its ⋯ menu) opens the
+                          // details panel for this agent.
+                          onClick={event => {
+                            if ((event.target as HTMLElement).closest('button, a, [role="menu"], [role="menuitem"], [role="dialog"]')) return
+                            openDetails(persona.id)
+                          }}
                           // "Team" badge hidden along with the rest of the shared-agent UI —
                           // every card reads as Private regardless of the underlying value.
                           visibility={visibilityForPersona[persona.id] ? 'private' : undefined}
@@ -1581,6 +1623,7 @@ function PersonasPageInner() {
                             // original; they copy it first.
                             const isTeamShared = persona.visibility === 'team' && !isOwnedByMe(persona)
                             if (isTeamShared) return {
+                              onMenuDetails:     () => openDetails(persona.id),
                               onEdit:            () => void handleCopyAndEdit(persona),
                               onUseInChat:       () => void handleUseTeamSharedInChat(persona),
                               onMenuDuplicate:   () => void handleCopyAndEdit(persona),
@@ -1588,8 +1631,9 @@ function PersonasPageInner() {
                             // Owned personas (private copies or admin's own team agents)
                             const isOwned = persona.sourceShareId === null
                             return {
-                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
-                              onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
+                              onMenuDetails:     () => openDetails(persona.id),
+                              onEdit:            isOwned ? () => push(AGENT_EDIT_ROUTE(persona.id)) : undefined,
+                              onLink:            isOwned ? () => setShareTarget({ repoId: persona.id, name: persona.name }) : undefined,
                               // Same "hand off via sessionStorage, land on a fresh /chat
                               // with the agent pre-attached" pattern as agents/published's
                               // "Use this Agent" — this used to push AGENT_CHAT_ROUTE,
@@ -1604,8 +1648,8 @@ function PersonasPageInner() {
                                 push(CHAT_ROUTE)
                               },
                               onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
-                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
-                              onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
+                              onMenuEdit:        isOwned ? () => push(AGENT_EDIT_ROUTE(persona.id)) : undefined,
+                              onMenuShare:       isOwned ? () => setShareTarget({ repoId: persona.id, name: persona.name }) : undefined,
                               onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                               pausePending:      pausingIds.has(persona.id),
                               onMenuDelete:      () => setDeleteTarget(persona),
@@ -1836,7 +1880,7 @@ function PersonasPageInner() {
                                       label={p.name}
                                       onClick={() => {
                                         setPanelGenOpen(false)
-                                        push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
+                                        setShareTarget({ repoId: p.id, name: p.name })
                                       }}
                                       fluid
                                     />
@@ -1947,14 +1991,14 @@ function PersonasPageInner() {
                                 </SettingsTableCell>
                                 <SettingsTableCell align="end">
                                   {repoId && (
-                                    <Tooltip content="Open sharing settings" side="top">
+                                    <Tooltip content="Manage sharing" side="top">
                                       <IconButton
-                                        aria-label={`Open sharing settings for ${name}`}
+                                        aria-label={`Manage sharing for ${name}`}
                                         size="xs"
                                         variant="ghost"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { name, versionId: share.persona_id }))
+                                          setShareTarget({ repoId, name })
                                         }}
                                         icon={<ArrowUpRightOneIcon size={14} />}
                                       />
@@ -2077,6 +2121,33 @@ function PersonasPageInner() {
       </div>
       </div>
 
+      {/* ── Agent details (right sidebar) ── */}
+      <AgentDetailsSidebar
+        repoId={detailsId}
+        canEdit={(() => {
+          const target = personas.find(p => p.id === detailsId)
+          // Unknown yet (e.g. just created, list still refreshing): the panel
+          // loads the agent itself, and an agent that isn't the viewer's never loads.
+          return target ? target.sourceShareId === null && isOwnedByMe(target) : true
+        })()}
+        onClose={closeDetails}
+      />
+
+      {/* ── Share modal ── */}
+      {shareTarget && (
+        <AgentShareModal
+          open
+          repoId={shareTarget.repoId}
+          agentName={shareTarget.name}
+          onClose={() => setShareTarget(null)}
+          onChanged={() => {
+            // Links / invites changed: refresh the dashboard + the "has a link" badges.
+            fetchDashboard(slDays).then(setDashboard).catch(console.error)
+            listShares().then(setAllSharesForFilter).catch(console.error)
+          }}
+        />
+      )}
+
       {/* ── Super Link drawer ── */}
       <SuperLinkDrawer
         link={selectedDrawerLink}
@@ -2143,7 +2214,7 @@ function PersonasPageInner() {
                   position:        'fixed',
                   inset:           0,
                   zIndex:          10000,
-                  backgroundColor: 'rgba(0,0,0,0.28)',
+                  backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
                   backdropFilter:  'blur(2px)',
                 }}
               />

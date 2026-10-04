@@ -15,6 +15,7 @@
     --amber:#9A6B23; --amber-soft:#F3E7D3;
     --red:#9C3B3B; --red-soft:#F3E1E1;
     --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
     --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
     --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
     --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
@@ -48,6 +49,8 @@
   h3.io-head.out .dot{background:var(--accent);}
   h3.io-head.save .dot{background:var(--red);}
   h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.hidden .dot{background:var(--ink-faint);}
   .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
   p{font-size:15px; color:#33353A; max-width:70ch;}
   .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
@@ -57,13 +60,18 @@
   code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
   table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
   th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
-  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
   tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
   td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
   .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
   .tag.fixed{background:var(--accent-soft); color:var(--accent);}
   .tag.gap{background:var(--red-soft); color:var(--red);}
   .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
   footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
 
   .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
@@ -106,7 +114,7 @@
   <h1>Tasks (Brain) — Page-by-Page Reference</h1>
   <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code> and <code>flows/chats-projects-flow-diagram.html</code>, same schema — the agentic task-execution surface: the phase state machine, every animation/loading state, the Context Rail, the task list, in-task clarifying questions, and scheduled tasks.</p>
 
-  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session. This pass leans harder on <strong>render-state and animation accuracy</strong> than the other two docs — Tasks is fundamentally an async, multi-phase, streaming UI, so "what does it look like right now" depends on a 12-value phase machine, not just a route. Several real gaps found and tagged inline (a live "executing" step showing a static ring instead of a spinner, a phase that can render nothing at all, schedule creation having no direct API).</div>
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session. This pass leans harder on <strong>render-state and animation accuracy</strong> than the other two docs — Tasks is fundamentally an async, multi-phase, streaming UI, so "what does it look like right now" depends on a 12-value phase machine, not just a route. Several real gaps found and tagged inline (a live "executing" step showing a static ring instead of a spinner, a phase that can render nothing at all, schedule creation having no direct API).<br><br><b>+ UX research pass —</b> Each page now also carries a <strong>Proposed changes</strong> section, distilled from a 47-case-study review of growth.design's product/behavioral-psychology breakdowns (full notes in <code>docs v1.5/ux research/</code>) cross-referenced against this doc. Each proposal cites the source case study and the specific principle it draws on — these are recommendations under consideration, not committed roadmap or implemented behavior.</div>
 
   <div class="legend">
     <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
@@ -114,6 +122,7 @@
     <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
   </div>
 
   <div class="toc">
@@ -126,6 +135,7 @@
       <li><a href="#t04">Task list &amp; history — /chats?filter=tasks</a></li>
       <li><a href="#t05">In-task Questions</a></li>
       <li><a href="#t06">Scheduled Tasks — /brain/schedules</a></li>
+      <li><a href="#t07">Cross-cutting UX proposals</a></li>
     </ol>
   </div>
 
@@ -147,6 +157,24 @@
     <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--ink-faint)"></span>cancelled</span></td><td><code>LoopCancelledCard</code> (a distinct component — not a <code>status</code> value <code>LoopHistoryCard</code> accepts)</td></tr>
     <tr><td class="label"><span class="sw"><span class="dot" style="background:var(--red)"></span>failed</span></td><td><code>LoopFailedCard</code> (also distinct from <code>LoopHistoryCard</code>)</td></tr>
   </table>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong><code>confirming-pins</code> has a transition-table entry but no rendering branch</strong> — <code>src/templates/Brain/lib/phase.ts</code> declares the phase and <code>src/app/(app)/brain/page.tsx</code> sets it (~line 1949), but no JSX in the transcript switches on this value; restating §00's own gap note here as a structured entry — it's effectively a phase that can be entered but never visibly rendered.</li>
+    <li><span class="tag note">verified clean</span> <strong>No dead components in this family</strong> — grepped for zero-usage exports: <code>LoopCancelledCard</code> and <code>LoopFailedCard</code> are both re-exported from <code>src/templates/Brain/index.tsx</code> (lines ~43–46) and rendered in <code>src/app/(app)/brain/page.tsx</code> (lines ~3536, 3816, 3830); <code>BreathingDot</code> (<code>src/components/BreathingDot/index.tsx</code>) is used elsewhere in the app but confirmed absent from Brain (see §02); <code>StepStatusIcon</code> is a local, actively-used helper inside <code>LoopHistoryCard.tsx</code> (lines ~21, 62, 164). None are orphaned exports.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Never let <code>stuck</code> render nothing</strong> — <code>youtube-user-retention.md</code> (Discoverability &amp; Feedback — Norman: a technically-present recovery path is worthless if the user can't perceive it). <code>phase==='stuck'</code> with no <code>activeStuckPrompt</code> currently renders a blank transcript <span class="tag gap">gap</span>; even a minimal fallback ("Something's blocking this task — try reloading") is a strictly better feedback state than a blank screen, since by definition this phase means the agent needs input to continue. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the frontend already knows <code>phase==='stuck'</code> regardless of whether a prompt payload came with it; the fallback needs no new data, just a rendering change for the case where a prompt object is absent.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed fallback for stuck-with-no-prompt</div>
+    <div class="w-frame" style="max-width:480px; margin:0 auto;">
+      <div class="w-box tall" style="border-color:var(--red);">Something's blocking this task — try reloading, or start a new one if this keeps happening.</div>
+      <div class="w-content-width">was: nothing rendered at all for this exact state</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════ 01 — BRAIN CANVAS ══════════════════════ -->
   <h2 id="t01"><span class="num">01</span>Brain / Task canvas<span class="page-route">/brain</span></h2>
@@ -195,6 +223,24 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p>See §03 for the Context Rail — the one real side panel here. A separate, unrelated <code>ProjectConfigPanel</code> exists but is only used by a different Brain surface (project-scoped Brain settings), not this canvas — don't conflate the two.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">orphaned-in-scope</span> <strong><code>ProjectConfigPanel</code> is unreachable from this canvas</strong> — the component exists and is used by a different Brain surface (project-scoped Brain settings), but nothing on <code>/brain</code> itself ever mounts it; restating the existing Floating-panels note above as a structured entry rather than a new find.</li>
+    <li>No dead code, disabled features, or unused backend fields specific to the canvas route itself were found beyond the above; the model-selector/Use-Style omissions and persona workspace-visibility filter noted elsewhere in this doc are deliberate UI choices, not unused/hidden data.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Show the actual number behind the context-usage ring, not just a color band</strong> — <code>coronavirus-dashboard-ux.md</code> (Data Representation — always check whether a visualization's visual weight matches its underlying statistical reality). Green/amber/red communicates roughly where you stand but not how close; a hover tooltip with the real percentage or token count removes the guesswork the color band alone leaves. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the percentage is already computed client-side (<code>totalChars / (modelInputLimit × 4)</code>); this is a tooltip, not new data.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — context-usage ring, proposed hover tooltip</div>
+    <div class="w-row" style="max-width:200px; margin:0 auto; align-items:center;">
+      <div class="w-box dot" style="border-color:var(--amber); width:28px; min-width:28px; height:28px;">72%</div>
+      <div class="w-note">72% of context used (≈14,400 / 20,000 tokens) — was: color only, no number</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 02 — ANIMATIONS & STATES ══════════════════════ -->
   <h2 id="t02"><span class="num">02</span>Task execution — animations &amp; states<span class="page-route">during <code>phase: 'executing'</code></span></h2>
   <p class="page-intro">The part of this doc that's really about motion and feedback, not routes.</p>
@@ -230,6 +276,32 @@
 
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Covered by §03 (Context Rail) — the execution feed itself isn't a panel, it's the main transcript.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong><code>BreathingDot</code> is dead code within Brain's scope</strong> — verified by grep: <code>src/components/BreathingDot/index.tsx</code> is imported and rendered in Chat/Agent-Configure surfaces (<code>ChatMessage.tsx</code>, <code>CompareModels.tsx</code>, <code>StreamingCursor.tsx</code>, <code>agent/configure/layout.tsx</code>) but has zero import references anywhere under <code>src/templates/Brain</code>; restating the existing note above as a structured entry — not globally dead, but effectively unused/hidden for this surface.</li>
+    <li><span class="tag note">verified clean</span> <strong><code>StepStatusIcon</code> is not a dead export</strong> — it's a module-local helper inside <code>src/templates/Brain/LoopHistoryCard.tsx</code> (defined ~line 21, used at ~lines 62 and 164), not exported/unused elsewhere; the existing <code>pending</code>-vs-<code>executing</code> icon gap is a logic bug inside a used component, not dead code.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Give <code>executing</code> steps a spinner, not the same static ring as <code>pending</code></strong> — <code>labor-perception-bias.md</code>, this whole corpus's single most directly-applicable finding (up to a 15% lift in perceived value from visible labor, and its core thesis is literally "does this look like it's actually doing something?"). <code>StepStatusIcon</code> currently treats <code>'executing'</code> exactly like <code>'pending'</code>/<code>'upcoming'</code> <span class="tag gap">gap</span> — a live run and one that hasn't started are visually identical. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the <code>'executing'</code> status value is already sent (the Scheduled Tasks detail view already passes it); this is purely a frontend icon-mapping fix.</li>
+    <li><span class="tag propose">proposed</span> <strong>A brief confirm before Stop cancels a running task</strong> — <code>typeform-offboarding.md</code> (Peak-End Rule — how an interaction ends disproportionately shapes how it's remembered). Stop transitions straight to <code>cancelled</code> with no confirmation, despite representing real elapsed cost (tool calls, tokens already spent). <strong>Backend:</strong> <span class="tag fixed">ready</span> — gates the existing Stop action with a confirm step; no API change.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — LoopHistoryCard step row, proposed executing state</div>
+    <div class="w-frame" style="max-width:480px; margin:0 auto;">
+      <div class="w-row" style="align-items:center; gap:8px;">
+        <div class="w-box dot" style="border-color:var(--blue);">◐</div>
+        <div class="w-box tight" style="flex:1; justify-content:flex-start;">Searching knowledge base…</div>
+      </div>
+      <div class="w-row" style="align-items:center; gap:8px; opacity:.5;">
+        <div class="w-box dot"></div>
+        <div class="w-box tight" style="flex:1; justify-content:flex-start;">Drafting response — pending, unchanged</div>
+      </div>
+      <div class="w-content-width">Executing row: the same spinner glyph already used by <code>StreamingIndicator</code> elsewhere in Brain, swapped in for the current static open-ring dot — pending/upcoming rows stay exactly as they are today</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════ 03 — CONTEXT RAIL ══════════════════════ -->
   <h2 id="t03"><span class="num">03</span>Context Rail<span class="page-route">side panel, all phases</span></h2>
@@ -272,6 +344,12 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p>Animation: open transition 150ms, close 200ms, both on a custom cubic-bezier; closed state slides +150px on the X axis while fading and blurring 2px, and its flex-basis collapses to 0 (it un-renders visually rather than leaving DOM, but isn't literally removed).</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — no dead components, disabled code paths, orphaned routes, unused backend fields, or fabricated data were found specific to the Context Rail beyond what's already noted (no skeleton/loading state is a UX gap, not hidden/unused code).</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal from this pass — the auto-open/reopen behavior (opens itself based on phase/content rather than requiring discovery, closes to a small reopen affordance instead of disappearing) already reflects good progressive-disclosure instincts and is called out as a positive counter-example in §07's cross-cutting review, not something to change.</p>
+
   <!-- ══════════════════════ 04 — TASK LIST ══════════════════════ -->
   <h2 id="t04"><span class="num">04</span>Task list &amp; history<span class="page-route">/chats?filter=tasks</span></h2>
   <p class="page-intro">There's no in-app sidebar list of past tasks separate from this — the library page IS the task list.</p>
@@ -307,6 +385,30 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">backend-unused</span> <strong>No settled-status or elapsed-time field exists to surface, even if the row wanted it</strong> — verified against the thread-list/detail response shape used by <code>ChatRow</code>/the task list: it carries only id/title/starred/timestamps/message count, confirming the existing gap note that this isn't a "wire up an existing field" fix but a genuine backend gap (no field is sitting unused server-side here, unlike the automation fields found in §06).</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Add a color-coded status chip and duration to each row</strong> — <code>coronavirus-dashboard-ux.md</code> (Data Representation — a list of items in meaningfully different states needs visual differentiation tied to that real status, not decoration). No status or duration is passed to the row at all today <span class="tag gap">gap</span>; you cannot tell success/failure/still-running without opening each thread. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — bigger than a missing list field: the 12-value phase machine this whole doc is built around isn't modeled in the backend at all. The task-list endpoint's thread model stores only id/title/starred/timestamps/message count, and even the per-thread detail endpoint returns raw message/tool-call data with no persisted "final phase" or elapsed-time field to read back. This needs new backend bookkeeping (e.g. run start/end timestamps and a settled-status column on the thread), not just a bigger response schema.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — task row, proposed status chip</div>
+    <div class="w-frame" style="max-width:600px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-box tight" style="justify-content:flex-start; flex:1;">Weekly report summary</div>
+        <div class="w-box tight" style="flex:none; border-color:var(--accent); color:var(--accent);">● Complete — 42s</div>
+      </div>
+      <div class="w-row between">
+        <div class="w-box tight" style="justify-content:flex-start; flex:1;">Inbox triage</div>
+        <div class="w-box tight" style="flex:none; border-color:var(--red); color:var(--red);">● Failed — 8s</div>
+      </div>
+      <div class="w-content-width">Status chip reuses <code>LoopHistoryCard</code>/<code>LoopFailedCard</code>'s existing color language (green/red/blue) — just surfaced one level up, on the list row itself</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 05 — QUESTIONS ══════════════════════ -->
   <h2 id="t05"><span class="num">05</span>In-task Questions<span class="page-route">inline, during execution</span></h2>
   <p class="page-intro">A real, dedicated clarifying-question mechanism — distinct from connector permission/connect prompts, which stay connector-specific.</p>
@@ -341,6 +443,24 @@
   <p>One <code>respondToPrompt(promptId, {response: {answers}})</code> call per question batch — not saved incrementally per question.</p>
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — inline in the main transcript, not a panel.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — no dead code, disabled branches, orphaned routes, or unused backend fields specific to the clarifying-question/<code>ask_user</code> mechanism itself were found. The one adjacent gap (<code>stuck</code>-with-no-prompt rendering nothing) belongs to §00, where it's catalogued as a structured entry.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Name the actual pending question in any re-engagement notification</strong> — <code>linkedin-retention-triggers.md</code> (Singularity Effect / Benefit-Focused Messaging — LinkedIn's own case study cites contextual, personalized prompts converting roughly 5× better than generic ones). No re-engagement trigger exists today if the user navigates away while blocked; if one is added, it should reference the real question ("Souvenir needs to know: which timezone should this run in?") rather than a generic "your task needs attention." <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — there's no notification/push infrastructure of any kind for this path (no websocket, push-subscription, or device-token system anywhere). The only delivery channels that exist at all (email, and a Slack DM) are hardwired to scheduled-automation run failures specifically, not to a chat/task waiting on <code>ask_user</code> — and the timeout path itself currently just logs and does nothing else. This is a build-from-near-scratch item, not a wiring job.</li>
+    <li><span class="tag propose">proposed</span> <strong>A real, honest countdown as the 300-second prompt-gate window closes</strong> — <code>uber-eats-scarcity.md</code> (Positive Scarcity — urgency framing is ethical only when tied to a genuinely real constraint, unlike Uber Eats' own critiqued cases). The stream already blocks toward a real server-side timeout with nothing communicating this to the user; surfacing it as it approaches is the textbook honest use of urgency this case study distinguishes from manufactured pressure. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the 300s window is a fixed constant, and the SSE prompt event arrives right as the wait begins, so the frontend's own receive-timestamp is a reliable countdown start. Minor gap: the constant isn't echoed inside the SSE payload itself, so if it's ever made configurable server-side the frontend would silently drift out of sync — worth adding a <code>timeout_seconds</code>/<code>expires_at</code> field to that event as a small follow-up, but not a blocker today.</li>
+    <li>See §00's proposal for the related <code>stuck</code>-with-no-prompt blank-render gap — the same underlying "the user needs to act and nothing tells them" failure, one step further along the same flow.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — clarification card, proposed countdown + notification copy</div>
+    <div class="w-frame" style="max-width:560px; margin:0 auto;">
+      <div class="w-row between"><div class="w-box tight">Clarifying question</div><div class="w-box tight" style="flex:none; color:var(--amber);">⏱ 0:42 left to answer</div></div>
+      <div class="w-box tall">"Which timezone should this run in?"</div>
+      <div class="w-note">Re-engagement notification (if user navigated away): "Souvenir needs to know: which timezone should this run in?" — not a generic "your task needs attention"</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════ 06 — SCHEDULED TASKS ══════════════════════ -->
   <h2 id="t06"><span class="num">06</span>Scheduled Tasks<span class="page-route">/brain/schedules</span></h2>
@@ -386,6 +506,43 @@
 
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — a plain list + modal, no side panel.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">backend-unused</span> <strong><code>failure_count</code>, <code>success_count</code>, <code>running_count</code> on the <code>Automation</code> type are returned but never read</strong> — verified in <code>src/lib/api/automations.ts</code> (fields ~lines 31–33): all three raw counters are typed on the response but grep across <code>src/templates/Brain</code> and <code>src/app/(app)/brain</code> shows zero reads of any of them. <code>failure_count</code> is the closest thing to a consecutive-failure signal actually present on the type — it's a running total rather than a "current streak," and it's unused either way.</li>
+    <li><span class="tag gap">backend-unused</span> <strong><code>trigger: Record&lt;string, unknown&gt;</code> is typed but never read</strong> — <code>src/lib/api/automations.ts</code> ~line 26; no component destructures or renders it.</li>
+    <li><span class="tag gap">backend-unused</span> <strong>Automation-specific <code>updated_at</code> is typed but never read</strong> — <code>src/lib/api/automations.ts</code> ~line 37; unlike the <code>updated_at</code> fields on chat/persona types (which are used), this one on <code>Automation</code>/<code>AutomationDetail</code> has no call site.</li>
+    <li><span class="tag note">corrected scope</span> <strong><code>next_run_at</code> is not universally unused</strong> — it <em>is</em> read and surfaced in <code>src/templates/Brain/ScheduleDetailView.tsx</code> (line ~194–201, "Next run: …") and on the Brain home dashboard (<code>src/templates/Brain/BrainHome.tsx</code> line ~186, "runs next at …") via mappings in <code>src/app/(app)/brain/schedules/page.tsx:144</code> and <code>src/app/(app)/brain/page.tsx:1057-1062</code>. It is confirmed absent specifically from <code>src/templates/Brain/ScheduleCard.tsx</code> — the list-card component this doc's own "Next run in 3h" proposal targets — so the underlying proposal still holds, just scoped correctly to the card, not the whole feature.</li>
+    <li><span class="tag note">verified</span> <strong>No target-persona/model field exists anywhere on the automation types</strong> — confirms the existing "no target persona field exists at all" note structurally: there's nothing to surface even if a "deleted persona" state were built.</li>
+    <li><span class="tag note">verified clean</span> <strong>No mocked/fabricated schedule data found</strong> — grepped <code>src/templates/Brain</code> for mock/sample/fake/dummy arrays and <code>Math.random</code>; run counts, success rates, and drift warnings all trace back to real API fields (<code>run_count</code>, <code>success_rate</code>/<code>is_running</code>, <code>schedule_json</code>'s <code>drift</code> flag via <code>scheduleDrift()</code>), none are hardcoded placeholders.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Escalate visually after N consecutive failures, with one concrete action</strong> — <code>amber-alert-ux.md</code> (Habituation — repeated identical signals get tuned out — and Actionability — give recipients something concrete to do). Failures currently show per-run in history only, with no "N consecutive failures" banner or auto-pause <span class="tag gap">gap</span>; a distinct treatment on the schedule card itself plus a direct "Review and fix" action into the linked chat turns a quietly-decaying automation into something the user can actually act on. <strong>Backend:</strong> <span class="tag note">partial</span> — better than it looks: this exact streak calculation already exists server-side (used internally to decide when to auto-pause and email the owner at 3 consecutive failures), it's just never included in the API response. Serializing that already-computed number onto the schedule detail/list response is a small addition, not new logic.</li>
+    <li><span class="tag propose">proposed</span> <strong>Say so when <code>parseFrequency</code> can't match the exact cadence</strong>, instead of silently substituting modal defaults — <code>grammarly-onboarding-survey.md</code> (Personalization Clarity — a silent mismatch between what a user said and what the system shows erodes trust more than an honest "we didn't quite get that"). <span class="tag gap">gap</span> already documented above. <strong>Backend:</strong> <span class="tag fixed">ready</span> — <code>parseFrequency</code> is a frontend function parsing the backend's already-returned natural-language cadence string; detecting and surfacing its own parse failure needs no backend change.</li>
+    <li><span class="tag propose">proposed</span> <strong>A small "Next run in 3h" teaser on each schedule card</strong> — <code>spotify-wrapped-psychology.md</code> (Curiosity Gap). Cards show cadence, run count, and success rate today but nothing forward-looking; a low-effort, low-stakes teaser builds a mild pull to check back, the same lever Spotify Wrapped uses on a much bigger stage. <strong>Backend:</strong> <span class="tag fixed">ready</span> — a computed <code>next_run_at</code> field already exists on both the list and detail schedule responses (recalculated fresh on every read, so it can't drift from the actual cron), it just isn't surfaced on the card today.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — schedule card, proposed failure banner + next-run teaser</div>
+    <div class="w-frame" style="max-width:520px; margin:0 auto;">
+      <div class="w-box solid tight" style="justify-content:flex-start; border-color:var(--red); color:var(--red);">⚠ 4 consecutive failures — Review and fix</div>
+      <div class="w-box solid tall">Daily report • 9:00 AM (America/Chicago) — 12 runs, 67% success</div>
+      <div class="w-note">Next run in 3h — was: no forward-looking info at all</div>
+      <div class="w-note" style="color:var(--amber);">Couldn't match "Every 5 minutes" exactly — showing our closest equivalent, edit if needed</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ 07 — CROSS-CUTTING PROPOSALS ══════════════════════ -->
+  <h2 id="t07"><span class="num">07</span>Cross-cutting UX proposals<span class="page-route">applies across §00–§06</span></h2>
+  <p class="page-intro">Two patterns recur across multiple pages above, plus one existing pattern worth explicitly preserving. Full source notes for every case study cited: <code>docs v1.5/ux research/</code>.</p>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up in this doc</th><th>Grounded in</th></tr>
+    <tr><td class="label">A blank/ambiguous screen where real state exists</td><td>§00 <code>stuck</code> with no prompt renders nothing; §02 <code>executing</code> looks identical to <code>pending</code></td><td><code>youtube-user-retention.md</code> (Discoverability &amp; Feedback), <code>labor-perception-bias.md</code></td></tr>
+    <tr><td class="label">Real, meaningful state exists but is never surfaced where it's needed</td><td>§04 Task list has no status/duration; §06 no escalation for repeated failures; §06 <code>parseFrequency</code> silently substitutes a wrong value</td><td><code>coronavirus-dashboard-ux.md</code>, <code>amber-alert-ux.md</code>, <code>grammarly-onboarding-survey.md</code></td></tr>
+    <tr><td class="label"><em>Worth preserving, not fixing</em> — §03 Context Rail's auto-open/reopen behavior and §06's drift warning (deployed timer vs. stored schedule disagreeing) both already reflect the transparency/progressive-disclosure instincts this whole review is arguing for elsewhere.</td><td>§03, §06</td><td>—</td></tr>
+  </table>
 
   <footer>SOUVENIR — TASKS (BRAIN): PAGE-BY-PAGE REFERENCE — V1.5</footer>
 </div>

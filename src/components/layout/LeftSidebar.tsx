@@ -5,7 +5,7 @@ import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTwoIcon, BubbleChatAddIcon, CalendarThreeIcon, CircleIcon, DeleteTwoIcon, ExchangeOneIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { BubbleChatAddIcon, CalendarThreeIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { IconWithFallback } from "@/components/IconWithFallback";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
@@ -21,11 +21,8 @@ import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat,
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
-import { listAutomations, getAutomation } from "@/lib/api/automations";
-import type { Automation, AutomationRun } from "@/lib/api/automations";
 import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat, emitPersonaChatNav } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
-import { BrainSidebarSections, FlatBrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
@@ -58,8 +55,7 @@ import {
   AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
-  BRAIN_ROUTE,
-  BRAIN_SCHEDULES_ROUTE,
+  SCHEDULES_ROUTE,
   CHAT_ROUTE,
   CHATS_ROUTE,
   SETTINGS_ROUTE,
@@ -907,7 +903,7 @@ const AGENT_LIST_LIMIT = 10
 // lands on the "My Agents" tab specifically: a fresh /agents mount already
 // defaults there, but an already-mounted page won't reset its own tab state
 // from a same-URL push, so that case also emits AGENTS_SEE_ALL_EVENT for the
-// page to act on (same pattern as BRAIN_NEW_THREAD_EVENT).
+// page to act on.
 function goToAgentsLibrary(pathname: string | null, push: (href: string) => void) {
   if (pathname === AGENTS_ROUTE) {
     toast.info("Already showing agent library", { id: 'nav' })
@@ -1623,163 +1619,13 @@ function RecentAgentChatsSection() {
   )
 }
 
-// -- Brain Scheduled Tasks section --------------------------------------------
-// Receives pre-loaded tasks from LeftSidebarImpl so the list survives tab
-// switches without re-fetching on each brain-tab mount/unmount cycle.
-
-/** Per-schedule run status derived from its run history (see computeScheduleRunInfo). */
-interface ScheduleRunInfo {
-  /** Outcome of the most recent run — null when there's no run yet or its
-   *  status isn't one we render an indicator for (e.g. still "running"). */
-  lastRunStatus: "success" | "failed" | null;
-  /** Runs that happened after this schedule was last opened from the sidebar. */
-  newRunsCount: number;
-}
-
-const SCHEDULE_SEEN_KEY_PREFIX = "brain-schedule-seen:";
-
-function getScheduleLastSeenAt(taskId: string): number | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(SCHEDULE_SEEN_KEY_PREFIX + taskId);
-  const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function markScheduleSeen(taskId: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(SCHEDULE_SEEN_KEY_PREFIX + taskId, String(Date.now()));
-  } catch {
-    // Storage full/unavailable — the badge just won't clear until next reload; non-critical.
-  }
-}
-
-function scheduleRunTimestamp(run: AutomationRun): number {
-  const iso = run.finished_at ?? run.started_at;
-  const ms = iso ? new Date(iso).getTime() : NaN;
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-/** Never-seen schedules count every existing run as "new" — there's nothing
- *  more correct to compare against than "you haven't looked at this yet". */
-function computeScheduleRunInfo(runs: AutomationRun[], lastSeenAt: number | null): ScheduleRunInfo {
-  if (runs.length === 0) return { lastRunStatus: null, newRunsCount: 0 };
-  const sorted = [...runs].sort((a, b) => scheduleRunTimestamp(b) - scheduleRunTimestamp(a));
-  const latestStatus = sorted[0].status;
-  const lastRunStatus = latestStatus === "succeeded" ? "success" : latestStatus === "failed" ? "failed" : null;
-  const newRunsCount = lastSeenAt == null
-    ? runs.length
-    : sorted.filter((r) => scheduleRunTimestamp(r) > lastSeenAt).length;
-  return { lastRunStatus, newRunsCount };
-}
-
-/** Blue circle = last run succeeded (or no run yet). Caution icon = last run
- *  failed / needs attention. Rendered via SidebarMenuItem's own `icon` slot
- *  (default variant), which injects `triggered` on hover itself — same as
- *  every other icon passed to that prop elsewhere in this file. */
-function scheduleStatusIcon(status: ScheduleRunInfo["lastRunStatus"]): React.ReactElement<{ triggered?: boolean }> {
-  if (status === "failed") {
-    return <AlertTwoIcon size={14} color="var(--color-tag-Yellow-text)" aria-label="Needs attention" />;
-  }
-  // CircleIcon is stroke-only (fill: none on the <svg>) — pass `fill` as an
-  // extra SVG prop so the circle renders solid instead of a hollow ring.
-  return (
-    <CircleIcon
-      size={8}
-      color="var(--color-tag-Blue-text)"
-      fill="var(--color-tag-Blue-text)"
-      aria-label={status === "success" ? "Last run succeeded" : "No runs yet"}
-    />
-  );
-}
-
-interface BrainScheduledTasksSectionProps {
-  tasks: Automation[];
-  loading: boolean;
-  runInfo: Record<string, ScheduleRunInfo>;
-  onTaskOpened: (taskId: string) => void;
-}
-
-// Sidebar preview is a bounded "recent" list — the dedicated /brain/schedules
-// page is where the full set lives; "See all" always links there.
-const SCHEDULE_PREVIEW_LIMIT = 5;
-
-function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: BrainScheduledTasksSectionProps) {
-  const { push } = useGuardedRouter();
-  const [shown, setShown] = useState(true);
-  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
-  const visibleTasks = tasks.slice(0, SCHEDULE_PREVIEW_LIMIT);
-
-  return (
-    <>
-      <SidebarMenuItem
-        fluid
-        variant="header"
-        label="Recent schedules"
-        shown={shown}
-        onShowClick={() => setShown((s) => !s)}
-      />
-      <m.div
-        animate={shown ? "open" : "closed"}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
-        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
-      >
-        <m.div
-          animate={shown ? "open" : "closed"}
-          initial="closed"
-          variants={sectionStaggerVariants}
-          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
-        >
-          {loading ? (
-            <>
-              <SidebarMenuSkeleton index={0} fluid />
-              <SidebarMenuSkeleton index={1} fluid />
-            </>
-          ) : (
-            <>
-              {visibleTasks.map((task) => {
-                const info = runInfo[task.id];
-                return (
-                  <m.div key={task.id} variants={sectionItemVariants}>
-                    <SidebarMenuItem
-                      fluid
-                      variant="default"
-                      icon={scheduleStatusIcon(info?.lastRunStatus ?? null)}
-                      label={task.name}
-                      trailing={info && info.newRunsCount > 0 ? <Badge color="Neutral" label={`${info.newRunsCount} new`} /> : undefined}
-                      onClick={() => { onTaskOpened(task.id); push(BRAIN_SCHEDULES_ROUTE); }}
-                    />
-                  </m.div>
-                );
-              })}
-              <m.div variants={sectionItemVariants}>
-                <SidebarMenuItem
-                  fluid
-                  variant="default"
-                  icon={<MoreHorizontalIcon size={20} animated />}
-                  label="See all"
-                  href={BRAIN_SCHEDULES_ROUTE}
-                  onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
-                />
-              </m.div>
-            </>
-          )}
-        </m.div>
-      </m.div>
-    </>
-  );
-}
-
 // ── Flat sidebar (Souvenir V1.5) — new render layer, same data/hooks ──────────
 // Everything below renders onto the new FlatSidebar primitives instead of the
 // old Sidebar/SidebarMenuItem/SidebarProjectsSection. It deliberately reuses the
 // exact same hooks, constants (PROJECT_LIMIT, CHAT_LIMIT...), and business logic
 // as the section components above — only the container components differ, per
 // docs/features/sidebar-current-state-audit.md's migration checklist. The
-// components above this line are UNTOUCHED and keep serving Brain/Admin/
+// components above this line are UNTOUCHED and keep serving Admin/
 // team-settings pages via the old <Sidebar>.
 
 // -- FlatChatHistoryItem — rename/star/delete dropdown, onto FlatSidebarRow ----
@@ -1847,8 +1693,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
     <>
     {/* display:flex blockifies Dropdown.Float's inline-flex trigger wrapper. Left
         inline it generates a line box (--line-height-body, 22px) under the 32px
-        row — the row's own height plus a phantom second line. The brain-thread
-        row dodges this by using a raw absolutely-positioned Radix trigger. */}
+        row — the row's own height plus a phantom second line. */}
     <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", opacity: isArchiving ? 0.5 : 1, transition: "opacity 150ms", pointerEvents: isArchiving ? "none" : undefined }}>
       <FlatSidebarRow
         variant={isEditing ? "chat-item-edit" : "chat-item"}
@@ -1944,7 +1789,7 @@ function FlatPinnedSection({ activeChatId, onSelectChat, chatHistory }: SectionP
   )
 }
 
-function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat, onSwitchToTasks }: SectionProps & { onNewChat?: () => void; onSwitchToTasks?: () => void }) {
+function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat }: SectionProps & { onNewChat?: () => void }) {
   const { push } = useGuardedRouter()
   const { chats, isLoading, hasMore, loadMore, rename, remove, star, archive } = chatHistory
   // Starred chats live in FlatPinnedSection (see its own `.filter(c => c.starred)`
@@ -1965,11 +1810,6 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
         onAddClick={onNewChat ? (e) => { e.stopPropagation(); onNewChat() } : undefined} addLabel="New chat"
         addIcon={<QuillWriteOneIcon size={16} animated />}
         extraHeaderIcons={[
-          {
-            icon: <ExchangeOneIcon size={16} animated />,
-            onClick: () => onSwitchToTasks?.(),
-            label: 'Switch to Recent Tasks',
-          },
           {
             icon: (
               <IconWithFallback
@@ -2326,7 +2166,6 @@ function FlatTeamsSidebarContent({ role }: TeamsSidebarContentProps) {
 
 interface FlatDestinationsProps {
   onNewChat: () => void
-  /** New chat, or an idle (no thread loaded) Brain page — either counts as "New". */
   newChatSelected: boolean
   collapsed?: boolean
 }
@@ -2354,7 +2193,7 @@ function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: Fla
       />
       <FlatSidebarRow
         collapsed={collapsed} variant="default" icon={<CalendarThreeIcon size={20} animated />} label="Schedules"
-        selected={pathname.startsWith(BRAIN_SCHEDULES_ROUTE)} href={BRAIN_SCHEDULES_ROUTE} onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
+        selected={pathname.startsWith(SCHEDULES_ROUTE)} href={SCHEDULES_ROUTE} onClick={() => push(SCHEDULES_ROUTE)}
       />
       <FlatSidebarRow
         collapsed={collapsed} variant="default" icon={<LinkSixIcon size={20} animated />} label="Connectors"
@@ -2424,32 +2263,8 @@ function LeftSidebarImpl({
   // project detail page here (unlike AppLayout's own, intentionally broader
   // isAnyProjectPage check).
   const isProjectPage = pathname?.startsWith("/project/") ?? false;
-  const isBrainPage   = pathname?.startsWith("/brain") ?? false;
-  // /chats merged the old /brain/threads page into a Chats/Tasks toggle (see
-  // src/app/(app)/chats/page.tsx) — Tasks mode shows the exact same brain
-  // threads a Brain page does, so the sidebar's Recents should swap to
-  // "Recent Tasks" there too, not just on /brain*. handleLibraryModeChange
-  // syncs the toggle to this same `?filter=` query param specifically so
-  // this reacts to it.
-  const isChatsTasksMode = pathname === CHATS_ROUTE && chatSearchParams.get("filter") === "tasks";
-  // Manual override for the sidebar's OWN Recents list, set by the "Switch to
-  // Recent Chats"/"Switch to Recent Tasks" header icons — swaps which list
-  // populates here without navigating the page away from wherever the user
-  // actually is. Route context (isBrainPage/isChatsTasksMode) still decides
-  // the default whenever this hasn't been touched.
-  const [recentsOverride, setRecentsOverride] = useState<"chats" | "tasks" | null>(null);
-  const showTasksRecents = recentsOverride ? recentsOverride === "tasks" : (isBrainPage || isChatsTasksMode);
-
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
-  // Flat sidebar's "New" row highlights for either flavor of "blank slate" —
-  // a new chat or an idle (no thread loaded) Brain page — same condition the
-  // old sidebar's newChatButtonSelected already used for the Brain case. Must
-  // be an exact match on BRAIN_ROUTE, not the isBrainPage prefix check — that
-  // also matches /brain/schedules and /brain/threads, which lit up "New"
-  // alongside "Schedules" incorrectly.
-  const isNewChatOrBrainThreadPage = isNewChatPage || (pathname === BRAIN_ROUTE && !chatSearchParams.get('id'));
-
   // Map the current /org/* path to its admin-section item id so the sidebar
   // can highlight the correct row on initial mount / page refresh. Connectors
   // and Souvenir-in-Slack moved to their own top-level routes (no longer under
@@ -2463,7 +2278,6 @@ function LeftSidebarImpl({
   // navigation, allowing defaultSelectedItem to pre-highlight the right row.
   const sidebarSectionKey = isPersonaPage ? 'persona'
     : isProjectPage ? 'projects'
-    : isBrainPage   ? 'brain'
     : isAdminPage   ? `admin-${adminItemId}`
     : isNewChatPage ? 'new-chat'
     : 'chat-board';
@@ -2471,56 +2285,12 @@ function LeftSidebarImpl({
   const computedDefaultBodySection = (
     isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
-    : isBrainPage   ? 'brain'
     : isAdminPage ? 'admin'
     : isNewChatPage ? 'new-chat'
     : 'chats'
-  ) as 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects';
+  ) as 'chats' | 'agents' | 'admin' | 'new-chat' | 'projects';
 
   const collapsedRef = useRef<boolean>(readCollapsed());
-
-  // -- Brain scheduled tasks — fetched once when first visiting a brain page --
-  // Lifted here so the list survives brain-tab switches without re-fetching.
-  const [brainTasks, setBrainTasks] = useState<Automation[]>([]);
-  const [brainTasksLoading, setBrainTasksLoading] = useState(false);
-  const [brainTaskRunInfo, setBrainTaskRunInfo] = useState<Record<string, ScheduleRunInfo>>({});
-  const brainTasksFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!isBrainPage || brainTasksFetchedRef.current) return;
-    brainTasksFetchedRef.current = true;
-    setBrainTasksLoading(true);
-    listAutomations()
-      .then(async (tasks) => {
-        setBrainTasks(tasks);
-        // Per-task run history isn't on the list payload — fetch each task's
-        // detail (already-existing endpoint) to derive the status dot + badge.
-        const entries = await Promise.all(tasks.map(async (task) => {
-          try {
-            const detail = await getAutomation(task.id);
-            const lastSeenAt = getScheduleLastSeenAt(task.id);
-            const info = computeScheduleRunInfo(detail.runs ?? [], lastSeenAt);
-            if (process.env.NODE_ENV !== "production") {
-              // eslint-disable-next-line no-console
-              console.debug("[BrainSchedules] run info", { taskId: task.id, name: task.name, runs: detail.runs?.length ?? 0, info });
-            }
-            return [task.id, info] as const;
-          } catch (err) {
-            console.error("[BrainSchedules] failed to fetch task detail for status indicator", task.id, err);
-            return [task.id, { lastRunStatus: null, newRunsCount: 0 } as ScheduleRunInfo] as const;
-          }
-        }));
-        setBrainTaskRunInfo(Object.fromEntries(entries));
-      })
-      .catch(() => {})
-      .finally(() => setBrainTasksLoading(false));
-  }, [isBrainPage]);
-
-  const handleScheduleOpened = useCallback((taskId: string) => {
-    markScheduleSeen(taskId);
-    setBrainTaskRunInfo((prev) =>
-      prev[taskId] ? { ...prev, [taskId]: { ...prev[taskId], newRunsCount: 0 } } : prev,
-    );
-  }, []);
 
   // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
@@ -2577,32 +2347,12 @@ function LeftSidebarImpl({
     // The new flat sidebar's "New" row calls this unconditionally from every
     // page, so that branch just made "New" a no-op on /agents and any
     // /agents/[id]/chat page — removed; "New" now always opens a blank chat.
-    //
-    // Task context is the one exception: on a Brain page or /chats in Tasks
-    // mode, "New" should open a blank task, not a blank chat — same URL
-    // command (`?new=1`) the Recent Tasks header's own add button and the old
-    // tabbed Sidebar's onNewBrainThread use, so Brain's own reset handles it
-    // identically regardless of entry point.
-    if (isBrainPage || isChatsTasksMode) {
-      // NOTE: previously short-circuited to a no-op "Already on new task" toast
-      // when the URL had no `id` yet — but that's also true for the brief
-      // window right after sending the first message in a brand-new task
-      // (the real id only arrives once the backend responds), so a click
-      // during that window looked completely dead. Always push/reset instead;
-      // Brain's own remount-gate handles re-navigating to an already-blank
-      // task harmlessly.
-      toast.info("Opening new task");
-      push(`${BRAIN_ROUTE}?new=1`);
-      return;
-    }
-
     toast.info("Opening new chat");
     if (onNewChat) {
       onNewChat();
     } else if (pathname === CHAT_ROUTE) {
-      // Already mounted on the chat page (viewing an existing chat) — same
-      // event-bus pattern Brain uses for its "New thread" button (see
-      // BRAIN_NEW_THREAD_EVENT below): URL navigation alone isn't reliably
+      // Already mounted on the chat page (viewing an existing chat) — URL
+      // navigation alone isn't reliably
       // picked up by the page's own reactive id-change detection, so the
       // page resets itself directly off this event instead. Still push the
       // URL too, so it correctly reflects the reset (history/bookmarking).
@@ -2709,11 +2459,7 @@ function LeftSidebarImpl({
 
   // Souvenir V1.5: Admin pages keep the old tabbed Sidebar completely
   // unchanged (see docs/features/sidebar-current-state-audit.md and the
-  // migration plan for why); Brain now also gets the flat shell — its
-  // Recents section falls back to the same personal/team chat recents every
-  // other page shows (no inline Brain-thread list or per-schedule run-status
-  // icons in the sidebar anymore; "Schedules" is still reachable as a plain
-  // Destinations nav link to /brain/schedules).
+  // migration plan for why).
   const useFlatSidebar = !isAdminPage;
 
   if (useFlatSidebar) {
@@ -2725,7 +2471,7 @@ function LeftSidebarImpl({
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
           forceCollapsed={isAgentConfigurePage || (isSlackPage && isMobile)}
-          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatOrBrainThreadPage} collapsed={collapsed} />}
+          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatPage} collapsed={collapsed} />}
           projectItems={orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
@@ -2746,21 +2492,10 @@ function LeftSidebarImpl({
                   <SidebarMenuSkeleton key={i} index={i} fluid />
                 ))}
               </div>
-            ) : showTasksRecents ? (
-              // Task side of the Task/Chat tab (src/templates/Brain/index.tsx,
-              // src/app/(app)/chat/page.tsx, and /chats in Tasks mode) —
-              // Recents shows Brain threads instead of regular chats while on
-              // a Brain page OR /chats?filter=tasks, or when the user manually
-              // switched via the header icon (recentsOverride).
-              <FlatBrainSidebarSections
-                activeChatId={chatSearchParams.get('id') ?? null}
-                onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}
-                onSwitchToChats={() => setRecentsOverride('chats')}
-              />
             ) : (
               <>
                 <FlatPinnedSection {...sectionProps} />
-                <FlatRecentsSection {...sectionProps} onNewChat={handleNewChat} onSwitchToTasks={() => setRecentsOverride('tasks')} />
+                <FlatRecentsSection {...sectionProps} onNewChat={handleNewChat} />
               </>
             )
           }
@@ -2842,18 +2577,12 @@ function LeftSidebarImpl({
       onNewChat={handleNewChat}
       newChatButtonSelected={
         isPersonaPage ? pathname === AGENTS_ROUTE
-        : isBrainPage ? (pathname === BRAIN_ROUTE && !chatSearchParams.get('id'))
         : isNewChatPage
       }
       onSearch={openSearch}
       onChatTabClick={isPersonaPage ? () => push(CHAT_ROUTE) : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
-      onManageAllThreadsClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(`${CHATS_ROUTE}?filter=tasks`) }}
-      // Use a URL command so this works even when the current thread is an
-      // unsaved session already at bare `/brain`. The page consumes `?new=1`,
-      // performs its complete imperative reset, then cleans the URL.
-      onNewBrainThread={() => push(`${BRAIN_ROUTE}?new=1`)}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onNewAgentChat={() => push(AGENTS_ROUTE)}
@@ -2863,7 +2592,6 @@ function LeftSidebarImpl({
       // so it isn't rebuilt from scratch if this is ever re-shown.
       agentItems={<PersonasSectionIndividual />}
       onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
-      onBrainClick={() => { toast.info("Opening Tasks", { id: 'nav' }); push(BRAIN_ROUTE) }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
       onOrganisationClick={() => push(ORG_GENERAL_ROUTE)}
@@ -2933,26 +2661,11 @@ function LeftSidebarImpl({
           />
         )
       }}
-      onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push(BRAIN_SCHEDULES_ROUTE) }}
       projectItems={orgId ? (
         <TeamsSidebarContent role={currentUserRole} />
       ) : (
         <ProjectsSection label="Projects" />
       )}
-      scheduledTasksItems={isBrainPage ? (
-        <BrainScheduledTasksSection
-          tasks={brainTasks}
-          loading={brainTasksLoading}
-          runInfo={brainTaskRunInfo}
-          onTaskOpened={handleScheduleOpened}
-        />
-      ) : undefined}
-      brainRecentItems={
-        <BrainSidebarSections
-          activeChatId={isBrainPage ? (chatSearchParams.get('id') ?? null) : null}
-          onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}
-        />
-      }
       recentItems={
         !user ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
@@ -2963,7 +2676,7 @@ function LeftSidebarImpl({
         ) : isPersonaPage ? (
           // Both accounts: persona list is in agentItems; recent agent chats go here as a second layer
           <RecentAgentChatsSection />
-        ) : isBrainPage ? null : (
+        ) : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
           // Rendered on every other page — including project pages, whose own
           // "projects" body-section tab is separate from this "chats" one — so

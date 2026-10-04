@@ -53,6 +53,7 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      data-sidebar-active={isActive ? '' : undefined}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 50,
         padding: '0 12px', borderRadius: 10, cursor: 'pointer', boxSizing: 'border-box',
@@ -93,14 +94,14 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         {planLabel && (
           <span style={{
             display: 'inline-flex', alignItems: 'center', padding: '2px 6px', borderRadius: 6,
-            backgroundColor: '#cadcf1', boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
+            backgroundColor: 'var(--blue-100)', boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
             fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)', color: '#135487',
+            lineHeight: 'var(--line-height-caption)', color: 'var(--blue-700)',
           }}>
             {planLabel}
           </span>
         )}
-        <span style={{ display: 'inline-flex', color: 'var(--sidebar-menu-item-text)' }}>
+        <span style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}>
           <SettingsOneIcon size={16} triggered={isActive} />
         </span>
       </div>

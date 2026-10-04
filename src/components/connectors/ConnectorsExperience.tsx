@@ -12,6 +12,7 @@ import {
   listLinkedConnectors,
   unlinkAccount,
 } from '@/lib/api/connectors'
+import type { ConnectorPick } from '@/lib/api/recommendations'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
@@ -110,9 +111,9 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     loadDetail(row.slug)
   }, [loadDetail])
 
-  const selectFromCatalog = useCallback((row: ConnectorCatalog) => {
-    mergeRows([row])
-    if (row.connections.length > 0) {
+  const selectFromCatalog = useCallback((row: ConnectorCatalog | ConnectorPick) => {
+    if ('connections' in row) mergeRows([row])
+    if ('connections' in row && row.connections.length > 0) {
       openConnectorDetail(row)
       return
     }
@@ -126,6 +127,10 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         setSetupOpen(true)
       })
       .catch(() => {
+        if (!('connections' in row)) {
+          toast.error(`Couldn't load ${row.name}. Please try again.`)
+          return
+        }
         setSetupMode('connect')
         setSetupAccount(undefined)
         setSetupOpen(true)

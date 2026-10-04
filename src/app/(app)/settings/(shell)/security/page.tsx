@@ -9,8 +9,8 @@ import { useAuth } from '@/context/auth-context'
 function DeviceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2.5" y="3" width="15" height="10.5" rx="1.5" stroke="rgba(82,75,71,0.65)" strokeWidth="1.4" />
-      <path d="M7 16.5h6M10 13.5v3" stroke="rgba(82,75,71,0.65)" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="2.5" y="3" width="15" height="10.5" rx="1.5" stroke="color-mix(in srgb, var(--neutral-700) 65%, transparent)" strokeWidth="1.4" />
+      <path d="M7 16.5h6M10 13.5v3" stroke="color-mix(in srgb, var(--neutral-700) 65%, transparent)" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }
@@ -18,10 +18,10 @@ function DeviceIcon() {
 function GoogleIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M18.17 10.23c0-.63-.06-1.25-.17-1.84H10v3.48h4.62a3.95 3.95 0 01-1.71 2.59v2.15h2.77C17.12 15.1 18.17 12.87 18.17 10.23z" fill="#4285F4" />
-      <path d="M10 18.5c2.35 0 4.32-.78 5.76-2.1l-2.77-2.15c-.77.52-1.76.82-2.99.82-2.3 0-4.25-1.55-4.95-3.64H2.2v2.22A8.5 8.5 0 0010 18.5z" fill="#34A853" />
-      <path d="M5.05 11.43A5.1 5.1 0 014.78 10c0-.5.09-1 .27-1.43V6.35H2.2A8.5 8.5 0 001.5 10c0 1.37.33 2.67.7 3.65l2.85-2.22z" fill="#FBBC04" />
-      <path d="M10 4.93c1.3 0 2.46.45 3.38 1.33l2.53-2.53A8.47 8.47 0 0010 1.5a8.5 8.5 0 00-7.8 4.85l2.85 2.22C5.75 6.48 7.7 4.93 10 4.93z" fill="#EA4335" />
+      <path d="M18.17 10.23c0-.63-.06-1.25-.17-1.84H10v3.48h4.62a3.95 3.95 0 01-1.71 2.59v2.15h2.77C17.12 15.1 18.17 12.87 18.17 10.23z" fill="var(--brand-google-blue)" />
+      <path d="M10 18.5c2.35 0 4.32-.78 5.76-2.1l-2.77-2.15c-.77.52-1.76.82-2.99.82-2.3 0-4.25-1.55-4.95-3.64H2.2v2.22A8.5 8.5 0 0010 18.5z" fill="var(--brand-google-green)" />
+      <path d="M5.05 11.43A5.1 5.1 0 014.78 10c0-.5.09-1 .27-1.43V6.35H2.2A8.5 8.5 0 001.5 10c0 1.37.33 2.67.7 3.65l2.85-2.22z" fill="var(--brand-google-yellow)" />
+      <path d="M10 4.93c1.3 0 2.46.45 3.38 1.33l2.53-2.53A8.47 8.47 0 0010 1.5a8.5 8.5 0 00-7.8 4.85l2.85 2.22C5.75 6.48 7.7 4.93 10 4.93z" fill="var(--red-400)" />
     </svg>
   )
 }
@@ -90,7 +90,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
       justifyContent:  'center',
       padding:         2,
       borderRadius:    6,
-      backgroundColor: '#e9dfc9',
+      backgroundColor: 'var(--yellow-100)',
       boxShadow:       '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5), inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)',
       flexShrink:      0,
     }}>
@@ -99,7 +99,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
         fontWeight: 500,
         fontSize: 12,
         lineHeight: '16px',
-        color:      '#6d5921',
+        color:      'var(--yellow-700)',
         padding:    '0 2px',
         whiteSpace: 'nowrap',
       }}>
@@ -378,7 +378,7 @@ export default function SecurityPage() {
           />
           <div style={{ padding: '12px 24px' }}>
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               borderRadius:    8,
               boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
               padding:         12,
@@ -395,7 +395,7 @@ export default function SecurityPage() {
                     fontWeight: 500,
                     fontSize: 12,
                     lineHeight: '16px',
-                    color:      '#a28847',
+                    color:      'var(--yellow-500)',
                   }}>
                     Recommended
                   </span>
@@ -422,7 +422,7 @@ export default function SecurityPage() {
                 border:          'none',
                 cursor:          'pointer',
                 background:      'linear-gradient(to bottom, var(--neutral-700), var(--neutral-900))',
-                boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+                boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px color-mix(in srgb, var(--static-white) 30%, transparent), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px color-mix(in srgb, var(--static-white) 50%, transparent)',
                 fontFamily:      'var(--font-body)',
                 fontWeight:      500,
                 fontSize:        14,
@@ -450,7 +450,7 @@ export default function SecurityPage() {
               <div style={{
                 width:           327,
                 height:          36,
-                backgroundColor: 'white',
+                backgroundColor: 'var(--neutral-white)',
                 borderRadius:    10,
                 boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                 display:         'flex',
@@ -482,7 +482,7 @@ export default function SecurityPage() {
               borderRadius:    10,
               border:          'none',
               cursor:          'pointer',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
               fontFamily:      'var(--font-body)',
               fontWeight:      500,
@@ -597,7 +597,7 @@ export default function SecurityPage() {
               border:          'none',
               cursor:          'pointer',
               position:        'relative',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--neutral-white)',
               boxShadow:       '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100), inset 0px -2.182px 0.364px 0px var(--red-100)',
               fontFamily:      'var(--font-body)',
               fontWeight:      500,

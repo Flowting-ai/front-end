@@ -47,7 +47,7 @@ describe("creditsFromBilling (/stripe/billing credits)", () => {
         used: 19.006275,
         remaining: 18.668632,
         trial: null,
-        by_category: { chat: 10.885994, slack: 8.211451, brain: 4.288017 },
+        by_category: { chat: 10.885994, slack: 8.211451, automation: 4.288017 },
       }),
     );
     expect(b).toEqual({ total: 37675, used: 19006, remaining: 18669, isTrial: false });

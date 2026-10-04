@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
-import { ChatInput } from "./ChatInput";
+import { ChatInput, type ChatInputProps } from "./ChatInput";
 import { PinMentionDropdown } from "./PinMentionDropdown";
 import { PinChipStrip } from "./PinChipStrip";
 import {
@@ -20,7 +20,11 @@ import { registerChatScroller } from "@/lib/chat-scroller";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { UIMessage } from "@/types/chat";
+import { AgentCreatedCard } from "@/components/AgentEditor/AgentCreatedCard";
+import { mergeInjectedMessages } from "@/lib/agent-card-messages";
+import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 import {
   useStreamingChat,
   type StreamState,
@@ -44,6 +48,8 @@ interface ChatInterfaceProps {
   onTitleUpdate?: (chatId: string, title: string) => void;
   onChatMoveToTop?: (chatId: string) => void;
   selectedModel?: string;
+  /** Provider the model button's logo resolves from; defaults to the model name. */
+  selectedModelIcon?: string | null;
   selectedModelId?: string | number | null;
   /** Souvenir's own auto-routing tier ('base'/'pro'), when the composer's
    *  model menu has that selected instead of a direct `selectedModelId`. The
@@ -57,10 +63,12 @@ interface ChatInterfaceProps {
   modelMenu?: React.ReactNode;
   /** If provided, ChatInterface auto-sends this message on mount (new chat). */
   initialPrompt?: string | null;
+  /** Prefills the input for the user to review and send. */
+  draft?: string | null;
   /** Whether web search is currently enabled (controlled by parent). */
   webSearchEnabled?: boolean;
-  /** Whether adaptive reasoning is enabled (sends enable_thinking to backend). */
-  enableReasoning?: boolean;
+  /** Thinking effort for the turn; `null` is thinking off, `undefined` sends no thinking field. */
+  reasoningEffort?: string | null;
   /** Files selected via the add-menu file picker (controlled by parent). */
   addMenuFiles?: File[];
   /** Called after send to let the parent clear its add-menu file list. */
@@ -113,7 +121,7 @@ interface ChatInterfaceProps {
   endpoint?: string;
   /**
    * Custom backend stop handler. When provided, called instead of the default
-   * POST /chats/{id}/stop. Use for persona or brain stop endpoints.
+   * POST /chats/{id}/stop. Use for persona stop endpoints.
    */
   onStopBackend?: (chatId: string) => void;
   /**
@@ -156,6 +164,24 @@ interface ChatInterfaceProps {
    * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
    */
   chatOwnershipConfirmed?: boolean;
+  /**
+   * Lets the host take over a message before it is sent (e.g. "Create an agent
+   * that…" starting the agent-creation flow). Return true to say the host has
+   * handled it: nothing is sent and the input is cleared. `sendAnyway` sends the
+   * same text as an ordinary message, skipping this check.
+   */
+  onBeforeSend?: (text: string, sendAnyway: () => void) => boolean;
+  /** Turns on `@agent` mentions in the input — see ChatInput. */
+  agentMention?: ChatInputProps["agentMention"];
+  /**
+   * Messages that exist only in this browser (never sent to the backend), to be
+   * appended to the thread once — e.g. the card of an agent just created from chat.
+   * The host clears them via `onInjectedMessagesConsumed` after they are added.
+   */
+  injectedMessages?: UIMessage[] | null;
+  onInjectedMessagesConsumed?: () => void;
+  /** "Use now" on an agent card: attach that agent to the chat. */
+  onUseAgent?: (agent: SelectedPersonaInfo) => void;
 }
 
 export function ChatInterface({
@@ -164,14 +190,16 @@ export function ChatInterface({
   onTitleUpdate,
   onChatMoveToTop,
   selectedModel,
+  selectedModelIcon,
   selectedModelId,
   algorithm,
   onModelClick,
   addMenu,
   modelMenu,
   initialPrompt,
+  draft,
   webSearchEnabled,
-  enableReasoning,
+  reasoningEffort,
   addMenuFiles,
   onClearAddMenuFiles,
   initialFiles,
@@ -191,13 +219,22 @@ export function ChatInterface({
   connectorSlugs,
   emptyState,
   loadMessages,
-  hidePinActions = false,
+  hidePinActions: hidePinActionsProp = false,
   readOnly = false,
   archived = false,
   chatOwnershipConfirmed,
+  onBeforeSend,
+  agentMention,
+  injectedMessages,
+  onInjectedMessagesConsumed,
+  onUseAgent,
 }: ChatInterfaceProps) {
+  const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
+  useEffect(() => {
+    if (draft) setInputValue(draft);
+  }, [draft]);
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const {
@@ -267,6 +304,7 @@ export function ChatInterface({
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
   const { selectedModel: contextModel } = useModelSelectorContext();
+  const enableReasoning = reasoningEffort === undefined ? undefined : reasoningEffort !== null;
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -312,6 +350,15 @@ export function ChatInterface({
 
   const messages = rawMessages ?? [];
 
+  // Append host-supplied local messages once. Declared after useChatState so, on a
+  // fresh mount, its "no chat yet" reset has already run and cannot clear them.
+  useEffect(() => {
+    if (!injectedMessages || injectedMessages.length === 0) return;
+    setMessages((prev) => mergeInjectedMessages(prev, injectedMessages));
+    onInjectedMessagesConsumed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the host supplies new messages
+  }, [injectedMessages]);
+
   // Seed model logo + name on assistant messages that have thinking content but no
   // model identity when the history API does not return model_name.
   useEffect(() => {
@@ -328,15 +375,6 @@ export function ChatInterface({
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel]);
-
-  // Estimate how much of the model's context window is currently in use.
-  // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
-  const contextUsedPct = useMemo(() => {
-    const limit = contextModel?.inputLimit;
-    const totalChars = messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
-    if (!limit || limit <= 0) return Math.min(1, totalChars / (200_000 * 4));
-    return Math.min(1, totalChars / (limit * 4));
   }, [messages, contextModel]);
 
   // ── Tab / page-reload resilience ──────────────────────────────────────────
@@ -382,6 +420,7 @@ export function ChatInterface({
     estimateSize: (i) => {
       const msg = messages[i]
       if (!msg) return 200
+      if (msg.agentCard) return 190
       if (msg.role === "user") {
         // Base height for the bubble + padding; add ~16px per 80 chars
         return 80 + Math.ceil((msg.content?.length ?? 0) / 80) * 16
@@ -443,6 +482,8 @@ export function ChatInterface({
   // Enter-then-click race) within the same tick can slip two fetchAiResponse calls
   // through before the button disables — this ref closes that gap.
   const isSendingRef = useRef(false);
+  // Set by the host's "send anyway" so the next handleSend skips onBeforeSend.
+  const skipBeforeSendRef = useRef(false);
 
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
@@ -468,7 +509,7 @@ export function ChatInterface({
         : (addMenuFiles && addMenuFiles.length > 0)
           ? [...addMenuFiles]
           : [];
-      const initialMentionedPinObjects = initialMentionedPins ?? [];
+      const initialMentionedPinObjects = PINS_ENABLED ? (initialMentionedPins ?? []) : [];
       const userMsgId = addOptimisticUserMessage(
         content,
         files.length > 0 ? files : undefined,
@@ -488,17 +529,18 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const folderPinIds = selectedFolders && selectedFolders.length > 0
+      const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
       const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
       fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        reasoningEffort,
         algorithm,
         files: files.length > 0 ? files : undefined,
         userMessageId: userMsgId,
-        pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
+        pinIds: PINS_ENABLED && allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
@@ -694,13 +736,25 @@ export function ChatInterface({
     // too, so block silently rather than send with systemPrompt missing.
     if (personaConfigLoading) return;
 
+    // Host takeover (see onBeforeSend). Skipped for messages with attachments and
+    // when the host asked to send this very text anyway.
+    if (skipBeforeSendRef.current) {
+      skipBeforeSendRef.current = false;
+    } else if (allFiles.length === 0 && onBeforeSend?.(text.trim(), () => {
+      skipBeforeSendRef.current = true;
+      void handleSend(text);
+    })) {
+      setInputValue("");
+      return;
+    }
+
     // Reentrancy guard: see isSendingRef declaration above.
     if (isSendingRef.current) return;
     isSendingRef.current = true;
 
     const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.
-    const capturedMentionedPins = mentionedPins;
+    const capturedMentionedPins = PINS_ENABLED ? mentionedPins : [];
     const userMsgId = addOptimisticUserMessage(
       content,
       allFiles.length > 0 ? allFiles : undefined,
@@ -717,7 +771,7 @@ export function ChatInterface({
     clearMentions();
     onClearAddMenuFiles?.();
 
-    const folderPinIds = selectedFolders && selectedFolders.length > 0
+    const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
       ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
       : [];
     const mentionedPinIds = capturedMentionedPins.map(m => m.id);
@@ -738,10 +792,11 @@ export function ChatInterface({
       await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
+        reasoningEffort,
         algorithm,
         files: allFiles.length > 0 ? allFiles : undefined,
         userMessageId: userMsgId,
-        pinIds: allPinIds.length > 0 ? allPinIds : undefined,
+        pinIds: PINS_ENABLED && allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
@@ -807,7 +862,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       selectedModelId,
-      { enableReasoning, algorithm, chatOwnershipConfirmed },
+      { enableReasoning, reasoningEffort, algorithm, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -878,6 +933,7 @@ export function ChatInterface({
     fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
+      reasoningEffort,
       algorithm,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
@@ -926,7 +982,7 @@ export function ChatInterface({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(255,255,255,0.9)",
+            backgroundColor: "rgba(var(--surface-rgb), 0.9)",
             border: "2px dashed var(--blue-400)",
             borderRadius: "16px",
           }}
@@ -1027,7 +1083,7 @@ export function ChatInterface({
                 fontFamily: "var(--font-body)",
               }}
             >
-              <p style={{ margin: 0, fontSize: 14, color: "#827A74" }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--neutral-500)" }}>
                 Couldn&apos;t load this conversation. {messagesLoadError}
               </p>
               <button
@@ -1037,8 +1093,8 @@ export function ChatInterface({
                   fontFamily: "var(--font-body)",
                   fontSize: 13,
                   fontWeight: 500,
-                  color: "#FFFFFF",
-                  background: "#26211E",
+                  color: "var(--static-white)",
+                  background: "var(--neutral-900)",
                   border: "none",
                   borderRadius: 999,
                   padding: "7px 16px",
@@ -1086,12 +1142,19 @@ export function ChatInterface({
                     contain:    'layout',
                   }}
                 >
+                  {message.agentCard ? (
+                    <AgentCreatedCard
+                      agent={message.agentCard.persona}
+                      published={message.agentCard.published}
+                      inUse={!!selectedPersonaId && selectedPersonaId === message.agentCard.persona.activeVersionId}
+                      onUse={onUseAgent}
+                    />
+                  ) : (
                   <ChatMessageMemo
                     message={message}
                     isLast={idx === messages.length - 1}
                     isNewMessage={idx === messages.length - 1 && isStreaming}
                     chatId={chatId}
-                    showReasoning={enableReasoning}
                     pinned={message.role === 'assistant' ? isPinned(message.id) : false}
                     archived={archived}
                     onRegenerate={
@@ -1102,12 +1165,13 @@ export function ChatInterface({
                         : undefined
                     }
                     onEdit={
-                      message.role === "user"
+                      message.role === "user" && !message.localOnly
                         ? handleEditMessage
                         : undefined
                     }
                     onPromptDecided={handlePromptDecided}
                   />
+                  )}
                 </div>
               );
             })}
@@ -1232,8 +1296,10 @@ export function ChatInterface({
             onAdd={handleAdd}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             hasAttachments={attachments.length > 0}
+            agentMention={agentMention}
             onModelClick={onModelClick}
             modelName={selectedModel ?? "Souvenir"}
+            modelIcon={selectedModelIcon}
             addMenu={addMenu}
             modelMenu={modelMenu}
             disabledModelSelector={disabledModelSelector}
@@ -1280,7 +1346,6 @@ export function ChatInterface({
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
-            contextUsedPct={contextUsedPct}
           />
             </>
           )}

@@ -35,7 +35,7 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 2,
-    background: 'white',
+    background: 'var(--neutral-white)',
     borderRadius: 10,
     padding: '7px 10px',
     boxShadow: SHADOW_INPUT,
@@ -57,7 +57,7 @@ const S = {
     fontFamily: 'var(--font-body)',
     fontSize: 12,
     lineHeight: '16px',
-    color: '#dc2626',
+    color: 'var(--red-400)',
     marginTop: 2,
   } as React.CSSProperties,
 } as const
@@ -94,7 +94,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        background: 'rgba(18,12,8,0.5)',
+        background: 'var(--overlay-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -104,7 +104,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
       <div
         className="kaya-scrollbar"
         style={{
-          background: 'var(--neutral-50, #f7f2ed)',
+          background: 'var(--neutral-50)',
           borderRadius: 20,
           padding: 8,
           boxShadow: SHADOW_MODAL,
@@ -256,7 +256,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
                       boxSizing: 'border-box',
                       border: 'none',
                       outline: 'none',
-                      background: 'white',
+                      background: 'var(--neutral-white)',
                       borderRadius: 10,
                       padding: '9px 12px',
                       boxShadow: SHADOW_INPUT,

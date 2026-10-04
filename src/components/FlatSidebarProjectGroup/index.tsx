@@ -118,6 +118,8 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
           ref={rowRef}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          data-sidebar-active={isActive ? '' : undefined}
+          data-sidebar-selected={active ? '' : undefined}
           style={{
             position:        'relative',
             display:         'flex',
@@ -142,12 +144,12 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   type="button"
                   onClick={onIconClick}
                   aria-label={`Open ${label}`}
-                  style={{ ...RESET_BUTTON_STYLE, color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: 'pointer' }}
+                  style={{ ...RESET_BUTTON_STYLE, color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0, cursor: 'pointer' }}
                 >
                   {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
                 </button>
               ) : (
-                <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+                <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
                   {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
                 </div>
               )
@@ -159,7 +161,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
               style={{
                 ...RESET_BUTTON_STYLE,
                 fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
-                lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
+                lineHeight: 'var(--line-height-body)', color: active ? 'var(--sidebar-selected-text)' : isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 0 0', minWidth: 0,
               }}
             >
@@ -180,7 +182,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   onMouseLeave={() => setNewChatIconHovered(false)}
                   style={{
                     ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0,
-                    color: newChatIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
+                    color: newChatIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-icon, var(--sidebar-menu-item-text))',
                     opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
@@ -199,7 +201,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   onMouseLeave={() => setOpenIconHovered(false)}
                   style={{
                     ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0,
-                    color: openIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)',
+                    color: openIconHovered ? 'var(--neutral-black)' : 'var(--sidebar-icon, var(--sidebar-menu-item-text))',
                     opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms, color 150ms',
                   }}
                 >
@@ -213,7 +215,7 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                 type="button"
                 aria-label={addLabel ?? `Add to ${label}`}
                 onClick={onAddClick}
-                style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-text)', opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms' }}
+                style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', opacity: isActive ? 0.7 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 150ms' }}
               >
                 <PlusSignIcon size={16} />
               </button>

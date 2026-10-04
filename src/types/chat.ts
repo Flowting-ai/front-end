@@ -102,16 +102,6 @@ export interface ConnectorConnectPrompt {
   api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
 }
 
-export interface ExternalOutputAction {
-  verb: string
-  target: string
-  connector: string
-  connector_slug?: string | null
-  logo_url?: string | null
-  detail?: string | null
-  view_url?: string | null
-}
-
 /** Extends the API Message with transient streaming-only UI state. */
 export interface UIMessage extends Message {
   /** True while the assistant is generating a response for this message. */
@@ -147,8 +137,6 @@ export interface UIMessage extends Message {
   connectorPermissionPrompts?: ConnectorPermissionPrompt[]
   /** Non-connector prompt-gate cards: clarifications, choices, and approvals. */
   chatPrompts?: ChatPrompt[]
-  /** Confirmed external writes performed during this turn. */
-  externalOutputActions?: ExternalOutputAction[]
   /** @-mentioned pins attached to this user message (optimistic; not persisted across refresh). */
   mentionedPins?: Array<{ id: string; label: string }>
   /** Stable React list key, set once at creation and never reassigned.
@@ -160,6 +148,15 @@ export interface UIMessage extends Message {
    *  animation on content that's already fully visible. Keying by this field
    *  instead keeps the row's identity stable across that swap. */
   reactKey?: string
+  /** True for a message that exists only in this browser session (never sent to
+   *  or stored by the backend) — it has no edit / regenerate / pin actions. */
+  localOnly?: boolean
+  /** Renders this assistant row as the card of an agent just created from chat. */
+  agentCard?: {
+    persona:   import('@/lib/chat-personas').SelectedPersonaInfo
+    /** False when the agent was created but could not be made live. */
+    published: boolean
+  }
 }
 
 /** Model selection metadata from the backend. */
@@ -184,6 +181,7 @@ export type ActivityType =
   | 'doc-execute'
   | 'docx-progress'
   | 'skills'
+  | 'agent'
   | 'other'
 
 /** Status values for tool progress. `stopped` marks an activity that was
@@ -218,6 +216,8 @@ export interface ActivityItem {
   filename?: string
   /** Human-readable label from backend (e.g. "Generating PDF", "Searching the web"). */
   label?: string
+  /** What an agent the turn handed work to wrote back (agent rows only). */
+  output?: string
 }
 
 /** An image generated during the response. */

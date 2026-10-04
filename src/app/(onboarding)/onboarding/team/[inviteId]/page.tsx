@@ -38,7 +38,7 @@ function MemberAvatar({ member }: { member: InvitedMember }) {
     height: AVATAR_SIZE,
     borderRadius: "50%",
     flexShrink: 0,
-    boxShadow: "0 0 0 2px #fff",
+    boxShadow: "0 0 0 2px var(--static-white)",
   };
   if (member.image) {
     return (
@@ -55,7 +55,7 @@ function MemberAvatar({ member }: { member: InvitedMember }) {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "var(--neutral-400,#9c938b)",
-        color: "#fff",
+        color: "var(--static-white)",
         fontFamily: "var(--font-body)",
         fontWeight: 500,
         fontSize: 10,
@@ -93,7 +93,7 @@ function WorkspaceJoinCard({
         width: "100%",
         padding: 16,
         borderRadius: 12,
-        backgroundColor: "var(--neutral-white,#fff)",
+        backgroundColor: "var(--neutral-white)",
         boxSizing: "border-box",
         boxShadow: "0px 0px 0px 1px var(--blue-600,#0d6eb2)",
       }}

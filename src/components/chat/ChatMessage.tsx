@@ -12,9 +12,9 @@ import { SourceList } from "./CitationChip";
 import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import { ChatPromptCard } from "./ChatPromptCard";
-import { ExternalOutputCard } from "@/templates/Brain/ExternalOutputCard";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
@@ -106,10 +106,10 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
                 aria-label="Download image"
                 icon={<ImageDownloadTwoIcon size={16} animated />}
                 style={{
-                  background: "rgba(0,0,0,0.55)",
+                  background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
                   backdropFilter: "blur(4px)",
                   borderRadius: "8px",
-                  color: "#fff",
+                  color: "var(--static-white)",
                   border: "none",
                   padding: "6px",
                   cursor: "pointer",
@@ -150,7 +150,7 @@ function StandaloneActivitiesBlock({
         <span
           style={{
             fontSize: 14,
-            color: "#9A9089",
+            color: "var(--neutral-400)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -185,7 +185,7 @@ function StandaloneActivitiesBlock({
           >
             <path
               d="M3 5.5 L7 9.5 L11 5.5"
-              stroke="#C0B5AD"
+              stroke="var(--neutral-300)"
               strokeWidth="1.7"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -264,7 +264,7 @@ function StreamingTextContent({
     ? content
     : displayedContent;
   const showCursor = isLoading || Boolean(displayedContent && displayedContent !== content);
-  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "#826B60" }} />;
+  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
   return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
 }
 
@@ -467,7 +467,7 @@ export function ChatMessage({
   }, [selectionOpen])
 
   useEffect(() => {
-    if (!isAssistant || disableHighlight) return
+    if (!HIGHLIGHTS_ENABLED || !isAssistant || disableHighlight) return
     const root = contentRef.current
     if (!root) return
 
@@ -510,6 +510,7 @@ export function ChatMessage({
   };
 
   const handlePin = () => {
+    if (!PINS_ENABLED) return;
     if (pinned) {
       removePinByMessage(message.id);
       return;
@@ -536,6 +537,7 @@ export function ChatMessage({
   };
 
   const handleHighlight = () => {
+    if (!HIGHLIGHTS_ENABLED) return
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0) return
     if (!contentRef.current) return
@@ -589,7 +591,7 @@ export function ChatMessage({
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%", maxWidth: 566 }}>
           {/* Pin attachment chips - appear above file chips and bubble */}
-          {message.mentionedPins && message.mentionedPins.length > 0 && (
+          {PINS_ENABLED && message.mentionedPins && message.mentionedPins.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
               {message.mentionedPins.map((pin) => (
                 <div
@@ -600,8 +602,8 @@ export function ChatMessage({
                     gap:             "5px",
                     padding:         "4px 8px",
                     borderRadius:    "8px",
-                    backgroundColor: "rgba(59,54,50,0.07)",
-                    border:          "1px solid rgba(59,54,50,0.10)",
+                    backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
+                    border:          "1px solid var(--neutral-800-10)",
                     maxWidth:        "220px",
                   }}
                 >
@@ -647,8 +649,8 @@ export function ChatMessage({
                       gap:             "5px",
                       padding:         "4px 8px",
                       borderRadius:    "8px",
-                      backgroundColor: "rgba(59,54,50,0.07)",
-                      border:          "1px solid rgba(59,54,50,0.10)",
+                      backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
+                      border:          "1px solid var(--neutral-800-10)",
                       maxWidth:        "220px",
                     }}
                   >
@@ -788,9 +790,8 @@ export function ChatMessage({
                       style={{
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
-                        fontWeight: 500,
-                        color: "#524B47",
-                      }}
+                        fontWeight: 600,
+                        color: "var(--model-name-text)",                      }}
                     >
                       {label}
                     </m.span>
@@ -821,7 +822,7 @@ export function ChatMessage({
                 className="kaya-label-shimmer"
                 style={{
                   fontSize: 14,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   lineHeight: "18px",
                 }}
               >
@@ -833,7 +834,7 @@ export function ChatMessage({
 
         {/* Waiting indicator — shown while loading before any content or thinking arrives */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
-          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "#826B60" }} />
+          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-500)" }} />
         )}
 
         {/* Reasoning block — shown when adaptive thinking is enabled */}
@@ -924,20 +925,6 @@ export function ChatMessage({
           </div>
         )}
 
-        {message.externalOutputActions && message.externalOutputActions.length > 0 && (
-          <ExternalOutputCard
-            actions={message.externalOutputActions.map((action) => ({
-              verb: action.verb,
-              target: action.target,
-              connector: action.connector,
-              logoSrc: action.logo_url ?? undefined,
-              detail: action.detail ?? undefined,
-              onView: action.view_url
-                ? () => window.open(action.view_url!, '_blank', 'noopener,noreferrer')
-                : undefined,
-            }))}
-          />
-        )}
 
         {/* Generated images */}
         {message.images && message.images.length > 0 && (
@@ -984,13 +971,13 @@ export function ChatMessage({
 
               const badgeColor = (() => {
                 switch (ext) {
-                  case "PDF":  return "#E53E3E"
-                  case "DOCX": case "DOC": return "#3182CE"
-                  case "XLSX": case "XLS": return "#38A169"
-                  case "CSV":  return "#2F855A"
-                  case "PPTX": case "PPT": return "#DD6B20"
-                  case "MD":   return "#805AD5"
-                  default:     return "#6A625D"
+                  case "PDF":  return "var(--danger-500)"
+                  case "DOCX": case "DOC": return "var(--blue-600)"
+                  case "XLSX": case "XLS": return "var(--success-700)"
+                  case "CSV":  return "var(--success-800)"
+                  case "PPTX": case "PPT": return "var(--warning-600)"
+                  case "MD":   return "var(--violet-500)"
+                  default:     return "var(--neutral-600)"
                 }
               })()
 
@@ -1015,7 +1002,7 @@ export function ChatMessage({
                     padding: "8px 10px 8px 8px",
                     borderRadius: "10px",
                     backgroundColor: "rgba(59,54,50,0.05)",
-                    border: "1px solid rgba(59,54,50,0.10)",
+                    border: "1px solid var(--neutral-800-10)",
                     width: "fit-content",
                     maxWidth: "420px",
                     boxSizing: "border-box",
@@ -1038,7 +1025,7 @@ export function ChatMessage({
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: "white",
+                        color: "var(--static-white)",
                         letterSpacing: "0.4px",
                         lineHeight: 1,
                       }}
@@ -1053,7 +1040,7 @@ export function ChatMessage({
                       fontFamily: "var(--font-body)",
                       fontSize: 13,
                       fontWeight: 500,
-                      color: "#524B47",
+                      color: "var(--neutral-700)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -1094,7 +1081,7 @@ export function ChatMessage({
                         color: "inherit",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
@@ -1104,7 +1091,7 @@ export function ChatMessage({
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                         <path
                           d="M10 2h4v4M14 2 8 8M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"
-                          stroke="#9A9089"
+                          stroke="var(--neutral-400)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1133,7 +1120,7 @@ export function ChatMessage({
                         color: "inherit",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
@@ -1143,7 +1130,7 @@ export function ChatMessage({
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                         <path
                           d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M2 13h12"
-                          stroke="#9A9089"
+                          stroke="var(--neutral-400)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1185,7 +1172,7 @@ export function ChatMessage({
             pointerEvents: !message.isLoading ? "auto" : "none",
           }}
         >
-          {canUseContentActions && !hidePinAction && (
+          {PINS_ENABLED && canUseContentActions && !hidePinAction && (
             <ActionIconButton
               icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
               label={pinned ? "Unpin" : "Pin"}
@@ -1215,7 +1202,7 @@ export function ChatMessage({
         <SelectionPopover
           open={selectionOpen}
           anchorRect={selectionAnchor}
-          onHighlight={handleHighlight}
+          onHighlight={HIGHLIGHTS_ENABLED ? handleHighlight : undefined}
           onCopy={handleCopySelection}
         />
       )}

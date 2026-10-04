@@ -7,6 +7,29 @@
 @import "../styles/tokens/aliases.css";
 @import "../styles/tokens/semantic.css";
 @import "../styles/tokens/typography.css";
+/* Dark theme (generated, additive — applies only under data-theme="dark").
+   Must stay AFTER the token files above so its overrides win. */
+@import "../styles/tokens/theme.css";
+
+:root [data-sidebar-active] {
+  --sidebar-menu-item-text: var(--sidebar-selected-text);
+  --sidebar-menu-item-muted: var(--sidebar-selected-text);
+  --sidebar-icon: var(--sidebar-selected-text);
+  --sidebar-icon-muted: var(--sidebar-selected-text);
+}
+
+/* Search fields: pink ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
+   InputField draws, so a field that already has it is unchanged. !important beats InputField's inline
+   outline, and this works for search boxes built from a raw <input> too. */
+[data-search-active] {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 3px !important;
+}
+
+/* Settings sidebar icons are static SVG images with dark strokes: white in dark mode. */
+:root[data-theme="dark"] img[src*="/icons/settings-sidebar/"] {
+  filter: brightness(0) invert(1);
+}
 
 /* KDS utility class - apply to every scrollable element */
 .kaya-scrollbar {
@@ -28,6 +51,14 @@
 }
 .kaya-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--neutral-800-50);
+}
+
+/* Opt-out for dropdown / picker lists: .kaya-scrollbar reserves a stable gutter, which shows up as a
+   phantom strip of extra width on a menu that does not scroll. With this the space is only taken
+   when the list actually overflows. */
+.kaya-scrollbar.kaya-no-gutter,
+.kaya-scrollbar-sm.kaya-no-gutter {
+  scrollbar-gutter: auto;
 }
 
 /* Compact companion to .kaya-scrollbar — same colour tokens, a narrower 2px
@@ -52,9 +83,9 @@
   background-color: var(--neutral-800-50);
 }
 
-/* EnhancePromptField textarea — Figma placeholder colour #524B47 */
+/* EnhancePromptField textarea — Figma placeholder colour #524B47 in light (neutral-700, which is light in dark) */
 .kaya-enhance-textarea::placeholder {
-  color: #524B47;
+  color: var(--neutral-700);
   opacity: 1;
 }
 
@@ -141,8 +172,19 @@
   animation: kaya-shimmer 2s ease-in-out infinite;
 }
 
+/* Shimmering silver progress line (agent card hover status ticker). */
+@keyframes kayaSilverLine {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.kaya-silver-line {
+  background-image: linear-gradient(90deg, var(--neutral-400) 0%, var(--neutral-200) 25%, var(--static-white) 50%, var(--neutral-200) 75%, var(--neutral-400) 100%);
+  background-size: 200% 100%;
+  animation: kayaSilverLine 1.6s linear infinite;
+}
+
 .kaya-label-shimmer {
-  background-image: linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%);
+  background-image: linear-gradient(90deg, var(--thinking-shimmer-edge) 0%, var(--thinking-shimmer-peak) 45%, var(--thinking-shimmer-peak) 55%, var(--thinking-shimmer-edge) 100%);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -153,7 +195,7 @@
 
 /* Fluid Functionalism ThinkingSteps active-label treatment. */
 .kaya-thinking-step-shimmer {
-  background-image: linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%);
+  background-image: linear-gradient(90deg, var(--thinking-shimmer-edge) 0%, var(--thinking-shimmer-peak) 45%, var(--thinking-shimmer-peak) 55%, var(--thinking-shimmer-edge) 100%);
   background-size: 200% 100%;
   background-clip: text;
   color: transparent !important;
@@ -163,7 +205,7 @@
 }
 
 .kaya-thinking-trigger:focus-visible {
-  outline: 1px solid var(--focus-ring, #6B97FF);
+  outline: 1px solid var(--focus-ring);
   outline-offset: 0;
 }
 
@@ -232,7 +274,7 @@
   .kaya-thinking-step-shimmer {
     animation: none;
     background: none;
-    color: #3B3632 !important;
+    color: var(--neutral-800) !important;
     -webkit-text-fill-color: currentColor;
   }
 }
@@ -342,8 +384,35 @@
   line-height:     var(--toast-title-line-height);
   box-shadow:
     0px 1px 1.5px 0px rgba(82, 75, 71, 0.12),
-    0px 6px 16px -4px rgba(38, 33, 30, 0.10),
+    0px 6px 16px -4px var(--neutral-900-10),
     0px 0px 0px 1px var(--toast-border);
+}
+
+/* Dark mode: every toast type sits on the same dark secondary surface (--neutral-white = #1C1C1C) with a silver ring;
+   only the text colour tells the types apart. !important because sonner paints type colours
+   (rich colours) at the toast element and would otherwise win. */
+:root[data-theme="dark"] [data-sonner-toast] {
+  background:   var(--neutral-white) !important;
+  border-color: transparent !important;
+  box-shadow:
+    0px 4px 10px -3px color-mix(in srgb, var(--neutral-300) 22%, transparent),
+    0px 2px 4px -1px color-mix(in srgb, var(--neutral-300) 16%, transparent),
+    0px 0px 0px 1px var(--neutral-200) !important;
+}
+:root[data-theme="dark"] [data-sonner-toast][data-type="success"] { color: var(--toast-success-text) !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="error"]   { color: var(--toast-error-text)   !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="warning"] { color: var(--toast-warning-text) !important; }
+:root[data-theme="dark"] [data-sonner-toast][data-type="info"]    { color: var(--toast-info-text)    !important; }
+
+/* Dark mode: sonner paints its own (light) action/cancel buttons at higher specificity than the
+   .kds-toast__* classes, so restate the KDS tokens with enough weight to win. */
+:root[data-theme="dark"] [data-sonner-toast][data-styled="true"] [data-button].kds-toast__action {
+  background: var(--toast-action-bg);
+  color:      var(--toast-action-text);
+}
+:root[data-theme="dark"] [data-sonner-toast][data-styled="true"] [data-cancel-button].kds-toast__cancel {
+  background: var(--toast-cancel-bg);
+  color:      var(--toast-cancel-text);
 }
 
 .kds-toast [data-content] { flex: 1 1 auto; min-width: 0; }
@@ -407,8 +476,8 @@
   background:      var(--neutral-white);
   color:           var(--neutral-600);
   box-shadow:
-    0px 1px 2px rgba(0,0,0,0.08),
-    inset 0px 1px 0px rgba(255,255,255,0.9);
+    0px 1px 2px color-mix(in srgb, var(--static-black) 8%, transparent),
+    inset 0px 1px 0px var(--neutral-white-90);
   transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
@@ -417,6 +486,20 @@
 [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Dark mode: white close button with a black X, on every toast type. */
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close {
+  background: var(--static-white);
+  color:      var(--static-black);
+  box-shadow: 0px 1px 2px color-mix(in srgb, var(--static-black) 40%, transparent);
+}
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
+  background: var(--neutral-800);
+}
+:root[data-theme="dark"] [data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close svg {
+  stroke: var(--static-black);
+  color:  var(--static-black);
 }
 
 .kds-toast__icon   { color: inherit; }
@@ -481,4 +564,50 @@
 @media (prefers-reduced-motion: reduce) {
   .kds-context-rail,
   .kds-context-rail-inner { transition: none !important; }
+}
+
+/* ── PersonaCard — reading shimmer on the description while hovered ───────── */
+@keyframes persona-card-read {
+  from { background-position: 100% 0; }
+  to   { background-position: -150% 0; }
+}
+
+.persona-card-desc-reading {
+  background: linear-gradient(
+    100deg,
+    var(--neutral-500) 40%,
+    var(--neutral-950) 50%,
+    var(--neutral-500) 60%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: persona-card-read 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-card-desc-reading { animation: none; }
+}
+
+/* ── Field focus ring ─────────────────────────────────────────────────────────
+   Boxed text fields (a bordered wrapper around a bare <input>/<textarea>) get the same
+   pink focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
+   anything inside it has focus. Outlines paint outside layout, so nothing shifts. A
+   scroll container that clips it needs ~6px of padding around the field. */
+.kaya-field { outline: 2px solid transparent; outline-offset: 3px; transition: outline-color 150ms; }
+.kaya-field:focus-within { outline-color: var(--focus-ring); }
+
+/* ── Logos on always-light surfaces ───────────────────────────────────────────
+   In dark mode provider / Souvenir logos switch to flat WHITE marks (see "Logos" in
+   theme.css). On a surface that stays white in dark (e.g. the pinned-white secondary
+   button) that is invisible, so inside `.kds-light-surface` the full-colour logos come back. */
+:root[data-theme="dark"] .kds-light-surface .kds-llm-color,
+:root[data-theme="dark"] .kds-light-surface .kds-logo-light {
+  display: inline-block !important;
+}
+:root[data-theme="dark"] .kds-light-surface .kds-llm-mono,
+:root[data-theme="dark"] .kds-light-surface .kds-logo-dark {
+  display: none !important;
 }

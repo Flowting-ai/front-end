@@ -202,7 +202,7 @@ export function NavGuardModal() {
       onClick={() => { if (!isSaving) cancelLeave() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)',
+        backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -213,7 +213,7 @@ export function NavGuardModal() {
         aria-label={message.title}
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: 'var(--neutral-white, #fff)',
+          backgroundColor: 'var(--neutral-white)',
           borderRadius: 16,
           padding: 24,
           width: 400,

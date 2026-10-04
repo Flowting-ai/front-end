@@ -77,13 +77,13 @@ const bodyTextStyle: React.CSSProperties = {
 }
 
 // Figma "Sidebar / Section Header" label: Regular 400 (rows are Medium 500),
-// same size/color as a row label so the section title doesn't read as a caption.
+// same size as a row label so the section title doesn't read as a caption.
 const headerLabelTextStyle: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
   fontWeight: 'var(--font-weight-regular)',
   fontSize: 'var(--font-size-body)',
   lineHeight: 'var(--line-height-body)',
-  color: 'var(--sidebar-menu-item-text)',
+  color: 'var(--sidebar-section-header-text)',
   whiteSpace: 'nowrap',
   margin: 0,
 }
@@ -96,7 +96,7 @@ const headerActionButtonStyle = (visible: boolean, iconHovered: boolean): React.
   border: 'none',
   padding: 0,
   cursor: 'pointer',
-  color: iconHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-muted)',
+  color: iconHovered ? 'var(--neutral-black)' : 'var(--sidebar-icon-muted, var(--sidebar-menu-item-muted))',
   opacity: visible ? 1 : 0,
   transition: 'opacity 150ms, color 150ms',
 })
@@ -233,7 +233,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
               ...(compact ? { fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)' } : null),
               textDecoration: isHovered ? 'underline' : 'none',
             }}>{label}</p>
-            <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-text)', flexShrink: 0, transform: shown ? 'none' : 'rotate(-90deg)', transition: 'transform 150ms' }}>
+            <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, transform: shown ? 'none' : 'rotate(-90deg)', transition: 'transform 150ms' }}>
               <ArrowDownOneIcon size={12} />
             </span>
           </button>
@@ -281,7 +281,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
                 </button>
               </Tooltip>
             ) : (
-              <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', opacity: showActions ? 1 : 0, transition: 'opacity 150ms' }}>
+              <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-icon-muted, var(--sidebar-menu-item-muted))', opacity: showActions ? 1 : 0, transition: 'opacity 150ms' }}>
                 {headerIcon}
               </span>
             ))}
@@ -337,7 +337,7 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
     const content = (
       <>
         {icon && (
-          <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+          <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
             {React.cloneElement(icon, { triggered: isHovered })}
           </div>
         )}
@@ -391,6 +391,8 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       'aria-pressed': selected,
       className: cn(className),
       style: href ? { ...containerStyle, textDecoration: 'none' } : containerStyle,
+      'data-sidebar-active': !isHeader && isActive ? '' : undefined,
+      'data-sidebar-selected': !isHeader && selected ? '' : undefined,
       onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => { setIsHovered(true); externalMouseEnter?.(e) },
       onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => { setIsHovered(false); externalMouseLeave?.(e) },
       onKeyDown: handleKeyDown,

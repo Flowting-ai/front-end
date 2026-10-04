@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, type JSX } from "react";
 import Image from "next/image";
 import { m, AnimatePresence } from "framer-motion";
@@ -7,7 +7,7 @@ import { toConnector } from "@/lib/connector";
 import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
 import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
-import { LlmIcon } from "@strange-huge/icons/llm";
+import { ThemedLlmIcon } from "@/components/ThemedLlmIcon";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button } from "@/components/Button";
 import { friendlyModelError } from "@/lib/model-error";
@@ -21,6 +21,7 @@ import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { AguiSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
 import { usePinboardActions } from "@/context/pinboard-context";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
@@ -40,47 +41,47 @@ import { createReasoningAccumulator, type ReasoningSection } from "@/lib/reasoni
 type ChipColor = "neutral" | "green" | "brown" | "red" | "blue" | "purple";
 
 const CHIP_COLORS: Record<ChipColor, { bg: string; text: string }> = {
-  neutral: { bg: "#EDE1D7", text: "#524B47" },
-  green:   { bg: "#F7FEE6", text: "#456211" },
-  brown:   { bg: "#E6D5CA", text: "#683D1B" },
-  red:     { bg: "#FFBFB6", text: "#7A201C" },
-  blue:    { bg: "#CADCF1", text: "#135487" },
-  purple:  { bg: "#EDE9FE", text: "#5B21B6" },
+  neutral: { bg: "var(--neutral-100)", text: "var(--neutral-700)" },
+  green:   { bg: "var(--green-50)", text: "var(--green-800)" },
+  brown:   { bg: "var(--brown-100)", text: "var(--brown-700)" },
+  red:     { bg: "var(--red-100)", text: "var(--red-700)" },
+  blue:    { bg: "var(--blue-100)", text: "var(--blue-700)" },
+  purple:  { bg: "var(--purple-50)", text: "var(--violet-800)" },
 };
 
 const CHIP_SHADOW: Record<ChipColor, string> = {
-  neutral: "0px 1px 1.5px 0px rgba(18,12,8,0.2),0px 0px 0px 1px rgba(106,98,93,0.5)",
+  neutral: "0px 1px 1.5px 0px var(--neutral-950-20),0px 0px 0px 1px color-mix(in srgb, var(--neutral-600) 50%, transparent)",
   brown:   "0px 1px 1.5px 0px rgba(20,12,5,0.2),0px 0px 0px 1px rgba(126,84,53,0.5)",
-  red:     "0px 1px 1.5px 0px rgba(24,2,2,0.2),0px 0px 0px 1px rgba(159,38,35,0.5)",
+  red:     "0px 1px 1.5px 0px color-mix(in srgb, var(--red-950) 20%, transparent),0px 0px 0px 1px var(--red-600-51)",
   green:   "0px 1px 1.5px 0px rgba(17,25,1,0.2),0px 0px 0px 1px rgba(128,183,7,0.5)",
-  blue:    "0px 1px 1.5px 0px rgba(2,15,24,0.2),0px 0px 0px 1px rgba(13,110,178,0.5)",
-  purple:  "0px 1px 1.5px 0px rgba(10,2,24,0.2),0px 0px 0px 1px rgba(109,40,217,0.5)",
+  blue:    "0px 1px 1.5px 0px rgba(2,15,24,0.2),0px 0px 0px 1px var(--blue-600-50)",
+  purple:  "0px 1px 1.5px 0px color-mix(in srgb, var(--purple-950) 20%, transparent),0px 0px 0px 1px color-mix(in srgb, var(--violet-700) 50%, transparent)",
 };
 
 const CHIP_INNER: Record<ChipColor, string> = {
-  neutral: "inset 0px 1px 0px 0px rgba(247,242,237,0.7),inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
+  neutral: "inset 0px 1px 0px 0px var(--neutral-white-70),inset 0px -1px 0px 0px color-mix(in srgb, var(--neutral-600) 10%, transparent)",
   brown:   "inset 0px 1px 0px 0px rgba(250,241,235,0.7),inset 0px -1px 0px 0px rgba(126,84,53,0.1)",
-  red:     "inset 0px 1px 0px 0px rgba(253,231,231,0.7),inset 0px -1px 0px 0px rgba(159,38,35,0.1)",
+  red:     "inset 0px 1px 0px 0px color-mix(in srgb, var(--red-50) 70%, transparent),inset 0px -1px 0px 0px color-mix(in srgb, var(--red-600) 10%, transparent)",
   green:   "inset 0px 1px 0px 0px rgba(247,254,230,0.7),inset 0px -1px 0px 0px rgba(128,183,7,0.1)",
-  blue:    "inset 0px 1px 0px 0px rgba(231,244,253,0.7),inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
-  purple:  "inset 0px 1px 0px 0px rgba(237,233,254,0.7),inset 0px -1px 0px 0px rgba(109,40,217,0.1)",
+  blue:    "inset 0px 1px 0px 0px var(--blue-50-70),inset 0px -1px 0px 0px var(--blue-600-10)",
+  purple:  "inset 0px 1px 0px 0px color-mix(in srgb, var(--purple-50) 70%, transparent),inset 0px -1px 0px 0px color-mix(in srgb, var(--violet-700) 10%, transparent)",
 };
 
-const CARD_SHADOW        = "0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
-const CARD_SHADOW_RAISED = "0px 1px 1.5px 0px rgba(82,75,71,0.12),0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
-const CARD_INSET         = "inset 0px 1px 0px 0px rgba(247,242,237,0.61),inset 0px -1px 0px 0px rgba(106,98,93,0.05)";
-const CARD_BORDER        = "1px solid #EDE1D7";
-const PRIMARY            = "#26211E";
-const SECONDARY          = "#524B47";
-const TERTIARY           = "#827A74";
-const ICON_BTN_BG        = "#F7F2ED";
-const RESP_BORDER        = "#E5DAD0";
-const DARK_GRADIENT      = "linear-gradient(180deg, #524B47 0%, #3B3632 100%)";
-const DIALOG_SHADOW      = "0px 19px 32px 0px rgba(18,12,8,0.15),0px 2px 2.8px 0px rgba(130,122,116,0.1),0px 0px 0px 1px #EDE1D7";
-const TRAY_BG_SHADOW     = "inset 0px -1px 0px 0px rgba(255,255,255,0.9),inset 0px 1px 0px 0px #EDE1D7,inset 0px 0px 4px 0px rgba(209,198,189,0.5)";
-const SLOT_SHADOW        = "0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
+const CARD_SHADOW        = "0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #F5F5F5";
+const CARD_SHADOW_RAISED = "0px 1px 1.5px 0px rgba(82,75,71,0.12),0px 0px 0px 1px rgba(212, 212, 212,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #F5F5F5";
+const CARD_INSET         = "inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent),inset 0px -1px 0px 0px rgba(106,98,93,0.05)";
+const CARD_BORDER        = "1px solid var(--neutral-100)";
+const PRIMARY            = "var(--neutral-900)";
+const SECONDARY          = "var(--neutral-700)";
+const TERTIARY           = "var(--neutral-500)";
+const ICON_BTN_BG        = "var(--neutral-white)";
+const RESP_BORDER        = "var(--brown-100)";
+const DARK_GRADIENT      = "linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-800) 100%)";
+const DIALOG_SHADOW      = "0px 19px 32px 0px rgba(18,12,8,0.15),0px 2px 2.8px 0px rgba(130,122,116,0.1),0px 0px 0px 1px #F5F5F5";
+const TRAY_BG_SHADOW     = "inset 0px -1px 0px 0px color-mix(in srgb, var(--static-white) 90%, transparent),inset 0px 1px 0px 0px #F5F5F5,inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)";
+const SLOT_SHADOW        = "0px 0px 0px 1px rgba(212, 212, 212,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #F5F5F5";
 const BTN_SHADOW         = "0px 0px 0px 1px #3B3632,0px 1.091px 1.091px 0px rgba(59,54,50,0.1),0px 1.455px 3.127px 0px rgba(59,54,50,0.4)";
-const BTN_INSET          = "inset 0px 1.455px 0.364px 0px #6A625D,inset 0px -2.182px 0.364px 0px #3B3632,inset 0px -2.545px 6.9px -2.182px #827A74";
+const BTN_INSET          = "inset 0px 1.455px 0.364px 0px var(--neutral-600),inset 0px -2.182px 0.364px 0px var(--neutral-800),inset 0px -2.545px 6.9px -2.182px var(--neutral-500)";
 
 // â”€â”€ Chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -124,7 +125,7 @@ function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor;
 // that visually joins the active tab to the white content panel below.
 function CornerNotch({ side }: { side: "left" | "right" }) {
   return (
-    <div style={{ width: 8, height: 8, background: "#EDE1D7", overflow: "hidden", position: "relative", flexShrink: 0, alignSelf: "flex-end" }}>
+    <div style={{ width: 8, height: 8, background: "var(--neutral-100)", overflow: "hidden", position: "relative", flexShrink: 0, alignSelf: "flex-end" }}>
       <div style={{
         position:     "absolute",
         top:          0,
@@ -132,7 +133,7 @@ function CornerNotch({ side }: { side: "left" | "right" }) {
         width:        16,
         height:       16,
         borderRadius: "50%",
-        background:   "#FFFFFF",
+        background:   "var(--neutral-white)",
       }} />
     </div>
   );
@@ -285,10 +286,10 @@ const renderBoldInlineContent = (text: string, keyPrefix: string) => {
 
   while ((match = markdownRegex.exec(text)) !== null) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-    if      (match[2] !== undefined) nodes.push(<strong key={`${keyPrefix}-bi-${count++}`} className="font-semibold text-[#26211E]"><em>{match[2]}</em></strong>);
-    else if (match[4] !== undefined) nodes.push(<strong key={`${keyPrefix}-bold-${count++}`} className="font-semibold text-[#26211E]">{match[4]}</strong>);
+    if      (match[2] !== undefined) nodes.push(<strong key={`${keyPrefix}-bi-${count++}`} className="font-semibold text-[var(--neutral-900)]"><em>{match[2]}</em></strong>);
+    else if (match[4] !== undefined) nodes.push(<strong key={`${keyPrefix}-bold-${count++}`} className="font-semibold text-[var(--neutral-900)]">{match[4]}</strong>);
     else if (match[5] !== undefined) nodes.push(<em key={`${keyPrefix}-em-${count++}`}>{match[5]}</em>);
-    else if (match[6] !== undefined) nodes.push(<code key={`${keyPrefix}-code-${count++}`} className="rounded bg-[#F4F4F5] px-1 py-0.5 font-mono text-[0.875em] text-[#26211E]">{match[6]}</code>);
+    else if (match[6] !== undefined) nodes.push(<code key={`${keyPrefix}-code-${count++}`} className="rounded bg-[var(--neutral-100)] px-1 py-0.5 font-mono text-[0.875em] text-[var(--neutral-900)]">{match[6]}</code>);
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
@@ -304,7 +305,7 @@ const SimpleLinkPreview = ({ url, label, k }: { url: string; label?: string; k: 
   return (
     <a key={k} href={normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`}
       target="_blank" rel="noopener noreferrer"
-      className="group inline-flex items-center gap-1 rounded-full border border-[#EDE1D7] bg-[#F7F2ED] px-2 py-0.5 text-xs font-medium text-[#26211E] hover:bg-[#EDE1D7] transition-all duration-200 max-w-full align-middle"
+      className="group inline-flex items-center gap-1 rounded-full border border-[var(--neutral-100)] bg-[var(--neutral-white)] px-2 py-0.5 text-xs font-medium text-[var(--neutral-900)] hover:bg-[var(--neutral-100)] transition-all duration-200 max-w-full align-middle"
     >
       {faviconSrc && <Image src={faviconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5 shrink-0 rounded-sm" unoptimized />}
       <span className="truncate max-w-50">{displayLabel}</span>
@@ -345,9 +346,9 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const email = match[5].replace(/^mailto:/i, "");
       nodes.push(
         <a key={`${keyPrefix}-email-${partIndex++}`} href={`mailto:${email}`}
-          className="group inline-flex items-center gap-1 rounded-full border border-[#EDE1D7] bg-[#F7F2ED] px-2 py-0.5 text-xs font-medium text-[#26211E] hover:bg-[#EDE1D7] transition-all duration-200 align-middle"
+          className="group inline-flex items-center gap-1 rounded-full border border-[var(--neutral-100)] bg-[var(--neutral-white)] px-2 py-0.5 text-xs font-medium text-[var(--neutral-900)] hover:bg-[var(--neutral-100)] transition-all duration-200 align-middle"
         >
-          <Mail className="h-3.5 w-3.5 shrink-0 text-[#827A74] group-hover:text-[#524B47] transition-colors" aria-hidden />
+          <Mail className="h-3.5 w-3.5 shrink-0 text-[var(--neutral-500)] group-hover:text-[var(--neutral-700)] transition-colors" aria-hidden />
           <span className="truncate max-w-50">{email}</span>
         </a>,
       );
@@ -376,7 +377,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     if (listBuffer.length === 0) return;
     const listKey = `${keyPrefix}-list-${nodes.length}`;
     nodes.push(
-      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#26211E]">
+      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[var(--neutral-900)]">
         {listBuffer.map((item, idx) => (
           <li key={`${listKey}-item-${idx}`} className="leading-relaxed">
             <InlineContent text={item} keyPrefix={`${listKey}-item-${idx}`} />
@@ -452,7 +453,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
       nodes.push(
         <HeadingTag key={`${keyPrefix}-heading-${index}`}
-          className={`font-semibold text-[#26211E] tracking-tight ${headingClassByLevel[level]}`}
+          className={`font-semibold text-[var(--neutral-900)] tracking-tight ${headingClassByLevel[level]}`}
         >
           <InlineContent text={headingMatch[2]} keyPrefix={`${keyPrefix}-heading-${index}`} />
         </HeadingTag>,
@@ -468,20 +469,20 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       while (index < lines.length && isTableRow(lines[index])) { bodyRows.push(parseTableRow(lines[index])); index++; }
       const tk = `${keyPrefix}-table-${nodes.length}`;
       nodes.push(
-        <div key={tk} className="overflow-x-auto kaya-scrollbar rounded-lg border border-[#EDE1D7] my-2">
+        <div key={tk} className="overflow-x-auto kaya-scrollbar rounded-lg border border-[var(--neutral-100)] my-2">
           <table className="w-full border-collapse text-sm">
-            <thead className="bg-[#F7F2ED] text-[#524B47]">
+            <thead className="bg-[var(--neutral-white)] text-[var(--neutral-700)]">
               <tr>{headerCells.map((cell, ci) => (
-                <th key={`${tk}-header-${ci}`} className="border-b border-[#EDE1D7] px-3 py-2 text-left font-semibold text-[#26211E]">
+                <th key={`${tk}-header-${ci}`} className="border-b border-[var(--neutral-100)] px-3 py-2 text-left font-semibold text-[var(--neutral-900)]">
                   <InlineContent text={cell} keyPrefix={`${tk}-header-${ci}`} />
                 </th>
               ))}</tr>
             </thead>
             <tbody>
               {bodyRows.map((row, ri) => (
-                <tr key={`${tk}-row-${ri}`} className="odd:bg-white even:bg-[#F7F2ED]/50">
+                <tr key={`${tk}-row-${ri}`} className="odd:bg-[var(--neutral-white)] even:bg-[color-mix(in_srgb,var(--neutral-white)_50%,transparent)]">
                   {row.map((cell, ci) => (
-                    <td key={`${tk}-cell-${ri}-${ci}`} className="border-t border-[#EDE1D7] px-3 py-2 align-top text-[#26211E]">
+                    <td key={`${tk}-cell-${ri}-${ci}`} className="border-t border-[var(--neutral-100)] px-3 py-2 align-top text-[var(--neutral-900)]">
                       <InlineContent text={cell} keyPrefix={`${tk}-cell-${ri}-${ci}`} />
                     </td>
                   ))}
@@ -500,7 +501,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
 
     flushList();
     nodes.push(
-      <p key={`${keyPrefix}-paragraph-${index}`} className="whitespace-pre-wrap leading-relaxed text-[#26211E]">
+      <p key={`${keyPrefix}-paragraph-${index}`} className="whitespace-pre-wrap leading-relaxed text-[var(--neutral-900)]">
         <InlineContent text={line} keyPrefix={`${keyPrefix}-paragraph-${index}`} />
       </p>,
     );
@@ -550,16 +551,16 @@ const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
     }
   }, [code, language]);
   return (
-    <div className="relative rounded-lg overflow-hidden my-2 border border-[#EDE1D7]">
-      <div className="flex items-center justify-between bg-[#F7F2ED] px-3 py-1.5 text-xs">
-        <span className="font-mono text-[#524B47]">{language || "code"}</span>
+    <div className="relative rounded-lg overflow-hidden my-2 border border-[var(--neutral-100)]">
+      <div className="flex items-center justify-between bg-[var(--neutral-white)] px-3 py-1.5 text-xs">
+        <span className="font-mono text-[var(--neutral-700)]">{language || "code"}</span>
         <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#EDE1D7] transition-colors text-[#524B47]"
+          className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--neutral-100)] transition-colors text-[var(--neutral-700)]"
         >
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <pre className="m-0 p-3 overflow-x-auto kaya-scrollbar bg-[#F7F2ED]/50 text-sm">
+      <pre className="m-0 p-3 overflow-x-auto kaya-scrollbar bg-[color-mix(in_srgb,var(--neutral-white)_50%,transparent)] text-sm">
         <code ref={codeRef} className={language ? `language-${language}` : ""}>{code}</code>
       </pre>
     </div>
@@ -599,7 +600,7 @@ function ModelCard({
         height:          "100%",
         borderRadius:    16,
         boxShadow:       isActive ? CARD_SHADOW_RAISED : CARD_SHADOW,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "var(--neutral-white)",
         paddingTop:      12,
         paddingBottom:   16,
         paddingLeft:     12,
@@ -623,7 +624,7 @@ function ModelCard({
           inset:         0,
           pointerEvents: "none",
           borderRadius:  16,
-          background:    "linear-gradient(90deg,rgba(237,225,215,0.6) 0%,rgba(237,225,215,0.6) 100%),linear-gradient(90deg,#FFF 0%,#FFF 100%)",
+          background:    "linear-gradient(90deg,color-mix(in srgb, var(--neutral-100) 60%, transparent) 0%,color-mix(in srgb, var(--neutral-100) 60%, transparent) 100%),linear-gradient(90deg,var(--static-white) 0%,var(--static-white) 100%)",
         }} />
       )}
       {/* Selected warm overlay */}
@@ -633,7 +634,7 @@ function ModelCard({
           inset:           0,
           pointerEvents:   "none",
           borderRadius:    16,
-          backgroundColor: "rgba(237,225,215,0.6)",
+          backgroundColor: "color-mix(in srgb, var(--neutral-100) 60%, transparent)",
         }} />
       )}
       {/* Inset highlight for both hover and selected */}
@@ -655,13 +656,13 @@ function ModelCard({
           borderRadius:    10,
           padding:         8,
           flexShrink:      0,
-          backgroundColor: "rgba(255,255,255,0)",
+          backgroundColor: "color-mix(in srgb, var(--static-white) 0%, transparent)",
           display:         "flex",
           alignItems:      "center",
           justifyContent:  "center",
           overflow:        "hidden",
         }}>
-          <LlmIcon id={llmId} variant="color" size={24} />
+          <ThemedLlmIcon id={llmId} size={24} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 500, color: PRIMARY, lineHeight: "22px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
@@ -959,6 +960,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const { addPin, open: openPinboard } = usePinboardActions();
 
   const handleSavePin = useCallback((responseKey: string, modelDisplayName: string) => {
+    if (!PINS_ENABLED) return;
     const content   = testResponses[responseKey] ?? "";
     const messageId = testMessageIds[responseKey];
     if (!content || !messageId) return;
@@ -1197,7 +1199,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         height:        "98vh",
         maxHeight:     "98vh",
         borderRadius:  20,
-        background:    "#F7F2ED",
+        background:    "var(--neutral-50)",
         boxShadow:     DIALOG_SHADOW,
         display:       "flex",
         flexDirection: "column",
@@ -1251,10 +1253,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             {expandedModelId ? (
               /* â”€â”€ Expanded tab view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW, padding: 12 }}>
-                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "#EDE1D7", boxShadow: CARD_SHADOW }}>
+              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 16, backgroundColor: "color-mix(in srgb, var(--static-white) 50%, transparent)", boxShadow: TRAY_BG_SHADOW, padding: 12 }}>
+                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "var(--neutral-100)", boxShadow: CARD_SHADOW }}>
                   {/* Tabs header */}
-                  <div style={{ display: "flex", alignItems: "stretch", background: "#EDE1D7", flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "stretch", background: "var(--neutral-100)", flexShrink: 0 }}>
                     {/* Collapse button */}
                     <div style={{ display: "flex", alignItems: "center", paddingLeft: 12, paddingRight: 4, paddingTop: 10, paddingBottom: 10, flexShrink: 0 }}>
                       <button
@@ -1271,9 +1273,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       const llmId = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                       if (isActive) {
                         return (
-                          <div key={model.id} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#FFFFFF", borderRadius: "8px 8px 0 0", flexShrink: 0 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                              <LlmIcon id={llmId} variant="color" size={24} />
+                          <div key={model.id} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "var(--neutral-white)", borderRadius: "8px 8px 0 0", flexShrink: 0 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "color-mix(in srgb, var(--static-white) 0%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                              <ThemedLlmIcon id={llmId} size={24} />
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
                               <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1287,10 +1289,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         <button
                           key={model.id}
                           onClick={() => setExpandedModelId(model.requestModelId)}
-                          style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#EDE1D7", borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer", flexShrink: 0 }}
+                          style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "var(--neutral-100)", borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer", flexShrink: 0 }}
                         >
-                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            <LlmIcon id={llmId} variant="color" size={24} />
+                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "color-mix(in srgb, var(--static-white) 0%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            <ThemedLlmIcon id={llmId} size={24} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1317,7 +1319,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={springs.fast}
-                      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "#FFFFFF", borderRadius: 8 }}
+                      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "var(--neutral-white)", borderRadius: 8 }}
                     >
                       {/* Response area */}
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
@@ -1328,14 +1330,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} className="animate-pulse" />
                             <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
                           </div>
                         ) : modelResponse ? (
                           <FormattedResponse content={modelResponse} modelId={responseKey} />
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
                             <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
                               Run a prompt to see<br />{expandedModel.modelName}&apos;s<br />answer here.
                             </div>
@@ -1376,7 +1378,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
               </div>
             ) : (
               /* â”€â”€ Normal columns tray â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", gap: 12, padding: 12, borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW }}>
+              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", gap: 12, padding: 12, borderRadius: 16, backgroundColor: "color-mix(in srgb, var(--static-white) 50%, transparent)", boxShadow: TRAY_BG_SHADOW }}>
                 {modelsToShow.map((model) => {
                   const responseKey      = model.requestModelId ?? model.id;
                   const modelResponse    = testResponses[responseKey];
@@ -1385,12 +1387,12 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                   const credits          = testCredits[responseKey];
                   return (
-                    <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "#FFFFFF", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
+                    <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "var(--neutral-white)", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
                       {/* Column header */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
                         <div style={{ display: "flex", flex: 1, alignItems: "flex-start", gap: 6, minWidth: 0 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            <LlmIcon id={llmId} variant="color" size={24} />
+                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "color-mix(in srgb, var(--static-white) 0%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            <ThemedLlmIcon id={llmId} size={24} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0, alignSelf: "stretch" }}>
                             <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1437,14 +1439,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} className="animate-pulse" />
                             <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
                           </div>
                         ) : modelResponse ? (
                           <FormattedResponse content={modelResponse} modelId={responseKey} />
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
                             <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
                               Run a prompt to see<br />{model.modelName}&apos;s<br />answer here.
                             </div>
@@ -1477,7 +1479,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
           {/* Chat input */}
           <div style={{ flexShrink: 0, paddingLeft: 9, paddingRight: 9 }}>
-            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "#FFFFFF", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "var(--neutral-white)", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
               {/* Pasted image thumbnails */}
               {pastedImages.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1489,7 +1491,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         type="button"
                         onClick={() => setPastedImages((prev) => { URL.revokeObjectURL(url); return prev.filter((u) => u !== url); })}
                         aria-label="Remove pasted image"
-                        style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", border: "none", background: "rgba(38,33,30,0.7)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, fontSize: 10, lineHeight: 1 }}
+                        style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", border: "none", background: "color-mix(in srgb, var(--neutral-900) 70%, transparent)", color: "var(--static-white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, fontSize: 10, lineHeight: 1 }}
                       >
                         ×
                       </button>
@@ -1508,7 +1510,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 placeholder={isRecording ? "Listening..." : "How can I help you today?"}
                 disabled={isTesting}
                 rows={1}
-                style={{ flex: 1, fontSize: 16, fontWeight: 400, lineHeight: "22px", color: prompt ? "#26211E" : "#6A625D", fontFamily: "var(--font-body)", background: "none", border: "none", outline: "none", resize: "none", minHeight: 22, opacity: isTesting ? 0.6 : 1 }}
+                style={{ flex: 1, fontSize: 16, fontWeight: 400, lineHeight: "22px", color: prompt ? "var(--neutral-900)" : "var(--neutral-600)", fontFamily: "var(--font-body)", background: "none", border: "none", outline: "none", resize: "none", minHeight: 22, opacity: isTesting ? 0.6 : 1 }}
               />
               <span
                 onMouseEnter={() => setIsMicHovered(true)}
@@ -1572,7 +1574,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       height:        "98vh",
       maxHeight:     "98vh",
       borderRadius:  20,
-      background:    "#F7F2ED",
+      background:    "var(--neutral-50)",
       boxShadow:     DIALOG_SHADOW,
       display:       "flex",
       flexDirection: "column",
@@ -1583,7 +1585,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       {/* Inner content wrapper */}
       <div style={{
         borderRadius:  20,
-        background:    "#F7F2ED",
+        background:    "var(--neutral-50)",
         padding:       16,
         display:       "flex",
         flexDirection: "column",
@@ -1700,7 +1702,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     <TabsTrigger
                       key={company}
                       value={company}
-                      icon={repLlmId ? <LlmIcon id={repLlmId} variant="color" size={16} /> : undefined}
+                      icon={repLlmId ? <ThemedLlmIcon id={repLlmId} size={16} /> : undefined}
                     >
                       {company}
                     </TabsTrigger>
@@ -1781,20 +1783,20 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   // eslint-disable-next-line react/no-array-index-as-key
                   <div key={idx} style={{
                     borderRadius: 16, boxShadow: CARD_SHADOW,
-                    backgroundColor: "#EDE1D7", display: "flex", flexDirection: "column",
+                    backgroundColor: "var(--neutral-100)", display: "flex", flexDirection: "column",
                     gap: 12, padding: 12, boxSizing: "border-box",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ height: 16, borderRadius: 4, backgroundColor: "#D5C9C0", width: "60%" }} className="animate-pulse" />
-                        <div style={{ height: 11, borderRadius: 4, backgroundColor: "#D5C9C0", width: "40%" }} className="animate-pulse" />
+                        <div style={{ height: 16, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)", width: "60%" }} className="animate-pulse" />
+                        <div style={{ height: 11, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)", width: "40%" }} className="animate-pulse" />
                       </div>
                     </div>
-                    <div style={{ height: 48, borderRadius: 4, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                    <div style={{ height: 48, borderRadius: 4, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                     <div style={{ display: "flex", gap: 6 }}>
-                      <div style={{ height: 20, width: 64, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                      <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ height: 20, width: 64, borderRadius: 6, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
+                      <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: "var(--legacy-d5c9c0)" }} className="animate-pulse" />
                     </div>
                   </div>
                 ))}
@@ -1843,7 +1845,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             position:      "absolute",
             top:           0, left: 0, right: 0,
             height:        "40px",
-            background:    "linear-gradient(to bottom, #F7F2ED 0%, transparent 100%)",
+            background:    "linear-gradient(to bottom, var(--neutral-white) 0%, transparent 100%)",
             pointerEvents: "none",
             zIndex:        11,
             opacity:       atTop ? 0 : 1,
@@ -1871,7 +1873,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             position:      "absolute",
             bottom:        0, left: 0, right: 0,
             height:        "40px",
-            background:    "linear-gradient(to top, #F7F2ED 0%, transparent 100%)",
+            background:    "linear-gradient(to top, var(--neutral-white) 0%, transparent 100%)",
             pointerEvents: "none",
             zIndex:        11,
             opacity:       atBottom ? 0 : 1,
@@ -1893,10 +1895,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
               gap:             8,
               padding:         "8px 16px",
               borderRadius:    10,
-              backgroundColor: "rgba(247,242,237,0.5)",
+              backgroundColor: "var(--neutral-50-50)",
             }}>
               <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 10 }}>
-                <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 10, backgroundColor: "rgba(247,242,237,0.5)" }} />
+                <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 10, backgroundColor: "var(--neutral-50-50)" }} />
                 <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: TRAY_BG_SHADOW }} />
               </div>
               {[0, 1, 2].map((slotIndex) => {
@@ -1913,7 +1915,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     alignItems:      "center",
                     gap:             8,
                     borderRadius:    8,
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "var(--neutral-white)",
                     boxShadow:       SLOT_SHADOW,
                     padding:         12,
                     boxSizing:       "border-box",
@@ -1927,13 +1929,13 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           borderRadius:    10,
                           padding:         8,
                           flexShrink:      0,
-                          backgroundColor: "rgba(255,255,255,0)",
+                          backgroundColor: "color-mix(in srgb, var(--static-white) 0%, transparent)",
                           display:         "flex",
                           alignItems:      "center",
                           justifyContent:  "center",
                           overflow:        "hidden",
                         }}>
-                          <LlmIcon id={llmId} variant="color" size={24} />
+                          <ThemedLlmIcon id={llmId} size={24} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                           <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
@@ -1987,11 +1989,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       position:      "absolute",
                       inset:         0,
                       borderRadius:  8,
-                      border:        "1px dashed #9C938B",
+                      border:        "1px dashed var(--neutral-400)",
                       pointerEvents: "none",
                     }} />
                     <div style={{ display: "flex", flex: 1, gap: 12, alignItems: "center", minWidth: 0 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 4, border: "1px dashed #B6ACA4", flexShrink: 0 }} />
+                      <div style={{ width: 44, height: 44, borderRadius: 4, border: "1px dashed var(--neutral-200)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                         <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
                           Empty Slot {i + 1}

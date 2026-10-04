@@ -36,7 +36,7 @@ import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
-import type { ExternalOutputAction, GeneratedFile } from "@/types/chat";
+import type { ActivityType, GeneratedFile } from "@/types/chat";
 import { toConnector } from "@/lib/connector";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
@@ -249,6 +249,8 @@ export async function createPersonaRepo(params: {
   prompt?: string;
   description?: string;
   temperature?: number | null;
+  /** Persona tags (a JSON array on the wire). */
+  tags?: string[];
   image?: File | null;
 }): Promise<PersonaRepoResponse> {
   const form = new FormData();
@@ -257,6 +259,7 @@ export async function createPersonaRepo(params: {
   if (params.prompt) form.append("prompt", params.prompt);
   if (params.description) form.append("description", params.description);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
+  if (params.tags && params.tags.length > 0) form.append("persona_tags", JSON.stringify(params.tags));
   if (params.image) form.append("image", params.image);
   // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
   const repo = personaRepoSchema.parse(await apiFetchJson<unknown>(directUpload(PERSONAS_ENDPOINT), {
@@ -786,7 +789,20 @@ export async function personaStarter(
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
 
-export async function enhancePrompt(prompt: string, answers: string[] = []): Promise<EnhancePromptResponse> {
+/** A question the model asked earlier plus the user's answer — the backend's
+ *  `EnhanceAnswer` (`services/persona/schemas.py`). */
+export interface EnhanceAnswerRequest {
+  question: string;
+  answer: string;
+}
+
+/**
+ * POST /persona/enhance-prompt
+ * Returns an enhanced draft plus up to 3 clarifying questions (each with options).
+ * Earlier answers are sent back as `{ question, answer }` pairs and folded into the
+ * next enhancement. Nothing is saved.
+ */
+export async function enhancePrompt(prompt: string, answers: EnhanceAnswerRequest[] = []): Promise<EnhancePromptResponse> {
   return enhancePromptSchema.parse(await apiFetchJson<unknown>(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ prompt, answers }),
@@ -967,9 +983,7 @@ export interface PersonaImageEvent {
   s3_key: string;
 }
 
-export type PersonaActivityType =
-  | 'web-search' | 'browser' | 'read-pages' | 'csv-execute' | 'fetch-resource'
-  | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
+export type PersonaActivityType = ActivityType
 
 export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error' | 'stopped'
 
@@ -1014,8 +1028,6 @@ export interface PersonaChatStreamCallbacks {
   onImage?: (event: PersonaImageEvent) => void;
   /** Called when a tool produces a downloadable file. */
   onGeneratedFile?: (event: GeneratedFile) => void;
-  /** Called with confirmed external side effects performed by connector tools. */
-  onExternalOutput?: (actions: ExternalOutputAction[]) => void;
   /** Called after user or project memory is updated. */
   onMemoryUpdated?: (event: Record<string, unknown>) => void;
   /** Called when a tool starts executing, progresses, or completes. Upsert by id. */
@@ -1039,7 +1051,7 @@ export interface PersonaChatStreamCallbacks {
  *
  * Multipart bodies POSTed through Next.js dev's streaming proxy can be
  * buffered until the body completes, which breaks SSE — using urlencoded
- * for the text-only path avoids that and matches what the brain client does.
+ * for the text-only path avoids that.
  */
 function buildStreamBody(
   input: string,
@@ -1150,11 +1162,6 @@ async function readPersonaSSEStream(
                   s3Key: str(parsed.s3_key) || undefined,
                   mimeType: str(parsed.mime_type) || undefined,
                 });
-              }
-              break;
-            case "external_output":
-              if (Array.isArray(parsed.actions)) {
-                callbacks.onExternalOutput?.(parsed.actions as ExternalOutputAction[]);
               }
               break;
             case "memory_updated":

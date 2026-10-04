@@ -13,6 +13,12 @@ import {
   PIN_COMMENT_CRUD_ENDPOINT,
   PIN_TAGS_ENDPOINT,
 } from "@/lib/config";
+import { PINS_ENABLED, FeatureDisabledError } from "@/lib/feature-flags";
+
+/** Backstop: pins are hidden, so no call may reach the backend. */
+function assertPinsEnabled(): void {
+  if (!PINS_ENABLED) throw new FeatureDisabledError("Pins");
+}
 
 // ── Normalised shape used throughout the UI ───────────────────────────────────
 
@@ -131,6 +137,7 @@ function normalizePin(raw: RawPin): Pin {
 }
 
 export async function listPins(search?: string): Promise<Pin[]> {
+  assertPinsEnabled();
   const url = search
     ? `${PINS_ENDPOINT}?search=${encodeURIComponent(search)}`
     : PINS_ENDPOINT;
@@ -140,11 +147,13 @@ export async function listPins(search?: string): Promise<Pin[]> {
 }
 
 export async function getPin(pinId: string): Promise<Pin> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<RawPin>(PIN_DETAIL_ENDPOINT(pinId));
   return normalizePin(raw);
 }
 
 export async function listPinFolders(): Promise<PinFolder[]> {
+  assertPinsEnabled();
   const data = await apiFetchJson<
     Array<Record<string, unknown>> | { folders: Array<Record<string, unknown>> }
   >(PIN_FOLDERS_ENDPOINT);
@@ -162,11 +171,13 @@ export async function listPinFolders(): Promise<PinFolder[]> {
 }
 
 export async function createPin(messageId: string): Promise<Pin> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<RawPin>(CREATE_PIN_ENDPOINT(messageId), { method: "POST" });
   return normalizePin(raw);
 }
 
 export async function deletePin(pinId: string): Promise<void> {
+  assertPinsEnabled();
   const response = await apiFetch(PIN_DETAIL_ENDPOINT(pinId), { method: "DELETE" });
   if (!response.ok) {
     throw new ApiError(response.status, "api_error", `Failed to delete pin`);
@@ -174,6 +185,7 @@ export async function deletePin(pinId: string): Promise<void> {
 }
 
 export async function createPinFolder(folder_name: string): Promise<PinFolder> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<Record<string, unknown>>(PIN_FOLDERS_CREATE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ folder_name }),
@@ -210,6 +222,7 @@ export function validateFolderName(
 }
 
 export async function renamePinFolder(folderId: string, folder_name: string): Promise<PinFolder> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<Record<string, unknown>>(PIN_FOLDER_DETAIL_ENDPOINT(folderId), {
     method: "PATCH",
     body: JSON.stringify({ folder_name }),
@@ -227,6 +240,7 @@ export async function renamePinFolder(folderId: string, folder_name: string): Pr
 }
 
 export async function deletePinFolder(folderId: string): Promise<void> {
+  assertPinsEnabled();
   const res = await apiFetch(PIN_FOLDER_DETAIL_ENDPOINT(folderId), { method: "DELETE" });
   if (!res.ok && res.status !== 204) {
     throw new ApiError(res.status, "api_error", "Failed to delete folder");
@@ -237,6 +251,7 @@ export async function movePinToFolder(
   pinId: string,
   folderId: string,
 ): Promise<Pin> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<RawPin>(PIN_MOVE_ENDPOINT(pinId), {
     method: "PATCH",
     body: JSON.stringify({ folder_id: folderId }),
@@ -245,6 +260,7 @@ export async function movePinToFolder(
 }
 
 export async function updatePinTags(pinId: string, tags: string[]): Promise<void> {
+  assertPinsEnabled();
   const res = await apiFetch(PIN_TAGS_ENDPOINT(pinId), {
     method: 'PUT',
     body:   JSON.stringify({ tags }),
@@ -264,6 +280,7 @@ function normalizeCommentResponse(raw: Record<string, unknown>): PinComment {
 }
 
 export async function addPinComment(pinId: string, content: string): Promise<PinComment> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<Record<string, unknown>>(PIN_COMMENT_ENDPOINT(pinId), {
     method: "POST",
     body:   JSON.stringify({ comment_text: content }),
@@ -276,6 +293,7 @@ export async function editPinComment(
   commentId: string,
   content: string,
 ): Promise<PinComment> {
+  assertPinsEnabled();
   const raw = await apiFetchJson<Record<string, unknown>>(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), {
     method: "PATCH",
     body:   JSON.stringify({ comment_text: content }),
@@ -284,6 +302,7 @@ export async function editPinComment(
 }
 
 export async function deletePinComment(pinId: string, commentId: string): Promise<void> {
+  assertPinsEnabled();
   const res = await apiFetch(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), { method: "DELETE" });
   if (!res.ok && res.status !== 204) {
     throw new ApiError(res.status, "api_error", "Failed to delete comment");

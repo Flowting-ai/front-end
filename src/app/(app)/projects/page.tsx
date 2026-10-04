@@ -247,7 +247,7 @@ function ProjectsPageInner() {
                   fontWeight:  'var(--font-weight-regular)',
                   fontSize:    '24px',
                   lineHeight:  '32px',
-                  color:       '#1a1916',
+                  color:       'var(--legacy-1a1916)',
                   margin:      0,
                 }}
               >
@@ -417,7 +417,7 @@ function ProjectsPageInner() {
                 fontWeight: 'var(--font-weight-regular)',
                 fontSize:   '24px',
                 lineHeight: '32px',
-                color:      '#857a72',
+                color:      'var(--neutral-500)',
                 textAlign:  'center',
                 margin:     '40px 0',
               }}
@@ -443,7 +443,7 @@ function ProjectsPageInner() {
                   fontWeight:  'var(--font-weight-regular)',
                   fontSize:    '24px',
                   lineHeight:  '32px',
-                  color:       '#857a72',
+                  color:       'var(--neutral-500)',
                   textAlign:   'center',
                   margin:      0,
                 }}

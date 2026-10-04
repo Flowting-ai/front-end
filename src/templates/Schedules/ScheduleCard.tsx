@@ -1,0 +1,242 @@
+'use client'
+
+import React, { useState } from 'react'
+import { CalendarThreeIcon, AlertTwoIcon } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
+import { ConnectorGlyph } from '@/components/ConnectorGlyph'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+/** A connector the schedule's program calls. */
+export interface ScheduleConnector {
+  slug:    string
+  name:    string
+  logoUrl: string | null
+}
+
+const MAX_CARD_CONNECTORS = 4
+
+export interface ScheduleCardProps {
+  id:           string
+  name:         string
+  description?: string
+  /** When this runs, in words — "Every 5 minutes", "Every weekday at 9:30 AM
+   *  (America/Chicago)". Built by the backend (services/automations/schedule.py),
+   *  shown verbatim. */
+  frequency:    string
+  isActive:     boolean
+  /** Pre-formatted creation date, e.g. "January 5, 2026". */
+  createdAt?:   string
+  /** Chat permanently bound to this schedule (set once on create). */
+  chatId?:      string
+  /** Total times this schedule has fired. Omit/0 hides the stats segment —
+   *  a schedule that's never run has nothing to report yet. */
+  runCount?:    number
+  /** Fraction of finished runs that succeeded (0-1). `null`/undefined until
+   *  at least one run has finished. */
+  successRate?: number | null
+  /** A run is executing right now — distinct from `isActive` (a paused
+   *  schedule can still have a run in flight from before it was paused). */
+  isRunning?:   boolean
+  /** True when the backend's deployed timer has drifted from what's stored
+   *  (services/automations/schedule.py's `drift` flag) — the last edit may
+   *  not have fully taken effect. */
+  drift?:       boolean
+  /** Set for someone else's automation in the org view — shown instead of the
+   *  creation date, since who owns it is what decides what you can do with it. */
+  ownerName?:   string
+  /** Connectors its program calls — shown as logos in the footer. */
+  connectors?:  ScheduleConnector[]
+  onClick?:     (id: string) => void
+}
+
+// ── ScheduleCard — same shell (fixed height, boxShadow ring, title/description/
+// divider/footer layout) as ProjectCard, so the two grids read as one system. ──
+
+export function ScheduleCard({
+  id,
+  name,
+  description,
+  frequency,
+  isActive,
+  createdAt,
+  runCount,
+  successRate,
+  isRunning,
+  drift,
+  ownerName,
+  connectors = [],
+  onClick,
+}: ScheduleCardProps) {
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+
+  const backgroundColor = focused
+    ? 'color-mix(in srgb, var(--blue-500) 7%, transparent)'
+    : hovered
+      ? 'var(--neutral-50)'
+      : 'var(--neutral-white)'
+
+  const boxShadow = focused
+    ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-300)'
+    : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        display:         'flex',
+        flexDirection:   'column',
+        height:          '220px',
+        overflow:        'hidden',
+        padding:         '20px',
+        boxSizing:       'border-box',
+        borderRadius:    '12px',
+        backgroundColor,
+        boxShadow,
+        cursor:          'pointer',
+        textAlign:       'left',
+        transition:      'background-color 120ms ease, box-shadow 120ms ease',
+        outline:         'none',
+        width:           '100%',
+      }}
+    >
+      {/* Top row — "Created on" (left), status badge (right) — same slots as
+          ProjectCard's "Created by" + visibility badge. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
+        <div style={{ minWidth: 0 }}>
+          {(ownerName || createdAt) && (
+            <span style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   400,
+              fontSize:     '11px',
+              lineHeight:   '16px',
+              color:        'var(--neutral-500)',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {ownerName ? `By ${ownerName}` : `Created on ${createdAt}`}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {drift && (
+            <span title="This schedule's last edit may not have fully synced">
+              <AlertTwoIcon size={14} color="var(--yellow-600)" />
+            </span>
+          )}
+          {isRunning && <Badge color="Blue" label="Running" />}
+          <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
+        </div>
+      </div>
+
+      {/* Title */}
+      <p style={{
+        fontFamily:      'var(--font-title)',
+        fontWeight:      'var(--font-weight-medium)',
+        fontSize:        '18px',
+        lineHeight:      '24px',
+        color:           'var(--neutral-900)',
+        overflow:        'hidden',
+        display:         '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        margin:          0,
+        marginTop:       '8px',
+        flexShrink:      0,
+      }}>
+        {name}
+      </p>
+
+      {/* Description — 3 lines max, same clamp/height cap as ProjectCard's */}
+      <p style={{
+        maxHeight:       '51px',
+        flexShrink:      0,
+        fontFamily:      'var(--font-body)',
+        fontWeight:      'var(--font-weight-regular)',
+        fontSize:        '12px',
+        lineHeight:      '17px',
+        color:           'var(--neutral-500)',
+        overflow:        'hidden',
+        textOverflow:    'ellipsis',
+        display:         '-webkit-box',
+        WebkitLineClamp: 3,
+        WebkitBoxOrient: 'vertical',
+        margin:          0,
+        marginTop:       '10px',
+      }}>
+        {description ?? ''}
+      </p>
+
+      {/* Spacer — pushes the divider/footer to the bottom regardless of content above */}
+      <div style={{ flex: '1 1 auto', minHeight: 12 }} />
+
+      {/* Divider */}
+      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)', flexShrink: 0 }} />
+
+      {/* Footer — frequency, icon + text (same meta-row style as ProjectCard's member/chat counts) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--neutral-400)', minWidth: 0 }}>
+          <CalendarThreeIcon size={14} />
+          <span style={{
+            fontFamily:   'var(--font-body)',
+            fontWeight:   400,
+            fontSize:     '12px',
+            lineHeight:   '16px',
+            color:        'var(--neutral-500)',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}>
+            {frequency}
+          </span>
+        </div>
+
+        {/* Run stats — omitted entirely until the schedule has actually fired
+            at least once, rather than showing a misleading "0 runs". */}
+        {!!runCount && (
+          <>
+            <span style={{ width: 1, height: 12, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
+            <span style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   400,
+              fontSize:     '12px',
+              lineHeight:   '16px',
+              color:        'var(--neutral-500)',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {runCount} {runCount === 1 ? 'run' : 'runs'}
+              {successRate != null && ` · ${Math.round(successRate * 100)}% success`}
+            </span>
+          </>
+        )}
+
+        {connectors.length > 0 && (
+          <div
+            title={connectors.map(connector => connector.name).join(', ')}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 }}
+          >
+            {connectors.slice(0, MAX_CARD_CONNECTORS).map(connector => (
+              <ConnectorGlyph key={connector.slug} slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
+            ))}
+            {connectors.length > MAX_CARD_CONNECTORS && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
+                +{connectors.length - MAX_CARD_CONNECTORS}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+ScheduleCard.displayName = 'ScheduleCard'

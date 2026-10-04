@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
   const replaceMessageId   = formData.get("replaceMessageId") as string | null
   const webSearch          = formData.get("webSearch") === "true"
   const thinking           = formData.get("enable_thinking") === "true"
+  const effort             = formData.get("effort") as string | null
   const personaId          = formData.get("personaId") as string | null
   const systemPrompt       = formData.get("systemPrompt") as string | null
   const temperature        = formData.get("temperature") as string | null
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
   if (replaceMessageId && isExistingChat) fd.append("replace_message_id", replaceMessageId)
   if (webSearch) fd.append("web_search", "true")
   fd.append("thinking", thinking ? "true" : "false")
+  if (thinking && effort) fd.append("effort", effort)
   if (personaId) fd.append("persona_id", personaId)
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature) fd.append("temperature", temperature)

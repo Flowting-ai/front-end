@@ -1,162 +1,78 @@
 "use client"
 
-/**
- * XmlSchedule.tsx
- *
- * Renders a <schedule>...</schedule> XML block from the assistant as an
- * agenda strip — events grouped by day in order of first appearance:
- *
- *   <schedule title="This week">
- *     <event day="Mon, Jul 20" time="9:00–9:30" title="Standup" sub="Zoom"/>
- *     <event day="Mon, Jul 20" time="14:00–15:00" title="Roadmap review"/>
- *     <event day="Tue, Jul 21" time="11:00–11:45" title="Customer call" sub="Acme Corp"/>
- *   </schedule>
- *
- * See: docs/ui/frontend-rendering.md - Schedule section.
- */
+import React, { useState } from "react"
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { Button } from "@/components/Button"
+import { IconButton } from "@/components/IconButton"
+import { Badge } from "@/components/Badge"
+import { parseScheduleXml, scheduleMonthCells, type ParsedSchedule } from "./XmlSchedule.parse"
+import { ChatWidgetShell } from "./ChatWidgetShell"
+import styles from "./ChatWidget.module.css"
 
-import React from "react"
-import { m, useReducedMotion } from "framer-motion"
-import { CalendarDays, Clock3, MapPin } from "lucide-react"
-import { parseScheduleXml } from "@/components/chat/XmlSchedule.parse"
+function formatDate(date: string, options: Intl.DateTimeFormatOptions) {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" })
+}
+
+function Agenda({ groups }: { groups: ParsedSchedule["days"] }) {
+  return <>{groups.map((group, index) => <div className={styles.agenda} key={`${group.date || group.day}-${index}`}>
+    {group.day && <h4 className={styles.title}>{group.date ? formatDate(group.date, { weekday: "long", month: "short", day: "numeric", year: "numeric" }) : group.day}</h4>}
+    <ul className={styles.events}>{group.events.map((event, eventIndex) => <li className={styles.event} key={`${event.title}-${eventIndex}`}>
+      <span className={styles.time}>{event.time || "Any time"}</span>
+      <div style={{ minWidth: 0, overflowWrap: "anywhere" }}><div className={styles.title}>{event.title}</div>{event.sub && <div className={styles.caption}>{event.sub}</div>}</div>
+    </li>)}</ul>
+  </div>)}</>
+}
+
+function ScheduleContent({ schedule }: { schedule: ParsedSchedule }) {
+  const firstDate = schedule.date || schedule.days.find(group => group.date)?.date
+  const [view, setView] = useState<"month" | "agenda">(firstDate ? "month" : "agenda")
+  const [selected, setSelected] = useState(firstDate || "")
+  const [month, setMonth] = useState(firstDate || "")
+  const eventCount = schedule.days.reduce((count, group) => count + group.events.length, 0)
+  const datedDays = new Map(schedule.days.filter(group => group.date).map(group => [group.date!, group]))
+  const undated = schedule.days.filter(group => !group.date)
+  const selectedGroup = datedDays.get(selected)
+
+  function changeMonth(offset: number) {
+    const date = new Date(`${month.slice(0, 7)}-01T12:00:00Z`)
+    date.setUTCMonth(date.getUTCMonth() + offset)
+    const next = date.toISOString().slice(0, 10)
+    setMonth(next)
+    setSelected(next)
+  }
+
+  return <ChatWidgetShell title={schedule.title || "Schedule"} eyebrow="Calendar" icon={<CalendarDays size={18} />} actions={<Badge color="Neutral" label={`${eventCount} ${eventCount === 1 ? "event" : "events"}`} />}>
+    {firstDate && <div className={styles.toolbar}>
+      <div role="group" aria-label="Calendar view" style={{ display: "flex", gap: 6 }}>
+        <Button type="button" variant={view === "month" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "month"} onClick={() => setView("month")}>Month</Button>
+        <Button type="button" variant={view === "agenda" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "agenda"} onClick={() => setView("agenda")}>Agenda</Button>
+      </div>
+      {view === "month" && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <IconButton type="button" variant="ghost" size="sm" aria-label="Previous month" onClick={() => changeMonth(-1)} icon={<ChevronLeft size={16} />} />
+        <span aria-live="polite" className={styles.title}>{formatDate(month, { month: "long", year: "numeric" })}</span>
+        <IconButton type="button" variant="ghost" size="sm" aria-label="Next month" onClick={() => changeMonth(1)} icon={<ChevronRight size={16} />} />
+      </div>}
+    </div>}
+    {view === "month" && firstDate ? <>
+      <div className={styles.calendar}>
+        <div className={`${styles.weekdays} ${styles.caption}`} aria-hidden="true">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => <span key={day}>{day}</span>)}</div>
+        <div className={styles.dates} role="group" aria-label="Choose a date">
+          {scheduleMonthCells(month).map(date => {
+            const count = datedDays.get(date)?.events.length || 0
+            return <button type="button" key={date} className={`${styles.date} ${date.slice(0, 7) !== month.slice(0, 7) ? styles.muted : ""}`} aria-pressed={selected === date}
+              aria-label={`${formatDate(date, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}, ${count} ${count === 1 ? "event" : "events"}`} onClick={() => { setSelected(date); setMonth(date) }}>
+              <span>{Number(date.slice(8))}</span>{count > 0 && <span className={styles.dot} aria-hidden="true" />}
+            </button>
+          })}
+        </div>
+      </div>
+      {selectedGroup ? <Agenda groups={[selectedGroup]} /> : <div className={styles.agenda}><h4 className={styles.title}>{formatDate(selected, { month: "short", day: "numeric", year: "numeric" })}</h4><p className={styles.caption}>No events provided for this date.</p></div>}
+      {undated.length > 0 && <><div className={styles.agenda}><span className={styles.caption}>Events without a calendar date</span></div><Agenda groups={undated} /></>}
+    </> : <Agenda groups={schedule.days} />}
+  </ChatWidgetShell>
+}
 
 export function XmlSchedule({ xml }: { xml: string }) {
   const schedule = React.useMemo(() => parseScheduleXml(xml), [xml])
-  const reduceMotion = Boolean(useReducedMotion())
-  if (!schedule) return null
-
-  const accents = ["#496E8B", "#6D5C91", "#287A47", "#A28847"]
-  const eventCount = schedule.days.reduce((total, day) => total + day.events.length, 0)
-
-  return (
-    <m.div
-      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
-      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        margin: "14px 0",
-        padding: "15px 15px 14px",
-        borderRadius: 18,
-        border: "1px solid rgba(73, 110, 139, 0.15)",
-        background: "linear-gradient(135deg, #EFF5F8 0%, #FFFEFC 52%, #F2ECE8 100%)",
-        boxShadow: "0 10px 28px rgba(82, 75, 71, 0.09), 0 2px 4px rgba(82, 75, 71, 0.07)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <m.span
-          aria-hidden
-          initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: "spring", stiffness: 340, damping: 24 }}
-          style={{
-            width: 36,
-            height: 36,
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-            borderRadius: 11,
-            color: "#496E8B",
-            backgroundColor: "rgba(222, 235, 244, 0.78)",
-            border: "1px solid rgba(73, 110, 139, 0.17)",
-          }}
-        >
-          <CalendarDays size={17} strokeWidth={1.8} />
-        </m.span>
-        <div style={{ flex: "1 1 0", minWidth: 0 }}>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-500)" }}>Agenda</div>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-body)", fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-950)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {schedule.title || "Schedule"}
-          </div>
-        </div>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.65)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
-          <Clock3 size={12} />
-          {eventCount} {eventCount === 1 ? "event" : "events"}
-        </span>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {schedule.days.map((group, gi) => {
-          const accent = accents[gi % accents.length]!
-          return (
-          <m.div
-            key={`${group.day}-${gi}`}
-            initial={reduceMotion ? false : { opacity: 0, y: 7 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : gi * 0.08, duration: 0.28 }}
-            style={{ display: "flex", flexDirection: "column", gap: 7 }}
-          >
-            {group.day && (
-              <span
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "3px 8px",
-                  borderRadius: 999,
-                  fontFamily: "var(--font-body)",
-                  fontSize: 11,
-                  fontWeight: "var(--font-weight-medium)",
-                  color: accent,
-                  backgroundColor: `${accent}12`,
-                  border: `1px solid ${accent}1F`,
-                }}
-              >
-                {group.day}
-              </span>
-            )}
-            <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 7 }}>
-            {group.events.map((event, i) => (
-              <m.div
-                key={`${event.title}-${i}`}
-                initial={reduceMotion ? false : { opacity: 0, x: -7 }}
-                animate={{ opacity: 1, x: 0 }}
-                whileHover={reduceMotion ? undefined : { x: 2 }}
-                transition={{ delay: reduceMotion ? 0 : gi * 0.07 + i * 0.045, duration: 0.24 }}
-                style={{
-                  position: "relative",
-                  display: "grid",
-                  gridTemplateColumns: "minmax(68px, 88px) 14px minmax(0, 1fr)",
-                  alignItems: "center",
-                  gap: 7,
-                }}
-              >
-                <span
-                  style={{
-                    justifySelf: "stretch",
-                    padding: "5px 6px",
-                    borderRadius: 8,
-                    textAlign: "center",
-                    fontFamily: "var(--font-code)",
-                    fontSize: 10,
-                    lineHeight: "14px",
-                    color: accent,
-                    backgroundColor: "rgba(255,255,255,0.65)",
-                    border: `1px solid ${accent}1A`,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {event.time ?? "Any time"}
-                </span>
-                <span aria-hidden style={{ position: "relative", width: 10, height: 10, borderRadius: "50%", backgroundColor: accent, boxShadow: `0 0 0 4px ${accent}16`, zIndex: 1 }}>
-                  {i < group.events.length - 1 && <span style={{ position: "absolute", left: 4, top: 10, width: 2, height: 50, backgroundColor: `${accent}20` }} />}
-                </span>
-                <div style={{ minWidth: 0, padding: "8px 10px", borderRadius: 11, backgroundColor: "rgba(255,255,255,0.72)", border: "1px solid rgba(82,75,71,0.09)", boxShadow: "0 2px 5px rgba(82,75,71,0.05)" }}>
-                  <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", lineHeight: "18px", fontWeight: "var(--font-weight-medium)", color: "var(--neutral-800)", overflowWrap: "anywhere" }}>
-                    {event.title}
-                  </div>
-                  {event.sub && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontFamily: "var(--font-body)", fontSize: 11, lineHeight: "15px", color: "var(--neutral-400)", overflow: "hidden" }}>
-                      <MapPin size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.sub}</span>
-                    </div>
-                  )}
-                </div>
-              </m.div>
-            ))}
-            </div>
-          </m.div>
-        )})}
-      </div>
-    </m.div>
-  )
+  return schedule ? <ScheduleContent key={xml} schedule={schedule} /> : null
 }

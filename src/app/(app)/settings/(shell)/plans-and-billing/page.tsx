@@ -37,7 +37,7 @@ interface PersonalBillingSnapshot {
   creditsUsed:      number
   chatCredits:      number
   slackCredits:     number
-  brainCredits:     number
+  automationCredits: number
   nextBilling:      string
   periodEnd:        string | null
   cancelAtPeriodEnd: boolean
@@ -132,11 +132,11 @@ function fmtDate(iso: string | null | undefined): string {
 /** Pill badge — blue (info), yellow (note), neutral, green / red (status). */
 function Badge({ label, tone }: { label: string; tone: 'blue' | 'yellow' | 'neutral' | 'green' | 'red' }) {
   const map = {
-    blue:    { bg: 'var(--blue-100)',    fg: 'var(--blue-700)',    ring: 'rgba(13,110,178,0.5)' },
-    yellow:  { bg: 'var(--yellow-100)',  fg: 'var(--yellow-700)',  ring: 'rgba(143,116,39,0.5)' },
-    neutral: { bg: 'var(--neutral-100)', fg: 'var(--neutral-700)', ring: 'rgba(106,98,93,0.5)' },
+    blue:    { bg: 'var(--blue-100)',    fg: 'var(--blue-700)',    ring: 'var(--blue-600-50)' },
+    yellow:  { bg: 'var(--yellow-100)',  fg: 'var(--yellow-700)',  ring: 'color-mix(in srgb, var(--yellow-600) 50%, transparent)' },
+    neutral: { bg: 'var(--neutral-100)', fg: 'var(--neutral-700)', ring: 'color-mix(in srgb, var(--neutral-600) 50%, transparent)' },
     green:   { bg: 'var(--green-50)',    fg: 'var(--green-800)',   ring: 'rgba(128,183,7,0.5)' },
-    red:     { bg: 'var(--red-100)',     fg: 'var(--red-700)',     ring: 'rgba(159,38,35,0.5)' },
+    red:     { bg: 'var(--red-100)',     fg: 'var(--red-700)',     ring: 'var(--red-600-51)' },
   }[tone]
   return (
     <span style={{
@@ -342,7 +342,7 @@ function SkeletonInvoiceCard() {
         <SkeletonBlock width={100} height={32} radius={8} />
       </div>
       <div style={{ padding: '0 24px 12px' }}>
-        <div style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
+        <div style={{ background: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
           <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
             {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
             <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
@@ -407,7 +407,7 @@ function TeamsPlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
 }
 
 /** Personal (individual, non-org) branch: same two-card row, plus the
- *  "This month's usage" card (Chat/Slack/Brain) real page adds. */
+ *  "This month's usage" card (Chat/Slack/Automations) real page adds. */
 function PersonalPlansSkeleton() {
   return (
     <>
@@ -416,7 +416,7 @@ function PersonalPlansSkeleton() {
         <SkeletonPageHeader />
         <SkeletonTwoCardRow />
 
-        {/* This month's usage — Chat / Slack / Brain */}
+        {/* This month's usage — Chat / Slack / Automations */}
         <SkeletonSectionCard>
           {[0, 1, 2].map(i => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -492,7 +492,7 @@ function CancelSubscriptionDialog({
     <div
       onClick={() => { if (!isCanceling) onKeep() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
         backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >
@@ -500,7 +500,7 @@ function CancelSubscriptionDialog({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
+          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
           boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
         }}
       >
@@ -1154,7 +1154,7 @@ function PersonalBillingView() {
         creditsUsed:      usage.ownSpendCredits,
         chatCredits:      usage.byCategory.chatCredits,
         slackCredits:     usage.byCategory.slackCredits,
-        brainCredits:     usage.byCategory.brainCredits,
+        automationCredits: usage.byCategory.automationCredits,
         nextBilling:      nextBillingLive,
         periodEnd:        billing?.currentPeriodEnd ?? user?.currentPeriodEnd ?? null,
         cancelAtPeriodEnd: billing?.cancelAtPeriodEnd ?? false,
@@ -1177,12 +1177,12 @@ function PersonalBillingView() {
   const isTrialUser      = Boolean(usage?.isTrial || (!planType && creditsTotal > 0 && !teamsTier))
   const planName         = teamsTier ? `Teams · $${teamsTier.price}` : (isTrialUser ? 'Trial' : null)
   const planPrice        = teamsTier?.price ?? 0
-  const planFeatures     = teamsTier ? ['Shared workspace', 'Chat, Slack, and Brain', 'Admin billing'] : []
+  const planFeatures     = teamsTier ? ['Shared workspace', 'Chat, Slack, and Automations', 'Admin billing'] : []
   const hasActiveSub     = Boolean(teamsTier)
   const hasPlan          = hasActiveSub || isTrialUser
   const chatCredits      = display?.chatCredits    ?? 0
   const slackCredits     = display?.slackCredits   ?? 0
-  const brainCredits     = display?.brainCredits   ?? 0
+  const automationCredits = display?.automationCredits ?? 0
   const nextBilling      = display?.nextBilling    ?? '—'
   const periodEnd        = display?.periodEnd      ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
@@ -1362,7 +1362,7 @@ function PersonalBillingView() {
         <SectionCard title="This month's usage" subtitle={cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`} bodyGap={16}>
           <PersonalUsageRow label="Chat"  used={chatCredits}  total={creditsTotal} />
           <PersonalUsageRow label="Slack" used={slackCredits} total={creditsTotal} />
-          <PersonalUsageRow label="Brain" used={brainCredits} total={creditsTotal} />
+          <PersonalUsageRow label="Automations" used={automationCredits} total={creditsTotal} />
         </SectionCard>
 
         {billing && (
@@ -1431,10 +1431,10 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         padding:    0,
         cursor:     'pointer',
         flexShrink: 0,
-        background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #ede1d7)',
+        background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #F5F5F5)',
         boxShadow:  checked
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
-          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-700-70)'
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
         transition: 'background 0.15s ease, box-shadow 0.15s ease',
       }}
     >
@@ -1445,10 +1445,10 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         width:        16,
         height:       16,
         borderRadius: '50%',
-        background:   'white',
+        background:   'var(--neutral-white)',
         boxShadow:    checked
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4), inset 0px -1px 0px 0px rgba(18,60,95,0.15)'
-          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-700-40), inset 0px -1px 0px 0px var(--blue-800-15)'
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
         transition:   'left 0.15s ease',
       }} />
     </button>
@@ -1478,7 +1478,7 @@ function InvoiceTable({ invoices, loading }: { invoices: Invoice[]; loading: boo
 
   return (
     <div style={{
-      background:   'var(--neutral-white, #fff)',
+      background:   'var(--neutral-white)',
       borderRadius: 8,
       padding:      12,
       boxShadow:    SHADOW_TILE,
@@ -1550,11 +1550,11 @@ function ModalShell({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(18,12,8,0.5)',
+        background: 'var(--overlay-bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}
     >
-      <div style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
+      <div style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Header */}
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 12px 24px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -1602,7 +1602,7 @@ function InputField({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
       <p id={labelId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         {prefix && <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', padding: '0 2px' }}>{prefix}</span>}
         <input
           aria-labelledby={labelId}

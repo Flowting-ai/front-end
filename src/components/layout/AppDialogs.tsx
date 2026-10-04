@@ -65,7 +65,7 @@ function CompareDialog() {
               position:        "fixed",
               inset:           0,
               zIndex:          20,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              backgroundColor: "color-mix(in srgb, var(--static-black) 50%, transparent)",
             }}
           />
           {/* Dialog */}

@@ -29,10 +29,10 @@ const clusterLayer: LayerProps = {
   source: SOURCE_ID,
   filter: ["has", "point_count"],
   paint: {
-    "circle-color": ["step", ["get", "point_count"], "#8EAED8", 10, "#4A83BF", 30, "#0D6EB2"],
+    "circle-color": ["step", ["get", "point_count"], "var(--blue-300)", 10, "var(--blue-500)", 30, "var(--blue-600)"],
     "circle-radius": ["step", ["get", "point_count"], 17, 10, 21, 30, 25],
     "circle-stroke-width": 2,
-    "circle-stroke-color": "rgba(255,255,255,0.9)",
+    "circle-stroke-color": "var(--neutral-white-90)",
   },
 }
 
@@ -46,7 +46,7 @@ const clusterCountLayer: LayerProps = {
     "text-font": ["Noto Sans Regular"],
     "text-size": 12,
   },
-  paint: { "text-color": "#ffffff" },
+  paint: { "text-color": "var(--static-white)" },
 }
 
 interface RankedGroup {
@@ -166,11 +166,11 @@ export function XmlMapCanvas({ data }: { data: ParsedMap }) {
     source: SOURCE_ID,
     filter: ["!", ["has", "point_count"]],
     paint: {
-      "circle-color": ["interpolate", ["linear"], ["get", "value"], 0, "#8EAED8", valueMax, "#0D6EB2"],
+      "circle-color": ["interpolate", ["linear"], ["get", "value"], 0, "var(--blue-300)", valueMax, "var(--blue-600)"],
       "circle-radius": ["interpolate", ["linear"], ["get", "value"], 0, 6, valueMax, 17],
       "circle-opacity": 0.88,
       "circle-stroke-width": ["case", ["==", ["get", "id"], selectedId ?? ""], 3, 1.5],
-      "circle-stroke-color": ["case", ["==", ["get", "id"], selectedId ?? ""], "#26211E", "#ffffff"],
+      "circle-stroke-color": ["case", ["==", ["get", "id"], selectedId ?? ""], "var(--neutral-900)", "var(--static-white)"],
     },
   }), [selectedId, valueMax])
 

@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
   // NOTE: client-side API requests are proxied via the streaming route
   // handler at `src/app/api/backend/[...path]/route.ts`, not a `rewrites()`
   // rule. Rewrites cause `next dev` (Turbopack) to buffer chunked responses,
-  // which broke SSE for Brain. The route handler streams both directions
+  // which broke SSE. The route handler streams both directions
   // and works identically in dev and production.
 
   async redirects() {
@@ -113,6 +113,23 @@ const nextConfig: NextConfig = {
       {
         source: '/settings/connectors',
         destination: '/connectors',
+        permanent: true,
+      },
+      // Brain merged into chat: its chats are plain chats now, so /brain?id=…
+      // lands on /chat?id=… (query strings carry through).
+      {
+        source: '/brain/schedules',
+        destination: '/schedules',
+        permanent: true,
+      },
+      {
+        source: '/brain/:rest+',
+        destination: '/chats',
+        permanent: true,
+      },
+      {
+        source: '/brain',
+        destination: '/chat',
         permanent: true,
       },
     ]

@@ -61,8 +61,8 @@ My Personas (grid)
 
 When the user has no personas:
 - Centered illustration (decorative)
-- Heading: Besley regular, 24px, `var(--neutral-950)` - copy TBD from PM
-- Sub-copy: Geist regular, 14px, `var(--neutral-500)`
+- Heading: Google Sans regular, 24px, `var(--neutral-950)` - copy TBD from PM
+- Sub-copy: Manrope regular, 14px, `var(--neutral-500)`
 - CTA button: primary/dark, "Create your first persona"
 
 ### Populated State
@@ -174,8 +174,8 @@ Three Blue `Badge` chips in a horizontal row, centered: **Template → Basics �
 
 ### Heading
 
-- Title: "Choose a starting point" - Besley regular, `var(--font-size-heading-24)` (24px), `#1a1916`
-- Subtitle: "Start with a template or build from scratch" - Geist regular, 14px, `#827a74`
+- Title: "Choose a starting point" - Google Sans regular, `var(--font-size-heading-24)` (24px), `#1a1916`
+- Subtitle: "Start with a template or build from scratch" - Manrope regular, 14px, `#827a74`
 
 ### "Start blank" row (above template grid)
 
@@ -189,7 +189,7 @@ box-shadow: 0 2px 2.8px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)
 padding: 16px 17px
 ```
 
-- Left: name `"Custom"` (Geist 16px, `var(--neutral-900)`) + handle `"Start from scratch."` (Geist Mono 13px, `var(--neutral-500)`)
+- Left: name `"Custom"` (Manrope 16px, `var(--neutral-900)`) + handle `"Start from scratch."` (Manrope 13px, `var(--neutral-500)`)
 - Right: `Button` outline sm - "Start blank"
 
 ### Template Grid
@@ -207,7 +207,7 @@ box-shadow: 0 2.55px 3.82px rgba(202,220,241,0.4)  // blue-tinted
 width: ~179px (4 cols in ~764px content width)
 ```
 
-Content: category icon (30.6 × 30.6px, centered) + label (Geist medium, 16px, `var(--neutral-950)`, center-aligned, max-width `138px`)
+Content: category icon (30.6 × 30.6px, centered) + label (Manrope medium, 16px, `var(--neutral-950)`, center-aligned, max-width `138px`)
 
 Interaction: clicking a tile → advances to Basics Step 1 with that template pre-selected.
 
@@ -221,31 +221,31 @@ All 3 sub-steps share the same wizard shell. The step indicator shows "Basics" a
 
 **Figma node:** `848-49775`
 
-- Heading: "What should this persona do?" - Besley 24px, `#1a1916`
-- Subtitle: "One sentence is perfect - this becomes its purpose and card description." - Geist 14px, `#827a74`
+- Heading: "What should this persona do?" - Google Sans 24px, `#1a1916`
+- Subtitle: "One sentence is perfect - this becomes its purpose and card description." - Manrope 14px, `#827a74`
 - Input: `684px` wide, white bg, `border-radius: 10px`, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)`, `px-10 py-12`
-  - Placeholder: "e.g. Reviews contracts and flags risks in plain English" - Geist 14px, `var(--neutral-600)`
+  - Placeholder: "e.g. Reviews contracts and flags risks in plain English" - Manrope 14px, `var(--neutral-600)`
 - Below input (space-between row):
-  - Left: hint "Keep it tight - this shows on the card" - Geist medium 14px, `#827a74`
-  - Right: char counter "0/120" - Geist medium 14px, `#827a74`
+  - Left: hint "Keep it tight - this shows on the card" - Manrope medium 14px, `#827a74`
+  - Right: char counter "0/120" - Manrope medium 14px, `#827a74`
 
 ### Sub-step 2b - Name + Handle
 
 **Figma node:** `848-49804`
 
-- Heading: "What should we call it?" - Besley 24px, `#1a1916`
-- Subtitle: "This is how it appears in your library and in chat." - Geist 14px, `#827a74`
+- Heading: "What should we call it?" - Google Sans 24px, `#1a1916`
+- Subtitle: "This is how it appears in your library and in chat." - Manrope 14px, `#827a74`
 - Input: `438px` wide, same styling as above
   - Placeholder / value: persona name (e.g., "gimmy")
-- Below input: auto-generated handle display - `@{slug}{disambiguator}` (e.g., `@gimmy01`), Geist medium 14px, `#827a74`
+- Below input: auto-generated handle display - `@{slug}{disambiguator}` (e.g., `@gimmy01`), Manrope medium 14px, `#827a74`
   - The `@` prefix and disambiguator are rendered in regular weight; the slug portion is bold/medium
 
 ### Sub-step 2c - Tone Selection
 
 **Figma node:** `848-49833`
 
-- Heading: `How should {name} sound?` - Besley 24px, `#1a1916` (name interpolated)
-- Subtitle: "This shapes how it writes, responds, and feels in conversation." - Geist 14px, `#827a74`
+- Heading: `How should {name} sound?` - Google Sans 24px, `#1a1916` (name interpolated)
+- Subtitle: "This shapes how it writes, responds, and feels in conversation." - Manrope 14px, `#827a74`
 - 2×2 grid of tone cards, `gap: 19px`, total width `684px`
 
 Each tone card (`332px` wide):
@@ -266,13 +266,13 @@ gap: 9px (between header, divider, example)
 | Evidence-based & clear | Reasoned, grounded, neutral. | "Based on your account history, the most likely cause is..." |
 
 Card header:
-- Title: Geist medium, 16px, `var(--neutral-900)`, truncated with ellipsis
-- Subtitle: Geist Mono regular, 13px, `var(--neutral-500)`
+- Title: Manrope medium, 16px, `var(--neutral-900)`, truncated with ellipsis
+- Subtitle: Manrope regular, 13px, `var(--neutral-500)`
 
 Divider: `1px solid rgba(59,54,50,0.15)`, full width
 
 Example text block (44px tall, 2-line clamp):
-- Prefix "Ex -" in `#c4af9f`, rest in `#857a72`, Geist regular 14px
+- Prefix "Ex -" in `#c4af9f`, rest in `#857a72`, Manrope regular 14px
 
 Selection state: selected card gets a ring/highlight (design detail to be confirmed - add `box-shadow: 0 0 0 2px var(--blue-500)` or similar).
 
@@ -316,7 +316,7 @@ Tab styling:
 - Container: `border-radius: 10px` group container with `tab-background` (inset box shadow)
 - Active tab: `background: white`, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)`, `border-radius: 10px`, `px-8 py-7`, with left icon (16px) + label text
 - Inactive tab: no background, same padding, icon + label, muted text color
-- Font: Geist medium 14px, `var(--neutral-700)` active, `var(--neutral-500)` inactive
+- Font: Manrope medium 14px, `var(--neutral-700)` active, `var(--neutral-500)` inactive
 
 ### Floating Menu (right edge)
 
@@ -355,7 +355,7 @@ height: 56px
 padding: 12px
 box-shadow: 0 2px 2.8px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)
 ```
-These show the filename (Geist 14px, `var(--neutral-700)`) + file type badge + remove button.
+These show the filename (Manrope 14px, `var(--neutral-700)`) + file type badge + remove button.
 
 ### Footer Bar
 
@@ -366,8 +366,8 @@ Fixed at bottom of the editor panel. Two sections:
 - `↪ Chips` row: attached knowledge chips (each chip: `rounded-10`, inner icon button + label text)
 
 **Right side:**
-- "Save version" button (outline): Geist medium 14px - see Save Version Dropdown below
-- "Publish" button (primary/dark): Geist medium 14px, arrow icon
+- "Save version" button (outline): Manrope medium 14px - see Save Version Dropdown below
+- "Publish" button (primary/dark): Manrope medium 14px, arrow icon
 
 ### Save Version Dropdown
 
@@ -399,7 +399,7 @@ box-shadow: standard card shadow
 ```
 
 Content:
-- Persona name (Besley 24px, `var(--neutral-900)`) - shows current persona name
+- Persona name (Google Sans 24px, `var(--neutral-900)`) - shows current persona name
 - Sharing details / confirmation copy (to be confirmed in Figma)
 - "Publish" button (primary/dark)
 - Cancel/dismiss action
@@ -417,7 +417,7 @@ Two sub-columns or a single form column in the left panel:
 **Left panel - form fields:**
 - Avatar upload area: `65×65` or larger circle with upload icon overlay on hover
 - Name field: text input, same styling as wizard inputs
-- Handle field: text input with `@` prefix, Geist Mono
+- Handle field: text input with `@` prefix, Manrope
 - Description field: textarea, 2-line min
 
 **Right panel - live chat preview (optional/toggle):**
@@ -450,7 +450,7 @@ padding: 12px
 display: flex, align-items: center, justify-content: space-between
 ```
 
-Each row: file icon + filename (Geist 14px, `var(--neutral-900)`) + file size/type badge + `···` menu or remove button
+Each row: file icon + filename (Manrope 14px, `var(--neutral-900)`) + file size/type badge + `···` menu or remove button
 
 File upload action: "Add files" button or drag-and-drop zone.
 
@@ -462,7 +462,7 @@ File upload action: "Add files" button or drag-and-drop zone.
 
 ### Layout
 
-Single-column form within the editor main area. Section header: "Sharing Configuration" - Geist medium, 14px.
+Single-column form within the editor main area. Section header: "Sharing Configuration" - Manrope medium, 14px.
 
 ### Visibility Selector
 
@@ -480,8 +480,8 @@ Tab group styling:
 
 Appears below the visibility selector. Shows an inline section with:
 
-**Title:** "Super Link" - Geist medium, 16px, `var(--neutral-950)`
-**Description:** "Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost." - Geist regular, 13–14px, `var(--neutral-500)`
+**Title:** "Super Link" - Manrope medium, 16px, `var(--neutral-950)`
+**Description:** "Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost." - Manrope regular, 13–14px, `var(--neutral-500)`
 
 **Generate state** (`898-43413`):
 - `property1: "generate"` - shows a "Generate" button (primary/dark) to create the link
@@ -508,8 +508,8 @@ Full-panel screen replacing the Editor Shell after successful publish.
 
 Content (centered):
 - Success illustration / persona card preview
-- Heading: persona name displayed prominently - Besley
-- Body copy: `"Legal Advisor" is now live for your team. Members can add it from the Add button in any conversation.` - Geist regular, 16px, `var(--neutral-700)`, max-width `392px`, center-aligned
+- Heading: persona name displayed prominently - Google Sans
+- Body copy: `"Legal Advisor" is now live for your team. Members can add it from the Add button in any conversation.` - Manrope regular, 16px, `var(--neutral-700)`, max-width `392px`, center-aligned
 - CTA: **"Share to community"** button (link-style with arrow icon, or secondary)
 - Secondary action: "Back to My Personas" or similar
 
@@ -624,9 +624,9 @@ Absolutely positioned at bottom of card (does **not** change card height). Anima
 | `--blue-200` | `#acc5e4` | Active wizard step badge |
 | `--blue-500` | `#0d6eb2` | Blue accents |
 | `--blue-700` | `#135487` | Blue badge text |
-| `--font-body` | Geist | Body text |
-| `--font-code` | Geist Mono | Handles, code, subtitles |
-| `--font-title` | Besley | Display headings |
+| `--font-body` | Manrope | Body text |
+| `--font-code` | Manrope | Handles, code, subtitles |
+| `--font-title` | Google Sans | Display headings |
 | `--font-size-body-2-16` | 16px | Body large |
 | `--font-size-body-1-14` | 14px | Body default |
 | `--font-size-caption` | 11px | Small labels, descriptions |

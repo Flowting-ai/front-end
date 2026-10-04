@@ -40,9 +40,8 @@ import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
-import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
-import { ArtifactCard } from '@/templates/Brain/ArtifactCard'
-import { ExternalOutputCard } from '@/templates/Brain/ExternalOutputCard'
+import { StreamingMessageBubble } from '@/components/chat/StreamingMessageBubble'
+import { ArtifactCard } from '@/components/chat/ArtifactCard'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
 import { getAllVersionTags } from '@/lib/version-tags'
 import { formatServerDateTime } from '@/lib/utils/format-utils'
@@ -283,7 +282,7 @@ function PersonaHelpButton() {
           style={{
             position:        'fixed',
             inset:           0,
-            backgroundColor: 'rgba(0,0,0,0.45)',
+            backgroundColor: 'var(--overlay-bg)',
             zIndex:          17,
             pointerEvents:   'none',
           }}
@@ -598,7 +597,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
             {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
           </div>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {personaName || 'Name'}
           </p>
         </div>
@@ -614,7 +613,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
       {/* Messages + Input — wrapped for lock overlay */}
       <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {panelsLocked && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(var(--surface-rgb), 0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock Test Chat</p>
         </div>
       )}
@@ -665,16 +664,6 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                       onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}
                     />
                   ))}
-                  {msg.externalOutputActions && msg.externalOutputActions.length > 0 && (
-                    <ExternalOutputCard actions={msg.externalOutputActions.map((action) => ({
-                      verb: action.verb,
-                      target: action.target,
-                      connector: action.connector,
-                      logoSrc: action.logo_url ?? undefined,
-                      detail: action.detail ?? undefined,
-                      onView: action.view_url ? () => window.open(action.view_url!, '_blank', 'noopener,noreferrer') : undefined,
-                    }))} />
-                  )}
                   {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
                   {msg.permissionPrompts?.map(p => (
                     <PermissionPromptCard
@@ -776,7 +765,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
           <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI suggestions</p>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI suggestions</p>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           {expanded
@@ -789,7 +778,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
       {/* Messages + Input — wrapped for lock overlay */}
       <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {panelsLocked && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(var(--surface-rgb), 0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock AI Suggestions</p>
           </div>
         )}
@@ -913,7 +902,7 @@ function VersionsPanel() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
             <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
           </div>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--legacy-1a1916)', margin: 0, whiteSpace: 'nowrap' }}>
             Versions
           </p>
         </div>
@@ -1022,8 +1011,8 @@ function VersionsPanel() {
                 ) : <div style={{ flex: '1 1 0' }} />}
                 {isCurrent ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px 6px', borderRadius: 8, flexShrink: 0, cursor: 'default', background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)', boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)', position: 'relative' }}>
-                    <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)' }} />
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap', textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)' }}>Current</span>
+                    <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: 'inset 0px 1px 0.364px 0px color-mix(in srgb, var(--static-white) 30%, transparent), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px color-mix(in srgb, var(--static-white) 50%, transparent)' }} />
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)', whiteSpace: 'nowrap', textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)' }}>Current</span>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1071,7 +1060,7 @@ function TestChatExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setTestChatExpanded(false) }}
     >
       <m.div
@@ -1079,7 +1068,7 @@ function TestChatExpandedOverlay() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 8, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
-        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px rgba(0,0,0,0.18), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
       >
         <TestChatPanelContent expanded />
       </m.div>
@@ -1096,7 +1085,7 @@ function AiSuggestExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setGuideExpanded(false) }}
     >
       <m.div
@@ -1104,7 +1093,7 @@ function AiSuggestExpandedOverlay() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 8, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
-        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px rgba(0,0,0,0.18), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
       >
         <AiSuggestPanelContent expanded />
       </m.div>
@@ -1186,7 +1175,7 @@ function ConfigureStepNav() {
           fontWeight:      500,
           color:           'var(--blue-600)',
           backgroundColor: 'var(--neutral-white)',
-          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)',
+          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 70%, transparent)',
           borderRadius:    10,
           padding:         '0 10px',
           whiteSpace:      'nowrap',
@@ -1230,7 +1219,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
       }}
     >
       {/* Left configure panel (page content) with FloatingMenu + footer */}
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'rgba(255,255,255,0.2)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface-container)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
         {/* Scrollable content area */}
         <div style={{ flex: '1 0 0', minHeight: 0, position: 'relative' }}>
           {children}
@@ -1312,11 +1301,11 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
           aria-modal="true"
           aria-label="Unpublished changes"
           onClick={() => setLeaveConfirmHref(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent)' }}
           >
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
               Save a version before leaving?

@@ -49,7 +49,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(26,25,22,0.3)',
+              backgroundColor: 'var(--overlay-bg)',
               zIndex: 20,
             }}
           />
@@ -78,7 +78,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
               borderRadius: 18,
               padding: 12,
               boxShadow:
-                '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
             }}
           >
             {/* Header row */}
@@ -96,7 +96,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   fontWeight: 500,
                   fontSize: 16,
                   lineHeight: '22px',
-                  color: '#1a1916',
+                  color: 'var(--legacy-1a1916)',
                   margin: 0,
                 }}
               >
@@ -132,7 +132,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       fontWeight: 400,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: '#ee3030',
+                      color: 'var(--red-400)',
                       margin: 0,
                     }}
                   >
@@ -140,13 +140,13 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--neutral-white)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
                       padding: '7px 10px',
                       borderRadius: 10,
-                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
                     }}
                   >
                     <input
@@ -160,7 +160,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         fontFamily: 'var(--font-body)',
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#3b3632',
+                        color: 'var(--neutral-800)',
                         backgroundColor: 'transparent',
                         outline: 'none',
                         border: 'none',
@@ -181,18 +181,18 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       flexShrink: 0,
                     }}
                   >
-                    <span style={{ color: '#524b47' }}>Agent replies</span>
-                    <span style={{ color: '#a28847' }}>*</span>
+                    <span style={{ color: 'var(--neutral-700)' }}>Agent replies</span>
+                    <span style={{ color: 'var(--yellow-500)' }}>*</span>
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--neutral-white)',
                       display: 'flex',
                       flex: '1 0 0',
                       minHeight: 0,
                       padding: '7px 10px',
                       borderRadius: 10,
-                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7',
+                      boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #F5F5F5',
                       overflow: 'hidden',
                     }}
                   >
@@ -208,7 +208,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         fontFamily: 'var(--font-body)',
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#3b3632',
+                        color: 'var(--neutral-800)',
                         backgroundColor: 'transparent',
                         outline: 'none',
                         border: 'none',
@@ -246,7 +246,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
+                      background: 'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
                       pointerEvents: 'none',
                     }}
                   />
@@ -258,7 +258,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       inset: 0,
                       borderRadius: 'inherit',
                       boxShadow:
-                        'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
+                        'inset 0px 1px 0.364px 0px var(--neutral-50-30), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px var(--neutral-50-50)',
                       pointerEvents: 'none',
                     }}
                   />
@@ -269,10 +269,10 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       fontWeight: 500,
                       fontSize: 14,
                       lineHeight: '22px',
-                      color: '#f7f2ed',
+                      color: 'var(--static-white)',
                       whiteSpace: 'nowrap',
                       textShadow:
-                        '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                        '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px var(--neutral-white-25)',
                     }}
                   >
                     Add example conversation

@@ -5,9 +5,12 @@
 :root {
 
   /* ── Font families ────────────────────────────────────────────────────────── */
-  --font-title: 'Besley', serif;
-  --font-body:  'Geist', sans-serif;
-  --font-code:  'Geist Mono', monospace;
+  /* Families are the next/font variables set in app/layout.tsx (self-hosted, preloaded or lazy as
+     noted there); the tails are the fallbacks used until a file arrives. */
+  --font-title: var(--font-google-sans), system-ui, sans-serif;
+  --font-body:  var(--font-geist), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code:  var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-ai-output: var(--font-body);
 
   /* ── Font weights ─────────────────────────────────────────────────────────── */
   --font-weight-regular:  400;

@@ -2,8 +2,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Souvenir KDS type stack — src/styles/tokens/typography.css: --font-title
-     'Besley' (serif), --font-body 'Geist' (sans), --font-code 'Geist Mono'. -->
-<link href="https://fonts.googleapis.com/css2?family=Besley:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  'Google Sans' (sans), --font-body and --font-code 'Manrope' (sans). -->
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ═══════════════════════════════════════════════════════════════════════
      Token layer — this doc's own semantic names, backed 1:1 by Souvenir's
@@ -72,9 +72,9 @@
   }
   :root {
     /* src/styles/tokens/typography.css — same three families as the app. */
-    --font-head: "Besley", Georgia, "Times New Roman", serif;
-    --font-body: "Geist", ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    --font-mono: "Geist Mono", ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+    --font-head: "Google Sans", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+    --font-body: "Manrope", ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Manrope", ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
   }
 
@@ -4663,7 +4663,7 @@
         <p class="purpose">A colored “sticky note” quoting the highlighted passage.</p>
         <div class="tree-wrap">
           <ul class="tree">
-            <li>Quote text <span class="tag">Besley title font — deliberately the one non-Geist text element in this app, for a “captured thought” identity</span></li>
+            <li>Quote text <span class="tag">Google Sans title font — deliberately distinct from Manrope UI text for a “captured thought” identity</span></li>
             <li class="el-hidden">Hover action row — Copy / Open in chat / Delete<span class="tag tag-hidden">mounts/unmounts via AnimatePresence on hover; each of the 3 actions independently hidden if its handler is omitted</span></li>
             <li>Dog-ear fold corner <span class="tag">decorative only</span></li>
             <li class="sec-title">Notes</li>

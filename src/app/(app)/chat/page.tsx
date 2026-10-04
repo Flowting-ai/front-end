@@ -7,6 +7,10 @@ import dynamic from "next/dynamic";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatHomeActions } from "@/components/chat/ChatHomeActions";
+import homeStyles from "@/components/chat/ChatHome.module.css";
+import { useProjects } from "@/context/projects-context";
+import { addChatToProject } from "@/lib/api/projects";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
@@ -14,7 +18,7 @@ const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDia
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { pickDefaultModel } from "@/lib/ai-models";
+import { modelIconSource, pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
@@ -23,11 +27,10 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { usePinboard } from "@/context/pinboard-context";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
-import { Button } from "@/components/Button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
@@ -41,24 +44,19 @@ import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  BubbleChatIcon,
-  AiWebBrowsingIcon,
   FolderOneIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
-import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
+import { CHAT_ROUTE, PROJECT_CHAT_NEW_ROUTE } from "@/lib/routes";
+import { consumePendingPrompt, linkScheduleToChat } from "@/lib/scheduleLinks";
 import { MentionChip } from "@/components/chat/MentionChip";
-import { StarterList } from "@/components/StarterSuggestions";
-import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from "@/lib/chat-modes";
-import { useRecommendations } from "@/hooks/use-recommendations";
-
-const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
-  write:    "Write",
-  research: "Research",
-  think:    "Think",
-  build:    "Build",
-};
+import { detectCreateAgentIntent } from "@/lib/agent-intent";
+import { CreateAgentInChat, toComposerAgent, type CreatedInChat } from "@/components/AgentEditor/CreateAgentInChat";
+import type { UIMessage } from "@/types/chat";
+import { buildAgentCardMessages } from "@/lib/agent-card-messages";
+import { StarterList, StarterListSkeleton } from "@/components/StarterSuggestions";
+import { useRecommendationsState } from "@/hooks/use-recommendations";
 
 
 // ── Per-chat settings helpers ─────────────────────────────────────────────────
@@ -106,8 +104,10 @@ export default function ChatPage() {
 
 function ChatPageInner() {
   const searchParams = useSearchParams();
-  const { push, replace } = useRouter();
+  const { replace, push } = useRouter();
   const creditStatus = useCreditStatus();
+  const { getProject, addChat: addProjectChat, renameChat: renameProjectChat } = useProjects();
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
@@ -116,13 +116,21 @@ function ChatPageInner() {
   // "Share" chat-menu item, which navigates here instead of opening the
   // modal directly since ChatShareOverlay lives on this page, not the sidebar.
   const shouldAutoOpenShare = searchParams.get("share") != null;
+  // The Schedules page hands off a create/edit/copy request via ?fromSchedule=<key>
+  // with the prompt stashed; it lands in the input for the user to review.
+  const fromSchedule = searchParams.get("fromSchedule");
+  const scheduleKeyRef = useRef<string | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<string | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
+  // The "Create an agent that…" flow, open while set.
+  const [agentCreator, setAgentCreator] = useState<{ purpose: string; message: string; sendAnyway: () => void } | null>(null);
+  // The just-created agent, shown in the thread as a card (browser-only messages).
+  const [injectedMessages, setInjectedMessages] = useState<UIMessage[] | null>(null);
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
-  const [selectedMode, setSelectedMode] = useState<ChatMode | null>(null);
-  const recommendations = useRecommendations("chat");
+  const { recommendations, loading: recommendationsLoading } = useRecommendationsState();
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -298,7 +306,7 @@ function ChatPageInner() {
 
   // One chip per selected folder. Clicking the chevron opens a read-only dropup
   // listing the pins in that folder (truncated via Dropdown item ellipsis).
-  const folderChips = selectedFolders.map(folder => {
+  const folderChips = (PINS_ENABLED ? selectedFolders : []).map(folder => {
     const folderPins = pins.filter(p => p.folderId === folder.id);
     const isOpen = openFolderChipId === folder.id;
     return (
@@ -397,8 +405,9 @@ function ChatPageInner() {
       onAddFilesClick={handleAddFilesClick}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedFolders={selectedFolders}
-      onFolderToggle={(folder) => setSelectedFolders(prev =>
+      selectedFolders={PINS_ENABLED ? selectedFolders : []}
+      hidePinFolders={!PINS_ENABLED}
+      onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
@@ -413,7 +422,7 @@ function ChatPageInner() {
     selectedModel,
     selectModel,
     open: openModelSelector,
-    enableReasoning,
+    reasoningEffort,
     algorithm,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -496,10 +505,10 @@ function ChatPageInner() {
         )
       })
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
   const modelButtonLabel = selectedModel?.modelName;
+  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null;
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId
@@ -532,9 +541,12 @@ function ChatPageInner() {
     // that useSearchParams() can return during Suspense transitions or hydration.
     const liveId = new URLSearchParams(window.location.search).get("id") ?? undefined;
     if (liveId !== activeChatId) {
+      // Intentional: layout effect so the state commits before paint (see comment above).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
+      setSelectedProjectId(null);
       // Reset to the default model tier whenever switching to a new chat
       if (!liveId) {
         const defaultModel = pickDefaultModel(modelsRef.current);
@@ -543,8 +555,7 @@ function ChatPageInner() {
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Direct reset for the sidebar's "New chat" button (same event-bus pattern
-  // Brain uses for its "New thread" button — see BRAIN_NEW_THREAD_EVENT).
+  // Direct reset for the sidebar's "New chat" button.
   // The useLayoutEffect above depends on chatIdFromUrl (useSearchParams())
   // reliably re-rendering this component when the URL's id param disappears;
   // when it doesn't, "New chat" silently no-ops and the previous chat keeps
@@ -554,6 +565,7 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
+    setSelectedProjectId(null);
     // Highlights ("jump gutter" markers) otherwise only clear via the
     // chatIdFromUrl-watching effect above — same unreliable-on-this-path
     // issue as the rest of this handler exists to work around, so the
@@ -567,10 +579,15 @@ function ChatPageInner() {
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
-  // Task/Chat tab strip (Figma 136:53294) — local state so the pill/label
-  // animate to the clicked tab immediately; navigating to Brain is a side
-  // effect of that state change, not a replacement for the visual response.
-  const [threadTab, setThreadTab] = useState<"task" | "chat">("chat");
+  useEffect(() => {
+    if (!fromSchedule) return;
+    const prompt = consumePendingPrompt(fromSchedule);
+    if (!prompt) return;
+    if (!chatIdFromUrl) scheduleKeyRef.current = fromSchedule;
+    queueMicrotask(() => (chatIdFromUrl ? setScheduleDraft : setNewChatInput)(prompt));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromSchedule]);
+
 
   // Drag-and-drop on the new-chat landing page
   const { isDragging: isNewChatDragging } = useFileDrop({
@@ -598,6 +615,16 @@ function ChatPageInner() {
 
   const handleChatCreated = (chatId: string) => {
     newlyCreatedChatIdRef.current = chatId;
+    if (selectedProjectId) {
+      const projectId = selectedProjectId;
+      void addChatToProject(projectId, chatId)
+        .then(() => addProjectChat(projectId, chatId, initialPrompt?.slice(0, 60) || "New chat", { skipLink: true }))
+        .catch(() => toast.error("Couldn't add this chat to the project. Your chat is still available in Recent Chats."));
+    }
+    if (scheduleKeyRef.current) {
+      linkScheduleToChat(scheduleKeyRef.current, chatId);
+      scheduleKeyRef.current = null;
+    }
     setActiveChatId(chatId);
     setHasMessages(true);
     setInitialPrompt(null);
@@ -624,6 +651,7 @@ function ChatPageInner() {
     // Update local state immediately - the backend already set the title via SSE,
     // so there's no need to call the rename API here.
     renameLocal(chatId, title);
+    if (selectedProjectId) renameProjectChat(selectedProjectId, chatId, title);
   };
 
   const handleChatMoveToTop = (chatId: string) => {
@@ -648,25 +676,67 @@ function ChatPageInner() {
     }
   };
 
-  // Capture typed message from new-chat landing → transition to ChatInterface
+  // "Create an agent that…" starts the agent-creation flow instead of going to the
+  // model. Only for plain text (no attachments) and when no agent is attached;
+  // `sendAnyway` is the flow's "not an agent — send it as a normal message" escape.
+  const interceptCreateAgent = (text: string, sendAnyway: () => void): boolean => {
+    if (selectedPersona) return false;
+    const intent = detectCreateAgentIntent(text);
+    if (!intent) return false;
+    setAgentCreator({ purpose: intent.purpose, message: text, sendAnyway });
+    return true;
+  };
+
+  // The agent now exists: show the request and the agent card in the thread. From the
+  // new-chat landing this also switches to the thread view.
+  const handleAgentCreated = ({ draft, created, message }: CreatedInChat) => {
+    setInjectedMessages(buildAgentCardMessages({
+      persona: toComposerAgent(draft, created),
+      published: created.published,
+      message,
+      chatId: activeChatId,
+    }));
+    setHasMessages(true);
+  };
+
   const handleNewChatSend = (value: string) => {
     if (!value.trim() && newChatAttachments.length === 0) return;
     // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
     // already disabled and the CreditStatusBanner explains why, so block silently.
     if (creditStatus.blocked) return;
+    if (selectedProjectId && !getProject(selectedProjectId)?.canEdit) {
+      setNewChatInput(value);
+      toast.error("You no longer have access to add chats to this project. Choose another project or remove the selection.");
+      return;
+    }
+    if (newChatAttachments.length === 0 && interceptCreateAgent(value.trim(), () => submitNewChat(value))) {
+      setNewChatInput("");
+      return;
+    }
+    // A project picked on this screen means "start a new project chat": hand the prompt to the same
+    // project chat flow the project page uses (/project/[id]/chat/new?q=…). Attachments, @-mentioned
+    // pins and a selected agent can't ride a ?q= hand-off, so those sends keep the create-then-link path.
+    if (
+      selectedProjectId && value.trim() && !selectedPersona &&
+      newChatAttachments.length === 0 && newChatMentionedPins.length === 0
+    ) {
+      push(PROJECT_CHAT_NEW_ROUTE(selectedProjectId) + `?q=${encodeURIComponent(value.trim())}`);
+      return;
+    }
+    submitNewChat(value);
+  };
+
+  // Capture typed message from new-chat landing → transition to ChatInterface
+  const submitNewChat = (value: string) => {
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
-    setInitialMentionedPins([...newChatMentionedPins]);
+    setInitialMentionedPins(PINS_ENABLED ? [...newChatMentionedPins] : []);
     clearNewChatMentions();
-    const composed = selectedMode
-      ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
-      : value.trim();
-    setInitialPrompt(composed);
+    setInitialPrompt(value.trim());
     setNewChatInput("");
     setHasMessages(true);
-    setSelectedMode(null);
   };
 
   return (
@@ -692,40 +762,6 @@ function ChatPageInner() {
         aria-hidden="true"
       />
 
-      {/* Task/Chat tab strip (Figma 136:53294, "Top Bar") — pinned to the top,
-          same row as TopBar's model selector (src/components/layout/TopBar.tsx).
-          TopBar is position:absolute with zIndex:1; this overlay uses zIndex:2
-          so the tab wins the click, and pointerEvents:none on the full-width
-          wrapper (auto only on the tab itself) so TopBar's own model-selector
-          (left) and icon button (right) on either side stay clickable through
-          this same layer. Mirrors BrainShell's strip (src/templates/Brain/index.tsx);
-          "Task" switches to a new Brain thread, "Chat" is where we already are. */}
-      {isNewChat && (
-        <div
-          style={{
-            position: "absolute", top: 0, left: 0, right: 0, zIndex: 2,
-            display: "flex", justifyContent: "center", paddingTop: 12,
-            pointerEvents: "none",
-          }}
-        >
-          <div style={{ width: 171, pointerEvents: "auto" }}>
-            <Tabs
-              value={threadTab}
-              onValueChange={(v) => {
-                const next = v as "task" | "chat";
-                setThreadTab(next);
-                if (next === "task") push(`${BRAIN_ROUTE}?new=1`);
-              }}
-            >
-              <TabsList fluid>
-                <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
-                <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-      )}
-
       <AnimatePresence mode="sync" initial={false}>
         {isNewChat ? (
           <m.div
@@ -748,7 +784,7 @@ function ChatPageInner() {
                   display:         "flex",
                   alignItems:      "center",
                   justifyContent:  "center",
-                  backgroundColor: "rgba(255,255,255,0.88)",
+                  backgroundColor: "rgba(var(--surface-rgb), 0.88)",
                   border:          "2px dashed var(--focus-ring)",
                   borderRadius:    "16px",
                   pointerEvents:   "none",
@@ -767,37 +803,18 @@ function ChatPageInner() {
               </div>
             )}
 
-            {/* Centering wrapper - allows vertical centering on tall screens, scrolling on short ones */}
-            <div
-              style={{
-                minHeight:      "100%",
-                display:        "flex",
-                flexDirection:  "column",
-                alignItems:     "center",
-                justifyContent: "center",
-                padding:        "40px 16px 48px",
-              }}
-            >
-              <div
-                style={{
-                  display:       "flex",
-                  flexDirection: "column",
-                  alignItems:    "center",
-                  gap:           "24px",
-                  maxWidth:      "768px",
-                  width:         "100%",
-                }}
-              >
+            <div className={homeStyles.home}>
+              <div className={homeStyles.content}>
                 {/* Greeting exits upward */}
                 <m.div
                   exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
-                  <InitialPrompts />
+                  <InitialPrompts compact />
                 </m.div>
 
                 {/* Input + action buttons + template cards exit downward */}
                 <m.div
-                  style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
+                  className={homeStyles.composer}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
                   <AnimatePresence>
@@ -827,18 +844,19 @@ function ChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
+                      agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
+                      modelIcon={modelButtonIcon}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
-                      contextUsedPct={0}
                       disabled={creditStatus.blocked}
                       attachmentsSlot={
-                        newChatMentionedPins.length > 0 ? (
+                        PINS_ENABLED && newChatMentionedPins.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                             <PinChipStrip>
                               {newChatMentionedPins.map((mp) => (
@@ -864,57 +882,23 @@ function ChatPageInner() {
                       placeholder={
                         creditStatus.blocked
                           ? "Credits exhausted. Buy a top-up to continue."
-                          : selectedMode
-                            ? MODE_PLACEHOLDERS[selectedMode]
-                            : "How can I help you today?"
+                          : "How can I help you today?"
                       }
-                      onMentionChange={handleNewChatMentionChange}
-                      isPinDropdownOpen={newChatShowPinDropdown}
-                      onPinNavigate={handleNewChatPinNavigate}
+                      onMentionChange={PINS_ENABLED ? handleNewChatMentionChange : undefined}
+                      isPinDropdownOpen={PINS_ENABLED ? newChatShowPinDropdown : false}
+                      onPinNavigate={PINS_ENABLED ? handleNewChatPinNavigate : undefined}
                     />
                   </div>
                   </ExhaustionBanner>
-
-                  {/* ── Action mode buttons ─────────────────────────────────── */}
-                  <div
-                    style={{
-                      display:        "flex",
-                      justifyContent: "center",
-                      gap:            "8px",
-                      marginTop:      "16px",
-                      flexWrap:       "wrap",
-                    }}
-                  >
-                    {ACTION_BUTTONS.map((btn) => (
-                      <div
-                        key={btn.mode}
-                        style={{
-                          opacity:    btn.disabled ? 0.4 : 1,
-                          transition: "opacity 150ms",
-                        }}
-                      >
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={btn.icon}
-                          disabled={btn.disabled}
-                          active={selectedMode === btn.mode}
-                          aria-pressed={selectedMode === btn.mode}
-                          onClick={btn.disabled ? undefined : () =>
-                            setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))
-                          }
-                        >
-                          {btn.label}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  <ChatHomeActions projectId={selectedProjectId} onProjectChange={setSelectedProjectId} />
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}
-                  {recommendations && (
+                  {(recommendations || recommendationsLoading) && (
                     <div style={{ marginTop: "20px", textAlign: "left" }}>
-                      <StarterList cards={recommendations.cards} onSelect={(card) => handleNewChatSend(card.prompt)} />
+                      {recommendations
+                        ? <StarterList cards={recommendations.cards} onSelect={(card) => handleNewChatSend(card.prompt)} />
+                        : <StarterListSkeleton />}
                     </div>
                   )}
                 </m.div>
@@ -939,6 +923,7 @@ function ChatPageInner() {
               onTitleUpdate={handleTitleUpdate}
               onChatMoveToTop={handleChatMoveToTop}
               selectedModel={modelButtonLabel}
+              selectedModelIcon={modelButtonIcon}
               selectedModelId={selectedModel?.id}
               algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}
@@ -946,13 +931,14 @@ function ChatPageInner() {
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
               disabledModelSelector={!!selectedPersona}
               initialPrompt={initialPrompt}
-              initialMentionedPins={initialMentionedPins}
+              draft={scheduleDraft}
+              initialMentionedPins={PINS_ENABLED ? initialMentionedPins : []}
               webSearchEnabled={webSearchEnabled}
-              enableReasoning={enableReasoning}
+              reasoningEffort={reasoningEffort}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}
-              selectedFolders={selectedFolders}
+              selectedFolders={PINS_ENABLED ? selectedFolders : []}
               selectedStyleId={selectedStyleId}
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
@@ -962,10 +948,24 @@ function ChatPageInner() {
               readOnly={activeChatReadOnly}
               archived={activeChatArchived}
               chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
+              onBeforeSend={interceptCreateAgent}
+              injectedMessages={injectedMessages}
+              onInjectedMessagesConsumed={() => setInjectedMessages(null)}
+              onUseAgent={setSelectedPersona}
+              agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>
         )}
       </AnimatePresence>
+
+      <CreateAgentInChat
+        open={agentCreator !== null}
+        initialPurpose={agentCreator?.purpose ?? ""}
+        originalMessage={agentCreator?.message ?? ""}
+        onClose={() => setAgentCreator(null)}
+        onCreated={handleAgentCreated}
+        onSendAsMessage={() => agentCreator?.sendAnyway()}
+      />
 
       {/* Switch confirmation dialog */}
       <ModelSwitchDialog

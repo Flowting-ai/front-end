@@ -47,7 +47,7 @@ export function DateRangePill({ ref, label, dotColor, className, style, ...props
             width:           6,
             height:          6,
             borderRadius:    '50%',
-            backgroundColor: dotColor ?? '#22c55e',
+            backgroundColor: dotColor ?? 'var(--success-500)',
             flexShrink:      0,
           }}
         />

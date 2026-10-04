@@ -2,6 +2,12 @@
 
 import { apiFetch, apiFetchJson, ApiError } from "./client";
 import { HIGHLIGHTS_ENDPOINT, HIGHLIGHT_DETAIL_ENDPOINT } from "@/lib/config";
+import { HIGHLIGHTS_ENABLED, FeatureDisabledError } from "@/lib/feature-flags";
+
+/** Backstop: highlights are hidden, so no call may reach the backend. */
+function assertHighlightsEnabled(): void {
+  if (!HIGHLIGHTS_ENABLED) throw new FeatureDisabledError("Highlights");
+}
 
 // ── Request / Response shapes - match backend schema exactly ──────────────────
 
@@ -31,6 +37,7 @@ export interface HighlightResponse {
  * The backend requires chat_id as a query parameter.
  */
 export async function getHighlights(chatId: string): Promise<HighlightResponse[]> {
+  assertHighlightsEnabled();
   const url = `${HIGHLIGHTS_ENDPOINT}?chat_id=${encodeURIComponent(chatId)}`;
   return apiFetchJson<HighlightResponse[]>(url, {
     method: "GET",
@@ -42,6 +49,7 @@ export async function getHighlights(chatId: string): Promise<HighlightResponse[]
  * Returns the server-assigned HighlightResponse on success.
  */
 export async function createHighlight(body: HighlightCreate): Promise<HighlightResponse> {
+  assertHighlightsEnabled();
   return apiFetchJson<HighlightResponse>(HIGHLIGHTS_ENDPOINT, {
     method: "PATCH",
     body:   JSON.stringify(body),
@@ -53,6 +61,7 @@ export async function createHighlight(body: HighlightCreate): Promise<HighlightR
  * Resolves on 204; throws ApiError on any other non-2xx status.
  */
 export async function removeHighlight(highlightId: string): Promise<void> {
+  assertHighlightsEnabled();
   const res = await apiFetch(HIGHLIGHT_DETAIL_ENDPOINT(highlightId), {
     method: "PATCH",
   });

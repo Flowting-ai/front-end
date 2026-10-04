@@ -1,0 +1,132 @@
+.home {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: clamp(96px, 30vh, 320px) clamp(20px, 5vw, 64px) 64px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.composer {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Sits directly under the (fully rounded) chat input: flat on top, rounded on the bottom, and 90% of
+   the input width, centred, so it reads as a tab tucked beneath it. */
+.contextBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  box-sizing: border-box;
+  width: 90%;
+  margin: -1px auto 0;
+  padding: 3px 10px;
+  border: 1px solid var(--neutral-200);
+  border-top: 1px solid var(--neutral-100);
+  border-radius: 0 0 16px 16px;
+  background: var(--neutral-100);
+}
+
+.contextAction,
+.createProject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  max-width: 260px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--neutral-600);
+  font: 400 12px/20px var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.contextAction svg,
+.createProject svg {
+  flex: none;
+}
+
+.contextAction:hover,
+.createProject:hover {
+  color: var(--neutral-900);
+  background: var(--neutral-100);
+}
+
+/* The bar itself is --neutral-100, so hover steps up one tone to stay visible. */
+.contextBar .contextAction:hover {
+  background: var(--neutral-200);
+}
+
+.contextAction:focus-visible,
+.createProject:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.actionLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appStack {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.appStackItem {
+  box-sizing: content-box;
+  padding: 1px;
+  border-radius: 5px;
+  background: var(--neutral-white);
+  box-shadow: 0 0 0 1px var(--neutral-200);
+}
+
+.appStackItem + .appStackItem {
+  margin-left: -5px;
+}
+
+.connectIntro {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  color: var(--neutral-600);
+  font: 400 12px/18px var(--font-body);
+}
+
+.createProject {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+@media (max-width: 540px) {
+  .home {
+    padding: 48px 16px;
+  }
+
+  .content {
+    gap: 20px;
+  }
+
+  .contextBar {
+    gap: 2px 4px;
+    padding: 6px;
+  }
+
+  .contextAction {
+    max-width: 100%;
+  }
+}

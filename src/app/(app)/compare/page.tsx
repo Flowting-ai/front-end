@@ -62,11 +62,9 @@ const fmtMs = (ms: number | null) =>
     : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
 const fmtUsd = (usd: number | null) => (usd == null ? "—" : usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`);
 
-/** The message as it appears on screen: never the "Done in the world" card, and
- *  the model it ran on only when revealed. */
+/** The message as it appears on screen: the model it ran on only when revealed. */
 function onScreen(message: UIMessage, reveal: boolean): UIMessage {
-  const shown = { ...message, externalOutputActions: undefined };
-  return reveal ? shown : { ...shown, modelMeta: undefined, modelName: undefined, model_name: undefined, model: undefined };
+  return reveal ? message : { ...message, modelMeta: undefined, modelName: undefined, model_name: undefined, model: undefined };
 }
 
 function Scoreboard({ runs, steps }: { runs: Record<Side, Run>; steps: Record<Side, number> }) {

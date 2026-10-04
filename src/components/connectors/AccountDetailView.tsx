@@ -12,6 +12,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { m } from 'framer-motion'
 import { toast } from 'sonner'
+import { useOrg } from '@/context/org-context'
+import { connectionAddedBy } from '@/lib/connector-owner'
 import {
   AlertTwoIcon,
   ArrowDownOneIcon,
@@ -520,6 +522,9 @@ export function AccountDetailView({
   onChanged: () => void
   onRemove: () => void
 }) {
+  const { members } = useOrg()
+  const addedBy = connectionAddedBy(account, members)
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape' && !event.defaultPrevented) close()
@@ -545,11 +550,14 @@ export function AccountDetailView({
           <div style={{ flex: '1 1 auto', minWidth: 0 }}>
             <AccountName account={account} onChanged={onChanged} />
             <p style={secondary}>
-              {[catalog.name, account.email, account.owned ? null : 'shared with you'].filter(Boolean).join(' · ')}
+              {[catalog.name, account.email, `Added by ${addedBy}`, account.owned ? null : 'shared with you'].filter(Boolean).join(' · ')}
             </p>
           </div>
           <IconButton variant="outline" size="sm" aria-label="Close" icon={<CancelOneIcon size={16} />} onClick={close} />
         </header>
+        {!account.canManage && (
+          <p className={styles.readOnlyNotice}>You can use this shared account. Only the person who added it can edit its settings.</p>
+        )}
         <div className={styles.body}>
           <div className={styles.column}>
             <AccountRail account={account} catalog={catalog} onChanged={onChanged} onRemove={onRemove} />

@@ -34,33 +34,33 @@ type RoleTokens = { bg: string; text: string; shadow: string }
 
 export const ROLE_TOKENS: Record<WorkspaceRole, RoleTokens> = {
   admin: {
-    bg:   '#e9dfc9',
-    text: '#6d5921',
+    bg:   'var(--yellow-100)',
+    text: 'var(--yellow-700)',
     shadow: [
       '0px 1px 1.5px 0px rgba(20,16,5,0.2)',
-      '0px 0px 0px 1px rgba(143,116,39,0.5)',
+      '0px 0px 0px 1px color-mix(in srgb, var(--yellow-600) 50%, transparent)',
       'inset 0px 1px 0px 0px rgba(250,246,235,0.7)',
       'inset 0px -1px 0px 0px rgba(143,116,39,0.1)',
     ].join(', '),
   },
   editor: {
-    bg:   '#cadcf1',
-    text: '#135487',
+    bg:   'var(--blue-100)',
+    text: 'var(--blue-700)',
     shadow: [
       '0px 1px 1.5px 0px rgba(2,15,24,0.2)',
-      '0px 0px 0px 1px rgba(13,110,178,0.5)',
-      'inset 0px 1px 0px 0px rgba(231,244,253,0.7)',
-      'inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
+      '0px 0px 0px 1px var(--blue-600-50)',
+      'inset 0px 1px 0px 0px var(--blue-50-70)',
+      'inset 0px -1px 0px 0px var(--blue-600-10)',
     ].join(', '),
   },
   member: {
-    bg:   '#ded0df',
-    text: '#513853',
+    bg:   'var(--purple-100)',
+    text: 'var(--purple-700)',
     shadow: [
-      '0px 1px 1.5px 0px rgba(18,6,19,0.2)',
-      '0px 0px 0px 1px rgba(103,79,104,0.5)',
-      'inset 0px 1px 0px 0px rgba(248,236,249,0.7)',
-      'inset 0px -1px 0px 0px rgba(103,79,104,0.1)',
+      '0px 1px 1.5px 0px color-mix(in srgb, var(--purple-950) 20%, transparent)',
+      '0px 0px 0px 1px color-mix(in srgb, var(--purple-600) 50%, transparent)',
+      'inset 0px 1px 0px 0px color-mix(in srgb, var(--purple-50) 70%, transparent)',
+      'inset 0px -1px 0px 0px color-mix(in srgb, var(--purple-600) 10%, transparent)',
     ].join(', '),
   },
 }

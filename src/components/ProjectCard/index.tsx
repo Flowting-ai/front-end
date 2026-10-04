@@ -52,7 +52,7 @@ function ProjectCardInner(
     const showMenu = hovered || focused || menuOpen || !!active
 
     const backgroundColor = (() => {
-      if (focused || active) return 'rgba(74,131,191,0.07)'
+      if (focused || active) return 'color-mix(in srgb, var(--blue-500) 7%, transparent)'
       if (hovered || menuOpen) return 'var(--neutral-50)'
       return 'var(--neutral-white)'
     })()

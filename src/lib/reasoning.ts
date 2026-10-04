@@ -213,8 +213,8 @@ export function groupReasoningTimeline(
 
 // ── Shared stream accumulator ─────────────────────────────────────────────────
 // The single place reasoning SSE events turn into renderable state. Transport
-// agnostic on purpose: chat drives it from `useStreamingChat`'s XHR loop, Brain
-// from its own `readBrainStream` consumer, and both hand the same snapshot to
+// agnostic on purpose: chat drives it from `useStreamingChat`'s XHR loop, persona
+// chat from its own stream consumer, and both hand the same snapshot to
 // `ReasoningContent`. Anything added here shows up on both surfaces at once.
 
 export type ReasoningSnapshot = {

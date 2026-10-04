@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Settings &amp; Billing — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.missing .dot{background:#7A4419;}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Settings &amp; Billing — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/tasks-flow-diagram.html</code>, <code>flows/agents-flow-diagram.html</code> and <code>flows/chats-projects-flow-diagram.html</code>, same schema — the previously-undocumented Settings shell: personal Account/Usage, workspace General/Members/Plans &amp; Billing/Usage (Analytics), Help &amp; Legal, plus the five orphaned pages (AI, Security, Notifications, Preferences, Files) that still exist behind no nav link at all.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session, grounded against <code>docs v1.5/settings-v1.5-pages-audit.md</code> (the prior read-only audit) and re-checked page-by-page against the live component code rather than trusted verbatim — a few of that doc's claims (route labels, exact field wiring) are restated here in the same visual format as the other three flow docs; nothing in the audit was found to be materially stale for the pages this doc covers. This pass leans on <strong>what's real vs. decorative</strong> more than the other three docs — Settings is the single area of the app with the most components that render, look finished, and either save nowhere or save to nowhere real (a localStorage-only model-tier picker, a fully-built but statically-disabled "Workspace defaults" card, a wired-but-unreachable ownership-transfer flow, five orphaned full pages with zero incoming links). Each is called out where it appears rather than glossed over.<br><br><b>+ light UX proposals —</b> A handful of <strong>Proposed changes</strong> sections are included only where a real, groundable gap was found in the code itself (not sourced from an external case-study corpus, unlike the Tasks doc) — plain <span class="tag propose">proposed</span> items with no citation, since no <code>ux research/</code> pass exists for this feature area yet.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#7A4419"></span>Missing / Unused / Hidden</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#s00">Shell, nav &amp; entities</a></li>
+      <li><a href="#s01">Account — /settings/account</a></li>
+      <li><a href="#s02">Usage (personal) — /settings/usage</a></li>
+      <li><a href="#s03">General — /settings/general</a></li>
+      <li><a href="#s04">Members — /settings/members</a></li>
+      <li><a href="#s05">Plans &amp; Billing — /settings/plans</a></li>
+      <li><a href="#s06">Legacy Billing — /settings/billing</a></li>
+      <li><a href="#s07">Usage (workspace/Analytics) — /settings/analytics</a></li>
+      <li><a href="#s08">Credit banners &amp; exhaustion states</a></li>
+      <li><a href="#s09">Help &amp; Legal — /settings/help</a></li>
+      <li><a href="#s10">Orphaned pages — AI, Security, Notifications, Preferences, Files</a></li>
+      <li><a href="#s11">Cross-cutting notes</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — SHELL & ENTITIES ══════════════════════ -->
+  <h2 id="s00"><span class="num">00</span>Shell, nav &amp; entities</h2>
+  <p>The shell lives at <code>src/app/(app)/settings/(shell)/layout.tsx</code>, pairing a fixed 294px <code>SettingsSidebar</code> with a scrollable content pane. Nearly every page in the "new nav" set uses the same two structural pieces: <code>SettingsPageShell</code> (title/description header + centered content column, default max-width 1114px, optional back-button) or a page-local re-implementation of the same card/row visual language (border <code>var(--neutral-200)</code>, radius 16, shadow <code>0px 2px 2.8px 0px rgba(82,75,71,0.12)</code>) — Account, Security, Notifications, Files and Preferences all hand-roll their own <code>SettingsCard</code>/<code>CardSection</code> locals rather than sharing one component, so the visual language is consistent but not literally the same code path everywhere.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — SettingsSidebar, three nav groups</div>
+    <div class="w-frame panel" style="max-width:900px;">
+      <div class="w-row" style="flex:1;">
+        <div class="w-col" style="width:220px; flex:none;">
+          <div class="w-box tight">← Settings</div>
+          <div class="w-box tight" style="justify-content:flex-start; opacity:.6;">PERSONAL</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Account</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Usage</div>
+          <div class="w-box tight" style="justify-content:flex-start; opacity:.6;">WORKSPACE (admin only)</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">General</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Members</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Plans &amp; Billing</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Usage</div>
+          <div class="w-box tight" style="justify-content:flex-start; opacity:.6;">HELP &amp; SUPPORT</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Help &amp; Legal</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Report a bug</div>
+          <div class="w-box solid tight" style="justify-content:flex-start;">Feature request</div>
+          <div class="w-box solid tall" style="margin-top:auto;">Account menu — name, role badge, plan/credits (static, no dropdown)</div>
+        </div>
+        <div class="w-box xtall grow">Page content — SettingsPageShell or page-local card shell</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input — the group-visibility logic</h3>
+  <ul>
+    <li>Until <code>useOrg().orgReady</code> resolves, the whole nav renders as one atomic <code>SettingsNavSkeleton</code> block (PERSONAL + WORKSPACE + HELP shape) rather than assembling section-by-section — a deliberate choice per an inline comment, to avoid WORKSPACE visibly popping in underneath PERSONAL once org/role data arrives.</li>
+    <li>WORKSPACE only renders at all when <code>orgId &amp;&amp; orgRole === 'admin'</code> — a plain member of an org sees just PERSONAL + HELP, identical to an individual account with no org.</li>
+    <li>The account-menu credits/plan line is computed from several independent signals: <code>isTeamUser</code> (org membership or <code>roleFit</code> or a cached billing snapshot), <code>orgHasPlan</code> (a real subscription/pool vs. a zeroed starter object), and <code>orgHasSelectedPlan</code> (distinct — true only once a real Teams/Enterprise plan is chosen, not just because the org's founder-grant starting balance is nonzero). The role badge is deliberately gated on <code>orgReady &amp;&amp; orgId</code>, not just <code>orgId</code>, specifically to avoid a "Member" badge flashing before the real "Admin" role resolves.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong><code>/settings/teams</code> is a live 404.</strong> Per the prior audit's §0 (independently re-confirmed against <code>SettingsSidebar.tsx</code>'s own code comment, which explicitly notes Connectors — and by extension Teams — "has no home in the new Figma frame"): the entire Teams CRUD UI was deleted, but <code>LeftSidebar.tsx</code>'s org-admin section still links to the dead route. This is a real backend architecture question (Team is being phased out in favor of flat Workspace/Project, per the audit's cited target-architecture doc), not something this frontend doc can resolve — flagged here because it's directly adjacent to Settings' own org-admin surface.</li>
+    <li><span class="tag note">note</span> "Usage" is used as a label for <em>two different pages</em> depending on section — <code>SETTINGS_USAGE_ROUTE</code> (personal, §02) under PERSONAL and <code>ORG_ANALYTICS_ROUTE</code> (workspace, §07) under WORKSPACE — same icon asset, genuinely different data and page.</li>
+    <li>The nav's own "New" vs. active-item highlighting uses a prefix match for WORKSPACE items (<code>pathname === href || pathname.startsWith(href + '/')</code>) so a sub-route like Plans' <code>/confirmation</code> still highlights "Plans & Billing" — but an exact match for PERSONAL/HELP items.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Route constant</th><th>Path</th><th>Section</th></tr>
+    <tr><td class="label"><code>SETTINGS_ACCOUNT_ROUTE</code></td><td><code>/settings/account</code></td><td>PERSONAL</td></tr>
+    <tr><td class="label"><code>SETTINGS_USAGE_ROUTE</code></td><td><code>/settings/usage</code></td><td>PERSONAL</td></tr>
+    <tr><td class="label"><code>ORG_GENERAL_ROUTE</code></td><td><code>/settings/general</code></td><td>WORKSPACE</td></tr>
+    <tr><td class="label"><code>ORG_MEMBERS_ROUTE</code></td><td><code>/settings/members</code></td><td>WORKSPACE</td></tr>
+    <tr><td class="label"><code>ORG_PLANS_ROUTE</code></td><td><code>/settings/plans</code></td><td>WORKSPACE</td></tr>
+    <tr><td class="label"><code>ORG_ANALYTICS_ROUTE</code></td><td><code>/settings/analytics</code></td><td>WORKSPACE (labelled "Usage")</td></tr>
+    <tr><td class="label"><code>SETTINGS_HELP_ROUTE</code></td><td><code>/settings/help</code></td><td>HELP &amp; SUPPORT</td></tr>
+  </table>
+  <p>All sidebar navigation routes through <code>useGuardedRouter()</code> (the same app-wide nav-guard system <code>LeftSidebar</code> uses) — leaving a dirty page via a Settings nav click shows the shared unsaved-changes modal, same as leaving via the main app sidebar.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable at the shell level — each page below owns its own save story; several opt into the shared <code>useNavGuard</code>/<code>useSettingsGuard</code> dirty-tracking system and several don't (noted per-page).</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Report a bug and Feature request are modals (<code>ReportBugModal</code>, <code>RequestFeatureModal</code>) triggered from the HELP &amp; SUPPORT group, not full pages — both moved here from elsewhere (the account-menu dropdown, respectively "new" in the v1.5 nav) per inline comments.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned-route</span> <strong><code>/settings/teams</code> is linked but 404s.</strong> <code>LeftSidebar.tsx</code>'s org-admin section still points at a route whose CRUD UI was deleted entirely — the inverse of the §10 orphans (a live link to nothing, rather than a page with no link).</li>
+    <li><span class="tag note">note</span> <strong><code>membersVersionRef</code>-style dead guards aren't unique to §04</strong> — the shell itself has no equivalent, but see §04 for the one concrete instance (a staleness ref that's incremented but never read).</li>
+  </ul>
+
+  <!-- ══════════════════════ 01 — ACCOUNT ══════════════════════ -->
+  <h2 id="s01"><span class="num">01</span>Account<span class="page-route">/settings/account</span></h2>
+  <p class="page-intro">Personal profile — the one settings page wired into a real dirty-tracking guard, and the clearest example in this whole area of a control that looks live but writes to nothing on the backend.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tall">Profile card — avatar (65px circle, hover "Change" overlay) · First Name · Last Name · Role (read-only) · Email (read-only) · Edit Profile / Save changes</div>
+        <div class="w-box solid">Personalisation — Style (Direct/Balanced/Warm, saves immediately) · Default Model (Advanced/Standard/Basic, localStorage only)</div>
+        <div class="w-box tall" style="border-color:var(--red);">Danger Zone — Delete account (disabled, "Coming soon")</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Profile picture</strong> — click-to-upload only while an explicit "Edit Profile" mode is toggled on; rejects non-images and files over 8MB, then downscale/center-crops client-side to a 256×256 JPEG and base64-encodes it as a data URL <em>before</em> it's ever sent anywhere.</li>
+    <li><strong>First Name / Last Name</strong> — wired to real <code>first_name</code>/<code>last_name</code> fields via <code>updateUser()</code>. Figma's field label ("Full Name" for the first input) was deliberately corrected to "First Name" in the shipped copy since the underlying field and placeholder both say "first name."</li>
+    <li><strong>Role / Email</strong> — both permanently <code>disabled</code>; Role reads <code>roleDisplayLabel(user.onboardingRole)</code> (set once at onboarding), Email is billing/notification contact info. No edit-role surface exists anywhere in the app.</li>
+    <li><strong>Personalisation — Style</strong>: <code>Direct</code>/<code>Balanced</code>/<code>Warm</code>, backed by the same 3-value <code>TONE_API_MAP</code> onboarding itself uses. Commits immediately via <code>updateOnboarding({ai_tone})</code> on click (no separate Save), with an optimistic set-then-revert-on-failure pattern and a toast on error.</li>
+    <li><strong>Personalisation — Default Model</strong>: <code>Advanced</code>/<code>Standard</code>/<code>Basic</code>. <span class="tag gap">gap</span> The component's own inline comment states plainly there is no backend field for a per-user default-model preference anywhere in the codebase — this control persists to <code>localStorage</code> only (key <code>souvenir:settings:default-model-tier</code>) and does not feed into <code>pickDefaultModel()</code> or any real chat-creation path. It is a fully rendered, fully interactive control that changes nothing about what model any future chat actually uses.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Avatar upload is itself a workaround: <code>PATCH /users/me</code>'s <code>profile_picture</code> field is a plain string URL, not a multipart upload endpoint (contrast: the org logo on General, §03, does accept a real file). The compressed image is disguised as a "URL" — functional today, but fragile (no size cap enforced server-side beyond the client's own 8MB gate, no CDN, no asset lifecycle).</li>
+    <li>Baseline resync is done as an in-render reset keyed on a composite <code>profileKey</code> string (name + avatar) rather than a <code>useEffect</code>, specifically so a fresh server value after Save doesn't fight in-flight typing — a subtle but correct pattern worth preserving if this page is ever refactored.</li>
+    <li><span class="tag gap">gap</span> <strong>Delete account is deliberately inert.</strong> Figma shows the Danger Zone button enabled with no "Coming soon" badge; the shipped code overrides that on purpose — <code>handleDeleteAccount</code>'s body is empty (a bare <code>// TODO: open confirmation dialog</code> comment), the button is hard-<code>disabled</code>, and it's badged "Coming soon." There is no <code>DELETE /users/me</code>-equivalent that does a real purge — the one that exists (see §11) just flips <code>active=False</code>. The frontend's refusal to expose this as a working button is the correct call, not an oversight.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — no sub-navigation on this page; leaving it while dirty is intercepted by the guard described below.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <ul>
+    <li>Name and avatar changes are batched behind one explicit "Edit Profile" → "Save changes" gesture, gated on <code>isDirty</code> (name or avatar changed from baseline) — this is the one page in the whole nav wired into the dirty-tracking guard (<code>useNavGuard</code>): leaving with unsaved name/avatar edits triggers the shared "Unsaved profile changes" confirm modal, and a <code>beforeunload</code> listener catches a hard refresh/close too.</li>
+    <li>Style and Default Model are excluded from that dirty-check by design — they already commit (or persist) immediately, so there's nothing pending to warn about when navigating away.</li>
+  </ul>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — no panels on this page.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong>Default Model picker is fully interactive but writes only to <code>localStorage</code>.</strong> Key <code>souvenir:settings:default-model-tier</code>; never read by <code>pickDefaultModel()</code> or any chat-creation path — the component's own inline comment states no backend field exists. — <code>src/app/(app)/settings/(shell)/account/page.tsx</code> (Personalisation section).</li>
+    <li><span class="tag gap">disabled</span> <strong>Delete account button is hard-disabled with an empty handler.</strong> <code>handleDeleteAccount</code> body is a bare <code>// TODO: open confirmation dialog before proceeding</code> comment; button is badged "Coming soon" on purpose (Figma shows it enabled). — <code>src/app/(app)/settings/(shell)/account/page.tsx:480</code>.</li>
+    <li><span class="tag gap">backend-unused</span> Account deletion on the backend is a soft <code>active=False</code> deactivate, not a real purge — the frontend correctly never exposes a working "delete" call against it.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Either wire the Default Model picker to a real per-user preference once one exists, or mark it "Coming soon" the same way Delete account already is — right now it's the one control on this page that behaves inconsistently with the page's own otherwise-careful "don't fake a save against a contract that doesn't exist" stance (a stance the code's own comments state explicitly for this exact field, yet the control still renders as if it does something).</li>
+  </ul>
+
+  <!-- ══════════════════════ 02 — PERSONAL USAGE ══════════════════════ -->
+  <h2 id="s02"><span class="num">02</span>Usage (personal)<span class="page-route">/settings/usage</span></h2>
+  <p class="page-intro">Read-only personal credit consumption — carved out of the old combined "Usage &amp; Billing" page, which stayed alive separately as legacy Billing (§06) for plan/payment/invoices.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tall">Personal summary — total credits consumed, reset date, 3-segment stacked bar (Slack/Tasks/Chat) + 3 chips</div>
+        <div class="w-box solid">This month's usage — Slack: bar + "N sources"</div>
+        <div class="w-box solid">This month's usage — Tasks: bar + "N sources"</div>
+        <div class="w-box solid">This month's usage — Chat: bar + "N sources"</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Sourced entirely from the already-loaded <code>useAuth().user.usage</code> — no separate page-level fetch, backed by <code>GET /stripe/usage</code> elsewhere in the load path.</li>
+    <li><span class="tag note">note</span> The 3 tracked categories are a cosmetic remap: the backend's real fields are <code>chatCredits</code>/<code>brainCredits</code>/<code>slackCredits</code>; the UI labels them "Chat"/"Tasks"/"Slack" respectively (an inline comment notes "Brain" was renamed to "Tasks" in copy only — the <code>key: 'brain'</code> internal identifier is untouched). Display order throughout the page is Slack &gt; Tasks &gt; Chat.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Stale subtitle copy: the page header still reads "...monitor credit consumption, and download invoices" per the prior audit — this page has no invoice UI at all (that content lives on legacy Billing, §06); a leftover from before the pages were split.</li>
+    <li>Each category's progress-bar denominator is the <em>overall</em> credit total, not a per-category cap — there is no such cap in the data model, so the "Monthly Limits"-style framing slightly overstates what's actually being measured per category.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — a single read-only page, no sub-routes.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — nothing on this page is editable.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">fabricated-data</span> Per-category progress bars are denominated against the <em>overall</em> credit total rather than a real per-category cap — no such cap exists in the data model, so the "Monthly Limits"-style framing overstates precision that isn't backed by real per-category limits.</li>
+    <li><span class="tag note">disabled</span> Stale subtitle copy ("...monitor credit consumption, and download invoices") describes invoice functionality that doesn't exist on this page — a leftover from before the page was split from legacy Billing (§06).</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Fix the stale "...download invoices" subtitle now that invoices live entirely on a different page — a one-line copy change, no logic involved.</li>
+  </ul>
+
+  <!-- ══════════════════════ 03 — GENERAL ══════════════════════ -->
+  <h2 id="s03"><span class="num">03</span>General<span class="page-route">/settings/general (workspace, owner/admin)</span></h2>
+  <p class="page-intro">The largest single settings file in the app (1385 lines) — workspace identity, org-level AI behavior, domain restrictions, and the Danger Zone, plus two features that are fully built and entirely unreachable.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tall">Workspace Identity — logo upload (512×512 JPEG, real file upload), name, URL slug + live preview, read-only Workspace ID + copy</div>
+        <div class="w-box solid">Org-level AI instructions — textarea, 3000-char cap, "Overrides personal" badge, Clear/Save</div>
+        <div class="w-box solid">Allowed email domains — add/remove pill list</div>
+        <div class="w-box solid" style="opacity:.4;">Workspace defaults — default chat/agent visibility (built, but statically disabled)</div>
+        <div class="w-box solid">Slack channel mapping — shown only if Slack connected; per-channel project-ID text input</div>
+        <div class="w-box tall" style="border-color:var(--red);">Danger Zone — Archive workspace (stub) · Delete workspace (real, type-to-confirm)</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Workspace Identity</strong> — logo upload IS a real file upload (contrast with Account's data-URL workaround, §01) since <code>PATCH /organizations/{id}</code> accepts a real file; compressed to 512×512 JPEG client-side first. Name and URL slug with a live <code>souvenir.ai/workspace/{slug}</code> preview. Workspace ID is read-only with a copy button.</li>
+    <li><strong>Org-level AI instructions</strong> — a 3000-character textarea with a live counter and an "Overrides personal" badge (i.e. this instruction wins over any individual member's own personalisation from §01). Its Save has a real integrity safeguard: it trusts only the server's own echoed value to confirm success, not the request payload — and surfaces an error if the two don't match, specifically to catch a silent backend drop rather than showing a false "saved."</li>
+    <li><strong>Allowed email domains</strong> — an add/remove pill list, held client-side as a local array and only committed to the backend on explicit Save.</li>
+    <li><strong>Slack channel mapping</strong> — only rendered at all if Slack is connected; a raw text-input per channel to map it to a project ID (no picker UI).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>Workspace defaults card — fully built, permanently off.</strong> Default chat/agent visibility dropdowns have complete state, a loader, and a working save handler, all wrapped in a static <code>{false &amp;&amp; (...)}</code> — with no comment anywhere explaining why. This is inert code sitting in a shipped page, not a stub; someone made a late call to hide it and didn't leave a trail.</li>
+    <li><span class="tag note">note</span> <strong>Archive workspace looks real, isn't.</strong> The button renders enabled (matching Figma) but its click handler is a pure stub that toasts "not available yet" — there's genuinely no archive endpoint in <code>lib/api/organization.ts</code> to call yet, per an inline comment. Delete workspace, by contrast, is fully real: type-the-workspace-name-to-confirm, then a real <code>deleteOrg</code> call.</li>
+    <li><span class="tag gap">gap</span> <strong>Ownership-transfer flow is complete and unreachable.</strong> Full state and handlers (<code>handleOpenTransfer</code>, <code>handleTransferOwnership</code>) exist in this file, calling the real <code>transferOrgOwnership</code> API — but no button or UI in the current render tree ever triggers them. The backend and the frontend logic both already work; only the trigger is missing.</li>
+    <li><span class="tag note">note</span> The Danger Zone's own destructive-action gate (<code>canDeleteOrg</code>) checks <code>caps.canManageOrg</code>, which is true for <strong>both</strong> admin and owner — there's no owner-only distinction on archiving or deleting the entire workspace, even though that's the single most destructive action on the page. Compare Members (§04), where several actions genuinely are owner-only.</li>
+    <li>No <code>useSettingsGuard</code>/<code>useNavGuard</code> wiring on this page at all — every section has its own inline Save button instead of one page-level dirty state, so there is no "unsaved changes" warning if you navigate away mid-edit on any of these cards.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — a single page, no sub-routes; the "Manage caps" link elsewhere on Plans &amp; Billing (§05) points into Members (§04), not here.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Each section (Identity, AI instructions, domains) saves independently via its own inline button — there is no single page-level "Save all" and no shared dirty-tracking guard across sections.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — no panels; Danger Zone actions use inline confirm affordances rather than modals except for the type-to-confirm Delete workspace flow.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong>Correction to this doc's own wire sketch: "Allowed email domains" is not actually live.</strong> A full re-read of the source past what the prior audit checked shows the entire domains card — pill list, add/remove, Save — is wrapped in a static <code>{false &amp;&amp; (...)}</code>, identical in shape to the already-documented Workspace defaults block. An adjacent code comment confirms both blocks are intentionally "temporarily disabled" and lists both line numbers. There is currently <strong>no way to manage allowed email domains from the UI at all</strong>, contrary to how this feature reads elsewhere in the app's own docs/audit trail. — <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx:1126-1239</code> (comment at :409 confirms intent, referencing both dead blocks).</li>
+    <li><span class="tag gap">disabled</span> <strong>Workspace defaults card — fully built, permanently off.</strong> Default chat/agent visibility dropdowns, loader, and save handler all wrapped in <code>{false &amp;&amp; (...)}</code>, same pattern and same explaining comment as the domains card above. — <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx:1242</code> (comment at :409).</li>
+    <li><span class="tag gap">disabled</span> <strong>Archive workspace button is a stub.</strong> Renders enabled, but the click handler only toasts "not available yet"; a nearby comment states no archive endpoint exists in <code>lib/api/organization.ts</code> yet, and another TODO notes "no backend enforcement exists yet — wire once <code>archived</code> is [added]". — <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx:643</code>.</li>
+    <li><span class="tag gap">dead-code</span> <strong>Ownership-transfer flow is complete and unreachable.</strong> <code>handleOpenTransfer</code>/<code>handleTransferOwnership</code> and their state exist and call the real <code>transferOrgOwnership</code> API, but no button or menu item in the current render tree ever invokes them — effectively dead code despite being fully wired to a live backend call.</li>
+    <li><span class="tag note">backend-unused</span> <code>canDeleteOrg</code> gates the entire Danger Zone (including full workspace delete) on <code>caps.canManageOrg</code>, true for both admin and owner — an owner-only distinction the backend role model could support is simply not read/enforced here.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Surface the ownership-transfer flow with an actual button — the backend call and all frontend state already exist and work; this is the cheapest fix documented anywhere in this doc.</li>
+    <li><span class="tag propose">proposed</span> Get a real answer on the disabled Workspace defaults card (ship it, or delete the dead code) rather than leaving a fully-wired, unexplained <code>{false &amp;&amp; (...)}</code> block in a 1385-line file for the next person to puzzle over.</li>
+  </ul>
+
+  <!-- ══════════════════════ 04 — MEMBERS ══════════════════════ -->
+  <h2 id="s04"><span class="num">04</span>Members<span class="page-route">/settings/members (workspace, owner/admin)</span></h2>
+  <p class="page-intro">Role management and invites — the one page in this doc whose own permissions UI is sourced from the real role ladder rather than hand-written copy.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row" style="flex:none"><div class="w-box tight">Total: 12</div><div class="w-box tight">Admins: 2</div><div class="w-box tight">Pending: 3</div><div class="w-box btn primary" style="margin-left:auto;">Invite members</div></div>
+        <div class="w-box solid tall">Member row — avatar, name, role dropdown (owner/admin gated), Remove</div>
+        <div class="w-box solid tall">Pending invite row — Withdraw instead of Remove</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Stat row</strong> — total members, admin count, pending invites.</li>
+    <li><strong>Members table</strong> — collapsible search, per-row role control and actions.</li>
+    <li><strong>Role editing</strong> — the owner can manage anyone except the owner themself; a plain admin can only manage members whose role is already <code>member</code>, never another admin. <strong>Only the owner can promote to Admin</strong> — a non-owner admin's dropdown offers only "Member." Demoting Admin→Member requires a confirm modal; promotions commit immediately with no confirm.</li>
+    <li><strong>Remove / Withdraw</strong> — active members get inline-confirm "Remove"; pending invites get "Withdraw" instead, hitting the invite-specific delete endpoint (falling back to the member-removal endpoint only if invite metadata is missing).</li>
+    <li><strong>Invite flow</strong> (<code>AppInviteModal</code>/<code>InviteModal</code>) — email-chip input with comma/space/paste-splitting, per-chip pending/invalid/error states with tooltip reasons; role selector limited to Member/Admin (no Owner option); an optional project-access picker for Member invites; a domain-restriction hint tied to §03's Allowed domains list. Pre-validates locally (already-a-member, disallowed domain) before any network call, and reports back per-email success/failure so only genuinely-sent invites clear from the chip list.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><strong>Roles &amp; Permissions modal</strong> — a static explainer opens into a role-comparison modal whose capability table is explicitly sourced from the real <code>src/lib/roles.ts</code> ladder (which mirrors the backend's own <code>roles.py</code>), not hand-written marketing copy — worth calling out as good practice, not a gap.</li>
+    <li><strong>Self-name backfill</strong> — a quiet effect detects a stale placeholder name (<code>""</code>/<code>"Someone"</code>) on the viewer's own row and silently PATCHes it from the auth context; non-fatal if it fails.</li>
+    <li><span class="tag note">note</span> Two small correctness notes carried over from the prior audit, both minor: a <code>membersVersionRef</code> staleness-guard is incremented but never actually read/compared anywhere, so the protection its comment describes isn't enforced; and several in-code comments reference a "Team-derived editor role" as fully removed, which is the same disputed premise as the Teams-deletion finding in §00 — narrower in scope here (a per-project editor label on a member row, not Team CRUD itself) and worth a maintainer confirmation rather than treating as settled.</li>
+    <li>No <code>useSettingsGuard</code> wiring here either — same as General.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Plans &amp; Billing's "Manage caps" link (§05) and the "View all" link on workspace Usage/Analytics (§07) both land here.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Role changes and removals are immediate API calls (optimistic where noted), not batched behind a page-level Save. Invites POST individually per email with per-email result reporting.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Two real modals: the Invite modal and the Roles &amp; Permissions comparison modal, both triggered inline from this page, not floating panels in the Brain-doc sense.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">dead-code</span> <code>membersVersionRef</code> is incremented on every members-list mutation but never read/compared anywhere else in the file — the staleness-guard its name and comment imply isn't actually enforced.</li>
+    <li><span class="tag note">dead-code</span> Several in-code comments reference a "Team-derived editor role" as fully removed; this label still appears to exist in narrower form (a per-project editor label on a member row) — flagged as needing a maintainer confirmation rather than settled dead code, same open question as the Teams-deletion finding in §00.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal from this pass — the role-ladder-sourced permissions modal and the per-email invite result reporting are both already the right pattern; the two correctness notes above are small enough to fold into routine cleanup rather than flag as UX gaps.</p>
+
+  <!-- ══════════════════════ 05 — PLANS & BILLING ══════════════════════ -->
+  <h2 id="s05"><span class="num">05</span>Plans &amp; Billing<span class="page-route">/settings/plans (workspace, owner/admin)</span></h2>
+  <p class="page-intro">The org-level plan/payment/invoice surface, plus a <code>/plans/confirmation</code> sub-route for the post-Stripe return trip. Explicitly built as a single-source-of-truth page — everything renders off <code>getOrgPlan()</code>'s one response, with no merge against a separately-loaded billing snapshot and no business-default fallback papering over a still-loading state.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Teams (non-Enterprise) tier</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row"><div class="w-box tall grow">Plan card — price, active/canceling badge, Upgrade/Cancel/Resume (owner-only; non-owner sees "Request plan change")</div><div class="w-box tall grow">Credits Remaining card — Buy credits, View usage</div></div>
+        <div class="w-box solid">Payment — card brand/last4/expiry, "Manage on Stripe" (opens Stripe-hosted portal, no in-app card-edit form)</div>
+        <div class="w-box solid">Admin permissions panel (owner only) — top-up / manage payment / view invoices toggles</div>
+        <div class="w-box tall">Invoice history table — "Export all" opens Stripe-hosted PDFs in new tabs</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Enterprise tier</strong> — gradient hero (next billing date, monthly fee, remaining credits, progress bar, overage/projected-invoice badges), a stat row (shared credits, credits remaining, seats, a "Manage caps" link into Members §04), and an owner-only <strong>Overage spend limit</strong> card with an edit modal (non-owners get a "Request change" toast in its place, not a dead control).</li>
+    <li><strong>Teams (non-Enterprise) tier</strong> — Plan card (owner-only Upgrade/Cancel/Resume; non-owners get "Request plan change") and a Credits Remaining card (Buy credits modal, View usage link into §02).</li>
+    <li><strong>Payment section</strong> — visible to the owner, or an admin with the explicit <code>canManagePayment</code> permission. Card brand/last4/expiry rendered via <code>CardBrandLogo</code> (a small set of hand-drawn inline SVGs — Visa, Mastercard, Amex, Discover, Diners, JCB, UnionPay, plus an "unknown" generic-card fallback). "Manage on Stripe" opens the Stripe-hosted billing portal — <strong>there is no in-app card-edit form</strong>, by backend design.</li>
+    <li><strong>Admin permissions panel</strong> (owner-only) — three real toggles (top-up / manage payment / view invoices) that gate what the same page shows to a non-owner admin, plus a static "Change plan — Owner only" row.</li>
+    <li><strong>Invoice history</strong> — a table plus "Export all," which opens every invoice's Stripe-hosted PDF/URL in new tabs. There is no backend-generated export file.</li>
+    <li><strong>Buy More Credits modal</strong> — four fixed top-up packs plus a custom amount field.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>"Recharge below $X" threshold is captured, never sent.</strong> The Buy More Credits modal's auto-recharge input holds a real value in component state, but it is never sent to any API call — no backend field for an auto-recharge threshold exists at all. The control looks fully functional.</li>
+    <li><span class="tag gap">gap</span> <strong>"Edit payment method" pencil icon is a no-op.</strong> In the same modal, its <code>onClick</code> just calls <code>onClose()</code> — it doesn't open any edit flow. The real path to changing a card is the separate "Manage on Stripe" button elsewhere on the page (<code>openBillingPortal()</code>, a real <code>POST /stripe/portal</code> call).</li>
+    <li><span class="tag note">note</span> The client deliberately <strong>recomputes</strong> true overage/remaining figures rather than trusting the backend's own <code>overage_usd</code> field directly — that field is server-side capped at the owner's overage limit for invoicing purposes and would otherwise silently under-report once usage exceeds the cap. If this page's math and an invoice's math ever look inconsistent, that divergence is expected, not a bug — documented in-code with an explicit comment.</li>
+    <li><code>ENTERPRISE_INTERMAX</code> (<code>2_147_483_647</code>, i.e. int32 max) is used as an effective "no limit" sentinel for Enterprise credit displays — worth knowing if a raw number like that ever surfaces somewhere it shouldn't.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Mechanism</th><th>Goes to</th></tr>
+    <tr><td class="label">Change plan (owner)</td><td>plain link</td><td><code>ORG_CHANGE_PLAN_ROUTE</code> / <code>settings/billing/change-plan</code></td></tr>
+    <tr><td class="label">"Manage on Stripe"</td><td><code>openBillingPortal()</code></td><td>Stripe-hosted portal (external), returns via <code>isStripeReturn()</code> heuristics (referrer check + query params) back to this page</td></tr>
+    <tr><td class="label">Post-checkout return</td><td><code>?plan=&amp;type=topup|plan</code></td><td><code>plans/confirmation</code> — success screen, refreshes billing/credits/members app-wide on landing</td></tr>
+    <tr><td class="label">"View usage" / "Manage caps"</td><td>plain links</td><td><code>SETTINGS_USAGE_ROUTE</code> (§02) / Members (§04)</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Plan changes, top-ups, and payment-method edits all round-trip through Stripe-hosted flows (portal or checkout), not in-page form submission — this page reads and displays, and hands off to Stripe for anything that mutates a subscription or card. The Admin-permissions toggles and Overage spend-limit edit are the two exceptions that save directly in-page (<code>setOrgPoolCap</code> and similar org-scoped calls).</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Buy More Credits modal, Overage spend-limit edit modal (owner-only), and — off-page — <code>ContactSalesModal</code> (a Formspree-backed lead form with team-size dropdown, used from Enterprise upsell surfaces elsewhere in the app) round out this area's floating-panel surface.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong>Recharge-below-$X threshold is captured in state but never sent.</strong> No backend field for an auto-recharge threshold exists at all — the input is a fully rendered, fully typeable no-op. — Buy More Credits modal.</li>
+    <li><span class="tag gap">disabled</span> <strong>"Edit payment method" pencil icon is a no-op handler.</strong> <code>onClick</code> just calls <code>onClose()</code>; it doesn't open any edit flow. The real path (<code>openBillingPortal()</code> → <code>POST /stripe/portal</code>) exists elsewhere on the same page under "Manage on Stripe."</li>
+    <li><span class="tag note">backend-unused</span> The client deliberately does not trust the backend's own <code>overage_usd</code> field for display, recomputing it client-side instead, because that field is server-capped at the owner's overage limit for invoicing — a real backend field the frontend intentionally reads around rather than uses directly.</li>
+    <li><span class="tag note">backend-unused</span> "Export all" on invoices has no backend-generated export file behind it anywhere — every invoice opens a Stripe-hosted PDF/URL directly; there is no Souvenir-side CSV/PDF export route for usage or activity data in this whole feature area.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Disable (or add a "coming soon" note to) the recharge-threshold input and the payment-edit pencil icon rather than leaving both as fully-interactive controls that quietly do nothing — both are one-line frontend fixes (route the pencil to the same portal call, or grey out the field) that would remove two real "why didn't that work" moments without needing any backend change.</li>
+  </ul>
+
+  <!-- ══════════════════════ 06 — LEGACY BILLING ══════════════════════ -->
+  <h2 id="s06"><span class="num">06</span>Legacy Billing<span class="page-route">/settings/billing (+ /billing/confirmation, /billing/change-plan)</span></h2>
+  <p class="page-intro">The pre-split "Usage &amp; Billing" page that §02 (personal Usage) and §05 (Plans &amp; Billing) were carved out of — it has no entry point in the new <code>SettingsSidebar</code> nav at all, but is very much alive elsewhere.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Functionally overlaps both §02 and §05 rather than being a clean subset of either — plan, payment method, and usage/credit summary all in one page, the shape the newer two pages split apart from.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong>Reachable from several places despite having no nav slot:</strong> <code>LeftSidebar.tsx</code>, the command palette (as "Usage & Billing"), credit-exhaustion banners' CTA in some surfaces, and <code>AccountMenu</code>'s "Upgrade plan" entry. This makes it more "parallel current page" than "legacy," despite the naming — a product decision on whether both this and Plans &amp; Billing should keep existing side by side is still open per the prior audit, and nothing found in this pass resolves it either way.</li>
+    <li><code>billing/change-plan</code> and the top-level <code>settings/billing/change-plan</code> both exist as distinct routes in the file tree — worth a maintainer check on which is actually the live one versus a leftover from the split, since this doc's source read didn't trace every inbound link to each.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>See entry points above; <code>billing/confirmation</code> mirrors <code>plans/confirmation</code>'s post-checkout return pattern (§05).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Same Stripe-hosted round-trip pattern as §05 — not independently documented field-by-field here since its content overlaps that page.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not separately audited in this pass — assume the same modal set as §05 where functionality overlaps.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">orphaned-route</span> <strong>No <code>SettingsSidebar</code> nav entry at all</strong> — reachable only via <code>LeftSidebar.tsx</code>, the command palette ("Usage & Billing"), some credit-exhaustion banner CTAs, and <code>AccountMenu</code>'s "Upgrade plan" — a page that's "orphaned" from one nav (Settings) while fully live from several others, unlike the clean-cut orphans in §10.</li>
+    <li><span class="tag note">dead-code</span> <code>billing/change-plan</code> and top-level <code>settings/billing/change-plan</code> both exist as distinct routes in the file tree — at least one is likely an unreferenced leftover from the §02/§05 split; not resolved by this pass since inbound links weren't traced exhaustively.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Get an explicit product decision on legacy Billing vs. Plans &amp; Billing — right now two pages with overlapping purposes are both live and both linked from real entry points, which is the kind of duplication that quietly diverges in behavior over time if left unresolved.</li>
+  </ul>
+
+  <!-- ══════════════════════ 07 — WORKSPACE USAGE / ANALYTICS ══════════════════════ -->
+  <h2 id="s07"><span class="num">07</span>Usage — workspace<span class="page-route">/settings/analytics (labelled "Usage" in the sidebar)</span></h2>
+  <p class="page-intro">Zero page-level API calls — everything comes from <code>useOrg()</code> context that's already populated elsewhere in the app shell. The clearest example anywhere in Settings of content that's fabricated but honestly labeled in the source, if not to the person reading the rendered page.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row" style="flex:none"><div class="w-box tab active">7d</div><div class="w-box tab">30d</div><div class="w-box tab">MTD</div><div class="w-box tab">QTD</div></div>
+        <div class="w-row"><div class="w-box tall grow">Monthly-limit tile — price, credits, progress bar</div><div class="w-box tall grow">Active-members tile — count + utilisation badge</div></div>
+        <div class="w-box tall">Credit usage by feature — stacked bar chart + legend</div>
+        <div class="w-box solid">Top users — ranked list, avatar/credits/share%, "View all" → Members</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Date-range tabs (7d/30d/MTD/QTD), a stat row, a "Credit usage by feature" stacked bar chart with legend, and a "Top users" ranked list linking to Members (§04).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>The per-feature chart is fabricated, not fetched.</strong> The backend exposes org credit <em>totals</em> (and per-member/per-team breakdowns) but no per-feature time series at all. The daily curve shown apportions the real <code>used</code> total across a hardcoded <code>{chat: 0.68, assistants: 0.20, brain: 0.12}</code> split, then distributes it across days using deterministic sine/cosine shaping (explicitly not <code>Math.random()</code>, so it's stable per render, not a frozen static mock either) — a synthesized-but-reproducible shape standing in for telemetry that doesn't exist. Clearly commented in the source as an approximation; a reader of the rendered page has no way to know that.</li>
+    <li><span class="tag gap">gap</span> The "utilisation %" stat has the same character of gap: no direct backend field, approximated as "share of members who spent any credits this period."</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>"View all" on Top Users → Members (§04). "Manage caps" elsewhere in the app also lands here from Plans &amp; Billing context.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — entirely read-only.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">fabricated-data</span> <strong>"Credit usage by feature" chart is synthesized, not fetched.</strong> The backend exposes only org credit totals (plus per-member/per-team breakdowns) — no per-feature time series exists. The chart apportions the real total across a hardcoded <code>{chat: 0.68, assistants: 0.20, brain: 0.12}</code> split, then shapes it across days with deterministic sine/cosine math. Commented as an approximation in source; presented as real data in the rendered UI with no such disclosure.</li>
+    <li><span class="tag gap">fabricated-data</span> <strong>"Utilisation %" stat has no backing backend field</strong> — approximated client-side as "share of members who spent any credits this period," not a real utilization metric.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> At minimum, label the "Credit usage by feature" chart itself as an estimate in the UI (a small "estimated" caption near the legend), not only in a source comment — the gap between "looks like real telemetry" and "is a stable-but-synthesized curve" is invisible to anyone who didn't read this code. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> for the real fix (a genuine per-feature time-series endpoint); the honest-labeling half is a frontend-only copy change available today regardless of when or whether that backend work happens.</li>
+  </ul>
+
+  <!-- ══════════════════════ 08 — CREDIT BANNERS ══════════════════════ -->
+  <h2 id="s08"><span class="num">08</span>Credit banners &amp; exhaustion states<span class="page-route">cross-cutting, not Settings-page-scoped</span></h2>
+  <p class="page-intro">Not a page — a family of small components that surface credit/plan status outside Settings itself (above the chat composer, etc.), included here because every one of them routes back into a Settings page and none of them are documented elsewhere.</p>
+
+  <table>
+    <tr><th class="label">Component</th><th>Scope</th><th>States</th><th>CTA target</th></tr>
+    <tr><td class="label"><code>CreditStatusBanner</code></td><td>Individual credits</td><td><code>low</code> (≥90% used, dismissible, re-arms once back to <code>normal</code>) / <code>exhausted</code> (persistent, hard-blocked)</td><td><code>ORG_PLANS_ROUTE</code> (§05)</td></tr>
+    <tr><td class="label"><code>ExhaustionBanner</code></td><td>Individual credits, wraps the chat composer</td><td>Only renders once <code>pctUsed ≥ 0.9</code>; color escalates normal→amber→red by level; passes children through untouched below that threshold</td><td><code>ORG_PLANS_ROUTE</code> ("Top up" button)</td></tr>
+    <tr><td class="label"><code>InlineCreditNotice</code></td><td>Org/team workspace pools, admin vs. member framing</td><td><code>warning_95</code> / <code>grace</code> (shows days remaining) / <code>locked</code> (non-dismissible)</td><td>admin gets an action button ("View usage"/"Add credits"/"Unlock"); a member gets only "Contact admin" text, no button</td></tr>
+  </table>
+  <p>All three share the same visual language deliberately — the KDS Toast's <code>--toast-{level}-*</code> tokens and elevation recipe (a soft drop-shadow plus a hairline ring in the level's own border color), not the separate <code>--color-tag-*</code> chip tokens meant for small pill labels. <code>CreditStatusBanner</code> and <code>ExhaustionBanner</code> are individual-account framing (a "you" message, routed to buy a personal top-up); <code>InlineCreditNotice</code> is the org/team equivalent (an "admin vs. member" framing, since a member usually can't buy credits themself).</p>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><code>CreditStatusBanner</code> takes a <code>suppress</code> prop specifically for the case of chatting with a Super Link agent billed to the sharer — the viewer's own exhaustion state is irrelevant there and the banner is meant to disappear entirely, not just soften its message.</li>
+    <li><code>InlineCreditNotice</code>'s <code>locked</code> state is deliberately non-dismissible (<code>dismissible = status !== 'locked'</code>) — the one state in this family the user cannot make go away by clicking an X.</li>
+  </ul>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — all three banner components are actively rendered and route to real Settings pages; no dead code, disabled paths, or fabricated data identified here.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal from this pass — the three-way split (individual top-up framing vs. org admin/member framing vs. a hard composer-level lock) already matches the real underlying distinctions in who can act on each state, which is the right design instinct to preserve.</p>
+
+  <!-- ══════════════════════ 09 — HELP & LEGAL ══════════════════════ -->
+  <h2 id="s09"><span class="num">09</span>Help &amp; Legal<span class="page-route">/settings/help</span></h2>
+  <p class="page-intro">The simplest page in the nav — no API calls beyond a single analytics ping.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Feature Request / Report a Bug cards — open the same shared modals also reachable directly from the sidebar's HELP &amp; SUPPORT group (§00), not separate implementations.</li>
+    <li>Help resources: Help Center and Contact Support rows are rendered <strong>disabled</strong> (no <code>href</code> at all) — visually present, not clickable. Community Slack is a live link.</li>
+    <li>Legal: Terms, Privacy, Cookie Policy — all live external links. A "Data Processing Agreement" row exists in source but is commented out and never rendered.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> Footer text is hardcoded literally as <code>"Souvenir v1.1 · © 2026 Souvenir AI"</code> — not pulled from any build/package metadata, so it will silently drift out of sync with the app's actual shipped version over time.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable beyond the external links noted above.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — no editable state on this page.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Feature Request and Report a Bug modals — same shared components as §00.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> Help Center and Contact Support rows render with no <code>href</code> at all — visually present, permanently non-functional, no "Coming soon" marker.</li>
+    <li><span class="tag gap">dead-code</span> A "Data Processing Agreement" legal row exists in source but is commented out and never rendered — dead JSX left in the page alongside the three live legal links (Terms, Privacy, Cookie Policy).</li>
+    <li><span class="tag note">fabricated-data</span> Footer version string is hardcoded literally ("Souvenir v1.1 · © 2026 Souvenir AI") rather than derived from build/package metadata — presented as current fact but not actually tied to what's shipped.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Either wire the Help Center / Contact Support rows to a real destination or visually mark them "Coming soon" the way Account's Delete button already is — a disabled row with no badge and no explanation reads as broken, not intentional.</li>
+    <li><span class="tag propose">proposed</span> Derive the footer version string from real build metadata instead of a hand-typed literal, so it can't silently go stale.</li>
+  </ul>
+
+  <!-- ══════════════════════ 10 — ORPHANED PAGES ══════════════════════ -->
+  <h2 id="s10"><span class="num">10</span>Orphaned pages<span class="page-route">AI · Security · Notifications · Preferences · Files — routes exist, zero incoming links</span></h2>
+  <p class="page-intro">Five complete, working pages with no way to reach them short of typing the URL directly — the same "dropped, flagged for follow-up" pattern the codebase uses elsewhere for Connectors, but with no equivalent comment anywhere explaining whether these five removals from the nav were intentional or just fell out during the v1.5 redesign.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>AI — <code>/settings/ai</code></h3>
+  <ul>
+    <li>Renders <code>AiModelsView</code> — a full model-catalog browser: search, plan-tier tabs (Standard/Pro/Power, colored neutral/blue/brown), per-model enable/disable <code>Switch</code>, provider icons mapped through <code>toLlmIconId()</code> (Claude/OpenAI/Gemini/Meta/Mistral/Groq/DeepSeek/xAI/Cohere/Perplexity/Bedrock, defaulting to "OpenAI" for anything unrecognized), and small feature chips derived heuristically from each model's declared inputs/outputs (Vision, Image gen, Code, Embeddings, Audio, or "1M+ context" for very large context windows). Backed by real API calls (<code>fetchAllModels</code>, <code>toggleBlockModel</code>) and a model cache-bust helper, not mock data.</li>
+    <li><span class="tag gap">gap</span> <code>AiModelsView</code> is not imported anywhere else in the app either — this is a fully real, fully functional admin surface for controlling which LLMs are available org-wide, sitting completely unreachable.</li>
+  </ul>
+
+  <h3 class="io-head in"><span class="dot"></span>Security — <code>/settings/security</code></h3>
+  <ul>
+    <li>Two-factor authentication card (status badge, "Enable 2FA" button — UI only, no wired flow visible in the read component), a Password card (masked display, "Change password" button), an Active Sessions card with per-row <code>SessionRow</code> (device icon, browser/location/last-active, a "Current" badge on the active session, a 3-dot menu, and a working local <code>removeSession</code> that only mutates client state), and a Sign-In Methods card (Google, with Connected badge and Disconnect button).</li>
+    <li><span class="tag gap">gap</span> The session list (<code>SESSIONS</code> constant) is hardcoded mock data — four fixed rows ("Chrome on macOS," three identical "Safari on iPhone 17 Pro" entries), not fetched from any backend session/device API. Removing a row only updates local component state; nothing is revoked server-side.</li>
+    <li><span class="tag note">note</span> Per the prior audit, there is no password-change route anywhere in <code>services/users</code> — auth (and therefore password) is entirely Auth0-managed, a deliberate architecture choice. This page's "Change password" button has nowhere real to route to even if the page were re-linked; same story for 2FA, which has no backend flag or endpoint behind the toggle shown here.</li>
+    <li>Route note: <code>/settings/security</code> has no named route constant anywhere in the codebase (it's referenced only as a bare string literal in a test file's route→screen-name mapping) — the loosest-wired of the five orphans.</li>
+  </ul>
+
+  <h3 class="io-head in"><span class="dot"></span>Notifications — <code>/settings/notifications</code></h3>
+  <ul>
+    <li>A full in-app/email preference matrix — three sections (Activity: automations/content/usage sub-groups; Team &amp; Collaboration; Billing) each rendering a title row plus paired In-app/Email <code>Switch</code>/<code>Checkbox</code> cells at a fixed 43px column width, 32px gap. Eleven distinct notification categories are defined with hardcoded defaults (<code>automation-complete</code>, <code>automation-failed</code>, <code>pin-created</code>, <code>file-processed</code>, <code>memory-updated</code>, <code>budget-alert</code>, <code>team-invite</code>, <code>persona-invite</code>, <code>workflow-invite</code>, <code>payment-successful</code>, <code>payment-failed</code>) — billing notifications default to email-on for both success and failure.</li>
+    <li><span class="tag gap">gap</span> Confirmed via a full-repo grep (carried from the prior audit and not contradicted by anything found in this pass): there is no <code>notifications</code>/<code>preferences</code> module, no matching fields on the <code>User</code> model, and no route anywhere on the backend. This page's toggles have no server-side home for the choices someone would make on it — turning this page on today, even if fully re-linked, would be pure decoration with nothing persisting a page reload.</li>
+  </ul>
+
+  <h3 class="io-head in"><span class="dot"></span>Preferences — <code>/settings/preferences</code></h3>
+  <ul>
+    <li>Theme selection (light/dark/system) with hand-drawn <code>ThemePreview</code> thumbnails — a small mock sidebar-plus-content sketch per mode, rendered in miniature to preview the actual chrome — plus a tone-preference UI reusing the same 3-value (<code>Balanced</code>/<code>Direct</code>/<code>Warm</code>) set as Account's Style picker (§01), via tab controls.</li>
+    <li><span class="tag gap">gap</span> Same backend absence as Notifications: no persisted field anywhere for theme or other preferences captured on this page. A theme choice made here would not survive a reload even if the page were re-linked, since nothing writes it anywhere durable — most likely it would need to fall back to browser-local storage, which isn't wired up in what was read.</li>
+  </ul>
+
+  <h3 class="io-head in"><span class="dot"></span>Files — <code>/settings/files</code></h3>
+  <ul>
+    <li>A file-management card with sort/filter <code>Dropdown</code> controls and a progress-bar helper (<code>used</code>/<code>total</code>, capped visually at 100%) suggesting a storage-quota display, built on the same <code>SettingsCard</code>/<code>CardSection</code> local pattern used elsewhere.</li>
+    <li><span class="tag gap">gap</span> No route constant, no incoming links from anywhere in the app — this doc's source read didn't establish whether any backend file-listing/quota endpoint actually exists behind it; flagged as unresolved rather than asserted either way.</li>
+  </ul>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned-route</span> <strong>AI — <code>/settings/ai</code></strong>: fully functional, backend-real model-catalog admin tool (<code>AiModelsView</code>); confirmed via grep not imported/rendered anywhere else in the app. No nav link, no route constant referenced from <code>SettingsSidebar</code>.</li>
+    <li><span class="tag gap">orphaned-route</span> <strong>Security — <code>/settings/security</code></strong>: no named route constant anywhere in the codebase, referenced only as a bare string literal in a test file's route→screen mapping — the loosest-wired of the five orphans.</li>
+    <li><span class="tag gap">fabricated-data</span> <strong>Security's Active Sessions list is hardcoded mock data.</strong> <code>SESSIONS</code> constant has four fixed rows (one "Chrome on macOS," three identical "Safari on iPhone 17 Pro" entries) — not fetched from any backend session/device API. Removing a row only mutates local component state; nothing is revoked server-side.</li>
+    <li><span class="tag gap">disabled</span> Security's "Enable 2FA" and "Change password" buttons have no wired flow — no password-change route exists anywhere (auth is entirely Auth0-managed by design) and no 2FA backend flag/endpoint backs the toggle.</li>
+    <li><span class="tag gap">backend-unused</span> <strong>Notifications — <code>/settings/notifications</code></strong>: eleven notification categories fully built in the UI with hardcoded defaults, but confirmed via full-repo grep — no <code>notifications</code>/<code>preferences</code> module, no matching <code>User</code> model fields, no backend route at all. Toggling anything here would not persist even if re-linked.</li>
+    <li><span class="tag gap">backend-unused</span> <strong>Preferences — <code>/settings/preferences</code></strong>: theme (light/dark/system) and tone pickers fully built; no persisted field anywhere for theme or other preferences on this page — would need a browser-local-storage fallback that isn't wired up today.</li>
+    <li><span class="tag gap">orphaned-route</span> <strong>Files — <code>/settings/files</code></strong>: no route constant, no incoming links. The storage-quota progress bar is confirmed fake, not just unconfirmed: the component's own code comment reads "Static storage values - TODO: wire to files API." — <code>src/app/(app)/settings/(shell)/files/page.tsx:433</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Get an explicit decision, page by page, on each of these five: re-link it (and, for Notifications/Preferences, build the backend field it needs), or delete it outright. All five are complete enough to look shippable at a glance, which makes "just forgotten" and "deliberately shelved" indistinguishable to whoever finds them next — the AI page in particular (a real, working model-catalog admin tool) seems the most likely candidate for accidental omission rather than intentional removal, given how functional and backend-complete it already is compared to the other four.</li>
+  </ul>
+
+  <!-- ══════════════════════ 11 — CROSS-CUTTING ══════════════════════ -->
+  <h2 id="s11"><span class="num">11</span>Cross-cutting notes</h2>
+  <p class="page-intro">Patterns that recur across multiple pages in this doc, plus the backend-boundary facts worth knowing once rather than repeating per-page.</p>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up</th></tr>
+    <tr><td class="label">A control renders fully interactive but writes to nothing real</td><td>§01 Default Model (localStorage only) · §05 recharge-threshold input, payment-edit pencil · §03 Archive workspace (stub handler) · §10 Notifications/Preferences (no backend field at all)</td></tr>
+    <tr><td class="label">A feature is fully built end-to-end but simply has no way to reach it</td><td>§03 Ownership transfer (real API, no button) · §10 all five orphaned pages (real code, zero links) · §00 <code>/settings/teams</code> (inverse case — a live link to a page that doesn't exist)</td></tr>
+    <tr><td class="label">Content is synthesized/approximated but only documented as such in code comments, not in the rendered UI</td><td>§07 per-feature usage chart and utilisation % on workspace Analytics</td></tr>
+    <tr><td class="label"><em>Worth preserving, not fixing</em></td><td>§04 Members' role-comparison modal sourced from the real permissions ladder rather than hand-written copy; §03 General's Save-then-verify-server-echo pattern for org AI instructions; §08's three-way individual/org-admin/org-member framing across the credit banner family</td></tr>
+  </table>
+
+  <p>Backend facts worth carrying across every page in this doc rather than re-deriving per-page: there is <strong>no password-change route</strong> anywhere (Auth0-managed by design, not a gap — relevant to §10's Security page); account deletion (§01) is a <strong>soft deactivate</strong> (<code>active=False</code>) with no data purge, which is exactly why the frontend correctly keeps that button disabled rather than overpromising; and neither the audit doc nor this pass found any CSV/PDF export route for usage or activity data anywhere on the backend — every export-shaped button in this feature area (§05's "Export all") is actually opening Stripe-hosted links, not a Souvenir-generated file.</p>
+
+  <footer>SOUVENIR — SETTINGS &amp; BILLING: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

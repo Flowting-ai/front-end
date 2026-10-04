@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Search, X } from "lucide-react";
 import { AnimatePresence, m } from "framer-motion";
 import type { AIModel } from "@/types/ai-model";
-import { LlmIcon } from "@strange-huge/icons/llm";
+import { ThemedLlmIcon } from "@/components/ThemedLlmIcon";
 import { InformationCircleIcon } from "@strange-huge/icons";
 import { getModelLlmId } from "@/lib/model-icons";
 import { Badge, type BadgeColor } from "@/components/Badge";
@@ -111,9 +111,8 @@ function ModelSelectorItem({
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{ display: "flex", lineHeight: 0 }}
               >
-                <LlmIcon
+                <ThemedLlmIcon
                   id={getModelLlmId(model.companyName, model.modelName) ?? ""}
-                  variant="color"
                   size={24}
                 />
               </m.span>
@@ -227,7 +226,7 @@ export function ModelSelector({
               position: "fixed",
               inset: 0,
               zIndex: 50,
-              backgroundColor: "rgba(0,0,0,0.3)",
+              backgroundColor: "color-mix(in srgb, var(--static-black) 30%, transparent)",
             }}
           />
 
@@ -332,7 +331,7 @@ export function ModelSelector({
 
             {/* Model list */}
             <div
-              className="kaya-scrollbar"
+              className="kaya-scrollbar kaya-no-gutter"
               style={{
                 flex: 1,
                 overflowY: "auto",

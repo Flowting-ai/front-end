@@ -4,7 +4,7 @@
 //
 // Reconciled against the real App Router routes (some diverge from the doc's registry:
 // e.g. /settings/account → settings_profile, /settings/ai → settings_models, several
-// extra settings tabs, /slack/link, /agents/basics/* wizard). Pinboard is a panel, not
+// extra settings tabs, /slack/link, /agents/new flow). Pinboard is a panel, not
 // a route, so it is tracked as an event property later, not as a screen here.
 
 import type { ScreenName } from "./events";
@@ -70,15 +70,16 @@ export function routeToScreen(pathname: string): ScreenName | null {
       return "chat";
     case "chats":
       return "chat_history";
-    case "brain":
-      return "brain"; // + /brain/chats|threads|schedules
+    case "schedules":
+      return "brain"; // was /brain/schedules; Brain's chats are plain /chat now
     case "agent":
       // Singular: /agent/configure and its tabs.
       return segments[1] === "configure" ? "agent_configure" : null;
     case "agents":
-      if (segments[1] === "basics") return "agent_onboarding"; // new-agent wizard steps
+      if (segments[1] === "new") return "agent_onboarding"; // new-agent purpose → editor flow
       if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat
-      return "agent_library"; // /agents, /agents/templates, /agents/published, /agents/new
+      if (segments[2] === "edit") return "agent_configure"; // /agents/[personaId]/edit
+      return "agent_library"; // /agents, /agents/templates, /agents/published
     case "projects":
       return "projects";
     case "project":

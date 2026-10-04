@@ -61,6 +61,29 @@
   flex: none;
 }
 
+/* Loading placeholder: same row height, padding and lead size as .row, so the real list replaces it
+   without moving anything. Pulse comes from the shared .kaya-skeleton utility. */
+.skelRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.skelLead {
+  width: 20px;
+  height: 20px;
+  margin-inline: 2px;
+  flex: none;
+  border-radius: 6px;
+}
+
+.skelBar {
+  height: 12px;
+  border-radius: 5px;
+}
+
 .rowLabel {
   min-width: 0;
   flex: 1 1 auto;

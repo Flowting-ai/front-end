@@ -57,7 +57,7 @@ titles, names, filenames, prompt text are all excluded by design).
 | `chat_message_sent` | L3 | `components/chat/ChatInterface.tsx` (`handleSend`) | message sent | `has_agent`, `model_pick`, `model_id?`, `web_search`, `reasoning`, `attachment_count`, `pin_count` |
 | `regenerate` | L4 | `components/chat/ChatInterface.tsx` (`handleRegenerate`) | regenerate response | `model_pick`, `model_id?`, `reasoning` |
 | `model_selector_manual` | L4 | `components/chat/PresetModelSelectorDialog.tsx` | pick a model by hand | `model_id`, `model_type` |
-| `effort_level_changed` | L4 | `components/chat/ModelMenu.tsx` | toggle adaptive thinking | `enabled` |
+| `effort_level_changed` | L4 | `components/chat/ModelMenu.tsx` | pick a thinking effort | `effort` (`off`/`low`/`medium`/`high`) |
 | `voice_input` | L4 | `components/chat/ChatInput.tsx` (`startRecording`) | start mic dictation | — |
 | `search` | L4 | `context/search-context.tsx` (`openSearch` + ⌘K) | open global search | — |
 | `output_viewed` | L4 | `templates/Brain/ExternalOutputCard.tsx` | click "View" on a run output | `connector`, `verb` |

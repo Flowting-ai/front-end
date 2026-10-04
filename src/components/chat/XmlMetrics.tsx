@@ -26,17 +26,9 @@ import { Sparkline } from "@/components/Sparkline"
 import type { DeltaTrend } from "@/components/DeltaPill"
 import { parseMetricsXml } from "@/components/chat/XmlMetrics.parse"
 
-const TREND_PALETTE: Record<DeltaTrend, { stroke: string; wash: string; border: string }> = {
-  up: {
-    stroke: "#3F846A",
-    wash: "linear-gradient(145deg, rgba(74, 145, 113, 0.10), rgba(255,255,255,0) 48%)",
-    border: "rgba(63, 132, 106, 0.18)",
-  },
-  down: {
-    stroke: "#B46258",
-    wash: "linear-gradient(145deg, rgba(180, 98, 88, 0.10), rgba(255,255,255,0) 48%)",
-    border: "rgba(180, 98, 88, 0.18)",
-  },
+const TREND_PALETTE: Record<DeltaTrend, string> = {
+  up: "var(--color-tag-Green-text)",
+  down: "var(--color-tag-Red-text)",
 }
 
 export function XmlMetrics({ xml }: { xml: string }) {
@@ -48,7 +40,7 @@ export function XmlMetrics({ xml }: { xml: string }) {
     <div
       style={{
         display:             "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
         gap:                 12,
         margin:              "12px 0",
       }}
@@ -58,7 +50,6 @@ export function XmlMetrics({ xml }: { xml: string }) {
           key={`${metric.label}-${i}`}
           initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.985 }}
           animate={{ opacity: 1, y: 0 }}
-          whileHover={reduceMotion ? undefined : { y: -3, scale: 1.008 }}
           transition={{ duration: 0.34, delay: reduceMotion ? 0 : i * 0.065, ease: [0.16, 1, 0.3, 1] }}
           style={{ height: "100%", borderRadius: 16 }}
         >
@@ -71,14 +62,12 @@ export function XmlMetrics({ xml }: { xml: string }) {
             style={{
               height: "100%",
               overflow: "hidden",
-              background: TREND_PALETTE[metric.trend].wash,
-              borderColor: metric.spark ? TREND_PALETTE[metric.trend].border : "var(--neutral-100)",
             }}
             trend={metric.spark && (
               <Sparkline
                 data={metric.spark}
                 height={48}
-                color={TREND_PALETTE[metric.trend].stroke}
+                color={TREND_PALETTE[metric.trend]}
                 style={{ margin: "4px -8px -4px", width: "calc(100% + 16px)" }}
               />
             )}

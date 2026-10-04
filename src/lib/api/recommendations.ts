@@ -2,10 +2,7 @@ import { z } from 'zod'
 import { apiFetchJson } from './client'
 import { API_BASE_URL } from '../config'
 
-const RECOMMENDATIONS = (surface: Surface) => `${API_BASE_URL}/recommendations/${surface}`
-
-/** The empty screens that show starter cards. */
-export type Surface = 'chat' | 'brain'
+const RECOMMENDATIONS = `${API_BASE_URL}/recommendations`
 
 /**
  * The kind of work a card asks for. The backend picks one of these; the icon
@@ -42,21 +39,31 @@ const starterCardSchema = z.object({
   apps:   z.array(cardAppSchema).default([]),
 })
 
+const connectorPickSchema = cardAppSchema.extend({
+  /** What pointed at the app — shown under its name. */
+  reason:      z.string(),
+  categories:  z.array(z.string()).default([]),
+  /** The catalog's description of the app. */
+  description: z.string().default(''),
+})
+
 const recommendationsSchema = z.object({
-  surface:      z.enum(['chat', 'brain']),
-  cards:        z.array(starterCardSchema),
-  /** Brain only — the three-beat line above its cards. */
-  headline:     z.string().nullable(),
-  generatedAt:  z.string().nullable(),
+  cards:           z.array(starterCardSchema),
+  /** Detected from their Slack workspace. */
+  sureConnectors:  z.array(connectorPickSchema).default([]),
+  /** Read off their memory profile. */
+  maybeConnectors: z.array(connectorPickSchema).default([]),
+  generatedAt:     z.string().nullable(),
   /** False while the backend's defaults show and the first generation runs. */
-  personalized: z.boolean(),
+  personalized:    z.boolean(),
 })
 
 export type CardIcon = z.infer<typeof cardIconSchema>
 export type CardApp = z.infer<typeof cardAppSchema>
 export type StarterCard = z.infer<typeof starterCardSchema>
+export type ConnectorPick = z.infer<typeof connectorPickSchema>
 export type Recommendations = z.infer<typeof recommendationsSchema>
 
-export async function fetchRecommendations(surface: Surface): Promise<Recommendations> {
-  return recommendationsSchema.parse(await apiFetchJson<unknown>(RECOMMENDATIONS(surface)))
+export async function fetchRecommendations(): Promise<Recommendations> {
+  return recommendationsSchema.parse(await apiFetchJson<unknown>(RECOMMENDATIONS))
 }

@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { useModelSelection } from "@/hooks/use-model-selection";
+import { AUTO_ROUTING_LABELS } from "@/lib/ai-models";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -28,9 +29,13 @@ interface ModelSelectorContextValue {
   anchorEl: HTMLElement | null;
   open: (anchor: HTMLElement) => void;
   close: () => void;
-  // ── Adaptive thinking ──
+  // ── Thinking effort ──
+  /** Levels the current selection supports, from the catalog. Empty hides the control. */
+  effortOptions: string[];
+  /** `null` is thinking off — the default for every model. */
+  reasoningEffort: string | null;
+  setReasoningEffort: (effort: string | null) => void;
   enableReasoning: boolean;
-  setEnableReasoning: (v: boolean) => void;
   // ── Auto routing ──
   /** `null` whenever a direct model is selected instead. */
   algorithm: ModelAlgorithm | null;
@@ -57,6 +62,31 @@ const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(
 
 const ALGORITHM_STORAGE_KEY = "souvenir_selected_algorithm";
 const MODEL_STORAGE_KEY = "souvenir_selected_model";
+const EFFORT_STORAGE_KEY = "souvenir_reasoning_effort";
+
+type EffortsByModel = Record<string, string>;
+
+function readStoredEfforts(): EffortsByModel {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(EFFORT_STORAGE_KEY) ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function effortKey(algorithm: ModelAlgorithm | null, model: AIModel | null): string | null {
+  if (algorithm) return `algorithm:${algorithm}`;
+  return model?.modelId != null ? String(model.modelId) : null;
+}
+
+function tierEfforts(models: AIModel[], algorithm: ModelAlgorithm): string[] {
+  const label = AUTO_ROUTING_LABELS[algorithm].toLowerCase();
+  return models.find((model) => model.modelName.trim().toLowerCase() === label)?.thinkingEfforts ?? [];
+}
 
 function isModelAlgorithm(value: string | null): value is ModelAlgorithm {
   return value === "base" || value === "pro";
@@ -103,7 +133,7 @@ export function ModelSelectorProvider({
   // personaActive in its dependency array (keeps the callback stable).
   const personaActiveRef = useRef(false);
   personaActiveRef.current = personaActive;
-  const [enableReasoning, setEnableReasoning] = useState(true);
+  const [effortsByModel, setEffortsByModel] = useState<EffortsByModel>(readStoredEfforts);
   // Starts `null` (not `getInitialAlgorithm()`) on both server and client's
   // first render, then resolves from localStorage in a mount-only effect —
   // same SSR-hydration-safe pattern useModelSelection uses for its own
@@ -120,6 +150,31 @@ export function ModelSelectorProvider({
   // making every consumer (ChatInterface, useModelButtonLabel, ModelMenu's
   // checkmarks) re-derive that themselves.
   const selectedModel = algorithm ? null : rawSelectedModel;
+
+  const currentEffortKey = effortKey(algorithm, selectedModel);
+  const effortOptions = algorithm
+    ? tierEfforts(models, algorithm)
+    : selectedModel?.thinkingEfforts ?? [];
+  const storedEffort = currentEffortKey ? effortsByModel[currentEffortKey] : undefined;
+  const reasoningEffort = storedEffort && effortOptions.includes(storedEffort) ? storedEffort : null;
+
+  const setReasoningEffort = useCallback(
+    (effort: string | null) => {
+      if (!currentEffortKey) return;
+      setEffortsByModel((prev) => {
+        const next = { ...prev };
+        if (effort) next[currentEffortKey] = effort;
+        else delete next[currentEffortKey];
+        try {
+          localStorage.setItem(EFFORT_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore quota/availability errors */
+        }
+        return next;
+      });
+    },
+    [currentEffortKey],
+  );
 
   const open = useCallback((anchor: HTMLElement) => {
     // Blocked while a persona is active — model must stay fixed to the persona's model.
@@ -184,8 +239,10 @@ export function ModelSelectorProvider({
         anchorEl,
         open,
         close,
-        enableReasoning,
-        setEnableReasoning,
+        effortOptions,
+        reasoningEffort,
+        setReasoningEffort,
+        enableReasoning: reasoningEffort !== null,
         algorithm,
         selectAlgorithm,
         personaActive,

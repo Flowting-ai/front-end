@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } fr
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, CancelCircleIcon, PlusSignIcon, AiWebBrowsingIcon, BubbleChatIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, PlusSignIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { toast } from 'sonner'
@@ -18,31 +18,20 @@ import { Dropdown } from '@/components/Dropdown'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
-import { CHAT_ROUTE, CHAT_SHARE_ROUTE, BRAIN_ROUTE } from '@/lib/routes'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
-import type { LibraryMode } from '@/components/LibraryFilterButton'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
-import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
-import { useTasksLibrary, type TasksTab } from '@/hooks/use-tasks-library'
-
-// ── Library page — merged Chats + Tasks ─────────────────────────────────────
-// Was two separate pages (/chats and /brain/threads); merged into one, with
-// LibraryFilterButton (same Tooltip+IconButton+Dropdown.Float pattern as
-// Pinboard's own Filter button) switching the whole page between:
-//   Chats mode → tabs: All chats, Shared with me, Archived chats
-//   Tasks mode → tab:  All tasks (brain/threads' content, inlined verbatim)
-// /brain/threads is now a redirect stub into Tasks mode (?filter=tasks).
 
 type ChatsTab = 'all' | 'shared' | 'archived'
 
-// ── Chats/Tasks filter — Dropdown.Float instead of a Tabs bar, same pattern
-// as ScopeFilterDropdown on the /projects page (Dropdown.Float + Button
+// ── Tab filter — Dropdown.Float instead of a Tabs bar, same pattern as
+// ScopeFilterDropdown on the /projects page (Dropdown.Float + Button
 // trigger + Dropdown.Section/Dropdown.Item, see projects/page.tsx). ──
 
 const CHATS_TAB_LABEL: Record<ChatsTab, string> = {
@@ -57,16 +46,6 @@ const CHATS_TAB_DESCRIPTION: Record<ChatsTab, string> = {
   archived: 'Chats you’ve archived.',
 }
 const CHATS_TAB_VALUES: readonly ChatsTab[] = ['all', 'shared', 'archived']
-
-const TASKS_TAB_LABEL: Record<TasksTab, string> = {
-  all:       'All tasks',
-  scheduled: 'Scheduled',
-}
-const TASKS_TAB_DESCRIPTION: Record<TasksTab, string> = {
-  all:       'Every task you’ve created.',
-  scheduled: 'Tasks with an active schedule.',
-}
-const TASKS_TAB_VALUES: readonly TasksTab[] = ['all', 'scheduled']
 
 function LibraryTabDropdown<T extends string>({
   value, values, labels, descriptions, onChange,
@@ -131,40 +110,22 @@ export default function ChatsPage() {
 }
 
 function ChatsPageInner() {
-  const { push, replace } = useRouter()
+  const { push } = useRouter()
   const searchParams    = useSearchParams()
   const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star, archive } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
-  // `formatRelativeTime` reads `new Date()` at render time, so the server's
-  // render and the client's hydration render can land in different relative
-  // buckets ("2m ago" vs "3m ago") — a real, if intermittent, hydration
-  // mismatch. Render a stable empty value until after mount, then swap in the
-  // live relative time; same pattern already used by Switch/index.tsx.
-  const [hasMounted, setHasMounted] = useState(false)
-  useEffect(() => { setHasMounted(true) }, [])
-
-  // ── Chats mode / Tasks mode ────────────────────────────────────────────────
-  const [libraryMode, setLibraryMode] = useState<LibraryMode>(
-    () => (searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'),
-  )
   // `?tab=archived` — used by the archived-chat page's own back button
   // (TopBar) to land directly on the Archived tab instead of "All chats".
   const [chatsTab, setChatsTab] = useState<ChatsTab>(
     () => (searchParams.get('tab') === 'archived' ? 'archived' : 'all'),
   )
 
-  // Re-sync any time the URL's ?filter=/?tab= change from outside this page's
-  // own toggle handlers (sidebar links like onManageAllThreadsClick/onChatsClick
-  // push `?filter=tasks`/no filter while /chats is already mounted — a
-  // query-only same-route navigation Next doesn't remount for). Without this,
-  // the two `useState` initializers above only ever ran once on first mount,
-  // so the URL would update but the displayed Chats/Tasks content wouldn't —
-  // same pattern already fixed correctly in agents/page.tsx.
+  // Re-sync any time the URL's ?tab= changes from outside this page — a
+  // query-only same-route navigation Next doesn't remount for, so the
+  // `useState` initializer above would otherwise only ever run once.
   useEffect(() => {
-    const urlMode: LibraryMode = searchParams.get('filter') === 'tasks' ? 'tasks' : 'chats'
-    setLibraryMode(prev => (prev === urlMode ? prev : urlMode))
     const urlTab: ChatsTab = searchParams.get('tab') === 'archived' ? 'archived' : 'all'
     setChatsTab(prev => (prev === urlTab ? prev : urlTab))
   }, [searchParams])
@@ -182,8 +143,6 @@ function ChatsPageInner() {
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
-  // Shared by both Chats and Tasks mode — only one of their search inputs is
-  // ever mounted at a time (gated by `libraryMode`), so one toggle is enough.
   const [searchOpen,    setSearchOpen]    = useState(false)
   const [isMoving,      setIsMoving]      = useState(false)
   const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
@@ -237,17 +196,7 @@ function ChatsPageInner() {
     setSelectedIds(new Set())
   }, [])
 
-  // ── Mode / tab switching — always leave selection mode behind ───────────────
-
-  const handleLibraryModeChange = useCallback((mode: LibraryMode) => {
-    setLibraryMode(mode)
-    exitSelection()
-    // Sync to the URL — this used to be read-once (the useState initializer
-    // above), so LeftSidebar's own useSearchParams() never saw a mode change
-    // made after the page loaded, and kept showing Recent Chats/Tasks whether
-    // or not it matched. Query-only, so it doesn't add a history entry per toggle.
-    replace(mode === 'tasks' ? '?filter=tasks' : '?', { scroll: false })
-  }, [exitSelection, replace])
+  // ── Tab switching — always leave selection mode behind ──────────────────────
 
   const handleChatsTabChange = useCallback((tab: ChatsTab) => {
     setChatsTab(tab)
@@ -338,32 +287,6 @@ function ChatsPageInner() {
     push(CHAT_SHARE_ROUTE(item.shareId))
   }, [push])
 
-  // ── Tasks mode state ─────────────────────────────────────────────────────────
-  // Brain threads are shared app-wide via BrainThreadContext (mounted in
-  // (app)/layout.tsx) — the same state the left sidebar's Tasks section reads
-  // (src/app/(app)/brain/BrainSidebarSections.tsx), so a rename/pin/delete on
-  // either surface is reflected on the other immediately, no reload needed.
-  const {
-    threads,
-    tasksLoading,
-    renameTask,
-    starTask,
-    tasksSearchQuery,
-    setTasksSearchQuery,
-    tasksTab,
-    setTasksTab,
-    scheduledChatIds,
-    filteredThreads,
-    handleTaskDelete,
-  } = useTasksLibrary(libraryMode)
-
-  // Navigate to /brain when sidebar "New thread" button fires the event.
-  useEffect(() => {
-    const handler = () => push(BRAIN_ROUTE)
-    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
-    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
-  }, [push])
-
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -388,25 +311,6 @@ function ChatsPageInner() {
           keeps the scrollbar flush with the container's edge. */}
       <div style={{ width: '100%', maxWidth: 884, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
 
-        {/* ── Task/Chat tab strip — same Tabs used on the new-chat landing page
-            (src/app/(app)/chat/page.tsx, Figma 136:53294), reused here in place
-            of the old LibraryFilterButton dropdown. */}
-        {!selectionMode && (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 20 }}>
-            <div style={{ width: 171 }}>
-              <Tabs
-                value={libraryMode === 'chats' ? 'chat' : 'task'}
-                onValueChange={(v) => handleLibraryModeChange(v === 'task' ? 'tasks' : 'chats')}
-              >
-                <TabsList fluid>
-                  <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
-                  <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-        )}
-
         {/* ── Page header ─────────────────────────────────────────────────── */}
         <div
           style={{
@@ -429,7 +333,7 @@ function ChatsPageInner() {
               flexShrink: 0,
             }}
           >
-            {libraryMode === 'chats' ? 'Chats' : 'Tasks'}
+            Chats
           </h1>
 
           {/* Right controls — animates between normal ↔ selection */}
@@ -460,30 +364,18 @@ function ChatsPageInner() {
                 transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                {libraryMode === 'chats' ? (
-                  <>
-                    {chatsTab === 'all' && (
-                      <Button variant="outline" onClick={enterSelection}>
-                        Move to project
-                      </Button>
-                    )}
-                    <Button
-                      variant="default"
-                      leftIcon={<PlusSignIcon animated />}
-                      onClick={handleNewChat}
-                    >
-                      New chat
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="default"
-                    leftIcon={<PlusSignIcon animated />}
-                    onClick={() => push(BRAIN_ROUTE)}
-                  >
-                    New task
+                {chatsTab === 'all' && (
+                  <Button variant="outline" onClick={enterSelection}>
+                    Move to project
                   </Button>
                 )}
+                <Button
+                  variant="default"
+                  leftIcon={<PlusSignIcon animated />}
+                  onClick={handleNewChat}
+                >
+                  New chat
+                </Button>
               </m.div>
             )}
           </AnimatePresence>
@@ -517,23 +409,13 @@ function ChatsPageInner() {
               marginBottom:   12,
             }}
           >
-            {libraryMode === 'chats' ? (
-              <LibraryTabDropdown
-                value={chatsTab}
-                values={CHATS_TAB_VALUES}
-                labels={CHATS_TAB_LABEL}
-                descriptions={CHATS_TAB_DESCRIPTION}
-                onChange={handleChatsTabChange}
-              />
-            ) : (
-              <LibraryTabDropdown
-                value={tasksTab}
-                values={TASKS_TAB_VALUES}
-                labels={TASKS_TAB_LABEL}
-                descriptions={TASKS_TAB_DESCRIPTION}
-                onChange={setTasksTab}
-              />
-            )}
+            <LibraryTabDropdown
+              value={chatsTab}
+              values={CHATS_TAB_VALUES}
+              labels={CHATS_TAB_LABEL}
+              descriptions={CHATS_TAB_DESCRIPTION}
+              onChange={handleChatsTabChange}
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: searchOpen ? '1 0 0' : undefined, minWidth: 0 }}>
               {/* Search — same morph-in-place pattern as PinboardHeader's own
                   search button: a ghost IconButton that turns into an inline
@@ -577,17 +459,17 @@ function ChatsPageInner() {
                               role="button"
                               tabIndex={0}
                               aria-label="Close search"
-                              onClick={() => { setSearchOpen(false); setSearchQuery(''); setTasksSearchQuery('') }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setSearchQuery(''); setTasksSearchQuery('') } }}
+                              onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setSearchQuery('') } }}
                               className="kds-icon-in-field"
                               style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
                             >
                               <CancelCircleIcon size={16} />
                             </span>
                           }
-                          placeholder={libraryMode === 'chats' ? 'Search chats…' : 'Search tasks…'}
-                          value={libraryMode === 'chats' ? searchQuery : tasksSearchQuery}
-                          onChange={libraryMode === 'chats' ? setSearchQuery : setTasksSearchQuery}
+                          placeholder="Search chats…"
+                          value={searchQuery}
+                          onChange={setSearchQuery}
                           fluid
                           autoFocus
                           aria-label="Search"
@@ -600,10 +482,6 @@ function ChatsPageInner() {
             </div>
           </div>
         )}
-
-        {/* ══════════════════════════ Chats mode ══════════════════════════ */}
-        {libraryMode === 'chats' && (
-          <>
 
         {/* ── Shared with me view ─────────────────────────────────────────── */}
         {chatsTab === 'shared' && !selectionMode && (
@@ -627,7 +505,7 @@ function ChatsPageInner() {
                   gap:             12,
                   padding:         '12px 16px',
                   borderRadius:    12,
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--neutral-white)',
                   boxShadow:       '0px 1px 2px rgba(18,12,8,0.08), 0px 0px 0px 1px var(--neutral-100)',
                 }}
               >
@@ -673,9 +551,9 @@ function ChatsPageInner() {
                 <ChatRow
                   title={chat.title}
                   timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
-                  pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
-                  pinBoardOpen={isOpen && chatFilter === chat.id}
-                  onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                  pinCount={PINS_ENABLED ? (pinCountMap[chat.id] ?? chat.pins_count ?? 0) : 0}
+                  pinBoardOpen={PINS_ENABLED && isOpen && chatFilter === chat.id}
+                  onPinClick={PINS_ENABLED && pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
                   starred={chat.starred}
                   archived
                   onClick={() => handleOpenChat(chat.id)}
@@ -764,9 +642,9 @@ function ChatsPageInner() {
                       <ChatRow
                         title={chat.title}
                         timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
-                        pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
-                        pinBoardOpen={isOpen && chatFilter === chat.id}
-                        onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                        pinCount={PINS_ENABLED ? (pinCountMap[chat.id] ?? chat.pins_count ?? 0) : 0}
+                        pinBoardOpen={PINS_ENABLED && isOpen && chatFilter === chat.id}
+                        onPinClick={PINS_ENABLED && pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
                         starred={chat.starred}
                         selectionMode={selectionMode}
                         selected={selectedIds.has(chat.id)}
@@ -792,78 +670,6 @@ function ChatsPageInner() {
 
           </div>
         ) : null}
-
-          </>
-        )}
-
-          </>
-        )}
-
-        {/* ══════════════════════════ Tasks mode ══════════════════════════ */}
-        {libraryMode === 'tasks' && (
-          <>
-
-            {/* ── Loading skeleton ── */}
-            {tasksLoading && threads.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
-                ))}
-              </div>
-            )}
-
-            {/* ── Thread list ── */}
-            {(!tasksLoading || threads.length > 0) && (
-              <div role="list" aria-label="Tasks">
-
-                {filteredThreads.length === 0 && tasksSearchQuery && (
-                  <p style={{
-                    margin:     '32px 0',
-                    textAlign:  'center',
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-body)',
-                    color:      'var(--neutral-400)',
-                  }}>
-                    No tasks match &ldquo;{tasksSearchQuery}&rdquo;
-                  </p>
-                )}
-
-                {!tasksSearchQuery && threads.length === 0 && !tasksLoading && (
-                  <div role="listitem" style={{ padding: '1px 0' }}>
-                    <ChatRow isEmpty />
-                  </div>
-                )}
-
-                {!tasksSearchQuery && tasksTab === 'scheduled' && filteredThreads.length === 0 && threads.length > 0 && (
-                  <p style={{
-                    margin:     '32px 0',
-                    textAlign:  'center',
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-body)',
-                    color:      'var(--neutral-400)',
-                  }}>
-                    No scheduled tasks yet
-                  </p>
-                )}
-
-                {filteredThreads.map(thread => (
-                  <div key={thread.id} role="listitem" style={{ padding: '1px 0 6px' }}>
-                    <ChatRow
-                      title={thread.chat_title || 'Untitled'}
-                      timestamp={hasMounted ? formatRelativeTime(thread.updated_at ?? thread.created_at) : ''}
-                      starred={thread.starred}
-                      taskMode
-                      scheduled={scheduledChatIds.has(thread.id)}
-                      onClick={() => push(`${BRAIN_ROUTE}?id=${thread.id}`)}
-                      onRename={(title) => renameTask(thread.id, title)}
-                      onStar={() => starTask(thread.id)}
-                      onDelete={() => handleTaskDelete(thread.id, thread.chat_title)}
-                    />
-                  </div>
-                ))}
-
-              </div>
-            )}
 
           </>
         )}

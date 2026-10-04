@@ -1,12 +1,14 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Dropdown } from '@/components/Dropdown'
 import {
   ArrowRightOneIcon,
   FolderAddIcon,
   FolderOneIcon,
   GlobalSearchIcon,
+  UserAddOneIcon,
   QuillWriteTwoIcon,
   UserAiIcon,
 } from '@strange-huge/icons'
@@ -14,8 +16,10 @@ import type { PinFolder } from '@/lib/api/pins'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
+import { AGENTS_NEW_ROUTE } from '@/lib/routes'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 
@@ -61,6 +65,7 @@ export function ChatAddMenu({
   const personaMenuOpen    = openSubmenu === 'persona'
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
+  const { push } = useRouter()
 
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
@@ -138,10 +143,18 @@ export function ChatAddMenu({
                     : <Dropdown.Item label="No agents yet" fluid disabled />
                 }
               </Dropdown.Section>
+              <Dropdown.Section fluid divider>
+                <Dropdown.Item
+                  label="New agent"
+                  icon={<UserAddOneIcon />}
+                  fluid
+                  onClick={() => { setOpenSubmenu(null); push(AGENTS_NEW_ROUTE) }}
+                />
+              </Dropdown.Section>
             </Dropdown>
           </Dropdown.Float>
         )}
-        {!hidePinFolders && (
+        {PINS_ENABLED && !hidePinFolders && (
         <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={(open) => setOpenSubmenu(open ? 'pinFolders' : null)}
@@ -160,7 +173,7 @@ export function ChatAddMenu({
                         icon={<FolderOneIcon variant="static" animated />}
                         fluid
                         selected={selectedFolders.some(sf => sf.id === f.id)}
-                        onClick={() => onFolderToggle(f)}
+                        onClick={() => { if (PINS_ENABLED) onFolderToggle(f) }}
                       />
                     ))
                   : <Dropdown.Item label="No folders yet" fluid disabled />

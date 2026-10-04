@@ -2,7 +2,7 @@
 
 Cross-references every "persona" backend endpoint (per `docs/openapi/devapi.json`) against how — or whether — the front-end calls it: `config.ts` constant, wrapper function/method, and every UI location that triggers it. Companion to [`chat-endpoints-usage.md`](./chat-endpoints-usage.md) — persona-chat endpoints (`/persona/{repo_id}/chats/*`) are already covered there — and to [`persona-shares-endpoints-usage.md`](./persona-shares-endpoints-usage.md) — the 8 `/persona-shares/*` (Super Link) endpoints are covered there. Neither is repeated here.
 
-This doc covers the remaining 29 persona-related paths (3 internal-sandbox + 26 real repo/version-management endpoints). **18 are actively used; 8 have no frontend caller at all; 6 free-function wrappers in `personas.ts` have a duplicate class-method sibling on `PersonaRepo` that's dead code** (production always goes through the free function, never the class method).
+This doc covers the remaining 29 persona-related paths (3 internal-sandbox + 26 real repo/version-management endpoints). **19 are actively used; 7 have no frontend caller at all; 6 free-function wrappers in `personas.ts` have a duplicate class-method sibling on `PersonaRepo` that's dead code** (production always goes through the free function, never the class method).
 
 Structural note: recent code carries persona repos two ways — `src/lib/api/personas.ts` (the actively-used, free-function API surface) and `src/lib/api/persona-repo.ts` (a `PersonaRepo` class wrapping the same schemas, currently only exercised by its own test file). Where both exist for the same endpoint, the doc below calls out the live one and flags the class method as dead.
 
@@ -29,7 +29,7 @@ No `config.ts` constant, no wrapper, no reference anywhere in `src/`. Backend-in
   - `ProjectAgentsPanel/index.tsx` — project sidebar's Agents panel.
   - `lib/chat-personas.ts` — shared persona-selection helper for the chat AddMenu.
   - `lib/queries/personas.ts` — the `usePersonas()` React Query hook, consumed in various components.
-  - **Create**: `agents/basics/tone/page.tsx`'s `handleContinue()` — clicking **Continue** on the last step of the agent-creation wizard (Tone step), creating the repo + its initial version in one call.
+  - **Create**: `agents/new/page.tsx`'s `handleFinish()` → `createAgent()` (`lib/agent-save.ts`) — clicking **Finish — create agent** on the editor step creates the repo + its initial version in one call, then tags it and publishes it. (Replaces the V1.5 wizard's Tone-step `handleContinue()`.)
 
 ### `GET /persona/{repo_id}` (get) & `DELETE /persona/{repo_id}` (remove)
 - **`config.ts`**: `PERSONA_DETAIL_ENDPOINT(repoId)`
@@ -90,12 +90,13 @@ No `config.ts` constant, no wrapper, no reference anywhere in `src/`. Backend-in
 ### `POST /persona/starter`
 - **`config.ts`**: `PERSONA_STARTER_ENDPOINT`
 - **Wrapper**: `personaStarter()` (`personas.ts`)
-- **Used by**: `agents/basics/tone/page.tsx` — auto-fetched on mount to populate dynamic tone-option cards, and again inside `handleContinue()` to fetch final starter content right before `createPersonaRepo()`.
+- **Used by**: `lib/agent-generate.ts` — `generateAgentDraft()` (instructions + tone options + tags, from the agent's name and the purpose plus any answered clarifications) and `regenerateInstructions()` (the editor's *Generate new instructions* action). The backend only reads `name` and `description`; a `tone` hint is ignored, so a tone is applied as a managed `Tone:` line in the instructions (`lib/agent-draft.ts`).
 
-### `POST /persona/enhance-prompt` — dead
+### `POST /persona/enhance-prompt`
 - **`config.ts`**: `PERSONA_ENHANCE_ENDPOINT`
-- **Wrapper**: `enhancePrompt()` (`personas.ts`) — defined, zero call sites (verified: only its own definition/export in `personas.ts`, plus its schema in `persona-schemas.ts`).
-- The `EnhancePromptField` component on the Instructions tab that its name suggests it'd power is actually backed by a separate, purely client-side rewrite module (`src/enhance/index.ts`) with no network calls at all — the naming similarity is coincidental.
+- **Wrapper**: `enhancePrompt(prompt, answers)` (`personas.ts`). `answers` are `{ question, answer }` pairs — the backend's `EnhanceAnswer`. (The wrapper used to type them as `string[]`, which the backend would have rejected; it had no callers until now.)
+- **Used by**: `lib/agent-generate.ts` — `requestClarifyingQuestions()` asks for up to 3 clarifying questions about a new agent's purpose, shown as question cards on `/agents/new`. Any failure or a 12 s timeout means "no questions"; creation never waits on it. Only `questions` is used; `enhanced_prompt` is ignored.
+- The `EnhancePromptField` component in the editor is a separate, purely client-side rewrite module (`src/enhance/index.ts`) with no network calls — the naming similarity is coincidental.
 
 ---
 
@@ -186,7 +187,6 @@ Moved to its own doc: [`persona-shares-endpoints-usage.md`](./persona-shares-end
 | `POST /internal/sandbox/persona/ask` | No constant, no wrapper, no consumer |
 | `POST /internal/sandbox/persona/find` | No constant, no wrapper, no consumer |
 | `POST /internal/sandbox/persona/wait` | No constant, no wrapper, no consumer |
-| `POST /persona/enhance-prompt` | Constant + wrapper (`enhancePrompt`) exist, zero call sites |
 | `PATCH .../versions/{id}/connector-hints` | No constant, no wrapper, no consumer |
 | `PUT .../versions/{id}/connectors` | No constant, no wrapper, no consumer |
 | `PUT .../document/{id}/org-knowledge` | No constant, no wrapper, no consumer |

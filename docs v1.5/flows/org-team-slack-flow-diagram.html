@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Org/Team &amp; Slack — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.missing .dot{background:#B05A9E;}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Org/Team &amp; Slack — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code>, <code>flows/chats-projects-flow-diagram.html</code>, and <code>flows/tasks-flow-diagram.html</code>, same schema — this one fills a previously-undocumented gap: org/workspace membership, invites, activity, usage, workspace switching, and the Slack integration. Settings &amp; Billing (plans, payment, Stripe) is documented separately — where the two overlap (e.g. <code>/org/plans</code>, credit accounting on the Usage page) this doc notes it briefly and points there rather than duplicating billing detail.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session. The single biggest structural finding: almost every route still living under <code>/org/*</code> (General, Members, Activity, Analytics) is now a client-side redirect stub into the equivalent <code>/settings/*</code> page — the real UI moved during the V1.5 Settings restructure, and only <code>/org</code> itself, <code>/org/plans</code>, <code>/slack/link</code>, and <code>/souvenir-slack</code> still render real content at an <code>/org</code>-prefixed path. The other load-bearing finding: the invite system has two distinctly-named routes (<code>/org-invite/[id]</code> and <code>/team-invite/[id]</code>) that are <strong>not aliases</strong> — one is the pre-login landing page, the other a post-login redirect stub into a third, separate onboarding flow that does the real accept-and-profile work. Spelled out in full in §02.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#B05A9E"></span>Missing / Unused / Hidden</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#o00">Entities — org, roles, the /org → /settings redirect map</a></li>
+      <li><a href="#o01">Members — /settings/members</a></li>
+      <li><a href="#o02">Invite flow — org-invite vs team-invite</a></li>
+      <li><a href="#o03">Activity Log — /settings/activity</a></li>
+      <li><a href="#o04">Usage / Analytics — /settings/analytics</a></li>
+      <li><a href="#o05">General — /settings/general</a></li>
+      <li><a href="#o06">Workspace switching — TeamSwitcher family</a></li>
+      <li><a href="#o07">Slack — linking, project channels, sidebar surface</a></li>
+      <li><a href="#o08">Cross-cutting notes</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2 id="o00"><span class="num">00</span>Entities, roles, and the /org → /settings redirect map</h2>
+  <p class="page-intro">One org/workspace context (<code>src/context/org-context.tsx</code>) backs every page in this doc. It exposes <code>orgId</code>, <code>org</code>, <code>members</code>/<code>membersLoading</code>, <code>orgRole</code> (raw backend value) and <code>currentUserRole</code> (a same-value convenience field, <code>'admin' | 'member'</code>), a <code>caps</code> capability object, and two readiness flags (<code>orgReady</code>, <code>orgRoleResolved</code>) that pages gate their initial redirect/skeleton on.</p>
+
+  <table>
+    <tr><th class="label">Role (org-level)</th><th>What it actually grants</th></tr>
+    <tr><td class="label">Admin</td><td>Full organization control — billing, payment methods, invoices, subscriptions, topups, invites, member management, connectors. Any number of admins per org, all equal.</td></tr>
+    <tr><td class="label">Member</td><td>Baseline access through assigned projects only. Cannot change org settings or manage other members.</td></tr>
+  </table>
+  <p><span class="tag note">note</span> The backend also has an <code>owner</code> value and the UI still ships <code>editor</code> tokens/glyphs (<code>RoleBadge</code>'s <code>WorkspaceRole</code> type is <code>'admin' | 'editor' | 'member'</code>) — but per an explicit comment in the Members page, <strong>"Team has no backend route left at all"</strong>, so a member's displayed role is always folded down to just Admin or Member (<code>owner</code> → Admin, everything else → Member) with no separate Editor tier reachable in practice. See §06 for where the editor/team-role UI still lives unused.</p>
+
+  <p>Nearly everything historically at <code>/org/*</code> is now a redirect shim. Concretely:</p>
+  <table>
+    <tr><th class="label">Old route</th><th>Renders</th><th>Real content now lives at</th></tr>
+    <tr><td class="label"><code>/org</code></td><td>redirect only</td><td><code>/settings/general</code></td></tr>
+    <tr><td class="label"><code>/org/general</code></td><td>redirect only</td><td><code>/settings/general</code></td></tr>
+    <tr><td class="label"><code>/org/members</code></td><td>redirect only</td><td><code>/settings/members</code></td></tr>
+    <tr><td class="label"><code>/org/activity</code></td><td>redirect only</td><td><code>/settings/activity</code></td></tr>
+    <tr><td class="label"><code>/org/analytics</code></td><td>redirect only</td><td><code>/settings/analytics</code></td></tr>
+    <tr><td class="label"><code>/org/plans</code>, <code>/org/plans/confirmation</code></td><td>real content — billing/plan UI</td><td>stays under <code>/org</code> — covered by the Settings &amp; Billing doc, not here</td></tr>
+    <tr><td class="label"><code>/slack/link</code></td><td>real content — Slack identity link/unlink landing</td><td>§07</td></tr>
+    <tr><td class="label"><code>/souvenir-slack</code></td><td>real content — per-project Slack channel management</td><td>§07</td></tr>
+  </table>
+  <p>Both layout guards (<code>src/app/(app)/org/layout.tsx</code> and <code>src/app/(app)/settings/(shell)/(org)/layout.tsx</code>) are effectively duplicates — same admin-only check (<code>currentUserRole === 'admin'</code>, redirect to <code>CHAT_ROUTE</code> once <code>orgReady</code>), one guarding the redirect stubs and the other guarding the real pages they redirect to.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Orphaned routes:</strong> <code>/org</code>, <code>/org/general</code>, <code>/org/members</code>, <code>/org/activity</code>, <code>/org/analytics</code> — all render nothing but a client-side redirect stub (<code>src/app/(app)/org/*</code>), targeting <code>/settings/general</code>, <code>/settings/general</code>, <code>/settings/members</code>, <code>/settings/activity</code>, and <code>/settings/analytics</code> respectively.</li>
+    <li><strong>Backend-ready-but-unused:</strong> the backend's <code>owner</code> role value and the UI's <code>editor</code> role tier (<code>RoleBadge</code>'s <code>WorkspaceRole</code> type, <code>src/types/teams.ts</code>) are both received/typed but never surfaced distinctly — per an explicit code comment on the Members page, <strong>"Team has no backend route left at all,"</strong> so every role folds down to just Admin or Member.</li>
+    <li><strong>Duplicate dead guard logic:</strong> <code>src/app/(app)/org/layout.tsx</code> and <code>src/app/(app)/settings/(shell)/(org)/layout.tsx</code> implement the identical admin-only redirect check — one of the two is pure redundant surface area now that the routes it guards are stub-only.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Once nothing else could plausibly still deep-link to the old <code>/org/general</code>/<code>/org/members</code>/<code>/org/activity</code>/<code>/org/analytics</code> paths (bookmarks, emailed links, external docs), collapse the redirect stubs into real server-side redirects (or delete them) rather than a client component mount + <code>useEffect</code> + blank render on every visit — today's version costs a full extra render cycle and a flash of nothing for every stale link.</li>
+  </ul>
+
+  <!-- ══════════════════════ 01 — MEMBERS ══════════════════════ -->
+  <h2 id="o01"><span class="num">01</span>Members<span class="page-route">/settings/members</span></h2>
+  <p class="page-intro">Admin-only. One table, one modal, one info panel — no separate "pending invites" tab; invited-but-not-joined rows sit inline in the same table with an "Invite sent" badge.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Members — h1 + subtitle</div><div class="w-box btn" style="flex:none">ⓘ Roles &amp; Permissions</div></div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tight">Total members</div>
+          <div class="w-box tight">Admins</div>
+          <div class="w-box tight">Pending invites</div>
+        </div>
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Team Members</div><div class="w-row" style="flex:none"><div class="w-box icon">🔍</div><div class="w-box btn primary">+ Invite members</div></div></div>
+        <div class="w-box solid tall">Row — avatar, name + "Invite sent" badge, email / Role dropdown / Remove or Withdraw</div>
+        <div class="w-box solid tall">Row</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Members table columns: Member (avatar + name/email, "Invite sent" badge when <code>inviteStatus === 'invite_sent'</code>), Role (inline dropdown), Actions (Remove/Withdraw with a blur-swap confirm-in-place, no modal).</li>
+    <li>Stats row: total members, admin count, pending-invite count — all derived client-side from the same <code>members</code> array, not separate endpoints.</li>
+    <li>Search filters across name, email, role, org-role, and team-membership names (client-side, over the already-loaded list).</li>
+    <li>The Role dropdown's two options (Admin/Member) and their one-line descriptions come from a single <code>ROLES_INFO</code> array also consumed by the "Roles &amp; Permissions" info modal — the dropdown copy and the modal copy structurally cannot drift apart.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>The sole remaining admin cannot open the Role dropdown on <em>their own</em> row at all — blocked client-side with an explanatory toast ("You're the only admin — promote someone else before changing your own role") rather than letting them pick Member, confirm a downgrade modal, and then get rejected by the backend. Every other admin→member change (on someone else's row, or when ≥2 admins exist) goes through a confirm modal first.</li>
+    <li>A pending-invite row (<code>inviteStatus === 'invite_sent'</code>) cannot have its role managed or be removed via the normal path — its Actions column instead shows "Withdraw", which calls the invite-specific revoke endpoint (falling back to the plain remove-member call only if invite metadata is missing on an optimistic row).</li>
+    <li>Every mutation (role change, remove, invite, revoke) is optimistic with rollback on failure, and is versioned through a ref-backed bump counter so a slow, superseded background resync of the members list can never clobber a newer local edit.</li>
+    <li><span class="tag note">note</span> A one-off effect silently patches the signed-in user's own display name to the backend if it's currently empty or the literal string "Someone" — a self-healing step, not something the page ever surfaces to the user.</li>
+    <li>Invite validation (already-a-member, domain-restriction) runs client-side first, so a batch of pasted emails can partially fail before any network call — <code>InviteModal</code> flags each bad email inline as a red chip with its reason on hover/title, and only sends the emails that pass both checks.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — a single page, no sub-navigation. The Usage page's "Manage members" action (§04) links here.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Call</th><th>Notes</th></tr>
+    <tr><td class="label">Change role</td><td><code>setMemberRole(orgId, memberId, role)</code></td><td>compares against the <em>displayed</em> role (owner already shows as Admin) so re-picking "Admin" for an owner never fires a spurious write</td></tr>
+    <tr><td class="label">Remove member</td><td><code>removeMember(orgId, memberId)</code></td><td>optimistic row removal</td></tr>
+    <tr><td class="label">Withdraw invite</td><td><code>revokeInvite(orgId, inviteId)</code></td><td>invite-table delete, distinct from member removal</td></tr>
+    <tr><td class="label">Send invite(s)</td><td><code>inviteMembers(orgId, emails, role)</code></td><td>one batched call; per-email pass/fail returned to <code>InviteModal</code> so only succeeded chips clear</td></tr>
+  </table>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Two modals: the invite modal (email chips + role selector, <code>AppInviteModal</code>/<code>InviteModal</code>), and a "Roles &amp; Permissions" info modal (opened from an info-icon button next to the page title) with a vertical role-hierarchy stack that can drill into a full side-by-side role-comparison table. Both are read-only reference, not editors.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Dead code:</strong> <code>TeamSwitcherDropdown</code> (<code>src/components/TeamSwitcherDropdown/index.tsx</code>) and <code>TeamSwitcherRow</code> (<code>src/components/TeamSwitcherRow/index.tsx</code>) implement a richer per-team role hierarchy (per-team action flyouts keyed on an <code>editor</code> role) that would compete with this page's flattened Admin/Member model — confirmed via grep that neither component is imported or rendered anywhere; every other hit is a code comment (<code>src/context/org-context.tsx:148</code>, <code>src/components/SidebarProjectsSection/index.tsx:96</code>, <code>src/app/(app)/projects/page.tsx:65-66</code>). Documented fully under §06, where the component family lives.</li>
+    <li><strong>Backend-ready-but-unused:</strong> the Role dropdown/"Roles &amp; Permissions" modal only ever offer Admin/Member — the backend's <code>owner</code> value and the UI's typed <code>editor</code> tier are never exposed here (see §00 for the "no backend route left" comment this stems from).</li>
+  </ul>
+
+  <!-- ══════════════════════ 02 — INVITE FLOW ══════════════════════ -->
+  <h2 id="o02"><span class="num">02</span>Invite flow — org-invite vs team-invite<span class="page-route">/org-invite/[id], /team-invite/[id], /onboarding/team/[id]</span></h2>
+  <p class="page-intro"><strong>These are not the same flow wearing two names.</strong> They're two different links, doing two different jobs, that happen to both exist because of how the backend emails invites vs. how an already-signed-in click resolves.</p>
+
+  <table>
+    <tr><th class="label">Route</th><th>Who reaches it</th><th>What it does</th></tr>
+    <tr><td class="label"><code>/org-invite/[inviteId]</code></td><td>a logged-out visitor clicking the emailed invite link</td><td>static "You're on the list!" landing — no API call at all. Just two buttons (Sign up / Sign in), both carrying <code>returnTo</code> into Auth0 so the visitor lands back on the real invite screen once authenticated.</td></tr>
+    <tr><td class="label"><code>/team-invite/[inviteId]</code></td><td>the post-login return leg (or a direct hit once already authenticated)</td><td>pure redirect stub — immediately <code>replace()</code>s to <code>/onboarding/team/[inviteId]</code>, the actual acceptance flow. Renders nothing itself.</td></tr>
+    <tr><td class="label"><code>/onboarding/team/[inviteId]</code></td><td>authenticated visitor, real invite id</td><td>Screen 1 — "Join a workspace": workspace card (name, member count, avatar stack) + Join button.</td></tr>
+    <tr><td class="label"><code>/onboarding/team/[inviteId]/profile</code></td><td>brand-new users only, right after Join</td><td>Screen 2 — "Create your profile": first/last name, role, tone — then on to the shared Slack-modal landing.</td></tr>
+  </table>
+
+  <p><span class="tag fixed">fixed</span> <code>/org-invite/[id]</code> used to also fetch <code>GET /org-invite/{id}</code> to render a personalized card and pick Sign-in vs Sign-up — but that endpoint requires an authenticated caller, so it always failed for the logged-out visitor this exact page exists to serve, replacing the whole card (including both auth buttons) with a "couldn't be found" error. The fix documented inline in the file dropped the data dependency entirely: this screen's only job is routing into Auth0, and the personalized card now renders one step later on <code>/onboarding/team/[inviteId]</code>, where the same endpoint succeeds naturally because the visitor is authenticated by then.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — the 3 real screens in sequence</div>
+    <div class="w-frame" style="max-width:900px; margin:0 auto;">
+      <div class="w-row">
+        <div class="w-col" style="flex:1">
+          <div class="w-box tight">1 · /org-invite/[id] (logged out)</div>
+          <div class="w-box tall">"You're on the list!" — Sign up / Sign in</div>
+        </div>
+        <div class="w-col" style="flex:1">
+          <div class="w-box tight">2 · /onboarding/team/[id]</div>
+          <div class="w-box tall">Workspace card — name, N members, avatar stack, Join</div>
+        </div>
+        <div class="w-col" style="flex:1">
+          <div class="w-box tight">3 · .../profile (new users only)</div>
+          <div class="w-box tall">First/last name, Role, Style → Slack-modal landing</div>
+        </div>
+      </div>
+      <div class="w-note">/team-invite/[id] is not shown — it renders nothing, it only forwards from step 1's returnTo into step 2</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Screen 1's Join button does two things atomically in sequence: <code>acceptTeamInvite(inviteId)</code> then <code>updateOnboarding({ onboarding_completed: true })</code> — same contract the old flow's "Accept invite" button had.</li>
+    <li>Routing after Join branches on whether the user was <em>already</em> onboarded (captured before the mutations run, so a stale post-mutation read can't flip the branch): already-onboarded users skip straight to <code>${WELCOME_ROUTE}?slack=1</code>; brand-new users go to the profile screen first.</li>
+    <li>The profile screen also runs in a second, undocumented "standalone" mode: if <code>[inviteId]</code> in the URL is actually a teamId (an already-onboarded user redirected here post-accept) the invite context 404s, and saving sends the user straight to <code>/chat</code> instead of the Slack landing.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>The profile screen deliberately has <strong>no Back button</strong> — the invite is deactivated the instant Join succeeds, so a Back-then-re-Join would 404 "Invite not found" rather than re-accept. There's nothing left to reconsider once membership is already committed.</li>
+    <li>If the signed-in user already has first name, last name, and an onboarding role set, the profile screen auto-redirects to <code>/chat</code> without ever rendering the form — covers a user who completes onboarding via some other path before reaching this screen.</li>
+    <li>A 410 from <code>acceptTeamInvite</code> surfaces as "This invite has expired" via toast; other failures show the raw API message.</li>
+    <li>Non-"ready" invite-context states (loading / expired / not_found / error) render through a single shared <code>InviteStateScreen</code> on both screens — same gradient-card look, so a hard refresh at any point in the flow degrades identically.</li>
+    <li>Tone is collected inline here as a third dropdown (defaulted to "Balanced") rather than the self-signup flow's dedicated full-screen tone step — an invited member otherwise never gets asked their tone preference at all until they happen to visit Settings → Account later.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Join (already onboarded) → <code>${WELCOME_ROUTE}?slack=1</code>. Join (new user) → <code>/onboarding/team/[inviteId]/profile</code> → (standalone mode) <code>/chat</code>, or (invite mode) <code>${WELCOME_ROUTE}?slack=1</code>.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Profile screen saves via two parallel calls — <code>updateUser({ first_name, last_name })</code> and <code>updateOnboarding({ user_role, ai_tone })</code> — followed by a forced <code>refreshUser()</code> so the "already complete, skip me" check above never reads stale pre-save data if this screen is somehow revisited.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — full-screen step flow, no side panels.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Orphaned/dual-purpose route:</strong> <code>/team-invite/[inviteId]</code> renders nothing itself — it is a pure redirect stub that immediately <code>replace()</code>s to <code>/onboarding/team/[inviteId]</code>, the route that does the real work.</li>
+    <li><strong>Hidden mode, not a separate route:</strong> <code>/onboarding/team/[inviteId]/profile</code> secretly runs in an undocumented "standalone" mode when <code>[inviteId]</code> is actually a teamId rather than an invite id (an already-onboarded user redirected here post-accept) — the invite context 404s silently and saving routes to <code>/chat</code> instead of the Slack landing, with no UI distinction shown to the user that they're in a different code path.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> The 3-hop redirect chain (<code>/org-invite</code> → Auth0 → <code>/team-invite</code> → <code>/onboarding/team</code>) works but is easy to break silently if any one <code>ROUTE</code> constant drifts — worth a lightweight integration test that walks the chain end-to-end rather than relying on each file's own comments to keep them in sync.</li>
+  </ul>
+
+  <!-- ══════════════════════ 03 — ACTIVITY LOG ══════════════════════ -->
+  <h2 id="o03"><span class="num">03</span>Activity Log<span class="page-route">/settings/activity</span></h2>
+  <p class="page-intro">Both admins and members can open this page — the difference is scope, not access.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tight" style="justify-content:flex-start">Activity Log — "All workspace actions" (admin) or "Your activity" (member)</div>
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Recent activity</div><div class="w-row" style="flex:none"><div class="w-box icon">🔍</div><div class="w-box btn">All actions ▾</div></div></div>
+        <div class="w-box solid tall">Row — When / Actor (avatar+name+email) / Action (colored badge) / Target</div>
+        <div class="w-box solid tall">Row</div>
+        <div class="w-box tight">Retains 90 days of history · showing N of M entries</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>listAudit(orgId, { limit: 100 })</code> — one flat fetch, filtered/searched entirely client-side afterward (action-type dropdown built from the distinct actions actually present, plus a free-text search across actor/target/action).</li>
+    <li>Action badges are colored by regex-matching the raw action string's family: red for removed/deleted/unlinked/denied/revoked, green for created/added/accepted/published/linked/granted/approved, yellow for requested/sent/pending, blue for role/cap/ownership/status/settings changes, neutral otherwise.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> The audit API has no role-aware filtering server-side — it always returns the full org's log. Non-admin scoping (members only see rows where they're the actor) is done entirely client-side by filtering on <code>actorEmail === user.email</code> after the full fetch. A non-admin's browser therefore always receives the whole organization's audit trail even though the UI only shows them their own slice.</li>
+    <li>Backend timestamps are UTC and often lack a trailing <code>Z</code> — a shared <code>parseServerDate</code> normalizes this so relative times ("3h ago") don't come out negative from a local-time misparse.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — read-only log, no drill-in to individual entries.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Orphaned route:</strong> <code>/org/activity</code> is a redirect-only stub into <code>/settings/activity</code> (this page) — see §00.</li>
+    <li><strong>Backend-ready-but-unused (inverse case):</strong> the audit API has no role-aware filter param at all — the frontend receives the full org's log every time and discards the non-self rows client-side for a member. There is no unused backend field here; rather a missing one (no <code>actor_id</code> filter exists server-side to be read).</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Move the admin/member scoping documented above server-side (an <code>actor_id</code> filter param, or a role check in the audit endpoint itself) so a member's session never has the full org's activity log sitting in its network responses regardless of what the UI chooses to render from it.</li>
+  </ul>
+
+  <!-- ══════════════════════ 04 — USAGE / ANALYTICS ══════════════════════ -->
+  <h2 id="o04"><span class="num">04</span>Usage / Analytics<span class="page-route">/settings/analytics</span></h2>
+  <p class="page-intro">Titled "Usage" on-page — admin-only, and the one page in this doc with real overlap into billing territory. Plan selection, payment method, and invoices live in the Settings &amp; Billing doc; this page only covers the credit/consumption half.</p>
+  <div class="note">Overlap note: this page reads <code>Billing.fetch()</code> (Stripe's <code>current_period_end</code>) purely to compute "current cycle" date labels, and derives its "$X/mo" figure the same way the plans-and-billing page derives its own "Pro Plan · $X/mo" line. Anything about changing plans, payment methods, or invoices is out of scope here — see the Settings &amp; Billing doc.</div>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Usage</div><div class="w-box tight">Current cycle: Sep 1 – Sep 30 / Resets Sep 30</div></div>
+        <div class="w-row" style="flex:none; justify-content:flex-end"><div class="w-box tight">7d</div><div class="w-box tight">1m</div><div class="w-box tight">3m</div><div class="w-box tight">6m</div></div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box tall">Monthly Limits — $X/mo · N credits, progress bar, used/remaining</div>
+          <div class="w-box tall">Active members — count, progress bar, % used credits this cycle</div>
+        </div>
+        <div class="w-box tall">Credit usage by feature — stacked bar, Chat/Slack/Brain legend</div>
+        <div class="w-box solid tall">Top users · range — ranked list + "Manage members"</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>"Monthly Limits" and "Active members" stat cards read straight from <code>plan</code>/<code>members</code> in org context — real numbers, no derivation.</li>
+    <li><span class="tag note">note</span> The "Credit usage by feature" chart (Chat/Slack/Brain split) is <strong>not</strong> a real per-day, per-feature time series — the backend only exposes one org-wide credit total per cycle. The chart apportions that real total across the selected date range and a fixed feature-mix ratio (68% Chat / 20% Slack-labeled "assistants" / 12% Brain) using deterministic (non-random) per-bucket weights, so it's stable across re-renders but not a measured breakdown. The caption under the chart states this plainly rather than letting the bars imply more precision than they have.</li>
+    <li>"Utilisation" (share of active members who've spent ≥1 credit this cycle) is likewise a substitute for a Figma-specified "20% utilisation" figure that has no direct backend equivalent — computed from real per-member <code>creditUsed</code>, just not the exact metric the design called for.</li>
+    <li>Top users list is sorted by real per-member <code>creditUsed</code> descending, capped at 4, with "Manage members" (→ Members page) appearing only when the list is actually truncated.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag fixed">fixed</span> An Enterprise/custom-contracted org's monthly price never lands on one of the fixed Teams $50–$2000 tiers, so a naive lookup silently showed $0. The page now derives the Enterprise price from the projected invoice minus overage instead.</li>
+    <li>Per-member <code>creditUsed</code> includes "utility" work (auto-titling, summarization, memory extraction) that's metered for visibility but never actually charged — so member totals will usually sum to slightly <em>more</em> than the org-level "Monthly Limits" total, not less. The page spells this out in a footnote under the Top Users list rather than leaving the mismatch looking like a tracking bug.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>"Manage members" (only shown once the Top Users list is truncated) → <code>/settings/members</code>.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — entirely read-only.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>Two info-icon tooltips (Monthly Limits, Active members) explain what each stat card and its bar actually represent — the only in-page help.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Silently mocked/fabricated data:</strong> the "Credit usage by feature" stacked bar (Chat/Slack/Brain) is not a measured per-day, per-feature time series — the backend only exposes one org-wide credit total per cycle. The chart apportions that single real total across the selected date range using a fixed, deterministic feature-mix ratio (68% Chat / 20% Slack / 12% Brain) rather than actual per-feature usage. Disclosed in a caption under the chart, but the underlying per-feature split shown in the UI is fabricated, not derived from real per-feature backend data.</li>
+    <li><strong>Silently mocked/fabricated data:</strong> "Utilisation" is likewise a stand-in for a Figma-specified "20% utilisation" metric with no direct backend equivalent — computed from real per-member <code>creditUsed</code> as a proxy, not the metric the design called for.</li>
+    <li><strong>Orphaned route:</strong> <code>/org/analytics</code> is a redirect-only stub into <code>/settings/analytics</code> (this page) — see §00.</li>
+  </ul>
+
+  <!-- ══════════════════════ 05 — GENERAL ══════════════════════ -->
+  <h2 id="o05"><span class="num">05</span>General<span class="page-route">/settings/general</span></h2>
+  <p class="page-intro">Workspace identity, org-level AI instructions, an inline Slack channel-mapping card (conditionally shown), and the Danger Zone. Admin-only.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-box tight" style="justify-content:flex-start">General</div>
+        <div class="w-box solid tall">Workspace Identity — logo, name, URL slug, workspace ID (copy) · Edit/Save</div>
+        <div class="w-box solid tall">Organization-level AI instructions — textarea, 3000 char cap, "Overrides personal" badge</div>
+        <div class="w-box solid tall">Slack · {team} — channel list + project mapping (only if connected)</div>
+        <div class="w-box solid tall" style="border-color:var(--red)">Danger Zone — Leave workspace (live) · Archive (disabled, "Coming soon") · Delete (disabled, "Coming soon")</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Workspace Identity is a staged edit — clicking Edit unlocks name/slug/logo fields; nothing is sent until Save. Logo picks are compressed client-side to 512×512 JPEG before staging.</li>
+    <li>An app-wide nav-guard (the same one <code>/settings/account</code> uses) blocks navigation away from this page with unsaved identity edits — both a custom in-app confirmation and a native <code>beforeunload</code> prompt on tab close/refresh.</li>
+    <li>The inline Slack card here is a second, simpler surface for the same underlying data as the dedicated <code>/souvenir-slack</code> page (§07) — it lists all Slack channels and lets you type a raw project ID to map one, rather than <code>/souvenir-slack</code>'s per-project create/rename/delete flow. It only renders at all when Slack is connected (or still loading) — <code>slackLoading || slackChannels.length > 0</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> Two whole cards from the Figma design — "Allowed email domains" and "Workspace defaults" (default chat/persona visibility) — are permanently dead code, gated behind literal <code>{false && (...)}</code>. The allowed-domains <em>data</em> is still very much alive elsewhere (Members page and the invite modal both read/enforce <code>allowedEmailDomains</code>), there's simply no UI left on this page to actually set it.</li>
+    <li><span class="tag note">note</span> Archive and Delete workspace are both real, backend-wired code paths (<code>deleteOrg</code> has a working handler) but are kept disabled behind "Coming soon" badges — Archive because nothing server-side actually reads the <code>archived</code> field yet to gate access, Delete presumably held back deliberately given how destructive it is. Only "Leave workspace" is actually clickable in the Danger Zone today.</li>
+    <li>Changing the org slug/name resets a defensive set of staged-logo/editing state whenever <code>orgId</code> itself changes while the page stays mounted — without it, a stale "unsaved changes" flag from a previously-viewed org could wedge the nav-guard permanently true for every later click.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable beyond the Danger Zone's own confirmation modal (Leave workspace).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <table>
+    <tr><th class="label">Card</th><th>Call</th><th>Notes</th></tr>
+    <tr><td class="label">Workspace identity</td><td><code>updateOrg(orgId, { name, slug, logoFile })</code></td><td>single combined save for all staged identity fields</td></tr>
+    <tr><td class="label">AI instructions</td><td><code>updateOrgSettings(orgId, { orgInstructions })</code></td><td>echoes back the persisted value and compares it to what was sent — surfaces a distinct error if the server silently drops the write rather than reporting a false "saved"</td></tr>
+    <tr><td class="label">Slack channel mapping</td><td><code>setSlackChannelMapping(orgId, channelId, projectId)</code></td><td>same endpoint the dedicated Slack page uses (§07)</td></tr>
+    <tr><td class="label">Delete workspace</td><td><code>deleteOrg(orgId, confirmText)</code></td><td>wired but disabled in the UI — see edge cases above</td></tr>
+  </table>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block"><code>LeaveWorkspaceModal</code> only — no other panels on this page.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Disabled feature:</strong> the "Allowed email domains" card is gated behind literal <code>{false && (...)}</code> at <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx:1127</code>. A code comment at line 409 of the same file flags both as dead. The underlying <code>allowedEmailDomains</code> data is still live and read elsewhere (Members page, invite modal) — only this page's UI for setting it is dead.</li>
+    <li><strong>Disabled feature:</strong> the "Workspace defaults" card (default chat/persona visibility) is gated behind literal <code>{false && (...)}</code> at <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx:1242</code>, same dead-code comment at line 409.</li>
+    <li><strong>Disabled feature:</strong> Archive workspace is a wired, clickable-looking button in the Danger Zone but rendered disabled with a "Coming soon" badge — no server-side code reads the <code>archived</code> field yet, so enabling it client-side would currently do nothing.</li>
+    <li><strong>Disabled feature:</strong> Delete workspace is likewise disabled with "Coming soon" despite a fully working handler (<code>deleteOrg(orgId, confirmText)</code>) — held back deliberately given its destructiveness.</li>
+    <li><strong>Orphaned route:</strong> <code>/org/general</code> is a redirect-only stub into <code>/settings/general</code> (this page) — see §00.</li>
+    <li><strong>Dead code (shared with §07):</strong> this page's inline Slack channel-mapping card implements its own bespoke row markup rather than the unused <code>SlackChannelMappingRow</code> component — see §07 for the component detail.</li>
+  </ul>
+
+  <!-- ══════════════════════ 06 — WORKSPACE SWITCHING ══════════════════════ -->
+  <h2 id="o06"><span class="num">06</span>Workspace switching<span class="page-route">TeamSwitcher family — sidebar</span></h2>
+  <p class="page-intro">Not a page — a sidebar affordance, but the component family here is the most interesting gap in this doc, so it gets its own section.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — TeamSwitcher trigger + dropdown panel</div>
+    <div class="w-frame" style="max-width:340px; margin:0 auto;">
+      <div class="w-row between"><div class="w-box tight" style="justify-content:flex-start">▢ Marketing team ▾</div><div class="w-box tight">Admin</div></div>
+      <div class="w-box tight" style="justify-content:flex-start; opacity:.7">— dropdown, on click —</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">All workspace [Teams]</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">Personal Projects [Individual]</div>
+      <div class="w-note">TEAMS YOU ARE PART OF</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">▢ Marketing — 4 projects — Admin</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">▢ Design — 2 projects — Member</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>TeamSwitcher</code> — the actual live component (used from <code>SidebarProjectsSection</code>/<code>/projects</code>) — is a self-contained trigger + dropdown: "All workspace" / "Personal Projects" pinned at top, then a scrollable "Teams you are part of" list (each team's own gradient-initial avatar + a per-team <code>RoleBadge</code>).</li>
+    <li>Team identity color is fully deterministic — <code>getGradient(teamId or name)</code> in <code>src/lib/team-gradients.ts</code> — so the same team always renders the same avatar color everywhere it appears (switcher trigger, dropdown row, <code>TeamChip</code> attribution labels).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <code>TeamSwitcherDropdown</code> and <code>TeamSwitcherRow</code> are fully-built, fully-styled components — complete with per-team action flyouts (Manage/Usage/Request/Activity for an "editor" role, Projects/Connectors/Request/Activity for another) and an <code>editor</code> role tier throughout — but neither is actually mounted anywhere in the app (confirmed by search: their only other reference is a stray comment inside <code>TeamSwitcherRow</code> itself and a Slack-gradient import chain). Combined with the Members page's explicit "Team has no backend route left at all" comment (§00), this is a full, polished UI generation for a team-role model the backend no longer supports — <code>editor</code> specifically has no live path anywhere in the product today.</li>
+    <li>The one component that <em>is</em> actually wired up (plain <code>TeamSwitcher</code>) sidesteps this by only ever passing <code>'admin' | 'member'</code> through its optional per-team <code>role</code> field, and simply not rendering the Teams section at all when <code>teams.length === 0</code> — individual users in no team never see it.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Selecting an entry calls <code>onTeamSelect(teamId | 'personal' | null)</code> — scoping whatever page/list is currently open (e.g. the Projects list) rather than navigating to a new route.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — pure client-side selection state.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">The dropdown panel itself is the only "panel" — animated open (scale+fade, 180ms) / close (85ms), closes on outside click or Escape.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Dead code:</strong> <code>TeamSwitcherDropdown</code> (<code>src/components/TeamSwitcherDropdown/index.tsx</code>) — fully-built, fully-styled dropdown with per-team action flyouts (Manage/Usage/Request/Activity), never imported or rendered. Confirmed by grep: the app's actual sidebar uses plain <code>TeamSwitcher</code> instead; the only other repo references to this component's name are code comments.</li>
+    <li><strong>Dead code:</strong> <code>TeamSwitcherRow</code> (<code>src/components/TeamSwitcherRow/index.tsx</code>) — companion row component to the above, same fate: never imported or rendered outside its own file. Its only other appearances repo-wide are comments in <code>src/context/org-context.tsx:148</code>, its own file, and <code>src/app/(app)/projects/page.tsx:65-66</code>.</li>
+    <li><strong>Dead code:</strong> the <code>editor</code> role tier threaded through <code>RoleBadge</code>'s <code>WorkspaceRole</code> type and <code>ROLE_TOKENS</code> exists only to support the two unused components above — the live <code>TeamSwitcher</code> only ever passes <code>'admin' | 'member'</code>, and per §00's "Team has no backend route left at all" comment, there is no backend role model for it to represent even if it were wired up.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Either delete <code>TeamSwitcherDropdown</code>/<code>TeamSwitcherRow</code> (and the unused <code>editor</code> role branch in <code>RoleBadge</code>/<code>ROLE_TOKENS</code>) or make a deliberate call to bring per-team roles back — right now the codebase carries two competing, half-contradictory ideas of what a "team" is (org-flattened admin/member vs. a richer per-team admin/editor/member model with its own action menus), and only one of them has a backend behind it.</li>
+  </ul>
+
+  <!-- ══════════════════════ 07 — SLACK ══════════════════════ -->
+  <h2 id="o07"><span class="num">07</span>Slack integration<span class="page-route">/slack/link, /souvenir-slack, sidebar</span></h2>
+  <p class="page-intro">Three layers, each a separate concern: (1) linking a Slack <em>workspace</em> to a Souvenir org (bot install), (2) linking one Slack <em>person</em>'s identity to their Souvenir account (user token), (3) mapping individual project channels once the workspace is connected.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — /souvenir-slack (project channel mapping, the org-facing surface)</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">✓ Slack connected · {team} / N project channels</div><div class="w-box btn" style="border-color:var(--red); color:var(--red)">Disconnect Slack</div></div>
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Project channels</div></div>
+        <div class="w-box solid tall">Row — project title + file/chat count · #channel-name · Public/Private badge · rename/delete icons</div>
+        <div class="w-box solid tall">Row — project with no channel yet — channel-name input, Public/Private toggle, Create</div>
+        <div class="w-box tight">N of M projects connected</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Workspace install</strong> (<code>SlackConnectModal</code>): a permissions-disclosure card ("Souvenir will be able to: establish a connection… send scheduled summaries… read channel names and members…") → "Accept and Connect" opens Slack's OAuth install in a new tab, then polls <code>getOrgSlackStatus</code>/<code>getSlackStatus</code> every 3s (3-minute timeout) until the bot reports installed, closing itself and toasting success the moment it does.</li>
+    <li><strong>Per-project channels</strong> (<code>/souvenir-slack</code>, admin-only): lists every Workspace/Shared project the user can see (explicitly excluding Personal-visibility projects, even though they carry the same <code>teamId</code> stamp — a plain teamId check would otherwise leak other members' private projects into this admin list), each row either showing its existing mapped channel or an inline create form (name + Public/Private toggle).</li>
+    <li><strong>Person-level identity link</strong> (<code>/slack/link</code>): reached via a Slack <code>/connect</code> slash command, not from the app UI. Binds the Slack member's identity to their Souvenir account, then hands them to a second Slack consent screen for a user-level token — without that second token Souvenir can only ever read Slack as the bot, never search or post as the person.</li>
+    <li><strong>Sidebar surface</strong> (<code>FlatSidebarSlackConnector</code>): a single row, "Souvenir in Slack" — shows "Add" when not connected (fires <code>onAdd</code>) or an external-link glyph when connected (fires <code>onClick</code>, presumably to <code>/souvenir-slack</code>); has a collapsed icon-only variant with a tooltip for the rail-collapsed sidebar state.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Deleting a project's Slack channel is confirmed via a plain <code>window.confirm</code> (not the app's own modal system) warning that the channel will be archived in Slack and unlinked from the project — same for removing the whole org's Slack installation ("all project channels stop working").</li>
+    <li>Removing the org's Slack installation re-fetches status afterward and throws a client-side error ("Slack is still connected. Please try disconnecting again.") if the backend didn't actually clear it — doesn't just trust the DELETE call's 2xx.</li>
+    <li><code>/slack/link</code>'s page state is decided synchronously at first render from URL params (a fresh <code>?state=</code> deep link → "linking"; a Slack consent-screen return leg via <code>?authorized=1</code> → "linked"; neither → "missing") specifically so the linking POST effect never has to call <code>setState</code> synchronously during mount — and that POST is guarded against React 18 StrictMode's dev-mode double-invoke via a ref.</li>
+    <li><span class="tag note">note</span> A 400 from the link POST is shown as a specific, actionable message ("This link is invalid or has expired. Run <code>/connect</code> in Slack to get a fresh one.") rather than a generic error — the deep link is single-use and short-lived by design.</li>
+    <li><span class="tag gap">gap</span> <code>SlackChannelMappingRow</code> is a fully built, styled component (channel name + a project-picker dropdown + a remove button) with no live usage anywhere in the app — both real channel-mapping surfaces (the General page's inline card, §05, and the dedicated <code>/souvenir-slack</code> page) implement their own bespoke row markup instead of using it. Likely superseded during the V1.5 restructure and left behind.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Trigger</th><th>Goes to</th></tr>
+    <tr><td class="label">Sidebar "Souvenir in Slack" → Add</td><td>opens <code>SlackConnectModal</code> in place (no navigation)</td></tr>
+    <tr><td class="label">Sidebar "Souvenir in Slack" → connected state click</td><td>presumably <code>/souvenir-slack</code> (component only exposes the click handler, caller wires the destination)</td></tr>
+    <tr><td class="label">"Connect Slack workspace" (empty state on <code>/souvenir-slack</code>)</td><td>same <code>SlackConnectModal</code></td></tr>
+    <tr><td class="label">Slack "linked" screen → "Go to Souvenir"</td><td><code>ROOT_ROUTE</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Call</th></tr>
+    <tr><td class="label">Create project channel</td><td><code>createProjectSlackChannel(orgId, projectId, { name, isPrivate })</code></td></tr>
+    <tr><td class="label">Rename channel</td><td><code>renameProjectSlackChannel(orgId, projectId, name)</code></td></tr>
+    <tr><td class="label">Delete channel</td><td><code>deleteProjectSlackChannel(orgId, projectId)</code></td></tr>
+    <tr><td class="label">Remove org installation</td><td><code>removeOrgSlackInstallation(orgId)</code>, then re-verify via <code>getOrgSlackStatus</code></td></tr>
+    <tr><td class="label">Link/unlink personal identity</td><td><code>linkSlackIdentity(state)</code> / <code>disconnectSlackIdentity()</code> — <code>POST</code>/<code>DELETE /slack/link</code></td></tr>
+  </table>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p><code>SlackConnectModal</code> is the one real panel — a permissions-disclosure + connect flow, reused identically from both the sidebar's "Add" action and the <code>/souvenir-slack</code> empty state.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><strong>Dead code:</strong> <code>SlackChannelMappingRow</code> (<code>src/components/SlackChannelMappingRow/index.tsx</code>) — a fully built, styled row (channel name + project-picker dropdown + remove button) with no live usage anywhere in the app. Both real channel-mapping surfaces — the General page's inline card (§05, <code>src/app/(app)/settings/(shell)/(org)/general/page.tsx</code>) and the dedicated <code>/souvenir-slack</code> page — reimplement equivalent row markup inline instead of using it. Likely superseded during the V1.5 restructure and left behind.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> Either wire the General page's inline Slack card and <code>/souvenir-slack</code> to a shared row component (reviving or replacing <code>SlackChannelMappingRow</code>) or delete it — two independently-maintained, slightly different implementations of the same "channel + project mapping" row is exactly the kind of drift that quietly diverges over time.</li>
+    <li><span class="tag propose">proposed</span> Replace the plain <code>window.confirm</code> dialogs on channel/installation deletion with the app's own confirm-modal pattern (already used elsewhere in this doc, e.g. the Members page's role-downgrade confirm) — for visual consistency and so the copy can explain the Slack-side archive behavior with real formatting rather than a squeezed native alert string.</li>
+  </ul>
+
+  <!-- ══════════════════════ 08 — CROSS-CUTTING ══════════════════════ -->
+  <h2 id="o08"><span class="num">08</span>Cross-cutting notes<span class="page-route">applies across §00–§07</span></h2>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up in this doc</th></tr>
+    <tr><td class="label">A once-real UI surface now permanently dead or unreachable</td><td>§00 the whole <code>/org/*</code> redirect-stub layer; §05 "Allowed email domains"/"Workspace defaults" cards behind <code>{false &amp;&amp; (...)}</code>; §06 <code>TeamSwitcherDropdown</code>/<code>TeamSwitcherRow</code>/the <code>editor</code> role; §07 <code>SlackChannelMappingRow</code></td></tr>
+    <tr><td class="label">Two different things sharing a name (or two names for one thing) closely enough to cause confusion</td><td>§02 <code>/org-invite</code> vs <code>/team-invite</code> — different jobs, not aliases; §05/§07 two independent Slack channel-mapping UIs for the same data</td></tr>
+    <tr><td class="label"><em>Worth preserving, not fixing</em> — the invite flow's fix to drop a doomed authenticated-only data fetch from a logged-out landing page (§02), and the Members/Usage pages' careful "don't imply more precision than the backend actually gives us" captions (§01 role-copy single-sourcing, §04 feature-chart derivation note) are both good instincts already in place.</td><td>§02, §01, §04</td></tr>
+  </table>
+
+  <footer>SOUVENIR — ORG/TEAM &amp; SLACK: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

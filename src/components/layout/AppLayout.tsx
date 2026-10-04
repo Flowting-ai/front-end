@@ -14,8 +14,12 @@ import { FloatingPanel } from "./FloatingPanel";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
+import { useAuth } from "@/context/auth-context";
+import { warmRecommendations } from "@/hooks/use-recommendations";
+import { warmConnectApps } from "@/lib/connect-apps-cache";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import {
   PROJECT_BASE_ROUTE,
   PROJECTS_ROUTE,
@@ -24,7 +28,7 @@ import {
   SETTINGS_ROUTE,
   ORG_BASE_ROUTE,
   TEAMS_BASE_ROUTE,
-  BRAIN_ROUTE,
+  SCHEDULES_ROUTE,
   ORG_CONNECTORS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
   CHAT_ROUTE,
@@ -54,6 +58,21 @@ export function AppLayout({
   const { close: closePinboard } = usePinboard()
   const { close: closeHighlight } = useHighlight()
   const pathname = usePathname()
+  const { user } = useAuth()
+  const userKey = String(user?.auth0Id ?? user?.id ?? '')
+
+  // Warm what the new-chat screen needs (starter suggestions + the Connect-an-app list) shortly after
+  // sign-in, off the critical path, so opening a new chat later never waits on the network.
+  useEffect(() => {
+    if (!userKey) return
+    const run = () => { warmRecommendations(userKey); warmConnectApps() }
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 3000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const t = setTimeout(run, 1500)
+    return () => clearTimeout(t)
+  }, [userKey])
 
   const isAnyProjectPage = pathname.startsWith(PROJECT_BASE_ROUTE)
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
@@ -85,13 +104,13 @@ export function AppLayout({
   // The editor team page (/teams/[teamId]) is a settings-style page, not a chat
   // surface — strip the TopBar/model-selector and floating chat tools like /org.
   const isTeamPage     = pathname.startsWith(TEAMS_BASE_ROUTE)
-  // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   // A stored template is a full-bleed document viewer: its own header, then an
   // iframe that must own the rest of the height. The default branch below lays
   // the TopBar over the top of the content, which would sit on the document's
   // title, and the model selector means nothing here — there is no chat.
   const isTemplatePage = pathname.startsWith(TEMPLATE_BASE_ROUTE)
-  const isBrainPage = pathname.startsWith(BRAIN_ROUTE)
+  // Schedules builds its own glass card, so it takes the same bare shell.
+  const isSchedulesPage = pathname.startsWith(SCHEDULES_ROUTE)
   // Connectors / Souvenir-in-Slack are settings-style pages too (moved off
   // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
   // as /org and /teams/[teamId] above.
@@ -135,9 +154,9 @@ export function AppLayout({
     )
   }
 
-  // Same shape as the Brain branch: the shared LeftSidebar, then the page
-  // itself full-height, with no TopBar or floating chat tools.
-  if (isTemplatePage) {
+  // The shared LeftSidebar, then the page itself full-height, with no TopBar
+  // or floating chat tools.
+  if (isTemplatePage || isSchedulesPage) {
     return (
       <div
         style={{
@@ -158,33 +177,6 @@ export function AppLayout({
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <ErrorBoundary>{children}</ErrorBoundary>
         </div>
-        <AppDialogs />
-      </div>
-    )
-  }
-
-  // Brain pages render the SAME shared LeftSidebar as Chats / Agents (one instance,
-  // no duplicate). BrainShell supplies its own center column + ContextRail, so we
-  // skip the standard TopBar / glass-card center wrapper here.
-  if (isBrainPage) {
-    return (
-      <div
-        style={{
-          display:         'flex',
-          alignItems:      'stretch',
-          width:           '100%',
-          height:          '100svh',
-          backgroundColor: 'var(--neutral-white)',
-        }}
-      >
-        <Suspense fallback={null}>
-          <LeftSidebar
-            activeChatId={activeChatId}
-            onSelectChat={onSelectChat}
-            onNewChat={onNewChat}
-          />
-        </Suspense>
-        <ErrorBoundary>{children}</ErrorBoundary>
         <AppDialogs />
       </div>
     )
@@ -219,10 +211,7 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {/* Content area — right padding restored to match BrainShell's own
-            center container (src/templates/Brain/index.tsx: padding '10px
-            10px 10px 0') so /chat and friends get the same gap to the
-            viewport's right edge that Brain already has. */}
+        {/* Content area — right padding keeps the gap to the viewport's right edge. */}
         <div
           style={{
             flex:      "1 0 0",
@@ -254,8 +243,7 @@ export function AppLayout({
           /* ── Inner rounded container (Figma 3220:33871) ──
               border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
               overflow-clip, isolate for FloatingPanel z-index scoping.
-              Uniform 12px padding — matches BrainShell's own glass card
-              (src/templates/Brain/index.tsx: padding '12px' on all sides).
+              Uniform 12px padding.
               Connectors/Souvenir-in-Slack and chat surfaces use the same tight
               3px padding the agents list's own self-built card uses, so their
               scrollbar sits the same distance from this border as /agents. */
@@ -271,7 +259,7 @@ export function AppLayout({
               padding:         usesTightCard ? "3px" : "12px",
               borderRadius:    "22px",
               border:          "1px solid var(--neutral-200)",
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              backgroundColor: "var(--color-surface-container)",
               overflow:        "hidden",
               isolation:       "isolate",
             }}
@@ -324,14 +312,18 @@ export function AppLayout({
       </Suspense>
 
       {/* ── Right sidebar (Pinboard) ── */}
-      <Suspense fallback={null}>
-        <RightSidebar />
-      </Suspense>
+      {PINS_ENABLED && (
+        <Suspense fallback={null}>
+          <RightSidebar />
+        </Suspense>
+      )}
 
       {/* ── Highlight sidebar ── */}
-      <Suspense fallback={null}>
-        <HighlightSidebar />
-      </Suspense>
+      {HIGHLIGHTS_ENABLED && (
+        <Suspense fallback={null}>
+          <HighlightSidebar />
+        </Suspense>
+      )}
 
       {/* ── Global dialogs ── */}
       <AppDialogs />

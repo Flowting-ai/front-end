@@ -416,7 +416,7 @@ Has Text=true (active):
 | Font (placeholder) | `16px / 400 / #6A625D` (`--neutral/600`) |
 | Font (active) | `16px / 400 / #26211E` (`--neutral/900`) |
 | Line height | `22px` (140%) |
-| Font family | Geist Regular |
+| Font family | Manrope Regular |
 | Max height | `336px` |
 | Overflow | Hidden / ellipsis |
 

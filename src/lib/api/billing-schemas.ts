@@ -4,7 +4,8 @@ import { z } from "zod";
 export const categorySpendSchema = z.object({
   chat: z.number().default(0),
   slack: z.number().default(0),
-  brain: z.number().default(0),
+  automation: z.number().default(0),
+  subtask: z.number().default(0),
 });
 
 /** Mirrors services/users/schemas.py TrialSummary. */
@@ -30,7 +31,7 @@ export const creditSummarySchema = z.object({
   used: z.number().default(0),
   remaining: z.number().default(0),
   trial: trialCreditInfoSchema.nullable().default(null),
-  by_category: categorySpendSchema.default({ chat: 0, slack: 0, brain: 0 }),
+  by_category: categorySpendSchema.prefault({}),
 });
 
 /** Mirrors services/users/schemas.py UsageResponse. */
@@ -41,7 +42,7 @@ export const usageResponseSchema = z.object({
   used: z.number().default(0),
   trial: trialSummarySchema.nullable().default(null),
   spent_this_period: z.number().default(0),
-  by_category: categorySpendSchema.default({ chat: 0, slack: 0, brain: 0 }),
+  by_category: categorySpendSchema.prefault({}),
 });
 
 const paymentMethodSchema = z.object({

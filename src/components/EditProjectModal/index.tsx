@@ -23,7 +23,7 @@ const INPUT_BASE: React.CSSProperties = {
   fontWeight:   'var(--font-weight-regular)',
   fontSize:     '14px',
   lineHeight:   '22px',
-  color:        '#1a1714',
+  color:        'var(--legacy-1a1714)',
   background:   'var(--neutral-white)',
   border:       '1px solid var(--neutral-200)',
   borderRadius: '10px',
@@ -185,7 +185,7 @@ export function EditProjectModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            backgroundColor: 'rgba(26,23,20,0.4)',
+            backgroundColor: 'var(--overlay-bg)',
             backdropFilter:  'blur(2px)',
           }}
         >
@@ -225,7 +225,7 @@ export function EditProjectModal({
                   fontWeight: 'var(--font-weight-regular)',
                   fontSize:   '24px',
                   lineHeight: '32px',
-                  color:      '#1a1714',
+                  color:      'var(--legacy-1a1714)',
                   margin:     0,
                 }}
               >
@@ -291,7 +291,7 @@ export function EditProjectModal({
                             padding:         '8px 12px',
                             borderRadius:    '10px',
                             border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-200)',
-                            background:      selected ? 'rgba(59,134,246,0.06)' : 'var(--neutral-white)',
+                            background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
                             cursor:          'pointer',
                             textAlign:       'left',
                           }}

@@ -2,7 +2,6 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
-import { BrainThreadProvider } from "@/context/brain-thread-context";
 import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
@@ -31,7 +30,6 @@ export default function AppGroupLayout({
       <OrgStamps />
       <ProjectsProvider>
         <ChatHistoryProvider>
-        <BrainThreadProvider>
           <PinboardProvider>
             <HighlightProvider>
               <CompareProvider>
@@ -50,7 +48,6 @@ export default function AppGroupLayout({
               </CompareProvider>
             </HighlightProvider>
           </PinboardProvider>
-        </BrainThreadProvider>
         </ChatHistoryProvider>
       </ProjectsProvider>
       </OrgProvider>

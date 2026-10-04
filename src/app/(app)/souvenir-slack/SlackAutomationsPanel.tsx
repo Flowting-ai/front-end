@@ -16,7 +16,7 @@ import {
   type AutomationRun,
 } from '@/lib/api/automations'
 import { listSlackChannelAutomations, type SlackChannelAutomation } from '@/lib/api/slack'
-import { BRAIN_SCHEDULES_ROUTE } from '@/lib/routes'
+import { SCHEDULES_ROUTE } from '@/lib/routes'
 import styles from './slack-config.module.css'
 
 const RECENT_RUNS = 3
@@ -193,8 +193,8 @@ function AutomationRow({
                 <Button variant="outline" size="sm" loading={busy === 'run'} disabled={busy !== null} onClick={runNow}>
                   Run now
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => push(`${BRAIN_SCHEDULES_ROUTE}?selected=${automation.id}`)}>
-                  Open in Brain
+                <Button variant="ghost" size="sm" onClick={() => push(`${SCHEDULES_ROUTE}?selected=${automation.id}`)}>
+                  Open in Schedules
                 </Button>
                 <Button variant="danger" size="sm" disabled={busy !== null} onClick={onDelete}>
                   Delete

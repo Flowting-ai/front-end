@@ -22,6 +22,8 @@ export type ConnectorCatalogCardAction = 'none' | 'icon-add' | 'connect' | 'reco
 export interface ConnectorCatalogCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   name: string
   description?: string
+  /** The catalog category, as a caption between the name and the description. */
+  category?: string
   icon?: React.ReactNode
   iconUrl?: string
   iconAlt?: string
@@ -86,6 +88,7 @@ const SKELETON_BG = 'var(--color-surface-badge, var(--neutral-100))'
 export function ConnectorCatalogCard({
   name,
   description,
+  category,
   icon,
   iconUrl,
   iconAlt = '',
@@ -211,10 +214,22 @@ export function ConnectorCatalogCard({
             >
               {highlight ? highlightMatch(name, highlight, 'background') : name}
             </span>
+            {category && density === 'detailed' && (
+              <span
+                style={{
+                  color: 'var(--neutral-400)',
+                  fontSize: 'var(--font-size-caption)',
+                  lineHeight: 'var(--line-height-caption)',
+                }}
+              >
+                {category}
+              </span>
+            )}
             {badge ? (
               <Badge label={badge.label} color={badge.color} />
             ) : description && density === 'detailed' ? (
               <span
+                title={description}
                 style={{
                   maxWidth: '100%',
                   overflow: 'hidden',

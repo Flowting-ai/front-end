@@ -45,7 +45,22 @@ export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelec
   )
 }
 
-/** A tile per card with what it gets back — Brain's multi-step jobs. */
+/** Placeholder rows shown while the suggestions load (matches StarterList row for row). */
+export function StarterListSkeleton({ count = 3 }: { count?: number }) {
+  const widths = ['58%', '66%', '46%', '60%']
+  return (
+    <ul className={styles.list} aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className={styles.skelRow}>
+          <span className={`kaya-skeleton ${styles.skelLead}`} />
+          <span className={`kaya-skeleton ${styles.skelBar}`} style={{ width: widths[i % widths.length] }} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** A tile per card with what it gets back — multi-step jobs. */
 export function StarterTiles({ cards, onSelect }: { cards: StarterCard[]; onSelect: (card: StarterCard) => void }) {
   return (
     <div className={styles.tiles}>

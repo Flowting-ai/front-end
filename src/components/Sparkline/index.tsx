@@ -22,7 +22,7 @@ export interface SparklineProps extends Omit<React.HTMLAttributes<HTMLDivElement
 
 export function Sparkline({ data, height = 160, color, className, style, ref, ...props }: SparklineProps & { ref?: React.Ref<HTMLDivElement> }) {
     const reduceMotion = useReducedMotion() ?? false
-    const stroke = color ?? '#1a1916'
+    const stroke = color ?? 'var(--neutral-900)'
     const id     = React.useId().replace(/[^a-zA-Z0-9]/g, '')
     const gradId = `spark-${id}`
 

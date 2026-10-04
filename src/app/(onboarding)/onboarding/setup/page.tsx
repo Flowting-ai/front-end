@@ -8,6 +8,7 @@ import AiMagicIcon from "@hugeicons/core-free-icons/AiMagicIcon";
 import { Button } from "@/components/Button";
 import { getSlackInstallUrl } from "@/lib/api/slack";
 import { ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
+import { SouvenirLogo } from "@/components/SouvenirLogo";
 
 // ── Screen 1 of the workspace onboarding flow ────────────────────────────────
 // Figma: Onboarding v1, node 181:7750 ("Setup your team" in the file — renamed
@@ -69,7 +70,7 @@ function RecommendedChip() {
         borderRadius: 6,
         backgroundColor: "var(--blue-100,#cadcf1)",
         boxShadow:
-          "0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
+          "0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px var(--blue-600-50), inset 0px 1px 0px 0px var(--blue-50-70), inset 0px -1px 0px 0px var(--blue-600-10)",
       }}
     >
       <span
@@ -108,8 +109,8 @@ function OptionCard({
         width: "100%",
         padding: bordered === "blue" ? "24px 16px 16px" : 16,
         borderRadius: 10,
-        backgroundColor: bordered === "blue" ? "var(--color-surface-raised,#fff)" : "var(--color-surface-base,#f7f2ed)",
-        border: bordered === "blue" ? "1px solid rgba(13,110,178,0.5)" : "1px solid var(--color-border-subtle,#b6aca4)",
+        backgroundColor: bordered === "blue" ? "var(--color-surface-raised,var(--static-white))" : "var(--color-surface-base,var(--static-white))",
+        border: bordered === "blue" ? "1px solid var(--blue-600-50)" : "1px solid var(--color-border-subtle,#D4D4D4)",
         boxSizing: "border-box",
       }}
     >
@@ -160,7 +161,7 @@ export default function OnboardingSetupChoicePage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "var(--neutral-50,#f7f2ed)",
+        backgroundColor: "var(--neutral-50)",
         padding: "40px 16px",
         boxSizing: "border-box",
       }}
@@ -181,7 +182,7 @@ export default function OnboardingSetupChoicePage() {
               alignItems: "flex-start",
               padding: 8,
               borderRadius: 10,
-              backgroundColor: "var(--color-surface-base,#f7f2ed)",
+              backgroundColor: "var(--color-surface-base,var(--static-white))",
             }}
           >
             <div style={{ flexShrink: 0, width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--neutral-700,#524b47)" }}>
@@ -208,7 +209,7 @@ export default function OnboardingSetupChoicePage() {
             icon={
               <div style={{ flexShrink: 0, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- static local icon, Next Image adds no value here */}
-                <img src="/icons/souvenir-logo.svg" alt="" width={24} height={24} style={{ display: "block" }} aria-hidden />
+                <SouvenirLogo size={24} />
               </div>
             }
             title="Set up in Souvenir"

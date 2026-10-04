@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -60,9 +60,9 @@ function ConnectorCard({
         border: "none",
         cursor: "pointer",
         outline: "none",
-        backgroundColor: selected ? "var(--neutral-800, #3b3632)" : "var(--neutral-white, #fff)",
+        backgroundColor: selected ? "var(--neutral-800, #3b3632)" : "var(--neutral-white)",
         boxShadow:
-          "0px 2px 2.8px 0px var(--neutral-200, #d1c6bd), 0px 0px 0px 1px var(--neutral-200, #d1c6bd)",
+          "0px 2px 2.8px 0px var(--neutral-200, #E5E5E5), 0px 0px 0px 1px var(--neutral-200, #E5E5E5)",
         flex: "1 1 0",
         minWidth: 0,
         textAlign: "left",
@@ -94,7 +94,7 @@ function ConnectorCard({
           fontWeight: 500,
           fontSize: 14,
           lineHeight: "22px",
-          color: selected ? "var(--neutral-50, #f7f2ed)" : "var(--neutral-900, #26211e)",
+          color: selected ? "var(--neutral-50)" : "var(--neutral-900, #26211e)",
           margin: "8px 0 0",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -112,7 +112,7 @@ function ConnectorCard({
           fontWeight: 500,
           fontSize: 11,
           lineHeight: "16px",
-          color: selected ? "var(--neutral-200, #d1c6bd)" : "var(--neutral-500, #827a74)",
+          color: selected ? "var(--neutral-200, #E5E5E5)" : "var(--neutral-500, #827a74)",
           margin: "2px 0 0",
           overflow: "hidden",
           textOverflow: "ellipsis",

@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { LlmIcon } from '@strange-huge/icons/llm'
+import { ThemedLlmIcon } from '@/components/ThemedLlmIcon'
+import { SouvenirLogo } from '@/components/SouvenirLogo'
 import { toLlmIconId } from '@/lib/ai-models'
 
 export interface ModelIconProps {
@@ -21,20 +22,29 @@ export interface ModelIconProps {
   variant?: 'dark' | 'light'
 }
 
-/** A model's provider logo, falling back to the Souvenir mark. */
+/**
+ * A model's provider logo, falling back to the Souvenir mark.
+ *
+ * In dark mode the provider logo is a white single-colour mark and the fallback is the
+ * white Souvenir logo (both swap with CSS — see ThemedLlmIcon / SouvenirLogo).
+ */
 export function ModelIcon({ model, size = 16, variant = 'dark' }: ModelIconProps) {
   const iconId = toLlmIconId(model)
-  if (iconId) return <LlmIcon id={iconId} variant="color" size={size} />
-  return (
-    <Image
-      src={variant === 'light' ? '/icons/souvenir-logo-white.svg' : '/icons/souvenir-logo.svg'}
-      width={size}
-      height={size}
-      alt=""
-      unoptimized
-      style={{ display: 'block' }}
-    />
-  )
+  if (iconId) return <ThemedLlmIcon id={iconId} size={size} />
+  // 'light' is for a surface that is dark in BOTH themes (e.g. the TopBar gradient): always white.
+  if (variant === 'light') {
+    return (
+      <Image
+        src="/icons/souvenir-logo-white.svg"
+        width={size}
+        height={size}
+        alt=""
+        unoptimized
+        style={{ display: 'block' }}
+      />
+    )
+  }
+  return <SouvenirLogo size={size} />
 }
 
 ModelIcon.displayName = 'ModelIcon'

@@ -60,7 +60,10 @@ export function Avatar({ ref, name, color, size = 'md', initials, asChild, class
           borderRadius:    '50%',
           backgroundColor: isGradient ? undefined : (color ?? 'var(--neutral-700)'),
           backgroundImage:  isGradient ? color : undefined,
-          color:           'var(--neutral-white)',
+          // A caller-supplied fill (team gradients etc.) is fixed in both themes, so
+          // its text stays white; the default fill is a token that flips, so its
+          // text flips with it (--neutral-white is a dark surface in dark mode).
+          color:           color ? 'var(--color-text-on-accent)' : 'var(--neutral-white)',
           fontFamily:      'var(--font-body)',
           fontWeight:      'var(--font-weight-medium)',
           fontSize:        fontSize,

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, Suspense, useEffect, useEffectEvent, useLayoutEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
@@ -1426,9 +1426,9 @@ function PersonaConfigureInstructionsContent() {
                   top: 0, left: 0, right: 0,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: 'rgba(247,242,237,0.5)',
+                  backgroundColor: 'color-mix(in srgb, var(--static-white) 50%, transparent)',
                   boxShadow:
-                    'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+                    'inset 0px -1px 0px 0px color-mix(in srgb, var(--static-white) 90%, transparent), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(229, 229, 229,0.5)',
                 }}
               />
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1459,7 +1459,7 @@ function PersonaConfigureInstructionsContent() {
                         // previously also duplicated by a separate overlay div
                         // painting the same bottom line on top of this.
                         boxShadow: isActive
-                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px rgba(255,255,255,0.7)'
+                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 1.5px 0px rgba(38,33,30,0.16), inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 70%, transparent)'
                           : 'none',
                         fontFamily: 'var(--font-body)',
                         fontWeight: 500,
@@ -1487,8 +1487,8 @@ function PersonaConfigureInstructionsContent() {
                       aria-hidden
                       style={{
                         width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
-                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '#27AE60' : 'var(--neutral-200)',
-                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid #1E8449' : '1px solid var(--neutral-300)',
+                        backgroundColor: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? 'var(--success-600)' : 'var(--neutral-200)',
+                        border: visitedTabs[tab.toLowerCase() as ConfigureTabKey] ? '1px solid var(--success-700)' : '1px solid var(--neutral-300)',
                         transition: 'background-color 200ms, border-color 200ms',
                       }}
                     />
@@ -1674,8 +1674,8 @@ function PersonaConfigureInstructionsContent() {
                     // Extra top padding reserves room for the drag-value tooltip above the thumb.
                     padding:         '28px 16px 16px',
                     borderRadius:    18,
-                    border:          '1px solid #E5E5E5',
-                    backgroundColor: '#FFFFFF',
+                    border:          '1px solid var(--legacy-e5e5e5)',
+                    backgroundColor: 'var(--neutral-white)',
                   }}
                 >
                   <Slider
@@ -1712,9 +1712,9 @@ function PersonaConfigureInstructionsContent() {
                     height: 64,
                     width: '100%',
                     // Same idle container treatment as System Instruction: white bg, 18px radius.
-                    border: '1px solid #E5E5E5',
+                    border: '1px solid var(--legacy-e5e5e5)',
                     borderRadius: 18,
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--neutral-white)',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
@@ -1726,7 +1726,7 @@ function PersonaConfigureInstructionsContent() {
                         fontWeight:   500,
                         fontSize:     14,
                         lineHeight:   '22px',
-                        color:        '#0a0a0a',
+                        color:        'var(--legacy-0a0a0a)',
                         overflow:     'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace:   'nowrap',
@@ -1770,7 +1770,7 @@ function PersonaConfigureInstructionsContent() {
                         </button>
                         {conv.userSays && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: '#ee3030' }}>User says</span>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--red-400)' }}>User says</span>
                             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>{conv.userSays}</p>
                           </div>
                         )}
@@ -1812,11 +1812,11 @@ function PersonaConfigureInstructionsContent() {
           aria-modal="true"
           aria-label="Version limit reached"
           onClick={() => { if (!isDeletingOldest) setMaxVersionsModalOpen(false) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
           >
             <span style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' }}>
               Warning
@@ -1867,7 +1867,7 @@ function PersonaConfigureInstructionsContent() {
 // mounted component rather than remounting it. Without this, the form (and
 // Save/Publish) would keep operating on the PREVIOUS agent's repoId while the
 // URL claims to show the new one. Forcing a remount via `key` on repoId is the
-// same fix already applied to /chat, /brain, and the Sharing tab.
+// same fix already applied to /chat and the Sharing tab.
 //
 // Keyed on repoId ONLY, not versionId: when opened with just `?repoId=X` (no
 // version yet), `initialise()` itself resolves a version and calls

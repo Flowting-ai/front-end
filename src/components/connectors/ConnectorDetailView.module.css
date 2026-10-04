@@ -1,0 +1,123 @@
+.back {
+  margin: 0 0 24px -8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 32px;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  color: var(--neutral-900);
+  font: 500 var(--font-size-heading)/var(--line-height-heading) var(--font-body);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.description {
+  flex-basis: 100%;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font: 400 14px/22px var(--font-body);
+}
+
+.accounts {
+  container-type: inline-size;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--neutral-900);
+  font: 500 14px/22px var(--font-body);
+}
+
+.count {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  font: 500 12px/20px var(--font-body);
+}
+
+.breakdown {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font: 400 12px/20px var(--font-body);
+}
+
+.hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-text-muted);
+  font: 400 13px/20px var(--font-body);
+}
+
+.list,
+.empty {
+  overflow: hidden;
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  background: var(--neutral-white);
+}
+
+.accountGroup + .accountGroup,
+.divider {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.accountGroup[data-attention] {
+  background: var(--yellow-50);
+}
+
+.empty {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0 0 4px;
+  color: var(--neutral-900);
+  font: 500 14px/22px var(--font-body);
+}
+
+@media (max-width: 540px) {
+  .identity {
+    flex-basis: 100%;
+  }
+
+  .description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+}

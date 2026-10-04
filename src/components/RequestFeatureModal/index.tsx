@@ -41,7 +41,7 @@ const inputStyle: React.CSSProperties = {
   flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', padding: '0 2px',
 }
 const fieldErrorStyle: React.CSSProperties = {
-  display: 'block', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: '#dc2626', marginTop: 2,
+  display: 'block', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--red-400)', marginTop: 2,
 }
 
 export interface RequestFeatureModalProps {
@@ -87,7 +87,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
   return (
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(18,12,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--overlay-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
       <div
         ref={dialogRef}
@@ -96,7 +96,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
         aria-label="Request a feature"
         tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -125,7 +125,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rf-email" style={labelStyle}>Work email</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rf-email" type="email" name="email" placeholder="you@company.com" defaultValue={user?.email ?? ''} required style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -135,7 +135,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rf-name" style={labelStyle}>Full name</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rf-name" type="text" name="name" placeholder="Jane Smith" defaultValue={displayName} style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -155,7 +155,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
                   required
                   value={message}
                   onChange={e => setMessage(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--neutral-white)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
                 />
                 <span style={fieldErrorStyle}>
                   <ValidationError field="message" errors={state.errors} />

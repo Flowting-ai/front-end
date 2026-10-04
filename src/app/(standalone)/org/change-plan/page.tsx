@@ -18,7 +18,7 @@ import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
-const MONO  = "'Geist Mono', ui-monospace, monospace"
+const MONO  = "var(--font-code)"
 
 // Matches what the backend actually grants: services/stripe/catalog.py's
 // usageCredits() is a flat 80% of the monthly price, × 1000 for display units
@@ -69,13 +69,13 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
       position: 'relative', borderRadius: 6, overflow: 'hidden',
       boxShadow: isBrown
         ? '0px 1px 1.5px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)'
-        : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
+        : '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px color-mix(in srgb, var(--yellow-600) 50%, transparent)',
     }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? '#e6d5ca' : '#e9dfc9', borderRadius: 6 }} />
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: isBrown ? 'var(--brown-100)' : 'var(--yellow-100)', borderRadius: 6 }} />
       <div style={{ position: 'absolute', inset: 0, borderRadius: 6, pointerEvents: 'none', boxShadow: isBrown
         ? 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)'
         : 'inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)' }} />
-      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: isBrown ? '#683d1b' : '#6d5921', position: 'relative', padding: '2px 6px' }}>
+      <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: isBrown ? 'var(--brown-700)' : 'var(--yellow-700)', position: 'relative', padding: '2px 6px' }}>
         {label}
       </span>
     </div>
@@ -88,10 +88,10 @@ function Badge({ label, color }: { label: string; color: 'brown' | 'yellow' }) {
 function SlackMark() {
   return (
     <svg width="12" height="12" viewBox="0 0 54 54" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="#36C5F0"/>
-      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="#2EB67D"/>
-      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="#ECB22E"/>
-      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="#E01E5A"/>
+      <path d="M19.712.133a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386h5.376V5.52A5.381 5.381 0 0 0 19.712.133m0 14.365H5.376A5.381 5.381 0 0 0 0 19.884a5.381 5.381 0 0 0 5.376 5.387h14.336a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386" fill="var(--brand-slack-cyan)"/>
+      <path d="M53.76 19.884a5.381 5.381 0 0 0-5.376-5.386 5.381 5.381 0 0 0-5.376 5.386v5.387h5.376a5.381 5.381 0 0 0 5.376-5.387m-14.336 0V5.52A5.381 5.381 0 0 0 34.048.133a5.381 5.381 0 0 0-5.376 5.387v14.364a5.381 5.381 0 0 0 5.376 5.387 5.381 5.381 0 0 0 5.376-5.387" fill="var(--brand-slack-green)"/>
+      <path d="M34.048 54a5.381 5.381 0 0 0 5.376-5.387 5.381 5.381 0 0 0-5.376-5.386h-5.376v5.386A5.381 5.381 0 0 0 34.048 54m0-14.365h14.336a5.381 5.381 0 0 0 5.376-5.386 5.381 5.381 0 0 0-5.376-5.387H34.048a5.381 5.381 0 0 0-5.376 5.387 5.381 5.381 0 0 0 5.376 5.386" fill="var(--brand-slack-yellow)"/>
+      <path d="M0 34.249a5.381 5.381 0 0 0 5.376 5.386 5.381 5.381 0 0 0 5.376-5.386v-5.387H5.376A5.381 5.381 0 0 0 0 34.249m14.336 0v14.364A5.381 5.381 0 0 0 19.712 54a5.381 5.381 0 0 0 5.376-5.387V34.249a5.381 5.381 0 0 0-5.376-5.387 5.381 5.381 0 0 0-5.376 5.387" fill="var(--brand-slack-red)"/>
     </svg>
   )
 }
@@ -108,9 +108,9 @@ function FeatureLine({ item }: { item: FeatureItemDef }) {
       {/* Checkmark, not a dot — Figma 85:22111's tick-01 glyph, matching the
           TickTwoIcon already used elsewhere in this app as a selected/included
           indicator (e.g. ModelMenu's own selected-row tick). */}
-      <TickTwoIcon size={16} color="#3b3632" />
+      <TickTwoIcon size={16} color="var(--neutral-900)" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+        <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
           {label}
         </p>
         {icon}
@@ -122,7 +122,7 @@ function FeatureLine({ item }: { item: FeatureItemDef }) {
 function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: '#827a74', margin: 0 }}>
+      <p style={{ fontFamily: MONO, fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
         {title}
       </p>
       {items.map(item => <FeatureLine key={typeof item === 'string' ? item : item.label} item={item} />)}
@@ -131,7 +131,7 @@ function FeatureGroup({ title, items }: { title: string; items: FeatureItemDef[]
 }
 
 function Hairline() {
-  return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
+  return <div style={{ height: 1, width: '100%', backgroundColor: 'var(--legacy-e5e5e5)' }} />
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ function ChangePlanSkeleton() {
         minHeight: '100vh', overflowX: 'hidden',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '24px 24px 48px',
-        background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+        background: 'linear-gradient(to bottom, var(--neutral-50) 0%, var(--neutral-100) 65%, var(--neutral-200) 100%)',
       }}
     >
       <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
@@ -199,9 +199,9 @@ function ChangePlanSkeleton() {
           {/* Workspace card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'white', border: '2px solid #ede1d7', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '2px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
-              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+              boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -224,9 +224,9 @@ function ChangePlanSkeleton() {
           {/* Enterprise card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'white', border: '1px solid #e5e5e5', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', gap: 28,
-              boxShadow: '0px 1px 1px rgba(0,0,0,0.05)', height: '100%',
+              boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Bone w={60} h={28} r={8} />
@@ -452,7 +452,7 @@ function OrgChangePlanPageInner() {
           minHeight: '100vh', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '24px 24px 48px',
-          background: 'linear-gradient(to bottom, #f7f2ed 0%, #ede1d7 65%, #d1c6bd 100%)',
+          background: 'linear-gradient(to bottom, var(--neutral-50) 0%, var(--neutral-100) 65%, var(--neutral-200) 100%)',
         }}
       >
         <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center' }}>
@@ -465,12 +465,12 @@ function OrgChangePlanPageInner() {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '6px 10px 8px 10px', borderRadius: 10,
-                border: 'none', backgroundColor: 'rgba(0,0,0,0)', cursor: 'pointer',
+                border: 'none', backgroundColor: 'color-mix(in srgb, var(--static-black) 0%, transparent)', cursor: 'pointer',
                 fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px',
-                color: '#524b47', transition: 'background-color 120ms ease, color 120ms ease',
+                color: 'var(--neutral-700)', transition: 'background-color 120ms ease, color 120ms ease',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.05)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-100)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'color-mix(in srgb, var(--static-black) 0%, transparent)' }}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -479,10 +479,10 @@ function OrgChangePlanPageInner() {
             </button>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+              <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 Pricing
               </p>
-              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: '#827a74', margin: 0 }}>
+              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Choose the plan that works for your workspace. Shared credits across unlimited members. No per-seat fees.
               </p>
             </div>
@@ -497,8 +497,8 @@ function OrgChangePlanPageInner() {
           <div ref={billingRowRef} style={{
             position: 'relative',
             display: 'flex', alignItems: 'center', gap: 4, padding: 4,
-            borderRadius: 10, backgroundColor: 'rgba(247,242,237,0.5)',
-            boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px #ede1d7, inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+            borderRadius: 10, backgroundColor: 'var(--neutral-100)',
+            boxShadow: 'inset 0px -1px 0px 0px var(--neutral-white-90), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px var(--neutral-200-50)',
           }}>
             {/* Sliding active pill — same measure-then-animate technique as
                 TabsList's own pill (springs.fast), slid behind whichever
@@ -512,8 +512,8 @@ function OrgChangePlanPageInner() {
                 style={{
                   position: 'absolute', top: 4, bottom: 4, left: 0,
                   borderRadius: 10,
-                  background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                  boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+                  background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
+                  boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
                   pointerEvents: 'none',
                 }}
               />
@@ -531,10 +531,10 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      color: '#f7f2ed',
-                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                      color: 'var(--static-white)',
+                      textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
-                  : { color: '#827a74' }),
+                  : { color: 'var(--neutral-500)' }),
               }}
             >
               Monthly
@@ -552,10 +552,10 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      color: '#f7f2ed',
-                      textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                      color: 'var(--static-white)',
+                      textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
-                  : { color: '#827a74' }),
+                  : { color: 'var(--neutral-500)' }),
               }}
             >
               Yearly
@@ -569,18 +569,18 @@ function OrgChangePlanPageInner() {
             {/* ── Workspace (Core) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
-                border: '2px solid #683d1b',
+                backgroundColor: 'var(--neutral-white)',
+                border: '2px solid var(--brown-700)',
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
                 height: '100%',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                    <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                       Core
                     </p>
                     <Badge label="Recommended" color="brown" />
@@ -593,20 +593,20 @@ function OrgChangePlanPageInner() {
                   {isOnFreePlan && (
                     <div style={{
                       position: 'relative',
-                      backgroundColor: 'white', border: '1px solid rgba(13,110,178,0.5)', borderRadius: 10,
+                      backgroundColor: 'var(--neutral-white)', border: '1px solid var(--blue-600-50)', borderRadius: 10,
                       padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16,
                     }}>
                       <div style={{
                         position: 'absolute', top: -11, left: 16,
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        borderRadius: 6, overflow: 'hidden', backgroundColor: '#cadcf1',
+                        borderRadius: 6, overflow: 'hidden', backgroundColor: 'var(--blue-100)',
                         boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
                       }}>
-                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#135487', padding: '2px 6px' }}>
+                        <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--blue-700)', padding: '2px 6px' }}>
                           FREE PLAN ACTIVE
                         </span>
                       </div>
-                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: '#524b47' }}>
+                      <div style={{ fontFamily: TITLE, fontWeight: 500, fontSize: 20, lineHeight: '24px', color: 'var(--neutral-700)' }}>
                         <p style={{ margin: 0 }}>You have been assigned</p>
                         <p style={{ margin: 0 }}>$20 worth of free credits</p>
                       </div>
@@ -616,8 +616,8 @@ function OrgChangePlanPageInner() {
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           width: '100%', padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                          backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                          backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px var(--color-border-interactive)',
+                          cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: 'var(--neutral-700)',
                         }}
                       >
                         View usage
@@ -638,12 +638,12 @@ function OrgChangePlanPageInner() {
                             style={{
                               display: 'flex', alignItems: 'center', gap: 2,
                               padding: '6px 10px 8px', borderRadius: 10, border: 'none',
-                              backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                              cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: '#524b47',
+                              backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px var(--color-border-interactive)',
+                              cursor: 'pointer', fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '16px', color: 'var(--neutral-700)',
                             }}
                           >
                             {workspacePriceLabel}
-                            <ArrowDownOneIcon size={16} color="#524b47" />
+                            <ArrowDownOneIcon size={16} color="var(--neutral-700)" />
                           </button>
                         }
                       >
@@ -664,7 +664,7 @@ function OrgChangePlanPageInner() {
                                     ? `${fmtNum(p!.credits)} credits/mo`
                                     : `${fmtNum(CREDITS_BY_PRICE[price])} credits/mo · Coming soon`}
                                   selected={available && i === workspaceIdx}
-                                  rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="#524b47" /> : undefined}
+                                  rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="var(--neutral-700)" /> : undefined}
                                   disabled={!available}
                                   onClick={available ? () => handleSelectTier(i) : undefined}
                                   fluid
@@ -674,11 +674,11 @@ function OrgChangePlanPageInner() {
                           </Dropdown.Section>
                         </Dropdown>
                       </Dropdown.Float>
-                      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                      <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
                         /month
                       </p>
                     </div>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0 }}>
+                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
                       {fmtNum(selectedWorkspace.credits)} credits
                     </p>
                   </div>
@@ -711,13 +711,13 @@ function OrgChangePlanPageInner() {
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     cursor: workspaceButtonDisabled ? 'default' : 'pointer',
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
-                    background: 'linear-gradient(to bottom, #524b47, #26211e)',
-                    boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed',
-                    textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)',
+                    background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
+                    boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px var(--neutral-white-30), inset 0px -2.182px 0.364px 0px var(--neutral-950), inset 0px -2.545px 4px -2.182px var(--neutral-white-50)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)',
+                    textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                   }}
                 >
-                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="#f7f2ed" />}
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--static-white)" />}
                   {workspaceButtonLabel}
                 </button>
               </div>
@@ -726,16 +726,16 @@ function OrgChangePlanPageInner() {
             {/* ── Enterprise (Pro) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e5e5',
+                backgroundColor: 'var(--neutral-white)',
+                border: '1px solid var(--neutral-200)',
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', gap: 28,
-                boxShadow: '0px 1px 1px rgba(0,0,0,0.05)',
+                boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)',
                 height: '100%',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#26211e', margin: 0 }}>
+                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                     Pro
                   </p>
                 </div>
@@ -749,15 +749,15 @@ function OrgChangePlanPageInner() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
-                    backgroundColor: 'white', cursor: changingTo ? 'wait' : 'pointer',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
+                    backgroundColor: 'var(--neutral-white)', cursor: changingTo ? 'wait' : 'pointer',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
                   {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
                   {org.plan !== 'enterprise' && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </m.button>

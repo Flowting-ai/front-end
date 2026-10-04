@@ -114,9 +114,9 @@ export function HighlightCard({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── Quote text ───────────────────────────────────────────────────────── */}
-      {/* Besley at body scale is intentional - the only KDS component using     */}
-      {/* --font-title here. Creates a literary "captured thought" identity       */}
-      {/* distinct from every Geist-based UI element in the system.               */}
+      {/* Google Sans at body scale separates the quote from surrounding UI.     */}
+      {/* It uses the shared --font-title token, as do other display headings.    */}
+      {/* distinct from every Manrope-based UI element in the system.             */}
       <p
         style={{
           margin:           0,
@@ -145,7 +145,7 @@ export function HighlightCard({
             transition={{ duration: 0.12 }}
             style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
           >
-            {/* Gradient blends last line of Besley text into the action area */}
+            {/* Gradient blends the last line of quote text into the action area */}
             <div
               aria-hidden="true"
               style={{

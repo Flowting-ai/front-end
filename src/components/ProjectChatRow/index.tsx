@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ export function ProjectChatEmptyRow() {
           fontWeight:   'var(--font-weight-regular)',
           fontSize:     '14px',
           lineHeight:   '22px',
-          color:        '#857a72',
+          color:        'var(--neutral-500)',
           margin:       0,
           overflow:     'hidden',
           textOverflow: 'ellipsis',
@@ -152,7 +153,7 @@ export function ProjectChatRow(
 
     const boxShadow = (() => {
       if (active && rowElevated) {
-        return '0px 2px 2.8px 0px rgba(13,110,178,0.12), 0px 0px 0px 1.5px var(--blue-500)'
+        return '0px 2px 2.8px 0px color-mix(in srgb, var(--blue-600) 12%, transparent), 0px 0px 0px 1.5px var(--blue-500)'
       }
       if (rowElevated) {
         return 'var(--shadow-item-inner)'
@@ -207,7 +208,7 @@ export function ProjectChatRow(
                 fontWeight:      'var(--font-weight-medium)',
                 fontSize:        '15px',
                 lineHeight:      '22px',
-                color:           '#1a1714',
+                color:           'var(--legacy-1a1714)',
                 border:          'none',
                 outline:         'none',
                 background:      'transparent',
@@ -222,7 +223,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        '#a39b95',
+                color:        'var(--neutral-400)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -245,7 +246,7 @@ export function ProjectChatRow(
                   fontWeight:   'var(--font-weight-medium)',
                   fontSize:     '15px',
                   lineHeight:   '22px',
-                  color:        '#1a1714',
+                  color:        'var(--legacy-1a1714)',
                   overflow:     'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace:   'nowrap',
@@ -263,7 +264,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        '#a39b95',
+                color:        'var(--neutral-400)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -399,7 +400,7 @@ export function ProjectChatRow(
         )}
 
         {/* Pin count badge */}
-        {!isConfirming && <button
+        {PINS_ENABLED && !isConfirming && <button
           onClick={(e) => {
             if (hasPins) onPinsClick?.(e)
           }}
@@ -420,7 +421,7 @@ export function ProjectChatRow(
             width:          !hasPins ? '78px' : undefined,
             overflow:       'hidden',
             boxShadow:      (showPinAction && hasPins)
-              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)'
               : '0px 0px 0px 1px rgba(59,54,50,0.3)',
             transition:     'box-shadow 120ms ease',
           }}
@@ -432,7 +433,7 @@ export function ProjectChatRow(
               style={{
                 position:      'absolute',
                 inset:         0,
-                background:    'rgba(237,225,215,0.6)',
+                background:    'color-mix(in srgb, var(--neutral-100) 60%, transparent)',
                 pointerEvents: 'none',
                 borderRadius:  '8px',
               }}
@@ -443,7 +444,7 @@ export function ProjectChatRow(
             <>
               <PinIcon
                 animated
-                style={{ width: 16, height: 16, color: '#857a72', flexShrink: 0, position: 'relative' }}
+                style={{ width: 16, height: 16, color: 'var(--neutral-500)', flexShrink: 0, position: 'relative' }}
               />
               <span
                 style={{
@@ -451,7 +452,7 @@ export function ProjectChatRow(
                   fontWeight: 'var(--font-weight-medium)',
                   fontSize:   '13px',
                   lineHeight: '20px',
-                  color:      '#524b47',
+                  color:      'var(--neutral-700)',
                   whiteSpace: 'nowrap',
                   position:   'relative',
                 }}
@@ -466,7 +467,7 @@ export function ProjectChatRow(
                 fontWeight: 'var(--font-weight-medium)',
                 fontSize:   '13px',
                 lineHeight: '20px',
-                color:      '#857a72',
+                color:      'var(--neutral-500)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -483,7 +484,7 @@ export function ProjectChatRow(
                 inset:         0,
                 pointerEvents: 'none',
                 borderRadius:  '8px',
-                boxShadow:     'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+                boxShadow:     'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 61%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
               }}
             />
           )}

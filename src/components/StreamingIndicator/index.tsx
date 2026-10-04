@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { LogoIcon } from '@strange-huge/icons'
-import { LlmIcon } from '@strange-huge/icons/llm'
+import { ThemedLlmIcon } from '@/components/ThemedLlmIcon'
 import { cn } from '@/lib/utils'
 
 // ── Animation constants ────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ export function StreamingLogo({ phase, llmId, logo, logoKey, size = 16 }: Stream
             style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {logo ?? (llmId
-              ? <LlmIcon id={llmId} size={size} variant="color" />
+              ? <ThemedLlmIcon id={llmId} size={size} />
               : <LogoIcon size={size} color="var(--streaming-indicator-label)" />
             )}
           </m.div>

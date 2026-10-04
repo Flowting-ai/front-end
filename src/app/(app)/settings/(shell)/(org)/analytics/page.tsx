@@ -46,14 +46,12 @@ const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
   { id: '6m', label: '6 months' },
 ]
 
-type ChartMetric = 'chat' | 'assistants' | 'brain'
+type ChartMetric = 'chat' | 'assistants' | 'automation'
 
-interface ChartDay { label: string; chat: number; assistants: number; brain: number }
+interface ChartDay { label: string; chat: number; assistants: number; automation: number }
 
-// Figma 18:26029 labels these categories "Chat" / "Tasks" / "Slack" — same
-// colour slots (blue/purple/green) as the categories this data actually
-// tracks (chat / persona-assistant work / brain-automation), just relabelled
-// to match the design's exact copy.
+// Figma 18:26029 colour slots (blue/purple/green) for the Chat / Slack /
+// Automations categories this data tracks.
 //
 // Based on the same tag bg tints Chip/Badge/PinCategory use (aliases.css
 // --color-tag-{Color}-bg), one primitive step darker than the exact tag tint
@@ -64,7 +62,7 @@ interface ChartDay { label: string; chat: number; assistants: number; brain: num
 const FEATURE_META: Record<ChartMetric, { label: string; color: string; border: string }> = {
   chat:       { label: 'Chat',  color: 'var(--blue-200)',           border: 'var(--color-tag-Blue-ring)'   },
   assistants: { label: 'Slack', color: 'var(--purple-200)',         border: 'var(--color-tag-Purple-ring)' },
-  brain:      { label: 'Brain', color: 'var(--color-tag-Green-bg)', border: 'var(--color-tag-Green-ring)'  },
+  automation: { label: 'Automations', color: 'var(--color-tag-Green-bg)', border: 'var(--color-tag-Green-ring)'  },
 }
 
 // Approximate feature mix of total consumption. The backend exposes org credit
@@ -72,14 +70,14 @@ const FEATURE_META: Record<ChartMetric, { label: string; color: string; border: 
 // so the daily curve below is *derived* from the real `used` total — apportioned
 // to the selected window by day-count and split across features — rather than a
 // frozen mock. It changes per org, per usage level, and per date range.
-const FEATURE_SPLIT: Record<ChartMetric, number> = { chat: 0.68, assistants: 0.20, brain: 0.12 }
+const FEATURE_SPLIT: Record<ChartMetric, number> = { chat: 0.68, assistants: 0.20, automation: 0.12 }
 
 // Matches AnalyticsPageSkeleton's 4 placeholder rows below. A real top-N cap —
 // "Manage members" only makes sense as a way to see the REST of the team, so
 // it must stay hidden whenever this list already covers everyone active.
 const TOP_USERS_LIMIT = 4
 
-const METRIC_KEYS: ChartMetric[] = ['chat', 'assistants', 'brain']
+const METRIC_KEYS: ChartMetric[] = ['chat', 'assistants', 'automation']
 
 function rangeConfig(range: DateRange): { buckets: number; windowDays: number } {
   switch (range) {
@@ -114,7 +112,7 @@ function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
   const bucketSpan = windowDays / buckets
 
   // Deterministic per-bucket weights (stable across renders — no Math.random).
-  const weights: Record<ChartMetric, number[]> = { chat: [], assistants: [], brain: [] }
+  const weights: Record<ChartMetric, number[]> = { chat: [], assistants: [], automation: [] }
   METRIC_KEYS.forEach((metric, fi) => {
     const raw = Array.from({ length: buckets }, (_, i) =>
       Math.max(0.2, 1 + 0.55 * Math.sin(i * 1.3 + fi * 2.1) + 0.25 * Math.cos(i * 0.7 + fi)))
@@ -123,7 +121,7 @@ function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
   })
 
   const days:   ChartDay[]                 = []
-  const totals: Record<ChartMetric, number> = { chat: 0, assistants: 0, brain: 0 }
+  const totals: Record<ChartMetric, number> = { chat: 0, assistants: 0, automation: 0 }
   for (let i = 0; i < buckets; i++) {
     const offsetDays = Math.round((buckets - 1 - i) * bucketSpan)
     const d = new Date(now)
@@ -132,10 +130,10 @@ function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
       label:      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       chat:       Math.round(windowUsed * FEATURE_SPLIT.chat       * weights.chat[i]),
       assistants: Math.round(windowUsed * FEATURE_SPLIT.assistants * weights.assistants[i]),
-      brain:      Math.round(windowUsed * FEATURE_SPLIT.brain      * weights.brain[i]),
+      automation: Math.round(windowUsed * FEATURE_SPLIT.automation * weights.automation[i]),
     }
     days.push(day)
-    totals.chat += day.chat; totals.assistants += day.assistants; totals.brain += day.brain
+    totals.chat += day.chat; totals.assistants += day.assistants; totals.automation += day.automation
   }
   return { days, totals, windowUsed }
 }

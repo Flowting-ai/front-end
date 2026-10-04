@@ -13,7 +13,7 @@ import { ModelSwitchDialog }                               from '@/components/ch
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
-import { pickDefaultModel }                                from '@/lib/ai-models'
+import { modelIconSource, pickDefaultModel }               from '@/lib/ai-models'
 import { useWorkspaceCreditNotice }                        from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice }                              from '@/components/InlineCreditNotice'
 import { useProjects }                                     from '@/context/projects-context'
@@ -22,6 +22,7 @@ import { useFileUpload }                                   from '@/hooks/use-fil
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { useHighlight }                                    from '@/context/highlight-context'
 import { usePinMentions } from '@/hooks/use-pin-mentions'
+import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags"
 import { getVersion } from '@/lib/api/personas'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -39,7 +40,7 @@ import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionChip } from '@/components/chat/MentionChip'
-import { StarterList } from '@/components/StarterSuggestions'
+import { StarterList, StarterListSkeleton } from '@/components/StarterSuggestions'
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from '@/lib/chat-modes'
 
 // ── Per-chat settings persistence ────────────────────────────────────────────
@@ -61,7 +62,7 @@ function saveProjectChatSettings(chatId: string, s: ProjectChatSettings) {
 function CentredMessage({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>{children}</p>
+      <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>{children}</p>
     </div>
   )
 }
@@ -80,7 +81,7 @@ function LoadingChatSkeleton() {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-import { useRecommendations } from '@/hooks/use-recommendations'
+import { useRecommendationsState } from '@/hooks/use-recommendations'
 
 
 function ProjectChatPageInner() {
@@ -88,7 +89,7 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
-  const recommendations = useRecommendations('chat')
+  const { recommendations, loading: recommendationsLoading } = useRecommendationsState()
 
   const {
     loading: projectsContextLoading,
@@ -158,6 +159,7 @@ function ProjectChatPageInner() {
   // "new" route clears instead, so a previous chat's highlights don't linger.
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight()
   useEffect(() => {
+    if (!HIGHLIGHTS_ENABLED) return
     if (activeChatId) loadHighlightsForChat(activeChatId)
     else clearHighlights()
   }, [activeChatId, loadHighlightsForChat, clearHighlights])
@@ -276,7 +278,7 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, algorithm, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, reasoningEffort, algorithm, setPersonaActive } = useModelSelectorContext()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   // Reset to the default model tier on a genuinely blank "new chat" landing —
@@ -294,6 +296,7 @@ function ProjectChatPageInner() {
   }, [])
 
   const modelButtonLabel = selectedModel?.modelName
+  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 
@@ -415,7 +418,7 @@ function ProjectChatPageInner() {
           </Dropdown>
         </Dropdown.Float>
       )}
-      {selectedFolders.map(folder => (
+      {(PINS_ENABLED ? selectedFolders : []).map(folder => (
         <Chip
           key={folder.id}
           label={folder.name}
@@ -423,7 +426,7 @@ function ProjectChatPageInner() {
           onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
         />
       ))}
-      {mentionedPins.map(mp => (
+      {(PINS_ENABLED ? mentionedPins : []).map(mp => (
         <MentionChip key={mp.id} label={mp.label} onRemove={() => handleRemoveMention(mp.id)} />
       ))}
       {webSearchEnabled && (
@@ -473,8 +476,9 @@ function ProjectChatPageInner() {
       onAddFilesClick={() => fileInputRef.current?.click()}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedFolders={selectedFolders}
-      onFolderToggle={(folder) => setSelectedFolders(prev =>
+      selectedFolders={PINS_ENABLED ? selectedFolders : []}
+      hidePinFolders={!PINS_ENABLED}
+      onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
@@ -489,7 +493,7 @@ function ProjectChatPageInner() {
     setInitialFiles(newChatAttachments.map(a => a.file))
     setNewChatAttachments([])
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
-    setInitialMentionedPins([...mentionedPins])
+    setInitialMentionedPins(PINS_ENABLED ? [...mentionedPins] : [])
     clearMentionedPins()
     setInitialPrompt(value.trim())
     setNewChatInput('')
@@ -569,7 +573,7 @@ function ProjectChatPageInner() {
                   display:         'flex',
                   alignItems:      'center',
                   justifyContent:  'center',
-                  backgroundColor: 'rgba(255,255,255,0.88)',
+                  backgroundColor: 'rgba(var(--surface-rgb), 0.88)',
                   border:          '2px dashed var(--focus-ring)',
                   borderRadius:    '16px',
                   pointerEvents:   'none',
@@ -634,9 +638,11 @@ function ProjectChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleSend}
+                      agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
+                      modelIcon={modelButtonIcon}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
@@ -649,9 +655,9 @@ function ProjectChatPageInner() {
                         />
                       }
                       placeholder={selectedMode ? MODE_PLACEHOLDERS[selectedMode] : 'How can I help you today?'}
-                      onMentionChange={handleMentionChange}
-                      isPinDropdownOpen={showPinDropdown}
-                      onPinNavigate={handlePinNavigate}
+                      onMentionChange={PINS_ENABLED ? handleMentionChange : undefined}
+                      isPinDropdownOpen={PINS_ENABLED ? showPinDropdown : false}
+                      onPinNavigate={PINS_ENABLED ? handlePinNavigate : undefined}
                     />
                   </div>
 
@@ -681,9 +687,11 @@ function ProjectChatPageInner() {
                   </div>
 
                   {/* Starter cards — generated per user by /recommendations. */}
-                  {recommendations && (
+                  {(recommendations || recommendationsLoading) && (
                     <div style={{ marginTop: '20px', textAlign: 'left' }}>
-                      <StarterList cards={recommendations.cards} onSelect={(card) => handleSend(card.prompt)} />
+                      {recommendations
+                        ? <StarterList cards={recommendations.cards} onSelect={(card) => handleSend(card.prompt)} />
+                        : <StarterListSkeleton />}
                     </div>
                   )}
                 </m.div>
@@ -748,6 +756,7 @@ function ProjectChatPageInner() {
               }}
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}
+              selectedModelIcon={modelButtonIcon}
               selectedModelId={selectedModel?.id}
               algorithm={selectedPersona ? undefined : algorithm}
               onModelClick={selectedPersona ? undefined : handleModelClick}
@@ -757,19 +766,20 @@ function ProjectChatPageInner() {
               initialPrompt={initialPrompt}
               initialFiles={initialFiles}
               onClearInitialFiles={() => setInitialFiles([])}
-              initialMentionedPins={initialMentionedPins}
+              initialMentionedPins={PINS_ENABLED ? initialMentionedPins : []}
               webSearchEnabled={webSearchEnabled}
-              enableReasoning={enableReasoning}
+              reasoningEffort={reasoningEffort}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={() => setAddMenuFiles([])}
               chips={newChatChips}
-              selectedFolders={selectedFolders}
+              selectedFolders={PINS_ENABLED ? selectedFolders : []}
               selectedStyleId={selectedStyleId}
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               readOnly={activeChatReadOnly}
               chatOwnershipConfirmed={activeChatRecord?.canEdit === true}
+              agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>
         )}

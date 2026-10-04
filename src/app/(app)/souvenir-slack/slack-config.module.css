@@ -3,7 +3,7 @@
   grid-template-columns: 226px minmax(0, 1fr);
   min-height: 620px;
   overflow: hidden;
-  background: white;
+  background: var(--neutral-50);
 }
 
 .rail {
@@ -13,7 +13,7 @@
   gap: 6px;
   padding: 14px 12px;
   border-right: 1px solid var(--neutral-200);
-  background: var(--neutral-25, #fcfbfa);
+  background: var(--neutral-100);
 }
 
 .railItem {
@@ -63,7 +63,7 @@
   border: 1px solid var(--neutral-200);
   border-radius: 9px;
   outline: none;
-  background: white;
+  background: var(--neutral-50);
   color: var(--neutral-900);
   font-family: var(--font-body);
   font-size: 13px;
@@ -94,7 +94,7 @@
   padding: 0;
   border: 1px solid var(--neutral-200);
   border-radius: 8px;
-  background: white;
+  background: var(--neutral-white);
   color: var(--neutral-700);
   cursor: pointer;
   transition: background-color 120ms ease, border-color 120ms ease;
@@ -151,11 +151,11 @@
   font: 600 16px/1 var(--font-body);
 }
 .channelMeta { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.metaPill { max-width: 210px; overflow: hidden; padding: 4px 8px; border: 1px solid var(--neutral-200); border-radius: 999px; background: white; color: var(--neutral-600); font: 500 11px/16px var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.metaPill { max-width: 210px; overflow: hidden; padding: 4px 8px; border: 1px solid var(--neutral-200); border-radius: 999px; background: var(--neutral-white); color: var(--neutral-600); font: 500 11px/16px var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
 
 .channelGroups { display: flex; flex-direction: column; gap: 14px; }
-.channelGroup { overflow: hidden; border: 1px solid var(--neutral-200); border-radius: 14px; background: white; box-shadow: 0 1px 2px rgba(82, 75, 71, .03); }
-.groupHeader { padding: 17px 20px 16px; background: var(--neutral-25, #fcfbfa); }
+.channelGroup { overflow: hidden; border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--neutral-white); box-shadow: 0 1px 2px rgba(82, 75, 71, .03); }
+.groupHeader { padding: 17px 20px 16px; background: var(--neutral-100); }
 .groupKicker { margin: 0 0 3px; color: var(--neutral-500); font: 650 10px/15px var(--font-body); letter-spacing: .06em; text-transform: uppercase; }
 .groupTitle { margin: 0; color: var(--neutral-900); font: 600 15px/21px var(--font-body); }
 .groupDescription { margin: 3px 0 0; color: var(--neutral-500); font: 400 12px/18px var(--font-body); }
@@ -176,7 +176,7 @@
   border: 1px solid var(--neutral-200);
   border-radius: 9px;
   outline: none;
-  background: white;
+  background: var(--neutral-white);
   color: var(--neutral-900);
   font-family: var(--font-body);
   font-size: 14px;
@@ -198,13 +198,13 @@
   border: 1px solid var(--neutral-200);
   border-radius: 9px;
   outline: none;
-  background: white;
+  background: var(--neutral-white);
   color: var(--neutral-900);
   cursor: pointer;
   text-align: left;
   transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
-.modelSelectTrigger:hover { border-color: var(--neutral-300); background: var(--neutral-25, #fcfbfa); }
+.modelSelectTrigger:hover { border-color: var(--neutral-300); background: var(--neutral-100); }
 .modelSelectTrigger:focus-visible { border-color: var(--neutral-400); box-shadow: 0 0 0 3px rgba(114, 105, 98, 0.08); }
 .modelSelectIdentity { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .modelSelectCopy { display: flex; min-width: 0; flex-direction: column; }
@@ -213,13 +213,13 @@
 .modelSelectChevron { flex: 0 0 auto; color: var(--neutral-500); transition: transform 120ms ease; }
 .modelSelectTrigger[aria-expanded='true'] .modelSelectChevron { transform: rotate(180deg); }
 
-.skillList { display: flex; flex-direction: column; margin-top: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; overflow: hidden; background: white; }
+.skillList { display: flex; flex-direction: column; margin-top: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; overflow: hidden; background: var(--neutral-white); }
 .skillRow { display: flex; min-width: 0; min-height: 58px; align-items: center; justify-content: space-between; gap: 20px; padding: 10px 12px 10px 14px; border-top: 1px solid var(--neutral-150, var(--neutral-100)); }
 .skillRow:first-child { border-top: 0; }
 .skillCopy { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .skillName { color: var(--neutral-900); font: 550 13px/19px var(--font-body); }
 .skillDescription { color: var(--neutral-500); font: 400 12px/18px var(--font-body); }
-.skillEmpty { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--neutral-200); border-radius: 11px; background: var(--neutral-25, #fcfbfa); }
+.skillEmpty { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--neutral-200); border-radius: 11px; background: var(--neutral-100); }
 .skillEmptyTitle { margin: 0; color: var(--neutral-800); font: 550 13px/19px var(--font-body); }
 .skillEmptyDescription { margin: 2px 0 0; color: var(--neutral-500); font: 400 12px/18px var(--font-body); }
 
@@ -234,7 +234,7 @@
   padding: 10px 12px;
   border: 1px solid var(--neutral-200);
   border-radius: 11px;
-  background: white;
+  background: var(--neutral-white);
 }
 .listRowMain { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .connectorIcon { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid var(--neutral-100); border-radius: 7px; background: var(--neutral-50); }
@@ -242,7 +242,7 @@
 .listSecondary { overflow: hidden; margin-top: 1px; color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .rowActions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; }
 
-.automation { border: 1px solid var(--neutral-200); border-radius: 11px; background: white; }
+.automation { border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-white); }
 .automation > .listRow { border: 0; background: transparent; }
 .automationToggle { display: flex; min-width: 0; flex: 1; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .automationChevron { flex: 0 0 auto; color: var(--neutral-500); transition: transform 150ms ease; }
@@ -257,10 +257,10 @@
 .automationActions { display: flex; flex-wrap: wrap; gap: 7px; }
 
 .empty { margin: 12px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
-.inlinePanel { margin-top: 14px; padding: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-25, #fcfbfa); }
+.inlinePanel { margin-top: 14px; padding: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-100); }
 .inlinePanelHeader { margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; }
 .inlinePanelHelp { margin: 3px 0 10px; color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; line-height: 18px; }
-.menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; min-width: 240px; padding: 6px; border: 1px solid var(--neutral-200); border-radius: 11px; background: white; box-shadow: 0 12px 32px rgba(82, 75, 71, .14); }
+.menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; min-width: 240px; padding: 6px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-white); box-shadow: 0 12px 32px rgba(82, 75, 71, .14); }
 .muted { color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; }
 .inherited { padding: 2px 7px; border-radius: 999px; background: var(--neutral-100); color: var(--neutral-600); font-size: 11px; white-space: nowrap; }
 
@@ -268,7 +268,7 @@
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .segmented { display: inline-flex; align-self: flex-start; gap: 3px; padding: 3px; border-radius: 9px; background: var(--neutral-100); }
 .segment { height: 29px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--neutral-500); font: 500 13px var(--font-body); cursor: pointer; }
-.segmentActive { background: white; color: var(--neutral-900); box-shadow: 0 1px 2px rgba(82, 75, 71, .12), 0 0 0 1px var(--neutral-200); }
+.segmentActive { background: var(--neutral-white); color: var(--neutral-900); box-shadow: 0 1px 2px rgba(82, 75, 71, .12), 0 0 0 1px var(--neutral-200); }
 .projectMeta { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; }
 .summary { margin: 12px 0 0; color: var(--neutral-800); font-family: var(--font-body); font-size: 13px; line-height: 21px; white-space: pre-wrap; }
 .summaryMeta { margin: 8px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 11px; }
@@ -283,7 +283,7 @@
   overflow: hidden;
   border: 1px solid var(--neutral-200);
   border-radius: 16px;
-  background: white;
+  background: var(--neutral-white);
   box-shadow: 0 1px 2px rgba(82, 75, 71, 0.04);
 }
 
@@ -295,7 +295,7 @@
   min-height: 48px;
   padding: 8px 10px 8px 14px;
   border-bottom: 1px solid var(--neutral-200);
-  background: white;
+  background: var(--neutral-white);
 }
 
 .connectionStatus { display: inline-flex; min-width: 0; align-items: center; gap: 9px; }
@@ -315,7 +315,7 @@
   padding: 36px 24px;
   border: 1px solid var(--neutral-200);
   border-radius: 16px;
-  background: white;
+  background: var(--neutral-white);
   text-align: center;
 }
 .emptyStateMark { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 2px; border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--neutral-50); }

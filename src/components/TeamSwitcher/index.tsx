@@ -56,7 +56,7 @@ function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string;
           inset:         0,
           borderRadius:  4,
           pointerEvents: 'none',
-          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
+          boxShadow:     'inset 0px 4px 4px 0px color-mix(in srgb, var(--static-black) 25%, transparent), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
         }}
       />
       <span
@@ -70,7 +70,7 @@ function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string;
           fontWeight:     500,
           fontSize:       11,
           lineHeight:     1,
-          color:          'var(--neutral-white)',
+          color:          'var(--color-text-on-accent)',
           userSelect:     'none',
         }}
       >
@@ -195,7 +195,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                 padding:        2,
                 flexShrink:     0,
                 background:     'linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)',
-                boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+                boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
               }}
             >
               <ArrowDownOneIcon size={16} color="var(--neutral-500)" />

@@ -6,18 +6,16 @@ import { GlobalSearchModal, type SearchResult } from "@/components/GlobalSearchM
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { usePinboard } from "@/context/pinboard-context";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 import { fetchPersonas, fetchPersonaChats } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
-import { listBrainChats } from "@/lib/api/brain";
-import type { BrainChatListItem } from "@/lib/api/brain";
 import {
   CHAT_ROUTE,
   CHATS_ROUTE,
   PROJECTS_ROUTE,
   PROJECTS_NEW_ROUTE,
   AGENTS_ROUTE,
-  BRAIN_ROUTE,
-  BRAIN_SCHEDULES_ROUTE,
+  SCHEDULES_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
   SETTINGS_HELP_ROUTE,
   ORG_GENERAL_ROUTE,
@@ -53,9 +51,7 @@ const NAV_PAGES: NavPage[] = [
   { id: "page-projects",      title: "Projects",         subtitle: "Workspaces",  route: PROJECTS_ROUTE,            keywords: "projects folders workspaces" },
   { id: "page-projects-new",  title: "New Project",      subtitle: "Projects",    route: PROJECTS_NEW_ROUTE,        keywords: "new project create workspace" },
   { id: "page-personas",      title: "Agents",           subtitle: "AI agents",   route: AGENTS_ROUTE,              keywords: "personas agents assistants bots ai" },
-  { id: "page-brain",         title: "Tasks",            subtitle: "Knowledge",   route: BRAIN_ROUTE,               keywords: "brain knowledge agent memory context task tasks" },
-  { id: "page-brain-threads", title: "All Tasks",        subtitle: "Tasks",       route: `${CHATS_ROUTE}?filter=tasks`, keywords: "brain threads history conversations tasks" },
-  { id: "page-schedules",     title: "Schedules",        subtitle: "Tasks",       route: BRAIN_SCHEDULES_ROUTE,     keywords: "schedules scheduled tasks automation cron jobs brain" },
+  { id: "page-schedules",     title: "Schedules",        subtitle: "Automation",  route: SCHEDULES_ROUTE,           keywords: "schedules scheduled tasks automation cron jobs" },
   { id: "page-org-general",   title: "General",          subtitle: "Organization", route: ORG_GENERAL_ROUTE,        keywords: "organization org settings general" },
   { id: "page-org-members",   title: "Members",          subtitle: "Organization", route: ORG_MEMBERS_ROUTE,        keywords: "organization org members people users invite" },
   { id: "page-org-plans",     title: "Plan & Billing",   subtitle: "Settings",    route: ORG_PLANS_ROUTE,          keywords: "organization org plans usage billing payment subscription invoice credits cost" },
@@ -95,7 +91,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery,    setSearchQuery]    = useState('');
   const [searchPersonas, setSearchPersonas] = useState<Persona[]>([]);
   const [agentChats,     setAgentChats]     = useState<AgentChat[]>([]);
-  const [brainThreads,   setBrainThreads]   = useState<BrainChatListItem[]>([]);
 
   const openSearch = useCallback(() => {
     trackFeature("search");
@@ -114,8 +109,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [openSearch]);
 
-  // Lazy-load personas + this user's agent chats (across all personas) + Brain
-  // threads the first time search opens (mirrors RecentAgentChatsSection's
+  // Lazy-load personas + this user's agent chats (across all personas) the
+  // first time search opens (mirrors RecentAgentChatsSection's
   // fetch-all-personas-then-fetch-each-persona's-chats pattern in LeftSidebar).
   useEffect(() => {
     if (!searchOpen) return;
@@ -135,10 +130,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       })
       .then(chatLists => { if (!cancelled && chatLists) setAgentChats(chatLists.flat()); })
       .catch(() => { /* search still works without agents/agent chats */ });
-
-    listBrainChats()
-      .then(threads => { if (!cancelled) setBrainThreads(threads); })
-      .catch(() => { /* search still works without brain threads */ });
 
     return () => { cancelled = true; };
   }, [searchOpen]);
@@ -160,16 +151,15 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
   // Every chat-like title the app knows about right now — used to resolve a
   // pin's parent chat name across ALL sources (regular chats, project chats,
-  // agent chats, Brain threads), since `PinItem.chatName` is never actually
+  // agent chats), since `PinItem.chatName` is never actually
   // populated by the backend/pinboard-context.
   const chatNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of chatHistory.chats) map.set(c.id, c.title || 'Untitled chat');
     for (const c of projectChats) map.set(c.id, c.title || 'Untitled chat');
     for (const c of agentChats) map.set(c.id, c.title || 'Untitled chat');
-    for (const t of brainThreads) map.set(t.id, t.chat_title || 'Untitled thread');
     return map;
-  }, [chatHistory.chats, projectChats, agentChats, brainThreads]);
+  }, [chatHistory.chats, projectChats, agentChats]);
 
   // Last 5 non-project chats shown when search query is empty
   const searchRecents = useMemo<SearchResult[]>(() => {
@@ -179,8 +169,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       .map(c => ({ id: c.id, type: 'chat' as const, title: c.title || 'Untitled chat' }));
   }, [chatHistory.chats, projectChatIdSet]);
 
-  // Full search — chats, project chats, agent chats, Brain threads, projects,
-  // personas, pins, nav pages
+  // Full search — chats, project chats, agent chats, projects, personas, pins,
+  // nav pages
   const searchResults = useMemo<SearchResult[]>(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
@@ -206,11 +196,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         return { id: c.id, type: 'agent-chat' as const, title: c.title || 'Untitled chat', subtitle: personaName ? `with ${personaName}` : undefined };
       });
 
-    const brainThreadResults: SearchResult[] = brainThreads
-      .filter(t => (t.chat_title || '').toLowerCase().includes(q))
-      .slice(0, 20)
-      .map(t => ({ id: t.id, type: 'brain-thread' as const, title: t.chat_title || 'Untitled thread' }));
-
     const projectResults: SearchResult[] = projects
       .filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
       .slice(0, 10)
@@ -226,7 +211,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       .slice(0, 10)
       .map(p => ({ id: p.id, type: 'persona' as const, title: p.name, subtitle: p.handle || undefined }));
 
-    const pinResults: SearchResult[] = pins
+    const pinResults: SearchResult[] = (PINS_ENABLED ? pins : [])
       .filter(p =>
         (p.title || '').toLowerCase().includes(q) ||
         (p.content || '').toLowerCase().includes(q) ||
@@ -253,12 +238,12 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
     return [
       ...chatResults, ...projectChatResults,
-      ...agentChatResults, ...brainThreadResults,
+      ...agentChatResults,
       ...projectResults, ...personaResults,
       ...pinResults, ...pageResults,
     ];
   }, [
-    searchQuery, chatHistory.chats, projectChats, agentChats, brainThreads,
+    searchQuery, chatHistory.chats, projectChats, agentChats,
     projects, searchPersonas, pins, projectNameById, personaNameById, chatNameById,
   ]);
 
@@ -276,10 +261,10 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         if (agentChat) push(`${AGENT_CHAT_ROUTE(agentChat.personaId)}?chatId=${agentChat.id}`);
         break;
       }
-      case 'brain-thread': push(`${BRAIN_ROUTE}?id=${result.id}`); break;
       case 'project': push(PROJECT_ROUTE(result.id));        break;
       case 'persona': push(AGENT_CHAT_ROUTE(result.id));     break;
       case 'pin': {
+        if (!PINS_ENABLED) break;
         const pin = pins.find(p => p.id === result.id);
         if (pin?.chatId) { push(`${CHAT_ROUTE}?id=${pin.chatId}`); openPinboardForChat(pin.chatId); }
         else openPinboard();

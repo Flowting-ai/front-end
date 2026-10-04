@@ -53,6 +53,8 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          data-sidebar-active={isActive ? '' : undefined}
+          data-sidebar-selected={selected ? '' : undefined}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 'auto', height: 32, padding: '0 6px', borderRadius: 10,
@@ -61,7 +63,7 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
             cursor: 'pointer', transition: 'background-color 150ms, box-shadow 150ms', boxSizing: 'border-box',
           }}
         >
-          <div style={{ color: 'var(--sidebar-menu-item-text)', lineHeight: 0 }}>
+          <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', lineHeight: 0 }}>
             <SlackGlyph size={20} />
           </div>
         </div>
@@ -78,6 +80,8 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      data-sidebar-active={isActive ? '' : undefined}
+      data-sidebar-selected={selected ? '' : undefined}
       style={{
         position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -88,18 +92,18 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+        <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
           <SlackGlyph size={20} />
         </div>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)',
-          lineHeight: 'var(--line-height-body)', color: isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          lineHeight: 'var(--line-height-body)', color: selected ? 'var(--sidebar-selected-text)' : isHovered ? 'var(--neutral-black)' : 'var(--sidebar-menu-item-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           Souvenir in Slack
         </p>
       </div>
       {connected ? (
-        <span aria-hidden style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--sidebar-menu-item-text)' }}>
+        <span aria-hidden style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}>
           <ArrowUpRightOneIcon size={16} animated />
         </span>
       ) : (

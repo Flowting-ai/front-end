@@ -2,7 +2,7 @@
  * tone-options.ts
  *
  * The shared "Use style" tone presets — shown in the composer's style picker
- * on Chat, Brain, and Project-chat alike. Split out from AddMenu.tsx so that
+ * on Chat and Project-chat alike. Split out from AddMenu.tsx so that
  * file only exports components (Fast Refresh can't safely preserve component
  * state in a file that also exports non-component values).
  */

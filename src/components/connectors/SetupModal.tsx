@@ -38,7 +38,7 @@ const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutra
 
 export function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'rgba(30,28,27,.58)' }} onClick={onDismiss}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={onDismiss}>
       <div
         role="dialog"
         aria-modal="true"

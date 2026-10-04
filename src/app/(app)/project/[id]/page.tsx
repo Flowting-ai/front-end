@@ -10,6 +10,7 @@ import { useProjects } from '@/context/projects-context'
 import { emitProjectNewChat } from '@/hooks/use-sidebar-events'
 import { useAuth } from '@/context/auth-context'
 import { usePinboard } from '@/context/pinboard-context'
+import { PINS_ENABLED } from "@/lib/feature-flags"
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
@@ -44,7 +45,7 @@ import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
-import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
+import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
@@ -70,7 +71,7 @@ const tabsRowStyle: React.CSSProperties = {
 // tooltip's dark neutral-700→900 background (see semantic.css --tooltip-bg-*).
 const tooltipDividerStyle: React.CSSProperties = {
   height:          1,
-  backgroundColor: 'rgba(255,255,255,0.15)',
+  backgroundColor: 'rgba(var(--surface-rgb), 0.15)',
 }
 
 export default function ProjectPage() {
@@ -82,6 +83,7 @@ export default function ProjectPage() {
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
+  const modelButtonIcon = useModelButtonIcon()
 
   const { orgId, org, caps, members } = useOrg()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
@@ -389,7 +391,7 @@ export default function ProjectPage() {
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Project not found.</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>Project not found.</p>
       </div>
     )
   }
@@ -526,7 +528,7 @@ export default function ProjectPage() {
         published={chat.visibility === 'team'}
         onPublishToggle={(next) => void handlePublishToggle(chat.id, next)}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
-        onPinsClick={() => togglePinboard()}
+        onPinsClick={PINS_ENABLED ? () => togglePinboard() : undefined}
         onRename={chat.canEdit ? (newTitle) => {
           void chatHistory.rename(chat.id, newTitle)
           setTeamChats(prev => prev.map(c => c.id === chat.id ? { ...c, chatTitle: newTitle } : c))
@@ -554,7 +556,7 @@ export default function ProjectPage() {
         timestamp={formatRelativeTime(chat.updatedAt)}
         pinCount={pinsLoading ? null : pins.filter(p => p.chatId === chat.id).length}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
-        onPinsClick={() => togglePinboard()}
+        onPinsClick={PINS_ENABLED ? () => togglePinboard() : undefined}
         onRename={chat.canEdit ? (newTitle) => {
           renameChat(projectId, chat.id, newTitle)
           void chatHistory.rename(chat.id, newTitle)
@@ -592,7 +594,7 @@ export default function ProjectPage() {
         }}
         aria-label="Back to Projects"
       >
-        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
+        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: 'var(--neutral-700)' }} />
       </button>
 
       {/* ── Left column - fixed header + scrollable chat list ─────────── */}
@@ -635,7 +637,7 @@ export default function ProjectPage() {
                   fontWeight:   'var(--font-weight-regular)',
                   fontSize:     '24px',
                   lineHeight:   '32px',
-                  color:        '#3b3632',
+                  color:        'var(--neutral-800)',
                   margin:       0,
                   overflow:     'hidden',
                   textOverflow: 'ellipsis',
@@ -744,7 +746,7 @@ export default function ProjectPage() {
                   fontWeight:       'var(--font-weight-regular)',
                   fontSize:         '14px',
                   lineHeight:       '20px',
-                  color:            '#1a1714',
+                  color:            'var(--legacy-1a1714)',
                   margin:           0,
                   overflow:         'hidden',
                   textOverflow:     'ellipsis',
@@ -794,6 +796,7 @@ export default function ProjectPage() {
               onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
               hasAttachments={newChatAttachments.length > 0}
               modelName={modelButtonLabel}
+              modelIcon={modelButtonIcon}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
               disabledModelSelector={!!selectedPersona}
@@ -805,8 +808,9 @@ export default function ProjectPage() {
                   onAddFilesClick={() => fileInputRef.current?.click()}
                   selectedStyleId={selectedStyleId}
                   onStyleChange={setSelectedStyleId}
-                  selectedFolders={selectedFolders}
-                  onFolderToggle={(folder) => setSelectedFolders(prev =>
+                  selectedFolders={PINS_ENABLED ? selectedFolders : []}
+                  hidePinFolders={!PINS_ENABLED}
+                  onFolderToggle={(folder) => PINS_ENABLED && setSelectedFolders(prev =>
                     prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
                   )}
                   selectedPersonaId={selectedPersona?.id ?? null}
@@ -845,7 +849,7 @@ export default function ProjectPage() {
                       </Dropdown>
                     </Dropdown.Float>
                   )}
-                  {selectedFolders.map(folder => (
+                  {(PINS_ENABLED ? selectedFolders : []).map(folder => (
                     <Chip
                       key={folder.id}
                       label={folder.name}
@@ -1027,6 +1031,7 @@ export default function ProjectPage() {
               setPanelOpen(v => !v)
             }}
           />
+          {PINS_ENABLED && (
           <FloatingMenuItem
             icon={<PinIcon size={20} />}
             label="Pinboard"
@@ -1040,6 +1045,7 @@ export default function ProjectPage() {
               togglePinboard()
             }}
           />
+          )}
           <FloatingMenuItem
             icon={<UserAiIcon size={20} animated />}
             label="Agents"

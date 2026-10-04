@@ -12,7 +12,7 @@ import { HIcon } from "./response-blocks-shared";
 function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"]): React.ReactNode {
   if (typeof cell === "object") {
     if (cell.type === "check") return (
-      <span style={{ fontWeight: 600, fontSize: 14, color: cell.value ? "#80B707" : "#C0B5AD" }}>
+      <span style={{ fontWeight: 600, fontSize: 14, color: cell.value ? "var(--green-600)" : "var(--neutral-300)" }}>
         {cell.value ? "✓" : "-"}
       </span>
     );
@@ -27,8 +27,8 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     );
     if (cell.type === "rich") return (
       <div>
-        <div style={{ fontSize: 14, color: "#26211E", fontWeight: 500 }}>{cell.text}</div>
-        {cell.sub && <div style={{ fontSize: 12, color: "#9C938B", marginTop: 1 }}>{cell.sub}</div>}
+        <div style={{ fontSize: 14, color: "var(--neutral-900)", fontWeight: 500 }}>{cell.text}</div>
+        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-400)", marginTop: 1 }}>{cell.sub}</div>}
         {cell.badge && (
           <span style={{
             display: "inline-flex", marginTop: 4, background: cell.badge.bg, color: cell.badge.color,
@@ -54,8 +54,8 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
       </span>
     );
   }
-  if (strVal === "✓") return <span style={{ color: "#80B707", fontWeight: 700 }}>�"</span>;
-  if (strVal === "-") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>-</span>;
+  if (strVal === "✓") return <span style={{ color: "var(--green-600)", fontWeight: 700 }}>�"</span>;
+  if (strVal === "-") return <span style={{ color: "var(--neutral-300)", fontWeight: 400 }}>-</span>;
   return strVal;
 }
 
@@ -159,9 +159,9 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
   };
 
   const rowBg = (ri: number, isAccentRow: boolean, isTotalsRow: boolean) => {
-    if (isAccentRow) return "rgba(104,61,27,0.04)";
+    if (isAccentRow) return "color-mix(in srgb, var(--brown-700) 4%, transparent)";
     if (isTotalsRow) return "rgba(59,54,50,0.05)";
-    if (isHoverable && hoveredRow === ri) return "rgba(104,61,27,0.04)";
+    if (isHoverable && hoveredRow === ri) return "color-mix(in srgb, var(--brown-700) 4%, transparent)";
     if (v === "striped" && ri % 2 === 1) return "rgba(59,54,50,0.05)";
     return "white";
   };
@@ -177,32 +177,32 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
 
   return (
     <div>
-      <div style={{ border: "1px solid #F2E8E0", borderRadius: 12, overflow: "hidden", fontSize: 14, ...(isMinimal ? { border: "none", borderRadius: 0 } : {}) }}>
+      <div style={{ border: "1px solid var(--brown-50)", borderRadius: 12, overflow: "hidden", fontSize: 14, ...(isMinimal ? { border: "none", borderRadius: 0 } : {}) }}>
         <AnimatePresence>
           {data.caption && isDone && (
             <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ padding: "7px 14px", borderBottom: "1px solid #F2E8E0", fontSize: 12, color: "#9C938B", fontStyle: "italic" }}>
+              style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-400)", fontStyle: "italic" }}>
               {data.caption}
             </m.div>
           )}
         </AnimatePresence>
-        <div style={{ display: "grid", gridTemplateColumns: gridCols, background: isMinimal ? "transparent" : "rgba(59,54,50,0.05)", borderBottom: "1px solid #F2E8E0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: gridCols, background: isMinimal ? "transparent" : "rgba(59,54,50,0.05)", borderBottom: "1px solid var(--brown-50)" }}>
           {data.headers.map((h, ci) => (
             // eslint-disable-next-line react/no-array-index-as-key
             <div key={ci} onClick={() => handleSort(ci)}
               style={{
                 padding: isCompact ? "6px 12px" : "9px 14px",
-                fontWeight: 600, color: "#26211E", fontSize: 14, letterSpacing: "0.1px",
-                borderLeft: (!isMinimal && !isHoverable) ? (ci > 0 ? "1px solid rgba(59,54,50,0.10)" : "none") : "none",
+                fontWeight: 600, color: "var(--neutral-900)", fontSize: 14, letterSpacing: "0.1px",
+                borderLeft: (!isMinimal && !isHoverable) ? (ci > 0 ? "1px solid var(--neutral-800-10)" : "none") : "none",
                 cursor: data.sortable ? "pointer" : "default",
                 userSelect: "none", display: "flex", alignItems: "center", gap: 5,
                 justifyContent: (isFinancial && ci > 0) ? "flex-end" : (v === "feature-comparison" && ci > 0) ? "center" : "flex-start",
               }}
-              onMouseEnter={(e) => { if (data.sortable) e.currentTarget.style.background = "rgba(59,54,50,0.10)"; }}
+              onMouseEnter={(e) => { if (data.sortable) e.currentTarget.style.background = "var(--neutral-800-10)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
               <span>{h}</span>
               {data.sortable && (
-                <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "#683D1B" : "#C0B5AD" }}>
+                <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "var(--brown-700)" : "var(--neutral-300)" }}>
                   {sortCol === ci ? (sortDir === "asc" ? "�'" : "↓") : "↕"}
                 </span>
               )}
@@ -226,11 +226,11 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
                     <div key={ci} style={{ padding: cellPad, borderLeft: cellBorderLeft(ci), display: "flex", justifyContent: (isFinancial && ci > 0) ? "flex-end" : (v === "feature-comparison" && ci > 0) ? "center" : "flex-start" }}>
                       {isMixed && ci === 0 ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
-                          <div style={{ height: 11, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 3, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
+                          <div style={{ height: 11, width: `${skelW(ri, ci)}%`, background: "var(--neutral-800-10)", borderRadius: 3, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
                           <div style={{ height: 8, width: `${skelW(ri, ci) * 0.6}%`, background: "rgba(59,54,50,0.05)", borderRadius: 3, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06 + 0.1}s` }} />
                         </div>
                       ) : (
-                        <div style={{ height: skelH, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 4, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
+                        <div style={{ height: skelH, width: `${skelW(ri, ci)}%`, background: "var(--neutral-800-10)", borderRadius: 4, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
                       )}
                     </div>
                   ))}
@@ -252,8 +252,8 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 onMouseEnter={() => { if (isHoverable) setHoveredRow(ri); }}
                 onMouseLeave={() => { if (isHoverable) setHoveredRow(null); }}
-                style={{ display: "grid", gridTemplateColumns: gridCols, position: "relative", borderBottom: rowBorderBottom(ri), borderTop: isTotalsRow ? "2px solid rgba(59,54,50,0.15)" : "none", background: bg, transition: "background 100ms", cursor: isHoverable ? "pointer" : "default" }}>
-                {isAccentRow && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "#683D1B" }} />}
+                style={{ display: "grid", gridTemplateColumns: gridCols, position: "relative", borderBottom: rowBorderBottom(ri), borderTop: isTotalsRow ? "2px solid var(--neutral-800-15)" : "none", background: bg, transition: "background 100ms", cursor: isHoverable ? "pointer" : "default" }}>
+                {isAccentRow && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "var(--brown-700)" }} />}
                 {row.map((cell, ci) => {
                   const isNumericCell = typeof cell === "number";
                   const rightAlign = (isFinancial && ci > 0) || isNumericCell;
@@ -263,7 +263,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
                     <div key={ci} style={{
                       padding: cellPad,
                       paddingLeft: isAccentRow && ci === 0 ? 17 : (isCompact ? 12 : 14),
-                      color: ci === 0 && !isTotalsRow ? "#26211E" : isTotalsRow ? "#26211E" : "#524B47",
+                      color: ci === 0 && !isTotalsRow ? "var(--neutral-900)" : isTotalsRow ? "var(--neutral-900)" : "var(--neutral-700)",
                       fontWeight: isTotalsRow ? 600 : ci === 0 && !isMixed ? 500 : 400,
                       borderLeft: cellBorderLeft(ci),
                       fontSize: isCompact ? 12 : isNumericCell ? 13 : 14,
@@ -287,18 +287,18 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
         {isDone && (
           <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
             style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
-            <span style={{ fontSize: 12, color: "#C0B5AD", flex: 1 }}>
+            <span style={{ fontSize: 12, color: "var(--neutral-300)", flex: 1 }}>
               {data.rows.length} rows · {data.headers.length} col
             </span>
             <button onClick={copyMarkdown} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "3px 9px",
               borderRadius: 6, border: "1px solid rgba(82,75,71,0.12)",
-              background: "transparent", cursor: "pointer", fontSize: 12, color: "#827A74",
+              background: "transparent", cursor: "pointer", fontSize: 12, color: "var(--neutral-500)",
               fontFamily: "inherit", transition: "all 120ms",
             }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(59,54,50,0.05)"; e.currentTarget.style.color = "#524B47"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#827A74"; }}>
-              {mdCopied ? <HIcon icon={Checkmark} size={11} color="#80B707" strokeWidth={2.5} /> : <HIcon icon={Copy01Icon} size={11} color="#827A74" strokeWidth={1.5} />}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(59,54,50,0.05)"; e.currentTarget.style.color = "var(--neutral-700)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--neutral-500)"; }}>
+              {mdCopied ? <HIcon icon={Checkmark} size={11} color="var(--green-600)" strokeWidth={2.5} /> : <HIcon icon={Copy01Icon} size={11} color="var(--neutral-500)" strokeWidth={1.5} />}
               {mdCopied ? "Copied!" : "Copy markdown"}
             </button>
           </m.div>

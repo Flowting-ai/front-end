@@ -19,7 +19,7 @@ import Script from "next/script";
 // IMPORTANT
 // TODO(privacy): Gate behind cookie consent before we have EU/UK users.
 // This component currently loads the pixel for ALL visitors, including on
-// authenticated routes (/chat, /project/[id], /brain, billing). Under GDPR
+// authenticated routes (/chat, /project/[id], billing). Under GDPR
 // the pixel must not fire until the user opts in. When that time comes,
 // return null here until a consent flag is set (e.g. only render <Script>
 // and re-fire PageView once the user has accepted marketing cookies).

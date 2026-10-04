@@ -315,7 +315,7 @@ function ConfirmModal({
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -330,7 +330,7 @@ function ConfirmModal({
           borderRadius:    20,
           backgroundColor: 'var(--neutral-white)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -596,7 +596,7 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -610,9 +610,9 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
           maxWidth:        'calc(100vw - 32px)',
           maxHeight:       'calc(100vh - 64px)',
           borderRadius:    20,
-          backgroundColor: '#f9f5f1',
+          backgroundColor: 'var(--legacy-f9f5f1)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
           flexDirection:   'column',
@@ -772,7 +772,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
@@ -788,7 +788,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
           borderRadius:    20,
           backgroundColor: 'var(--neutral-white)',
           border:          '1px solid var(--neutral-200)',
-          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
           flexDirection:   'column',
@@ -909,7 +909,7 @@ function MembersPageSkeleton() {
         </div>
 
         {/* Members table skeleton */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
+        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
           {/* Toolbar — title left, search icon button + "Invite members" button right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={120} height={16} radius={4} />

@@ -82,7 +82,7 @@ function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[]
 export interface UseChatStateOptions {
   /**
    * Override the default message fetcher. When provided, called instead of
-   * getChatMessages so persona/brain surfaces can supply their own loader
+   * getChatMessages so persona surfaces can supply their own loader
    * without needing a separate state hook. The returned messages must already
    * be in UIMessage form (fully normalised). Pagination is disabled when this
    * override is active.

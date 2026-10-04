@@ -85,8 +85,8 @@ export const directUpload = (endpoint: string): string => {
 /**
  * True when a multipart request should skip the same-origin Next.js proxy
  * and go straight to the backend (see `directUpload` above). Callers that
- * build their own absolute backend URL (bespoke proxies like /api/chat,
- * /api/brain-chat rather than the generic /api/backend/[...path] rewrite)
+ * build their own absolute backend URL (bespoke proxies like /api/chat
+ * rather than the generic /api/backend/[...path] rewrite)
  * use this to decide whether to bypass their proxy entirely.
  */
 export const shouldUseDirectBackend = (): boolean => {
@@ -265,6 +265,8 @@ export const PERSONA_SHARE_ACCEPT_ENDPOINT     = (id: string) => withBase(`/pers
 
 // ── Connectors ────────────────────────────────────────────────────────────────
 export const CONNECTORS_ENDPOINT            = withBase('/connectors')
+// Every category the catalog files apps under, most used first.
+export const CONNECTOR_CATEGORIES_ENDPOINT  = withBase('/connectors/categories')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
 export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
 export const CONNECTOR_COMPLETE_ENDPOINT    = (slug: string) => withBase(`/connectors/${slug}/complete`)

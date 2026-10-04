@@ -13,6 +13,7 @@ import {
   deletePinComment,
   type PinComment,
 } from "@/lib/api/pins";
+import { PINS_ENABLED } from "@/lib/feature-flags";
 
 // ── Stale-while-revalidate cache ──────────────────────────────────────────────
 // Module-level so it survives HMR remounts within the same session.
@@ -142,7 +143,62 @@ const PinboardActionsContext = createContext<PinboardActionsContextValue | null>
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
+// ── Disabled provider ─────────────────────────────────────────────────────────
+// Used while PINS_ENABLED is false: nothing is fetched or cached, the panel can
+// never open, and every action is a no-op, so no caller can create, load or send
+// a pin even if some UI entry point were missed. Values are module-level
+// constants, so consumers never re-render.
+
+const noop = () => {};
+
+const DISABLED_CONTEXT_VALUE: PinboardContextValue = {
+  pins: [],
+  folders: [],
+  isLoading: false,
+  isError: false,
+  isOpen: false,
+  chatFilter: null,
+  open: noop,
+  close: noop,
+  toggle: noop,
+  openForChat: noop,
+  clearChatFilter: noop,
+  addPin: noop,
+  clonePin: async () => {},
+  removePin: noop,
+  removePinByMessage: noop,
+  isPinned: () => false,
+  updatePinCategory: noop,
+  updatePinFolder: noop,
+  updatePinTags: noop,
+  updatePinComment: noop,
+  addFolder: noop,
+  removeFolder: noop,
+  renameFolder: noop,
+  prefetch: noop,
+};
+
+const DISABLED_ACTIONS_VALUE: PinboardActionsContextValue = {
+  addPin: noop,
+  removePinByMessage: noop,
+  open: noop,
+  close: noop,
+};
+
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
+  if (!PINS_ENABLED) {
+    return (
+      <PinboardActionsContext.Provider value={DISABLED_ACTIONS_VALUE}>
+        <PinboardContext.Provider value={DISABLED_CONTEXT_VALUE}>
+          {children}
+        </PinboardContext.Provider>
+      </PinboardActionsContext.Provider>
+    );
+  }
+  return <PinboardProviderImpl>{children}</PinboardProviderImpl>;
+}
+
+function PinboardProviderImpl({ children }: { children: React.ReactNode }) {
   // Always start with server-safe defaults so SSR and client initial render
   // produce identical HTML (no hydration mismatch). Cache is applied client-
   // side in the mount useEffect below, before the first browser paint.
@@ -251,7 +307,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   // src/app/(app)/layout.tsx), so an unconditional network fetch in this
   // effect was firing GET /pins + GET /pins/folders/all on every page load —
   // including pages with nothing to do with pins (e.g. /chats, /projects/new,
-  // /brain) — which is exactly the bug the Chats and Projects feature reports
+  // /schedules) — which is exactly the bug the Chats and Projects feature reports
   // each independently captured as a stray 502/"Failed to load pins" error.
   // Real pin data now loads on demand instead: open()/toggle()/openForChat()
   // above (the panel actually being opened), prefetch() (rail-button hover),

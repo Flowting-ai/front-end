@@ -33,7 +33,9 @@ describe("LineRenderer inline math vs. currency prose", () => {
     expect(html).toContain("font-size:14px")
     expect(html).toContain("line-height:22px")
     expect(html).toContain("height:8px")
-    expect(html).toContain("color:#524B47")
-    expect(html).toContain("color:#26211E")
+    // Same colours as before in light (#524B47 body, #26211E heading (--neutral-900 now)) — the body is
+    // now the theme token --neutral-700 so it can flip in dark mode.
+    expect(html).toContain("color:var(--neutral-700)")
+    expect(html).toContain("color:var(--neutral-900)")
   })
 })

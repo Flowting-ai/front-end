@@ -277,7 +277,7 @@ function ShareAcceptContent() {
               fontWeight: 400,
               fontSize: 24,
               lineHeight: '32px',
-              color: '#1a1916',
+              color: 'var(--legacy-1a1916)',
               margin: 0,
               textAlign: 'center',
             }}
@@ -350,7 +350,7 @@ function ShareAcceptContent() {
       {/* What you get */}
       <div
         style={{
-          backgroundColor: 'rgba(13,110,178,0.06)',
+          backgroundColor: 'color-mix(in srgb, var(--blue-600) 6%, transparent)',
           borderRadius: 10,
           padding: '10px 14px',
           boxShadow: '0px 0px 0px 1px rgba(13,110,178,0.15)',
@@ -362,7 +362,7 @@ function ShareAcceptContent() {
             fontWeight: 400,
             fontSize: 12,
             lineHeight: '18px',
-            color: '#135487',
+            color: 'var(--blue-700)',
             margin: 0,
           }}
         >
@@ -434,7 +434,7 @@ const cardStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 480,
   boxShadow:
-    '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+    '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
 }
 
 const footerStyle: React.CSSProperties = {
@@ -449,7 +449,7 @@ const headingStyle: React.CSSProperties = {
   fontWeight: 400,
   fontSize: 20,
   lineHeight: '28px',
-  color: '#1a1916',
+  color: 'var(--legacy-1a1916)',
   margin: 0,
   textAlign: 'center',
 }

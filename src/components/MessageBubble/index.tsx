@@ -24,14 +24,14 @@ const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 const SHADOW_OUTER = 'var(--shadow-message-bubble-user)'
 const SHADOW_INNER = 'var(--shadow-message-bubble-user-inner)'
 // #4A83BF - blue focus ring for edit mode (specified by design)
-const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
+const SHADOW_FOCUS = '0 0 0 1.5px var(--blue-500)'
 
 // ── Canvas font constants (pretext prep) ─────────────────────────────────────
 // Resolved values of TEXT_STYLE tokens. Exported so future pretext integration
 // can call prepare(content, CANVAS_FONT) without recalculating. Update here
 // whenever typography tokens change.
-export const CANVAS_FONT      = "16px/22px 'Geist Variable', sans-serif"
-export const CANVAS_FONT_MONO = "14px/20px 'Geist Mono', monospace"
+export const CANVAS_FONT      = "16px/22px 'Geist', sans-serif"
+export const CANVAS_FONT_MONO = "14px/20px 'Geist', sans-serif"
 export const LINE_HEIGHT_PX   = 22
 
 // ── Edit CTA sizing ───────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ const WIDTH_MS = 200
 // ── Shared text style (view <p> + edit <textarea> + mirror <div> must match) ──
 const TEXT_STYLE: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
-  fontWeight:   'var(--font-weight-regular)',
+  fontWeight:   'var(--font-weight-medium)',
   fontSize:     'var(--font-size-body-lg)',
   lineHeight:   'var(--line-height-body-lg)',
   color:        'var(--message-bubble-user-text)',
@@ -242,7 +242,10 @@ export function MessageBubble({
               position:        'absolute',
               inset:           0,
               borderRadius:    'inherit',
-              backgroundColor: 'white',
+              // Same token as the bubble itself (white in light, and pinned white in dark) —
+              // a plain --neutral-white here would be the dark card colour in dark mode and
+              // cover the white bubble.
+              backgroundColor: 'var(--message-bubble-user-bg)',
               pointerEvents:   'none',
             }}
           />

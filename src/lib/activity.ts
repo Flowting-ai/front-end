@@ -2,8 +2,8 @@ import type { ActivityItem, ActivityStatus, ActivityType } from '@/types/chat'
 
 // The single place backend tool telemetry turns into the props `ActivityRow`
 // renders. Transport agnostic on purpose: chat drives it from `useStreamingChat`'s
-// XHR loop, Brain from its own stream consumer, and both hand the result to the
-// same row — so an icon, verb or result list added here shows up on both surfaces.
+// XHR loop, persona chat from its own stream consumer, and both hand the result to
+// the same row — so an icon, verb or result list added here shows up on both surfaces.
 
 /** Default display verb per activity type — the row's fallback label before
  *  a backend-supplied `label` overrides it. */
@@ -17,6 +17,7 @@ export const ACTIVITY_VERB: Record<ActivityType, string> = {
   'doc-execute': 'Generating document',
   'docx-progress': 'Generating document',
   'skills': 'Loading skill',
+  'agent': 'Asking agent',
   'other': 'Processing',
 }
 

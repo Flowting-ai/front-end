@@ -231,6 +231,8 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
           onKeyDown={handleHeaderKeyDown}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          data-sidebar-active={isActive && !isEditing ? '' : undefined}
+          data-sidebar-selected={active && !isEditing ? '' : undefined}
           style={{
             position:        'relative',
             display:         'flex',
@@ -262,7 +264,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                 aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
                 onClick={(e) => { if (isEditing || !showExpandArrow) return; e.stopPropagation(); toggle() }}
                 onKeyDown={(e) => { if (isEditing || !showExpandArrow) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : (showExpandArrow ? 'pointer' : 'default') }}
+                style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : (showExpandArrow ? 'pointer' : 'default') }}
               >
                 {icon
                   ? typeof icon.type === 'string'
@@ -377,7 +379,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                     height:          '20px',
                     borderRadius:    '4px',
                     backgroundColor: 'var(--neutral-white)',
-                    boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+                    boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(212, 212, 212,0.4)',
                     flexShrink:      0,
                     cursor:          'pointer',
                     color:           'var(--neutral-600)',

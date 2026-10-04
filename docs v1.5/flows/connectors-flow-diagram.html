@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Connectors — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.audit .dot{background:var(--ink-faint);}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+  .w-box.tab{ border-style:solid; flex:none; padding:5px 10px; }
+  .w-box.tab.active{ border-color:var(--ink); color:var(--ink); font-weight:600; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Connectors — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/tasks-flow-diagram.html</code>, <code>flows/agents-flow-diagram.html</code> and <code>flows/chats-projects-flow-diagram.html</code>, same schema — the third-party integration surface (Gmail, Slack, Notion, Shopify, ~150-slug live catalog) that chats, agents and automations use as tools. This doc fills the gap the other three left: Connectors had no page-by-page reference until now.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session, one page (<code>/connectors</code>) rendering four internal views (Connections, Connector detail, Account detail, Setup/Remove modals) plus the chat-embedded connect prompt and the Agent Configure "Connectors" tab as cross-cutting surfaces. Grounded directly in <code>docs v1.5/connectors-v1.5-migration-plan.md</code> — an unusually candid internal document that records a full UI-replacement migration, a real backend-contract crash found in live testing, and 15 numbered backend gaps, several still open. This doc translates that migration log into the same reading-order/wireframe format as the other three, and adds a few gaps of its own found by reading the current (post-migration) source directly, including one apparent contradiction between the migration doc's stated icon strategy and what <code>ConnectorGlyph</code> actually does today.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#c00">Entities &amp; the one-page model</a></li>
+      <li><a href="#c01">Connections — /connectors</a></li>
+      <li><a href="#c02">Connector detail (S19)</a></li>
+      <li><a href="#c03">Setup / Reconnect modal (S11, S18)</a></li>
+      <li><a href="#c04">Account detail — Permissions, Access, Settings (S20–S22)</a></li>
+      <li><a href="#c05">Remove account (S15, S16)</a></li>
+      <li><a href="#c06">Chat-embedded connect prompt</a></li>
+      <li><a href="#c07">Cross-cutting: Context Rail &amp; Agent Configure</a></li>
+      <li><a href="#c08">Backend gap ledger (from the migration doc)</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2 id="c00"><span class="num">00</span>Entities &amp; the one-page model</h2>
+  <p>"Connectors" used to be two almost code-sharing-free pages — an org-admin page at <code>/connectors</code> and a personal page at <code>/settings/connectors</code> — with two different backend object shapes for what looked like the same idea ("an account"). A full UI-replacement migration (<code>docs v1.5/connectors-v1.5-migration-plan.md</code>) collapsed both into one experience, <code>ConnectorsExperience</code>, mounted at both routes. There is now one account list per connector, with a <code>visibility: 'shared' | 'private'</code> field on each account rather than two disjoint systems.</p>
+  <table>
+    <tr><th class="label">Entity</th><th>Shape</th></tr>
+    <tr><td class="label"><code>ConnectorCatalog</code></td><td>One row per connector slug (Gmail, Slack, …): <code>authMode</code> (<code>oauth2</code>|<code>api_key</code>), <code>tools[]</code>, <code>apiKeyFields[]</code>, <code>linked</code>, and <code>connections[]</code> — every account, private or shared, that exists for this connector across the viewer's visibility.</td></tr>
+    <tr><td class="label"><code>ConnectorConnection</code> ("account")</td><td>One authorized login: <code>scope: 'personal'|'shared'</code>, <code>owned</code> (only the linker may manage it), <code>inUse</code> (the one account per connector that chats/automations actually resolve to — a person can hold several, the rest are "parked"), <code>connected</code>/<code>status</code>, and a sparse <code>permissions[]</code> list (a tool with no entry defaults to <code>'ask'</code>).</td></tr>
+    <tr><td class="label"><code>ConnectorTool</code> / <code>AccountTool</code></td><td>The catalog describes what a tool <em>is</em> once; the account decides what it does about each tool (<code>allowed</code>/<code>blocked</code>/<code>ask</code>). Two Gmail accounts can be permissioned completely differently.</td></tr>
+  </table>
+  <p>A single account can be shared with the whole workspace or kept private — sharing is "just a flag flipped on the row afterwards," per an inline comment in <code>useConnectorSetupFlow.ts</code>: the credential is always vaulted under whoever authorized it, connecting shared is not a structurally different flow from connecting private.</p>
+  <div class="note flag"><span class="tag note">note</span> The live backend still scopes sharing to a <strong>Team</strong> sub-entity inside an organization (<code>scope: 'personal'|'shared_team'</code>), not to the workspace directly — discovered via a real runtime crash during the migration (a <code>ZodError</code> on <code>accounts[0].scope</code> the first time a real shared account was fetched). The target architecture the org has since pointed at states connections should be workspace-wide with no Team indirection at all. The current frontend types this doc describes (<code>AccountScope = 'shared'</code> in <code>connectors.ts</code>, i.e. team-indirection already erased at the FE layer) reflect that target shape; a <code>useDefaultTeam.ts</code>/team-resolution stopgap existed during the migration to bridge the gap against the pre-migration backend and was flagged in the plan doc as something to delete once the backend catches up, not extend further.</div>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong><code>useDefaultTeam.ts</code> is a live stopgap explicitly marked for deletion, not extension.</strong> It exists solely to bridge the erased Team-indirection type (<code>AccountScope</code>) against the pre-migration backend's actual <code>scope: 'personal'|'shared_team'</code> shape. It is real, called code — not dead — but the migration plan is explicit it should be deleted once the backend adopts workspace-wide scoping, and any future PR that instead builds more logic on top of it would be extending something already flagged as debt.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal here — this section is glossary, not a page. See §08 for the standing backend-gap ledger this whole doc is built against.</p>
+
+  <!-- ══════════════════════ 01 — CONNECTIONS ══════════════════════ -->
+  <h2 id="c01"><span class="num">01</span>Connections<span class="page-route">/connectors</span></h2>
+  <p class="page-intro">The catalog/browse landing view — S1 (empty), S2 (catalog), S3/S17 (unified connections list), S14 (reconnect banner), in the migration doc's own state numbering.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">Connectors — "Tools your workspace can use across chat"</div></div>
+        <div class="w-box solid tight" style="justify-content:space-between; border-color:var(--amber); background:#F3E7D3;">2 accounts need attention <span class="w-box btn" style="flex:none">Review</span></div>
+        <div class="w-row between" style="flex:none">
+          <div class="w-row" style="flex:none"><div class="w-box tab active">All</div><div class="w-box tab">Connected</div><div class="w-box tab">Not connected</div></div>
+          <div class="w-row" style="flex:none"><div class="w-box tight">🔍 Search connectors</div><div class="w-box icon">⇅</div></div>
+        </div>
+        <div class="w-note">CONNECTED — full section, never paginated</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box solid tall" style="flex:1">Gmail — 2 accounts [Manage]</div>
+          <div class="w-box solid tall" style="flex:1; border-color:var(--amber);">Slack — Reconnect required [Reconnect]</div>
+        </div>
+        <div class="w-note">ALL CONNECTORS — paginated 10/page, own page counter</div>
+        <div class="w-row" style="flex:none">
+          <div class="w-box solid tall" style="flex:1">Notion [+]</div>
+          <div class="w-box solid tall" style="flex:1">Shopify [+]</div>
+          <div class="w-box solid tall" style="flex:1">Zendesk [+]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Query: <code>?q=</code> pre-fills the search box — the welcome page's "Connect Slack" quick action links here as <code>/connectors?q=slack</code>. The one other query param, <code>?tab=</code>, only ever reflects the currently-open account sub-view (<code>permissions</code>/<code>access</code>/<code>settings</code>), written by a <code>router.replace</code> effect, not a user-set filter.</li>
+    <li>Catalog fetch is <strong>not one call</strong>: personal/shared visibility for the signed-in user comes from <code>listLinkedConnectors()</code> (paginates via <code>GET /connectors?linked=true</code>); the "Connected" vs "All connectors" split inside the <code>Catalog</code> subcomponent additionally calls <code>listConnectors({linked:false, ...})</code> or a search query for the browse grid, independently paginated 10/page.</li>
+    <li>Toolbar: three view tabs (All/Connected/Not connected), a debounced (300ms) search box, and a sort menu — <strong>alphabetical only</strong> (Name A–Z / Z–A). No "Recommended" mode exists: an inline comment notes the backend orders <code>GET /connectors</code> by slug with no curation field, so a fake "Recommended" would just be an alias for arrival order.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong>The personal catalog endpoint is an intentional allowlist, not a browse-everything view</strong> — <code>GET /connectors</code>'s <code>member_catalog_view</code> filters to <code>org_enabled | team_approved | personal_approved | personally_linked</code> by design. A regular member genuinely cannot browse the full ~150-slug catalog through any endpoint they call; only an admin's separate unfiltered <code>listOrgCatalog()</code> fetch (merged in via <code>mergeCatalogs</code>) sees everything. This is deliberate access control per the migration doc's Gap #15, not a bug — but it does mean a non-admin member and an admin looking at the same page can see genuinely different catalogs with no visible explanation of why.</li>
+    <li><span class="tag gap">gap</span> Follow-on to the above: an admin who discovers a not-yet-enabled connector through the full catalog and tries a <strong>Private</strong> connect can still 403 (<code>ensure_member_can_link</code> applies the same gate to admins, no role exception) — <code>SetupModal</code> has no "enable this connector for the org first" step, since the source Figma design never had one. Connecting <strong>Shared</strong> works around it (it itself is one of the gating conditions), so this only bites one specific path.</li>
+    <li>Connected and available connectors deliberately use <strong>separate pagination</strong> (connected renders in full, always; only "All connectors" paginates) — the plan doc calls out mixing them into one paginated list as an explicit prior bug class ("pagination chops the mixed enabled/disabled list arbitrarily").</li>
+    <li>Search/view changes reset to page 1 and re-fetch a fresh cursor chain; a category-only change (not applicable here — no category filter is currently wired into this specific toolbar, unlike the older <code>ConnectorBrowse</code> hook it reuses elsewhere) would reset only the page per the preserved-edge-case list.</li>
+    <li>Loading state is 8 skeleton <code>ConnectorCatalogCard</code>s in <code>state="loading"</code> — a real skeleton, not a spinner.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Trigger</th><th>Goes to</th></tr>
+    <tr><td class="label">Card with 0 connections, click <code>+</code></td><td>Fetches connector detail in the background (card shows a pending spinner via <code>pendingSlug</code>), then opens the <strong>Setup modal</strong> directly — never the detail page first, since there's nothing to show yet.</td></tr>
+    <tr><td class="label">Card with ≥1 connection, click Manage/Reconnect</td><td><strong>Connector detail</strong> view (§02); Reconnect from the card opens Setup in <code>mode="reconnect"</code> after landing on detail.</td></tr>
+    <tr><td class="label">"N accounts need attention" banner → Review</td><td>Opens detail for the first connector with a <code>needsReconnect</code> account.</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — this view is read/browse only; all mutation happens in Setup, Account detail, or Remove.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">No side panel. The whole page is one scroll region (<code>ConnectorsShell</code>) — a prior version nested a second, independently-sized scroll box inside it (a guessed <code>calc(100vh - 360px)</code>) that a real user reported as "too small, lots of space to the layout border"; fixed by making the shell itself the sole scroll region.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Tell a non-admin member why the catalog looks smaller than an admin's</strong>. Today the gated allowlist view (Gap #15 above) simply shows fewer connectors with no explanation — a member has no way to distinguish "this connector doesn't exist" from "this connector exists but isn't enabled for me yet." A one-line "Ask your admin to enable more connectors" empty-state note, shown only when the viewer is a non-admin, would close that ambiguity without exposing the admin-only catalog itself. <strong>Backend:</strong> <span class="tag fixed">ready</span> — this is copy conditioned on the viewer's already-known role, no new data needed.</li>
+  </ul>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — re-grepped for <code>{false &&</code>, commented-out JSX, and unused exports across the connections/browse code path (<code>ConnectionsView.tsx</code>, <code>ConnectorBrowse</code>) with no hits; <code>ConnectorBrowse</code> is genuinely imported and rendered here, not orphaned. The allowlist behavior (Gap #15, tagged inline above) is deliberate access control, not a hidden/disabled feature.</p>
+
+  <!-- ══════════════════════ 02 — CONNECTOR DETAIL ══════════════════════ -->
+  <h2 id="c02"><span class="num">02</span>Connector detail<span class="page-route">S19</span></h2>
+  <p class="page-intro">One connector's full account list — merges what used to be the org page's <code>ConnectorDetailView</code> (account list) and the personal page's <code>ConnectorDetailModal</code> (tool list) into one screen.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">← Connections</div></div>
+        <div class="w-row between" style="flex:none"><div class="w-row" style="flex:none"><div class="w-box icon">G</div><div class="w-box tight">Gmail</div></div><div class="w-box btn">+ Add account</div></div>
+        <div class="w-box tight" style="justify-content:flex-start">Send and read email through your connected account.</div>
+        <div class="w-note">ATTENTION GROUP — tinted panel, Reconnect is the only action</div>
+        <div class="w-box solid tall" style="border-color:var(--amber);">jane@co.com — reconnect required [Reconnect]</div>
+        <div class="w-note">SHARED / PRIVATE GROUPS — split by visibility, healthy accounts</div>
+        <div class="w-box solid tall">workspace@co.com — shared, in use [Manage]</div>
+        <div class="w-box solid tall">me@personal.com — private, not in use [Manage]</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Accounts are grouped, not one flat list: <strong>Attention</strong> (needs reconnect) floats to its own tinted panel with Reconnect as the only action, then healthy accounts split into <strong>Shared</strong> and <strong>Private</strong> panels. Empty groups render nothing.</li>
+    <li>Opening detail always re-fetches the single-connector endpoint (<code>getConnector(slug)</code>), not the list — deliberately. An inline comment in <code>ConnectorsExperience.tsx</code> explains: the list endpoint intentionally omits each connector's tools and each account's per-tool permissions (a payload-size optimization on the backend), so refreshing via the list after any edit wiped that data back to empty and made the Permissions tab look "wrong until reload."</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> The story design's <code>EndpointRow</code> (a copyable "MCP endpoint" URL row) is deliberately <strong>not</strong> ported — there is no backend field for it. Per the migration doc's Gap #1: MCP URLs exist server-side only as <em>outbound</em> config for connecting Souvenir <em>to</em> third-party MCP servers, not as an inbound endpoint Souvenir itself exposes. A comment in <code>ConnectorDetailView.tsx</code> puts it plainly: "Fabricating a URL would be worse than omitting the row."</li>
+    <li>A person may hold several accounts of the same connector. Exactly one is <code>inUse</code> — the one every chat/automation/trigger actually resolves to — and the rest sit parked until switched to from the Access tab (§04).</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Goes to</th></tr>
+    <tr><td class="label">Back</td><td>Connections (§01)</td></tr>
+    <tr><td class="label">Add account</td><td>Setup modal, <code>mode="connect"</code> (§03)</td></tr>
+    <tr><td class="label">Account row → Manage</td><td>Account detail, Permissions tab (§04)</td></tr>
+    <tr><td class="label">Account row → Reconnect</td><td>Setup modal, <code>mode="reconnect"</code>, pre-filled (§03)</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — pure navigation hub; mutation happens one screen deeper.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">None.</p>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section. <code>EndpointRow</code> was checked directly against source: no such component is defined anywhere in the codebase — it isn't dead/unused code, it was simply never built, and <code>ConnectorDetailView.tsx</code>'s own comment (already tagged inline above) documents the omission as deliberate rather than an oversight.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal from this pass — omitting the fabricated MCP endpoint row rather than faking data is the right call already made in the source, not something to change.</p>
+
+  <!-- ══════════════════════ 03 — SETUP ══════════════════════ -->
+  <h2 id="c03"><span class="num">03</span>Setup / Reconnect modal<span class="page-route">S11, S18</span></h2>
+  <p class="page-intro">Where the bulk of the old system's real edge-case handling landed, carried over verbatim per the migration doc's §4 checklist rather than re-derived from the new visual design.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:480px; margin:0 auto;">
+      <div class="w-row" style="flex:none"><div class="w-box icon">G</div><div class="w-box tight" style="justify-content:flex-start; flex:1">Connect Gmail — "Choose access before authorizing."</div></div>
+      <div class="w-box solid tight" style="justify-content:flex-start">Account name (optional) — you@company.com</div>
+      <div class="w-box tight" style="justify-content:flex-start">Who can use it?</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">◉ Shared — everyone in this workspace can use it</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">○ Private — only you can use it</div>
+      <div class="w-row between" style="flex:none"><div class="w-box btn">Cancel</div><div class="w-box btn primary">Continue to Gmail</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Fields shown depend on <code>authMode</code>: plain OAuth2 shows only the name + visibility choice; <code>api_key</code> connectors (and per-tenant OAuth like Shopify's client-id/secret, <code>needsOAuthInitFields</code>) additionally render one input per <code>apiKeyFields</code> entry, secret fields as password inputs.</li>
+    <li>Visibility (<strong>Shared</strong>/<strong>Private</strong>) is only offered on fresh connects (not reconnects) and only when <code>orgId</code> is non-null — "Shared" is locked with a "Needs a workspace" badge otherwise.</li>
+    <li>Zapier-provider connectors skip the credential form entirely (<code>isZapierProviderConnector</code>) — they're always hosted, so <code>needsForm</code> is forced false regardless of <code>authMode</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases — the load-bearing OAuth mechanics</h3>
+  <ul>
+    <li>Native MCP connectors (<code>isMcpProviderConnector</code>) navigate the <strong>current tab</strong> (<code>window.location.href</code>), never a popup — their OAuth callback redirects back to Souvenir's own domain, so a popup would trap the whole app inside itself. If the user asked to name/share the account on an MCP connect, that choice is dropped with an explicit toast ("Finish authorizing Gmail, then set its name and sharing from the account's settings") rather than silently lost, since nothing survives the full-page navigation to apply it to.</li>
+    <li>Non-MCP popups are opened <strong>without</strong> <code>noopener</code> deliberately — <code>noopener</code> leaves the popup stuck at <code>about:blank</code> in some browsers once the code later assigns <code>popup.location.href</code>.</li>
+    <li>A closed popup is <strong>not</strong> immediately cancellation. The long exponential-backoff poll (2s→30s, 120s timeout) aborts and a short 12s "grace window" poll runs first, because Pipedream's hosted success screen often stays open after the account is actually linked — only report "cancelled" if that grace poll also comes back empty. Zapier is the one exception: it never flips <code>linked</code> until a <code>completeZapierLink</code> POST with the postMessage-delivered auth id, so a closed Zapier popup <em>is</em> treated as cancellation immediately.</li>
+    <li>5xx errors surface the raw backend detail (<code>ApiError.rawMessage</code>) instead of a generic message — e.g. "googledrive is not available in your organization — request access from an admin first" is materially more actionable than "backend returned 500."</li>
+    <li>React StrictMode double-mount guard: <code>abortedRef.current</code> resets to false on <em>every</em> effect setup, not just once — otherwise dev-mode's mount→cleanup→mount sequence leaves it stuck true and every async handler silently bails ("click Connect, nothing happens").</li>
+    <li>The row a fresh link "belongs to" is computed as the owned account <strong>not already known</strong> before the flow started (<code>knownAccountIds</code>) — never assumed to be "whichever row is handy." Re-authorizing an account already on file produces no new row, so naming/sharing choices made in that case are explicitly not silently applied to some other row; the flow says so via toast instead ("re-authorized the account you already had — set its name and sharing from that account's settings"). An inline comment notes this exact guess is "what turned a private account shared" in an earlier version.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>On success: closes, calls <code>onConnected</code>, parent re-fetches (<code>fetchAll</code>) and shows a success toast. On Cancel: fully aborts the poll and closes any orphaned popup via cleanup — the Cancel button itself is only disabled during the brief window the flow is actually writing the name/sharing PATCH (<code>state === 'submitting'</code>), specifically so a user who closed the external OAuth tab isn't stuck watching "Waiting for auth…" with no way out until the poll times out.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Naming and sharing are edits to the row the link just produced, applied as a follow-up <code>updateAccount</code> PATCH after the OAuth/API-key link itself succeeds — not part of the link call. If that follow-up PATCH fails, the account is still linked and usable; the toast says exactly what didn't save ("connected, but saving its sharing failed... set it from the account's settings") rather than implying the whole connect failed.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">A centered modal, not a panel — dismiss-on-backdrop-click except while <code>submitting</code>.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Surface the grace-window poll as a distinct state, not silently reused "Waiting for auth…" copy.</strong> The 12-second grace poll that runs after the popup closes is functionally a second, shorter wait with different semantics (last chance before declaring cancellation) but shows the identical "Waiting for auth…" button label as the long poll before it — a user who closed the popup on purpose sees the exact same UI as one who's mid-authorization, with no signal that a countdown to "cancelled" has begun. A brief distinct label ("Checking if that finished…") would make the two states legible without changing any timing logic. <strong>Backend:</strong> <span class="tag fixed">ready</span> — purely a frontend state-label change; the grace-window logic and its timing already exist exactly as needed.</li>
+  </ul>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section. Re-checked <code>ConnectorPrompts.tsx</code> and <code>useConnectorSetupFlow.ts</code> directly for no-op handlers and TODO stubs — the only "no-opener"-adjacent hits are the deliberate, documented decision not to pass <code>noopener</code> to <code>window.open</code> (already covered inline above), not disabled/dead code.</p>
+
+  <!-- ══════════════════════ 04 — ACCOUNT DETAIL ══════════════════════ -->
+  <h2 id="c04"><span class="num">04</span>Account detail — Permissions, Access, Settings<span class="page-route">S20–S22</span></h2>
+  <p class="page-intro">Three tabs on one account. Every tab edits one account, and only its owner may — <code>account.owned</code> gates almost every control on this screen.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Permissions tab</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row between" style="flex:none"><div class="w-box tight" style="justify-content:flex-start">← Gmail</div></div>
+        <div class="w-box tight" style="justify-content:flex-start">jane@co.com · Private</div>
+        <div class="w-row" style="flex:none"><div class="w-box tab active">Permissions</div><div class="w-box tab">Access</div><div class="w-box tab">Settings</div></div>
+        <div class="w-box solid tight" style="justify-content:space-between">Read-only tools (3) <span class="w-note">[Set all ▾]</span></div>
+        <div class="w-box solid tall" style="justify-content:space-between">list_emails — read the inbox <span class="w-note">[✓ ⚠ ✕]</span></div>
+        <div class="w-box solid tight" style="justify-content:space-between">Write tools (2) <span class="w-note">[Set all ▾]</span></div>
+        <div class="w-box solid tall" style="justify-content:space-between">send_email — send on your behalf <span class="w-note">[✓ ⚠ ✕]</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Permissions tab</strong>: joins the connector's flat tool list with the account's sparse permission list, grouped into <strong>Read-only</strong> / <strong>Write</strong> sections purely on the frontend (<code>tool.group</code>, derived from <code>read_only</code>). Long-tail connectors return an empty <code>tools[]</code> on the list endpoint (a payload-size optimization) — the detail view lazily backfills via <code>getConnector(slug)</code> the first time it opens, with a dedicated skeleton (<code>PermissionsTabSkeleton</code>) while that resolves, and fails silently (keeps an empty list) if the backfill itself errors.</li>
+    <li><strong>Access tab</strong>: answers "Is this the account Gmail runs through?" directly, then a Shared/Private <code>VisibilityRow</code> choice below it.</li>
+    <li><strong>Settings tab</strong>: a single editable label field plus the Remove action.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Every permission change is <strong>optimistic with revert-on-failure</strong>: the UI flips immediately, a <code>baselineRef</code> holds the last server-confirmed state, and any PATCH failure snaps the UI back to that baseline rather than leaving a permission shown that didn't actually save.</li>
+    <li>"Set all" on a Read-only/Write group is <strong>one PATCH</strong> with every tool key in that group, not N sequential PATCHes — preserved from the old system per the migration doc.</li>
+    <li><span class="tag gap">gap</span> <strong>Tool grouping (Read-only/Write) has no backend field.</strong> <code>ToolEntry.read_only</code> is a per-tool boolean the frontend buckets into two hand-maintained group labels (<code>ConnectorTool.group</code> in <code>connectors.ts</code>) — there's no server-side "group" or "category" concept beyond that one flag, so any future grouping richer than a binary read/write split would need new backend work, not just a frontend remap (migration doc Gap #4).</li>
+    <li><span class="tag gap">gap</span> <strong>Shared accounts have zero tool-permission storage on the backend at all</strong> — the shared-account update endpoint accepts no <code>permissions</code> field (Gap #11, marked "Highest" severity alongside the visibility gap below). The Permissions tab still renders for a shared account, but every control is disabled with a tooltip ("Tool permissions for shared accounts aren't supported yet") — a deliberate choice to show a disabled-and-explained control rather than a live-looking one that silently no-ops.</li>
+    <li><span class="tag gap">gap</span> <strong>Changing an account's visibility after creation has no backend field at all</strong> (Gap #2/#8) — <code>Save access</code> on the Access tab is wired to a real <code>updateAccount({shared: ...})</code> PATCH in the current code, which is a step ahead of what the migration doc describes as unsupported; worth re-confirming against a live backend whether that PATCH's <code>shared</code> field actually persists post-migration or whether this is aspirational code shipped ahead of backend support.</li>
+    <li><span class="tag gap">gap</span> <strong>Private accounts can't be renamed after creation</strong> (Gap #13) — <code>UpdateConnectorRequest</code>/<code>updateAccount</code>'s label field is real in the current schema and the Settings tab's label input is not disabled for private accounts in the code read for this doc, which again reads as ahead of the gap the migration doc records; if the backend genuinely still rejects a label PATCH on a private account, the UI currently has no guard for that specific 4xx and will likely surface it as a generic "Failed to update label" toast rather than the asymmetric-but-honest explanation the migration doc originally specified.</li>
+    <li><span class="tag note">note</span> <strong>Shared OAuth accounts have no re-authorize-in-place path</strong> (Gap #14) — creating a new shared account is possible, but PATCHing an existing OAuth-based shared account's credentials is not (only <code>api_key</code>-auth shared accounts support in-place credential PATCH). A team's expired shared Slack/Notion connection genuinely cannot be fixed without deleting and recreating the account, which changes its id.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Back → Connector detail (§02). Remove (Settings tab) → Remove modal (§05), rendered by the parent orchestrator rather than this component.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <table>
+    <tr><th class="label">Tab</th><th>Mechanism</th></tr>
+    <tr><td class="label">Permissions</td><td>Per-tool or per-group PATCH, optimistic + revert (above)</td></tr>
+    <tr><td class="label">Access</td><td><code>updateAccount({shared, expectedVersion})</code> — optimistic concurrency via <code>expectedVersion</code>, reverting the local visibility choice on failure</td></tr>
+    <tr><td class="label">Settings</td><td><code>updateAccount({accountLabel, expectedVersion})</code>, Save button gated on a real diff (<code>label.trim() !== account.nickname</code>) and non-empty input</td></tr>
+  </table>
+  <p>"Switch to this account" (Access tab, when this account isn't <code>inUse</code>) is described in an inline comment as moving exactly one flag: "the account in use stands down as this one is raised. Nothing re-authorizes, and no permission decision is disturbed."</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Full page, no side panel — tabs, not a drawer.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Make the "why can I rename the shared one but not mine" asymmetry, if it still exists live, an explained state rather than a dead control.</strong> The migration doc explicitly names this exact asymmetry as "likely to read as a bug to end users" if left unexplained (Gap #13's plain-English note). If the current PATCH genuinely rejects a private-account rename, a read-only field with a short note beats a Save button that silently does nothing. <strong>Backend:</strong> <span class="tag note">unclear</span> — needs a live check against the current backend to know whether Gap #13 is actually still open or already closed by the schema shown in <code>connectors.ts</code>; this proposal only applies if it's still open.</li>
+  </ul>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">note</span> Gap #4 (tool grouping) and Gap #11 (shared-account permission storage), both already tagged inline above, are backend-missing rather than frontend-unused — no frontend field or component is going unread here. Spot-checked <code>connector-schemas.ts</code>/<code>connectors.ts</code> fields (<code>owner_id</code>, <code>owned</code>, <code>in_use</code>, <code>read_only</code>, <code>version</code>) against consuming code in <code>AccountDetailView.tsx</code> and <code>SetupModal.tsx</code>: all are read somewhere. No backend-ready-but-unread field found for this tab set.</li>
+  </ul>
+
+  <!-- ══════════════════════ 05 — REMOVE ══════════════════════ -->
+  <h2 id="c05"><span class="num">05</span>Remove account<span class="page-route">S15, S16</span></h2>
+  <p class="page-intro">A deliberate UX simplification over the old system, plus one deliberately-honest omission.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:440px; margin:0 auto;">
+      <div class="w-box icon">G</div>
+      <div class="w-box tight" style="justify-content:flex-start">Remove account? — jane@co.com</div>
+      <div class="w-box solid tall" style="border-color:var(--amber);">This account is shared — everyone in your workspace loses it, along with any agents or automations running on it. We can't show exactly which ones yet.</div>
+      <div class="w-box tight" style="justify-content:flex-start">Other Gmail accounts stay connected.</div>
+      <div class="w-row between" style="flex:none"><div class="w-box btn">Keep account</div><div class="w-box btn primary" style="background:var(--red); border-color:var(--red);">Remove</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>A plain Keep/Remove confirm — <strong>no type-to-confirm gate</strong>. The migration doc is explicit that this is an intentional simplification over the old org page's typed-confirmation delete flow, not an oversight to fix.</li>
+    <li>An <code>owned</code> check gates the whole action before it even opens fully: a non-owner sees a locked explanation ("This account was shared with you. Only the person who connected it can remove it.") with Remove disabled, passed down as <code>blockedReason</code>.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>No real dependency count exists.</strong> The old design's "Used by 3 agents · 2 automations" copy is explicitly not reproduced — an inline comment states plainly why: "nothing reports what depends on an account (Gap #3)... inventing counts would be worse than saying nothing." The backend's <code>used-by</code> endpoint returns at most one coarse yes/no-shaped entry, never a real count or list, per Gap #3. A shared account instead gets a generic warning that it's shared and "we can't show exactly which ones yet."</li>
+    <li>Removing one account never implies removing sibling accounts — the reassurance line ("Other Gmail accounts stay connected") is called out in the migration doc as a genuinely new, good touch the old confirms never had.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>On success, the parent (<code>ConnectorsExperience.confirmRemove</code>) re-fetches the full catalog and decides where to land: back to Connector detail if the connector still has other linked accounts, or all the way back to Connections if that was the last one.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>One id, whichever visibility the account had — <code>unlinkAccount(id)</code> → <code>DELETE /connectors/accounts/{id}</code>, treating shared and private removal as the same call rather than two different endpoints.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Centered modal, dismiss-on-backdrop unless <code>busy</code>.</p>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section. The "we can't show exactly which ones yet" copy (tagged inline above as Gap #3) is a genuine backend limitation honestly surfaced, not a silently mocked or fabricated dependency count — confirmed no hardcoded "Used by N agents" array or similar stand-in exists anywhere in the remove-flow source.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No proposal — the honest "we can't show exactly which ones yet" copy, chosen deliberately over fabricating a count, is the right call already made in the source and is worth preserving as-is if this screen is ever redesigned.</p>
+
+  <!-- ══════════════════════ 06 — CHAT CONNECT PROMPT ══════════════════════ -->
+  <h2 id="c06"><span class="num">06</span>Chat-embedded connect prompt<span class="page-route">inline, mid-turn</span></h2>
+  <p class="page-intro">A separate, smaller implementation of the same connect flow, triggered when an agent's tool call needs a connector the user hasn't linked yet — not a modal, and not the Connectors page.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — ConnectPromptCard, inline in the transcript</div>
+    <div class="w-frame" style="max-width:420px; margin:0 auto;">
+      <div class="w-box tight" style="justify-content:flex-start">Connect Gmail</div>
+      <div class="w-box tight" style="justify-content:flex-start">To run <code>send_email</code>, you need to link your Gmail account first.</div>
+      <div class="w-box btn primary" style="align-self:flex-start">Connect Gmail</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Driven by an SSE-delivered <code>ConnectorConnectPrompt</code> payload (connector identity, optional <code>tool_name</code> for the "to run X, you need..." copy, <code>auth_mode</code>, optional <code>api_key_fields</code>) rendered by <code>ConnectPromptCard</code> in <code>src/components/chat/ConnectorPrompts.tsx</code>.</li>
+    <li>Same credential-form-vs-OAuth branching logic as the full Setup modal (§03) — Zapier hosted flow, per-tenant OAuth init fields, plain API key — but it is a genuinely separate implementation, not a shared component with <code>SetupModal</code>/<code>useConnectorSetupFlow</code>. Its own inline comment even states: "The permission card lives in <code>components/shared/PermissionPromptCard</code> — one implementation for chat, persona, agent configure, compare, and brain," implying the connect card itself intentionally isn't unified the same way.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>Code duplication risk</strong>: this file re-implements MCP full-tab navigation, popup no-opener handling, and Zapier hosted-flow detection independently from <code>useConnectorSetupFlow.ts</code> (§03) rather than sharing that hook. The two are believed to behave identically today (both were read directly for this doc and match), but any future fix to one flow's OAuth edge cases (e.g. the grace-window poll logic) has no structural guarantee of landing in the other.</li>
+    <li>Per the migration doc's §2a, a family of related-but-unbuilt chat-embedded states (S4–S10, S13 — "waiting for authorization," "work resumed," "plan blocked/clear," a permission-ask card, and a "scope panel" showing what a connection can reach) exist only as literal <code>&lt;div&gt;Replace with {component}&lt;/div&gt;</code> placeholders in the source Figma-derived story file. They are explicitly unfinished in the design source itself, tracked as a separate future workstream, not something this migration (or this doc) treats as in scope.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">None — resolves in place; on success the card swaps to a static "{Connector} connected" confirmation and the blocked tool call resumes automatically.</p>
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Same underlying <code>initiateLink</code>/<code>pollConnectorUntilActive</code>/<code>completeZapierLink</code> calls as §03, just without the naming/sharing follow-up PATCH — this prompt never offers to name or share the account, only to connect it.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Inline card in the transcript, not a panel or modal.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Consolidate this card's OAuth mechanics onto <code>useConnectorSetupFlow</code></strong>, rather than maintaining a second copy of the same MCP/popup/Zapier branching logic. Not user-facing on its own, but every hard-won edge case documented in §03 (grace-window poll, StrictMode guard, 5xx raw-detail surfacing) currently has to be independently verified and independently fixed in two places. <strong>Backend:</strong> <span class="tag fixed">ready</span> — pure frontend refactor, no API change; the two flows already call the same endpoints.</li>
+  </ul>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned</span> <strong>The S4–S10, S13 chat-embedded states are placeholder-free but also non-existent — the design-source placeholders themselves have been removed.</strong> Re-grepped for literal <code>Replace with {component}</code> and the S4–S13 state names across the codebase and found no hits at all — no story stub, no route, no component shell. These states are not hidden/orphaned pages reachable via some dead route; they simply were never built past the doc-level description, so there is nothing in source to flag beyond noting the gap is real and pre-code.</li>
+  </ul>
+
+  <!-- ══════════════════════ 07 — CROSS-CUTTING ══════════════════════ -->
+  <h2 id="c07"><span class="num">07</span>Cross-cutting: Context Rail &amp; Agent Configure</h2>
+  <p class="page-intro">Two other surfaces show connector state without being the Connectors page. Kept brief here — see <code>tasks-flow-diagram.html</code> §03 for the Context Rail's full layout and animation spec.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Context Rail (Brain)</h3>
+  <ul>
+    <li>The rail's "Connectors" section (<code>ContextRailConnector[]</code>, in <code>src/templates/Brain/ContextRail.tsx</code>) is purely a display of what the current/latest turn actually touched — an "Active" group (used by the latest turn) and a dimmed "Previously used" group, exactly mirroring the rail's Pins/Files sections. A colored dot on each row reads the connector's <code>status</code>: green for <code>connected</code>, red for <code>failed</code> — this is turn-scoped connector-usage telemetry, structurally distinct from the Connectors page's own account-level <code>connected</code>/<code>needsReconnect</code> status, and the two should not be conflated even though both render a status dot.</li>
+    <li>This is read-only — the rail has no connect/reconnect affordance of its own; a failed connector here has to be fixed from the Connectors page or the chat-embedded prompt (§06), not from the rail itself.</li>
+  </ul>
+
+  <h3 class="io-head in"><span class="dot"></span>Agent Configure — Connectors tab</h3>
+  <ul>
+    <li><code>ConnectorsTab.tsx</code> is a per-agent allow/block list, not a connect flow — it lists every connector already linked (personal or workspace) and toggles a per-agent <code>blocked_connectors</code> array on the agent's <em>version</em> (<code>setVersionBlockedConnectors</code>/<code>unblockVersionConnector</code>), entirely separate from the account-level tool permissions in §04.</li>
+    <li>Two labeled sections — "Workspace connectors" (shared org accounts) and "Personal connectors" (the viewer's own links) — each a <code>ConnectorRow</code> toggle. A real conflict rule is enforced client-side: <span class="tag note">note</span> a connector should only ever be usable through <em>one</em> scope per agent, never both a personal and a workspace account simultaneously. Since the backend has no ordering signal (no creation timestamp on personal links) to say which was linked first, the code defers to the backend's own documented precedence ("the server picks personal-first, else the team's shared one") — the personal row stays the live toggle, and the workspace row for that same connector renders locked with an explanatory description instead of a second, contradictory active switch.</li>
+    <li>This same file was the collateral damage of the Team-vs-Organization backend-schema bug described in §00: it filtered on the old, wrong <code>scope === 'shared_org'</code> value, meaning workspace-shared accounts likely never rendered here either until the shared fix landed. Worth a live re-check that workspace rows genuinely populate now, since this doc read only the current source, not a live backend response.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Make a failed connector in the Context Rail clickable straight into its fix.</strong> The rail already knows which connector failed (it carries <code>status: 'failed'</code>) but offers no path out of that state beyond leaving Brain entirely and finding the connector again from scratch on <code>/connectors</code>. A click-through from the rail row directly to that connector's detail view (§02) removes a real, avoidable extra search step. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the rail already has the connector's slug; this is a link, not new data.</li>
+  </ul>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag fixed">verified fixed</span> <strong><code>ConnectorsTab.tsx</code>'s scope filter is no longer stuck on the wrong value.</strong> The doc's own earlier note flagged this file as "collateral damage" of the old <code>scope === 'shared_org'</code> bug and asked for a live re-check. Re-read directly: <code>src/app/(app)/agent/configure/components/ConnectorsTab.tsx:34</code> now filters on <code>scope: 'shared'</code> (comment: "Workspace connectors are org-owned shared accounts (scope: 'shared')") — the literal string <code>'shared_org'</code> no longer appears anywhere in the repo. Workspace rows should populate correctly now; this is a closed gap, not an open one.</li>
+  </ul>
+
+  <!-- ══════════════════════ 08 — GAP LEDGER ══════════════════════ -->
+  <h2 id="c08"><span class="num">08</span>Backend gap ledger<span class="page-route">from the migration doc, cross-referenced against current source</span></h2>
+  <p class="page-intro">Consolidated from <code>docs v1.5/connectors-v1.5-migration-plan.md</code> §5/§6, the single most load-bearing source for this whole doc. Severity and status as recorded there; a few are cross-checked against the current code above and flagged where this doc's own reading differs.</p>
+
+  <table>
+    <tr><th class="label">#</th><th>Gap</th><th>Severity</th><th>This doc's cross-check</th></tr>
+    <tr><td class="label">1</td><td>No backend field for an inbound MCP endpoint URL — the "copy this URL" row and the S13 scope panel have nothing real behind them.</td><td>High</td><td>Confirmed still omitted in <code>ConnectorDetailView.tsx</code> — deliberately, not by oversight.</td></tr>
+    <tr><td class="label">2 / 8</td><td>Account visibility can be chosen at connect time but not changed afterward — no backend field flips an existing account between shared/private.</td><td>Highest</td><td><span class="tag note">note</span> Current <code>AccessTab</code> code calls a real <code>updateAccount({shared})</code> PATCH with no visible disabled state — either the backend has since added this, or the frontend is ahead of what's actually supported. Needs a live check.</td></tr>
+    <tr><td class="label">3</td><td>"Used by N agents/automations" has no real count — the used-by endpoint returns at most one coarse entry.</td><td>Medium</td><td>Confirmed — Remove modal (§05) uses generic shared-account language, no counts.</td></tr>
+    <tr><td class="label">4</td><td>Tool permission groups (Read-only/Write) are a hand-maintained frontend label, not a backend field.</td><td>Medium</td><td>Confirmed — <code>ConnectorTool.group</code> derives from a single <code>read_only</code> boolean.</td></tr>
+    <tr><td class="label">9</td><td>Icon strategy — <code>@strange-huge/icons/connectors</code> covers only 18 of ~150 live slugs.</td><td>Low (resolved as hybrid)</td><td><span class="tag gap">gap</span> <strong>Contradicts current code.</strong> The migration doc's Build Log describes a hybrid <code>ConnectorGlyph</code> (icon package first, then <code>toConnector().logo</code>, then letter tile). The <code>ConnectorGlyph</code> read for this doc has no icon-package import at all — its own comment states "nothing is bundled locally and no icon package is consulted," going straight from <code>logoUrl</code> to a deterministic letter tile. Either the hybrid step was deliberately removed after the migration doc was written (undocumented), or this is doc drift worth resolving — flagged here rather than silently reconciled.</td></tr>
+    <tr><td class="label">11</td><td>Shared accounts have zero tool-permission storage server-side.</td><td>Highest</td><td>Confirmed — Permissions tab disables every control for shared accounts (§04).</td></tr>
+    <tr><td class="label">13</td><td>Private accounts can't be renamed after creation.</td><td>Medium</td><td><span class="tag note">note</span> Current <code>SettingsTab</code> code shows an editable label input gated only on <code>owned</code>, not on visibility — again reads as ahead of the recorded gap; needs a live re-check the same way as #2.</td></tr>
+    <tr><td class="label">14</td><td>Shared OAuth accounts have no re-authorize-in-place endpoint.</td><td>Medium</td><td>Not independently verifiable from the frontend alone — flagged as-is from the migration doc.</td></tr>
+    <tr><td class="label">15</td><td>Personal catalog endpoint is an intentional allowlist, not a full browse.</td><td>Medium</td><td>Confirmed and discussed in §01.</td></tr>
+    <tr><td class="label">6 / 7</td><td>Org-level approval gate (member requests, admin approves/denies) has full backend support but <strong>no screen at all</strong> in the new 22-state design — a genuine product decision left unresolved, not an engineering gap.</td><td>High (design-completeness)</td><td>Confirmed — none of the views documented above (§01–§05) show a pending/approval state; a regular member's "Shared" request may land <code>pending</code> server-side while the UI shows the account as already live.</td></tr>
+  </table>
+  <div class="note flag"><span class="tag note">note</span> Three gaps above (#2/#8, #13, and to a lesser extent the icon strategy, #9) show the current source code apparently further along than the migration doc's own gap table records. This is the expected shape of a living migration log — the doc was written mid-build and the build log's own later entries confirm several fixes landed after the gap table's initial pass — but it also means this reference doc's gap table should be treated as a snapshot to re-verify against a live, authenticated backend, not a guaranteed-current source of truth. The migration doc itself says the same about its own late-stage fixes: "No visual/interaction verification in an authenticated browser yet."</div>
+
+  <h3 class="io-head audit"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>Gap #9's "hybrid" icon strategy is documentation drift, not removed code.</strong> Re-read <code>ConnectorGlyph</code>'s full source directly: it imports no icon package at all (only React), and its own comment states plainly that "nothing is bundled locally and no icon package is consulted." The logic is a straight two-step — <code>logoUrl → &lt;img&gt;</code>, else a deterministic letter tile — never an icon-package-first hybrid. There is no dead icon-package import lying around unused either; the hybrid step described in the migration doc's Build Log simply does not exist in current source, confirming this table's own flag rather than adding a new one.</li>
+    <li><span class="tag note">note</span> Sections 06 and 07 above (already logged there) are this doc's only two confirmed source-level findings outside inline tags: the live <code>useDefaultTeam.ts</code> stopgap (§00) still marked for deletion, and the now-fixed <code>scope: 'shared'</code> filter in <code>ConnectorsTab.tsx</code> (§07). No dead components, no <code>{false &&</code>-style disabled UI, no orphaned routes, and no hardcoded/mocked data arrays were found anywhere in the Connectors feature's current source during this pass.</li>
+  </ul>
+
+  <footer>SOUVENIR — CONNECTORS: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>
