@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()
   fd.append("input", input)
-  if (modelId) fd.append("model_id", modelId)
   if (algorithm) fd.append("algorithm", algorithm)
+  else if (modelId) fd.append("model_id", modelId)
   if (pinIds)  fd.append("pin_ids", pinIds)
   if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
   if (replaceMessageId && isExistingChat) fd.append("replace_message_id", replaceMessageId)

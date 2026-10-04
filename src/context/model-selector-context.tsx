@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useModelSelection } from "@/hooks/use-model-selection";
 import { AUTO_ROUTING_LABELS } from "@/lib/ai-models";
+import type { RoutingTier } from "@/lib/chat-model-selection";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ import type { AIModel } from "@/types/ai-model";
 /** Souvenir's own auto-routing tiers — the backend picks the underlying
  *  model itself. Mutually exclusive with a direct `selectedModel` pick (see
  *  `selectAlgorithm`/`selectModel` below): choosing one clears the other. */
-export type ModelAlgorithm = "base" | "pro";
+export type ModelAlgorithm = RoutingTier;
 
 interface ModelSelectorContextValue {
   models: AIModel[];
