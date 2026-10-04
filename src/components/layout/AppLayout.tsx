@@ -14,6 +14,9 @@ import { FloatingPanel } from "./FloatingPanel";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
+import { useAuth } from "@/context/auth-context";
+import { warmRecommendations } from "@/hooks/use-recommendations";
+import { warmConnectApps } from "@/lib/connect-apps-cache";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
@@ -55,6 +58,21 @@ export function AppLayout({
   const { close: closePinboard } = usePinboard()
   const { close: closeHighlight } = useHighlight()
   const pathname = usePathname()
+  const { user } = useAuth()
+  const userKey = String(user?.auth0Id ?? user?.id ?? '')
+
+  // Warm what the new-chat screen needs (starter suggestions + the Connect-an-app list) shortly after
+  // sign-in, off the critical path, so opening a new chat later never waits on the network.
+  useEffect(() => {
+    if (!userKey) return
+    const run = () => { warmRecommendations(userKey); warmConnectApps() }
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 3000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const t = setTimeout(run, 1500)
+    return () => clearTimeout(t)
+  }, [userKey])
 
   const isAnyProjectPage = pathname.startsWith(PROJECT_BASE_ROUTE)
   // Suppress FloatingPanel on project listing / detail pages, but NOT on

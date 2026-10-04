@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Super Links — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.missing .dot{background:var(--red);}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Super Links — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code>, <code>flows/chats-projects-flow-diagram.html</code> and <code>flows/tasks-flow-diagram.html</code>, same schema — the agent-sharing surface: generating a public/credit-metered link to a persona, the sender's management table, the recipient's accept flow, and the unrelated "Template" preview-link feature this doc exists partly to disentangle from it.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session. The first real finding here is a naming collision, not a UX bug: the codebase has <strong>two completely separate "shareable link" systems</strong> that both get called a "link" in the UI and both live partly under a route literally named <code>template</code>/<code>Templates</code> in one case. This doc untangles them (§00) before documenting Super Links proper (§01–§04). Also flags one unused/dead component (§01) and one directly verified access contradiction between Super Link's own marketing copy and the app's auth middleware (§04).</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#s00">Entities — two unrelated "link" systems</a></li>
+      <li><a href="#s01">Super Links tab — /agents?tab=super-links</a></li>
+      <li><a href="#s02">Super Link Drawer — detail modal</a></li>
+      <li><a href="#s03">Generating a link — Sharing config &amp; post-publish</a></li>
+      <li><a href="#s04">Accepting a link — /share/[id]</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2 id="s00"><span class="num">00</span>Entities — two unrelated "link" systems</h2>
+  <p class="page-intro">Worth stating plainly before anything else, because the naming actively invites confusion: this codebase has <strong>two independent sharing mechanisms</strong> that share no components, no API module, and no data shape. They are not two views of one primitive.</p>
+  <table>
+    <tr><th class="label">Feature</th><th>What it actually is</th><th>Where it lives</th></tr>
+    <tr><td class="label">Super Link<br><span style="font-weight:400; color:var(--ink-faint)">(this doc)</span></td><td>A credit-metered, revocable public URL to <strong>chat with one specific persona/agent</strong> — the visitor gets a live conversation, billed to the sharer's credit budget.</td><td><code>src/lib/api/persona-shares.ts</code>, <code>/agents?tab=super-links</code>, <code>/agent/configure/sharing</code>, <code>/share/[id]</code></td></tr>
+    <tr><td class="label">"Template"<br><span style="font-weight:400; color:var(--ink-faint)">(unrelated — not covered further)</span></td><td>A revocable public URL to a <strong>static, model-written HTML document</strong> (a dashboard/report an agent produced) — the visitor gets a read-only sandboxed <code>&lt;iframe&gt;</code>, no chat, no credit metering visible to them.</td><td><code>src/app/api/template/[uuid]/route.ts</code>, <code>src/app/(app)/template/[uuid]/page.tsx</code>, backend <code>/templates/{id}</code> and <code>/templates/{id}/html</code></td></tr>
+  </table>
+  <p>The overlap is entirely superficial: both are a <code>/​&lt;segment&gt;/[uuid]</code> route that resolves a token to something a logged-in org member can view, and both can be revoked by their creator (a 410 on the Template route, an <code>is_active:false</code>/expiry check on the Super Link route). Everything else — the payload, the viewer experience, the backend table, the revoke UI — is different. The Template route's own document comment even says its sandbox headers exist so "charts, filters and drill-downs" in <em>model-generated HTML</em> keep working; that has nothing to do with chatting with an agent.</p>
+  <p>This is also distinct from <strong>Chat Sharing</strong> (see <code>chats-projects-flow-diagram.html</code> §04, <code>/chat-shares/[shareId]</code>) — sharing one finished conversation transcript for another Souvenir user to view/copy. Chat Sharing, Super Links, and Templates are three separate share-a-URL features built independently, not three configurations of one shared "share" primitive. The one structural similarity worth naming is that Chat Sharing and Super Links both went through a near-identical design evolution (a card/chart "dashboard" mockup that never shipped, superseded by a plainer table-based tab inside an existing settings page) — see §01's dead-component note below.</p>
+
+  <!-- ══════════════════════ 01 — SUPER LINKS TAB ══════════════════════ -->
+  <h2 id="s01"><span class="num">01</span>Super Links tab<span class="page-route">/agents?tab=super-links</span></h2>
+  <p class="page-intro">A tab inside the Agents/Library page (<code>src/app/(app)/agents/page.tsx</code>), not a standalone route — the sender's dashboard for every Super Link they've created plus every Super Link shared <em>to</em> them.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame panel">
+      <div class="w-content">
+        <div class="w-row" style="flex:none; gap:12px">
+          <div class="w-col" style="flex:1; gap:9px">
+            <div class="w-row" style="flex:none">
+              <div class="w-box tight">Credits/mo</div><div class="w-box tight">Conversations</div><div class="w-box tight">Active links</div><div class="w-box tight">Est. cost</div>
+            </div>
+            <div class="w-box tall">Most active agent — name, conversations, credits</div>
+          </div>
+          <div class="w-box tall" style="flex:1">Credit usage · daily — sparkline, 7d/30d/90d</div>
+        </div>
+        <div class="w-row" style="flex:none"><div class="w-box tab active">My Superlinks</div><div class="w-box tab">Shared Superlinks</div></div>
+        <div class="w-box solid tall">Table row — agent avatar+name+url, status badge, usage bar, conversations/last-used, expiry, configure icon</div>
+        <div class="w-box solid tall">Table row</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>GET /persona-shares/dashboard?window=7|30|90</code> (<code>fetchDashboard</code>) — summary tile numbers plus a <code>daily</code> credit series for the sparkline; refetched whenever the 7d/30d/90d range control changes.</li>
+    <li><code>listShares()</code> → <code>GET /persona-shares</code> populates the "My Superlinks" table (every share this user created, both <code>link</code> and <code>email</code> type, though only <code>share_type: 'link'</code> rows are what this doc calls a Super Link).</li>
+    <li><code>listReceived()</code> → <code>GET /persona-shares/received</code> populates "Shared Superlinks" only once that sub-tab is actually selected — not prefetched with the rest of the tab.</li>
+    <li>The <strong>est. cost</strong> stat tile is computed client-side (<code>credits_this_month / 1,000,000 × 3</code>) — a hardcoded $3/M-credit rate, not a value the dashboard endpoint itself returns.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>A whole design of this feature was built and never wired up.</strong> <code>src/templates/SuperLinks/index.tsx</code> (plus its supporting <code>SuperLink</code>/<code>LinksSidePanel</code>/<code>SuperLinkRow</code>/<code>SuperLinksEmpty</code> components) is a complete stat-card + chart + master-detail dashboard — but nothing in <code>src/app</code> imports it. The page that actually ships (<code>agents/page.tsx</code>) reimplements the same stat tiles and chart concept inline with a plain <code>SettingsTable</code> instead of the <code>LinksSidePanel</code> master list. <code>SuperLinkRow</code>/<code>SuperLinksEmpty</code>/<code>SuperLinkDrawer</code> ARE still used by the live page; only the top-level <code>SuperLinks</code> template and its <code>LinksSidePanel</code> shell are orphaned. Worth deleting or explicitly marking as a design reference, since a future edit to the unused file will silently do nothing.</li>
+    <li>The stat-tile row and chart are hidden entirely (not zero-stated) when the sender has zero outgoing links — <code>isEmpty</code> gates the whole block, not just the table below it.</li>
+    <li><code>sparkData</code> deliberately falls back to an all-zero flat line (never fabricated activity) when the backend's <code>daily</code> series has fewer than 2 points — an explicit inline comment calls out this as an "honest placeholder" choice.</li>
+    <li>"Most active agent" is a client-side ranking by recipient count over whatever page of shares was already fetched — there's no backend "top agent" endpoint being called.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Trigger</th><th>Mechanism</th><th>Goes to</th></tr>
+    <tr><td class="label">"Generate link" (toolbar)</td><td>dropdown lists the user's own agents</td><td><code>/agent/configure/sharing?repoId=...</code> — see §03, generation itself happens there, not inline in this table</td></tr>
+    <tr><td class="label">Row's configure icon</td><td>plain link</td><td>same Sharing tab, pre-scoped to that agent/version</td></tr>
+    <tr><td class="label">Row click (My Superlinks)</td><td>toggles selection</td><td>opens <code>SuperLinkDrawer</code> in place — see §02</td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — this tab is read/list only; creation, revocation and limit edits all happen in the Drawer (§02) or the Sharing config page (§03).</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p>The "Generate link" control is a <code>Dropdown.Float</code> menu, not a panel — selecting an agent closes the dropdown and navigates away immediately; there's no in-place quick-create.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">dead code</span> <strong><code>src/templates/SuperLinks/index.tsx</code> and its <code>LinksSidePanel</code> shell are fully-built but never imported anywhere in <code>src/app</code>.</strong> Verified with a repo-wide grep for both <code>SuperLinks</code> (the template, not the individual <code>SuperLink</code>/<code>SuperLinkRow</code>/<code>SuperLinksEmpty</code>/<code>SuperLinkDrawer</code> components, which ARE live) and <code>LinksSidePanel</code> — zero import sites outside the template folder itself. It's a complete stat-card + chart + master-detail dashboard superseded by the inline reimplementation in <code>agents/page.tsx</code>, which uses a plain <code>SettingsTable</code> instead of the master-list panel. A future edit made to this file will silently affect nothing that ships.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Prefetch "Shared Superlinks" alongside "My Superlinks," or at least show its count in the tab label before it's opened</strong> — <code>signal-revenue.md</code> (Social Proof — activity that exists but is hidden until a second click undersells itself). Today <code>listReceived()</code> only fires once the sub-tab is clicked, so a user with several agents shared to them sees a plain "Shared Superlinks" label with no count until they've already switched over. <strong>Backend:</strong> <span class="tag fixed">ready</span> — <code>GET /persona-shares/received</code> already exists and returns full rows; this is purely about when the frontend chooses to call it.</li>
+  </ul>
+
+  <!-- ══════════════════════ 02 — DRAWER ══════════════════════ -->
+  <h2 id="s02"><span class="num">02</span>Super Link Drawer<span class="page-route">modal, opened from §01's table</span></h2>
+  <p class="page-intro"><code>SuperLinkDrawer</code> — a centered modal (not a side panel despite the name), 440×640, portal'd to <code>document.body</code>, 3 tabs.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:440px; margin:0 auto; min-height:420px;">
+      <div class="w-row between"><div class="w-box tight" style="justify-content:flex-start"><span class="w-box avatar" style="width:24px;min-height:24px;display:inline-flex;margin-right:6px">av</span>Agent name + url</div><div class="w-box tight">✕</div></div>
+      <div class="w-row" style="flex:none"><div class="w-box tab active">Overview</div><div class="w-box tab">Sessions <span style="opacity:.6">(N)</span></div><div class="w-box tab">Settings</div></div>
+      <div class="w-box xtall">Overview: 4 stat tiles (credits used, conversations, avg/convo, budget left) + credit budget bar + 7-day sparkline</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Overview</strong> — 4 <code>StatCard</code>s, a <code>TokenBudgetBar</code>, and a 7-day <code>Sparkline</code> of <code>dailyTokens</code> — all derived from the one <code>PersonaShare</code> row already in memory, no separate fetch on open.</li>
+    <li><strong>Sessions</strong> — one <code>SessionRow</code> per <code>share.recipients</code> entry (id, time, messages, tokens, status), separated by dividers; header line states the count plus unique-user count.</li>
+    <li><strong>Settings</strong> — editable credit limit (inline edit → Save/Cancel), a Pause switch, and a two-step "Revoke link" confirm (button → inline danger card → "Yes, revoke").</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>"Runs out in ~N days" under the credit-limit field is computed from <code>(limit − used) / average-daily-usage</code> — silently omitted (not zero, not "∞") when average daily usage is 0, e.g. a brand-new link with no traffic yet.</li>
+    <li>Pausing is modeled as a boolean toggle bound to <code>status === 'paused'</code>, but <code>SuperLinkStatus</code> is actually a 4-value type (<code>active | paused | limit-reached | revoked</code>) — the Switch has no way to represent or clear a <code>limit-reached</code> state; only Settings' separate Revoke action can move a link out of that state.</li>
+    <li>ESC-to-close and body-scroll-lock are both scoped to exactly the drawer being open (mount/unmount effects), so there's no idle listener when no link is selected.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">Not applicable — closes back to §01's table; no further drill-down page.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Mechanism</th></tr>
+    <tr><td class="label">Edit credit limit</td><td><code>onLimitChange</code> callback, saved immediately on "Save" — no separate confirm step</td></tr>
+    <tr><td class="label">Pause / Resume</td><td><code>onStatusChange('paused'|'active')</code>, immediate</td></tr>
+    <tr><td class="label">Revoke</td><td><code>onStatusChange('revoked')</code> behind a two-step confirm — "permanently invalidates the URL... cannot be undone"</td></tr>
+  </table>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">This modal is itself the floating surface; no nested panel inside it.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">backend-ready-but-unused</span> <strong>The 4-value <code>SuperLinkStatus</code> type (<code>active | paused | limit-reached | revoked</code>) has no UI path to reach or explicitly clear <code>limit-reached</code>.</strong> The Settings tab's Pause switch only toggles between <code>active</code>/<code>paused</code> (bound to <code>status === 'paused'</code>); <code>limit-reached</code> can apparently only be set server-side (link hit its credit cap) and the only way out of it from this UI is the unrelated Revoke action, which destroys the link rather than resetting it — e.g. after raising the credit limit, there's no "reactivate" affordance shown for a <code>limit-reached</code> share. — <code>SuperLinkDrawer</code> Settings tab / <code>SuperLinkStatus</code> type.</li>
+    <li>Nothing else found in this section beyond the status-value gap above (no dead components, no <code>{false &&}</code>, no orphaned routes specific to the Drawer).</li>
+  </ul>
+
+  <!-- ══════════════════════ 03 — GENERATING A LINK ══════════════════════ -->
+  <h2 id="s03"><span class="num">03</span>Generating a link<span class="page-route">/agent/configure/sharing, and /agents/published</span></h2>
+  <p class="page-intro">Two different screens can generate the same kind of Super Link, both wrapping the same <code>createShare</code> call — one during normal editing, one right after a fresh publish.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — SharingTab (agent/configure/sharing)</div>
+    <div class="w-frame" style="max-width:640px; margin:0 auto;">
+      <div class="w-row between"><div class="w-box tight" style="justify-content:flex-start">Super Link — toggle header + description</div><div class="w-box tight">◯—</div></div>
+      <div class="w-row" style="flex:none"><div class="w-box grow solid">souvenir.app/p/your-agent-a8b2c3</div><div class="w-box btn">Generate link</div></div>
+      <div class="w-box tight" style="justify-content:flex-start">Credit limit — number input, capped by plan</div>
+      <div class="w-content-width">below: identical Email Invite section, separate flow — recipient_emails, own token limit, own revoke list</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>SharingTab</code> is one of 5 tabs on the agent Configure shell (Instructions/Profile/Knowledge/Connectors/Sharing); it loads existing shares for the repo (<code>listShares().filter(s => s.persona_repo_id === repoId && s.is_active)</code>) and splits them into the one <code>link</code>-type share and any number of <code>email</code>-type shares.</li>
+    <li>Credit limit input defaults to <code>Math.floor(planMax / 2)</code> and is clamped to <code>[1, planMax]</code> — <code>planMax</code> comes from <code>getShareTokenLimit(user.planType)</code> (<code>src/lib/plan-config.ts</code>), so the ceiling is plan-gated, not a flat constant.</li>
+    <li>Shares are explicitly <strong>repo-scoped, not version-frozen</strong> — an inline comment states the backend always resolves to whichever version is currently published, so republishing an agent silently carries its existing Super Link forward rather than orphaning it.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Generating (or sending an email invite) is blocked with a toast if the agent has never been saved (<code>!repoId</code>) or if the open version isn't the currently published one (<code>publishedVersionId !== versionId</code>) — you cannot mint a Super Link for a draft.</li>
+    <li>Turning the Super Link toggle <em>off</em> while a live link exists calls <code>handleRevokeLink</code> immediately rather than just hiding the UI — an inline comment explains this deliberately, so the org doesn't keep being billed for a link the panel makes it look like you turned off.</li>
+    <li><span class="tag note">note</span> Visibility (private/team) sharing is present in the data model (<code>Visibility = 'private' | 'team'</code>, <code>setPersonaVisibility</code>) but its UI section is deliberately hidden per an inline "hide, don't delete" comment — agents are private-only for now. Not a Super Link concern directly, but it lives in the same tab and is worth knowing isn't currently reachable.</li>
+    <li><strong>/agents/published</strong> (the post-publish confirmation screen) duplicates a slimmer version of the same Super Link generate/revoke UI inline, reading and writing the exact same <code>persona-shares</code> API — a user can generate a link from either screen and it's the same underlying share.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Publish → <code>/agents/published?repoId=...&versionId=...</code>, which offers "Back to Library," "Use this Agent" (opens <code>/chat</code> with the persona pre-attached via a <code>sessionStorage</code> handoff key), and — only while no Super Link exists yet — "Configure Sharing" back into <code>SharingTab</code>.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Every Super Link/email-invite action (<code>createShare</code>, <code>revokeShare</code>) writes immediately — there is no draft state and no separate "Save version" step for sharing changes, confirmed by an inline comment on the page's own publish handler ("Sharing actions... are saved immediately to the API — no dirty data to flush").</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — inline form sections, no floating panel.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> <strong>The Saved/Unsaved + Live/Unpublished status badges under the tab strip are permanently disabled</strong> via <code>{false &amp;&amp; (anyDirty || publishedVersionId != null || (!!repoId &amp;&amp; !!versionId)) &amp;&amp; (...)}</code>, with an inline comment reading "Hidden for now." This isn't unique to the Sharing tab — the identical hardcoded-<code>false</code> block is duplicated across all five Configure tabs (Instructions, Profile, Knowledge, Connectors, Sharing), so any Super Link generation happening while badge state would have shown "Unsaved"/"Unpublished" gives the user no such feedback today. — <code>src/app/(app)/agent/configure/sharing/page.tsx:258</code> (same pattern at <code>profile/page.tsx:500</code>, <code>knowledge/page.tsx:599</code>, <code>connectors/page.tsx:293</code>, <code>instructions/page.tsx:1414</code>).</li>
+    <li><span class="tag note">backend-ready-but-unused</span> <strong>Visibility (<code>private</code>/<code>team</code>) sharing is fully wired end-to-end in state and API (<code>Visibility</code> type, <code>setPersonaVisibility</code>, load/save handlers) inside <code>SharingTab.tsx</code> but its rendered section is deliberately commented out</strong> per an inline "hide, don't delete" note ("hidden, not removed... so it can be re-shown later without rebuilding it") — already called out narratively in this section's Edge cases above; restated here as a structured entry since it fits backend-ready-but-unused exactly. — <code>src/app/(app)/agent/configure/components/SharingTab.tsx:336-340</code> (state/handlers at lines 92-123, 187-192).</li>
+  </ul>
+
+  <!-- ══════════════════════ 04 — ACCEPTING A LINK ══════════════════════ -->
+  <h2 id="s04"><span class="num">04</span>Accepting a link<span class="page-route">/share/[id]</span></h2>
+  <p class="page-intro">The recipient-facing preview/accept screen — and the one place this doc found a real, verified contradiction between what the product says and what it does.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:420px; margin:0 auto;">
+      <div class="w-box avatar" style="margin:0 auto; width:72px; min-height:72px; border-radius:18px;">img</div>
+      <div class="w-box tight">Agent name — "Shared by {name} ({email})"</div>
+      <div class="w-box tall">Prompt preview — truncated to 200 chars</div>
+      <div class="w-box tight" style="justify-content:flex-start">Model · Temperature · Credits available · Expires</div>
+      <div class="w-row" style="justify-content:flex-end; flex:none"><div class="w-box btn">Decline</div><div class="w-box btn primary">Accept &amp; copy agent</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>getSharePreview(id)</code> → <code>GET /persona-shares/{id}</code> returns a <code>PersonaSharePreview</code>: persona name/description/prompt/model/temperature/image, sharer name+email, expiry, and <code>credit_remaining</code>.</li>
+    <li>The visible prompt is client-truncated to 200 characters (<code>truncatePrompt</code>) — the full stored prompt is never shown pre-accept.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>This is NOT actually reachable without a Souvenir account</strong>, despite both places that advertise Super Links saying exactly that ("chat without a Souvenir account," "no account needed to chat with your agent" — <code>SuperLink/index.tsx</code>'s own default description, and <code>SuperLinkSection</code> on <code>/agents/published</code>). Verified in <code>src/proxy.ts</code>: the app-wide middleware redirects any request with no Auth0 session straight to <code>/auth/login</code> for every path except a short explicit allowlist (<code>/auth/*</code>, <code>/api/*</code>, the org-invite landing page, onboarding routes). <code>/share/[id]</code> is not on that allowlist, so a logged-out visitor clicking a Super Link is bounced to sign-in/sign-up before ever seeing this preview — and the accept action itself is explicit about the same thing ("Accepting adds a copy of this agent to your account"). The actual behavior is closer to "invite a new or existing Souvenir user to your agent" than "let anyone chat, no account."</li>
+    <li>410 (expired/revoked) and 404 (not found) collapse to two nearly identical "link not found"/"link expired" cards — as designed, not a bug, but there's no distinction shown between "revoked by the sender" and "hit its own expiry timestamp," both surface as the same copy.</li>
+    <li>A 402 on accept ("no credits remaining") is a toast only, not a state change — the page stays on the preview screen rather than re-rendering to reflect that the link is now practically dead.</li>
+    <li>Accepting freezes a copy of the persona at that moment — it doesn't grant ongoing access to the sender's live, still-editable version, so later edits the sender makes never propagate to an accepted copy.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Accept → <code>acceptShare(id)</code> creates a new persona VERSION owned by the recipient (<code>AcceptShareResponse</code>) → toast → redirect to <code>/agents</code> after 1.2s (not straight into the new agent's chat or editor). Decline → root route.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>One-shot: <code>POST /persona-shares/{id}/accept</code>. The resulting copy is explicitly read-only per an inline comment ("Received agents are read-only — go to the agents list, not the edit page").</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable — a single centered card, no panel.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned-route (hidden behavior mismatch)</span> <strong><code>/share/[id]</code> is effectively unreachable without an existing Auth0 session</strong>, despite Super Link's own marketing copy ("chat without a Souvenir account," "no account needed to chat with your agent" — <code>SuperLink/index.tsx</code>'s default description and <code>SuperLinkSection</code> on <code>/agents/published</code>) promising the opposite. <code>src/proxy.ts</code>'s app-wide middleware redirects any unauthenticated request to <code>/auth/login</code> for every path except a short allowlist (<code>/auth/*</code>, <code>/api/*</code>, org-invite landing, onboarding), and <code>/share/[id]</code> is not on it — so the route this page documents is, for a logged-out visitor, a dead end that bounces to sign-in before this UI ever renders. Restated here as a structured entry (already documented narratively above and in this section's own Proposed changes).</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Fix the copy, not just the flow</strong> — <code>grammarly-onboarding-survey.md</code> (Personalization Clarity — a mismatch between what a product tells you and what it does erodes trust faster than being upfront about a limitation). The "no account needed" framing is a real, verifiable mismatch with <code>proxy.ts</code>'s own gate <span class="tag gap">gap</span> documented above — either add <code>/share/[id]</code> (and its onward accept step) to the public allowlist so the copy becomes true, or rewrite the copy to say what actually happens ("Recipients sign in or create a free account to add this agent"). <strong>Backend:</strong> <span class="tag note">partial</span> — making the copy accurate is a frontend-only text change; actually enabling true no-account access would require the preview/accept endpoints to support an unauthenticated or guest-session path, which is a backend/auth decision, not something the frontend can do alone.</li>
+  </ul>
+
+  <footer>SOUVENIR — SUPER LINKS: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

@@ -121,7 +121,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
   return (
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'color-mix(in srgb, var(--neutral-950) 50%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--overlay-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
       <div
         ref={dialogRef}

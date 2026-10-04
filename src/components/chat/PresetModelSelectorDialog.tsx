@@ -164,7 +164,7 @@ function PresetModelSelectorContent({
                   MODEL_LIST_MAX_HEIGHT, then scrolls, instead of always
                   stretching to fill a fixed-height dialog. */}
               <div
-                className="kaya-scrollbar"
+                className="kaya-scrollbar kaya-no-gutter"
                 style={{
                   maxHeight: `${MODEL_LIST_MAX_HEIGHT}px`,
                   overflowY: "auto",

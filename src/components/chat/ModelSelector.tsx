@@ -331,7 +331,7 @@ export function ModelSelector({
 
             {/* Model list */}
             <div
-              className="kaya-scrollbar"
+              className="kaya-scrollbar kaya-no-gutter"
               style={{
                 flex: 1,
                 overflowY: "auto",

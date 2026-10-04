@@ -471,6 +471,8 @@
   --text-field-placeholder:    var(--color-text-placeholder);  /* neutral-600 */
   --text-field-icon:           var(--color-text-muted);        /* neutral-500 */
   --text-field-bg:             var(--color-surface-default);   /* #ffffff */
+  --text-field-ring:           var(--neutral-100);             /* 1px ring at rest / filled */
+  --text-field-ring-hover:     var(--neutral-200);             /* 1px ring on hover */
 
   --shadow-text-field:
     0px 1px 1.5px 0px var(--neutral-700-12),

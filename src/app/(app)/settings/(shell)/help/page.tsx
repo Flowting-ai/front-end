@@ -271,7 +271,7 @@ export default function HelpPage() {
             fontWeight:   500,
             fontSize:     16,
             lineHeight:   '22px',
-            color:        'var(--neutral-200)',
+            color:        'var(--neutral-400)',
             margin:       0,
             overflow:     'hidden',
             textOverflow: 'ellipsis',

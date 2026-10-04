@@ -14,6 +14,8 @@
     --blue:#3A4A8A; --blue-soft:#E3E6F1;
     --amber:#9A6B23; --amber-soft:#F3E7D3;
     --red:#9C3B3B; --red-soft:#F3E1E1;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --slate:#4B5563; --slate-soft:#E6E8EB;
     --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
     --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
     --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
@@ -47,6 +49,8 @@
   h3.io-head.out .dot{background:var(--accent);}
   h3.io-head.save .dot{background:var(--red);}
   h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.hidden .dot{background:var(--slate);}
   .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
   p{font-size:15px; color:#33353A; max-width:66ch;}
   .page-intro{font-size:15px; color:var(--ink-soft); max-width:74ch; margin-top:4px;}
@@ -56,13 +60,19 @@
   code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
   table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
   th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
-  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
   tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
   td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
   .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
   .tag.fixed{background:var(--accent-soft); color:var(--accent);}
   .tag.gap{background:var(--red-soft); color:var(--red);}
   .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .tag.hidden{background:var(--slate-soft); color:var(--slate);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
   footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
 
   .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
@@ -104,7 +114,7 @@
   <h1>Chats, Projects &amp; Sharing — Page-by-Page Reference</h1>
   <p class="subtitle">Companion to <code>flows/agents-flow-diagram.html</code>, same schema — every screen in the Chat and Project surfaces, in the order a user actually moves through them, including the two global side panels (Pinboard, Highlights) and how the chat composer differs by context.</p>
 
-  <div class="changelog"><b>V1.5 —</b> Built fresh from current source (not from the older <code>docs/souvenir-overall-flow-diagram.html</code> case studies or <code>docs v1.5/sharing-model-v2.html</code>, both of which predate the Team→Workspace/Shared rename and are stale in places — flagged inline where they diverge). Same fixed schema as the Agents doc: <strong>Input → Edge cases → Navigation → Save &amp; Publish → Floating panels &amp; Help</strong>, with "Save &amp; Publish" read as "how this page's data actually persists/shares" since this domain has no draft/publish concept.</div>
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source (not from the older <code>docs/souvenir-overall-flow-diagram.html</code> case studies or <code>docs v1.5/sharing-model-v2.html</code>, both of which predate the Team→Workspace/Shared rename and are stale in places — flagged inline where they diverge). Same fixed schema as the Agents doc: <strong>Input → Edge cases → Navigation → Save &amp; Publish → Floating panels &amp; Help</strong>, with "Save &amp; Publish" read as "how this page's data actually persists/shares" since this domain has no draft/publish concept.<br><br><b>+ UX research pass —</b> Each page now also carries a <strong>Proposed changes</strong> section, distilled from a 47-case-study review of growth.design's product/behavioral-psychology breakdowns (full notes in <code>docs v1.5/ux research/</code>) cross-referenced against this doc. Each proposal cites the source case study and the specific principle it draws on — these are recommendations under consideration, not committed roadmap or implemented behavior.</div>
 
   <div class="legend">
     <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
@@ -112,6 +122,8 @@
     <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--slate)"></span>Missing / Unused / Hidden</div>
   </div>
 
   <div class="toc">
@@ -128,6 +140,7 @@
       <li><a href="#c09">Pinboard (global panel)</a></li>
       <li><a href="#c10">Highlights (global feature)</a></li>
       <li><a href="#c11">Chat input, by context</a></li>
+      <li><a href="#c12">Cross-cutting UX proposals</a></li>
     </ol>
   </div>
 
@@ -161,6 +174,12 @@
   <p class="na-block">Not applicable — nothing is created until the first message actually sends.</p>
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable to the sidebar action itself.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — both events involved (<code>sidebar:new-chat</code> and <code>PROJECT_NEW_CHAT_EVENT</code>) are emitted and consumed end-to-end (<code>LeftSidebar.tsx</code> → <code>/chat/page.tsx</code> and <code>/project/[id]/chat/[chatId]/page.tsx</code> respectively); no dead code, disabled branches, or orphaned paths in this action.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No strong candidate from this review — this is a single sidebar action with minimal surface of its own. See §02 and §03 for proposals affecting the surfaces it lands on.</p>
 
   <!-- ══════════════════════ 02 — CHAT ══════════════════════ -->
   <h2 id="c02"><span class="num">02</span>Chat<span class="page-route">/chat</span></h2>
@@ -208,6 +227,27 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">No Configure-style Test-Chat/AI-Suggestions/Versions shell here. The closest equivalents are the global Pinboard and Highlights panels — see §09/§10 — plus the Share overlay (see §04).</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">unused</span> The <code>ACTION_BUTTONS</code> array (Write/Research/Think/Build mode buttons) supports a <code>disabled</code> flag consumed at render time, but none of the four entries ever sets it — inert plumbing for a gating capability nothing currently uses — <code>src/app/(app)/chat/page.tsx:165-170</code> (definitions), <code>:1135-1148</code> (consumption).</li>
+    <li><span class="tag hidden">note</span> The new-chat <code>ChatInput</code> instance hardcodes <code>contextUsedPct={0}</code> rather than reusing the real <code>useMemo</code>-computed value <code>ChatInterface.tsx</code> passes once a chat exists — accurate for a blank chat today, but a literal standing in for the computed value rather than the value itself — <code>src/app/(app)/chat/page.tsx:1081</code> vs. <code>src/components/chat/ChatInterface.tsx:404,1367</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Explain why the model selector is disabled while a persona is attached</strong> — <code>mine-trial-conversion.md</code> (Blocking Information — show the specific reason an action is unavailable, not just a disabled control). The model dropdown simply goes inert with no visible reason once an agent chip is attached; a short inline label or tooltip ("Model is set by the attached agent") removes the "is this broken?" moment. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the persona chip's model is already known client-side; copy/UI only.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — composer, proposed disabled-model tooltip</div>
+    <div class="w-frame" style="max-width:600px; margin:0 auto;">
+      <div class="w-row" style="flex:none;">
+        <div class="w-box solid tight" style="flex:none; opacity:.5;">Model ▾</div>
+        <div class="w-note">Model is set by the attached agent — tooltip on hover</div>
+      </div>
+      <div class="w-box solid" style="flex:none;">🤖 Agent chip attached</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 03 — CHATS LIST ══════════════════════ -->
   <h2 id="c03"><span class="num">03</span>Chats list<span class="page-route">/chats</span></h2>
   <p class="page-intro">Chats / Tasks toggle, each with its own sub-tabs.</p>
@@ -253,6 +293,24 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">disabled</span> The Archived tab surfaces no un-archive action anywhere — <code>ChatRow</code> explicitly hides Archive/Rename/Star for an archived row (Delete and Move-to-project remain) and its own inline comment documents "there is no unarchive endpoint yet" — <code>src/app/(app)/chats/page.tsx:715-742</code> (Archived tab), <code>src/components/ChatRow/index.tsx:71-79</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>State archiving's irreversibility explicitly at the moment of the action</strong> — <code>zapier-upgrade.md</code> (Loss Aversion — framing needs to be stated, not implied, to actually register before someone acts). "No unarchive endpoint exists yet" is true today, but nothing in the archive action itself says so; a one-line confirm ("This moves the chat to Archived permanently") states the loss up front instead of leaving it to be discovered later. <strong>Backend:</strong> <span class="tag fixed">ready</span> — just adds a confirm step in front of the existing archive call; no new endpoint needed (and correctly describes today's real one-way behavior).</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed archive confirm</div>
+    <div class="w-frame" style="max-width:340px; margin:0 auto;">
+      <div class="w-box tight" style="font-weight:600;">Archive this chat?</div>
+      <div class="w-box tall" style="min-height:36px;">This moves it to Archived permanently — there's no way to unarchive it.</div>
+      <div class="w-row" style="justify-content:flex-end; gap:6px;"><div class="w-box btn tight">Cancel</div><div class="w-box btn primary tight">Archive</div></div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 04 — CHAT SHARING ══════════════════════ -->
   <h2 id="c04"><span class="num">04</span>Chat Sharing<span class="page-route">share overlay + /chat-shares/[shareId]</span></h2>
   <p class="page-intro">Two halves: the sharer's overlay (on <code>/chat</code>) and the recipient's read-only accept page. The backend dropped the old editable/read-only "mode" and project-target columns entirely — every share today is uniformly "view read-only, then optionally fork your own copy."</p>
@@ -291,6 +349,32 @@
   <p>Sharing/revoking are immediate API calls, no draft state. The frontend touches exactly three chat visibility values: <code>private</code>, <code>team</code> (displayed as "shared"), <code>archived</code>.</p>
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">backend-unused</span> <code>ChatShare.sharedByEmail</code> / <code>sharedByUserId</code> are decoded from the backend response but never read by any UI — <code>ChatShareOverlay</code> only reads <code>targetUserName</code>/<code>targetUserEmail</code> — <code>src/lib/api/chat-shares.ts:24,26,68-80</code> vs. <code>src/components/.../ChatShareOverlay.tsx:412,432-434</code>.</li>
+    <li><span class="tag hidden">backend-unused</span> <code>SharedChatItem.forkedChatId</code> is normalized from <code>listSharedWithMe()</code> but never read — the Shared-with-me row always shows a plain "Open" button with no "already copied" state even when the backend already knows a fork exists — <code>src/lib/api/chat-shares.ts:39,89</code>; row render at <code>src/app/(app)/chats/page.tsx:677-710</code> (no reference to <code>forkedChatId</code>).</li>
+    <li><span class="tag hidden">backend-unused</span> <code>SharedChatViewResponse.messages[].reasoning</code> exists on the raw backend response type but is dropped in the mapping and never reaches <code>SharedChatMessage</code> or the recipient page — <code>src/lib/api/chat-shares.ts:147-153,170,177-191</code>; not rendered in <code>/chat-shares/[shareId]/page.tsx</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Differentiate the recipient's failure states instead of one generic 404</strong> — <code>youtube-user-retention.md</code> (Discoverability &amp; Feedback — Norman: interfaces must reassure users they're still "in the right place"). A revoked/deleted share and a share that never existed both currently 404 into the exact same "not found" screen <span class="tag gap">gap</span>; distinct copy for "this was unshared while you were viewing it" vs. a dead/bad link tells the recipient whether it's their mistake, a technical glitch, or a deliberate revoke. <strong>Backend:</strong> <span class="tag note">partial</span> — "source chat deleted" already gets its own distinct message ("Chat no longer exists"). Revoked-vs-never-existed genuinely can't be told apart today because revoking a share <em>hard-deletes</em> the share row outright, rather than marking it inactive — the row that would let the backend say "this specific share existed and was revoked" no longer exists by the time the recipient loads the page. Fixing this means switching revoke from a hard delete to a status flag.</li>
+    <li><span class="tag propose">proposed</span> <strong>A lightweight activity signal on the "Active shares" tab</strong> ("Viewed 2 hours ago" next to each name) — <code>signal-revenue.md</code> (Social Proof — reassure users they weren't wasting the effort). Sharers currently get zero feedback on whether a share was ever even opened. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — the share record has no last-viewed timestamp or access log of any kind, and the recipient's view endpoint never writes back to the share row when it's read.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Active shares row, proposed activity signal + specific error</div>
+    <div class="w-row">
+      <div class="w-frame" style="max-width:260px; margin:0; min-height:100px;">
+        <div class="w-row between"><div class="w-box tight" style="justify-content:flex-start;">Jordan Lee</div><div class="w-box btn tight" style="flex:none;">Revoke</div></div>
+        <div class="w-note">Viewed 2 hours ago</div>
+      </div>
+      <div class="w-frame" style="max-width:260px; margin:0; min-height:100px;">
+        <div class="w-box tight" style="font-weight:600;">This share was revoked</div>
+        <div class="w-box tall" style="min-height:30px;">The owner turned off access while you were viewing it.</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════════ 05 — PROJECTS LIST ══════════════════════ -->
   <h2 id="c05"><span class="num">05</span>Projects list<span class="page-route">/projects</span></h2>
@@ -333,6 +417,26 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">dead-code</span> <code>ProjectCard</code>'s <code>body</code> prop (a pre-rendered slot meant to override the default card body) is defined and documented but never passed by the page's only call site — always falls back to the default <code>ProjectCardBody</code> render — <code>src/components/ProjectCard/index.tsx:39,164</code>; sole caller <code>src/app/(app)/projects/page.tsx:830</code>.</li>
+    <li><span class="tag hidden">backend-unused</span> <code>ApiProjectSummary.documentCount</code> is returned by <code>GET /projects</code> and normalized, but this page never reads it (cards/rows show <code>chatCount</code>/member count only) — it's used only on an unrelated page (<code>souvenir-slack</code>) — <code>src/lib/api/projects.ts:58</code>; no reference in <code>src/app/(app)/projects/page.tsx</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Show a count next to each Scope option</strong> ("Workspace (12)") — <code>beehiiv-newsletter-subscription-ux.md</code> (Recognition over Recall). Picking a scope today means remembering roughly how many projects live in each bucket before diving in; surfacing the count turns a memory task into a recognition task. <strong>Backend:</strong> <span class="tag note">partial</span> — there's no dedicated count endpoint, but the default project-list call already returns every visible project with its <code>visibility</code> field, so Personal/Workspace/Shared counts are a client-side group-by with zero extra calls. Only "Recently Deleted (N)" needs a second request (the deleted-scope filter is a separate query param).</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed scope dropdown with counts</div>
+    <div class="w-frame" style="max-width:220px; margin:0 auto;">
+      <div class="w-box solid tight" style="justify-content:flex-start;">Personal (4)</div>
+      <div class="w-box solid tight" style="justify-content:flex-start;">Workspace (12)</div>
+      <div class="w-box solid tight" style="justify-content:flex-start;">Shared (3)</div>
+      <div class="w-box solid tight" style="justify-content:flex-start; opacity:.6;">Recently Deleted (1)</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 06 — PROJECT CREATION ══════════════════════ -->
   <h2 id="c06"><span class="num">06</span>Project creation<span class="page-route">/projects/new</span></h2>
   <p class="page-intro">A single form, 608px content column.</p>
@@ -365,6 +469,24 @@
   <p>One-shot creation call, no draft/save distinction — the whole form submits together.</p>
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">backend-unused</span> <code>createProject</code>'s <code>teamId</code> parameter is always passed as <code>undefined</code> by its only caller on this page; the code's own comment on the analytics event notes it reads <code>visibility</code> instead since <code>teamId</code> is never actually supplied — <code>src/context/projects-context.tsx:295,303-306</code>; call site <code>src/app/(app)/projects/new/page.tsx:61</code>.</li>
+    <li><span class="tag hidden">backend-unused</span> <code>CreateProjectParams.systemInstruction</code> and <code>.files</code> are accepted by <code>createProjectApi</code> and sent to <code>POST /projects</code>, but the New Project form has no textarea or file-picker to populate either at creation time — <code>src/lib/api/projects.ts:257-282</code>; no reference in <code>src/app/(app)/projects/new/page.tsx</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Move the irreversibility warning out of a hover-only tooltip</strong> — <code>amazon-purchase-ux.md</code> (Fitts's Law — disproportionately small UI elements get disproportionately little attention regardless of how consequential the information behind them is). "You can't change this once the project is created" is only visible via a hover ⓘ next to the Visibility dropdown; make it a persistent, always-visible inline caption instead. <strong>Backend:</strong> <span class="tag fixed">ready</span> — copy relocation only; visibility is already immutable server-side, nothing to change there.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed always-visible caption</div>
+    <div class="w-frame" style="max-width:608px; margin:0 auto;">
+      <div class="w-row between"><div class="w-box solid" style="flex:1">Visibility ▾ — Personal / Workspace / Shared</div></div>
+      <div class="w-note" style="text-align:left;">You can't change this once the project is created — was a hover-only ⓘ tooltip, now a persistent caption under the dropdown</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════ 07 — PROJECT HUB ══════════════════════ -->
   <h2 id="c07"><span class="num">07</span>Project hub<span class="page-route">/project/[id]</span></h2>
@@ -412,6 +534,28 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p>The floating menu here is a <em>different</em> shell from Configure's Test-Chat/AI-Suggestions/Versions trio — it opens Pinboard (§09), an Agents view, an Instructions &amp; Files panel, and (conditionally) a Members panel, rather than the agent-editor's panels.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">fabricated-data</span> The Files panel's storage-usage bar is given a hardcoded 100 MB total capacity, not a real backend-supplied quota, and used to compute the "X% used / of Y MB" label shown to the user as if it were a real limit — <code>totalBytes={100 * 1024 * 1024}</code> at <code>src/app/(app)/project/[id]/page.tsx:312</code>, consumed by <code>src/components/ProjectFilesPanel/index.tsx:48-50</code>.</li>
+    <li><span class="tag hidden">dead-code</span> <code>setProjectVisibility()</code> (would <code>PATCH /projects/{id}/visibility</code>) has zero call sites anywhere in the app — its own doc comment says the backend route "no longer exists," the UI button that used to trigger it "is never rendered," and it's "kept only as a reference... delete it once that lands" — <code>src/lib/api/projects.ts:450-474</code>.</li>
+    <li><span class="tag hidden">backend-unused</span> <code>ApiProject.canManageVisibility</code> / <code>ApiProjectSummary.canManageVisibility</code> is carried through the whole Project type but is hardcoded <code>false</code> in both normalizers and never branched on by any UI — <code>src/lib/api/projects.ts:185,206</code>; <code>src/context/projects-context.tsx:82,139,181,270</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Spell out the consequence of each option in the forced Archive/Convert choice</strong> — <code>typeform-offboarding.md</code> (Peak-End Rule — how an ending is handled disproportionately shapes the overall impression). The last remaining member facing this forced binary choice sees two buttons with no stated difference in outcome; naming it directly ("Archive — read-only forever" vs. "Convert — becomes a personal project, other members lose access") turns an anxious, irreversible decision into an informed one. <strong>Backend:</strong> <span class="tag fixed">ready</span> — copy-only; both actions already exist and behave as described.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — owner-exit modal, proposed consequence copy</div>
+    <div class="w-frame" style="max-width:420px; margin:0 auto;">
+      <div class="w-box tight" style="font-weight:600;">You're the last member — what happens to this project?</div>
+      <div class="w-row" style="gap:8px;">
+        <div class="w-col w-bordered" style="flex:1; padding:8px; gap:4px;"><div class="w-box tight">Archive</div><div class="w-note">Read-only forever — no one can edit or add chats</div></div>
+        <div class="w-col w-bordered" style="flex:1; padding:8px; gap:4px;"><div class="w-box tight">Convert</div><div class="w-note">Becomes a personal project — stays fully editable, just yours</div></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 08 — PROJECT CHAT ══════════════════════ -->
   <h2 id="c08"><span class="num">08</span>Project chat<span class="page-route">/project/[id]/chat/[chatId]</span></h2>
   <p class="page-intro">Same composer engine as standalone chat, scoped to a project, with three separate persistence channels for state carried in from the hub page.</p>
@@ -437,6 +581,12 @@
 
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p>Highlights (§10) is scoped to <code>activeChatId</code> here specifically — switching chats reloads the panel's contents via the effect above rather than via a full remount of the highlight sidebar itself (that sidebar is a single app-wide instance, not per-chat).</p>
+
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — <code>sessionStorage['project-chat-pending-persona']</code> and <code>window.__pendingProjectChatFiles</code> both have live write and read ends (hub page and this page), the two read sites for pending files are distinct non-duplicate paths per their own inline comments (one gated on a query param, one a plain effect), and the <code>project-chat-&lt;projectId&gt;-&lt;chatId&gt;-&lt;resetEpoch&gt;</code> remount key is exercised by a real reset flow, not inert.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <p class="na-block">No specific proposal beyond §02's and §11's — this page reuses the same composer and model-selector behavior as standalone Chat, just project-scoped.</p>
 
   <!-- ══════════════════════ 09 — PINBOARD ══════════════════════ -->
   <h2 id="c09"><span class="num">09</span>Pinboard<span class="page-route">global right-sidebar panel</span></h2>
@@ -482,6 +632,31 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Pinboard <em>is itself</em> one of the floating-panel-style surfaces in this doc's schema — no further nested panel exists inside it beyond the Organize overlay shown above.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag hidden">dead-code</span> <code>testChatFolders</code>/<code>setTestChatFolders</code> (a <code>PinFolder[]</code> reused from the pins system) is created and threaded through the agent-configure Test Chat context but never rendered or read in the panel body — it's destructured alongside ~15 other fields in <code>TestChatPanelContent</code> and then unused, always sent as <code>[]</code> in an otherwise-unused payload — declared <code>src/app/(app)/agent/configure/context.tsx:664,671,677,680,1108,1113</code>; sole consumer <code>src/app/(app)/agent/configure/layout.tsx:584</code> (grep confirms zero further uses).</li>
+    <li><span class="tag hidden">backend-unused</span> The backend's LLM-classified <code>Pin.category</code> is fetched and typed but discarded on creation: <code>addPin</code>'s merge of the real <code>backendPin</code> only copies <code>tags</code>/<code>comments</code>/<code>createdAt</code>, never <code>category</code> — every pin is instead labeled from a hardcoded client-side value ("Quote" at both call sites, or a "Code" fallback when loading from the list endpoint), so the full 7-category taxonomy (Code/Research/Creative/Planning/Tasks/Quote/Workflow) that exists in the UI/type system is never actually driven by a live classification — <code>src/lib/api/pins.ts:36,118</code>; merge at <code>src/context/pinboard-context.tsx:250-281</code> (list fallback at <code>:182</code>); hardcoded call sites <code>src/components/chat/ChatMessage.tsx:529</code>, <code>src/components/compare/CompareModels.tsx:966</code>.</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>An explicit "no longer available" state when a pin's source chat is deleted</strong>, plus capturing the chat's name at pin-creation time — <code>letterboxd-jobs-to-be-done.md</code> (Feedback Loops — every action should produce a visible, honest effect). "Show in chat" currently just navigates to a chat id that may no longer resolve <span class="tag gap">gap</span>, silently failing instead of telling the user what happened. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — the Pin record doesn't even store a <code>chat_id</code> column; the chat it belongs to is resolved live via a join at read time through the source message, with no frozen snapshot of the chat's name/existence as of pin-creation. Both the "detect it's gone" and "remember what it was called" halves of this proposal need new columns.</li>
+    <li><span class="tag propose">proposed</span> <strong>Content-aware pin labels instead of a hardcoded "Quote"</strong> — <code>letterboxd-jobs-to-be-done.md</code> (Familiar Nomenclature). Every pin is categorized "Quote" regardless of whether the source was a link, a code block, or a table; auto-detecting and labeling by actual content type reduces search/recall friction later. <strong>Backend:</strong> <span class="tag note">partial</span> — worth double-checking before building this: the backend already runs an LLM-based classifier on every pin at creation time into one of 7 fixed categories (code/research/creative/planning/tasks/quote/workflow), falling back to "research" (not "quote") on failure — meaning the "always Quote" behavior this doc describes may be a frontend display choice overriding an already-computed, already-content-aware category rather than a true backend gap. If genuinely new categories beyond those 7 are wanted, that part needs a DB enum migration; if the existing 7 are enough, this may already be backend-ready and just need a frontend fix.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — pin cards, proposed content-aware labels + unavailable state</div>
+    <div class="w-row">
+      <div class="w-frame" style="max-width:180px; margin:0; min-height:110px;">
+        <div class="w-note" style="text-align:left;">Code</div>
+        <div class="w-box tall">const x = fetchData()…</div>
+      </div>
+      <div class="w-frame" style="max-width:180px; margin:0; min-height:110px;">
+        <div class="w-note" style="text-align:left; color:var(--red);">Chat unavailable</div>
+        <div class="w-box tall" style="opacity:.5;">"…the plan is to…"</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 10 — HIGHLIGHTS ══════════════════════ -->
   <h2 id="c10"><span class="num">10</span>Highlights<span class="page-route">global side panel + inline marks</span></h2>
   <p class="page-intro">A saved text <em>selection</em> from an assistant message — not a whole-message bookmark like a Pin. Assistant messages only.</p>
@@ -525,6 +700,23 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Highlights is itself a floating-panel-style surface — no further nested panel.</p>
 
+  <h3 class="io-head hidden"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — no manual color-picker/swatch UI exists anywhere in the Highlight components, and none is dead code left behind: <code>HighlightCard</code>'s own prop doc states color is "Auto-assigned by HighlightPanel as <code>highlights.indexOf(h) % 4</code>. Never set manually" (<code>src/components/HighlightCard/index.tsx:78</code>), matching the actual round-robin assignment in <code>src/context/highlight-context.tsx:72,172,182</code> — this was never built with a manual path, not a disabled one. No commented-out JSX, orphaned routes, or fabricated data found either; all state comes from <code>highlight-context.tsx</code> and live <code>GET</code>/<code>PATCH</code> calls in <code>src/lib/api/highlights.ts</code>.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>An explicit "original message no longer available" state</strong>, instead of a highlight card whose inline mark silently can't render — <code>letterboxd-jobs-to-be-done.md</code> (Feedback Loops). Same underlying failure as Pinboard's proposal above (source content gone), currently handled here by quiet degradation rather than a stated reason <span class="tag gap">gap</span>. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — worse than a missing flag: the list endpoint's query never joins against the message table at all, so it can't currently tell whether the source message still exists. (The create-time path does check this, just not the later list/GET path the panel actually uses.)</li>
+    <li><span class="tag propose">proposed</span> <strong>Surface which chats failed to load in "All highlights,"</strong> instead of silently contributing zero — <code>youtube-user-retention.md</code> (Discoverability &amp; Feedback). Per-chat load failures are swallowed today <span class="tag gap">gap</span>; even a small "3 chats couldn't be checked" note would be more honest than an undercounted list that looks complete. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the failures are already happening and already reach the frontend per-request; this is a frontend error-handling change (stop swallowing, start collecting), not a new API need.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Highlights panel, proposed unavailable state + load-failure note</div>
+    <div class="w-frame" style="max-width:332px; margin:0 auto;">
+      <div class="w-row between"><div class="w-box tight">Highlights</div><div class="w-box solid tight" style="flex:none">All highlights ▾</div></div>
+      <div class="w-note" style="text-align:left; color:var(--amber);">3 chats couldn't be checked</div>
+      <div class="w-box solid tall" style="opacity:.5;">Original message no longer available</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════ 11 — CHAT INPUT BY CONTEXT ══════════════════════ -->
   <h2 id="c11"><span class="num">11</span>Chat input, by context<span class="page-route">the same component, different props</span></h2>
   <p class="page-intro">One real <code>ChatInput</code> component (<code>src/components/chat/ChatInput.tsx</code>) is reused everywhere — a second, unrelated <code>src/components/ChatInput/index.tsx</code> exists only for the agent-configure Test Chat/AI Suggestions inputs, a naming collision worth knowing about if you go looking for "the" ChatInput. The real one's feature set differs purely by which props each surface passes in:</p>
@@ -537,6 +729,31 @@
     <tr><td class="label">Persona chat</td><td><code>hidePersona hidePinFolders</code></td><td>always disabled, no click handler at all</td><td>a Stop-generation button</td></tr>
   </table>
   <p>All four pass an <code>AttachmentManager</code> for file attachments — that part doesn't vary.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Standardize how "no model choice available" is communicated</strong> across the three different treatments in the table above — hidden entirely (Brain), visibly disabled with no click handler (Persona chat), disabled-while-attached (standalone/project). Three surfaces expressing the identical underlying state three different ways, with no shared visual language between them, is the same consistency problem as the cross-cutting pattern below — worth resolving as one shared convention rather than three independent treatments. <strong>Backend:</strong> <span class="tag fixed">ready</span> — purely a shared frontend component/convention question; no data is missing on any of the three surfaces.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — current 3 treatments vs. proposed shared convention</div>
+    <div class="w-row">
+      <div class="w-col" style="flex:1; gap:4px;"><div class="w-note">Brain</div><div class="w-box tight" style="opacity:.3;">— hidden —</div></div>
+      <div class="w-col" style="flex:1; gap:4px;"><div class="w-note">Persona chat</div><div class="w-box tight" style="opacity:.5;">Model ▾</div></div>
+      <div class="w-col" style="flex:1; gap:4px;"><div class="w-note">Standalone/project</div><div class="w-box tight" style="opacity:.5;">Model ▾</div></div>
+      <div class="w-col" style="flex:1; gap:4px;"><div class="w-note" style="color:var(--accent);">proposed — all three</div><div class="w-box tight" style="opacity:.5;">Model ▾ <span class="w-note">ⓘ</span></div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ 12 — CROSS-CUTTING PROPOSALS ══════════════════════ -->
+  <h2 id="c12"><span class="num">12</span>Cross-cutting UX proposals<span class="page-route">applies across §01–§11</span></h2>
+  <p class="page-intro">Three patterns recur across multiple pages above — fixing the underlying convention once resolves several individual proposals at once. Full source notes for every case study cited: <code>docs v1.5/ux research/</code>.</p>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up in this doc</th><th>Grounded in</th></tr>
+    <tr><td class="label">Generic/undifferentiated failure states hide the actual problem</td><td>§04 Chat Sharing 404s, §09 Pinboard's dead "Show in chat", §10 Highlights' silent per-chat load failures</td><td><code>youtube-user-retention.md</code> (Discoverability &amp; Feedback), <code>letterboxd-jobs-to-be-done.md</code> (Feedback Loops)</td></tr>
+    <tr><td class="label">Irreversible actions signaled inconsistently, usually too weakly</td><td>§03 Chat archive (no confirm at all), §06 Project visibility (hover-only tooltip)</td><td><code>zapier-upgrade.md</code> (Loss Aversion), <code>amazon-purchase-ux.md</code> (Fitts's Law)</td></tr>
+    <tr><td class="label">Usage/activity data exists but is never surfaced</td><td>§04 "Active shares" has no view/activity signal</td><td><code>signal-revenue.md</code> (Social Proof)</td></tr>
+  </table>
 
   <footer>SOUVENIR — CHATS, PROJECTS &amp; SHARING: PAGE-BY-PAGE REFERENCE — V1.5</footer>
 </div>

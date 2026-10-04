@@ -59,7 +59,7 @@ export function AddSouvenirToSlackModal({ isOpen, onClose }: { isOpen: boolean; 
         position: "fixed",
         inset: 0,
         zIndex: 1100,
-        backgroundColor: "color-mix(in srgb, var(--neutral-950) 52%, transparent)",
+        backgroundColor: "var(--overlay-bg)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

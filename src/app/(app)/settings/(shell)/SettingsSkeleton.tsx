@@ -61,8 +61,6 @@ const CARD: React.CSSProperties = {
   paddingBottom: 12,
 }
 
-const DANGER_CARD: React.CSSProperties = { ...CARD, border: '1px solid var(--red-200, #fecaca)' }
-
 // ── Shared skeleton shapes ────────────────────────────────────────────────────
 
 function PageHeader() {
@@ -200,13 +198,13 @@ export function AccountSkeleton() {
           </Section>
         </div>
 
-        {/* Personalisation — Screen mode + Style + Default Model rows */}
+        {/* Personalisation — Screen mode + Style rows (Default Model row and Danger Zone are hidden) */}
         <div style={CARD}>
           <Section divider>
             <Bone w={130} h={16} />
           </Section>
-          {[0, 1, 2].map(i => (
-            <Section key={i} divider={i < 2}>
+          {[0, 1].map(i => (
+            <Section key={i} divider={i < 1}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <Bone w={110} h={14} />
@@ -218,22 +216,6 @@ export function AccountSkeleton() {
           ))}
         </div>
 
-        {/* Danger Zone — Delete account row with "Coming soon" badge */}
-        <div style={DANGER_CARD}>
-          <Section divider>
-            <Bone w={110} h={16} />
-            <Bone w="55%" h={12} />
-          </Section>
-          <Section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Bone w={140} h={14} />
-                <Bone w={90} h={20} r={6} />
-              </div>
-              <Bone w={120} h={34} r={8} />
-            </div>
-          </Section>
-        </div>
       </div>
     </div>
   )

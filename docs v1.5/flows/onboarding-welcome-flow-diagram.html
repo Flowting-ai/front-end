@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Onboarding &amp; Welcome — Page-by-Page Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A; --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B; --red-soft:#F3E1E1;
+    --green:#1E7A4C; --green-soft:#D9EFE2;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1320px; margin:0 auto; padding:72px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:62ch; margin:0 0 16px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:36px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:#fff; border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:36px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px;}
+  .toc ol{margin:0; padding-left:20px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+  .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--line);}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .page-route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:16.5px; margin:26px 0 8px;}
+  h3.io-head{display:flex; align-items:center; gap:8px;}
+  h3.io-head .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  h3.io-head.in .dot{background:var(--blue);}
+  h3.io-head.edge .dot{background:var(--amber);}
+  h3.io-head.out .dot{background:var(--accent);}
+  h3.io-head.save .dot{background:var(--red);}
+  h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
+  h3.io-head.missing .dot{background:#B9642E;}
+  .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
+  p{font-size:15px; color:#33353A; max-width:70ch;}
+  .page-intro{font-size:15px; color:var(--ink-soft); max-width:78ch; margin-top:4px;}
+  ul{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:#33353A;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
+  .tag.fixed{background:var(--accent-soft); color:var(--accent);}
+  .tag.gap{background:var(--red-soft); color:var(--red);}
+  .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
+  .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .wire{ border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:14px; margin:16px 0 22px; }
+  .wire-label{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+  .w-frame{ position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:6px; padding:14px; background:var(--paper); }
+  .w-frame.panel{ min-height:420px; max-width:1100px; margin:0 auto; }
+  .w-row{ display:flex; gap:6px; align-items:stretch; }
+  .w-row.center{ justify-content:center; }
+  .w-row.between{ justify-content:space-between; align-items:center; }
+  .w-col{ display:flex; flex-direction:column; gap:6px; }
+  .w-content{ width:100%; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .w-box{
+    border:1px dashed var(--line-strong); border-radius:4px; padding:7px 9px;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; text-align:center; flex:1;
+  }
+  .w-box.solid{ border-style:solid; border-color:var(--line-strong); background:#fff; }
+  .w-box.tight{ padding:4px 7px; flex:none; }
+  .w-box.tall{ min-height:70px; }
+  .w-box.xtall{ min-height:170px; }
+  .w-box.grow{ flex:1 1 0; min-width:0; }
+  .w-box.btn{ border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:5px 8px; }
+  .w-box.btn.primary{ background:var(--ink); color:#fff; }
+  .w-box.icon{ flex:none; width:28px; min-height:28px; border-radius:8px; }
+  .w-box.avatar{ flex:none; width:40px; min-height:40px; border-radius:10px; }
+  .w-content-width{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:2px; }
+  .w-note{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); margin-top:2px; }
+  .w-floating{ position:absolute; }
+
+  /* Phase / status swatches used inline in tables */
+  .sw{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; }
+  .sw .dot{ width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SPEC</span><span>V1.5</span></div>
+  <h1>Onboarding &amp; Welcome — Page-by-Page Reference</h1>
+  <p class="subtitle">Companion to <code>flows/tasks-flow-diagram.html</code>, <code>flows/agents-flow-diagram.html</code> and <code>flows/chats-projects-flow-diagram.html</code>, same schema — filling a previously-undocumented gap: the account-setup surface a user passes through exactly once (or twice, if invited into a second workspace) before ever reaching any of those three.</p>
+
+  <div class="changelog"><b>V1.5 —</b> Built fresh from current source this session, cross-checked line-by-line against <code>docs v1.5/onboarding-v1.5-flow.md</code> (the build spec) and <code>docs v1.5/free-trial-onboarding-plan.md</code> (a parked, not-yet-implemented proposal). Where this doc says a plan-doc claim is stale or unimplemented, that's from reading the actual route files, not from the plan docs themselves — several turned out to describe an intended or superseded state rather than what ships today. Headline finding: <strong>the live v1.5 flow (setup → workspace → profile → invite) never grants or offers the free trial at all</strong> — worse than the free-trial plan doc's framing of "the offer exists but is buried in Settings," because the one mechanism that already exists to offer it client-side (<code>WelcomeModal</code>) is wired to a URL param only the <em>superseded</em> old flow ever sets, so it is dead code from the new flow's entry point. A second, unflagged surprise: two independent, still-live team-invite-acceptance code paths coexist (<code>/onboarding/join</code> for the new flow's A2 case, and a separate <code>/onboarding/team/[inviteId]</code> tree kept alive by an explicit proxy.ts exemption) — see §07.</div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--amber)"></span>Edge cases</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#B9642E"></span>Missing / Unused / Hidden</div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-label">Reading order</div>
+    <ol>
+      <li><a href="#o00">Entities, route map &amp; the two live flows</a></li>
+      <li><a href="#o01">Setup choice — /onboarding/setup</a></li>
+      <li><a href="#o02">Setup your workspace — /onboarding/workspace</a></li>
+      <li><a href="#o03">Join a workspace (A2) — /onboarding/join</a></li>
+      <li><a href="#o04">Create your profile — /onboarding/profile</a></li>
+      <li><a href="#o05">Invite your team members — /onboarding/invite</a></li>
+      <li><a href="#o06">Handoff — /welcome, the Slack modal &amp; the orphaned WelcomeModal</a></li>
+      <li><a href="#o07">The other invite tree — /onboarding/team/[inviteId]</a></li>
+      <li><a href="#o08">Re-entry gating, refresh mid-flow &amp; already-onboarded users</a></li>
+      <li><a href="#o09">The free-trial gap</a></li>
+      <li><a href="#o10">Cross-cutting UX proposals</a></li>
+    </ol>
+  </div>
+
+  <!-- ══════════════════════ 00 — ENTITIES ══════════════════════ -->
+  <h2 id="o00"><span class="num">00</span>Entities, route map &amp; the two live flows</h2>
+  <p>"Onboarding" isn't one flow in this codebase — it's <strong>two independently-maintained flows sharing one route prefix</strong>. The v1.5 rebuild (<code>docs v1.5/onboarding-v1.5-flow.md</code>) was built to <em>supersede</em> the previous team-onboarding implementation, but the previous implementation's files, context provider, and proxy exemptions were never deleted — both are mounted by the same layout (<code>src/app/(onboarding)/layout.tsx</code> wraps every child in <em>both</em> <code>OnboardingProvider</code> and <code>WorkspaceOnboardingProvider</code>) and both are still reachable by URL. This doc covers the live, current-entry-point flow in depth (§01–§07) and flags the legacy surface only where it's still structurally load-bearing (§07's invite tree, and the still-present but now-unreachable-from-the-new-flow <code>hello</code>/<code>account-type</code>/<code>plans</code>/<code>tone</code>/<code>import</code> pages, which this pass did not re-document since <code>src/proxy.ts</code>'s <code>determineNextOnboardingPath()</code> — the server-side gate — never routes a new user into them).</p>
+
+  <table>
+    <tr><th class="label">Route</th><th>Flow</th><th>Purpose</th></tr>
+    <tr><td class="label"><code>/onboarding</code></td><td>—</td><td>bare index, immediately <code>redirect()</code>s to <code>/onboarding/setup</code></td></tr>
+    <tr><td class="label"><code>/onboarding/setup</code></td><td>A1 screen 1</td><td>Slack vs. self-serve choice (§01)</td></tr>
+    <tr><td class="label"><code>/onboarding/workspace</code></td><td>A1 screen 2</td><td>workspace name + size (§02)</td></tr>
+    <tr><td class="label"><code>/onboarding/join</code></td><td>A2 screen 1</td><td>"detected workspace" join card (§03)</td></tr>
+    <tr><td class="label"><code>/onboarding/profile</code></td><td>A1/A2 shared</td><td>first/last name + optional role + tone (§04)</td></tr>
+    <tr><td class="label"><code>/onboarding/invite</code></td><td>A1/A2 shared</td><td>invite emails; <strong>this is where onboarding actually completes</strong> (§05)</td></tr>
+    <tr><td class="label"><code>/welcome</code></td><td>A1/A2 shared</td><td>bare landing spot for the post-onboarding Slack modal (§06)</td></tr>
+    <tr><td class="label"><code>/onboarding/team/[inviteId]</code></td><td>legacy, still live</td><td>a second, separate "join a workspace" implementation (§07)</td></tr>
+    <tr><td class="label"><code>/onboarding/team/[inviteId]/profile</code></td><td>legacy, still live</td><td>that tree's own profile step</td></tr>
+    <tr><td class="label"><code>/org-invite/[inviteId]</code></td><td>B1/B2, pre-login</td><td>public sign-in-vs-sign-up landing for someone not yet authenticated at all (exempted from the session check in <code>proxy.ts</code> ahead of the Auth0 redirect)</td></tr>
+    <tr><td class="label"><code>/onboarding/hello</code>, <code>account-type</code>, <code>plans</code>, <code>tone</code>, <code>import</code></td><td>legacy, orphaned</td><td>the previous flow's remaining pages — not linked from the current entry point, not re-audited in this pass; <code>plans/page.tsx</code> is the exact page the free-trial plan doc proposes to edit (§09)</td></tr>
+  </table>
+
+  <p>Everything in the live flow is driven by two lightweight React contexts mounted at the shared layout, not a state machine — there is no phase graph the way Brain has one:</p>
+  <ul>
+    <li><code>WorkspaceOnboardingContext</code> (<code>src/context/workspace-onboarding-context.tsx</code>) — the v1.5 flow's only state: <code>workspaceName</code>, <code>workspaceSize</code>, <code>firstName</code>, <code>lastName</code>, <code>role</code>, <code>tone</code>, <code>inviteEmailList</code>, <code>inviteEmailDraft</code>, <code>entryFlow: "create" | "join" | null</code>. Pure client memory — a hard refresh mid-flow loses every unsaved field (see §08).</li>
+    <li><code>OnboardingProvider</code> — backs only the legacy pages; the live flow's pages never call <code>useOnboarding()</code>.</li>
+  </ul>
+  <p>Server-side truth lives entirely on <code>GET /users/me</code>. <code>src/proxy.ts</code>'s <code>determineNextOnboardingPath()</code> derives the correct live-flow step from exactly two backend signals — see §08 for the full gate and its one documented false-positive risk.</p>
+
+  <!-- ══════════════════════ 01 — SETUP CHOICE ══════════════════════ -->
+  <h2 id="o01"><span class="num">01</span>Setup choice<span class="page-route">/onboarding/setup</span></h2>
+  <p class="page-intro">A1 screen 1 — the only screen in the live flow with no dot-progress header (it isn't counted among the 3-step indicator the other pages share) and no Back button at all.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:460px; margin:0 auto;">
+      <div class="w-box tall solid" style="border-color:var(--blue); flex-direction:column; align-items:flex-start; text-align:left; gap:6px;">
+        "Recommended" chip · Slack mark · "Add Souvenir to Slack" · "We'll also grab your workspace details, so no setup required" · <span class="w-note">[Continue with Slack →]</span>
+      </div>
+      <div class="w-box tall solid" style="flex-direction:column; align-items:flex-start; text-align:left; gap:6px;">
+        Souvenir logo · "Set up in Souvenir" · "Prefer to do it yourself? Walk through a few quick steps." · <span class="w-note">[Continue setting up]</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>No route params, no server data fetch — this screen is a pure static choice, nothing is loaded or pre-filled.</li>
+    <li>"Continue with Slack" calls <code>getSlackInstallUrl()</code> (same call site <code>SlackConnectModal</code> elsewhere in the app uses) and does a full <code>window.location.href</code> redirect out of the SPA.</li>
+    <li>"Continue setting up" is a plain <code>router.push(ONBOARDING_WORKSPACE_ROUTE)</code> — no API call.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>What happens after the Slack install completes is undocumented and unverified in code</strong> — an inline comment flags this directly: does the backend return the user to <code>/onboarding/workspace</code> with name/size pre-filled, straight to <code>/chat</code>, or somewhere else? The frontend has no landing route built for a Slack-install return at all; whatever OAuth callback the backend uses is outside this codebase's control from here.</li>
+    <li>The "ai-magic" sparkle icon next to the Slack card's helper text and the Souvenir-branded mark on the self-serve card are both confirmed-correct final assets (per in-code comments) — an earlier <code>GridIcon</code> placeholder for the Souvenir mark has already been replaced with the real logo SVG.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Trigger</th><th>Goes to</th></tr>
+    <tr><td class="label">Continue with Slack</td><td>external Slack OAuth install URL (full navigation, leaves the app)</td></tr>
+    <tr><td class="label">Continue setting up</td><td><code>/onboarding/workspace</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable — nothing is persisted on this screen.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — grepped for <code>{false &amp;&amp;</code>, commented-out JSX, and TODO/FIXME markers in <code>onboarding/setup/page.tsx</code> specifically; none present. The Slack-install-return gap noted above is a documentation gap (unverified backend behavior), not dead or hidden frontend code.</p>
+
+  <!-- ══════════════════════ 02 — WORKSPACE ══════════════════════ -->
+  <h2 id="o02"><span class="num">02</span>Setup your workspace<span class="page-route">/onboarding/workspace</span></h2>
+  <p class="page-intro">A1 screen 2, dot 1 of 3. Figma nodes 27:1196 (default) / 55:2726 (empty-field error state).</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:403px; margin:0 auto;">
+      <div class="w-row" style="flex:none; gap:4px;"><div class="w-box tight" style="width:12px; background:var(--ink);"></div><div class="w-box tight" style="width:4px; border-radius:50%;"></div><div class="w-box tight" style="width:4px; border-radius:50%;"></div></div>
+      <div class="w-box tight" style="justify-content:flex-start; font-size:12px;">Setup your workspace</div>
+      <div class="w-box solid tight" style="justify-content:space-between;">[ workspace name input ] -workspace</div>
+      <div class="w-box tight" style="justify-content:flex-start;">Workspace size</div>
+      <div class="w-row" style="flex:none;"><div class="w-box btn">Just me</div><div class="w-box btn">1-5</div><div class="w-box btn">5-10</div><div class="w-box btn">10+</div></div>
+      <div class="w-row between" style="margin-top:8px;"><div class="w-note">(no Back on this screen)</div><div class="w-box btn primary">Next →</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>Workspace name</strong> (required, free text, suffixed with a fixed, non-editable "-workspace" label rendered inside the field) and <strong>workspace size</strong> — 4 pill buttons: Just me / 1-5 / 5-10 / 10+, defaulting to "Just me".</li>
+    <li>On mount, sets <code>entryFlow: "create"</code> in context — this is purely so the <em>profile</em> step's Back button later knows to return here rather than to <code>/onboarding/join</code> (A2's screen 1).</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong>The 4-bucket size picker doesn't map 1:1 onto the backend's 3-value <code>role_fit</code> enum</strong> (<code>just_me | small_team | large_team</code>) — flagged in-code as "a reasonable guess, not a confirmed contract": <code>just_me→just_me</code>, <code>10+→large_team</code>, and <em>both</em> <code>1-5</code> and <code>5-10</code> collapse to <code>small_team</code>. A user who picks "5-10" and one who picks "1-5" are indistinguishable to the backend.</li>
+    <li><span class="tag gap">gap</span> <strong><code>GET /users/me</code> never returns an org id</strong> (no such field in the response schema — <code>user.orgId</code> is always null client-side). Next has to call <code>listOrganizations()</code> first to tell "already has a workspace" apart from "doesn't yet" before deciding whether to <code>createOrganization()</code> or <code>updateOrg()</code> — without that lookup, clicking Back then Next again would re-call <code>createOrganization()</code> and 400 with "You already belong to an organization."</li>
+    <li><span class="tag note">note</span> <strong>No plan/billing step exists anywhere before this screen</strong>, unlike the legacy team flow (which created the org only after a Stripe checkout) — org creation now happens unconditionally, with no payment gate at all. Flagged in-code as needing backend confirmation, not silently assumed correct.</li>
+    <li>A save failure here (workspace name/role_fit PATCH) is non-fatal — toasts an error but still advances to the profile step; the name can be fixed later in Settings.</li>
+    <li>Leaving with unsaved input (name typed or size changed from default) triggers the shared <code>useLeaveGuard</code> — see §08 for its two independent mechanisms.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p class="na-block">No Back button on this screen (it's the first real step). Next → <code>/onboarding/profile</code>, after awaiting both the <code>role_fit</code> PATCH and the org create/update call, then an explicit <code>refreshUser()</code> before navigating — done specifically so the client's cached auth user can never disagree with the proxy's live re-entry check (see the shared bug described in §04).</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p><code>updateOnboarding({ role_fit })</code> and <code>createOrganization({ name })</code> / <code>updateOrg(orgId, { name })</code> fire in parallel on Next. Both are best-effort — a failure toasts but does not block navigation.</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned route</span> <strong><code>/onboarding/connectors</code> (<code>src/app/(onboarding)/onboarding/connectors/page.tsx</code>) is a fully built, never-linked step.</strong> It's a "What does your team use?" connector-picker screen whose own Back button targets <code>ONBOARDING_WORKSPACE_ROUTE</code> and whose Next targets <code>ONBOARDING_INVITE_ROUTE</code> — positioned, by its own code, directly after this workspace step. But nothing in the live flow ever navigates to it: <code>grep</code> for <code>ONBOARDING_CONNECTORS_ROUTE</code> (defined at <code>src/lib/routes.ts:77</code>) across <code>src/</code> turns up only its own definition and a comment in <code>workspace/page.tsx:106</code>; no <code>push()</code>/<code>href</code> call anywhere uses it, it isn't in <code>determineNextOnboardingPath()</code>, and it isn't in this doc's own §00 route map. It also still imports the <strong>legacy</strong> <code>useOnboarding()</code> context (<code>onboarding-context.tsx</code>), not <code>WorkspaceOnboardingContext</code> — confirming it predates or was built alongside the old flow and was never rewired into the v1.5 one.</li>
+    <li><span class="tag gap">dead code</span> <strong><code>StepCard</code> (<code>src/app/(onboarding)/onboarding/_components/step-shell.tsx:428</code>) is exported but never imported anywhere</strong> — confirmed by grepping the whole frontend for the identifier: only its own definition matches. Every live step (this page, profile, join, invite) uses <code>StepCanvas</code>/<code>StepHeader</code>/<code>StepFooter</code> from the same file instead.</li>
+  </ul>
+
+  <!-- ══════════════════════ 03 — JOIN (A2) ══════════════════════ -->
+  <h2 id="o03"><span class="num">03</span>Join a workspace (A2 screen 1)<span class="page-route">/onboarding/join</span></h2>
+  <p class="page-intro">The v1.5-flow-native "detected workspace" card, distinct from the legacy tree covered in §07 — same underlying invite data, two different implementations of "accept."</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:460px; margin:0 auto;">
+      <div class="w-row" style="flex:none; gap:4px;"><div class="w-box tight" style="width:4px; border-radius:50%;"></div><div class="w-box tight" style="width:12px; background:var(--ink);"></div><div class="w-box tight" style="width:4px; border-radius:50%;"></div></div>
+      <div class="w-box tight" style="justify-content:flex-start; font-size:12px;">Join a Workspace</div>
+      <div class="w-box solid tall" style="border-color:var(--blue); flex-direction:column; align-items:flex-start; text-align:left; gap:4px;">
+        "{Inviter}'s Workspace" · "{n} members" · avatar stack (max 3, "+N" overflow) · <span class="w-note">[Join]</span>
+      </div>
+      <div class="w-row" style="flex:none;"><div class="w-box btn">← Back (logs out)</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Reads an <code>inviteId</code> search param on arrival and calls <code>getTeamInviteOnboarding(inviteId)</code> — same <code>lib/api/teams.ts</code> contract the legacy tree (§07) reuses.</li>
+    <li>Card shows workspace name (falls back to <code>"{invitedByName}'s Workspace"</code> if unnamed), member count, and up to 3 member avatars with a "+N" overflow chip.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>No real backend contract for "the workspace this signup's email domain matches"</strong> — flagged directly in-code as a pending confirmation. This page assumes an <code>inviteId</code> param is already present (i.e. something upstream resolved a pending invite and redirected here with it); if A2 is actually meant to work off pure domain-matching with no invite record at all, this screen has no code path for that today.</li>
+    <li>Three render states are handled explicitly: loading ("Looking up your workspace…"), a resolved invite (the card), and a load failure ("We couldn't find a workspace to join. Ask your teammate to resend the invite.") — no retry button on the failure state, only Back.</li>
+    <li>Missing <code>inviteId</code> entirely goes straight to the load-error copy, without ever calling the API.</li>
+    <li>Back doesn't return to a previous onboarding step — it calls <code>logout()</code>, since this is the first screen a joining user sees (same convention the legacy invite tree and the old flow's first screen both use).</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Join → <code>acceptTeamInvite(inviteId)</code>, sets <code>entryFlow: "join"</code>, then <code>/onboarding/profile</code>. No page-level Next button — the card's own Join button is the only forward action.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>A join failure toasts "Couldn't join the workspace — please try again." and stays on this screen (unlike the workspace/profile steps' failures, this one is not tolerated silently, since without it the user has no workspace at all).</p>
+
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag note">note</span> <strong>Not orphaned, but worth stating precisely: this route and §07's <code>/onboarding/team/[inviteId]</code> are two separately-live pages, not a live-vs-dead pair.</strong> Neither <code>src/proxy.ts</code> nor any invite-link generator in this frontend picks between them — both mount successfully today given a valid <code>inviteId</code>, they just diverge in behavior (see §07's Edge cases and the §07 proposal to consolidate). This page has no exemption in <code>proxy.ts</code>'s already-onboarded redirect (unlike §07's route), so an already-onboarded user hitting <em>this</em> URL directly gets bounced to <code>/</code> before ever seeing the join card — a gap the other tree doesn't have.</li>
+    <li>No disabled/dead code found in <code>join/page.tsx</code> itself (no <code>{false &amp;&amp;</code>, no commented-out JSX, no TODO/FIXME).</li>
+  </ul>
+
+  <!-- ══════════════════════ 04 — PROFILE ══════════════════════ -->
+  <h2 id="o04"><span class="num">04</span>Create your profile<span class="page-route">/onboarding/profile</span></h2>
+  <p class="page-intro">A1/A2 shared, dot 2 of 3 — the exact same route and component for both entry cases, per the flow spec's own confirmation.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:403px; margin:0 auto;">
+      <div class="w-row" style="flex:none; gap:4px;"><div class="w-box tight" style="width:4px; border-radius:50%;"></div><div class="w-box tight" style="width:12px; background:var(--ink);"></div><div class="w-box tight" style="width:4px; border-radius:50%;"></div></div>
+      <div class="w-box tight" style="justify-content:flex-start; font-size:12px;">Create your profile</div>
+      <div class="w-row" style="flex:none;"><div class="w-box solid grow">First name*</div><div class="w-box solid grow">Last name*</div></div>
+      <div class="w-box tight" style="justify-content:flex-start;">Role</div>
+      <div class="w-box solid tight" style="justify-content:space-between;">Designer ▾ <span class="w-note">(optional, no asterisk)</span></div>
+      <div class="w-box tight" style="justify-content:flex-start;">How should your AI sound?</div>
+      <div class="w-box solid tight" style="justify-content:space-between;">Balanced ▾ <span class="w-note">(optional)</span></div>
+      <div class="w-row between" style="margin-top:8px;"><div class="w-box btn">← Back</div><div class="w-box btn primary">Next →</div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><strong>First name</strong>, <strong>last name</strong> (both required) — plain PATCH via <code>updateUser({ first_name, last_name })</code> on Next.</li>
+    <li><strong>Role</strong> — a 6-option dropdown (Founder / Marketer / Designer / Engineer / Operator / Student / Researcher), no asterisk, genuinely optional.</li>
+    <li><strong>Tone</strong> ("How should your AI sound?") — 3 options (Direct / Balanced / Warm), reinstated from the previous flow's dedicated tone step per an explicit 2026-08-29 product request, folded into a dropdown here instead of its own screen.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases — a real, previously-shipped bug and its fix</h3>
+  <ul>
+    <li><span class="tag fixed">fixed</span> <strong>Role and Tone are typed in on this screen but deliberately not sent from it.</strong> The backend's <code>update_onboarding</code> (<code>services/users/repository.py</code>) silently flips <code>onboarding_completed=true</code> the instant <code>user_role</code> + <code>ai_tone</code> + <code>role_fit</code> are all set on the account, independent of which request set the last one. Since <code>role_fit</code> is already set by the workspace step (§02), a version of this page that PATCHed Role/Tone immediately would complete onboarding right here — and did, in a real, dated bug: the proxy's already-onboarded re-entry gate then bounced the subsequent navigation to <code>/onboarding/invite</code> straight to <code>/</code>, skipping the invite screen entirely. The fix is frontend-only: Role/Tone stay in <code>WorkspaceOnboardingContext</code> and are sent together with <code>onboarding_completed: true</code> from the <em>invite</em> step's own finish call instead (§05), so all three gating fields land in the same request as the explicit completion flag.</li>
+    <li>An explicit <code>refreshUser()</code> runs before navigating away, kept as a defensive backstop for a returning user whose <code>user_role</code>/<code>ai_tone</code> were already set by some other path (e.g. the legacy flow) before <code>role_fit</code> landed — though the comment is candid that this alone doesn't prevent the bug above, since it's the <em>proxy's</em> live check, not the client's cached auth state, that actually gates re-entry.</li>
+    <li>Back branches on <code>entryFlow</code>: <code>/onboarding/workspace</code> if the user arrived via A1, <code>/onboarding/join</code> if via A2 — this branch itself is a documented fix for an earlier version that hardcoded the A1 destination regardless of entry path.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Next → <code>/onboarding/invite</code> (both entry cases converge here). No Skip on this screen — only Role and Tone are optional, First/Last name still gate the button.</p>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>Only <code>first_name</code>/<code>last_name</code> PATCH from this screen. Failure is non-fatal (toast, then continue) — same tolerance as the workspace step.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — grepped <code>profile/page.tsx</code> for <code>{false &amp;&amp;</code>, commented-out JSX, and TODO/FIXME markers; none present. Role and Tone are collected here but intentionally unsent (documented above as a fix, not a gap); no other field this screen renders goes uncaptured.</p>
+
+  <!-- ══════════════════════ 05 — INVITE ══════════════════════ -->
+  <h2 id="o05"><span class="num">05</span>Invite your team members<span class="page-route">/onboarding/invite</span></h2>
+  <p class="page-intro">A1/A2 shared, dot 3 of 3 — and the only step with a 3-button footer (Back / Skip for now / Next), since inviting is fully optional. This is where onboarding actually completes; there is no separate route for the flow spec's "screen 5" ("Into the app" + Slack modal) — that's the <code>/welcome</code> handoff in §06.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch</div>
+    <div class="w-frame" style="max-width:403px; margin:0 auto;">
+      <div class="w-row" style="flex:none; gap:4px;"><div class="w-box tight" style="width:4px; border-radius:50%;"></div><div class="w-box tight" style="width:4px; border-radius:50%;"></div><div class="w-box tight" style="width:12px; background:var(--ink);"></div></div>
+      <div class="w-box tight" style="justify-content:flex-start; font-size:12px;">Invite your team members</div>
+      <div class="w-box solid tall" style="flex-wrap:wrap; align-items:flex-start;">chip · chip · chip · [add email id and press enter]</div>
+      <div class="w-row between" style="margin-top:8px;"><div class="w-box btn">← Back</div><div class="w-row" style="flex:none;"><div class="w-box btn">Skip for now</div><div class="w-box btn primary">Send N Invites →</div></div></div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>A chip-input email list: typed text is parsed on Enter/comma/blur; pasting a comma- or newline-separated block commits the whole batch immediately. Each entry is format-checked (<code>^[^\s@]+@[^\s@]+\.[^\s@]+$</code> — a shape check, not a deliverability check) and deduped case-insensitively against both the committed list and the rest of the same paste.</li>
+    <li>Invalid and duplicate entries in a batch each get their own distinct toast, singular vs. plural copy depending on count.</li>
+    <li>State (committed chips <em>and</em> whatever's still sitting un-committed in the input) lives in <code>WorkspaceOnboardingContext</code>, not local <code>useState</code> — specifically so clicking Back to profile/workspace and then Next again doesn't silently drop a partially-typed address, a documented behavior a plain local-state version used to have.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>Skip and Next each track their own loading flag (a single shared boolean previously showed Skip's spinner on the Next button — the wrong button — a documented, since-fixed bug).</li>
+    <li><span class="tag note">note</span> Sending invites and completing onboarding are independent outcomes with independent toasts: an invite-send failure ("no workspace was found for your account" if <code>orgId</code> never resolved, or the backend's own verbatim error, e.g. "X is already a member") does <strong>not</strong> block completion — the user still lands in the app.</li>
+    <li>No org id resolved at all (the workspace step's org-create likely failed silently) is explicitly detected and surfaced as its own toast, rather than the invite silently no-op'ing.</li>
+    <li>Both Skip and Next call the same <code>finish()</code> → <code>updateOnboarding({ user_role?, ai_tone?, onboarding_completed: true })</code>; if the backend response's <code>completed</code> flag isn't true, an error toast fires and navigation does not proceed — this is the one hard-stop in the entire live flow.</li>
+    <li>The Continue navigation is an intentional full <code>window.location.href</code> handoff (not a router push) — <code>leaveGuard.bypass()</code> is called immediately before it specifically to suppress the leave-guard's own <code>beforeunload</code> prompt for this one navigation, distinct from a real accidental unload.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <table>
+    <tr><th class="label">Action</th><th>Mechanism</th><th>Goes to</th></tr>
+    <tr><td class="label">Back</td><td>router push</td><td><code>/onboarding/profile</code></td></tr>
+    <tr><td class="label">Skip for now</td><td><code>finish()</code>, no invite send</td><td><code>/welcome?slack=1</code></td></tr>
+    <tr><td class="label">Send N Invites</td><td><code>inviteMembers(orgId, emails)</code> then <code>finish()</code></td><td><code>/welcome?slack=1</code></td></tr>
+  </table>
+
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p>The single hard requirement of the entire flow: <code>updateOnboarding({ user_role?, ai_tone?, onboarding_completed: true })</code> must return <code>completed: true</code> before the app is entered — everything before this step is best-effort.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <p class="na-block">Nothing found in this section — grepped <code>invite/page.tsx</code> for <code>{false &amp;&amp;</code>, commented-out JSX, and TODO/FIXME markers; none present. The free-trial claim UI that could naturally live on this screen (see §09's proposed layout sketch) doesn't exist here in any form, dead or otherwise — it's a gap, not hidden code; the actual dead component (<code>WelcomeModal</code>) is documented in §06.</p>
+
+  <!-- ══════════════════════ 06 — HANDOFF ══════════════════════ -->
+  <h2 id="o06"><span class="num">06</span>Handoff<span class="page-route">/welcome, and the orphaned WelcomeModal</span></h2>
+  <p class="page-intro">This is the section where the free-trial plan doc's premise and the actual code most sharply diverge — see the callout below and §09.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — /welcome?slack=1</div>
+    <div class="w-frame" style="max-width:412px; margin:0 auto;">
+      <div class="w-row between" style="flex:none;"><div class="w-box tight" style="justify-content:flex-start; font-weight:600;">Add Souvenir to Slack</div><div class="w-box icon">✕</div></div>
+      <div class="w-box tight" style="justify-content:flex-start; font-size:9px;">Bring Souvenir right into your workspace, ready for your workspace to use.</div>
+      <div class="w-box tall solid">static PNG export — Slack composer preview illustration</div>
+      <div class="w-box btn primary">Add Souvenir to Slack</div>
+    </div>
+  </div>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li><code>/welcome</code> (<code>src/app/(app)/welcome/page.tsx</code>) is not a real page — it's a bare mount point for <code>AddSouvenirToSlackModal</code>. It reads one search param, <code>slack</code>; if it isn't exactly <code>"1"</code>, an effect immediately <code>router.replace(CHAT_ROUTE)</code>s away with no modal ever shown.</li>
+    <li>The modal itself: title, one line of copy, a static decorative illustration (<code>public/onboarding/slack-preview.png</code> — explicitly non-interactive, not a rebuilt Slack UI), and a single "Add Souvenir to Slack" button calling the same <code>getSlackInstallUrl()</code> used in §01.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <div class="note gap">
+    <strong>The free-trial offer never reaches a v1.5-flow user.</strong> A separate, fully-built component — <code>src/components/onboarding/WelcomeModal.tsx</code>, mounted on <code>/chat</code> (<code>src/app/(app)/chat/page.tsx:227</code>) — already implements exactly the choice the free-trial plan doc is asking for: a "Free Trial" card calling <code>POST /stripe/trial</code> (via <code>STRIPE_TRIAL_ENDPOINT</code>) versus a "Subscribe" card routing to billing. But it only renders when the URL carries <code>?welcome=1</code>, and grepping the whole frontend for that literal string turns up exactly one place that ever sets it: <code>src/app/(onboarding)/onboarding/import/page.tsx:97</code> — a page in the <strong>legacy, superseded</strong> flow that <code>determineNextOnboardingPath()</code> no longer routes any new user into. The live flow's own completion call (<code>invite/page.tsx</code>'s <code>goToWelcome()</code>) navigates to <code>${WELCOME_ROUTE}?slack=1</code> — a different route, a different param, and it lands on the bare Slack-modal-or-redirect-to-/chat page above, which has no knowledge of <code>WelcomeModal</code> or the trial at all. A brand-new v1.5-flow user therefore finishes onboarding with zero credits, no trial prompt, ever — not "buried in Settings" as the plan doc frames it, but entirely unreachable from this flow's own completion path.
+  </div>
+  <ul>
+    <li><span class="tag note">note</span> <code>WelcomeModal</code>'s own copy is the same wrong figure the plan doc flags elsewhere — "Get 1,000 credits to explore all features" and "You now have 1,000 free credits" — versus the real backend grant of 5,000 credits / $5 for 7 days (per the plan doc's cited backend constants). Even if this modal were reachable, its numbers would be wrong.</li>
+    <li>If a v1.5-flow user later stumbles onto <code>/chat?welcome=1</code> by hand, the modal would still render (its own gate is just the URL param, nothing about which onboarding flow ran) — it isn't flow-aware, it's just currently flow-unreachable.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>Closing the Slack modal (X, backdrop click, or a successful "Add to Slack" redirect) leaves the user on whatever <code>/welcome</code> would otherwise fall through to — effectively <code>/chat</code>, since the page's own no-<code>slack=1</code> branch already redirects there.</p>
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Not applicable on <code>/welcome</code> itself — completion already happened on the invite step.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">The Slack modal is the only floating surface here; see §01 for its sibling instance on the setup-choice screen.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">dead-code</span> <strong><code>WelcomeModal</code> (<code>src/components/onboarding/WelcomeModal.tsx</code>) is dead code from the live v1.5 flow's perspective.</strong> It's mounted and fully functional on <code>/chat</code> (<code>src/app/(app)/chat/page.tsx:227</code>), gated only on a <code>?welcome=1</code> URL param — but grepping the whole frontend for that literal string finds exactly one place that ever sets it: <code>src/app/(onboarding)/onboarding/import/page.tsx:97</code>, a page in the legacy flow that <code>determineNextOnboardingPath()</code> no longer routes any new user into. The live flow's own completion call, <code>invite/page.tsx</code>'s <code>goToWelcome()</code>, navigates to <code>${WELCOME_ROUTE}?slack=1</code> instead — a different route and a different param, so <code>WelcomeModal</code> never mounts for a v1.5 user. Its "Free Trial" card (<code>POST /stripe/trial</code> via <code>Usage.startTrial()</code>, <code>lib/api/billing.ts</code>) is consequently unreachable, not merely unused.</li>
+    <li><span class="tag gap">fabricated-data</span> <strong><code>WelcomeModal</code>'s own copy presents a fabricated number as real, independent of its reachability problem.</strong> Both its offer card and its success screen say "1,000 credits" / "You now have 1,000 free credits," against the real backend grant of 5,000 credits / $5 / 7 days (per the plan doc's cited backend constants, not independently re-verified against backend source in this pass). This is a third, previously-unlisted location with the wrong figure, alongside the legacy <code>onboarding/plans</code> page and the Settings billing button the plan doc already names.</li>
+    <li><span class="tag note">note</span> <strong>The bare <code>/welcome</code> page itself has no dead code</strong> — it's a thin two-branch component (show the Slack modal on <code>?slack=1</code>, else <code>router.replace(CHAT_ROUTE)</code>) with no commented-out JSX, no <code>{false &amp;&amp;</code>, and no unused imports.</li>
+  </ul>
+
+  <!-- ══════════════════════ 07 — LEGACY INVITE TREE ══════════════════════ -->
+  <h2 id="o07"><span class="num">07</span>The other invite tree<span class="page-route">/onboarding/team/[inviteId]</span></h2>
+  <p class="page-intro">A second, independently-built "accept a workspace invite" implementation that is <strong>not</strong> the same code as §03's <code>/onboarding/join</code> — both are live, both call overlapping backend contracts, and nothing in the routing determines which one a real invite link actually points a user at.</p>
+
+  <h3 class="io-head in"><span class="dot"></span>Input</h3>
+  <ul>
+    <li>Own context (<code>team-invite-onboarding-context</code>), own UI (<code>_components/invite-ui.tsx</code>'s <code>InviteStateScreen</code> for loading/error/expired states), own workspace-join card component — visually and structurally similar to §03's card but a separate implementation, not a shared component.</li>
+    <li>An in-code comment describes this as replacing an even older 4-screen version (invite → join → profile → confirm), on the grounds that the "join" pass-through step made no API call and the old "confirm" screen duplicated the Slack-modal landing with its own bespoke treatment.</li>
+  </ul>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li>The workspace card's Join button here does two things atomically that §03's does sequentially across two screens: <code>acceptTeamInvite(inviteId)</code> <em>and</em> <code>updateOnboarding({ onboarding_completed: true })</code> in one handler.</li>
+    <li><span class="tag note">note</span> <strong>Already-onboarded users are branched explicitly</strong>: <code>wasAlreadyOnboarded</code> is captured from <code>user.onboardingCompleted</code> <em>before</em> the mutations run, and if true, the user skips the profile step entirely and goes straight to <code>${WELCOME_ROUTE}?slack=1</code> — this is the one documented, correct handling in this whole doc of "an already-onboarded user joining a second workspace," a case §03's A2 screen doesn't appear to special-case at all (it always routes to <code>/onboarding/profile</code> next, which would re-collect a name that's already on file).</li>
+    <li>A 410 on accept surfaces as "This invite has expired." specifically, not a generic error.</li>
+    <li><code>src/proxy.ts</code> carries a dedicated <code>isTeamInviteOnboarding</code> exemption (<code>pathname.startsWith(ONBOARDING_TEAM_BASE_ROUTE)</code>) letting an already-onboarded user back into <em>this specific</em> route tree, since the rest of <code>/onboarding/*</code> is otherwise blocked for onboarded users (see §08) — no equivalent exemption exists for <code>/onboarding/join</code>, reinforcing that the two were built and are maintained separately rather than as one reused flow.</li>
+  </ul>
+
+  <h3 class="io-head out"><span class="dot"></span>Navigation</h3>
+  <p>New user: Join → <code>/onboarding/team/[inviteId]/profile</code> (this tree's own profile step, not <code>/onboarding/profile</code>) → the shared <code>${WELCOME_ROUTE}?slack=1</code> landing. Already-onboarded user: Join → straight to <code>${WELCOME_ROUTE}?slack=1</code>. Back (on the initial screen) → <code>/chat</code>, not a logout, unlike §03's Back.</p>
+  <h3 class="io-head save"><span class="dot"></span>Save &amp; Publish</h3>
+  <p class="na-block">Covered above — accept + completion fire together, not staged across steps the way §03/§05 split them.</p>
+  <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
+  <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head missing"><span class="dot"></span>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">orphaned-route</span> <strong>Clarifying which invite tree is actually orphaned: neither is, today — both <code>/onboarding/join</code> (§03) and this <code>/onboarding/team/[inviteId]</code> tree are live and reachable.</strong> This tree is kept alive specifically by <code>src/proxy.ts</code>'s <code>isTeamInviteOnboarding</code> exemption (<code>pathname.startsWith(ONBOARDING_TEAM_BASE_ROUTE)</code>), which is an explicit, deliberate carve-out in the already-onboarded redirect gate — not an oversight or leftover. What <em>is</em> genuinely orphaned from the new flow's routing (per §00's route table and <code>determineNextOnboardingPath()</code>) is the sibling legacy surface one level up: <code>/onboarding/hello</code>, <code>account-type</code>, <code>plans</code>, <code>tone</code>, and <code>import</code> — none of those routes are ever produced by the server-side gate for a new user, and only <code>plans</code> is still functionally relevant (as the free-trial plan doc's intended edit target, §09).</li>
+    <li><span class="tag gap">dead-code</span> <strong><code>src/app/(onboarding)/onboarding/import/page.tsx:97</code> is the sole remaining call site that sets <code>?welcome=1</code></strong>, the param <code>WelcomeModal</code> gates on (§06) — since this whole legacy page is itself unreachable from <code>determineNextOnboardingPath()</code>, that call site is dead in two compounding ways: the page that contains it is orphaned, and the modal it was meant to trigger is mounted on a route (<code>/chat</code>) this tree doesn't even navigate to on completion (it goes to <code>${WELCOME_ROUTE}?slack=1</code>, same as the live flow).</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Resolve which of §03/§07 is the real invite-acceptance path and delete the other.</strong> No UX-research citation fits this one — it's a plain codebase-hygiene finding, not a psychology-grounded proposal: two parallel, drifted implementations of the same user action (one handles the "already onboarded, joining a second workspace" case correctly, the other doesn't; one logs the user out on Back, the other sends them to chat) is a maintenance and consistency risk on its own, independent of which is currently linked from real invite emails.</li>
+  </ul>
+
+  <!-- ══════════════════════ 08 — GATING & EDGE CASES ══════════════════════ -->
+  <h2 id="o08"><span class="num">08</span>Re-entry gating, refresh mid-flow &amp; already-onboarded users</h2>
+  <p class="page-intro">Two independent gates are meant to agree exactly, and the code says so explicitly in a comment: <code>src/proxy.ts</code> (server-side, runs on every request) and <code>src/components/shared/OnboardingGuard.tsx</code> (client-side, runs in the app shell).</p>
+
+  <table>
+    <tr><th class="label">Scenario</th><th>What happens</th></tr>
+    <tr><td class="label">Fresh, un-onboarded user hits <code>/chat</code> or any app route</td><td><code>OnboardingGuard</code> waits for auth hydration and the first <code>/users/me</code>, then <code>replace(ONBOARDING_SETUP_ROUTE)</code> if neither onboarding is complete nor an active paid/trial subscription exists.</td></tr>
+    <tr><td class="label">Already-onboarded user hits any <code>/onboarding/*</code> route</td><td><code>proxy.ts</code> redirects to <code>/</code> — <strong>except</strong> the billing-confirmation return page, the pricing page, and the legacy team-invite tree (§07)'s explicit exemption. <code>/onboarding/join</code> (§03) has no such exemption.</td></tr>
+    <tr><td class="label">Refresh mid-flow (e.g. mid-way through the profile step)</td><td><span class="tag gap">gap</span> All unsaved <code>WorkspaceOnboardingContext</code> state (typed name, selected role/tone, chip-input emails not yet sent) is plain React state with no persistence — a hard refresh loses it completely. The user lands back on whichever step <code>determineNextOnboardingPath()</code> derives from already-saved backend fields, which may re-show a step they'd already filled in but not yet saved.</td></tr>
+    <tr><td class="label">Logged-out visitor hits <code>/org-invite/[id]</code> (B1/B2)</td><td>Explicitly exempted in <code>proxy.ts</code> ahead of the session check — the whole point of that page is deciding sign-in vs. sign-up while logged out, so it must be reachable pre-auth.</td></tr>
+  </table>
+
+  <h3 class="io-head edge"><span class="dot"></span>Edge cases</h3>
+  <ul>
+    <li><span class="tag gap">gap</span> <strong>The proxy's step-inference has one documented, unresolved false-positive risk</strong>, called out directly in-code: since <code>user_role</code> is now optional at the profile step, <code>determineNextOnboardingPath()</code> instead infers "profile step done" from <code>first_name</code>/<code>last_name</code> being non-empty on <code>/users/me</code>. Auth0 sometimes auto-populates <code>first_name</code> to the account's raw email on signup (existing, separately-documented behavior in <code>auth-context.tsx</code>) — this function can't distinguish that placeholder from a real name, so such a user could be silently routed past <code>/onboarding/profile</code> straight to <code>/onboarding/invite</code> without ever being asked their actual name. The comment explicitly recommends a dedicated <code>profile_completed</code> flag as the real fix, not the current name-field inference.</li>
+    <li>A positive-only cache (<code>onboardedCache</code>, 60s TTL, keyed by Auth0 <code>sub</code>) means an <em>onboarded</em> result never needs a fresh <code>/users/me</code> round-trip for a minute — safe because "onboarded" is treated as monotonic (an account never un-onboards) — but every un-onboarded request still pays a live fetch, since that state changes mid-flow and must never be served stale.</li>
+    <li>The leave-guard (§02/§04/§05, shared via <code>step-shell.tsx</code>'s <code>useLeaveGuard</code>) covers both a real page unload (<code>beforeunload</code>) and the browser Back/Forward buttons (a pushState/popstate trick, since Next's App Router has no first-party navigation-block hook) — but deliberately does not intercept the step's own in-flow Back/Next buttons, which use <code>router.push</code> and never fire <code>popstate</code>.</li>
+  </ul>
+
+  <!-- ══════════════════════ 09 — FREE TRIAL GAP ══════════════════════ -->
+  <h2 id="o09"><span class="num">09</span>The free-trial gap</h2>
+  <p class="page-intro">Synthesizing §06 and §09's plan-doc cross-reference into one place, since this is the single largest divergence between the planning docs and shipped behavior.</p>
+
+  <table>
+    <tr><th class="label">Layer</th><th>Status</th></tr>
+    <tr><td class="label">Backend</td><td>Real and working — <code>POST /stripe/trial</code> grants a one-time 5,000-credit / $5 / 7-day trial to a brand-new <em>individual</em> user; 403s for org members; joining an org later actively deletes an existing personal trial. (Per the plan doc's own citations; not independently re-verified against backend source in this pass, per this task's frontend-only scope.)</td></tr>
+    <tr><td class="label">A working frontend call site exists</td><td><code>Usage.startTrial()</code> (<code>lib/api/billing.ts</code>) — used by <code>WelcomeModal</code>'s "Start free trial" card <em>and</em>, per the plan doc, by a "Claim free 1,000 credits" button in Settings → Billing (not re-verified in this pass — out of scope for an onboarding doc, and the plan doc itself flags the same "1,000" figure there as wrong).</td></tr>
+    <tr><td class="label">v1.5 onboarding flow (§01–§05)</td><td><span class="tag gap">gap</span> Makes zero mention of the trial anywhere — no plans/pricing step exists in this flow at all (confirmed in §02's edge cases and the flow spec itself, which lists exactly 7 A1 screens with "no plans/Stripe step" stated explicitly).</td></tr>
+    <tr><td class="label"><code>WelcomeModal</code> (§06)</td><td><span class="tag gap">gap</span> Fully built, wired to the right endpoint, but unreachable from this flow — gated on a URL param only the superseded <code>onboarding/import</code> page ever sets.</td></tr>
+    <tr><td class="label">Copy accuracy</td><td><span class="tag note">note</span> Every surface this pass found that mentions a trial figure says "1,000" — <code>WelcomeModal</code> (both its offer card and its success screen). The plan doc separately flags the same wrong number on the legacy <code>onboarding/plans</code> page and the Settings billing button; this pass adds <code>WelcomeModal</code> as a third, previously-unlisted location with the same error.</td></tr>
+  </table>
+
+  <div class="note flag">The free-trial plan doc (<code>docs v1.5/free-trial-onboarding-plan.md</code>) proposes wiring the trial claim into the legacy <code>onboarding/plans</code> page's "Welcome gift" card. That page is not on the v1.5 flow's route at all per <code>determineNextOnboardingPath()</code> — implementing the plan exactly as written would fix a page a new v1.5 user never sees. Whoever picks this plan back up should re-scope it to either (a) the live flow's own completion point (§05's invite step, or the §06 handoff), or (b) making <code>WelcomeModal</code> reachable from the live flow's actual completion URL, rather than the page named in the original plan.</div>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Offer the trial at the moment onboarding actually completes, not after a detour into a page the flow doesn't visit</strong> — <code>headspace-user-onboarding.md</code> (the case study's core thesis: convert intent to action at the single moment motivation peaks, not one screen later). Right now a v1.5 user's motivation peak — finishing onboarding — is spent entirely on the Slack modal (§06), which has nothing to do with getting started using the product itself. <strong>Backend:</strong> <span class="tag fixed">ready</span> — <code>POST /stripe/trial</code> and <code>Usage.startTrial()</code> already exist and work; this is a matter of where the existing call is triggered from.</li>
+    <li><span class="tag propose">proposed</span> <strong>Make the claim an explicit accept/deny choice, not a silent default of "nothing"</strong> — <code>mine-trial-conversion.md</code> (an unresolved default converts nobody; an explicit binary choice, even a soft one, outperforms silence). Today's actual default for every v1.5 user is neither "claimed" nor "explicitly declined" — it's simply never asked. <strong>Backend:</strong> <span class="tag fixed">ready</span> — same endpoint, same tolerance-for-failure pattern the invite step already uses elsewhere in this flow (§05's non-fatal invite-send failures are a directly reusable template for a non-fatal trial-claim failure).</li>
+    <li><span class="tag propose">proposed</span> <strong>Fix "1,000" to the real "5,000 / $5 / 7 days" everywhere it appears</strong>, including the newly-found <code>WelcomeModal</code> location this pass adds to the plan doc's list — <code>adobe-trial-ux.md</code> (mismatched trial terms between what's promised and what's delivered erode trust at the exact moment a new user is deciding whether to trust the product at all). <strong>Backend:</strong> <span class="tag fixed">ready</span> — purely a copy fix, no schema change; the real numbers are already the plan doc's own cited constants.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed trial choice, folded into the existing invite step (§05) rather than a new screen</div>
+    <div class="w-frame" style="max-width:403px; margin:0 auto;">
+      <div class="w-box tight" style="justify-content:flex-start; font-size:12px;">Invite your team members</div>
+      <div class="w-box solid tall">(existing email chip input, unchanged)</div>
+      <div class="w-box tight solid" style="border-color:var(--violet); flex-direction:column; align-items:flex-start; text-align:left; gap:2px;">✦ 5,000 free credits ($5 value, 7 days) — was: no mention anywhere in this flow</div>
+      <div class="w-row between" style="margin-top:4px;"><div class="w-box btn">← Back</div><div class="w-row" style="flex:none; gap:8px;"><div class="w-box btn">No thanks</div><div class="w-box btn primary">Claim &amp; finish →</div></div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ 10 — CROSS-CUTTING ══════════════════════ -->
+  <h2 id="o10"><span class="num">10</span>Cross-cutting UX proposals<span class="page-route">applies across §01–§09</span></h2>
+  <p class="page-intro">Full source notes for every case study cited above: <code>docs v1.5/ux research/</code>.</p>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up in this doc</th><th>Grounded in</th></tr>
+    <tr><td class="label">A real, working mechanism exists but the path to reach it was quietly cut</td><td>§06/§09 — <code>WelcomeModal</code> and its trial claim, orphaned by the flow that superseded its only trigger</td><td><code>headspace-user-onboarding.md</code>, <code>mine-trial-conversion.md</code></td></tr>
+    <tr><td class="label">Two parallel implementations of the same user action, silently drifted</td><td>§03 vs §07 — two separate "accept a workspace invite" code paths, only one of which correctly handles an already-onboarded user</td><td>—</td></tr>
+    <tr><td class="label">A stated number that doesn't match the real backend value</td><td>§09 — "1,000" credits shown in three separate places against a real 5,000-credit grant</td><td><code>adobe-trial-ux.md</code></td></tr>
+    <tr><td class="label"><em>Worth preserving, not fixing</em> — the invite step's tolerant, independently-toasted failure handling (§05: an invite-send failure never blocks onboarding completion, and each failure names its real cause rather than a generic message) is a good template for exactly the kind of non-fatal, honest-error pattern a future trial-claim step (§09) should copy.</td><td>§05, §09</td><td>—</td></tr>
+  </table>
+
+  <footer>SOUVENIR — ONBOARDING &amp; WELCOME: PAGE-BY-PAGE REFERENCE — V1.5</footer>
+</div>
+</body>
+</html>

@@ -67,7 +67,7 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
     <div
       onClick={() => { if (!submitting) onClose() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
         backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >

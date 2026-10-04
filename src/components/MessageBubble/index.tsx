@@ -30,8 +30,8 @@ const SHADOW_FOCUS = '0 0 0 1.5px var(--blue-500)'
 // Resolved values of TEXT_STYLE tokens. Exported so future pretext integration
 // can call prepare(content, CANVAS_FONT) without recalculating. Update here
 // whenever typography tokens change.
-export const CANVAS_FONT      = "16px/22px 'Manrope', sans-serif"
-export const CANVAS_FONT_MONO = "14px/20px 'Manrope', sans-serif"
+export const CANVAS_FONT      = "16px/22px 'Geist', sans-serif"
+export const CANVAS_FONT_MONO = "14px/20px 'Geist', sans-serif"
 export const LINE_HEIGHT_PX   = 22
 
 // ── Edit CTA sizing ───────────────────────────────────────────────────────────

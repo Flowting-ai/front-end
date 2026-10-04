@@ -47,7 +47,7 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, backgroundColor: 'color-mix(in srgb, var(--neutral-950) 40%, transparent)', backdropFilter: 'blur(2px)', zIndex: 100 }}
+        style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)', zIndex: 100 }}
       />
       <div
         style={{

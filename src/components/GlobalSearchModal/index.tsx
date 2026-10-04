@@ -496,7 +496,7 @@ export function GlobalSearchModal({
             style={{
               position:        'fixed',
               inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.18)',
+              backgroundColor: 'var(--overlay-bg)',
               backdropFilter:  'blur(2px)',
               zIndex:          20,
             }}
@@ -600,7 +600,7 @@ export function GlobalSearchModal({
             <div
               id="global-search-results"
               role="listbox"
-              className="kaya-scrollbar"
+              className="kaya-scrollbar kaya-no-gutter"
               aria-label={hasQuery ? `Results for "${query}"` : 'Recent items'}
               style={{
                 maxHeight: 368,

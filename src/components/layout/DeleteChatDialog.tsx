@@ -40,7 +40,7 @@ export function DeleteChatDialog({
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "var(--neutral-900-40, color-mix(in srgb, var(--static-black) 40%, transparent))",
+            backgroundColor: "var(--overlay-bg)",
             backdropFilter: "blur(2px)",
             zIndex: 100,
           }}

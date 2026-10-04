@@ -22,7 +22,7 @@ const MODAL_Z = 9999;
 const backdropStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "color-mix(in srgb, var(--neutral-950) 50%, transparent)",
+  backgroundColor: "var(--overlay-bg)",
   backdropFilter: "blur(2px)",
   zIndex: BACKDROP_Z,
 };

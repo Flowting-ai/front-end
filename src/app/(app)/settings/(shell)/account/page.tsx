@@ -15,6 +15,10 @@ import { AccountSkeleton } from '../SettingsSkeleton'
 import { fetchModelsWithCache, sortModels, pickDefaultModel, modelIconSource, isAutoRoutingModelName } from '@/lib/ai-models'
 import { ModelIcon } from '@/components/ModelIcon'
 import { useTheme } from '@/context/theme-context'
+import { HugeiconsIcon } from '@hugeicons/react'
+import Sun01Icon from '@hugeicons/core-free-icons/Sun01Icon'
+import Moon01Icon from '@hugeicons/core-free-icons/Moon01Icon'
+import ComputerIcon from '@hugeicons/core-free-icons/ComputerIcon'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Settings v1.5 — Account page ─────────────────────────────────────────────
@@ -29,6 +33,12 @@ const TONE_OPTIONS = ['Direct', 'Balanced', 'Warm'] as const
 const SCREEN_MODE_OPTIONS = ['Light', 'Dark', 'System'] as const
 type ScreenModeLabel = typeof SCREEN_MODE_OPTIONS[number]
 const SCREEN_MODE_VALUE = { Light: 'light', Dark: 'dark', System: 'system' } as const
+// Leading glyph per mode in the Screen mode dropdown: sun / moon / system (computer).
+const SCREEN_MODE_ICONS: Record<ScreenModeLabel, React.ReactElement> = {
+  Light:  <HugeiconsIcon icon={Sun01Icon} size={16} color="currentColor" strokeWidth={1.5} />,
+  Dark:   <HugeiconsIcon icon={Moon01Icon} size={16} color="currentColor" strokeWidth={1.5} />,
+  System: <HugeiconsIcon icon={ComputerIcon} size={16} color="currentColor" strokeWidth={1.5} />,
+}
 const SCREEN_MODE_LABEL = { light: 'Light', dark: 'Dark', system: 'System' } as const
 const SCREEN_MODE_DESCRIPTIONS: Record<ScreenModeLabel, string> = {
   Light:  'Always use the light theme',
@@ -44,6 +54,10 @@ const TONE_DESCRIPTIONS: Record<typeof TONE_OPTIONS[number], string> = {
   Balanced: 'Friendly but efficient. The default.',
   Warm:     'Conversational, with context and reasoning.',
 }
+
+// Hidden for now: flip to true to show the Default Model row / Danger Zone card again.
+const SHOW_DEFAULT_MODEL_ROW = false
+const SHOW_DANGER_ZONE = false
 
 // Default Model dropdown — the live catalog, ordered the same way as every
 // other model picker. PENDING CONFIRMATION: there is no backend field for a
@@ -883,11 +897,12 @@ function AccountPageContent({
             </p>
           </CardSection>
           <SettingsRow title="Screen mode" subtitle="Light, dark, or match your device" divider>
-            <PillSelect value={screenMode} options={SCREEN_MODE_OPTIONS} onChange={handleScreenModeChange} descriptions={SCREEN_MODE_DESCRIPTIONS} />
+            <PillSelect value={screenMode} options={SCREEN_MODE_OPTIONS} onChange={handleScreenModeChange} descriptions={SCREEN_MODE_DESCRIPTIONS} icons={SCREEN_MODE_ICONS} />
           </SettingsRow>
-          <SettingsRow title="Style" subtitle="How the interface should feel" divider>
+          <SettingsRow title="Style" subtitle="How the interface should feel" divider={SHOW_DEFAULT_MODEL_ROW}>
             <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
           </SettingsRow>
+{SHOW_DEFAULT_MODEL_ROW && (
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
             <PillSelect
               value={defaultModel}
@@ -901,9 +916,11 @@ function AccountPageContent({
               ]}
             />
           </SettingsRow>
+        )}
         </SettingsCard>
 
         {/* ── Danger Zone card ── */}
+{SHOW_DANGER_ZONE && (
         <SettingsCard danger>
           {/* Header */}
           <CardSection divider padTop={6} padBottom={12}>
@@ -1012,6 +1029,7 @@ function AccountPageContent({
             </div>
           </CardSection>
         </SettingsCard>
+        )}
 
       </div>
     </div>

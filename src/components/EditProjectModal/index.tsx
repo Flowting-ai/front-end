@@ -185,7 +185,7 @@ export function EditProjectModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            backgroundColor: 'color-mix(in srgb, var(--neutral-950) 40%, transparent)',
+            backgroundColor: 'var(--overlay-bg)',
             backdropFilter:  'blur(2px)',
           }}
         >

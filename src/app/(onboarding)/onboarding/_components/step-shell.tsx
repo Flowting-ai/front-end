@@ -265,7 +265,7 @@ export function LeaveGuardModal({
         position: "fixed",
         inset: 0,
         zIndex: 10000,
-        backgroundColor: "color-mix(in srgb, var(--neutral-950) 40%, transparent)",
+        backgroundColor: "var(--overlay-bg)",
         backdropFilter: "blur(2px)",
         display: "flex",
         alignItems: "center",

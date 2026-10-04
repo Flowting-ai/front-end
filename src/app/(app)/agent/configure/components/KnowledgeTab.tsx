@@ -776,7 +776,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         <div
           style={{
             flex: 1,
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--text-field-bg)",
             display: "flex",
             alignItems: "center",
             gap: 2,

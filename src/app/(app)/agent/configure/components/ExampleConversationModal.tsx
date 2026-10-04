@@ -49,7 +49,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'color-mix(in srgb, var(--neutral-900) 30%, transparent)',
+              backgroundColor: 'var(--overlay-bg)',
               zIndex: 20,
             }}
           />

@@ -16,11 +16,12 @@ export function InitialPrompts({ compact = false }: { compact?: boolean }) {
       style={{
         display:       "flex",
         flexDirection: "column",
-        alignItems:    compact ? "flex-start" : "center",
+        // Centred in both layouts (new chat landing and project/compare chats).
+        alignItems:    "center",
         padding:       compact ? "0" : "0 24px",
-        textAlign:     compact ? "left" : "center",
+        textAlign:     "center",
         maxWidth:      "640px",
-        margin:        compact ? "0" : "0 auto",
+        margin:        "0 auto",
         pointerEvents: "none",
         userSelect:    "none",
       }}
@@ -40,9 +41,9 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
     <>
       <h1
         style={{
-          fontFamily: compact ? "var(--font-body)" : "var(--font-title)",
+          fontFamily: "var(--font-title)", // Google Sans
           fontSize:   compact ? "24px" : "28px",
-          fontWeight: compact ? 500 : 200,
+          fontWeight: 400,
           color:      "var(--neutral-800)",
           margin:     "0 0 6px",
           lineHeight: 1.25,
@@ -62,7 +63,7 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
 
       <p
         style={{
-          fontFamily: "var(--font-body)",
+          fontFamily: "var(--font-title)", // Google Sans
           fontSize:   compact ? "13px" : "16px",
           fontWeight: 400,
           color:      compact ? "var(--color-text-muted)" : "var(--neutral-800)",

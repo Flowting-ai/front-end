@@ -138,7 +138,7 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'color-mix(in srgb, var(--neutral-950) 52%, transparent)', zIndex: 1100 }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', zIndex: 1100 }}
         />
         <Dialog.Content
           aria-label="Connect Souvenir to Slack"

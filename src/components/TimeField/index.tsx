@@ -91,7 +91,7 @@ function PickerColumn<T extends string | number>({
       <div
         role="listbox"
         aria-label={title}
-        className="kaya-scrollbar-sm"
+        className="kaya-scrollbar-sm kaya-no-gutter"
         style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto', padding: '4px 8px 8px' }}
       >
         {options.map(opt => (

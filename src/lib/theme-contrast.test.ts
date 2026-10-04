@@ -168,52 +168,53 @@ describe("main page containers", () => {
     expect(resolveVar(DARK, "--color-surface-container")).toBe("transparent");
   });
 
-  it("regression: white at 20% over the dark page is the grey (#413D39) this replaced", () => {
+  it("regression: white at 20% over the dark page is the grey (#454545) this replaced", () => {
     const grey = over({ r: 255, g: 255, b: 255, a: 0.2 }, PAGE);
     const hex = "#" + [grey.r, grey.g, grey.b].map((n) => Math.round(n).toString(16).padStart(2, "0")).join("").toUpperCase();
-    expect(hex).toBe("#413D39");
+    expect(hex).toBe("#454545");
     // The old fill is visibly lighter than the page; the new (transparent) one is not.
     expect(luminance(grey)).toBeGreaterThan(luminance(PAGE) * 3);
   });
 });
 
-describe("tabs and buttons that are white in light stay white in dark", () => {
-  const WHITE_SURFACE_COLOURS = [
-    "--button-secondary-bg", "--icon-button-secondary-bg", "--tab-item-bg-selected", "--message-bubble-user-bg",
-  ];
-  const PINNED_TO_LIGHT = [
-    ...WHITE_SURFACE_COLOURS,
-    "--button-secondary-text", "--button-secondary-text-disabled", "--button-secondary-bg-hover",
-    "--icon-button-secondary-icon", "--icon-button-secondary-icon-disabled", "--icon-button-secondary-bg-hover",
-    "--tab-item-text-selected",
-    "--message-bubble-user-text", "--shadow-message-bubble-user", "--shadow-message-bubble-user-inner",
+describe("secondary buttons, icon buttons and the selected tab are raised dark surfaces in dark", () => {
+  const SURFACES = ["--button-secondary-bg", "--icon-button-secondary-bg", "--tab-item-bg-selected"];
+  const SHADOWS = [
     "--shadow-button-secondary-outer", "--shadow-button-secondary-outer-hover",
     "--shadow-button-secondary-inner", "--shadow-button-secondary-inner-hover",
     "--shadow-tab-item-selected", "--shadow-tab-item-selected-inner",
   ];
-  const norm = (s: string | null) => (s ?? "").replace(/\s+/g, " ").replace(/0\.60\b/g, "0.6").replace(/0\.40\b/g, "0.4").trim().toUpperCase();
 
-  it("the white surfaces are pure white in BOTH themes", () => {
-    for (const t of WHITE_SURFACE_COLOURS) {
-      expect(resolveVar(LIGHT, t)?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FFFFFF"), `${t} (light)`).toBe("#FFFFFF");
-      expect(resolveVar(DARK, t)?.toUpperCase(), `${t} (dark)`).toBe("#FFFFFF");
+  it("they are white in light (unchanged) but dark, and clearly lifted off the page, in dark", () => {
+    for (const t of SURFACES) {
+      expect(resolveVar(LIGHT, t)?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FFFFFF"), t + " (light)").toBe("#FFFFFF");
+      const dark = color(DARK, t);
+      expect(luminance(dark), t + " is dark, not a white block").toBeLessThan(0.12);
+      expect(contrast(dark, PAGE), t + " pops off the page").toBeGreaterThanOrEqual(1.2);
     }
   });
 
-  it("every pinned token resolves to EXACTLY its light value in dark", () => {
-    for (const t of PINNED_TO_LIGHT) {
-      const light = norm(resolveFully(LIGHT, t));
-      const dark = norm(resolveFully(DARK, t));
-      expect(dark, t).toBe(light);
+  it("their hover surface steps up one tone", () => {
+    for (const t of ["--button-secondary-bg-hover", "--icon-button-secondary-bg-hover"]) {
+      expect(luminance(color(DARK, t)), t).toBeGreaterThan(luminance(color(DARK, "--button-secondary-bg")));
     }
   });
 
-  it("text on them is dark and readable (>= 7:1), normal and disabled", () => {
-    const white = color(DARK, "--button-secondary-bg");
-    for (const t of ["--button-secondary-text", "--icon-button-secondary-icon", "--tab-item-text-selected", "--message-bubble-user-text"]) {
-      expect(contrast(color(DARK, t), white), t).toBeGreaterThanOrEqual(7);
+  it("text and icons on them are readable (>= 7:1 normal, >= 3:1 disabled)", () => {
+    const bg = color(DARK, "--button-secondary-bg");
+    for (const t of ["--button-secondary-text", "--icon-button-secondary-icon"]) {
+      expect(contrast(color(DARK, t), bg), t).toBeGreaterThanOrEqual(7);
     }
-    expect(contrast(color(DARK, "--button-secondary-text-disabled"), white)).toBeGreaterThanOrEqual(7);
+    expect(contrast(color(DARK, "--tab-item-text-selected"), color(DARK, "--tab-item-bg-selected"))).toBeGreaterThanOrEqual(7);
+    for (const t of ["--button-secondary-text-disabled", "--icon-button-secondary-icon-disabled"]) {
+      expect(contrast(color(DARK, t), bg), t).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("their ring is a light hairline (a dark ring is invisible on a dark page)", () => {
+    for (const t of SHADOWS.filter((n) => /outer|tab-item-selected$/.test(n))) {
+      expect(resolveFully(DARK, t), t).toMatch(/0px 0px 0px 1px rgba\(255, 255, 255, 0\.\d+\)/);
+    }
   });
 
   it("the white-on-hover rule does NOT touch them (white text on white would vanish)", () => {
@@ -224,15 +225,29 @@ describe("tabs and buttons that are white in light stay white in dark", () => {
     }
   });
 
-  it("the user's message bubble is white with near-black text in dark, and the chat input stays dark", () => {
-    expect(resolveVar(DARK, "--message-bubble-user-bg")?.toUpperCase()).toBe("#FFFFFF");
-    expect(contrast(color(DARK, "--message-bubble-user-text"), color(DARK, "--message-bubble-user-bg"))).toBeGreaterThanOrEqual(15);
+  it("the user's message bubble is white in light but a raised dark-grey card in dark; the chat input stays dark", () => {
+    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FFFFFF")).toBe("#FFFFFF");
+    const bubble = color(DARK, "--message-bubble-user-bg");
+    expect(resolveVar(DARK, "--message-bubble-user-bg")?.toUpperCase()).toBe("#2A2A2A");
+    // Dark (not a white block), yet clearly raised above both the page and the chat input surface.
+    expect(luminance(bubble)).toBeLessThan(0.12);
+    expect(contrast(bubble, PAGE)).toBeGreaterThanOrEqual(1.1);
+    expect(luminance(bubble)).toBeGreaterThan(luminance(color(DARK, "--chat-input-bg")));
+    expect(contrast(color(DARK, "--message-bubble-user-text"), bubble)).toBeGreaterThanOrEqual(7);
     // The typing area is a different surface and must stay the dark card.
     expect(luminance(color(DARK, "--chat-input-bg"))).toBeLessThan(0.12);
   });
 
+  it("the chat input glows LIGHT in dark (a black shadow is invisible on a near-black page)", () => {
+    for (const t of ["--shadow-chat-input", "--shadow-chat-input-hover", "--shadow-chat-input-focus"]) {
+      const v = resolveFully(DARK, t);
+      expect(v, t).toMatch(/rgba\(255, 255, 255, 0\.\d+\)/);
+      expect(v, t).not.toMatch(/rgba\(0, 0, 0/);
+    }
+  });
+
   it("the shared --shadow-item-inner is NOT pinned (sidebar, menus and ghost hover sit on dark)", () => {
-    const pinnedBlock = THEME.slice(THEME.indexOf("White tabs & buttons stay white"), THEME.indexOf("White text on hover"));
+    const pinnedBlock = THEME.slice(THEME.indexOf("Pinned light values"), THEME.indexOf("White text on hover"));
     expect(pinnedBlock).not.toContain("--shadow-item-inner");
   });
 });
@@ -247,19 +262,19 @@ function resolveFully(vars: Vars, name: string, depth = 0): string {
 describe("tab bar", () => {
   const TRACK = () => color(DARK, "--tab-bg");
 
-  it("the tab bar is the #1C1613 dark surface in dark and translucent white in light", () => {
-    expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#1C1613");
+  it("the tab bar is the #262626 dark surface in dark and translucent white in light", () => {
+    expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#262626");
     expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 255, g: 255, b: 255, a: 0.5 });
     expect(resolveVar(BASE, "--tab-bg")).toBe(resolveVar(LIGHT, "--tab-bg"));
   });
 
-  it("the track is the card surface, so it sits on the page like a card does", () => {
-    expect(contrast(TRACK(), CARD)).toBe(1);
-    expect(luminance(PAGE)).toBeLessThan(luminance(TRACK()));
+  it("the track is lifted above both the page and the card, so the tab strip reads as a control", () => {
+    expect(contrast(TRACK(), PAGE)).toBeGreaterThanOrEqual(1.15);
+    expect(contrast(TRACK(), CARD)).toBeGreaterThanOrEqual(1.05);
   });
 
-  it("the white selected pill is strongly distinct from the track (>= 7:1) and its text is readable", () => {
-    expect(contrast(color(DARK, "--tab-item-bg-selected"), TRACK())).toBeGreaterThanOrEqual(7);
+  it("the selected pill is clearly distinct from the track (>= 1.3:1) and its text is readable (>= 7:1)", () => {
+    expect(contrast(color(DARK, "--tab-item-bg-selected"), TRACK())).toBeGreaterThanOrEqual(1.3);
     expect(contrast(color(DARK, "--tab-item-text-selected"), color(DARK, "--tab-item-bg-selected"))).toBeGreaterThanOrEqual(7);
   });
 
@@ -282,8 +297,8 @@ describe("agent cards (grey surface + raised scope)", () => {
   const GREY = () => color(DARK, "--agent-card-bg");
   const RAMP = ["--neutral-200", "--neutral-300", "--neutral-400", "--neutral-500"];
 
-  it("dark: the card surface is the #1C1613 dark surface; light: warm neutral", () => {
-    expect(resolveVar(DARK, "--agent-card-bg")?.toUpperCase()).toBe("#1C1613");
+  it("dark: the card surface is the #1C1C1C dark surface; light: warm neutral", () => {
+    expect(resolveVar(DARK, "--agent-card-bg")?.toUpperCase()).toBe("#1C1C1C");
     expect(resolveVar(LIGHT, "--agent-card-bg")?.toUpperCase()).toBe("#F5F2EF");
   });
 
@@ -334,8 +349,8 @@ describe("agent cards (grey surface + raised scope)", () => {
     expect(contrast(color(RAISED, "--neutral-200"), g)).toBeGreaterThanOrEqual(1.3);  // dividers / placeholder fills
   });
 
-  it("the white buttons on a card stay white with dark text (pinned values are not touched by the scope)", () => {
-    expect(resolveVar(RAISED, "--button-secondary-bg")?.toUpperCase()).toBe("#FFFFFF");
+  it("secondary buttons on a card keep their dark raised surface (the scope never changes them)", () => {
+    expect(resolveVar(RAISED, "--button-secondary-bg")?.toUpperCase()).toBe("#2E2E2E");
     expect(contrast(color(RAISED, "--button-secondary-text"), color(RAISED, "--button-secondary-bg"))).toBeGreaterThanOrEqual(7);
   });
 });
@@ -389,6 +404,21 @@ describe("dark theme: no light-grey fills", () => {
     expect(resolveVar(LIGHT, "--color-interactive-primary-surface-from")?.toUpperCase()).toBe("#524B47");
     expect(resolveVar(LIGHT, "--color-interactive-primary-surface-to")?.toUpperCase()).toBe("#26211E");
     expect(resolveVar(LIGHT, "--color-interactive-primary-surface-disabled-to")?.toUpperCase()).toBe("#3B3632");
+  });
+});
+
+describe("text fields stand out in dark", () => {
+  it("the field fill is brighter than the card it sits on, and its ring is a visible light hairline", () => {
+    expect(resolveVar(DARK, "--text-field-bg")?.toUpperCase()).toBe("#262626");
+    expect(contrast(color(DARK, "--text-field-bg"), CARD)).toBeGreaterThanOrEqual(1.05);
+    expect(contrast(color(DARK, "--text-field-bg"), PAGE)).toBeGreaterThanOrEqual(1.15);
+    expect(resolveVar(DARK, "--text-field-ring")).toMatch(/rgba\(255, 255, 255, 0\.\d+\)/);
+    expect(resolveVar(DARK, "--text-field-ring-hover")).toMatch(/rgba\(255, 255, 255, 0\.\d+\)/);
+  });
+
+  it("light keeps its original rings", () => {
+    expect(resolveVar(LIGHT, "--text-field-ring")).toBe(resolveVar(LIGHT, "--neutral-100"));
+    expect(resolveVar(LIGHT, "--text-field-ring-hover")).toBe(resolveVar(LIGHT, "--neutral-200"));
   });
 });
 
@@ -467,9 +497,9 @@ describe("selected sidebar item", () => {
 describe("sidebar section header colors", () => {
   it("uses darker text in light and dark themes for both header styles", () => {
     expect(resolveVar(LIGHT, "--sidebar-section-header-text")?.toUpperCase()).toBe("#3B3632");
-    expect(resolveVar(DARK, "--sidebar-section-header-text")?.toUpperCase()).toBe("#B9AFA7");
+    expect(resolveVar(DARK, "--sidebar-section-header-text")?.toUpperCase()).toBe("#ABABAB");
     expect(resolveVar(LIGHT, "--sidebar-section-header-muted")?.toUpperCase()).toBe("#6A625D");
-    expect(resolveVar(DARK, "--sidebar-section-header-muted")?.toUpperCase()).toBe("#8F857E");
+    expect(resolveVar(DARK, "--sidebar-section-header-muted")?.toUpperCase()).toBe("#858585");
   });
 });
 

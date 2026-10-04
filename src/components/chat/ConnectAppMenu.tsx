@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -10,67 +10,70 @@ import { InputField } from '@/components/InputField'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { SetupModal } from '@/components/connectors/SetupModal'
 import { useOrg } from '@/context/org-context'
-import { bustConnectorCatalogCache, getConnector, listConnectors, type ConnectorCatalog } from '@/lib/api/connectors'
+import { bustConnectorCatalogCache, getConnector, type ConnectorCatalog } from '@/lib/api/connectors'
+import {
+  cachedFeaturedApps, cachedSearch, featuredIsStale, invalidateConnectApps, loadFeaturedApps, searchApps,
+} from '@/lib/connect-apps-cache'
 import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import styles from './ChatHome.module.css'
 
-const FEATURED = ['gmail', 'outlook', 'googlecalendar', 'slack', 'notion', 'googledrive']
 const TRIGGER_STACK = ['gmail', 'outlook']
-const VISIBLE_ROWS = 6
+const SKELETON_ROWS = 6
+const SEARCH_DEBOUNCE_MS = 200
 
-async function loadCatalog(): Promise<ConnectorCatalog[]> {
-  const out: ConnectorCatalog[] = []
-  let cursor: string | undefined
-  for (;;) {
-    const page = await listConnectors({ linked: false, cursor, limit: 100 })
-    out.push(...page.connectors)
-    if (!page.hasMore || !page.nextCursor) return out
-    cursor = page.nextCursor
-  }
-}
-
-function rank(row: ConnectorCatalog, query: string): number {
-  const name = row.name.toLowerCase()
-  if (name.startsWith(query) || row.slug.startsWith(query)) return 0
-  if (name.includes(query) || row.slug.includes(query)) return 1
-  return 2
+/** Placeholder rows while the featured apps load for the first time (same height as a menu item). */
+function AppRowsSkeleton() {
+  return (
+    <div aria-hidden style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 0' }}>
+      {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36, padding: '0 8px' }}>
+          <span className="kaya-skeleton" style={{ width: 20, height: 20, borderRadius: 6, flex: 'none' }} />
+          <span className="kaya-skeleton" style={{ height: 12, width: `${48 + (i * 9) % 30}%`, borderRadius: 5 }} />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function ConnectAppMenu() {
   const router = useRouter()
   const { orgId } = useOrg()
-  const [catalog, setCatalog] = useState<ConnectorCatalog[] | null>(null)
+  // First render reads the module cache only (empty on the server → no hydration mismatch); the
+  // effect below fills it and refreshes in the background when stale.
+  const [featuredRows, setFeaturedRows] = useState<ConnectorCatalog[] | null>(() => cachedFeaturedApps())
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [searched, setSearched] = useState<{ q: string; rows: ConnectorCatalog[] } | null>(null)
   const [setupFor, setSetupFor] = useState<ConnectorCatalog | null>(null)
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    void loadCatalog()
-      .then(rows => { if (!cancelled) setCatalog(rows) })
-      .catch(() => { if (!cancelled) setCatalog([]) })
+    const hit = cachedFeaturedApps()
+    if (!hit || featuredIsStale()) {
+      void loadFeaturedApps().then(rows => { if (!cancelled) setFeaturedRows(rows) }).catch(() => { if (!cancelled) setFeaturedRows(prev => prev ?? []) })
+    }
     return () => { cancelled = true }
   }, [])
 
-  const bySlug = useMemo(() => new Map((catalog ?? []).map(row => [row.slug, row])), [catalog])
-  const stack = TRIGGER_STACK.map(slug => bySlug.get(slug)).filter(row => row != null)
+  // Typed search goes to the backend (8 results), debounced; a repeated query is served from cache.
+  const q = query.trim()
+  useEffect(() => {
+    if (!q || cachedSearch(q)) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      void searchApps(q)
+        .then(rows => { if (!cancelled) setSearched({ q, rows }) })
+        .catch(() => { if (!cancelled) setSearched({ q, rows: [] }) })
+    }, SEARCH_DEBOUNCE_MS)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [q])
+  const results = !q ? null : (cachedSearch(q) ?? (searched?.q === q ? searched.rows : null))
 
-  const rows = useMemo(() => {
-    const all = catalog ?? []
-    const q = query.trim().toLowerCase()
-    if (!q) {
-      const featured = FEATURED.map(slug => bySlug.get(slug)).filter(row => row != null)
-      const rest = all.filter(row => !FEATURED.includes(row.slug))
-      return [...featured, ...rest].slice(0, VISIBLE_ROWS)
-    }
-    return all
-      .map(row => ({ row, score: rank(row, q) }))
-      .filter(({ score }) => score < 2)
-      .sort((a, b) => a.score - b.score || a.row.name.localeCompare(b.row.name))
-      .slice(0, VISIBLE_ROWS)
-      .map(({ row }) => row)
-  }, [bySlug, catalog, query])
+  const stack = TRIGGER_STACK
+    .map(slug => (featuredRows ?? []).find(row => row.slug === slug))
+    .filter((row): row is ConnectorCatalog => row != null)
+  const rows = q ? results : featuredRows
 
   function changeOpen(next: boolean) {
     setOpen(next)
@@ -100,7 +103,8 @@ export function ConnectAppMenu() {
   function connected() {
     setSetupFor(null)
     bustConnectorCatalogCache()
-    void loadCatalog().then(setCatalog).catch(() => {})
+    invalidateConnectApps()
+    void loadFeaturedApps().then(setFeaturedRows).catch(() => {})
   }
 
   return (
@@ -141,10 +145,10 @@ export function ConnectAppMenu() {
             />
           </Dropdown.Section>
           <Dropdown.Section divider fluid>
-            {catalog === null ? (
-              <Dropdown.Item label="Loading apps…" disabled fluid />
+            {rows === null ? (
+              <AppRowsSkeleton />
             ) : rows.length === 0 ? (
-              <Dropdown.Item label={query.trim() ? 'No apps match that search' : 'No apps available'} disabled fluid />
+              <Dropdown.Item label={q ? 'No apps match that search' : 'No apps available'} disabled fluid />
             ) : rows.map(row => {
               const linked = row.connections.length > 0
               return (

@@ -30,7 +30,7 @@ const THEME = {
   accent:      CHAT_CHART_PALETTE[0],
   surface:     "var(--neutral-800-05)",
   transparent: true,
-  font:        "Manrope",
+  font:        "Geist",
 }
 
 function Skeleton() {

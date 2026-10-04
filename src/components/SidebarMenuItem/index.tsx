@@ -328,7 +328,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
           <>
             {/* Left: label + Show/Hide toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-semibold)', color: 'var(--sidebar-section-header-muted)' }}>
+              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)', color: 'var(--sidebar-section-header-muted)' }}>
                 {label}
               </p>
               {onShowClick && (

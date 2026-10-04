@@ -48,15 +48,15 @@ import {
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
-import { CHAT_ROUTE } from "@/lib/routes";
+import { CHAT_ROUTE, PROJECT_CHAT_NEW_ROUTE } from "@/lib/routes";
 import { consumePendingPrompt, linkScheduleToChat } from "@/lib/scheduleLinks";
 import { MentionChip } from "@/components/chat/MentionChip";
 import { detectCreateAgentIntent } from "@/lib/agent-intent";
 import { CreateAgentInChat, toComposerAgent, type CreatedInChat } from "@/components/AgentEditor/CreateAgentInChat";
 import type { UIMessage } from "@/types/chat";
 import { buildAgentCardMessages } from "@/lib/agent-card-messages";
-import { StarterList } from "@/components/StarterSuggestions";
-import { useRecommendations } from "@/hooks/use-recommendations";
+import { StarterList, StarterListSkeleton } from "@/components/StarterSuggestions";
+import { useRecommendationsState } from "@/hooks/use-recommendations";
 
 
 // ── Per-chat settings helpers ─────────────────────────────────────────────────
@@ -104,7 +104,7 @@ export default function ChatPage() {
 
 function ChatPageInner() {
   const searchParams = useSearchParams();
-  const { replace } = useRouter();
+  const { replace, push } = useRouter();
   const creditStatus = useCreditStatus();
   const { getProject, addChat: addProjectChat, renameChat: renameProjectChat } = useProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -130,7 +130,7 @@ function ChatPageInner() {
   const [injectedMessages, setInjectedMessages] = useState<UIMessage[] | null>(null);
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
-  const recommendations = useRecommendations();
+  const { recommendations, loading: recommendationsLoading } = useRecommendationsState();
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -713,6 +713,16 @@ function ChatPageInner() {
       setNewChatInput("");
       return;
     }
+    // A project picked on this screen means "start a new project chat": hand the prompt to the same
+    // project chat flow the project page uses (/project/[id]/chat/new?q=…). Attachments, @-mentioned
+    // pins and a selected agent can't ride a ?q= hand-off, so those sends keep the create-then-link path.
+    if (
+      selectedProjectId && value.trim() && !selectedPersona &&
+      newChatAttachments.length === 0 && newChatMentionedPins.length === 0
+    ) {
+      push(PROJECT_CHAT_NEW_ROUTE(selectedProjectId) + `?q=${encodeURIComponent(value.trim())}`);
+      return;
+    }
     submitNewChat(value);
   };
 
@@ -831,8 +841,6 @@ function ChatPageInner() {
                       maxVisibleItems={2}
                     />
                     <ChatInput
-                      compact
-                      style={{ borderRadius: "16px 16px 0 0", backgroundColor: "var(--neutral-white)", border: "1px solid var(--neutral-200)" }}
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
@@ -886,9 +894,11 @@ function ChatPageInner() {
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}
-                  {recommendations && (
+                  {(recommendations || recommendationsLoading) && (
                     <div style={{ marginTop: "20px", textAlign: "left" }}>
-                      <StarterList cards={recommendations.cards} onSelect={(card) => handleNewChatSend(card.prompt)} />
+                      {recommendations
+                        ? <StarterList cards={recommendations.cards} onSelect={(card) => handleNewChatSend(card.prompt)} />
+                        : <StarterListSkeleton />}
                     </div>
                   )}
                 </m.div>

@@ -76,10 +76,11 @@ const bodyTextStyle: React.CSSProperties = {
   minWidth: 0,
 }
 
-// Section headers are semibold while keeping the same size as a row label.
+// Figma "Sidebar / Section Header" label: Regular 400 (rows are Medium 500),
+// same size as a row label so the section title doesn't read as a caption.
 const headerLabelTextStyle: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
-  fontWeight: 'var(--font-weight-semibold)',
+  fontWeight: 'var(--font-weight-regular)',
   fontSize: 'var(--font-size-body)',
   lineHeight: 'var(--line-height-body)',
   color: 'var(--sidebar-section-header-text)',

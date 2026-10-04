@@ -492,7 +492,7 @@ function CancelSubscriptionDialog({
     <div
       onClick={() => { if (!isCanceling) onKeep() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
+        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
         backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >
@@ -1550,7 +1550,7 @@ function ModalShell({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'color-mix(in srgb, var(--neutral-950) 50%, transparent)',
+        background: 'var(--overlay-bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}
     >

@@ -25,6 +25,29 @@ import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
 
 const AVAILABLE_PAGE_SIZE = 10
 
+// Catalogue pages, cached by (search term, cursor). Each page request takes seconds on a cold backend,
+// and the list used to sit on the OLD page the whole time, so Next/Previous looked dead. Pages are now
+// served from this cache when seen before (Previous is instant), and the page after the current one is
+// prefetched in the background (Next is usually instant). Entries expire so connect/disconnect state
+// does not go stale for long.
+const PAGE_TTL_MS = 60_000
+type BrowsePage = Awaited<ReturnType<typeof listConnectors>>
+const pageCache = new Map<string, { at: number; page: BrowsePage }>()
+const pageKey = (q: string, cursor: string | undefined) => `${q}::${cursor ?? ''}`
+function cachedPage(q: string, cursor: string | undefined): BrowsePage | null {
+  const hit = pageCache.get(pageKey(q, cursor))
+  return hit && Date.now() - hit.at < PAGE_TTL_MS ? hit.page : null
+}
+async function fetchBrowsePage(q: string, cursor: string | undefined): Promise<BrowsePage> {
+  const hit = cachedPage(q, cursor)
+  if (hit) return hit
+  const page = q
+    ? await listConnectors({ q, cursor, limit: AVAILABLE_PAGE_SIZE })
+    : await listConnectors({ linked: false, cursor, limit: AVAILABLE_PAGE_SIZE })
+  pageCache.set(pageKey(q, cursor), { at: Date.now(), page })
+  return page
+}
+
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
 
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 32, fontWeight: 400, lineHeight: 1.2 }
@@ -210,6 +233,8 @@ export function Catalog({
   const [browseHasMore, setBrowseHasMore] = useState(false)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [debouncedQuery, setDebouncedQuery] = useState(query.trim())
+  const sectionRef = useRef<HTMLElement>(null)
+  const lastPageRef = useRef(1)
 
   useEffect(() => {
     const handle = window.setTimeout(() => setDebouncedQuery(ownQuery.trim()), 300)
@@ -254,18 +279,22 @@ export function Catalog({
   useEffect(() => {
     if (skipBrowse) return
     let cancelled = false
-    setBrowseBusy(true)
     const cursor = cursorsRef.current[page - 1]
-    const request = debouncedQuery
-      ? listConnectors({ q: debouncedQuery, cursor, limit: AVAILABLE_PAGE_SIZE })
-      : listConnectors({ linked: false, cursor, limit: AVAILABLE_PAGE_SIZE })
+    const hit = cachedPage(debouncedQuery, cursor)
+    // Not cached: show the loading skeleton until it arrives. Cached: no flash, apply right away.
+    if (!hit) setBrowseBusy(true)
+    const request = hit ? Promise.resolve(hit) : fetchBrowsePage(debouncedQuery, cursor)
     void request
       .then(result => {
         if (cancelled) return
         setBrowseItems(result.connectors)
         setBrowseHasMore(result.hasMore)
         onRows?.(result.connectors)
-        if (result.nextCursor) cursorsRef.current[page] = result.nextCursor
+        if (result.nextCursor) {
+          cursorsRef.current[page] = result.nextCursor
+          // Warm the next page so clicking Next is instant.
+          if (result.hasMore) void fetchBrowsePage(debouncedQuery, result.nextCursor).catch(() => {})
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -278,6 +307,13 @@ export function Catalog({
       })
     return () => { cancelled = true }
   }, [skipBrowse, debouncedQuery, view, page, onRows])
+
+  // Changing page keeps the scroll position, so the new connectors landed off-screen: bring the top of
+  // the list back into view.
+  useEffect(() => {
+    if (lastPageRef.current !== page) sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    lastPageRef.current = page
+  }, [page])
 
   const byName = (a: ConnectorCatalog, b: ConnectorCatalog) =>
     sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
@@ -305,10 +341,11 @@ export function Catalog({
     ? []
     : sorted.filter(summary => summary.connections.length === 0 && !summary.linked)
   const showConnectedLabel = connectedItems.length > 0 && availableItems.length > 0
+  const loadingPage = browseBusy && !skipBrowse
   const empty = !browseBusy && connectedItems.length === 0 && availableItems.length === 0
 
   return (
-    <section id="all-connectors">
+    <section id="all-connectors" ref={sectionRef}>
       <CatalogToolbar view={view} changeView={setView} query={ownQuery} setQuery={setOwnQuery} sort={sort} setSort={setSort} />
       {empty ? (
         <p style={{ ...muted, padding: SPACE.section, textAlign: 'center' }}>No connectors found.</p>
@@ -322,13 +359,22 @@ export function Catalog({
               </div>
             </div>
           )}
-          {availableItems.length > 0 && (
+          {(availableItems.length > 0 || loadingPage) && (
             <div>
               {showConnectedLabel && <CatalogSectionLabel label="All connectors" />}
-              <div style={CATALOG_GRID}>
-                {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
-              </div>
-              <div style={{ marginTop: SPACE.xl }}>
+              {loadingPage ? (
+                <div aria-busy aria-label="Loading connectors" style={CATALOG_GRID}>
+                  {Array.from({ length: AVAILABLE_PAGE_SIZE }).map((_, i) => (
+                    <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
+                  ))}
+                </div>
+              ) : (
+                <div style={CATALOG_GRID}>
+                  {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} />)}
+                </div>
+              )}
+              {/* Locked while a page is loading, so a double-click cannot skip a page. */}
+              <div style={{ marginTop: SPACE.xl, pointerEvents: loadingPage ? 'none' : undefined, opacity: loadingPage ? 0.6 : 1 }}>
                 <Pagination page={page} hasMore={browseHasMore} onChange={setPage} />
               </div>
             </div>

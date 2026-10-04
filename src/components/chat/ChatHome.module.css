@@ -9,7 +9,7 @@
   flex-direction: column;
   gap: 24px;
   width: 100%;
-  max-width: 620px;
+  max-width: 640px;
   margin-inline: auto;
 }
 
@@ -18,16 +18,21 @@
   min-width: 0;
 }
 
+/* Sits directly under the (fully rounded) chat input: flat on top, rounded on the bottom, and 90% of
+   the input width, centred, so it reads as a tab tucked beneath it. */
 .contextBar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 12px;
-  padding: 6px 10px;
+  box-sizing: border-box;
+  width: 90%;
+  margin: -1px auto 0;
+  padding: 3px 10px;
   border: 1px solid var(--neutral-200);
   border-top: 1px solid var(--neutral-100);
   border-radius: 0 0 16px 16px;
-  background: var(--neutral-50);
+  background: var(--neutral-100);
 }
 
 .contextAction,
@@ -35,7 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
+  min-height: 26px;
   max-width: 260px;
   padding: 4px 6px;
   border: 0;
@@ -56,6 +61,11 @@
 .createProject:hover {
   color: var(--neutral-900);
   background: var(--neutral-100);
+}
+
+/* The bar itself is --neutral-100, so hover steps up one tone to stay visible. */
+.contextBar .contextAction:hover {
+  background: var(--neutral-200);
 }
 
 .contextAction:focus-visible,

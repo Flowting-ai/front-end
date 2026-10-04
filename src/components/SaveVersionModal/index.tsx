@@ -111,7 +111,7 @@ export function SaveVersionModal({
       style={{
         position:              'fixed',
         inset:                 0,
-        backgroundColor:       'color-mix(in srgb, var(--neutral-950) 45%, transparent)',
+        backgroundColor:       'var(--overlay-bg)',
         backdropFilter:        'blur(2px)',
         WebkitBackdropFilter:  'blur(2px)',
         display:               'flex',

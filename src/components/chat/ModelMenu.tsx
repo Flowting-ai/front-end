@@ -169,7 +169,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
                   two-div split PresetModelSelectorDialog.tsx uses for its
                   model list. */}
               <div
-                className="kaya-scrollbar"
+                className="kaya-scrollbar kaya-no-gutter"
                 style={{
                   maxHeight:            MODEL_LIST_MAX_HEIGHT,
                   overflowY:            'auto',

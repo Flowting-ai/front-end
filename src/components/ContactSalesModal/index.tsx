@@ -94,7 +94,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        background: 'color-mix(in srgb, var(--neutral-950) 50%, transparent)',
+        background: 'var(--overlay-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

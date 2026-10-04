@@ -40,7 +40,7 @@ import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionChip } from '@/components/chat/MentionChip'
-import { StarterList } from '@/components/StarterSuggestions'
+import { StarterList, StarterListSkeleton } from '@/components/StarterSuggestions'
 import { type ChatMode, ACTION_BUTTONS, MODE_PLACEHOLDERS } from '@/lib/chat-modes'
 
 // ── Per-chat settings persistence ────────────────────────────────────────────
@@ -81,7 +81,7 @@ function LoadingChatSkeleton() {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-import { useRecommendations } from '@/hooks/use-recommendations'
+import { useRecommendationsState } from '@/hooks/use-recommendations'
 
 
 function ProjectChatPageInner() {
@@ -89,7 +89,7 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
-  const recommendations = useRecommendations()
+  const { recommendations, loading: recommendationsLoading } = useRecommendationsState()
 
   const {
     loading: projectsContextLoading,
@@ -687,9 +687,11 @@ function ProjectChatPageInner() {
                   </div>
 
                   {/* Starter cards — generated per user by /recommendations. */}
-                  {recommendations && (
+                  {(recommendations || recommendationsLoading) && (
                     <div style={{ marginTop: '20px', textAlign: 'left' }}>
-                      <StarterList cards={recommendations.cards} onSelect={(card) => handleSend(card.prompt)} />
+                      {recommendations
+                        ? <StarterList cards={recommendations.cards} onSelect={(card) => handleSend(card.prompt)} />
+                        : <StarterListSkeleton />}
                     </div>
                   )}
                 </m.div>

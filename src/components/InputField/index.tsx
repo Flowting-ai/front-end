@@ -92,13 +92,13 @@ export function InputField({
       containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--red-500)`
     } else if (hasValue && !isFocused) {
       // Filled - thicker neutral ring at rest
-      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-100)`
+      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--text-field-ring)`
     } else if (isHovered && !isFocused) {
       // Hover - slightly darker ring
-      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-200)`
+      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--text-field-ring-hover)`
     } else {
       // Default / focused (focus ring is via outline, not shadow)
-      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-100)`
+      containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--text-field-ring)`
     }
 
     // ── Label / subtitle / icon colour ───────────────────────────────────────

@@ -256,7 +256,7 @@ export function ModelPickerList({
 
   return (
     <div
-      className="kaya-scrollbar"
+      className="kaya-scrollbar kaya-no-gutter"
       style={{
         display:             'flex',
         flexDirection:       'column',

@@ -232,6 +232,7 @@ export function PinMentionDropdown({
             style={{
               flex: 1,
               overflowY: "auto",
+              scrollbarGutter: "auto", // no phantom gutter when the list does not scroll
               padding: "4px",
               display: "flex",
               flexDirection: "column",

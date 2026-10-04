@@ -541,7 +541,7 @@ export function AppInviteModal({
           style={{
             position:        'fixed',
             inset:           0,
-            backgroundColor: 'color-mix(in srgb, var(--neutral-950) 52%, transparent)',
+            backgroundColor: 'var(--overlay-bg)',
             zIndex:          100,
           }}
         />

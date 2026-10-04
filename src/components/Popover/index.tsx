@@ -200,6 +200,9 @@ function ScrollArea({ maxHeight, children }: ScrollAreaProps) {
           maxHeight,
           overflowY:           'auto',
           overscrollBehaviorY: 'contain',
+          // .kaya-scrollbar reserves a stable gutter; in a popover that is a phantom strip of extra
+          // width on every menu that does not scroll, so only take the space when it actually scrolls.
+          scrollbarGutter:     'auto',
         }}
       >
         {children}

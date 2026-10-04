@@ -1,0 +1,1809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souvenir V2 Scope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6; --card:#FFFFFF; --ink:#1B1C1E; --ink-soft:#55585E; --ink-faint:#93968F; --body:#33353A;
+    --line:#DDDAD2; --line-strong:#B9B5AB;
+    --accent:#2F4B3F; --accent-soft:#E4EAE4;
+    --blue:#3A4A8A;  --blue-soft:#E3E6F1;
+    --amber:#9A6B23; --amber-soft:#F3E7D3;
+    --red:#9C3B3B;   --red-soft:#F3E1E1;
+    --violet:#5B4A82; --violet-soft:#EDE7F5;
+    --on-ink:#FFFFFF;
+    --mono:"IBM Plex Mono","SF Mono",Consolas,monospace;
+    --serif:"Source Serif 4","Iowan Old Style",Georgia,serif;
+    --sans:"IBM Plex Sans","Inter",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#16171A; --card:#1F2024; --ink:#ECEBE6; --ink-soft:#A9ABA6; --ink-faint:#74766F; --body:#D3D2CC;
+      --line:#34353A; --line-strong:#4C4D52;
+      --accent:#8FBFA6; --accent-soft:#223129;
+      --blue:#9EAEEA;  --blue-soft:#232941;
+      --amber:#E0B46A; --amber-soft:#3A2E1B;
+      --red:#E39A9A;   --red-soft:#3D2323;
+      --violet:#C2B2EA; --violet-soft:#2D2640;
+      --on-ink:#16171A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#16171A; --card:#1F2024; --ink:#ECEBE6; --ink-soft:#A9ABA6; --ink-faint:#74766F; --body:#D3D2CC;
+    --line:#34353A; --line-strong:#4C4D52;
+    --accent:#8FBFA6; --accent-soft:#223129;
+    --blue:#9EAEEA;  --blue-soft:#232941;
+    --amber:#E0B46A; --amber-soft:#3A2E1B;
+    --red:#E39A9A;   --red-soft:#3D2323;
+    --violet:#C2B2EA; --violet-soft:#2D2640;
+    --on-ink:#16171A;
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  .page{max-width:1180px; margin:0 auto; padding:64px 28px 120px;}
+  .kicker{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  h1{font-family:var(--serif); font-weight:600; font-size:38px; line-height:1.15; margin:0 0 8px;}
+  .subtitle{font-size:16px; color:var(--ink-soft); max-width:66ch; margin:0 0 18px;}
+  .changelog{font-size:13px; color:var(--ink-soft); background:var(--card); border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:28px;}
+  .changelog b{color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.02em;}
+  .toc{background:var(--card); border:1px solid var(--line); border-radius:6px; padding:16px 20px; margin-bottom:40px;}
+  .toc-label{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin:10px 0 6px;}
+  .toc-label:first-child{margin-top:0}
+  .toc ol{margin:0; padding-left:22px; columns:2; column-gap:28px;}
+  .toc li{font-size:13.5px; padding:2px 0; break-inside:avoid; margin:0;}
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+  .toc a:hover{color:var(--accent); border-color:var(--accent);}
+
+  .part{font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin:72px 0 0; padding:10px 0; border-top:2px solid var(--ink); border-bottom:1px solid var(--line);}
+  h2{font-family:var(--serif); font-weight:600; font-size:25px; margin:52px 0 4px; padding-top:22px; border-top:1px solid var(--line); scroll-margin-top:20px;}
+  .part + h2{border-top:none; margin-top:28px;}
+  h2 .num{font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:8px; letter-spacing:.03em;}
+  h2 .route{font-family:var(--mono); font-size:14px; font-weight:400; color:var(--accent); margin-left:10px;}
+  h3{font-family:var(--serif); font-weight:600; font-size:17px; margin:28px 0 8px;}
+  p{font-size:15px; color:var(--body); max-width:70ch;}
+  .intro{font-size:15px; color:var(--ink-soft); max-width:72ch; margin-top:4px;}
+  ul,ol{padding-left:20px; margin:8px 0;}
+  li{font-size:14.5px; margin-bottom:6px; max-width:68ch; color:var(--body);}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:12.5px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
+  a{color:var(--accent);}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--body); overflow-wrap:anywhere;}
+  tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
+  td.label{font-weight:600; color:var(--ink); white-space:nowrap;}
+  .table-wrap{overflow-x:auto;}
+
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500; white-space:nowrap;}
+  .tag.p0{background:var(--accent-soft); color:var(--accent);}
+  .tag.p1{background:var(--blue-soft); color:var(--blue);}
+  .tag.p2{background:var(--amber-soft); color:var(--amber);}
+  .tag.p3{background:var(--violet-soft); color:var(--violet);}
+  .tag.p4{background:var(--red-soft); color:var(--red);}
+  .tag.gone{background:var(--red-soft); color:var(--red);}
+  .tag.new{background:var(--accent-soft); color:var(--accent);}
+
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:var(--body); margin:14px 0; border-radius:0 4px 4px 0;}
+  .note.flag{background:var(--amber-soft); border-left-color:var(--amber);}
+  .note.ref{background:var(--blue-soft); border-left-color:var(--blue);}
+  .note.ref .ref-h, .note.grok .ref-h{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); display:block; margin-bottom:4px;}
+  .note.grok{background:var(--violet-soft); border-left-color:var(--violet);}
+  .note.grok .ref-h{color:var(--violet);}
+  .note ul{margin:4px 0 0;}
+  .note li{font-size:13.5px; margin-bottom:3px;}
+  .note .take{margin-top:8px; padding-top:8px; border-top:1px dashed var(--line-strong);}
+
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:0 0 34px;}
+  .legend-row{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft);}
+  .sw{width:14px; height:14px; border-radius:4px; border:1.5px solid var(--line-strong); background:var(--card); flex:none;}
+  .sw.start{background:var(--ink); border-color:var(--ink);}
+  .sw.gen{background:var(--accent-soft); border-color:var(--accent);}
+  .sw.decide{background:var(--amber-soft); border-color:var(--amber);}
+  .sw.user{background:var(--blue-soft); border-color:var(--blue);}
+  .sw.ext{background:var(--violet-soft); border-color:var(--violet);}
+  .sw.gone{background:var(--red-soft); border-color:var(--red);}
+
+  /* ---------- Figure shell ---------- */
+  .figure{margin:20px 0 10px; border:1px solid var(--line); background:var(--card); border-radius:8px; padding:26px 18px 16px; overflow-x:auto;}
+  .fig-caption{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:16px 4px 0; text-align:center;}
+  .fig-title{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 16px;}
+
+  /* ---------- Flow primitives ---------- */
+  .flow{display:flex; flex-direction:column; align-items:center; min-width:0;}
+  .fn{border:1.5px solid var(--line-strong); background:var(--card); border-radius:10px; padding:10px 14px; text-align:center; font-size:13.5px; color:var(--ink); max-width:360px; width:100%; position:relative;}
+  .fn small{display:block; font-size:11.5px; color:var(--ink-soft); margin-top:3px; line-height:1.45;}
+  .fn .k{display:block; font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px;}
+  .fn.start{background:var(--ink); color:var(--on-ink); border-color:var(--ink); border-radius:999px; font-weight:600;}
+  .fn.start small{color:var(--on-ink); opacity:.75;}
+  .fn.gen{background:var(--accent-soft); border-color:var(--accent);}
+  .fn.gen .k{color:var(--accent);}
+  .fn.decide{background:var(--amber-soft); border-color:var(--amber); border-style:dashed; font-weight:600;}
+  .fn.decide .k{color:var(--amber);}
+  .fn.user{background:var(--blue-soft); border-color:var(--blue);}
+  .fn.user .k{color:var(--blue);}
+  .fn.ext{background:var(--violet-soft); border-color:var(--violet);}
+  .fn.ext .k{color:var(--violet);}
+  .fn.end{background:var(--accent); color:var(--on-ink); border-color:var(--accent); font-weight:600;}
+  .fn.end small{color:var(--on-ink); opacity:.8;}
+  .fn.gone{background:var(--red-soft); border-color:var(--red); text-decoration:line-through; text-decoration-color:var(--red); color:var(--ink-soft);}
+  .fn.wide{max-width:560px;}
+  .fn.xwide{max-width:760px;}
+  .fn ul{text-align:left; margin:6px 0 0; padding-left:18px;}
+  .fn li{font-size:12.5px; margin:0 0 2px; color:var(--body);}
+
+  .arr{position:relative; width:2px; height:30px; background:var(--line-strong); margin:0 auto;}
+  .arr::after{content:""; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%); border:6px solid transparent; border-top:7px solid var(--line-strong); border-bottom:0;}
+  .arr.short{height:18px;}
+  .arr.tall{height:44px;}
+  .arr .lbl{position:absolute; left:10px; top:50%; transform:translateY(-50%); white-space:nowrap; font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); background:var(--card); padding:0 4px;}
+  .arr.dash{background:repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px);}
+
+  .branches{display:grid; gap:18px; width:100%; align-items:start;}
+  .branches.b2{grid-template-columns:1fr 1fr;}
+  .branches.b3{grid-template-columns:1fr 1fr 1fr;}
+  .branches.b4{grid-template-columns:repeat(4,1fr);}
+  .branch{display:flex; flex-direction:column; align-items:center; min-width:0;}
+  /* branches that merge into a join: stretch to equal height and draw a stem down to the join bar */
+  .branches:has(+ .join){align-items:stretch;}
+  .branches:has(+ .join) > .branch::after{content:""; flex:1 1 auto; width:2px; min-height:0; background:var(--line-strong);}
+  .branch-lbl{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin:2px 0 0; text-align:center;}
+
+  /* fork / join brackets: horizontal bar spanning the branch centres */
+  .fork, .join{height:16px; border:2px solid var(--line-strong); margin:0 auto;}
+  .fork{border-bottom:none; border-radius:6px 6px 0 0;}
+  .join{border-top:none; border-radius:0 0 6px 6px;}
+  .fork.w2, .join.w2{width:calc(50% + 9px);}
+  .fork.w3, .join.w3{width:calc(66.67% + 12px); position:relative;}
+  .fork.w4, .join.w4{width:calc(75% + 13.5px); position:relative;}
+  .fork.w3::after{content:""; position:absolute; left:50%; top:0; width:2px; height:16px; background:var(--line-strong); transform:translateX(-50%);}
+  .join.w3::after{content:""; position:absolute; left:50%; bottom:0; width:2px; height:16px; background:var(--line-strong); transform:translateX(-50%);}
+  .fork.w4::before,.fork.w4::after{content:""; position:absolute; top:0; width:2px; height:16px; background:var(--line-strong);}
+  .fork.w4::before{left:calc(33.33% - 1px);} .fork.w4::after{left:calc(66.67% - 1px);}
+
+  /* ---------- Mega flow ---------- */
+  .mega{padding:28px 20px 20px;}
+  .band{display:flex; align-items:center; gap:12px; width:100%; margin:6px 0 14px; font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);}
+  .band::before,.band::after{content:""; flex:1; height:1px; background:var(--line);}
+  .band b{color:var(--ink); font-weight:600;}
+  .fn .pt{display:inline-block; font-family:var(--mono); font-size:9.5px; font-weight:600; padding:1px 6px; border-radius:20px; margin-left:4px; vertical-align:1px;}
+  .fn .pt.p0{background:var(--accent-soft); color:var(--accent);}
+  .fn .pt.p1{background:var(--blue-soft); color:var(--blue);}
+  .fn .pt.p2{background:var(--amber-soft); color:var(--amber);}
+  .fn .pt.p3{background:var(--violet-soft); color:var(--violet);}
+  .fn .pt.p4{background:var(--red-soft); color:var(--red);}
+  .fn.end .pt, .fn.start .pt{background:var(--card); color:var(--ink);}
+  .fn .goto{display:block; font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:5px;}
+  .fn.start .goto{color:var(--on-ink); opacity:.65;}
+  .mega .loop-back{max-width:640px; color:var(--amber); font-size:11px; line-height:1.5;}
+  .mega-key{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px;}
+
+  .loop-back{font-family:var(--mono); font-size:10.5px; color:var(--amber); border:1.5px dashed var(--amber); border-radius:8px; padding:6px 10px; margin-top:8px; text-align:center; max-width:300px;}
+
+  /* ---------- Roadmap lane ---------- */
+  .lane{display:grid; grid-template-columns:repeat(5,1fr); gap:0; align-items:stretch;}
+  .stage{position:relative; border:1.5px solid var(--line-strong); border-radius:10px; padding:14px 14px 12px; background:var(--card); margin-right:22px;}
+  .stage:last-child{margin-right:0;}
+  .stage:not(:last-child)::after{content:"→"; position:absolute; right:-19px; top:50%; transform:translateY(-50%); font-family:var(--mono); font-size:16px; color:var(--ink-faint);}
+  .stage .pn{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.04em;}
+  .stage h4{font-family:var(--serif); font-size:15.5px; margin:4px 0 8px; line-height:1.25;}
+  .stage ul{margin:0; padding-left:16px;}
+  .stage li{font-size:12px; margin-bottom:3px; line-height:1.45;}
+  .stage.s0{border-color:var(--accent); background:var(--accent-soft);} .stage.s0 .pn{color:var(--accent);}
+  .stage.s1{border-color:var(--blue);} .stage.s1 .pn{color:var(--blue);}
+  .stage.s2{border-color:var(--amber);} .stage.s2 .pn{color:var(--amber);}
+  .stage.s3{border-color:var(--violet);} .stage.s3 .pn{color:var(--violet);}
+  .stage.s4{border-color:var(--red);} .stage.s4 .pn{color:var(--red);}
+  .deps{display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; justify-content:center;}
+  .dep{font-family:var(--mono); font-size:11px; color:var(--ink-soft); border:1px dashed var(--line-strong); border-radius:20px; padding:3px 10px;}
+
+  /* ---------- Change grid ---------- */
+  .cgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; margin:16px 0;}
+  .cc{border:1px solid var(--line); background:var(--card); border-radius:8px; padding:11px 13px;}
+  .cc .id{font-family:var(--mono); font-size:10.5px; color:var(--accent); font-weight:600;}
+  .cc b{display:block; font-size:14px; margin:2px 0 3px; color:var(--ink);}
+  .cc span{font-size:12.5px; color:var(--ink-soft); line-height:1.45; display:block;}
+
+  /* ---------- Wireframes ---------- */
+  .wire{border:1px solid var(--line-strong); border-radius:8px; background:var(--card); padding:14px; margin:16px 0 20px;}
+  .wire-label{font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px;}
+  .w-frame{position:relative; display:flex; flex-direction:column; gap:8px; border:1px solid var(--ink); border-radius:8px; padding:14px; background:var(--paper);}
+  .w-row{display:flex; gap:6px; align-items:stretch; flex-wrap:wrap;}
+  .w-row.nowrap{flex-wrap:nowrap;}
+  .w-row.center{justify-content:center;}
+  .w-row.between{justify-content:space-between; align-items:center;}
+  .w-col{display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .w-box{border:1px dashed var(--line-strong); border-radius:5px; padding:7px 9px; font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); display:flex; align-items:center; justify-content:center; text-align:center; flex:1; min-width:0; background:transparent;}
+  .w-box.solid{border-style:solid; background:var(--card);}
+  .w-box.left{justify-content:flex-start; text-align:left;}
+  .w-box.tight{flex:none; padding:4px 8px;}
+  .w-box.tall{min-height:64px;}
+  .w-box.xtall{min-height:150px;}
+  .w-box.btn{border-style:solid; border-color:var(--ink); color:var(--ink); font-weight:600; flex:none; padding:6px 12px;}
+  .w-box.btn.primary{background:var(--ink); color:var(--on-ink);}
+  .w-box.pill{border-radius:999px;}
+  .w-box.chip{flex:none; border-style:solid; border-color:var(--accent); color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:3px 10px;}
+  .w-box.qcard{border-style:solid; border-color:var(--blue); background:var(--blue-soft); color:var(--blue); flex:none; border-radius:8px;}
+  .w-box.avatar{flex:none; width:48px; min-height:48px; border-radius:50%; border-style:solid;}
+  .w-box.icon{flex:none; width:30px; min-height:30px; border-radius:8px;}
+  .w-box.active{border-color:var(--ink); color:var(--ink); font-weight:600; border-style:solid; background:var(--card);}
+  .w-box.hl{border-color:var(--accent); border-style:solid; color:var(--accent);}
+  .w-box.new{border-color:var(--violet); border-style:solid; color:var(--violet); background:var(--violet-soft);}
+  .w-note{font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
+  .w-bubble{max-width:70%; border-radius:12px; padding:8px 12px; font-size:12.5px; line-height:1.45;}
+  .w-bubble.me{align-self:flex-end; background:var(--ink); color:var(--on-ink);}
+  .w-bubble.ai{align-self:flex-start; background:var(--card); border:1px solid var(--line-strong); color:var(--body);}
+  .w-sec{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin:6px 0 0;}
+  .bar{height:8px; border-radius:4px; background:var(--line); overflow:hidden;}
+  .bar i{display:block; height:100%; background:var(--accent);}
+  .split-wire{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+
+  /* before / after */
+  .ba{display:grid; grid-template-columns:1fr 40px 1fr; gap:0; align-items:center; margin:8px 0;}
+  .ba .arrow{text-align:center; font-family:var(--mono); color:var(--ink-faint);}
+  .ba .fn{max-width:none;}
+
+  .qlist{counter-reset:q; list-style:none; padding:0;}
+  .qlist li{counter-increment:q; position:relative; padding:10px 12px 10px 44px; border:1px solid var(--line); background:var(--card); border-radius:8px; margin-bottom:8px; max-width:none;}
+  .qlist li::before{content:counter(q, decimal-leading-zero); position:absolute; left:12px; top:10px; font-family:var(--mono); font-size:11px; color:var(--amber); font-weight:600;}
+
+  .refs li{font-size:13px;}
+  .ec-summary{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:0 0 20px;}
+  .ec-stat{border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:var(--card);}
+  .ec-stat b{display:block; font-family:var(--serif); font-size:28px; line-height:1.1;}
+  .ec-stat span{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);}
+  .ec-stat.ok b{color:var(--accent);} .ec-stat.ecp b{color:var(--amber);} .ec-stat.miss b{color:var(--red);} .ec-stat.crit{border-color:var(--red);} .ec-stat.crit b{color:var(--red);}
+  @media (max-width:680px){ .ec-summary{grid-template-columns:1fr 1fr;} }
+  table.cmp td:nth-child(2){background:var(--red-soft);}
+  table.cmp td:nth-child(3){background:var(--accent-soft);}
+  table.cmp td:nth-child(4){font-size:13px; color:var(--ink-soft);}
+  .pc{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:14px 0; align-items:start;}
+  .pc-card{border:1px solid var(--line); background:var(--card); border-radius:8px; padding:14px 16px;}
+  .pc-card h4{font-family:var(--serif); font-size:16px; margin:0 0 10px;}
+  .pc-card .col-h{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; margin:10px 0 4px; display:block;}
+  .pc-card .col-h.pro{color:var(--accent);} .pc-card .col-h.con{color:var(--red);}
+  .fixes{border:1px solid var(--line); background:var(--card); border-radius:8px; padding:14px 16px 8px; margin:0 0 14px; display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; align-items:start;}
+  .fixes .col-h.fix, .fixes .fix-rule{grid-column:1 / -1;}
+  .fixes .col-h.fix{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); display:block; margin:0;}
+  .fix-rule{font-size:12.5px; color:var(--ink-soft); margin:0 0 4px; max-width:none;}
+  .fix-item{border-left:2px solid var(--blue); background:var(--blue-soft); border-radius:0 6px 6px 0; padding:8px 10px 6px 12px; margin:0;}
+  .fix-item ul{margin:0; padding-left:18px;}
+  @media (max-width:680px){ .fixes{grid-template-columns:1fr;} }
+  .fix-item b{font-size:13.5px; color:var(--ink);}
+  .fix-item .fix-sub{font-family:var(--mono); font-size:10.5px; color:var(--blue); display:block; margin:1px 0 4px;}
+  .fix-item li{font-size:12.5px; margin-bottom:3px;}
+  .pc-card ul{margin:0; padding-left:18px;}
+  .pc-card li{font-size:13.5px; margin-bottom:4px;}
+  .verdict{border:1.5px solid var(--accent); background:var(--accent-soft); border-radius:10px; padding:16px 20px; margin:18px 0;}
+  .verdict .vh{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:6px;}
+  .verdict p{margin:6px 0; max-width:none;}
+  .phase{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:14px 0;}
+  .phase div{border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:var(--card); font-size:13px;}
+  .phase b{display:block; font-family:var(--mono); font-size:11px; letter-spacing:.04em; margin-bottom:4px;}
+  @media (max-width:680px){ .pc, .phase{grid-template-columns:1fr;} }
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  @media (max-width:900px){
+    .lane{grid-template-columns:1fr; gap:22px;}
+    .stage{margin-right:0;}
+    .stage:not(:last-child)::after{content:"↓"; right:auto; left:50%; top:auto; bottom:-22px; transform:translateX(-50%);}
+    .toc ol{columns:1;}
+  }
+  @media (max-width:680px){
+    .page{padding:40px 16px 80px;}
+    h1{font-size:30px;}
+    .branches.b2,.branches.b3,.branches.b4{grid-template-columns:1fr;}
+    .fork,.join{display:none;}
+    .branch + .branch{border-top:1px dashed var(--line); padding-top:14px;}
+    .split-wire{grid-template-columns:1fr;}
+    .ba{grid-template-columns:1fr; }
+    .ba .arrow{transform:rotate(90deg);}
+    .figure{padding:20px 12px 14px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><span>SOUVENIR — PRODUCT SCOPE V2</span><span>Proposed · 2026-09-28</span></div>
+  <h1>Souvenir V2 — Scope &amp; New Agents Flow</h1>
+  <p class="subtitle">Visual companion to <code>docs v2/scope/souvenir-v2-scope.md</code>. Part A maps the five scope priorities and how they depend on each other. Part B walks through the rebuilt agents system end to end: creation, the single-page editor and synced agent views, workspace resources, sharing, and reuse in chats and tasks.</p>
+
+  <div class="changelog">
+    <b>STATUS</b> — Proposed scope. Planned changes, not implemented behaviour. &nbsp;
+    <b>SUPERSEDES</b> — the V1.5 agents flow (<code>docs v1.5/flows/agents-flow-diagram.html</code>): the 4-step wizard, the 5-tab Configure system, and per-agent Knowledge/Connectors. &nbsp;
+    <b>REFERENCES</b> — Perplexity (Search / Computer, context panel, Skills, Comet browser) and Grok Bot (Share as Template) are cited where the scope borrows from them.
+  </div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="sw start"></span>Entry point</div>
+    <div class="legend-row"><span class="sw user"></span>User action / input</div>
+    <div class="legend-row"><span class="sw decide"></span>Decision / question card</div>
+    <div class="legend-row"><span class="sw gen"></span>System / AI generation</div>
+    <div class="legend-row"><span class="sw ext"></span>Workspace resource / other user</div>
+    <div class="legend-row"><span class="sw gone"></span>Removed from V1.5</div>
+  </div>
+
+  <nav class="toc">
+    <div class="toc-label">Start here</div>
+    <ol start="0"><li><a href="#s0">Mega flow — the whole system on one page</a></li></ol>
+    <div class="toc-label">Part A — Scope overview</div>
+    <ol>
+      <li><a href="#s1">Scope at a glance</a></li>
+      <li><a href="#s2">P0 — Agents rebuild (summary)</a></li>
+      <li><a href="#s3">P1 — Unified New Chat / New Task</a></li>
+      <li><a href="#s4">P2 — Notifications &amp; cleanup</a></li>
+      <li><a href="#s5">P3 — Tasks context panel</a></li>
+      <li><a href="#s6">P4 — Skills &amp; Browser</a></li>
+    </ol>
+    <div class="toc-label">Part B — New agents flow</div>
+    <ol start="7">
+      <li><a href="#s7">Design principles</a></li>
+      <li><a href="#s8">Creation flow (master)</a></li>
+      <li><a href="#s8a">Path A — create in chat</a></li>
+      <li><a href="#s8b">Path B — create manually</a></li>
+      <li><a href="#s9">Agent views: editor · sidebar · modal</a></li>
+      <li><a href="#s10">Knowledge &amp; connectors</a></li>
+      <li><a href="#s11">Sharing model</a></li>
+      <li><a href="#s12">Using agents in chats &amp; tasks</a></li>
+      <li><a href="#s13">Templates page</a></li>
+      <li><a href="#s14">Removed from V1.5</a></li>
+      <li><a href="#s15">Open questions</a></li>
+      <li><a href="#s16">Existing vs proposed</a></li>
+      <li><a href="#s17">Suggested improvements</a></li>
+      <li><a href="#s18">Edge cases</a></li>
+      <li><a href="#refs">References</a></li>
+    </ol>
+  </nav>
+
+  <!-- ===================================================== PART A -->
+  <!-- ===================================================== MEGA FLOW -->
+  <div class="part">Start here</div>
+  <h2 id="s0"><span class="num">00</span>Mega flow — the whole system on one page</h2>
+  <p class="intro">Every piece of the V2 scope, joined up: how people get in, how agents are created, what an agent is, how it's used and shared, and how notifications and learning feed back in. Coloured pills show the priority (P0–P4) that delivers each part. The detailed sections follow below.</p>
+
+  <div class="figure mega">
+    <div class="flow">
+
+      <div class="band"><span><b>1</b> · Ways in</span></div>
+      <div class="branches b4">
+        <div class="branch"><div class="fn start">New Chat / New Task <span class="pt">P1</span><small>one composer · Chat ⇄ Task switch</small><span class="goto">→ create in chat (2A) or use (5)</span></div></div>
+        <div class="branch"><div class="fn start">/agents <span class="pt">P0</span><small>New agent · Templates: Recommended / General</small><span class="goto">→ create manually (2B)</span></div></div>
+        <div class="branch"><div class="fn start">A shared agent <span class="pt">P0</span><small>template link · Super Link · workspace listing</small><span class="goto">→ install a copy (5 · Share)</span></div></div>
+        <div class="branch"><div class="fn start">🔔 Notifications <span class="pt">P2</span><small>bell next to the account menu</small><span class="goto">→ deep-link to any stage</span></div></div>
+      </div>
+      <div class="arr tall"></div>
+
+      <div class="band"><span><b>2</b> · Create — purpose is the only input</span></div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">2A · In chat</span>"Create an agent that…" <span class="pt p0">P0</span><small>or a task decides it needs one</small></div>
+          <div class="arr short"></div>
+          <div class="fn decide"><span class="k">Only if unclear · Fix 3</span>Question cards, at most 3<small>connector · output · Library docs · defaults selected + Skip</small></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">2B · Manual</span>Purpose screen <span class="pt p0">P0</span><small>one sentence · starter chips · template pre-fills it</small></div>
+          <div class="arr short"></div>
+          <div class="fn decide"><span class="k">Only if unclear</span>Same question cards, inline</div>
+        </div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+
+      <div class="band"><span><b>3</b> · Generate</span></div>
+      <div class="fn gen xwide"><span class="k">Generation from purpose + answers · Fix 1</span>Name · animated avatar · model (chosen by rules) · description · instructions (structured outline) · tone = default · temperature = default<small>skills and memories start empty</small></div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch"><div class="arr short"><span class="lbl">2A</span></div><div class="fn">Agent card in chat<small>[Use now] [Edit] [Open] · saved straight away</small></div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">2B</span></div><div class="fn user"><span class="k">Agent editor page</span>One page, all fields pre-filled · live preview card · Regenerate per field<small>[Cancel] saves nothing · [Finish] creates it</small></div></div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+
+      <div class="band"><span><b>4</b> · The agent — one record, owner-only edits</span></div>
+      <div class="fn end xwide">Agent record <span class="pt">P0</span><small>appears in /agents · the + menu · @mentions · available to tasks</small></div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch"><div class="arr short"></div><div class="fn user"><span class="k">Synced view</span>Agent editor page<small>everything · saves on Finish</small></div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn user"><span class="k">Synced view</span>Right-sidebar details<small>avatar · name · model · description</small></div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn user"><span class="k">Synced view</span>Advanced Personalize modal<small>instructions · skills · memories · tone · temperature</small></div></div>
+      </div>
+      <div class="arr short dash"><span class="lbl">reads from (never copies)</span></div>
+      <div class="branches b2">
+        <div class="branch"><div class="fn ext"><span class="k">Workspace</span>Library <span class="pt p0">P0</span><small>global media &amp; docs · sensitive items only if named</small></div></div>
+        <div class="branch"><div class="fn ext"><span class="k">Workspace</span>Connectors <span class="pt p0">P0</span><small>personal + shared · writes need approval (Fix 2)</small></div></div>
+      </div>
+      <div class="arr tall"></div>
+
+      <div class="band"><span><b>5</b> · Use &amp; share</span></div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Chat</span>Use in chat <span class="pt p1">P1</span><small>+ menu or @mention · model picker · attach a project · add connectors inline</small></div>
+          <div class="arr short"></div>
+          <div class="fn">Chat thread<small>in a project if one was attached</small></div>
+          <div class="arr short"></div>
+          <div class="fn">Save an artifact · Save as a skill <span class="pt p4">P4</span></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Task</span>Use in a task <span class="pt p1">P1</span><small>one fixed strong model · 3 cards on New Task</small></div>
+          <div class="arr short"></div>
+          <div class="fn decide">Matching agent exists? <span class="pt p0">P0</span><small>high → reuse (Swap) · medium → ask · low → create once, temporary</small></div>
+          <div class="arr short"></div>
+          <div class="fn gen"><span class="k">Task context panel</span>Progress · agents · connectors · skills · usage <span class="pt p3">P3</span><small>live browser view with Take control <span class="pt p4">P4</span></small></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Share (owner)</span>3 types <span class="pt p0">P0</span><small>template · publish to workspace · Super Link</small></div>
+          <div class="arr short"></div>
+          <div class="fn ext"><span class="k">Recipient</span>Preview → Add to my agents → connect only what's needed</div>
+          <div class="arr short"></div>
+          <div class="fn">Lands on their own editable copy<small>↺ it becomes their own agent record (stage 4)</small></div>
+        </div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+
+      <div class="band"><span><b>6</b> · Notify &amp; learn</span></div>
+      <div class="branches b2">
+        <div class="branch"><div class="fn ext"><span class="k">🔔 Feed</span>Notifications <span class="pt p2">P2</span><small>preliminary: automation status · chats received · agents received · Super Link usage · saved as a skill · artifact saved<br>secondary: tasks waiting / failed · shares accepted · team &amp; projects · credits &amp; billing · reconnect needed</small></div></div>
+        <div class="branch"><div class="fn ext"><span class="k">Agent</span>Memories learned <span class="pt p0">P0</span><small>"Learned · Undo" note · per person, never shared by default</small></div></div>
+      </div>
+      <div class="loop-back">↺ Notifications deep-link back to stages 1 and 5 · memories and saved skills improve the agent in stage 4 · reused agents get better instead of multiplying</div>
+    </div>
+
+    <div class="mega-key">
+      <span class="tag p0">P0 agents rebuild</span>
+      <span class="tag p1">P1 unified composer</span>
+      <span class="tag p2">P2 notifications</span>
+      <span class="tag p3">P3 task context panel</span>
+      <span class="tag p4">P4 skills &amp; browser</span>
+    </div>
+    <div class="fig-caption">Read top to bottom · "Fix N" refers to the risk fixes in §16.3a</div>
+  </div>
+
+  <div class="part">Part A — Scope overview</div>
+
+  <h2 id="s1"><span class="num">01</span>Scope at a glance</h2>
+  <p class="intro">Five priorities, delivered in order. P0 changes what an agent <em>is</em>, so the rest builds on it.</p>
+
+  <div class="figure">
+    <div class="fig-title">Priority roadmap</div>
+    <div class="lane">
+      <div class="stage s0">
+        <div class="pn">P0 · HIGHEST</div>
+        <h4>Agents rebuild</h4>
+        <ul>
+          <li>Purpose-only creation (chat or manual)</li>
+          <li>One editor page replaces the 5 tabs</li>
+          <li>Workspace Library + connectors</li>
+          <li>3 sharing types</li>
+          <li>Owner-only editing</li>
+          <li>Tasks reuse agents</li>
+        </ul>
+      </div>
+      <div class="stage s1">
+        <div class="pn">P1</div>
+        <h4>Unified New Chat / New Task</h4>
+        <ul>
+          <li>Chat ⇄ Task switch in the composer</li>
+          <li>Model picker in Chat only</li>
+          <li>3 cards in Task only</li>
+          <li>Attach to a project</li>
+          <li>Add connectors inline</li>
+        </ul>
+      </div>
+      <div class="stage s2">
+        <div class="pn">P2</div>
+        <h4>Notifications &amp; cleanup</h4>
+        <ul>
+          <li>Bell next to the account menu</li>
+          <li>6 event types</li>
+          <li>Remove Pins &amp; Highlights</li>
+        </ul>
+      </div>
+      <div class="stage s3">
+        <div class="pn">P3</div>
+        <h4>Tasks context panel</h4>
+        <ul>
+          <li>Progress · time · tokens</li>
+          <li>Agents + sub-progress</li>
+          <li>Connectors · Skills · Usage</li>
+        </ul>
+      </div>
+      <div class="stage s4">
+        <div class="pn">P4</div>
+        <h4>Skills &amp; Browser</h4>
+        <ul>
+          <li>First-class Skills feature</li>
+          <li>Live browser / "computer" view</li>
+        </ul>
+      </div>
+    </div>
+    <div class="deps">
+      <span class="dep">P0 agents → used by P1 composer (+ menu, @mention)</span>
+      <span class="dep">P0 sharing → P2 "Agent received" / "Super Link usage"</span>
+      <span class="dep">P0 task reuse → P3 Agents section</span>
+      <span class="dep">P0 agent Skills (.md) → P4 Skills feature</span>
+      <span class="dep">P4 Skills → P3 Skills section</span>
+      <span class="dep">P4 Browser → shown inside P3 panel</span>
+    </div>
+    <div class="fig-caption">Arrows = delivery order · dashed pills = dependencies between priorities</div>
+  </div>
+
+  <div class="note flag"><strong>Adjacent work (not in this scope).</strong> A separate effort is building an <strong>e-commerce dashboard with AI chat</strong> as a future Souvenir differentiator. Keep the agent and chat primitives here reusable so that dashboard can embed them. Its UI and data are owned elsewhere.</div>
+
+  <h2 id="s2"><span class="num">02</span>P0 — Agents rebuild <span class="tag p0">PRIORITY 0</span></h2>
+  <p class="intro">Make creating an agent effortless and make agents a reusable part of every chat and task, not a separate configuration project. Full detail in <a href="#s7">Part B</a>.</p>
+  <div class="cgrid">
+    <div class="cc"><span class="id">P0.1</span><b>Two ways to create</b><span>In chat with question cards, or manually from <code>/agents</code>.</span></div>
+    <div class="cc"><span class="id">P0.2</span><b>Purpose is the only input</b><span>The model generates name, avatar, model, description and instructions. Tone and temperature get defaults.</span></div>
+    <div class="cc"><span class="id">P0.3</span><b>Replace the 5 tabs</b><span>One single-page editor, plus right-sidebar details and an Advanced Personalize modal, all synced.</span></div>
+    <div class="cc"><span class="id">P0.4</span><b>Workspace Library</b><span>Agents read the global media &amp; docs manager. No per-agent uploads.</span></div>
+    <div class="cc"><span class="id">P0.5</span><b>Workspace connectors</b><span>Personal or shared account connectors. No per-agent toggles. Question cards pick one.</span></div>
+    <div class="cc"><span class="id">P0.6</span><b>Right sidebar: agent details</b><span>Animated avatar, name, model, description. Quick edits sync to the editor and modal.</span></div>
+    <div class="cc"><span class="id">P0.7</span><b>Advanced Personalize (modal)</b><span>Instructions, Skills (.md rules), Memories, Tone, Temperature slider.</span></div>
+    <div class="cc"><span class="id">P0.8</span><b>Three sharing types</b><span>Share as template · Publish to workspace · Super Link.</span></div>
+    <div class="cc"><span class="id">P0.9</span><b>Owner-only editing</b><span>Everyone else uses or copies.</span></div>
+    <div class="cc"><span class="id">P0.10</span><b>Templates page</b><span><em>General</em> filter for existing templates + <em>Recommended for you</em>.</span></div>
+    <div class="cc"><span class="id">P0.11</span><b>Tasks create &amp; reuse</b><span>Tasks spin up agents automatically, never duplicates.</span></div>
+    <div class="cc"><span class="id">P0.12</span><b>Manual use anywhere</b><span>@mention in the prompt or the composer's <code>+</code> menu.</span></div>
+    <div class="cc"><span class="id">P0.13</span><b>New agents UI</b><span>Agent Card → sidebar details → Advanced modal, plus the editor page with a live preview card.</span></div>
+  </div>
+
+  <h2 id="s3"><span class="num">03</span>P1 — Unified New Chat / New Task <span class="tag p1">PRIORITY 1</span></h2>
+  <p class="intro">One entry point that feels like a single product: Chat and Task are two modes of the same composer, like Perplexity's Search / Computer split.</p>
+
+  <div class="table-wrap"><table>
+    <tr><th>#</th><th>Change</th><th>Detail</th></tr>
+    <tr><td class="label">P1.1</td><td class="label">Same layout</td><td>New Chat and New Task share one page layout. Only the mode differs.</td></tr>
+    <tr><td class="label">P1.2</td><td class="label">Mode switch in composer</td><td>Chat ⇄ Task toggle inside the input. Switching keeps typed text, attachments and the selected agent, with no page reload.</td></tr>
+    <tr><td class="label">P1.3</td><td class="label">Model picker: Chat only</td><td>Task always uses one strong, reliable model, because a task has to finish.</td></tr>
+    <tr><td class="label">P1.4</td><td class="label">Cards: Task only</td><td>No cards on New Chat. New Task shows 3 cards below the composer.</td></tr>
+    <tr><td class="label">P1.5</td><td class="label">Attach to a project</td><td>Pick a project from the composer. A new way to start a project chat.</td></tr>
+    <tr><td class="label">P1.6</td><td class="label">Add connectors inline</td><td>Connect a new connector without leaving the composer.</td></tr>
+  </table></div>
+
+  <div class="split-wire">
+    <div class="wire">
+      <div class="wire-label">Layout sketch — New Chat (Chat mode)</div>
+      <div class="w-frame">
+        <div class="w-row center"><div class="w-box tight" style="border:none;font-size:15px;color:var(--ink);font-family:var(--serif)">What do you want to know?</div></div>
+        <div class="w-box solid w-col" style="align-items:stretch;padding:10px;gap:8px">
+          <div class="w-row nowrap"><div class="w-box tight active pill">Chat</div><div class="w-box tight pill">Task</div></div>
+          <div class="w-box left" style="border:none;justify-content:flex-start">Ask anything…</div>
+          <div class="w-row between nowrap">
+            <div class="w-row nowrap"><div class="w-box icon">+</div><div class="w-box tight pill">📁 Project ▾</div><div class="w-box tight pill">🔌 Connectors</div></div>
+            <div class="w-row nowrap"><div class="w-box tight hl pill">Model ▾</div><div class="w-box icon btn primary">➤</div></div>
+          </div>
+        </div>
+        <div class="w-note">No suggestion cards in Chat mode · model selector visible</div>
+      </div>
+    </div>
+    <div class="wire">
+      <div class="wire-label">Layout sketch — New Task (Task mode)</div>
+      <div class="w-frame">
+        <div class="w-row center"><div class="w-box tight" style="border:none;font-size:15px;color:var(--ink);font-family:var(--serif)">What should we get done?</div></div>
+        <div class="w-box solid w-col" style="align-items:stretch;padding:10px;gap:8px">
+          <div class="w-row nowrap"><div class="w-box tight pill">Chat</div><div class="w-box tight active pill">Task</div></div>
+          <div class="w-box left" style="border:none;justify-content:flex-start">Describe the task…</div>
+          <div class="w-row between nowrap">
+            <div class="w-row nowrap"><div class="w-box icon">+</div><div class="w-box tight pill">📁 Project ▾</div><div class="w-box tight pill">🔌 Connectors</div></div>
+            <div class="w-row nowrap"><div class="w-box icon btn primary">➤</div></div>
+          </div>
+        </div>
+        <div class="w-row nowrap"><div class="w-box solid tall">Card 1</div><div class="w-box solid tall">Card 2</div><div class="w-box solid tall">Card 3</div></div>
+        <div class="w-note">No model selector · 3 cards below the composer</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="fig-title">Flow — one composer, two modes</div>
+    <div class="flow">
+      <div class="fn start">New Chat / New Task<small>same page layout</small></div>
+      <div class="arr"></div>
+      <div class="fn user"><span class="k">User</span>Types a prompt · attaches files · picks an agent (<code>+</code> or @mention)</div>
+      <div class="arr"></div>
+      <div class="fn user wide"><span class="k">Optional, before sending</span>📁 Attach to a project &nbsp;·&nbsp; 🔌 Add or pick connectors inline (OAuth pop-up, never leaves the page)</div>
+      <div class="arr"></div>
+      <div class="fn decide"><span class="k">Mode switch</span>Chat ⇄ Task<small>prompt, attachments, agent and project are kept on switch</small></div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn"><span class="k">Chat</span>User picks a model<small>quick, conversational answers</small></div>
+          <div class="arr"></div>
+          <div class="fn end">Chat thread<small>in a project if one was attached</small></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn gen"><span class="k">Task</span>One fixed strong model<small>chosen by the system, so the task finishes</small></div>
+          <div class="arr"></div>
+          <div class="fn end">Task run<small>opens the context panel (P3)</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note ref">
+    <span class="ref-h">Perplexity reference — Search vs Computer</span>
+    <ul>
+      <li><strong>Two modes, one product.</strong> Search is quick, cited answers. <strong>Computer</strong> (launched 25 Feb 2026) is the agent mode: it splits a goal into subtasks and runs them in parallel with specialised sub-agents. Chat = Search, Task = Computer.</li>
+      <li><strong>Models.</strong> Search lets the user choose a model. Computer coordinates about 19 models itself. Its Sept 2026 <em>Effort Mode</em> (Light / Standard / High / Ultra) lets users set how hard it works while Perplexity chooses the model. This supports P1.3.</li>
+      <li><strong>Connectors in the composer.</strong> Selecting a connector once in the composer attaches it to the current thread. Pattern for P1.6.</li>
+      <li><strong>Projects ≈ Spaces.</strong> Spaces are folders for threads with shared context, added via <em>⋯ → Add to Space</em>. P1.5 goes further: attach <em>before</em> sending.</li>
+    </ul>
+    <div class="take"><strong>Possible extension:</strong> an effort control in Task mode instead of a model picker.</div>
+  </div>
+
+  <h2 id="s4"><span class="num">04</span>P2 — Notifications &amp; cleanup <span class="tag p2">PRIORITY 2</span></h2>
+  <p class="intro">A small bell button in the bottom-left, to the right of the account menu, opening an in-app feed. Pins and Highlights are removed for now.</p>
+
+  <div class="split-wire">
+    <div class="wire">
+      <div class="wire-label">Layout sketch — sidebar footer + feed</div>
+      <div class="w-frame" style="min-height:330px">
+        <div class="w-row nowrap" style="flex:1;gap:10px">
+          <div class="w-col" style="width:140px;flex:none;justify-content:space-between;border-right:1px dashed var(--line-strong);padding-right:8px">
+            <div class="w-col">
+              <div class="w-box tight left">New chat</div>
+              <div class="w-box tight left">Tasks</div>
+              <div class="w-box tight left">Agents</div>
+              <div class="w-box tight left">Library</div>
+              <div class="w-box tight left" style="text-decoration:line-through;color:var(--red);border-color:var(--red)">Pins</div>
+              <div class="w-box tight left" style="text-decoration:line-through;color:var(--red);border-color:var(--red)">Highlights</div>
+            </div>
+            <div class="w-row nowrap" style="align-items:center">
+              <div class="w-box solid" style="justify-content:flex-start">◯ Account</div>
+              <div class="w-box icon new" title="notifications">🔔</div>
+            </div>
+          </div>
+          <div class="w-col" style="flex:1">
+            <div class="w-row between"><span class="w-sec" style="margin:0">Notifications</span><div class="w-box tight">Mark all read</div></div>
+            <div class="w-box solid left">⚙ Weekly report automation finished</div>
+            <div class="w-box solid left">💬 Priya shared a chat with you</div>
+            <div class="w-box solid left">🤖 You received "Support Triage"</div>
+            <div class="w-box solid left">🔗 Super Link used 12× · 40% credit</div>
+            <div class="w-box solid left">📘 "Invoice formatting" saved as a skill</div>
+            <div class="w-box solid left">📄 "Q3 dashboard" artifact saved</div>
+          </div>
+        </div>
+        <div class="w-note">🔔 = new button, bottom-left next to the account menu · unread badge · Pins &amp; Highlights struck through = removed</div>
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Preliminary notifications <span class="tag p0">FIRST RELEASE</span></h3>
+      <div class="table-wrap"><table>
+        <tr><th>Event</th><th>Source</th><th>Click goes to</th></tr>
+        <tr><td class="label">Automation status</td><td>Tasks / automations (done, failed)</td><td>The task run</td></tr>
+        <tr><td class="label">Chats received</td><td>Shared chats</td><td>The chat</td></tr>
+        <tr><td class="label">Agents received</td><td>P0 sharing types 1 &amp; 2</td><td>Install preview</td></tr>
+        <tr><td class="label">Super Link usage</td><td>P0 sharing type 3</td><td>Share settings</td></tr>
+        <tr><td class="label">Saved as a skill</td><td>P4 Skills</td><td>The skill</td></tr>
+        <tr><td class="label">Artifact saved</td><td>Chats / tasks</td><td>The artifact</td></tr>
+      </table></div>
+      <ul>
+        <li>Unread badge on the bell; mark one or all as read.</li>
+        <li>Repeated events collapse into one item (e.g. "Super Link used 12 times today").</li>
+        <li>Settings: turn each event type on or off per channel (in-app / email).</li>
+        <li>Secondary notifications follow after the first release (see below).</li>
+        <li>Pins &amp; Highlights: removed from the UI (entry points, menus, routes). Backend data kept.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="fig-title">Flow — event to notification</div>
+    <div class="flow">
+      <div class="branches b3">
+        <div class="branch"><div class="fn ext"><span class="k">Tasks</span>Automation done / failed</div></div>
+        <div class="branch"><div class="fn ext"><span class="k">Other users</span>Chat / agent shared · Super Link used</div></div>
+        <div class="branch"><div class="fn ext"><span class="k">Me</span>Skill saved · Artifact saved</div></div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+      <div class="fn decide"><span class="k">Check</span>Is this type enabled for this channel?</div>
+      <div class="arr"><span class="lbl">yes</span></div>
+      <div class="fn gen">Add to feed · increase unread badge on 🔔</div>
+      <div class="arr"></div>
+      <div class="fn user">User opens 🔔 → clicks an item</div>
+      <div class="arr"></div>
+      <div class="fn end">Deep-link to the chat / agent / task / artifact<small>item marked read</small></div>
+    </div>
+  </div>
+
+  <h3>Secondary notifications <span class="tag p1">AFTER FIRST RELEASE</span></h3>
+  <p class="intro">Found by scanning the current front-end for events that already happen but aren't told to anyone. ★ = highest value within this tier. "Today" is what the app does now.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Event</th><th>Example</th><th>Today</th></tr>
+    <tr><td class="label" rowspan="7">Tasks &amp; automations</td><td class="label">★ Task finished (while you're elsewhere)</td><td>"<em>Competitor research</em> is done — 3 files ready"</td><td>Dropped if you've switched thread</td></tr>
+    <tr><td class="label">★ Task failed or stuck</td><td>"<em>Weekly digest</em> failed at step 3 — retry"</td><td>Inline card on the open thread only</td></tr>
+    <tr><td class="label">★ Task waiting for you</td><td>"<em>Invoice run</em> needs approval to send 12 emails (expires in 10 min)"</td><td>Inline card only</td></tr>
+    <tr><td class="label">"Run now" finished</td><td>"Manual run of <em>Daily summary</em> finished"</td><td>"Starting shortly" toast, nothing after</td></tr>
+    <tr><td class="label">Reply finished in another chat</td><td>"Your answer in <em>Q3 plan</em> is ready"</td><td>Nothing</td></tr>
+    <tr><td class="label">File / document ready</td><td>"<em>Board deck.pptx</em> is ready"</td><td>Inline only</td></tr>
+    <tr><td class="label">Agent sent or posted something</td><td>"Sent 1 email via Gmail · posted to #sales"</td><td>Inline only</td></tr>
+
+    <tr><td class="label" rowspan="7">Agents &amp; sharing</td><td class="label">★ Your share was accepted</td><td>"Priya added your <em>Support Triage</em> template"</td><td>Sharer not told</td></tr>
+    <tr><td class="label">★ Super Link near limit / expiring / expired</td><td>"Super Link at 90% of credit limit" · "expires in 2 days"</td><td>Dashboard only</td></tr>
+    <tr><td class="label">Super Link revoked (to recipient)</td><td>"Access to <em>Support Triage</em> was revoked"</td><td>Badge on next visit</td></tr>
+    <tr><td class="label">★ Agents need a new model</td><td>"2 of your agents use a retired model — fix now"</td><td>Agents page only</td></tr>
+    <tr><td class="label">Admin disabled a model you use</td><td>"<em>GPT-x</em> was disabled — 1 agent affected"</td><td>Owner not told</td></tr>
+    <tr><td class="label">Team agent published / updated</td><td>"<em>Policy Helper</em> was updated by Sam"</td><td>Members not told</td></tr>
+    <tr><td class="label">Memory updated</td><td>"Learned: prefers bullet summaries · Undo"</td><td>Signal sent, nothing listens</td></tr>
+
+    <tr><td class="label" rowspan="4">Chats &amp; projects</td><td class="label">Your shared chat was copied</td><td>"Sam copied your shared chat <em>Launch plan</em>"</td><td>Sharer not told</td></tr>
+    <tr><td class="label">Chat published to your project</td><td>"New chat in <em>Website revamp</em>"</td><td>Members not told</td></tr>
+    <tr><td class="label">★ Added to / removed from a project</td><td>"You were added to <em>Website revamp</em>"</td><td>Affected person not told</td></tr>
+    <tr><td class="label">Project deleted / restored · member left</td><td>"<em>Old campaign</em> was deleted by Sam"</td><td>Actor only</td></tr>
+
+    <tr><td class="label" rowspan="5">Workspace &amp; team</td><td class="label">★ Invite accepted / member joined</td><td>"Priya joined your workspace"</td><td>Admins not told</td></tr>
+    <tr><td class="label">★ Your role changed / you were removed</td><td>"You're now an Admin in <em>Acme</em>"</td><td>Member not told</td></tr>
+    <tr><td class="label">Invite expiring / expired</td><td>"Invite to jo@acme.com expires tomorrow"</td><td>Nothing</td></tr>
+    <tr><td class="label">Connector shared with the workspace</td><td>"Sam shared <em>Gmail (sales@)</em> with the workspace"</td><td>Owner only</td></tr>
+    <tr><td class="label">Spend limit / workspace settings changed</td><td>"Workspace spend limit set to 50,000 credits"</td><td>Admin only</td></tr>
+
+    <tr><td class="label" rowspan="7">Credits &amp; billing</td><td class="label">★ Credits low / used up</td><td>"You've used 90% of your credits"</td><td>Banner above the chat box only</td></tr>
+    <tr><td class="label">★ Workspace pool near limit / paused</td><td>"Workspace credits at 95% — chats pause at 100%"</td><td>Inline banner</td></tr>
+    <tr><td class="label">★ Payment succeeded / failed</td><td>"Payment failed — update your card"</td><td>Return page only</td></tr>
+    <tr><td class="label">Plan upgraded / subscription cancelled or resumed</td><td>"You're now on Pro"</td><td>Toast</td></tr>
+    <tr><td class="label">Renewal coming up</td><td>"Your plan renews in 3 days"</td><td>Display only</td></tr>
+    <tr><td class="label">Budget reached 65% / 90% / 100%</td><td>"Team budget at 90%"</td><td>Settings options exist, not connected</td></tr>
+    <tr><td class="label">Free-trial credits claimed</td><td>"1,000 trial credits added"</td><td>Toast</td></tr>
+
+    <tr><td class="label" rowspan="4">Connectors</td><td class="label">★ Reconnect needed</td><td>"Gmail disconnected — reconnect to keep agents working"</td><td>Badge on Connectors page only</td></tr>
+    <tr><td class="label">★ Shared connector broke (to its owner)</td><td>"<em>Slack (workspace)</em> expired — only you can reconnect"</td><td>Owner not told</td></tr>
+    <tr><td class="label">Slack needs reinstall / missing permissions</td><td>"Slack app needs reinstalling"</td><td>Backend sends it, front-end drops it</td></tr>
+    <tr><td class="label">Requested connector now available</td><td>"<em>Notion</em> is now available"</td><td>Promised in the request form, nothing sends it</td></tr>
+
+    <tr><td class="label" rowspan="4">Files &amp; account</td><td class="label">Upload failed (background / long)</td><td>"<em>report.pdf</em> failed to upload"</td><td>Toast only while on the page</td></tr>
+    <tr><td class="label">File processed / indexed</td><td>"<em>handbook.pdf</em> is ready for agents"</td><td>No processing status available yet</td></tr>
+    <tr><td class="label">Session expired</td><td>"You were signed out — sign in again"</td><td>Toast, then logout</td></tr>
+    <tr><td class="label">New device sign-in</td><td>"New sign-in from Chrome on Windows"</td><td>No data (Security page uses sample data)</td></tr>
+  </table></div>
+
+  <div class="note flag">
+    <strong>What it needs (from the scan).</strong>
+    <ul>
+      <li><strong>No notification system exists today.</strong> No bell, inbox, unread count, <code>/notifications</code> endpoint or real-time channel (WebSocket or live event stream). Feedback is toasts to the person who did the action, in that tab. The settings page's switches aren't saved anywhere.</li>
+      <li><strong>Backend work needed:</strong> a <code>/notifications</code> endpoint (list · unread count · mark as read), delivery by polling or a live stream, and saved preferences.</li>
+      <li><strong>Sources that already exist:</strong> org audit log (<code>/organizations/{id}/audit</code>), Super Link dashboard (<code>/persona-shares/dashboard</code>), automation runs (<code>/automations</code>).</li>
+      <li><strong>Front-end issues to fix along the way:</strong>
+        <ol>
+          <li>The workspace credit status values don't match (<code>paused</code> vs <code>grace|locked</code>), so a paused workspace never shows the locked banner.</li>
+          <li>Slack <code>needs_reinstall</code> and <code>missing_scopes</code> are read and then dropped.</li>
+          <li>The <code>souvenir:memory-updated</code> signal has no listener.</li>
+          <li>"Workflow invite" in settings points at unused <code>/workflow/*</code> endpoints.</li>
+        </ol>
+      </li>
+    </ul>
+  </div>
+
+  <div class="note ref">
+    <span class="ref-h">Perplexity reference — notifications</span>
+    <ul>
+      <li>The profile/account button sits at the <strong>bottom-left</strong> of the sidebar. Notification settings live in that menu (<em>Profile → Notifications</em>).</li>
+      <li>It notifies when long work finishes: <strong>Deep Research, Computer tasks, scheduled tasks, file creation</strong>. In-app, email and mobile channels can each be switched on or off.</li>
+    </ul>
+    <div class="take"><strong>Take from it:</strong> per-type, per-channel on/off settings, and "long task finished" as the main notification. Our visible bell feed goes a step beyond Perplexity's settings-only approach.</div>
+  </div>
+
+  <h2 id="s5"><span class="num">05</span>P3 — Tasks context panel <span class="tag p3">PRIORITY 3</span></h2>
+  <p class="intro">A live, Perplexity-style right sidebar for a running task: what is happening, who is doing it, and what it costs.</p>
+
+  <div class="split-wire">
+    <div class="wire">
+      <div class="wire-label">Layout sketch — task view + context panel (RSB)</div>
+      <div class="w-frame">
+        <div class="w-row nowrap" style="gap:10px">
+          <div class="w-col" style="flex:1">
+            <div class="w-bubble me">Research 5 competitors and draft a summary deck</div>
+            <div class="w-box solid left tall" style="align-items:flex-start">Plan card<br>✓ Find competitors<br>● Research each<br>○ Draft deck</div>
+            <div class="w-box xtall">Live output / browser view (P4)</div>
+          </div>
+          <div class="w-col" style="width:210px;flex:none;border-left:1px dashed var(--line-strong);padding-left:10px">
+            <span class="w-sec">Progress</span>
+            <div class="bar"><i style="width:72%"></i></div>
+            <div class="w-box tight left" style="border:none;padding:0">72% · ⏱ 4m 12s · 🪙 38.2k</div>
+            <span class="w-sec">Agents · 2 active / 3</span>
+            <div class="w-box solid left">● Researcher · 2m · 14k &nbsp;⏹</div>
+            <div class="w-box solid left">● Writer · 1m · 9k &nbsp;⏹</div>
+            <div class="w-box left">○ Reviewer · waiting</div>
+            <span class="w-sec">Connectors</span>
+            <div class="w-row"><div class="w-box chip">Gmail · used</div><div class="w-box chip">Slack · active</div></div>
+            <span class="w-sec">Artifacts</span>
+            <div class="w-box new left">deck-draft.pptx</div>
+            <span class="w-sec">Skills</span>
+            <div class="w-box left">coming with P4</div>
+            <span class="w-sec">Usage</span>
+            <div class="w-box tight left" style="border:none;padding:0">38.2k tokens · $0.41</div>
+          </div>
+        </div>
+        <div class="w-note">Violet = suggested from Perplexity (Artifacts section, per-agent ⏹ stop) · Progress and Agents rows use the plan card's visual style</div>
+      </div>
+    </div>
+    <div>
+      <div class="table-wrap"><table>
+        <tr><th>Section</th><th>Contents</th></tr>
+        <tr><td class="label">Progress</td><td>Overall progress, time running, tokens spent. Plan-card style.</td></tr>
+        <tr><td class="label">Agents</td><td>Per agent: time, tokens, sub-progress (active / inactive / count). Created vs reused is marked.</td></tr>
+        <tr><td class="label">Connectors</td><td>Which are active and which have been used in this task.</td></tr>
+        <tr><td class="label">Skills</td><td>Skills applied. Empty or hidden until P4.</td></tr>
+        <tr><td class="label">Usage</td><td>Total usage and cost.</td></tr>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="note ref">
+    <span class="ref-h">Perplexity reference — the Computer context panel</span>
+    <ul>
+      <li>Every Computer thread has a <strong>context panel</strong> beside the conversation showing <strong>live progress, generated artifacts and credit usage</strong>.</li>
+      <li>An activity view shows progress lines with short notes, for example which sites are being read.</li>
+      <li>Since Apr 2026 the user can <strong>stop a single sub-agent</strong> or type a follow-up instruction mid-task.</li>
+      <li>Each task runs in an isolated environment with a real filesystem, browser and tools.</li>
+    </ul>
+    <div class="take"><strong>Ideas to adopt:</strong> an Artifacts section, per-agent stop/redirect, and a "currently doing…" line under the progress bar.</div>
+  </div>
+
+  <h2 id="s6"><span class="num">06</span>P4 — Skills &amp; Browser <span class="tag p4">PRIORITY 4</span></h2>
+
+  <h3>6.1 Skills — lifecycle</h3>
+  <div class="figure">
+    <div class="flow">
+      <div class="branches b3">
+        <div class="branch"><div class="fn user"><span class="k">Create with AI</span>Describe a repeated task in chat</div></div>
+        <div class="branch"><div class="fn user"><span class="k">Import</span>Upload an existing <code>.md</code> / <code>SKILL.md</code></div></div>
+        <div class="branch"><div class="fn user"><span class="k">Save from work</span>"Save as a skill" from a good chat or task</div></div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+      <div class="fn gen"><span class="k">Skills page</span>My skills &nbsp;·&nbsp; Souvenir skills<small>create, edit, list · triggers the "Saved as a skill" notification (P2)</small></div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch"><div class="arr short"></div><div class="fn ext">Attached to an agent<small>Advanced Personalize → Skills (P0.7)</small></div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn ext">Loaded into a task automatically<small>chosen by relevance, several can combine</small></div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn ext">Shown in the task context panel<small>P3 Skills section</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>6.2 Browser — watch and take control</h3>
+  <div class="figure">
+    <div class="flow">
+      <div class="fn start">Task needs a website</div>
+      <div class="arr"></div>
+      <div class="fn gen"><span class="k">Agent</span>Opens the browser view inside the task panel<small>live, the user can watch every step</small></div>
+      <div class="arr"></div>
+      <div class="fn decide"><span class="k">Check</span>Is the site logged-in or does it need permission?</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"><span class="lbl">no</span></div>
+          <div class="fn gen">Agent keeps driving<small>reads screen → clicks / types → repeats</small></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"><span class="lbl">yes</span></div>
+          <div class="fn user"><span class="k">Take control</span>User signs in or confirms (keyboard input)</div>
+          <div class="arr short"></div>
+          <div class="fn user">"Hand back" → agent continues in that session</div>
+        </div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+      <div class="fn end">Result returned to the task</div>
+    </div>
+  </div>
+
+  <div class="note ref">
+    <span class="ref-h">Perplexity reference — Computer Skills</span>
+    <ul>
+      <li>A dedicated <strong>Skills</strong> page with <strong>custom skills</strong> and a <strong>library of general skills</strong> from Perplexity.</li>
+      <li>Create via <em>Skills → Create skill → Create with Perplexity</em>, or <strong>import markdown</strong>. <code>SKILL.md</code> is supported.</li>
+      <li>Relevant skills <strong>load automatically</strong> per task, and several can be <strong>combined</strong>.</li>
+    </ul>
+  </div>
+  <div class="note ref">
+    <span class="ref-h">Perplexity reference — browser control</span>
+    <ul>
+      <li>Computer can take full control of the <strong>Comet</strong> browser and work on <strong>any site or logged-in app with permission</strong>, without connectors or MCPs.</li>
+      <li>Loop: screenshot → a multimodal model reads it → mouse and keyboard events → repeat. It works from screen coordinates, so it can't act on anything it can't see.</li>
+      <li>For logins the user <strong>signs in manually first</strong>, then the agent takes over.</li>
+    </ul>
+    <div class="take"><strong>For Souvenir:</strong> a live view inside the P3 panel, a clear "Take control / Hand back" switch, and per-site permission before acting in a logged-in app.</div>
+  </div>
+
+  <!-- ===================================================== PART B -->
+  <div class="part">Part B — New agents flow in detail</div>
+
+  <h2 id="s7"><span class="num">07</span>Design principles</h2>
+  <div class="cgrid">
+    <div class="cc"><span class="id">01</span><b>Purpose in, agent out</b><span>One sentence from the user. Everything else is generated and editable later.</span></div>
+    <div class="cc"><span class="id">02</span><b>Clarify in conversation</b><span>Ambiguity (connector, data source, scope) is resolved with question cards, not settings screens.</span></div>
+    <div class="cc"><span class="id">03</span><b>Workspace owns resources</b><span>Knowledge lives in Library, connectors on the account. Agents use them.</span></div>
+    <div class="cc"><span class="id">04</span><b>One agent, reused</b><span>Created once, reused by chats and tasks. No duplicates.</span></div>
+    <div class="cc"><span class="id">05</span><b>Owner edits, others use or copy</b><span>No shared edit rights, no half-locked agents.</span></div>
+    <div class="cc"><span class="id">06</span><b>Nothing hidden or disabled</b><span>Only what works is shown. No dead or hidden controls.</span></div>
+  </div>
+
+  <h2 id="s8"><span class="num">08</span>Creation flow — master diagram</h2>
+  <p class="intro">Two entry points meet at the same generation step. The only thing the user must supply is the <strong>purpose</strong>.</p>
+
+  <div class="figure">
+    <div class="flow">
+      <div class="fn start">User wants an agent</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Path A — in chat</span>"Create an agent that…"<small>or a task decides it needs one (§12)</small></div>
+          <div class="arr"></div>
+          <div class="fn decide"><span class="k">Question cards</span>Only if something is unclear<small>purpose · connector · output · Library docs</small></div>
+          <div class="loop-back">↺ ask again until clear</div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Path B — manual</span><code>/agents</code> → New agent<small>or pick a template (§13), which pre-fills purpose</small></div>
+          <div class="arr"></div>
+          <div class="fn user"><span class="k">One field</span>Purpose (one sentence)</div>
+          <div class="arr"></div>
+          <div class="fn decide"><span class="k">Question cards (inline)</span>Only if needed — same cards as Path A</div>
+        </div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+      <div class="fn gen wide"><span class="k">Generation — from purpose + answers</span>
+        <ul>
+          <li><strong>Name</strong> and <strong>animated avatar</strong></li>
+          <li><strong>Model</strong>, best fit for the purpose</li>
+          <li><strong>Description</strong> (card blurb)</li>
+          <li><strong>System instructions</strong></li>
+          <li><strong>Tone</strong> = default &nbsp;·&nbsp; <strong>Temperature</strong> = default</li>
+          <li>Skills &amp; Memories = empty</li>
+        </ul>
+      </div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn">Path A: agent card in chat<small>[Use now] [Edit] [Open] · saved straight away</small></div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Path B</span>Agent editor page<small>one page · all fields pre-filled · live preview card · [Cancel] [Finish]</small></div>
+        </div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+      <div class="fn end">Agent ready<small>appears in /agents, the + menu, @mentions, and for tasks</small></div>
+      <div class="arr dash tall"><span class="lbl">edit any time</span></div>
+      <div class="fn user wide"><span class="k">Three synced views (§09)</span>Agent editor page (everything) · Right-sidebar details (basics) · Advanced Personalize modal (Instructions · Skills · Memories · Tone · Temperature)</div>
+    </div>
+    <div class="fig-caption">V1.5: Templates → Purpose → Name → Tone (4 screens) → 5 Configure tabs &nbsp;⟶&nbsp; V2: purpose → one pre-filled editor page → Finish</div>
+  </div>
+
+  <h3>What generation produces</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Field</th><th>Source</th><th>Edit later in</th></tr>
+    <tr><td class="label">Name</td><td>Generated from purpose</td><td>Editor page · Right sidebar</td></tr>
+    <tr><td class="label">Avatar</td><td>Generated animated avatar</td><td>Editor page · Right sidebar (regenerate / upload)</td></tr>
+    <tr><td class="label">Model</td><td>Best fit for the purpose</td><td>Editor page · Right sidebar</td></tr>
+    <tr><td class="label">Description</td><td>Generated from purpose</td><td>Editor page · Right sidebar</td></tr>
+    <tr><td class="label">System instructions</td><td>Purpose + question-card answers</td><td>Editor page · Advanced modal</td></tr>
+    <tr><td class="label">Tone</td><td>Default tone</td><td>Editor page · Advanced modal</td></tr>
+    <tr><td class="label">Temperature</td><td>Default (balanced), tuned to the purpose</td><td>Editor page · Advanced modal</td></tr>
+    <tr><td class="label">Skills</td><td>None to start</td><td>Editor page · Advanced modal</td></tr>
+    <tr><td class="label">Memories</td><td>None to start; build up with use</td><td>Editor page · Advanced modal</td></tr>
+  </table></div>
+
+  <h2 id="s8a"><span class="num">08a</span>Path A — create in chat <span class="route">/chat</span></h2>
+  <p class="intro">The assistant recognises the intent and asks only what it can't infer. Question cards are the <strong>only</strong> place a connector is chosen.</p>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — conversation with question cards</div>
+    <div class="w-frame">
+      <div class="w-bubble me">Make me an agent that triages support emails every morning</div>
+      <div class="w-bubble ai">Sure. A couple of quick questions so it works right:</div>
+      <div class="w-col" style="align-self:flex-start;max-width:560px;width:100%">
+        <div class="w-sec">Which connector should it use?</div>
+        <div class="w-row"><div class="w-box qcard">Gmail (personal)</div><div class="w-box qcard">Gmail (workspace)</div><div class="w-box qcard">Outlook</div></div>
+        <div class="w-sec">Where should results go?</div>
+        <div class="w-row"><div class="w-box qcard">Reply in chat</div><div class="w-box qcard">Slack channel</div><div class="w-box qcard">Email summary</div></div>
+        <div class="w-sec">Any Library docs it should rely on?</div>
+        <div class="w-row"><div class="w-box qcard">📚 Pick from Library</div><div class="w-box qcard">Skip</div></div>
+      </div>
+      <div class="w-box solid" style="align-self:flex-start;max-width:420px;justify-content:flex-start;gap:10px;padding:10px">
+        <div class="w-box avatar">✦</div>
+        <div class="w-col" style="text-align:left;align-items:flex-start"><b style="color:var(--ink);font-family:var(--sans);font-size:13px">Support Triage</b><span>@support-triage · Sorts and drafts replies…</span></div>
+        <div class="w-box btn primary">Use now</div><div class="w-box btn">Edit</div><div class="w-box btn">Open</div>
+      </div>
+      <div class="w-note">Blue = question cards (tap to answer, free text also allowed) · the agent card appears when generation finishes · Edit opens the same editor page as Path B · Open shows details in the right sidebar</div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="fig-title">Sequence — Path A</div>
+    <div class="flow">
+      <div class="fn user">1 · User states intent in chat</div>
+      <div class="arr"></div>
+      <div class="fn gen">2 · Assistant extracts the purpose and detects gaps</div>
+      <div class="arr"></div>
+      <div class="fn decide">3 · Any gaps? (connector / output / docs / scope)</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch"><div class="arr short"><span class="lbl">yes</span></div><div class="fn decide">Show question cards → user answers<small>repeat until clear</small></div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">no</span></div><div class="fn">Skip straight to generation</div></div>
+      </div>
+      <div class="join w2"></div>
+      <div class="arr short"></div>
+      <div class="fn gen">4 · Generate the agent (§08 table)</div>
+      <div class="arr"></div>
+      <div class="fn end">5 · Agent card in chat → available everywhere</div>
+    </div>
+  </div>
+
+  <h2 id="s8b"><span class="num">08b</span>Path B — create manually <span class="route">/agents</span></h2>
+  <p class="intro">Two screens, no tabs: <strong>purpose</strong> → <strong>one agent editor page</strong> with every field pre-filled and editable in one place, next to a live preview card → <strong>Finish</strong>.</p>
+
+  <div class="figure">
+    <div class="fig-title">Flow — Path B</div>
+    <div class="flow">
+      <div class="fn start">/agents → New agent<small>or a template (§13), which pre-fills the purpose</small></div>
+      <div class="arr"></div>
+      <div class="fn user"><span class="k">Screen 1 — Purpose</span>One sentence · optional starter chips</div>
+      <div class="arr"></div>
+      <div class="fn decide"><span class="k">Only if needed</span>Inline question cards<small>same cards as Path A · at most 3</small></div>
+      <div class="arr"><span class="lbl">Continue</span></div>
+      <div class="fn gen">Generation fills every field (§08 table)</div>
+      <div class="arr"></div>
+      <div class="fn user wide"><span class="k">Screen 2 — Agent editor page (single page, no tabs)</span>All fields pre-filled and editable · live preview card updates as you type · Regenerate per field</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch"><div class="arr short"><span class="lbl">Cancel</span></div><div class="fn">Nothing saved<small>back to /agents</small></div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">Finish</span></div><div class="fn end">Agent created<small>back to /agents · details open in the right sidebar</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Screen 1: purpose</div>
+    <div class="w-frame" style="max-width:640px;margin:0 auto">
+      <div class="w-row center"><div class="w-box tight" style="border:none;font-size:15px;color:var(--ink);font-family:var(--serif)">What should this agent do?</div></div>
+      <div class="w-box solid tall left" style="align-items:flex-start">Purpose — one sentence (e.g. "Summarise support tickets and flag urgent ones")</div>
+      <div class="w-row"><div class="w-box chip">Drafts weekly reports</div><div class="w-box chip">Summarises tickets</div><div class="w-box chip">Answers policy questions</div></div>
+      <div class="w-row between"><div class="w-box btn">← Agents</div><div class="w-box btn primary">Continue →</div></div>
+      <div class="w-note">Starter chips fill the field · no Name / Tone steps · clarifying question cards appear inline if needed</div>
+    </div>
+  </div>
+
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Screen 2: agent editor page (create &amp; edit)</div>
+    <div class="w-frame">
+      <div class="w-row between nowrap">
+        <div class="w-box tight" style="border:none;font-size:14px;color:var(--ink);font-family:var(--serif)">New agent — review &amp; edit</div>
+        <div class="w-row nowrap"><div class="w-box btn">Cancel</div><div class="w-box btn primary">Finish — Create agent</div></div>
+      </div>
+      <div class="w-row nowrap" style="gap:14px;align-items:flex-start">
+        <div class="w-col" style="flex:1">
+          <div class="w-sec">Profile</div>
+          <div class="w-row nowrap"><div class="w-box avatar">✦</div><div class="w-box solid left">Animated avatar · [↻ Regenerate] [Upload]</div></div>
+          <div class="w-row nowrap"><div class="w-box solid left">Name — Support Triage</div><div class="w-box tight">↻</div></div>
+          <div class="w-box solid left">Model ▾ — Claude Sonnet</div>
+          <div class="w-row nowrap"><div class="w-box solid left tall" style="align-items:flex-start">Description — Sorts and drafts replies to support emails…</div><div class="w-box tight">↻</div></div>
+          <div class="w-sec">Behaviour</div>
+          <div class="w-row nowrap"><div class="w-box solid left xtall" style="align-items:flex-start">Instructions — generated system prompt (role · goals · tools · output · limits)</div><div class="w-box tight">↻</div></div>
+          <div class="w-row nowrap"><div class="w-box solid left">Tone ▾ — default</div><div class="w-box solid left">Temperature — precise ──●── creative</div></div>
+          <div class="w-sec">Extras</div>
+          <div class="w-box solid left">Skills — + add .md rule file</div>
+          <div class="w-box left">Memories — none yet (learned with use)</div>
+        </div>
+        <div class="w-col" style="width:260px;flex:none">
+          <div class="w-sec">Live preview</div>
+          <div class="w-box solid w-col" style="align-items:stretch;padding:10px;gap:6px;border-color:var(--accent)">
+            <div class="w-row nowrap" style="align-items:center"><div class="w-box avatar">✦</div><div class="w-col" style="text-align:left;align-items:flex-start"><b style="color:var(--ink);font-family:var(--sans);font-size:13px">Support Triage</b><span>@support-triage · Sonnet</span></div></div>
+            <div class="w-box left" style="border:none;padding:0">"Sorts and drafts replies to support emails…"</div>
+            <div class="w-row"><div class="w-box btn primary">Use</div><div class="w-box btn">Share</div></div>
+          </div>
+          <div class="w-note">Exactly how the card will look in lists, chat and pickers. Updates as you type.</div>
+          <div class="w-box new tall">Try it — quick test box (Fix 7)</div>
+        </div>
+      </div>
+      <div class="w-note">One page, no tabs · ↻ = regenerate that field from the purpose · Finish reads "Create agent" for a new agent and "Save changes" when editing · the same page opens from ⋯ → Edit</div>
+    </div>
+  </div>
+
+  <h2 id="s9"><span class="num">09</span>Agent views — editor page, sidebar details, Advanced modal</h2>
+  <p class="intro">The 5-tab Configure system is fully replaced. An agent can be viewed and edited in three places, and all three are <strong>synced to the same agent record</strong>.</p>
+
+  <div class="table-wrap"><table>
+    <tr><th>View</th><th>Where</th><th>Edits</th><th>Use it for</th></tr>
+    <tr><td class="label">Agent editor page</td><td>Full page (<code>/agents/new</code>, <code>/agents/{id}/edit</code>)</td><td>Everything</td><td>Creating, or larger edits</td></tr>
+    <tr><td class="label">Agent details</td><td>Right sidebar beside /agents, chat or a task</td><td>Avatar, name, model, description</td><td>Quick look and quick fixes without leaving the page</td></tr>
+    <tr><td class="label">Advanced Personalize</td><td>Modal, opened from the sidebar or the editor page</td><td>Instructions, Skills, Memories, Tone, <strong>Temperature</strong></td><td>Tuning behaviour</td></tr>
+  </table></div>
+
+  <div class="figure">
+    <div class="fig-title">Sync — three views, one agent record</div>
+    <div class="flow">
+      <div class="branches b3">
+        <div class="branch"><div class="fn user"><span class="k">Full page</span>Agent editor page<small>all fields + live preview · saves on Finish</small></div></div>
+        <div class="branch"><div class="fn user"><span class="k">Right sidebar</span>Agent details<small>basics · saves when you leave a field</small></div></div>
+        <div class="branch"><div class="fn user"><span class="k">Modal</span>Advanced Personalize<small>behaviour · saves on Save</small></div></div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+      <div class="fn gen wide"><span class="k">One agent record</span>Every view reads and writes the same record · an edit in one shows up in the others straight away<small>if two views are open at once, the latest save wins and the other refreshes with an "Updated" note</small></div>
+      <div class="arr"></div>
+      <div class="fn end">Agent Card everywhere updates too<small>lists · chat chips · pickers · the editor's live preview</small></div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="fig-title">Levels in everyday use</div>
+    <div class="flow">
+      <div class="fn wide" style="text-align:left">
+        <span class="k">Level 1 — Agent Card (glanceable: lists, chat, pickers, editor preview)</span>
+        <div class="w-row nowrap" style="align-items:center;gap:10px;margin-top:6px">
+          <div class="w-box avatar">✦</div>
+          <div class="w-col" style="flex:1"><b>Support Triage</b><small style="margin:0">@support-triage · Claude Sonnet · "Sorts and drafts replies to support…"</small></div>
+        </div>
+        <div class="w-row" style="margin-top:8px"><div class="w-box btn primary">Use</div><div class="w-box btn">Share</div><div class="w-box btn">⋯ → Edit</div></div>
+      </div>
+      <div class="arr"><span class="lbl">open</span></div>
+      <div class="fn wide" style="text-align:left">
+        <span class="k">Level 2 — Agent details (right sidebar)</span>
+        <div class="w-col" style="margin-top:6px">
+          <div class="w-row nowrap"><div class="w-box avatar">✦</div><div class="w-box solid left">Animated avatar · [Regenerate] [Upload]</div></div>
+          <div class="w-box solid left">Name</div>
+          <div class="w-box solid left">Model ▾</div>
+          <div class="w-box solid left tall" style="align-items:flex-start">Description</div>
+          <div class="w-row nowrap"><div class="w-box btn">Advanced Personalize</div><div class="w-box btn">Edit page ↗</div></div>
+        </div>
+      </div>
+      <div class="arr"><span class="lbl">opens modal</span></div>
+      <div class="fn wide" style="text-align:left">
+        <span class="k">Level 3 — Advanced Personalize (modal, power users)</span>
+        <div class="w-col" style="margin-top:6px">
+          <div class="w-box solid left"><b>Instructions</b>&nbsp;— system prompt</div>
+          <div class="w-box solid left"><b>Skills</b>&nbsp;— .md rule files (add / remove / reorder)</div>
+          <div class="w-box solid left"><b>Memories</b>&nbsp;— learned preferences (view / edit / delete)</div>
+          <div class="w-box solid left"><b>Tone</b>&nbsp;— default ▾</div>
+          <div class="w-box new left"><b>Temperature</b>&nbsp;— precise ──●── creative</div>
+          <div class="w-row between"><span></span><div class="w-row nowrap"><div class="w-box btn">Cancel</div><div class="w-box btn primary">Save</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table>
+    <tr><th>Advanced Personalize section</th><th>What it is</th></tr>
+    <tr><td class="label">Instructions</td><td>The system prompt. Starts as the generated version and is fully editable.</td></tr>
+    <tr><td class="label">Skills</td><td>Markdown rule files the agent follows (formatting rules, procedures, checklists), like Claude's skills. Uses the global Skills feature once P4 lands.</td></tr>
+    <tr><td class="label">Memories</td><td>Preferences learned across chats over time ("prefers bullet summaries", "always CC the team lead"). Each can be viewed, edited or deleted.</td></tr>
+    <tr><td class="label">Tone</td><td>Starts at the default tone.</td></tr>
+    <tr><td class="label">Temperature</td><td>Slider from <em>Precise</em> to <em>Creative</em>. Starts at a balanced default tuned to the purpose: lower for factual or support work, higher for writing or brainstorming. Replaces V1.5's "Creativity level".</td></tr>
+  </table></div>
+
+  <h3>Who sees what</h3>
+  <div class="figure">
+    <div class="flow">
+      <div class="fn start">Someone opens an agent</div>
+      <div class="arr"></div>
+      <div class="fn decide">Are they the owner?</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch"><div class="arr short"><span class="lbl">yes</span></div><div class="fn gen">Editor page, sidebar fields and modal all editable<small>one save behaviour everywhere</small></div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">no</span></div><div class="fn">Card + details read-only<small>[Use] [Copy] only · no editor page or modal</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="s10"><span class="num">10</span>Knowledge &amp; connectors (workspace-level)</h2>
+  <div class="figure">
+    <div class="flow">
+      <div class="fn ext xwide"><span class="k">Workspace account</span>
+        <div class="branches b2" style="margin-top:8px">
+          <div class="fn ext" style="max-width:none"><span class="k">Library</span>Global media &amp; docs<small>files · URLs · media</small></div>
+          <div class="fn ext" style="max-width:none"><span class="k">Connectors</span>Personal + shared<small>Gmail · Slack · HubSpot…</small></div>
+        </div>
+      </div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch"><div class="arr short"></div><div class="fn">Agent A</div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn">Agent B</div></div>
+        <div class="branch"><div class="arr short"></div><div class="fn">Agent C</div></div>
+      </div>
+      <div class="fig-caption" style="margin-top:10px">No private knowledge · no connector toggles · access limited by the running user's permissions</div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="fig-title">Flow — choosing a connector at run time</div>
+    <div class="flow">
+      <div class="fn gen">Agent needs a tool (e.g. email)</div>
+      <div class="arr"></div>
+      <div class="fn decide">How many connectors could fit?</div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch"><div class="arr short"><span class="lbl">none</span></div><div class="fn user">Offer to connect one inline (P1.6)</div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">one</span></div><div class="fn gen">Use it</div></div>
+        <div class="branch"><div class="arr short"><span class="lbl">several</span></div><div class="fn decide">Question card<small>Gmail (personal) vs Gmail (workspace)</small></div></div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+      <div class="fn end">Run with the chosen connector<small>shown in the P3 panel as active / used</small></div>
+    </div>
+  </div>
+
+  <h2 id="s11"><span class="num">11</span>Sharing model</h2>
+  <p class="intro">Sharing moves out of configuration into a <strong>Share</strong> action on the Agent Card. Every type hands out a <strong>copy</strong>; the original stays owner-only.</p>
+
+  <div class="figure">
+    <div class="flow">
+      <div class="fn start">Owner → Agent Card → Share</div>
+      <div class="fork w3"></div>
+      <div class="branches b3">
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Type 1</span>Share as template</div>
+          <div class="arr short"></div>
+          <div class="fn gen">Package: instructions, skills, relevant memories, required connectors<small>anonymised · sensitive data left out</small></div>
+          <div class="arr short"></div>
+          <div class="fn">Specific people / team, or public link</div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Type 2</span>Publish to workspace</div>
+          <div class="arr short"></div>
+          <div class="fn gen">Listed in the workspace for teammates to find</div>
+          <div class="arr short"></div>
+          <div class="fn">Teammate clicks "Use" → copy</div>
+        </div>
+        <div class="branch">
+          <div class="arr short"></div>
+          <div class="fn user"><span class="k">Type 3</span>Super Link</div>
+          <div class="arr short"></div>
+          <div class="fn gen">Same packaging as type 1<small>+ credit limit · expiry · revoke</small></div>
+          <div class="arr short"></div>
+          <div class="fn">Link opened by the recipient</div>
+        </div>
+      </div>
+      <div class="join w3"></div>
+      <div class="arr short"></div>
+      <div class="fn ext wide"><span class="k">Recipient — install flow (types 1 &amp; 3; type 2 skips to step 3)</span>
+        <ul>
+          <li><strong>1 · Preview:</strong> name, avatar, description, instructions summary, skills, <strong>connectors it needs</strong></li>
+          <li><strong>2 · Add to my agents:</strong> creates an independent copy in their account</li>
+          <li><strong>3 · Connect:</strong> prompted to connect only the connectors it actually needs</li>
+          <li><strong>4 · Land on the new agent</strong>, not a generic library (fixes a V1.5 gap)</li>
+        </ul>
+      </div>
+      <div class="arr"></div>
+      <div class="fn end">Recipient owns and can edit their copy<small>P2 notifications: "Agent received" (recipient) · "Super Link usage" (sharer)</small></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table>
+    <tr><th>Type</th><th>Discovery</th><th>Recipient gets</th><th>Extra controls</th></tr>
+    <tr><td class="label">1 · Share as template</td><td>Link to people/team or public</td><td>Own editable copy</td><td>Choose what's packaged</td></tr>
+    <tr><td class="label">2 · Publish to workspace</td><td>Workspace listing</td><td>Own copy to use</td><td>—</td></tr>
+    <tr><td class="label">3 · Super Link</td><td>Link</td><td>Same as type 1</td><td>Credit limit · expiry · revoke</td></tr>
+  </table></div>
+
+  <div class="note grok">
+    <span class="ref-h">Grok Bot reference — Share as Template (launched 28 Aug 2026)</span>
+    <ul>
+      <li>A <em>Share as Template</em> button packages the bot into an <strong>anonymised, private</strong> template with a link. Clicking it doesn't make the bot public.</li>
+      <li>The sharer then chooses between sharing with their team and creating a public link.</li>
+      <li>The template includes instructions, relevant memories, skills and specific plugins. Custom code and scripts are left out.</li>
+      <li>The recipient reads the preview (charter, skills, routines, requested tools) → <em>Add to Grok Bot</em> → gets an independent copy → connects only the apps it needs.</li>
+    </ul>
+  </div>
+
+  <h2 id="s12"><span class="num">12</span>Using agents in chats &amp; tasks</h2>
+
+  <h3>12.1 Manual use</h3>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — composer with an agent attached</div>
+    <div class="w-frame">
+      <div class="w-row"><div class="w-box chip">✦ Support Triage ✕</div></div>
+      <div class="w-box solid w-col" style="align-items:stretch;padding:10px;gap:8px">
+        <div class="w-box left" style="border:none;justify-content:flex-start">@support-triage summarise today's inbox…</div>
+        <div class="w-row between nowrap"><div class="w-box icon hl">+</div><div class="w-box icon btn primary">➤</div></div>
+      </div>
+      <div class="w-box solid w-col" style="max-width:300px;align-items:stretch;gap:4px;padding:8px">
+        <div class="w-sec" style="margin:0">+ → Agents</div>
+        <div class="w-box left">🔍 Search agents…</div>
+        <div class="w-box left">✦ Support Triage · mine</div>
+        <div class="w-box left">✦ Report Writer · mine</div>
+        <div class="w-box left">✦ Policy Helper · workspace</div>
+      </div>
+      <div class="w-note">Two ways in: @mention in the prompt, or + → Agents · works the same in Chat and Task · workspace-published agents are listed too (nothing silently missing)</div>
+    </div>
+  </div>
+
+  <h3>12.2 Automatic use by tasks — create once, reuse always</h3>
+  <div class="figure">
+    <div class="flow">
+      <div class="fn start">Task prompt</div>
+      <div class="arr"></div>
+      <div class="fn decide">Does the task need an agent?</div>
+      <div class="fork w2"></div>
+      <div class="branches b2">
+        <div class="branch">
+          <div class="arr short"><span class="lbl">no</span></div>
+          <div class="fn">Run the task directly</div>
+        </div>
+        <div class="branch">
+          <div class="arr short"><span class="lbl">yes</span></div>
+          <div class="fn decide">Does a matching agent already exist?<small>owned by or available to the user</small></div>
+          <div class="fork w2"></div>
+          <div class="branches b2">
+            <div class="branch">
+              <div class="arr short"><span class="lbl">yes</span></div>
+              <div class="fn gen">REUSE it</div>
+            </div>
+            <div class="branch">
+              <div class="arr short"><span class="lbl">no</span></div>
+              <div class="fn gen">CREATE once<small>purpose-only generation (§08)</small></div>
+              <div class="arr short"></div>
+              <div class="fn">Saved to the user's agents</div>
+            </div>
+          </div>
+          <div class="join w2"></div>
+          <div class="arr short"></div>
+          <div class="fn end">Agent works on the task</div>
+          <div class="arr dash"></div>
+          <div class="fn ext">P3 context panel shows each agent: created or reused · time · tokens</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>No duplicates.</strong> Before creating an agent, a task looks for an existing one with the same purpose and reuses it.</li>
+    <li>Agents created automatically are normal agents: listed in <code>/agents</code>, editable, shareable and deletable.</li>
+  </ul>
+
+  <h2 id="s13"><span class="num">13</span>Templates page <span class="route">/agents/templates</span></h2>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — two tabs</div>
+    <div class="w-frame">
+      <div class="w-row"><div class="w-box tight active pill">Recommended for you</div><div class="w-box tight pill">General</div></div>
+      <div class="w-row nowrap">
+        <div class="w-box solid tall">Template<br>(for this customer)</div>
+        <div class="w-box solid tall">Template<br>(for this customer)</div>
+        <div class="w-box solid tall">Template<br>(for this customer)</div>
+        <div class="w-box solid tall">Template<br>(for this customer)</div>
+      </div>
+      <div class="w-note">Recommended = picked for this customer (industry, onboarding answers, connected tools, usage) · General = all existing V1.5 templates, kept as-is</div>
+    </div>
+  </div>
+  <div class="figure">
+    <div class="flow">
+      <div class="fn user">Pick a template (either tab)</div>
+      <div class="arr"></div>
+      <div class="fn gen">Purpose pre-filled from the template</div>
+      <div class="arr"></div>
+      <div class="fn end">Same generation step (§08) → agent ready</div>
+    </div>
+  </div>
+
+  <h2 id="s14"><span class="num">14</span>What gets removed from V1.5</h2>
+  <div class="figure">
+    <div class="ba"><div class="fn gone">4-step wizard (Templates → Purpose → Name → Tone)</div><div class="arrow">→</div><div class="fn gen">Purpose-only creation</div></div>
+    <div class="ba"><div class="fn gone">5-tab Configure (Instructions / Profile / Knowledge / Connectors / Sharing)</div><div class="arrow">→</div><div class="fn gen">One editor page + right-sidebar details + Advanced modal, all synced</div></div>
+    <div class="ba"><div class="fn gone">Per-agent Knowledge uploads</div><div class="arrow">→</div><div class="fn gen">Workspace Library</div></div>
+    <div class="ba"><div class="fn gone">Per-agent connector enable/disable</div><div class="arrow">→</div><div class="fn gen">Workspace connectors + question cards</div></div>
+    <div class="ba"><div class="fn gone">Sharing tab (Private/Workspace radio, email invite)</div><div class="arrow">→</div><div class="fn gen">Share action with 3 types</div></div>
+    <div class="ba"><div class="fn gone">Hidden/disabled controls (team visibility, Team filter, team badge)</div><div class="arrow">→</div><div class="fn gen">Removed — nothing ships hidden</div></div>
+    <div class="ba"><div class="fn gone">Wizard sessionStorage chain (<code>persona_wizard_*</code>)</div><div class="arrow">→</div><div class="fn gen">Nothing needed (no multi-page wizard)</div></div>
+    <div class="ba"><div class="fn gone">Floating Test Chat / AI Suggestions / Versions shell</div><div class="arrow">→</div><div class="fn decide">To confirm (see Q1–Q2)</div></div>
+    <div class="ba"><div class="fn gone">Pins &amp; Highlights</div><div class="arrow">→</div><div class="fn gen">Removed for now (P2)</div></div>
+  </div>
+
+  <h2 id="s15"><span class="num">15</span>Open questions</h2>
+  <ol class="qlist">
+    <li><strong>Versioning.</strong> Does V2 keep agent versions and a publish step, or is every save live? If versions stay, what does "publish" mean now that sharing creates copies?</li>
+    <li><strong>Test Chat and AI Suggestions.</strong> Kept (e.g. a "Try it" box on the editor page), or does the user just test the agent in a normal chat?</li>
+    <li><strong>Memories.</strong> Per user, per agent, or both? Do memories learned by a copied agent stay with that copy only?</li>
+    <li><strong>Reuse matching.</strong> How does a task decide an existing agent "matches"? Purpose similarity, name, or a question card?</li>
+    <li><strong>Library permissions.</strong> Can an agent be limited to part of Library (a folder or tag), or does it always see everything the user can see?</li>
+    <li><strong>Default model, tone and temperature.</strong> What are they, and who can change the defaults (workspace admin or user)?</li>
+    <li><strong>"Recommended for you" signals.</strong> Which data personalises the recommendations?</li>
+    <li><strong>Publish to workspace vs Share as template.</strong> Both hand out copies. Is the difference only discovery?</li>
+    <li><strong>Migration.</strong> What happens to existing V1.5 agents' knowledge files and blocked-connector lists: move them into Library, or drop them?</li>
+    <li><strong>Backend coverage.</strong> Which parts need new backend work (generation from purpose, Library, memories, templates, agent matching)? Needs a separate FE→BE handover doc.</li>
+  </ol>
+
+  <h2 id="s16"><span class="num">16</span>Existing vs proposed — pros, cons and why V2 is better</h2>
+  <p class="intro">Area by area: what V1.5 does today, what V2 does instead, and why that's an improvement.</p>
+
+  <h3>16.1 Side-by-side</h3>
+  <div class="table-wrap"><table class="cmp">
+    <tr><th>Area</th><th>Existing (V1.5)</th><th>Proposed (V2)</th><th>Why V2 is better</th></tr>
+    <tr><td class="label">Time to first agent</td><td>4 wizard screens, then 5 Configure tabs before it's really usable</td><td>1 input (purpose) → agent ready</td><td>Much faster to start; most users never need more than the basics</td></tr>
+    <tr><td class="label">Required input</td><td>Purpose, name, tone, then instructions (the only required field)</td><td>Purpose only; the rest is generated</td><td>Nobody writes a system prompt from a blank box</td></tr>
+    <tr><td class="label">Config surface</td><td>5 tabs + 3 floating panels + Help</td><td>One editor page for everything + sidebar for basics + modal for Advanced, all synced</td><td>Less to learn; everything on one page, advanced options out of the way until wanted</td></tr>
+    <tr><td class="label">Save behaviour</td><td>4 different behaviours: new version / update in place / instant / own calls</td><td>One save behaviour for the whole panel</td><td>Predictable; removes V1.5's biggest source of confusion and lost work</td></tr>
+    <tr><td class="label">Leaving a page</td><td>Silent autosave, errors hidden; "Save before leaving?" dialog disabled</td><td>One editor page with an explicit Finish; no multi-page state</td><td>Fewer ways to lose edits unnoticed</td></tr>
+    <tr><td class="label">Knowledge</td><td>Per agent and per version; hard delete, no undo</td><td>Workspace Library, managed in one place</td><td>Upload once, use everywhere; no duplicate files</td></tr>
+    <tr><td class="label">Connectors</td><td>Per-agent toggles that flip silently, no explanation of access</td><td>Workspace connectors; chosen by question cards when it matters</td><td>No setup screen; the choice is made and explained in context</td></tr>
+    <tr><td class="label">Sharing</td><td>Private→Workspace can't be undone; Super Link gives a locked copy; recipient lands on <code>/agents</code></td><td>3 copy-based types; recipient owns an editable copy and lands on it</td><td>Recipients get something they can use and adapt</td></tr>
+    <tr><td class="label">Edit rights</td><td>Owner + locked read-only copies</td><td>Owner-only; every copy fully owned by its installer</td><td>One rule: you edit what you own</td></tr>
+    <tr><td class="label">Reuse</td><td>Manual only; near-duplicates are common</td><td>Tasks reuse a matching agent, create only if none exists</td><td>Agents get better with use instead of multiplying</td></tr>
+    <tr><td class="label">Availability in chat</td><td>Workspace agents silently left out of "Add agent"</td><td>Every agent the user can use is listed</td><td>Nothing silently missing</td></tr>
+    <tr><td class="label">Personalisation</td><td>None; the agent is only what's configured</td><td>Memories learned across chats</td><td>Improves with use, no manual editing</td></tr>
+    <tr><td class="label">Hidden / dead code</td><td>Team visibility, Team filter, team badge, unused constants, fake timestamp</td><td>Only what works ships</td><td>Cheaper to maintain, more honest</td></tr>
+    <tr><td class="label">State management</td><td>~10 session/local storage keys between pages</td><td>Mostly server-side</td><td>Fewer order-dependent bugs; works across devices</td></tr>
+  </table></div>
+
+  <div class="pc">
+    <div class="pc-card">
+      <h4>16.2 Existing system (V1.5)</h4>
+      <span class="col-h pro">Pros</span>
+      <ul>
+        <li>Precise, explicit control over every field</li>
+        <li>Per-agent knowledge and connector isolation; access tightly scoped by default</li>
+        <li>Version history with restore, plus a version limit that protects published and open versions</li>
+        <li>Test Chat and AI Suggestions beside the editor</li>
+        <li>Already built, with many race conditions fixed</li>
+        <li>Nothing auto-generated, so no AI surprises</li>
+      </ul>
+      <span class="col-h con">Cons</span>
+      <ul>
+        <li>Slow start: 4 screens before any value</li>
+        <li>Saving differs per tab; live agents can change without warning</li>
+        <li>Leaving never asks; autosave errors hidden</li>
+        <li>Test panels locked until first Save; lock screen has no Save button</li>
+        <li>Knowledge delete is a hard delete with no undo</li>
+        <li>Workspace agents missing in chat; Brain picker states false ownership</li>
+        <li>Lots of hidden, disabled or dead UI; fragile storage chains</li>
+        <li>Super Link recipients get a locked copy and land on the generic library</li>
+      </ul>
+    </div>
+    <div class="pc-card">
+      <h4>16.3 Proposed system (V2)</h4>
+      <span class="col-h pro">Pros</span>
+      <ul>
+        <li>Fast: purpose in, agent out</li>
+        <li>Conversational: question cards only when needed</li>
+        <li>One editor page, one save behaviour</li>
+        <li>Knowledge and connectors managed once, at workspace level</li>
+        <li>Agents reused across chats and tasks, no duplicates</li>
+        <li>Memories make agents improve over time</li>
+        <li>Simple copy-based sharing; recipients can edit</li>
+        <li>Nothing hidden or disabled ships</li>
+      </ul>
+      <span class="col-h con">Cons / risks</span>
+      <ul>
+        <li><strong>Generation quality:</strong> a weak name, model or prompt becomes the default if unreviewed</li>
+        <li><strong>Broad access by default:</strong> every agent reaches all of Library and every connector</li>
+        <li><strong>Too many question cards</strong> would feel like a form again</li>
+        <li><strong>Clutter:</strong> auto-created agents could fill <code>/agents</code></li>
+        <li><strong>Wrong reuse:</strong> matching may pick an agent that's only roughly right</li>
+        <li><strong>Memory privacy:</strong> users may not know what was learned</li>
+        <li><strong>Lost V1.5 strengths</strong> (history, Test Chat) unless deliberately kept</li>
+        <li><strong>Large rebuild:</strong> new backend work plus migration</li>
+      </ul>
+
+    </div>
+  </div>
+
+  <div class="fixes">
+      <span class="col-h fix">16.3a Proposed fixes for the V2 risks</span>
+      <p class="fix-rule">Shared rule: keep the fast default, and put a visible note with a one-click <em>Undo / Swap / Edit</em> right where it's used. No extra settings screens.</p>
+
+      <div class="fix-item">
+        <b>1 · Generation quality</b> <span class="fix-sub">generate well, then let the user check it</span>
+        <ul>
+          <li><strong>Preview before create:</strong> built into Path B. The editor page shows every generated field pre-filled next to a live preview card, with Regenerate per field; nothing is saved until <em>Finish</em>. In Path A, the chat card has <em>Edit</em>, which opens the same page.</li>
+          <li><strong>Structured prompt:</strong> generated instructions always follow one outline (role · goals · tools · output format · limits), so quality is consistent.</li>
+          <li><strong>More context in:</strong> purpose + question-card answers + workspace context (industry, connected tools).</li>
+          <li><strong>Model chosen by rules</strong> (type of work → model), not free-form AI choice. 2–3 name/avatar options to pick from.</li>
+          <li><strong>Self-test:</strong> run 2–3 sample prompts before showing the agent. An <em>Improve instructions</em> button in Advanced, fed by 👍/👎 on replies.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>2 · Broad access by default</b> <span class="fix-sub">reading is open, writing needs permission, access can be narrowed</span>
+        <ul>
+          <li><strong>Read vs write:</strong> reading from Library and connectors is open. Sending / posting / editing / deleting asks the first time: <em>Allow once / Always allow for this agent</em>.</li>
+          <li><strong>Access line in agent details and the editor page:</strong> "Can access: All Library · Gmail, Slack" with <em>Edit</em> to narrow it to folders, tags or connectors. Off by default.</li>
+          <li><strong>Access follows the person using the agent:</strong> never more than the current user can access. Shared copies never carry the owner's access.</li>
+          <li><strong>Sensitive Library items</strong> (HR, finance) are used only when the scope names them explicitly.</li>
+          <li><strong>Activity log</strong> per run ("Read 3 docs · sent 1 email") in the task side panel.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>3 · Too many question cards</b> <span class="fix-sub">strict limit, smart defaults, never ask twice</span>
+        <ul>
+          <li><strong>Only ask when the answer changes the result.</strong> If there's a single or sensible default, use it and mention it: "Using Gmail (workspace) · change".</li>
+          <li><strong>At most 3 cards</strong> per creation, shown together in one group.</li>
+          <li><strong>Every card has a default selected + Skip</strong>, so pressing Enter moves on.</li>
+          <li><strong>Remember answers</strong> as agent defaults and as workspace preferences.</li>
+          <li><strong>Measure it:</strong> if more than about half of users skip a card, stop asking that question.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>4 · Clutter</b> <span class="fix-sub">task-created agents start temporary and are kept once useful</span>
+        <ul>
+          <li><strong>Temporary at first:</strong> tied to the task that created it, and not shown in the main <code>/agents</code> list.</li>
+          <li><strong>Kept automatically</strong> after 2–3 reuses, or when the user clicks <em>Keep</em> in the task side panel.</li>
+          <li><strong>Auto-archived</strong> after 30 days unused; archived agents can be restored.</li>
+          <li><strong>Filters:</strong> Mine · Created by tasks · Shared with me · Archived.</li>
+          <li><strong>Merge suggestions</strong> for look-alike agents.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>5 · Wrong reuse</b> <span class="fix-sub">match with a confidence score, show the choice, allow a swap</span>
+        <ul>
+          <li><strong>Match on more than the name:</strong> purpose similarity + tools needed + past success.</li>
+          <li><strong>High</strong> confidence → reuse and show "Using Support Triage (reused) · Swap". <strong>Medium</strong> → one question card. <strong>Low</strong> → create a new agent.</li>
+          <li><strong>Learn from swaps:</strong> stop suggesting that match for that type of task.</li>
+          <li><strong>Reuse with small adjustments:</strong> add instructions for that run only, without changing the saved agent.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>6 · Memory privacy</b> <span class="fix-sub">visible, can be undone, never leaves the user</span>
+        <ul>
+          <li><strong>Say when it learns:</strong> a "Learned: prefers bullet summaries · Undo" note, never silent.</li>
+          <li><strong>Memories page per agent:</strong> view / edit / delete, clear all, turn learning off.</li>
+          <li><strong>Memories belong to a person and an agent</strong>, never shared in templates, workspace publishing or Super Links unless the owner picks specific ones.</li>
+          <li><strong>Never saved:</strong> passwords, secrets, payment details, sensitive Library content.</li>
+          <li><strong>Incognito chat:</strong> nothing from that conversation is learned.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>7 · Lost V1.5 strengths</b> <span class="fix-sub">keep the safety nets, drop the ceremony</span>
+        <ul>
+          <li><strong>History:</strong> automatic snapshot on every save; <em>⋯ → History → Restore</em>; the user can pin a version so it's never removed.</li>
+          <li><strong>"Try it" box on the editor page</strong> (next to the preview card), with no lock, because the agent exists as soon as it's created.</li>
+          <li><strong>AI Suggestions → "Improve"</strong> button inside Advanced → Instructions.</li>
+          <li><strong>Tight access</strong> comes back through the Access line (fix 2).</li>
+          <li><strong>Keep the tested pieces:</strong> reuse V1.5's fixed save and race-condition logic where it still applies.</li>
+        </ul>
+      </div>
+
+      <div class="fix-item">
+        <b>8 · Large rebuild</b> <span class="fix-sub">build in phases, reuse what exists, make migration reversible</span>
+        <ul>
+          <li><strong>Start on the existing backend:</strong> <code>POST /persona/starter</code> already generates a prompt from name + purpose, and <code>POST /persona</code> already creates repo + version together. Purpose-only creation can use them first.</li>
+          <li><strong>Phases:</strong> (1) new creation + panel over existing APIs → (2) Library + workspace connectors → (3) memories, matching, templates.</li>
+          <li><strong>Feature flag per workspace</strong>, with V1.5 and V2 running side by side during rollout.</li>
+          <li><strong>Migration (S10)</strong> with a dry-run report and rollback; existing agents behave exactly as before.</li>
+          <li><strong>FE→BE handover doc early</strong>, listing new endpoints per phase.</li>
+        </ul>
+      </div>
+  </div>
+
+  <div class="verdict">
+    <div class="vh">16.4 Verdict — why V2 is better</div>
+    <p>V2 removes the <strong>cost of getting started</strong> and the <strong>inconsistency</strong> that cause most of V1.5's problems. Four ways of saving become one. Four setup screens become one sentence. Per-agent copies of files and connectors become shared workspace resources.</p>
+    <p>V1.5's real strengths are <strong>tight access scoping, version history and inline testing</strong>. They aren't reasons to keep V1.5, but V2 should carry them over deliberately. The fixes in §16.3a do exactly that while also reducing V2's own risks, and §17 sets out when to build them.</p>
+  </div>
+
+  <h2 id="s17"><span class="num">17</span>Suggested improvements beyond this proposal</h2>
+  <p class="intro"><strong>17.1</strong> says <em>when</em> to build the risk fixes from §16.3a. <strong>17.2</strong> adds <em>new ideas</em> that go beyond both the proposal and the fixes.</p>
+
+  <h3>17.1 Risk fixes — build order</h3>
+  <div class="table-wrap"><table>
+    <tr><th>When</th><th>Fix (§16.3a)</th><th>Minimum to ship</th><th>Why at this point</th></tr>
+    <tr><td class="label"><span class="tag p0">WITH P0</span></td><td class="label">1 · Generation quality</td><td>Editor page with live preview card + Regenerate per field (Path B); Edit on the chat card (Path A) · structured prompt outline · model chosen by rules</td><td>Purpose-only creation depends on generating a good agent. Without a review step, bad defaults ship.</td></tr>
+    <tr><td class="label"><span class="tag p0">WITH P0</span></td><td class="label">2 · Broad access</td><td>Approval before write actions · Access line in details/editor · access follows the person using the agent</td><td>Workspace-wide access is the biggest trust risk; it has to be safe on day one.</td></tr>
+    <tr><td class="label"><span class="tag p0">WITH P0</span></td><td class="label">3 · Question cards</td><td>At most 3 cards · a default selected on every card + Skip · remember answers</td><td>Question cards are how both creation paths work; too many breaks the "one input" promise.</td></tr>
+    <tr><td class="label"><span class="tag p0">WITH P0</span></td><td class="label">8 · Large rebuild</td><td>Build on <code>POST /persona/starter</code> + <code>POST /persona</code> · per-workspace feature flag · migration with dry run and rollback</td><td>This is how P0 ships safely at all.</td></tr>
+    <tr><td class="label"><span class="tag p1">SOON AFTER</span></td><td class="label">5 · Wrong reuse</td><td>Confidence-based matching · "(reused) · Swap" · learn from swaps</td><td>Only matters once tasks start reusing agents.</td></tr>
+    <tr><td class="label"><span class="tag p1">SOON AFTER</span></td><td class="label">4 · Clutter</td><td>Task-created agents start temporary · kept after reuse · auto-archive · filters</td><td>Only matters once tasks start creating agents.</td></tr>
+    <tr><td class="label"><span class="tag p1">SOON AFTER</span></td><td class="label">7 · Lost V1.5 strengths</td><td>Auto-snapshot history + restore · "Try it" box · "Improve" button</td><td>Safety nets people will miss within weeks.</td></tr>
+    <tr><td class="label"><span class="tag p2">WITH MEMORIES</span></td><td class="label">6 · Memory privacy</td><td>"Learned · Undo" note · memories page · never shared by default · never-save filter · incognito chat</td><td>Memories must never ship without these controls; privacy trust is hard to win back.</td></tr>
+  </table></div>
+
+  <div class="figure">
+    <div class="fig-title">Where fixes 1–3 slot into the creation flow</div>
+    <div class="flow">
+      <div class="fn user">Purpose (chat or manual)</div>
+      <div class="arr"></div>
+      <div class="fn decide"><span class="k">Fix 3</span>Question cards, at most 3<small>defaults selected · Skip · answers remembered</small></div>
+      <div class="arr"></div>
+      <div class="fn gen"><span class="k">Fix 1</span>Generation<small>structured prompt outline · model chosen by rules · self-test</small></div>
+      <div class="arr"></div>
+      <div class="fn user"><span class="k">Fix 1 · built into Path B</span>Agent editor page: live preview card · Regenerate per field · Finish</div>
+      <div class="arr"></div>
+      <div class="fn end">Agent created<small>Fix 2: Access = All (default), narrow it in details or the editor page</small></div>
+      <div class="arr dash"><span class="lbl">first write action</span></div>
+      <div class="fn decide"><span class="k">Fix 2</span>Allow once / Always allow for this agent</div>
+    </div>
+  </div>
+
+  <h3>17.2 New ideas beyond the proposal</h3>
+  <div class="table-wrap"><table>
+    <tr><th>#</th><th>Idea</th><th>What it adds</th><th>Links to</th></tr>
+    <tr><td class="label">N1</td><td class="label">Template updates</td><td>When the owner improves a shared template, recipients get "Update available" (P2) and can apply or ignore it; their own edits are kept.</td><td>§11 Sharing · P2</td></tr>
+    <tr><td class="label">N2</td><td class="label">Per-agent usage &amp; feedback</td><td>In agent details: runs, tasks, success rate, tokens, 👍/👎 ratio. Also the data for "Used by N teammates" on shared agents.</td><td>§9 · §11 · Fix 1</td></tr>
+    <tr><td class="label">N3</td><td class="label">Effort control in Task</td><td>Light / Standard / High instead of a model picker, as in Perplexity's Effort Mode.</td><td>P1.3</td></tr>
+    <tr><td class="label">N4</td><td class="label">Saved test prompts</td><td>A few example prompts per agent, re-run after each change to its instructions, with before/after replies side by side.</td><td>Fix 1 · Fix 7</td></tr>
+    <tr><td class="label">N5</td><td class="label">Agent triggers &amp; schedules</td><td>Run an agent on a schedule ("every morning 9:00") or on an event (new email, new Slack message). Results and failures appear under P2's Automation status.</td><td>P2 · Tasks</td></tr>
+    <tr><td class="label">N6</td><td class="label">Agents working together</td><td>A task agent can hand a sub-step to another agent (Researcher → Writer → Reviewer). The P3 panel shows the hand-off chain.</td><td>P3 Agents</td></tr>
+    <tr><td class="label">N7</td><td class="label">Starter agents from connected tools</td><td>After onboarding or connecting a tool, suggest 2–3 ready-made agents ("Gmail + HubSpot → <em>Lead follow-up</em>"). Powers <em>Recommended for you</em>.</td><td>§13 Templates</td></tr>
+    <tr><td class="label">N8</td><td class="label">Export / import agents</td><td>Download an agent as a bundle (instructions + skills as <code>.md</code>, <code>SKILL.md</code>-compatible) and import it elsewhere. For portability and backup, and a base for templates.</td><td>§11 · P4 Skills</td></tr>
+    <tr><td class="label">N9</td><td class="label">Spend limits per agent</td><td>Monthly token/credit limit per agent, with a P2 alert at 80% and a pause at 100%. Stops task agents running away with costs.</td><td>P2 · P3 Usage</td></tr>
+    <tr><td class="label">N10</td><td class="label">Quick agent switcher</td><td>Type <code>@</code> for a keyboard picker with recent and favourite agents first, the same in Chat and Task.</td><td>§12.1</td></tr>
+    <tr><td class="label">N11</td><td class="label">Embeddable agents</td><td>A stable agent + chat component or API so the separate e-commerce dashboard can embed Souvenir agents instead of rebuilding them.</td><td>Adjacent work (§01)</td></tr>
+  </table></div>
+
+  <div class="phase">
+    <div><b style="color:var(--accent)">EARLY</b>N2, N3, N10 — small builds that make every day better</div>
+    <div><b style="color:var(--blue)">NEXT</b>N4, N5, N7, N9</div>
+    <div><b style="color:var(--violet)">LATER</b>N1, N6, N8, N11</div>
+  </div>
+
+  <h2 id="s18"><span class="num">18</span>Edge cases — covered, partly covered and missed</h2>
+  <p class="intro">This review draws on the V2 proposal (including the §16.3a fixes), the V1.5 edge cases in the old agents flow doc, and the front-end scan in §04.</p>
+  <div class="legend" style="margin-bottom:18px">
+    <div class="legend-row"><span class="tag p0">✅ COVERED</span></div>
+    <div class="legend-row"><span class="tag p2">🟡 PARTLY COVERED</span> idea is there, behaviour not defined</div>
+    <div class="legend-row"><span class="tag p4">❌ MISSED</span></div>
+    <div class="legend-row"><span class="tag gone">🔴 BEFORE P0</span><span class="tag p2">🟠 DURING P0</span><span class="tag p1">⚪ LATER</span></div>
+  </div>
+
+  <div class="ec-summary">
+    <div class="ec-stat ok"><b>27</b><span>covered</span></div>
+    <div class="ec-stat ecp"><b>9</b><span>partly covered</span></div>
+    <div class="ec-stat miss"><b>34</b><span>missed</span></div>
+    <div class="ec-stat crit"><b>11</b><span>decisions before P0</span></div>
+  </div>
+
+  <h3>18.1 Covered by the proposal <span class="tag p0">✅</span></h3>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Edge case</th><th>How V2 handles it</th><th>Where</th></tr>
+    <tr><td class="label" rowspan="6">Creation</td><td>Vague or ambiguous purpose</td><td>Question cards ask only what's unclear</td><td>§8.2 · Fix 3</td></tr>
+    <tr><td>More than one connector could fit</td><td>Question card picks one (personal vs workspace)</td><td>§10</td></tr>
+    <tr><td>No suitable connector connected</td><td>Offer to connect one inline</td><td>§10 · P1.6</td></tr>
+    <tr><td>Too many questions</td><td>At most 3 cards, defaults, Skip, answers remembered</td><td>Fix 3</td></tr>
+    <tr><td>Weak generated name, prompt or model</td><td>Editor page with live preview + Regenerate per field; structured prompt; model by rules</td><td>§8.3 · Fix 1</td></tr>
+    <tr><td>User abandons the editor page</td><td><em>Cancel</em> saves nothing</td><td>§8.3</td></tr>
+    <tr><td class="label" rowspan="4">Editing</td><td>Same agent open in two views</td><td>Latest save wins; other view shows "Updated"</td><td>§8.3 sync rule</td></tr>
+    <tr><td>Non-owner tries to edit</td><td>Read-only; Use / Copy only</td><td>§9.2</td></tr>
+    <tr><td>Edits lost on leaving (V1.5 bug)</td><td>One explicit save behaviour</td><td>§9.2</td></tr>
+    <tr><td>Live agent changed by accident (V1.5 bug)</td><td>No instant-save tabs; history with restore</td><td>§9.2 · Fix 7</td></tr>
+    <tr><td class="label" rowspan="3">Access</td><td>Agent reaching more than the user can</td><td>Access follows the person using the agent</td><td>Fix 2</td></tr>
+    <tr><td>Agent writes without consent</td><td>Approval on the first write action</td><td>Fix 2</td></tr>
+    <tr><td>Sensitive Library content</td><td>Only used if named in the scope</td><td>Fix 2</td></tr>
+    <tr><td class="label" rowspan="2">Chat</td><td>Workspace agents missing from "Add agent" (V1.5 bug)</td><td>Every usable agent is listed</td><td>§12.1</td></tr>
+    <tr><td>Chat ⇄ Task switch loses input</td><td>Prompt, attachments, agent, project kept</td><td>P1.2</td></tr>
+    <tr><td class="label" rowspan="4">Sharing</td><td>Recipient lands on the generic library (V1.5 bug)</td><td>Lands on their new copy</td><td>§11</td></tr>
+    <tr><td>Recipient lacks needed connectors</td><td>Prompted to connect only what's needed</td><td>§11</td></tr>
+    <tr><td>Sensitive data or memories in a template</td><td>Anonymised; memories never shared by default</td><td>§11 · Fix 6</td></tr>
+    <tr><td>Super Link cost runaway</td><td>Credit limit · expiry · revoke</td><td>§11</td></tr>
+    <tr><td class="label" rowspan="4">Tasks</td><td>Duplicate agents from tasks</td><td>Reuse a match; create once</td><td>§12.2</td></tr>
+    <tr><td>Wrong agent reused</td><td>Confidence + "(reused) · Swap"</td><td>Fix 5</td></tr>
+    <tr><td>Clutter from task-created agents</td><td>Temporary, auto-archive, filters</td><td>Fix 4</td></tr>
+    <tr><td>A site needs a login</td><td>Take control / Hand back</td><td>P4.2</td></tr>
+    <tr><td class="label">Memory</td><td>Unwanted or creepy memory</td><td>Learned · Undo, memories page, never-save list, incognito</td><td>Fix 6</td></tr>
+    <tr><td class="label">Migration</td><td>Existing V1.5 agents</td><td>Behaviour-preserving migration, dry run, rollback, feature flag</td><td>Fix 8 · S10</td></tr>
+    <tr><td class="label" rowspan="2">Notifications</td><td>Task finishes while user is elsewhere</td><td>Secondary "Task finished"</td><td>§04</td></tr>
+    <tr><td>Notification overload</td><td>Grouping + per-type, per-channel settings</td><td>§04</td></tr>
+  </table></div>
+
+  <h3>18.2 Partly covered <span class="tag p2">🟡</span></h3>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Edge case</th><th>What's there</th><th>What's missing → suggestion</th><th>Priority</th></tr>
+    <tr><td class="label">Editing</td><td><strong>Editing an agent while it's running</strong> in a task, chat or automation</td><td>Sync rule for open views</td><td>Old or new version? → each run snapshots the agent at start; edits apply to the next run</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td class="label">Sharing</td><td>Owner improves a template after sharing</td><td>N1 "Update available"</td><td>Effect on teammate copies of a published agent → listing updates, copies get "Update available"</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td class="label">Sharing</td><td>Super Link revoked or expired mid-conversation</td><td>Revoke and expiry exist</td><td>Recipient experience → clear end-of-access message, notification, read-only history</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td class="label">Tasks</td><td><strong>Connector expires mid-task</strong></td><td>"Reconnect needed" notification</td><td>Task behaviour → pause at that step as "Waiting for you", reconnect inline, resume</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td class="label">Tasks</td><td><strong>Credits run out mid-generation or mid-task</strong></td><td>Credit banners and notifications</td><td>Partial work → save partial results, pause instead of failing, resume after top-up</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td class="label">Browser</td><td>User never returns after "Take control"</td><td>Take control / Hand back</td><td>Timeout → pause after N minutes, "Task waiting" notification, release the session safely</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td class="label">Memory</td><td>One-off instruction learned as permanent</td><td>Learned · Undo</td><td>Scope → "Remember this for next time?" or a <em>This chat only</em> option</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td class="label">Notifications</td><td>Target deleted or no longer accessible</td><td>Deep links</td><td>Target state → a "No longer available" page with the reason</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td class="label">Access</td><td>Very large Library as the default scope</td><td>Access line can narrow it</td><td>Relevance and cost → retrieval caps and ranking; "used 3 of 1,200 docs" in the activity log</td><td><span class="tag p2">🟠</span></td></tr>
+  </table></div>
+
+  <h3>18.3 Missed by the proposal <span class="tag p4">❌</span></h3>
+
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Edge case</th><th>Risk</th><th>Suggested handling</th><th>Priority</th></tr>
+
+    <tr><td class="label" rowspan="8">Creation &amp; generation</td><td><strong>Generation fails or times out</strong></td><td>Stuck spinner; purpose lost</td><td>Keep the purpose; <em>Retry</em> and <em>Fill in manually</em> (an editor with empty fields)</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td><strong>Purpose is nonsense, too short or against policy</strong></td><td>Junk agents or unsafe instructions</td><td>Validate first; one clarifying card; refuse politely against policy</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Manual creation duplicates an existing agent</td><td>Duplicates, even though tasks avoid them</td><td>"You already have <em>Support Triage</em> — use it, or create anyway?"</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Name or handle clashes</td><td>Confusing duplicates, broken @mentions</td><td>Unique handles; auto-suffix shown in the preview</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Refresh or close on the editor page before Finish</td><td>Generated content lost</td><td>Local draft + "Resume your unsaved agent?"</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>User leaves chat halfway through the question cards</td><td>Half-created agent in limbo</td><td>No agent until answers are in; a "Continue creating" chip when the chat reopens</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td><strong>Rules pick a model the plan or admin doesn't allow</strong></td><td>Agent created but unusable</td><td>Rules choose only from allowed models</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Purpose in another language</td><td>Instructions generated in English</td><td>Generate in the purpose's language</td><td><span class="tag p1">⚪</span></td></tr>
+
+    <tr><td class="label" rowspan="8">Ownership &amp; lifecycle</td><td><strong>Owner deletes an agent that others depend on</strong> (chats, automations, tasks, listing)</td><td>Broken chips, failing schedules, dead links</td><td>Warn with dependents; soft delete (30 days); pause automations and notify; chats keep name and avatar</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td><strong>Owner leaves the workspace or deletes their account</strong></td><td>Orphaned published agents nobody can edit</td><td>Ownership moves to an admin, or the admin picks a new owner</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>No way to transfer ownership</td><td>"Only the owner edits" becomes a dead end</td><td><em>Transfer ownership</em> for the owner and admins</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Admin can't take down a harmful published agent</td><td>Workspace-wide problem with no fix</td><td>Admin <em>Unpublish / Disable</em> on listings</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Can a published agent be unpublished? (V1.5 was one-way)</td><td>Unclear, feels irreversible</td><td>Unpublishing removes the listing; existing copies stay</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Recipient re-shares their copy</td><td>Attribution confusion</td><td>Allow it with a "Based on <em>X</em> by Sam" line; owner can set "no re-share"</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td>Plan limit on agents, skills or memories hit — even during automatic creation</td><td>Task fails unexpectedly</td><td>Reuse the closest agent or ask; show the limit in the P3 panel</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td><strong>Automation depends on a temporary agent about to be auto-archived</strong></td><td>Automation breaks after 30 days</td><td>Any agent used by an automation is kept automatically</td><td><span class="tag gone">🔴</span></td></tr>
+
+    <tr><td class="label" rowspan="5">Knowledge &amp; connectors</td><td>Library doc deleted, moved or re-permissioned</td><td>Agent quietly loses knowledge</td><td>"1 source no longer available" in details + notify the owner</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td><strong>Template refers to Library folders or connectors the recipient doesn't have</strong></td><td>Broken copy</td><td>Install preview lists missing items; drop them or pick a replacement</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td><strong>Published agent built with the owner's personal connector</strong></td><td>Copies try to use the owner's account</td><td>Never carry personal connections; each user connects their own</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Workspace blocks a connector the template needs</td><td>Installed but can't work</td><td>"Not available in your workspace" before <em>Add to my agents</em></td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Connector account switched (different Gmail)</td><td>Agent acts on the wrong mailbox</td><td>Defaults tied to the account id; ask again if it changes</td><td><span class="tag p1">⚪</span></td></tr>
+
+    <tr><td class="label" rowspan="4">Sharing &amp; billing</td><td><strong>Whose credits pay for each sharing type</strong></td><td>Surprise bills</td><td>Super Link = sharer's credits (with limit); template and workspace copies = recipient's</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Template shared to another workspace or publicly</td><td>Data and billing crossing organisations</td><td>Public templates carry no memories or Library links; installer's workspace is used</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td><strong>Recipient not signed in</strong> (V1.5 bug: return link lost)</td><td>Never gets back to the share</td><td>Keep a return link through sign-in and sign-up</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Template accepted twice / already installed</td><td>Duplicate copies</td><td>"You already have this agent — open it"</td><td><span class="tag p1">⚪</span></td></tr>
+
+    <tr><td class="label" rowspan="4">Tasks &amp; multi-agent</td><td>Two tasks create the same agent at once</td><td>Duplicates despite reuse</td><td>Backend deduplicates by purpose within a short time window</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td><strong>Task reuses a teammate's published agent</strong></td><td>Unclear whose agent and connectors run</td><td>Personal copy on first use (same as the Use flow), marked in the P3 panel</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Agents hand off in a loop (N6)</td><td>Runaway cost</td><td>Hand-off depth limit + spend limit per task</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td><strong>Scheduled run needs write approval with nobody around</strong></td><td>Blocked forever, or acts without approval</td><td>Use earlier "Always allow" approvals; otherwise pause and notify</td><td><span class="tag gone">🔴</span></td></tr>
+
+    <tr><td class="label" rowspan="5">Privacy, security &amp; accessibility</td><td><strong>Passwords typed during "Take control" captured</strong></td><td>Credential leak</td><td>Never record typed input in take-control mode; exclude it from memory and replays</td><td><span class="tag gone">🔴</span></td></tr>
+    <tr><td>Export or delete all memories (GDPR)</td><td>Compliance gap</td><td>Export and delete-all on the memories page, including copies</td><td><span class="tag p2">🟠</span></td></tr>
+    <tr><td>Animated avatars vs reduced motion</td><td>Accessibility</td><td>Static avatar when "reduce motion" is set</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td>Hundreds of agents in the @ / + picker</td><td>Slow, unusable list</td><td>Search, recent and favourites first; hide archived</td><td><span class="tag p1">⚪</span></td></tr>
+    <tr><td>Attaching a project the user can't access or that was deleted</td><td>Error after sending</td><td>List only accessible projects; check again on send</td><td><span class="tag p1">⚪</span></td></tr>
+  </table></div>
+
+  <div class="verdict" style="border-color:var(--red);background:var(--red-soft)">
+    <div class="vh" style="color:var(--red)">18.4 Resolve before building P0 — 🔴 summary</div>
+    <ol style="margin:6px 0 0">
+      <li><strong>Snapshot per run:</strong> editing a running agent never changes a run in progress.</li>
+      <li><strong>Generation failure and junk purposes:</strong> retry, manual fill, validation.</li>
+      <li><strong>Allowed models only:</strong> the rules never pick a blocked model.</li>
+      <li><strong>Delete, leave and orphan rules:</strong> dependency warning, soft delete, admin takes over.</li>
+      <li><strong>Automations protect their agents:</strong> never auto-archive an agent a schedule uses.</li>
+      <li><strong>Install-time checks:</strong> missing Library items or connectors; never carry personal connectors.</li>
+      <li><strong>Billing rules for each sharing type:</strong> who pays, clearly stated.</li>
+      <li><strong>Sign-in return link</strong> for share recipients.</li>
+      <li><strong>Task using a teammate's agent:</strong> copy on first use.</li>
+      <li><strong>Pause, don't fail:</strong> expired connector, credits running out, write approval with nobody around.</li>
+      <li><strong>No credential capture</strong> in take-control mode.</li>
+    </ol>
+  </div>
+
+  <h2 id="refs"><span class="num">—</span>References</h2>
+  <ul class="refs">
+    <li>Source doc: <code>docs v2/scope/souvenir-v2-scope.md</code> · V1.5 flow: <code>docs v1.5/flows/agents-flow-diagram.html</code></li>
+    <li><strong>Grok Bot:</strong>
+      <a href="https://x.ai/bot/guides/templates-for-grok-bot">Templates for Grok Bot (x.ai)</a> ·
+      <a href="https://daily.dev/posts/grok-bot-templates-are-now-shareable-wtpqmq6jk">daily.dev</a> ·
+      <a href="https://www.aibuilderclub.com/blog/grok-bot-templates">AI Builder Club</a></li>
+    <li><strong>Perplexity:</strong>
+      <a href="https://www.perplexity.ai/hub/blog/introducing-perplexity-computer">Introducing Computer</a> ·
+      <a href="https://buildfastwithai.com/blogs/what-is-perplexity-computer">What is Computer</a> ·
+      <a href="https://releasebot.io/updates/perplexity-ai">Sept 2026 release notes</a> ·
+      <a href="https://www.perplexity.ai/changelog/computer-in-microsoft-365-improved-context-visibility-and-new-analytics">Context visibility changelog</a> ·
+      <a href="https://www.datacamp.com/tutorial/perplexity-computer">DataCamp review</a> ·
+      <a href="https://www.datastudios.org/post/perplexity-ai-all-available-models-modes-and-how-they-differ-in-late-2025">Models &amp; modes</a> ·
+      <a href="https://www.guideflow.com/tutorial/how-to-add-a-thread-to-a-space-in-perplexity">Add thread to Space</a> ·
+      <a href="https://www.perplexity.ai/help-center/en/articles/2026091802-troubleshooting-connectors">Connectors help</a> ·
+      <a href="https://www.perplexity.ai/help-center/en/articles/10352990-account-settings">Account &amp; settings</a> ·
+      <a href="https://www.guideflow.com/tutorial/how-to-enable-computer-tasks-email-notification-in-perplexity">Task notifications</a> ·
+      <a href="https://www.perplexity.ai/hub/academy/how-to-use-computer-skills">Computer Skills</a> ·
+      <a href="https://www.testingcatalog.com/perplexity-rolling-out-skills-support-for-perplexity-computer/">SKILL.md support</a> ·
+      <a href="https://x.com/perplexity_ai/status/2033598416962592813">Computer controls Comet</a> ·
+      <a href="https://fazm.ai/blog/perplexity-computer-browser-control">Browser control (Fazm)</a></li>
+  </ul>
+
+  <footer>SOUVENIR — PRODUCT SCOPE V2 — SCOPE &amp; NEW AGENTS FLOW — PROPOSED</footer>
+</div>
+</body>
+</html>

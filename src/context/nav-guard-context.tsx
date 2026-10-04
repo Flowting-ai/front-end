@@ -202,7 +202,7 @@ export function NavGuardModal() {
       onClick={() => { if (!isSaving) cancelLeave() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        backgroundColor: 'color-mix(in srgb, var(--neutral-950) 40%, transparent)', backdropFilter: 'blur(2px)',
+        backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >

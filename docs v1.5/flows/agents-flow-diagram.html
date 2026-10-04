@@ -22,6 +22,8 @@
     --amber-soft:#F3E7D3;
     --red:#9C3B3B;
     --red-soft:#F3E1E1;
+    --violet:#5B4A82;
+    --violet-soft:#EDE7F5;
     --mono: "IBM Plex Mono","SF Mono",Consolas,monospace;
     --serif: "Source Serif 4","Iowan Old Style",Georgia,serif;
     --sans: "IBM Plex Sans","Inter",system-ui,sans-serif;
@@ -55,6 +57,7 @@
   h3.io-head.out .dot{background:var(--accent);}
   h3.io-head.save .dot{background:var(--red);}
   h3.io-head.panel .dot{background:var(--ink-soft);}
+  h3.io-head.propose .dot{background:var(--violet);}
   .na-block{ font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:6px 0 4px; }
   .w-bordered{ border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
   .legend{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:36px; }
@@ -68,19 +71,21 @@
   code{font-family:var(--mono); font-size:13px; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:3px;}
   table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
   th{text-align:left; font-family:var(--mono); font-weight:500; font-size:11px; color:var(--ink-soft); padding:7px 10px; border-bottom:1.5px solid var(--line-strong);}
-  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A;}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:#33353A; word-wrap:break-word; overflow-wrap:break-word; hyphens:auto;}
   tr:last-child td{border-bottom:1.5px solid var(--line-strong);}
   td.label, th.label{font-weight:600; color:var(--ink); white-space:nowrap;}
   .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:500;}
   .tag.fixed{background:var(--accent-soft); color:var(--accent);}
   .tag.gap{background:var(--red-soft); color:var(--red);}
   .tag.note{background:var(--amber-soft); color:var(--amber);}
+  .tag.propose{background:var(--violet-soft); color:var(--violet);}
   .figure{margin:22px 0 8px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:18px 8px;}
   .figure svg{display:block; width:100%; height:auto;}
   .fig-caption{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:8px 4px 8px; text-align:center;}
   .note{background:var(--accent-soft); border-left:3px solid var(--accent); padding:11px 15px; font-size:13.5px; color:#2B3B33; margin:14px 0; border-radius:0 4px 4px 0;}
   .note.flag{background:var(--amber-soft); border-left-color:var(--amber); color:#4A3517;}
   .note.gap{background:var(--red-soft); border-left-color:var(--red); color:#4A1F1F;}
+  .note.propose{background:var(--violet-soft); border-left-color:var(--violet); color:#3A2F57;}
   .page-card{background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px 22px 20px; margin-top:14px;}
   .page-card + .page-card{margin-top:16px;}
   .kv{display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13.5px; margin:6px 0;}
@@ -149,7 +154,7 @@
   <h1>Agents — Page-by-Page Reference</h1>
   <p class="subtitle">Every screen a user (or their teammate, or a Super Link recipient) touches, in the order they touch it — what each page reads on arrival, what can go wrong, and exactly what it hands to the next screen.</p>
 
-  <div class="changelog"><b>V1.5 —</b> Every page now follows the same fixed schema, in this order: <strong>Layout sketch</strong>, <strong>Input</strong>, <strong>Edge cases</strong>, <strong>Navigation</strong> (every way to leave the page and what happens to data on each one — not just the "happy path" forward), <strong>Save &amp; Publish</strong> (how this specific page's data actually gets persisted), <strong>Floating panels &amp; Help</strong> (Test Chat / AI Suggestions / Versions + the per-field help content, where applicable). Pages without a concept (e.g. the wizard has no Save/Publish, no floating panels) say so explicitly rather than omitting the heading. Facts verified against source this session; back-nav and dirty-tracking bugs called out where fixed.</div>
+  <div class="changelog"><b>V1.5 —</b> Every page now follows the same fixed schema, in this order: <strong>Layout sketch</strong>, <strong>Input</strong>, <strong>Edge cases</strong>, <strong>Navigation</strong> (every way to leave the page and what happens to data on each one — not just the "happy path" forward), <strong>Save &amp; Publish</strong> (how this specific page's data actually gets persisted), <strong>Floating panels &amp; Help</strong> (Test Chat / AI Suggestions / Versions + the per-field help content, where applicable). Pages without a concept (e.g. the wizard has no Save/Publish, no floating panels) say so explicitly rather than omitting the heading. Facts verified against source this session; back-nav and dirty-tracking bugs called out where fixed.<br><br><b>+ UX research pass —</b> Each page now also carries a <strong>Proposed changes</strong> section, distilled from a 47-case-study review of growth.design's product/behavioral-psychology breakdowns (full notes in <code>docs v1.5/ux research/</code>) cross-referenced against this doc. Each proposal cites the source case study and the specific principle it draws on — these are recommendations under consideration, not committed roadmap or implemented behavior.</div>
 
   <div class="legend">
     <div class="legend-row"><span class="legend-dot" style="background:var(--blue)"></span>Input</div>
@@ -157,6 +162,7 @@
     <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span>Navigation</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--red)"></span>Save &amp; Publish</div>
     <div class="legend-row"><span class="legend-dot" style="background:var(--ink-soft)"></span>Floating panels &amp; Help</div>
+    <div class="legend-row"><span class="legend-dot" style="background:var(--violet)"></span>Proposed changes</div>
   </div>
 
   <div class="toc">
@@ -176,6 +182,7 @@
       <li><a href="#p11">Super Link — recipient accept page</a></li>
       <li><a href="#p12">Attaching an agent to a new chat</a></li>
       <li><a href="#p13">Where else agents appear (reference)</a></li>
+      <li><a href="#p14">Cross-cutting UX proposals</a></li>
     </ol>
   </div>
 
@@ -260,6 +267,32 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — the Test Chat / AI Suggestions / Versions shell and the per-field Help system only exist inside <code>/agent/configure/*</code> (§06–§10). The wizard has no equivalent.</p>
 
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">fabricated-data</span> Template metadata is split across 4 separate hand-maintained maps (<code>TEMPLATE_ROWS</code>, <code>TEMPLATE_ICONS</code>, <code>TEMPLATE_DESCRIPTIONS</code>, <code>TEMPLATE_COLORS</code>) all keyed by the same 15 template names, with nothing enforcing they stay in sync — a typo in one silently drops that template's icon/description/color with no error. — <code>front-end/src/app/(app)/agents/templates/page.tsx:31-95</code></li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Goal-oriented filter tabs above the template grid</strong> — <code>mcdonalds-self-serve-ux.md</code> (Jobs-To-Be-Done Shortcuts). Split the 15 flat cards into filterable groups (e.g. "Support," "Writing," "Research," "Data") the way McDonald's kiosk splits its menu by intent instead of showing one undifferentiated catalog — the same Hick's-Law choice-overload problem, solved by re-organizing existing choices rather than adding a step. <strong>Backend:</strong> <span class="tag fixed">ready</span> — template data is a frontend-only preset list; no API involved.</li>
+    <li><span class="tag propose">proposed</span> <strong>Visible step indicator across the 4-screen wizard</strong> ("Step 1 of 4") — <code>hey-user-onboarding.md</code>. None of Templates→Purpose→Name→Tone currently shows where the user is in the sequence; an accurate count reduces "how much longer" uncertainty. Applies to all four wizard pages (§01–§04) — shown here once, cross-referenced on the others rather than repeated in full. <strong>Backend:</strong> <span class="tag fixed">ready</span> — purely a frontend wizard-state display.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed filter row + step indicator</div>
+    <div class="w-frame" style="max-width:764px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-row" style="flex:none; gap:4px;">
+          <div class="w-box tab active" style="width:64px;">All</div>
+          <div class="w-box tab" style="width:64px;">Support</div>
+          <div class="w-box tab" style="width:64px;">Writing</div>
+          <div class="w-box tab" style="width:64px;">Research</div>
+        </div>
+        <div class="w-box tight" style="flex:none;">Step 1 of 4</div>
+      </div>
+      <div class="w-content-width">New row inserted above the existing 764px template grid — tabs reuse the same <code>.w-box.tab</code> pill style already used for configure-tab navigation; step indicator sits top-right of the same row</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 02 — PURPOSE ══════════════════════════════════ -->
   <h2 id="p02"><span class="num">02</span>Purpose<span class="page-route">/agents/basics/purpose</span></h2>
   <p class="page-intro">One-sentence description — becomes the card blurb. 120-char cap.</p>
@@ -309,6 +342,29 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — wizard pages have no Test Chat / AI Suggestions / Versions shell and no Help system.</p>
 
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">dead-code</span> <code>front-end/src/app/(app)/agents/new/constants.ts</code> (a 31-language <code>LANGUAGES</code> array plus <code>DEFAULT_LANGUAGE</code>/<code>DEFAULT_PERSONA_NAME</code>) is never imported anywhere in the codebase — an apparent leftover from an earlier "new agent" language-selection step that no longer exists in this wizard. — <code>front-end/src/app/(app)/agents/new/constants.ts:1-41</code></li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Tap-to-fill starter chips</strong> above the blank textarea (e.g. "Drafts weekly reports," "Summarizes support tickets," "Answers policy questions") — <code>been-onboarding.md</code> (Spark Effect). A big, vague ask ("describe what this agent does" from a blank box) stalls people the same way Been's original complex first step did; a small, concrete, one-tap starting point fixes it without adding a screen. <strong>Backend:</strong> <span class="tag fixed">ready</span> — a fixed frontend suggestion list, no API needed.</li>
+    <li>Step indicator "Step 2 of 4" — see §01's Proposed changes for the full rationale (<code>hey-user-onboarding.md</code>); applies here unchanged. <strong>Backend:</strong> <span class="tag fixed">ready</span>.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed starter chips</div>
+    <div class="w-frame" style="max-width:684px; margin:0 auto;">
+      <div class="w-box tall w-bordered" style="border-radius:10px;">Textarea — purpose, rows=2</div>
+      <div class="w-row" style="flex:none; gap:6px; flex-wrap:wrap;">
+        <div class="w-box tab" style="width:auto; padding:5px 10px;">Drafts weekly reports</div>
+        <div class="w-box tab" style="width:auto; padding:5px 10px;">Summarizes support tickets</div>
+        <div class="w-box tab" style="width:auto; padding:5px 10px;">Answers policy questions</div>
+      </div>
+      <div class="w-content-width">New chip row inserted directly under the textarea — tapping a chip fills the textarea with that text (still editable after)</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 03 — NAME ══════════════════════════════════ -->
   <h2 id="p03"><span class="num">03</span>Name<span class="page-route">/agents/basics/name</span></h2>
   <p class="page-intro">Name + a live <code>@handle</code> preview.</p>
@@ -352,6 +408,27 @@
 
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Live mini agent-card preview next to the name/handle inputs</strong> — <code>letterboxd-jobs-to-be-done.md</code> (Show &gt; Tell). The page's own subtitle already promises "this is how it appears in your library and in chat," but nothing on the page actually shows that — only a bare <code>@handle</code> string. A small live preview (avatar placeholder + name + handle, styled like a real PersonaCard) makes the promise visible instead of asserted. <strong>Backend:</strong> <span class="tag fixed">ready</span> — name/avatar are already in the wizard draft client-side, nothing new to fetch.</li>
+    <li>Step indicator "Step 3 of 4" — see §01's Proposed changes (<code>hey-user-onboarding.md</code>); applies here unchanged. <strong>Backend:</strong> <span class="tag fixed">ready</span>.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed live preview beside the inputs</div>
+    <div class="w-frame" style="flex-direction:row; max-width:620px; margin:0 auto; align-items:center;">
+      <div class="w-col" style="flex:1; gap:8px;">
+        <div class="w-box solid" style="border-radius:10px;">Input — name</div>
+        <div class="w-row"><div class="w-box tight">@handle preview</div></div>
+      </div>
+      <div class="w-col w-bordered" style="flex:none; width:160px; padding:10px; gap:6px; align-items:center;">
+        <div class="w-box avatar" style="width:40px; min-height:40px;">av</div>
+        <div class="w-box tight">Name</div>
+        <div class="w-box tight" style="color:var(--ink-faint);">@handle</div>
+        <div class="w-note">mini PersonaCard preview — new</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════ 04 — TONE ══════════════════════════════════ -->
   <h2 id="p04"><span class="num">04</span>Tone<span class="page-route">/agents/basics/tone</span></h2>
@@ -408,10 +485,50 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — the repo doesn't exist until Continue fires, and by the time it does you've already navigated to Instructions, where the panel shell (§06a) takes over.</p>
 
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">fabricated-data</span> <code>FALLBACK_TONES</code> — 4 hardcoded tone cards with fixed example quotes — is shown whenever the <code>personaStarter</code> fetch is slow or fails, rendered identically to real personalized tone options with no indicator that they're generic fallbacks rather than tailored to this agent's name/purpose. — <code>front-end/src/app/(app)/agents/basics/tone/page.tsx:33-58</code></li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Flip the visual hierarchy of the 4 tone cards</strong> — <code>landing-page-ux-psychology.md</code> (Squint Test). The example sentence is the actual decision-relevant content (it's the only concrete preview of what will change), but the tone label ("Direct &amp; confident") currently carries more visual weight than the "Ex —" text underneath it. A squint-test pass would make the example the dominant element per card and the label secondary. <strong>Backend:</strong> <span class="tag fixed">ready</span> — pure CSS/layout change on already-loaded card data.</li>
+    <li>Step indicator "Step 4 of 4" — see §01's Proposed changes (<code>hey-user-onboarding.md</code>); applies here unchanged. <strong>Backend:</strong> <span class="tag fixed">ready</span>.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — one tone card, current vs. proposed hierarchy</div>
+    <div class="w-row" style="max-width:640px; margin:0 auto;">
+      <div class="w-box solid" style="min-height:100px; flex-direction:column; gap:4px;">
+        <div class="w-note" style="font-size:9px;">current</div>
+        <div class="w-box tight" style="font-weight:600;">Direct &amp; confident</div>
+        <div class="w-box tight" style="opacity:.6; font-size:8px;">Ex — "Here's what you need to know."</div>
+      </div>
+      <div class="w-box solid" style="min-height:100px; flex-direction:column; gap:4px;">
+        <div class="w-note" style="font-size:9px;">proposed</div>
+        <div class="w-box tight" style="opacity:.6; font-size:8px;">Direct &amp; confident</div>
+        <div class="w-box tight" style="font-weight:600;">"Here's what you need to know."</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 05 — REPO CREATED ══════════════════════════════════ -->
   <h2 id="p05"><span class="num">05</span>Repo &amp; v001 created<span class="page-route">POST /persona</span></h2>
   <p class="page-intro">Not a page — the handoff moment between the wizard and Configure. From here on, every Configure tab is addressed by the same two query params.</p>
   <div class="note">Every one of the 5 Configure tabs takes the same input shape: <code>?repoId=&amp;versionId=&amp;name=</code>. From here down, "Input" only lists what's <em>additional</em> to that.</div>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Make the creation call's real work visible instead of a blank gap</strong> — <code>labor-perception-bias.md</code> (the corpus's central, cited finding: visible labor lifts perceived value up to 15%). The <code>POST /persona/starter</code> → <code>fetchModelsWithCache</code> → <code>POST /persona</code> chain that runs between Tone's Continue and landing here is a real sequence of work with nothing shown for it beyond a generic loading state — the exact "is it actually doing something?" gap this case study's whole thesis is about. <strong>Backend:</strong> <span class="tag fixed">ready</span> — these are 3 already-existing sequential calls; labeling each step is a frontend sequencing change only.</li>
+    <li><span class="tag propose">proposed</span> <strong>Acknowledge the milestone on arrival</strong> — <code>audible-purchase-ux.md</code> (Successful Transitions: bridge the gap between "the thing you asked for happened" and "here's the payoff"). Landing straight into Instructions' blank-ish form gives no signal that the agent now genuinely exists; even a one-line, non-blocking confirmation ("Agent created — now let's give it instructions") would close that gap without adding a step. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the repo/version already exists by this point; just a frontend banner.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed arrival banner atop Instructions</div>
+    <div class="w-frame" style="max-width:714px; margin:0 auto;">
+      <div class="w-box solid tight" style="justify-content:flex-start; border-color:var(--accent); color:var(--accent);">✓ Agent created — now let's give it instructions</div>
+      <div class="w-box xtall">Instruction textarea — unchanged below</div>
+      <div class="w-content-width">Non-blocking, self-dismissing banner (e.g. fades after a few seconds) — not a modal, doesn't interrupt typing</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════ 06 — INSTRUCTIONS ══════════════════════════════════ -->
   <h2 id="p06"><span class="num">06</span>Configure — Instructions<span class="page-route">/agent/configure/instructions</span></h2>
@@ -524,6 +641,18 @@
     <li><strong>Help panel</strong> (bottom-left ⓘ), Instructions' items: <em>Model</em> (optional), <em>Agent Instruction</em> (<strong>required</strong> — the only required field across all 5 tabs), <em>Creativity Level</em>/temperature (optional), <em>Example Conversations</em> (optional), plus static entries for <em>Save Version</em> and <em>Publish</em> themselves. Title badge reads "Required" (blue) here — every other tab's badge reads "Optional" (neutral).</li>
   </ul>
 
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Anchor Publish's payoff to what the agent can now do, not a generic congratulation</strong> — <code>zapier-upgrade.md</code> (Peak-End Rule — its own case study explicitly critiques confetti that "takes focus away from" the actual outcome). If any celebratory treatment is ever added to the Publish action here, its copy should reference the tangible result ("Your agent is live — ready to help with X") rather than a decorative animation with no connection to value delivered. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the agent's own description text is already returned by the publish response; this is copy/UI only.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — outcome-anchored publish toast (if one is ever added)</div>
+    <div class="w-frame" style="max-width:360px; margin:0 auto;">
+      <div class="w-box solid tight" style="justify-content:flex-start; border-color:var(--accent); color:var(--accent);">✓ Your agent is live — ready to help with support tickets</div>
+      <div class="w-content-width">was (hypothetical): generic "🎉 Published!" with no reference to what the agent actually does</div>
+    </div>
+  </div>
+
   <h3 id="p06a">§06a — Floating panels <span class="w-note" style="display:inline">(shared shell — identical on all 5 configure tabs, not just Instructions)</span></h3>
   <p class="page-intro">One at a time, mutually exclusive, triggered from the same <code>FloatingMenu</code> pill shown above. <strong>Not an overlay</strong> — the opened panel is a real flex sibling of the main configure panel in the SAME outer row, so the left panel actually shrinks to make room (its content column stays fixed at 714px/429px and just re-centers in the smaller space; only the surrounding gutter shrinks). Test Chat and AI Suggestions both show a blurred lock overlay ("Save a version first to unlock...") until at least one version exists — <code>panelsLocked</code> in the shared context. Versions is never locked.</p>
 
@@ -601,6 +730,23 @@
       <div class="w-row solid" style="align-items:center; gap:8px;"><div class="w-box icon" style="width:37px; min-height:37px; border-radius:8px; flex:none;">av</div><div class="w-note" style="flex:1">@handle·v002 — Sep 15 — [restore] [delete, disabled — published]</div></div>
       <div class="w-row solid" style="align-items:center; gap:8px;"><div class="w-box icon" style="width:37px; min-height:37px; border-radius:8px; flex:none;">av</div><div class="w-note" style="flex:1">@handle·v001 — Sep 14 — [restore] [delete]</div></div>
       <div class="w-content-width">Panel: 400px wide · never locked · row avatar 37×37, radius 8 (square, not circular) · close: IconButton size="md"</div>
+    </div>
+  </div>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Make the locked Test Chat / AI Suggestions overlay itself the unlock action</strong> — <code>linkedin-retention-triggers.md</code> (Micro-Commitment Principle — a small, contextually-coherent action converts far better than a cold, disconnected instruction). The overlay currently just reads "Save a version first to unlock…," leaving the user to go find the Save button elsewhere in the nav bar. Turning the overlay's own text into a "Save now to unlock" button fires Save directly from the exact spot the user is already looking at. <strong>Backend:</strong> <span class="tag fixed">ready</span> — wires to the existing Save endpoint; no new API needed.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — Test Chat panel, proposed locked state</div>
+    <div class="w-frame" style="min-height:220px; max-width:448px; margin:0 auto;">
+      <div class="w-row between">
+        <div class="w-row" style="flex:none"><div class="w-box avatar" style="width:36px; min-height:36px; border-radius:10px;">av</div><div class="w-box tight">Agent name</div></div>
+        <div class="w-row" style="flex:none"><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">⤢</div><div class="w-box icon" style="width:36px; min-height:36px; border-radius:10px;">✕</div></div>
+      </div>
+      <div class="w-box xtall" style="opacity:.4;">blurred messages</div>
+      <div class="w-box btn primary" style="align-self:center;">Save now to unlock →</div>
+      <div class="w-content-width">Was static text ("Save a version first to unlock…") over the blurred panel — now a real <code>.w-box.btn.primary</code> button that fires the existing Save action in place</div>
     </div>
   </div>
 
@@ -684,6 +830,21 @@
     <li><strong>Help panel</strong> items: <em>Avatar</em> (optional), <em>Name</em> (optional here — only Instructions' prompt is actually required), <em>Handle</em> (optional), <em>Description</em> (optional), <em>Tags</em> (optional). Title badge reads "Optional".</li>
   </ul>
 
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Nudge toward a custom avatar instead of leaving it fully optional and silent</strong> — <code>headspace-user-onboarding.md</code> (Endowment Effect — effort invested in personalizing something increases how much a person feels it's theirs). A generic/seed avatar is a valid default, but a small, one-time inline prompt ("Give it a face — agents with a custom avatar feel more like yours") next to the avatar circle would convert some of that optionality into a deliberate customization moment, the same lever Headspace's onboarding uses. <strong>Backend:</strong> <span class="tag fixed">ready</span> — copy/UI only, avatar upload already works.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed avatar nudge</div>
+    <div class="w-frame" style="max-width:429px; margin:0 auto;">
+      <div class="w-row center" style="flex-direction:column; gap:4px;">
+        <div class="w-box avatar">avatar</div>
+        <div class="w-note">Give it a face — agents with a custom avatar feel more like yours</div>
+      </div>
+      <div class="w-content-width">One-time caption under the avatar circle, dismissed permanently once an avatar is uploaded</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 08 — KNOWLEDGE ══════════════════════════════════ -->
   <h2 id="p08"><span class="num">08</span>Configure — Knowledge<span class="page-route">/agent/configure/knowledge</span></h2>
   <p class="page-intro">Uploaded files and URLs — version-scoped.</p>
@@ -761,6 +922,26 @@
     <li>Same shared shell — see §06a.</li>
     <li><strong>Help panel</strong> items: <em>Uploaded Files</em>, <em>Add a URL</em> (both optional), plus static info-only entries — <em>File Limits</em> (30 MB/file, 300 MB total), <em>Supported Types</em>, <em>Version-specific</em> (knowledge is tied to the current version; each saved version can carry its own distinct file set).</li>
   </ul>
+
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">fabricated-data</span> The "Updated just now" badge in the Knowledge header is hardcoded to that string whenever any files exist — it does not read or track any real last-modified timestamp. — <code>front-end/src/app/(app)/agent/configure/components/KnowledgeTab.tsx:500</code> (<code>const updatedAgo = files.length > 0 ? "Updated just now" : null;</code>, rendered ~line 717)</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>A brief "Undo" toast after a file delete, before it's final</strong> — <code>adobe-cancel-subscription.md</code> (Peak-End Rule / exit-points: "a simple, non-manipulative safety net like an 'undo cancellation' button"). <code>deleteDocument</code> calls fire and persist immediately, with no confirm and no way back — unlike Save/Publish, this action bypasses the version-gated safety of the rest of the tab entirely. A 5–10s "File removed — Undo" toast is the lightweight middle ground between reckless irreversibility and a heavier confirm dialog. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — confirmed a true hard delete: despite `PersonaDocument` having a `deleted_at` soft-delete column, the delete path purges the S3 object and hard-deletes the DB rows (including a raw-SQL `DELETE` on the link row) <em>before</em> the soft-delete call even runs, so there's no server-side recovery window today. Either the backend adds a real grace-delete window, or the undo has to be frontend-only (re-upload the same file bytes kept briefly in memory).</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed undo toast</div>
+    <div class="w-frame" style="max-width:360px; margin:0 auto;">
+      <div class="w-row between" style="align-items:center;">
+        <div class="w-box tight" style="justify-content:flex-start; flex:1;">File removed</div>
+        <div class="w-box btn tight" style="flex:none;">Undo</div>
+      </div>
+      <div class="w-content-width">Bottom-of-screen toast, auto-dismisses after 5–10s — same toast system already used elsewhere for save/publish confirmations</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════ 09 — CONNECTORS ══════════════════════════════════ -->
   <h2 id="p09"><span class="num">09</span>Configure — Connectors<span class="page-route">/agent/configure/connectors</span></h2>
@@ -841,6 +1022,24 @@
     <li>Same shared shell — see §06a.</li>
     <li><strong>Help panel</strong> items: <em>Enabled for this Agent</em>, <em>Disabled for this Agent</em> (both optional), plus static info entries — <em>Connect New Tools</em> ("Manage in Settings" links Gmail/Slack/HubSpot etc.), <em>How Agents Use Connectors</em>, <em>Per-Agent Isolation</em> (disabling a tool here never affects any other agent or the account connection itself).</li>
   </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>A one-time, benefit-framed explanation the first time a connector is switched on for an agent</strong> — <code>hopper-permission-requests-ux.md</code> (User-Driven/Contextual Prompt — ask right when the field is touched, framed around the benefit). Today the toggle flips instantly with no disclosure of what it actually grants ("this agent can now read and send email as you"); Hopper's approach only interrupts at the exact moment of intent, with the reason stated plainly, rather than either a silent flip or an upfront blanket permission screen. <strong>Backend:</strong> <span class="tag fixed">ready</span> — real per-connector/per-tool descriptions and read/write scope already exist via <code>GET /connectors</code>/<code>GET /connectors/{slug}</code>; the persona's own connector list only returns slugs, so this is a join the frontend already has the data to do, not new backend work.</li>
+    <li><span class="tag propose">proposed</span> <strong>Reduce list density for agents with many connected tools</strong> — <code>hopper-permission-requests-ux.md</code> (Minimize Cognitive Load — lighter-color, less-dense treatment for less-relevant items). Collapse "Personal connectors" the user hasn't touched for this agent behind a lighter, secondary visual treatment (or an expandable section) so the primary decision — which tools <em>this</em> agent uses — isn't flattened into one undifferentiated list with everything else the account has connected. <strong>Backend:</strong> <span class="tag fixed">ready</span> — pure client-side grouping of already-fetched rows.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed contextual toggle explanation + collapsed section</div>
+    <div class="w-frame" style="max-width:714px; margin:0 auto;">
+      <div class="w-row"><div class="w-box tight">Workspace connectors</div></div>
+      <div class="w-col" style="gap:2px;">
+        <div class="w-box solid">Gmail (workspace account) &nbsp;&nbsp; ⏻ off → on</div>
+        <div class="w-note" style="margin-left:6px;">"This agent can now read and send email as you" — shown once, on first enable</div>
+      </div>
+      <div class="w-row between"><div class="w-box tight" style="opacity:.6;">Personal connectors (2) ▾ — collapsed by default</div></div>
+      <div class="w-content-width">Inline disclosure appears only on the first toggle-on for this agent; the "Personal connectors" group is collapsed unless expanded</div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════ 10 — SHARING ══════════════════════════════════ -->
   <h2 id="p10"><span class="num">10</span>Configure — Sharing<span class="page-route">/agent/configure/sharing</span></h2>
@@ -956,6 +1155,28 @@
     <li><strong>Help panel</strong> items: <em>Super Link</em>, <em>Credit Limit (for Super Link)</em>, <em>Email Invite</em> (all optional), plus static entries — <em>Revoking Access</em> (cuts access off immediately), <em>Publish First</em> (the agent must be published before either sharing mechanism works — the only Help item shared verbatim with Instructions' own Publish entry).</li>
   </ul>
 
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> The Private/Workspace visibility radio row shown in the layout sketch above is not actually rendered — the real UI control is commented out, per an explicit in-code comment: "Agents are private-only for now — the team/shared visibility toggle is hidden, not removed." The underlying <code>visibility</code> state, <code>setPersonaVisibility</code> call, and <code>handleVisibilitySelect</code> logic are all still intact and functional, just unreachable from the UI. — <code>front-end/src/app/(app)/agent/configure/components/SharingTab.tsx:336-341</code> (comment/removed control), <code>:92-125</code> (now-unreachable state/handlers)</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>An explicit confirmation modal before Private→Workspace fires</strong> — <code>mine-trial-conversion.md</code> (Pre-Validated Action / confirmation before commitment). Right now the only warning is the small "can't revert once Workspace" caption next to the radio row — easy to miss before a change that's hard-blocked server-side in reverse (400 on any attempt to switch back). A modal ("Make this agent visible to your whole workspace? This can't be undone.") puts real friction where the stakes actually are. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the modal just gates the existing <code>setPersonaVisibility</code> call; the one-way enforcement it warns about is already real and server-side.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — proposed confirm modal on Save</div>
+    <div class="w-frame" style="max-width:380px; margin:0 auto;">
+      <div class="w-box tight" style="font-weight:600;">Make this agent visible to your workspace?</div>
+      <div class="w-box tall" style="min-height:40px;">Everyone in your org will be able to see and chat with it. This can't be undone.</div>
+      <div class="w-row" style="justify-content:flex-end; gap:6px;">
+        <div class="w-box btn tight">Cancel</div>
+        <div class="w-box btn primary tight">Make Workspace</div>
+      </div>
+      <div class="w-content-width">Fires from the existing Save button in the Visibility section — replaces the current bare-caption warning with a real modal step</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 11 — SUPER LINK ACCEPT ══════════════════════════════════ -->
   <h2 id="p11"><span class="num">11</span>Super Link — recipient accept page<span class="page-route">/share/[id]</span></h2>
   <p class="page-intro">Where a recipient lands after opening a Super Link URL — a different person, a different session, possibly not logged in yet.</p>
@@ -1001,6 +1222,27 @@
 
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — this page lives outside <code>/agent/configure/*</code> entirely, no shared shell wraps it.</p>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Differentiate the failure states instead of one generic error</strong> — <code>amber-alert-ux.md</code> (Distinction — undifferentiated signals prevent people from knowing how to react). A revoked-mid-view link, an expired link, a wrong-email invite, and an already-accepted share all currently collapse into the same "Something went wrong." Give each its own short, specific message and next step, so a recipient can tell "this was revoked" from "you're not on the invite list" and self-correct or know whether to contact the sharer. <strong>Backend:</strong> <span class="tag note">partial</span> — expired (410 "Share has expired") and wrong-email (403, distinct message) are already differentiable today. Revoked-vs-never-existed genuinely aren't: both hit the same `share is None` branch → 404 "Share not found," since revoking a share currently just returns the object to its unauthenticated state rather than marking it revoked-and-gone with a distinct reason. Already-accepted is also unflagged — the accept call is silently idempotent, no `already_accepted` marker in the response.</li>
+    <li><span class="tag propose">proposed</span> <strong>Land on the new copy itself, not the generic library</strong> — <code>audible-purchase-ux.md</code> (Successful Transitions — bridge the gap between "completed" and "value delivered"). "Accept &amp; copy agent" redirects to <code>/agents</code> after a brief toast, and the new repo/version id is never persisted client-side, so the user has to go find their new copy themselves. Route directly to it instead. <strong>Backend:</strong> <span class="tag fixed">ready</span> — the accept endpoint's response already includes the new copy's <code>persona_repo_id</code>; this is a frontend routing change only.</li>
+    <li><span class="tag propose">proposed</span> <strong>A lightweight usage signal on the agent being shared</strong> ("Used by 12 teammates") — <code>tinder-monetization.md</code> and <code>amazon-purchase-ux.md</code> (Social Proof). Both case studies show a popularity signal nudges an uncertain chooser toward a validated option; a recipient deciding whether to accept currently sees only the agent's name/avatar/creator, nothing about whether anyone else already uses it. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — the "Use" flow that gives teammates their own copy of a shared agent clones a fully independent repo with no lineage back to the source (no <code>parent_repo_id</code> set), so no "N teammates have a copy" count can be computed today. A separate, unwired lineage-tracking code path already exists in the codebase (only exercised by tests) that could be adapted, but it isn't in the live "Use" endpoint.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — accept page, proposed usage signal + specific error state</div>
+    <div class="w-row">
+      <div class="w-frame" style="max-width:260px; margin:0; min-height:140px;">
+        <div class="w-row" style="flex:none"><div class="w-box avatar" style="width:36px; min-height:36px;">av</div><div class="w-col" style="gap:0;"><div class="w-box tight" style="justify-content:flex-start;">Agent name</div><div class="w-note">Used by 12 teammates</div></div></div>
+        <div class="w-box btn primary" style="align-self:center;">Accept &amp; copy agent</div>
+      </div>
+      <div class="w-frame" style="max-width:260px; margin:0; min-height:140px;">
+        <div class="w-box tight" style="font-weight:600;">This link was revoked</div>
+        <div class="w-box tall">The person who shared this agent turned off access while you were viewing it.</div>
+        <div class="w-content-width">was: generic "Something went wrong"</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════ 12 — NEW CHAT ══════════════════════════════════ -->
   <h2 id="p12"><span class="num">12</span>Attaching an agent to a new chat<span class="page-route">/chat — "Add agent"</span></h2>
@@ -1048,15 +1290,73 @@
   <h3 class="io-head panel"><span class="dot"></span>Floating panels &amp; Help</h3>
   <p class="na-block">Not applicable — the Configure shell's Test Chat / AI Suggestions / Versions panels and Help system don't extend to the regular chat surface.</p>
 
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">disabled</span> The "Team Agents" filter option in the "Add agent" panel is fully wired end-to-end (the <code>AgentFilter</code> type, its label, and the <code>filter === 'team'</code> filtering branch) but excluded from the visible dropdown via <code>VISIBLE_FILTERS: AgentFilter[] = ['mine', 'superlink']</code>, per an explicit comment that it's hidden "along with the rest of the shared-agent UI." The empty-state copy for it ("No agents have been shared with your team yet.") is consequently unreachable. — <code>front-end/src/components/AgentsPanel/index.tsx:40-43</code> (declaration), <code>:120</code> (dead filter branch), <code>:349-350</code> (unreachable empty-state copy)</li>
+    <li><span class="tag gap">disabled</span> Every <code>PersonaCard</code> rendered from this panel is passed <code>visibility="private"</code> unconditionally rather than the persona's real visibility value, per an inline comment admitting the "Team" badge is "hidden along with the rest of the shared-agent UI." — <code>front-end/src/components/AgentsPanel/index.tsx:321</code></li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Say explicitly when Workspace-visibility agents are excluded, instead of a silent gap</strong> — <code>coronavirus-dashboard-ux.md</code> (Missing Information &amp; Transparency). "Add agent" only lists <code>visibility === 'private'</code> agents <span class="tag gap">gap</span> — a Workspace agent visible in the Library simply doesn't appear here, with no explanation. Even ahead of revisiting that filter, a one-line "Workspace agents aren't attachable to chat yet" note in the list turns a silent omission into a stated, honest limitation. <strong>Backend:</strong> <span class="tag fixed">ready</span> — copy-only change to an already-fetched, already-filtered list.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — "Add agent" dropdown, proposed disclosure line</div>
+    <div class="w-frame" style="max-width:340px; margin:0 auto;">
+      <div class="w-box solid tight" style="justify-content:flex-start">🔍 Search agents…</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">Your agent A</div>
+      <div class="w-box solid tight" style="justify-content:flex-start">Your agent B</div>
+      <div class="w-note" style="text-align:left; padding-left:6px;">Workspace agents aren't attachable to chat yet</div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════ 13 — REFERENCE ══════════════════════════════════ -->
   <h2 id="p13"><span class="num">13</span>Where else agents appear<span class="page-route">reference</span></h2>
-  <p class="page-intro">Not part of the linear flow above — surfaces that just display an already-existing agent.</p>
+  <p class="page-intro">Not part of the linear flow above — surfaces that just display an already-existing agent rather than create or edit one. Each is a separate render path with its own data dependency and its own copy of any bugs in that dependency, not a shared component — so a fix in one place does not automatically fix the others.</p>
   <table>
     <tr><th class="label">Surface</th><th>Depends on</th><th>Notes</th></tr>
     <tr><td class="label">Agents Library / "Add agent" panel</td><td>Full card</td><td>Visibility badge fixed to show real state this session</td></tr>
     <tr><td class="label">Brain agent-chip picker</td><td>Separate inline filter</td><td><span class="tag gap">gap</span> hardcodes <code>ownedByViewer:true</code> — needs real work, not a one-line fix, unlike §12's filter</td></tr>
     <tr><td class="label">Sidebar / TopBar / message attribution</td><td>Name + avatar only</td><td>Visibility-agnostic, no bug surface</td></tr>
     <tr><td class="label">Configure — Test Chat, Versions panel</td><td>Live draft state</td><td>Source of truth every surface above eventually reflects</td></tr>
+  </table>
+
+  <h3>Detail on each surface</h3>
+  <ul>
+    <li><strong>Agents Library / "Add agent" panel</strong> — renders the full <code>PersonaCard</code>, the same component used on the primary Library grid. It fetches the live persona list itself rather than reusing a cached copy from the grid behind it, so a visibility/name/avatar edit made in Configure is reflected here on next open without any extra invalidation logic — there's no stale-cache class of bug on this surface specifically. The visibility badge shown here was previously a known gap (showing a stale value); confirmed fixed to reflect the real <code>visibility</code> field as of this pass. Scope is still the private-only filter from §12 (Workspace-visibility agents don't appear at all, silently).</li>
+    <li><strong>Brain agent-chip picker</strong> (Task composer, see the Tasks doc §01) — a structurally separate fetch-and-filter path from every other surface in this table, not a shared "agent picker" component. It hardcodes <code>ownedByViewer:true</code> on every row regardless of the persona's actual owner, meaning a shared/workspace agent picked here behaves in the UI as if fully owned and editable by the current viewer — a correctness gap, not just a missing feature, since it actively asserts something false rather than omitting information. Distinct from the Library panel's gap (an honest omission) in that this one actively misrepresents state.</li>
+    <li><strong>Sidebar / TopBar / message attribution</strong> — the lightest-weight consumer: renders only <code>persona.name</code> + <code>persona.avatar_url</code> off of whatever thread/message object is already in memory, no separate persona fetch of its own. Because it never reads <code>visibility</code>, <code>owner</code>, or any permission field, it cannot exhibit the stale-badge or false-ownership classes of bug found on the two surfaces above — there's nothing there to be wrong. The one dependency worth knowing: if a persona is deleted, this surface's fallback (initials avatar + last-known name from the message's own denormalized copy) is what a reader sees, not a live lookup.</li>
+    <li><strong>Configure — Test Chat, Versions panel</strong> — reads the in-memory draft/version state directly, not a persisted-and-refetched copy like the three surfaces above. This makes it the one place in the table that's always correct by construction (it has no fetch to go stale), but also means it's the one surface where an unsaved change is visible before anyone else can see it — worth remembering when comparing "what does the agent look like right now" across this table's rows, since this one can legitimately disagree with all the others until Save/Publish actually runs (§05).</li>
+  </ul>
+
+  <h3>Missing / Unused / Hidden</h3>
+  <ul>
+    <li><span class="tag gap">dead-code</span> <code>PersonaCard</code>'s <code>visibility === 'team'</code> rendering branch (an "N teams" badge driven by a <code>teamCount</code> prop) is fully implemented but currently unreachable — every caller in the codebase today either hardcodes <code>visibility="private"</code> (see §12) or omits the prop, as a direct consequence of the Sharing tab's team-visibility toggle being disabled (§10). — <code>front-end/src/components/PersonaCard/index.tsx:283-287</code> (prop declarations), <code>:1015-1025</code> (rendering branch)</li>
+  </ul>
+
+  <h3 class="io-head propose"><span class="dot"></span>Proposed changes</h3>
+  <ul>
+    <li><span class="tag propose">proposed</span> <strong>Extend the usage-signal treatment (see §11's proposal) across every surface in this table</strong> — <code>tinder-monetization.md</code> / <code>amazon-purchase-ux.md</code> (Social Proof). A single shared "N teammates use this" convention, reused on the Library card, the Add-agent panel, and the Super Link accept page, only needs building once. <strong>Backend:</strong> <span class="tag gap">needs backend work</span> — same lineage gap as §11: nothing tracks how many teammates have their own copy of a given agent today.</li>
+    <li><span class="tag propose">proposed</span> <strong>Until the Brain agent-chip picker's hardcoded <code>ownedByViewer:true</code> gets real per-agent data, say so</strong> — <code>youtube-user-retention.md</code> (Discoverability &amp; Feedback — a control that looks fully functional but silently isn't breaks trust worse than one that's honestly limited). Every agent in that picker currently behaves as if fully owned/editable regardless of actual ownership; a visible "may not reflect current permissions" note would be an honest stopgap ahead of the real fix. <strong>Backend:</strong> <span class="tag note">partial</span> — better news than the stopgap implies: the real owner column (<code>PersonaRepo.user_id</code>) already exists and is already used for server-side auth checks, it's just never included in the API response schema. Adding it there is a small, contained backend change, not a missing-concept gap — worth doing instead of just the honest-stopgap copy above.</li>
+  </ul>
+  <div class="wire">
+    <div class="wire-label">Layout sketch — shared usage-signal badge, reused across surfaces</div>
+    <div class="w-frame" style="max-width:220px; margin:0 auto;">
+      <div class="w-row" style="flex:none"><div class="w-box avatar" style="width:44px; min-height:44px; border-radius:12px;">av</div><div class="w-col" style="gap:0;"><div class="w-box tight" style="justify-content:flex-start;">Agent name</div><div class="w-note">Used by 12 teammates</div></div></div>
+      <div class="w-content-width">Same badge component on the Library card, Add-agent panel, and Super Link accept page (§11)</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ 14 — CROSS-CUTTING PROPOSALS ══════════════════════════════════ -->
+  <h2 id="p14"><span class="num">14</span>Cross-cutting UX proposals<span class="page-route">applies across §01–§13</span></h2>
+  <p class="page-intro">Four patterns recur across multiple pages above — fixing the underlying convention once resolves several individual proposals at once, rather than one-off patching each page. Full source notes for every case study cited: <code>docs v1.5/ux research/</code>.</p>
+
+  <table>
+    <tr><th class="label">Pattern</th><th>Where it shows up in this doc</th><th>Grounded in</th></tr>
+    <tr><td class="label">Generic/undifferentiated failure states hide the actual problem</td><td>§11 Super Link accept-page errors (all bucketed into one message)</td><td><code>amber-alert-ux.md</code> (Distinction), <code>coronavirus-dashboard-ux.md</code> (Missing Information &amp; Transparency)</td></tr>
+    <tr><td class="label">Irreversible actions signaled too weakly relative to their permanence</td><td>§10 Private→Workspace promotion (caption only, no confirm)</td><td><code>mine-trial-conversion.md</code> (Pre-Validated Action), <code>zapier-upgrade.md</code> (Loss Aversion needs visual reinforcement)</td></tr>
+    <tr><td class="label">Real work rendered as indistinguishable from no work</td><td>§05 the creation call's multi-step chain shows nothing per step</td><td><code>labor-perception-bias.md</code> — this corpus's single most directly-applicable finding (cited up to 15% lift in perceived value from visible labor)</td></tr>
+    <tr><td class="label">Usage/activity data exists but is never surfaced</td><td>§11, §13 — no signal anywhere that an agent is actually used by teammates</td><td><code>tinder-monetization.md</code>, <code>amazon-purchase-ux.md</code> (Social Proof)</td></tr>
   </table>
 
   <footer>SOUVENIR — AGENTS: PAGE-BY-PAGE REFERENCE — V1.5</footer>

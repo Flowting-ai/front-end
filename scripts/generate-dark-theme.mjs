@@ -10,7 +10,7 @@
  *
  * Design intent (dark):
  *   • Main pages are a deep warm brown-black, cards a step above it — the brand's
- *     own browns (#120C08 / #1C1613 / #26211E / #3B3632), NOT light greys.
+ *     own browns (#161616 / #1C1C1C / #222222 / #383838), NOT light greys.
  *   • No light-grey fills: the primary button, tooltips and toast actions stay a
  *     dark elevated brown with white text and a visible border.
  *   • Text is a warm off-white ramp with high contrast; WHITE is the hover colour
@@ -36,22 +36,22 @@ const OUT = resolve(TOKENS, 'theme.css')
 //   Surfaces/borders (50–300) are the brand's own dark browns.
 //   Text tones (400–950) are tuned to hold the same contrast RELATIONSHIPS as the
 //   light theme (primary ≈ 15:1, default ≈ 9:1, muted ≈ 5:1, disabled ≈ 3:1) on
-//   the dark card, with a warm hue so nothing reads as cold grey.
+//   the dark card, on a neutral grey ramp (Perplexity-style: #DEDEDE primary text).
 const DARK_NEUTRAL = {
-  '50':  '#120C08', // page background
-  '100': '#26211E', // subtle fill, hover tint, light border
-  '200': '#3B3632', // borders, dividers
-  '300': '#524B47', // strong border, disabled fill
-  '400': '#6F665F', // disabled text / icons
-  '500': '#968B83', // muted text
-  '600': '#B9AFA7', // secondary / placeholder text
-  '700': '#D6CDC5', // default labels
-  '800': '#E6DED7', // strong text
-  '900': '#F4EFEA', // primary text
+  '50':  '#161616', // page background
+  '100': '#222222', // subtle fill, hover tint, light border
+  '200': '#383838', // borders, dividers
+  '300': '#4A4A4A', // strong border, disabled fill
+  '400': '#6E6E6E', // disabled text / icons
+  '500': '#989898', // muted text
+  '600': '#ABABAB', // secondary / placeholder text
+  '700': '#C4C4C4', // default labels
+  '800': '#D2D2D2', // strong text
+  '900': '#DEDEDE', // primary text
   '950': '#FFFFFF', // emphasis / hover
 }
-const DARK_SURFACE = { r: 28, g: 22, b: 19 } // #1C1613 — cards, inputs, panels ("white")
-const DARK_SURFACE_HEX = '#1C1613'
+const DARK_SURFACE = { r: 28, g: 28, b: 28 } // #1C1C1C — cards, inputs, panels ("white")
+const DARK_SURFACE_HEX = '#1C1C1C'
 const WHITE = '#FFFFFF'
 
 // Dark equivalents of the few literal-only / role-specific alias values.
@@ -61,28 +61,29 @@ const STRONG_BORDER = 'rgba(255, 255, 255, 0.16)'
 const GLASS_FILL = 'rgba(255, 255, 255, 0.04)'
 const HIGHLIGHT = 'rgba(255, 255, 255, 0.08)'
 const RING = 'rgba(255, 255, 255, 0.12)'
-const PRIMARY_FROM = '#524B47' // identical to the primary button's existing gradient
-const PRIMARY_TO = '#26211E'
-const PRIMARY_DISABLED_TO = '#3B3632'
-const PRIMARY_BORDER = '#6A625D'
-const TOOLTIP_TO = '#2E2824'
+const PRIMARY_FROM = '#4A4A4A' // identical to the primary button's existing gradient
+const PRIMARY_TO = '#222222'
+const PRIMARY_DISABLED_TO = '#383838'
+const PRIMARY_BORDER = '#5C5C5C'
+const TOOLTIP_TO = '#2A2A2A'
 // Dark-mode brand pink for the default Button + Tooltip (light mode stays black).
 const PINK_FROM = '#F92064'
 const PINK_TO = '#C4124C'
 const PINK_BORDER = '#FF6B97'
 const PINK_TOOLTIP_TO = '#D81857'
-const GREY_SURFACE = '#1C1613' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
-const TAB_TRACK = GREY_SURFACE
+const GREY_SURFACE = '#1C1C1C' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
+const TAB_TRACK = '#262626' // tab bar track: lifted well above the page so the tab strip reads as a control
+const FIELD_BG = '#262626'  // text fields: brighter than the card they sit on, with a visible ring
 const AGENT_CARD = GREY_SURFACE
 
 // Content on that lighter grey needs its muted tones lifted or it becomes hard to read
 // (neutral-500 text is 3.2:1 on it, neutral-400 icons 1.9:1, neutral-200 fills 1.1:1).
 // Applied only inside an element marked data-surface="raised" (see the scoped block below).
 const RAISED_RAMP = {
-  '--neutral-200': '#57514C', // fills / dividers   (1.1 -> 1.4:1)
-  '--neutral-300': '#7A716A', // strong border / disabled text (1.3 -> 2.3:1)
-  '--neutral-400': '#968B83', // icons              (1.9 -> 3.2:1)
-  '--neutral-500': '#B4AAA2', // muted text         (3.2 -> 4.8:1)
+  '--neutral-200': '#4D4D4D', // fills / dividers   (1.1 -> 1.4:1)
+  '--neutral-300': '#6A6A6A', // strong border / disabled text (1.3 -> 2.3:1)
+  '--neutral-400': '#989898', // icons              (1.9 -> 3.2:1)
+  '--neutral-500': '#B0B0B0', // muted text         (3.2 -> 4.8:1)
 }
 const SHADOW_ALPHA_BOOST = 2
 const SHADOW_ALPHA_CAP = 0.6
@@ -277,11 +278,11 @@ const overrides = [
   ['--color-interactive-primary-surface-disabled-from', PRIMARY_FROM],
   ['--color-interactive-primary-surface-disabled-to', PRIMARY_DISABLED_TO],
   ['--color-interactive-primary-border', PINK_BORDER],
-  ['--color-interactive-primary-border-disabled', '#6A625D'],
+  ['--color-interactive-primary-border-disabled', '#5C5C5C'],
   ['--color-interactive-primary-text', WHITE],
-  ['--color-interactive-primary-text-disabled', '#C9BFB7'],
-  // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#D6CDC5).
-  ['--color-interactive-subtle-text-disabled', '#A89E96'],
+  ['--color-interactive-primary-text-disabled', '#BDBDBD'],
+  // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#C4C4C4).
+  ['--color-interactive-subtle-text-disabled', '#A3A3A3'],
   ['--button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
   ['--icon-button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
   ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%)'],
@@ -291,18 +292,18 @@ const overrides = [
   ['--shadow-popover', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
   ['--shadow-floating-menu-outer', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
   // ⌘-shortcut pill: a raised dark chip with a soft light ring instead of the white one.
-  ['--shortcut-pill-bg', '#3B3632'],
+  ['--shortcut-pill-bg', '#383838'],
   ['--shortcut-pill-ring', 'rgba(255, 255, 255, 0.14)'],
   ['--shortcut-pill-shadow', 'rgba(0, 0, 0, 0.35)'],
-  ['--shortcut-pill-text', '#D6CDC5'],
+  ['--shortcut-pill-text', '#C4C4C4'],
   ['--tooltip-bg-from', '#FFFFFF'],
-  ['--tooltip-bg-to', '#EFEAE5'],
-  ['--tooltip-text', '#26211E'],
+  ['--tooltip-bg-to', '#EBEBEB'],
+  ['--tooltip-text', '#222222'],
   // Every toast type shares the same dark surface; only the text (and border) colour differs.
-  ['--toast-success-bg', '#1C1613'],
-  ['--toast-error-bg', '#1C1613'],
-  ['--toast-warning-bg', '#1C1613'],
-  ['--toast-info-bg', '#1C1613'],
+  ['--toast-success-bg', '#1C1C1C'],
+  ['--toast-error-bg', '#1C1C1C'],
+  ['--toast-warning-bg', '#1C1C1C'],
+  ['--toast-info-bg', '#1C1C1C'],
   ['--toast-action-bg', PRIMARY_FROM],
   ['--toast-action-text', WHITE],
   // Hover / borders / glass.
@@ -311,7 +312,7 @@ const overrides = [
   ['--color-border-interactive', STRONG_BORDER],
   ['--color-surface-glass', GLASS_FILL],
   // Main page containers: no fill in dark, so the container is the SAME surrounding
-  // black as the page (white @20% over the dark page rendered as a grey #413D39).
+  // black as the page (white @20% over the dark page rendered as a grey #414141).
   ['--color-surface-container', 'transparent'],
   // Translucent "veils" (frosted overlays, drop zones, chips over tinted cards) are
   // written rgba(var(--surface-rgb), A): white in light, the dark card colour here.
@@ -319,33 +320,70 @@ const overrides = [
   // White is the hover colour for text in dark. Light has NO --text-hover, so every
   // `var(--text-hover, <today's colour>)` falls back to today's colour there.
   ['--text-hover', WHITE],
+  // Modal / dialog / drawer backdrop: a black scrim. The light value is a warm near-black, but the
+  // components that used to build it from --neutral-950 got WHITE in dark (neutral-950 flips).
+  ['--overlay-bg', 'rgba(0, 0, 0, 0.6)'],
+  // Secondary Button / IconButton and the selected tab pill: raised dark greys with a light hairline
+  // ring (they are white in light mode; a white block on a near-black page is harsh).
+  ['--button-secondary-bg', '#2E2E2E'],
+  ['--button-secondary-text', 'var(--neutral-900)'],
+  ['--button-secondary-text-disabled', '#828282'],
+  ['--button-secondary-bg-hover', '#3A3A3A'],
+  ['--icon-button-secondary-bg', '#2E2E2E'],
+  ['--icon-button-secondary-icon', 'var(--neutral-900)'],
+  ['--icon-button-secondary-icon-disabled', '#828282'],
+  ['--icon-button-secondary-bg-hover', '#3A3A3A'],
+  ['--tab-item-bg-selected', '#404040'],
+  ['--tab-item-text-selected', '#FFFFFF'],
+  ['--shadow-button-secondary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
+  ['--shadow-button-secondary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
+  ['--shadow-button-secondary-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08)'],
+  ['--shadow-button-secondary-inner-hover', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12)'],
+  ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
+  ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
+  // Text fields: a brighter fill than cards plus a clearly visible ring, so inputs stand out.
+  ['--text-field-bg', FIELD_BG],
+  ['--text-field-ring', 'rgba(255, 255, 255, 0.14)'],
+  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.24)'],
+  // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
+  ['--message-bubble-user-bg', '#2A2A2A'],
+  ['--message-bubble-user-text', 'var(--neutral-900)'],
+  ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(0, 0, 0, 0.35), 0px 0px 0px 1px rgba(255, 255, 255, 0.08)'],
+  ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(0, 0, 0, 0.22)'],
+  // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
+  // invisible on a near-black page). Hover and focus step the glow up.
+  ['--shadow-chat-input', '0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07)'],
+  ['--shadow-chat-input-hover', '0px 0px 0px 1px rgba(255, 255, 255, 0.16), 0px 0px 26px -2px rgba(255, 255, 255, 0.10), 0px 0px 0px 3px rgba(255, 255, 255, 0.04)'],
+  ['--shadow-chat-input-focus', '0px 0px 0px 1px rgba(255, 255, 255, 0.26), 0px 0px 30px -2px rgba(255, 255, 255, 0.13), 0px 0px 0px 5px rgba(255, 255, 255, 0.06)'],
+  // Sidebar rows hover/active on the sidebar surface: a flat #222222.
+  ['--sidebar-menu-item-hover-bg', '#222222'],
   // Sidebar icons (new/all projects, section headers, chevrons, row icons) are pure white in dark.
   // Light defines neither, so var(--sidebar-icon, <today's colour>) falls back to today's colour.
   ['--sidebar-icon', WHITE],
   ['--sidebar-icon-muted', WHITE],
   ['--sidebar-selected-text', WHITE],
-  ['--sidebar-section-header-text', '#B9AFA7'],
-  ['--sidebar-section-header-muted', '#8F857E'],
+  ['--sidebar-section-header-text', '#ABABAB'],
+  ['--sidebar-section-header-muted', '#858585'],
   ['--tab-item-text-hover', WHITE],
   ['--message-bubble-action-icon', '#D4D4D4'],
-  // Tab bar: the mid grey (#413D39) behind the white selected pill. It is lighter than the
+  // Tab bar: the mid grey (#414141) behind the white selected pill. It is lighter than the
   // near-black track the labels were tuned for, so unselected labels step up one palette
   // tone (3.2:1 -> 5.0:1) and disabled ones sit at the old default (dimmer, still visible).
   ['--tab-bg', TAB_TRACK],
   ['--agent-card-bg', AGENT_CARD],
-  ['--agent-card-gradient', 'linear-gradient(to bottom right, #2B2522 0%, #120C08 50%, #231D1A 100%)'],
+  ['--agent-card-gradient', 'linear-gradient(to bottom right, #262626 0%, #161616 50%, #202020 100%)'],
   ['--shadow-undo-toast', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 0px 0px 1px var(--neutral-200)'],
   // Thinking text, high contrast on dark: label/meta ≈ 11:1, icons/bullets ≈ 8:1, and the
   // shimmer sweeps WHITE across a clearly visible resting colour (light mode sweeps dark
   // across light — that pairing vanishes into the dark page).
-  ['--thinking-text', '#8E857E'],
-  ['--thinking-text-faint', '#756C66'],
-  ['--thinking-icon-strong', '#756C66'],
-  ['--thinking-icon-active', '#8E857E'],
-  ['--thinking-rule', '#524B47'],
-  ['--thinking-shimmer-edge', '#5A524D'],
-  ['--thinking-shimmer-peak', '#A89E96'],
-  ['--model-name-text', '#8E857E'],
+  ['--thinking-text', '#8A8A8A'],
+  ['--thinking-text-faint', '#707070'],
+  ['--thinking-icon-strong', '#707070'],
+  ['--thinking-icon-active', '#8A8A8A'],
+  ['--thinking-rule', '#4A4A4A'],
+  ['--thinking-shimmer-edge', '#5C5C5C'],
+  ['--thinking-shimmer-peak', '#A3A3A3'],
+  ['--model-name-text', '#8A8A8A'],
   ['--tab-item-text-default', 'var(--neutral-600)'],
   ['--tab-item-text-disabled', 'var(--neutral-500)'],
 ]
@@ -385,23 +423,9 @@ function resolveLight(value, trail = []) {
     return resolveLight(lightVars[n], [...trail, n])
   }).replace(/\s+/g, ' ').trim()
 }
-const WHITE_SURFACE_TOKENS = [
-  // secondary Button
-  '--button-secondary-bg', '--button-secondary-text', '--button-secondary-text-disabled', '--button-secondary-bg-hover',
-  // secondary IconButton
-  '--icon-button-secondary-bg', '--icon-button-secondary-icon', '--icon-button-secondary-icon-disabled', '--icon-button-secondary-bg-hover',
-  // selected tab pill
-  '--tab-item-bg-selected', '--tab-item-text-selected',
-  // the user's message bubble (white with dark text in light; stays so in dark)
-  '--message-bubble-user-bg', '--message-bubble-user-text',
-  '--shadow-message-bubble-user', '--shadow-message-bubble-user-inner',
-  // shadows that sit on those white surfaces
-  '--shadow-button-secondary-outer', '--shadow-button-secondary-outer-hover',
-  // (NOT --shadow-item-inner: shared by the sidebar, dropdown items, chat rows and ghost/outline
-  // hover, which sit on dark. The secondary hover shadow below is resolved to a literal instead.)
-  '--shadow-button-secondary-inner', '--shadow-button-secondary-inner-hover',
-  '--shadow-tab-item-selected', '--shadow-tab-item-selected-inner',
-]
+// (Secondary buttons / icon buttons / the selected tab pill used to be pinned to their WHITE light values.
+// They are now raised dark surfaces in dark: see the overrides list below.)
+const WHITE_SURFACE_TOKENS = []
 const pinned = new Set(WHITE_SURFACE_TOKENS)
 // (a pinned token must not also be emitted by the shadow rewrite above)
 for (let i = lines.length - 1; i >= 0; i--) {
@@ -409,7 +433,7 @@ for (let i = lines.length - 1; i >= 0; i--) {
   if (m && pinned.has(m[1])) lines.splice(i, 1)
 }
 lines.push('')
-lines.push('  /* ── White tabs & buttons stay white (exact light values) ─────────────── */')
+lines.push('  /* ── Pinned light values (none: secondary buttons and tabs are dark surfaces in dark) ── */')
 for (const name of WHITE_SURFACE_TOKENS) lines.push(`  ${name}: ${resolveLight(lightVars[name])};`)
 
 // ── 5. White on hover for interactive text ───────────────────────────────────

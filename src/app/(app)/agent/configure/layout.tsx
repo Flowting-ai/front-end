@@ -282,7 +282,7 @@ function PersonaHelpButton() {
           style={{
             position:        'fixed',
             inset:           0,
-            backgroundColor: 'color-mix(in srgb, var(--static-black) 45%, transparent)',
+            backgroundColor: 'var(--overlay-bg)',
             zIndex:          17,
             pointerEvents:   'none',
           }}
@@ -1060,7 +1060,7 @@ function TestChatExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setTestChatExpanded(false) }}
     >
       <m.div
@@ -1085,7 +1085,7 @@ function AiSuggestExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setGuideExpanded(false) }}
     >
       <m.div
@@ -1301,7 +1301,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
           aria-modal="true"
           aria-label="Unpublished changes"
           onClick={() => setLeaveConfirmHref(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'color-mix(in srgb, var(--static-black) 40%, transparent)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)' }}
         >
           <div
             onClick={e => e.stopPropagation()}

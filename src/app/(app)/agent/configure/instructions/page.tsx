@@ -1812,7 +1812,7 @@ function PersonaConfigureInstructionsContent() {
           aria-modal="true"
           aria-label="Version limit reached"
           onClick={() => { if (!isDeletingOldest) setMaxVersionsModalOpen(false) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'color-mix(in srgb, var(--static-black) 40%, transparent)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay-bg)' }}
         >
           <div
             onClick={e => e.stopPropagation()}

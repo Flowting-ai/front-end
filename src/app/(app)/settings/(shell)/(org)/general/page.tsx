@@ -16,6 +16,9 @@ import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from 
 import { LeaveWorkspaceModal } from '@/components/LeaveWorkspaceModal'
 import { CHAT_ROUTE } from '@/lib/routes'
 
+// Hidden for now: flip to true to show the Danger Zone card again.
+const SHOW_DANGER_ZONE = false
+
 // ── Text input ────────────────────────────────────────────────────────────────
 
 function TextInput({
@@ -399,6 +402,7 @@ function GeneralPageSkeleton() {
       </SkeletonCard>
 
       {/* Danger Zone */}
+      {SHOW_DANGER_ZONE && (
       <SkeletonCard danger>
         <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <SkeletonBlock width={110} height={16} radius={5} />
@@ -420,6 +424,7 @@ function GeneralPageSkeleton() {
           </div>
         </div>
       </SkeletonCard>
+      )}
     </div>
   )
 }
@@ -1294,6 +1299,7 @@ export default function OrgGeneralPage() {
         )}
 
         {/* ── Danger Zone card — node 18:23867 ── */}
+{SHOW_DANGER_ZONE && (
         <Card danger>
           <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '20px 24px' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--red-400)', margin: '0 0 2px' }}>
@@ -1403,6 +1409,7 @@ export default function OrgGeneralPage() {
             </button>
           </div>
         </Card>
+        )}
 
       </div>
 
