@@ -7,7 +7,7 @@
 :root {
 
   /* ── Neutral ──────────────────────────────────────────────────────────────── */
-   --neutral-50:    #FFFFFF;
+   --neutral-50:    #FCFCFB;
    --neutral-100:   #F5F2EF;
    --neutral-200:   #E4E0DC;
    --neutral-300:   #C9C4BF;
@@ -18,7 +18,7 @@
   --neutral-800:   #3B3632;
   --neutral-900:   #26211E;
   --neutral-950:   #120C08;
-  --neutral-white: #FFFFFF;
+  --neutral-white: #FCFCFB;
   --neutral-black: #000000;
 
   /* Neutral opacity variants */

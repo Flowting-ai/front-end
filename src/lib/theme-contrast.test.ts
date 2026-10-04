@@ -185,7 +185,7 @@ describe("secondary buttons, icon buttons and the selected tab are raised dark s
     "--shadow-tab-item-selected", "--shadow-tab-item-selected-inner",
   ];
 
-  it("they are white in light (unchanged) but dark, and clearly lifted off the page, in dark", () => {
+  it("they are the light cream surface in light (unchanged) but dark, and clearly lifted off the page, in dark", () => {
     for (const t of SURFACES) {
       expect(resolveVar(LIGHT, t)?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FFFFFF"), t + " (light)").toBe("#FFFFFF");
       const dark = color(DARK, t);
@@ -225,8 +225,8 @@ describe("secondary buttons, icon buttons and the selected tab are raised dark s
     }
   });
 
-  it("the user's message bubble is white in light but a raised dark-grey card in dark; the chat input stays dark", () => {
-    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FFFFFF")).toBe("#FFFFFF");
+  it("the user's message bubble is cream in light but a raised dark-grey card in dark; the chat input stays dark", () => {
+    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FCFCFB")).toBe("#FCFCFB");
     const bubble = color(DARK, "--message-bubble-user-bg");
     expect(resolveVar(DARK, "--message-bubble-user-bg")?.toUpperCase()).toBe("#2A2A2A");
     // Dark (not a white block), yet clearly raised above both the page and the chat input surface.
@@ -262,9 +262,9 @@ function resolveFully(vars: Vars, name: string, depth = 0): string {
 describe("tab bar", () => {
   const TRACK = () => color(DARK, "--tab-bg");
 
-  it("the tab bar is the #262626 dark surface in dark and translucent white in light", () => {
+  it("the tab bar is the #262626 dark surface in dark and light gray in light", () => {
     expect(resolveVar(DARK, "--tab-bg")?.toUpperCase()).toBe("#262626");
-    expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 255, g: 255, b: 255, a: 0.5 });
+    expect(parseColor(resolveVar(LIGHT, "--tab-bg"))).toEqual({ r: 245, g: 242, b: 239, a: 1 });
     expect(resolveVar(BASE, "--tab-bg")).toBe(resolveVar(LIGHT, "--tab-bg"));
   });
 
@@ -356,8 +356,8 @@ describe("agent cards (grey surface + raised scope)", () => {
 });
 
 describe("translucent veils (rgba(var(--surface-rgb), A))", () => {
-  it("light: --surface-rgb is white, so every veil is exactly the rgba(255,255,255,A) it replaced", () => {
-    expect(resolveVar(LIGHT, "--surface-rgb")).toBe("255, 255, 255");
+  it("light: --surface-rgb is the cream surface (--neutral-white), so every veil matches the page it sits on", () => {
+    expect(resolveVar(LIGHT, "--surface-rgb")).toBe("252, 252, 251");
   });
 
   it("dark: --surface-rgb is the dark card colour, so a veil is never a bright white sheet", () => {

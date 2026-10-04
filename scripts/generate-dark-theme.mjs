@@ -348,6 +348,9 @@ const overrides = [
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
+  // Light mode keeps the chat input pure white; in dark it follows the card surface as before.
+  ['--chat-input-bg', 'var(--neutral-white)'],
+  ['--input-group-bg-focus', 'var(--neutral-white)'],
   ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1)'],
   // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
@@ -415,7 +418,7 @@ for (const [, v] of Object.entries(LEGACY)) lines.push(`  ${v.token}: ${v.dark};
 // message bubble are white surfaces with dark text in light. They keep exactly their
 // LIGHT values here (surface, text, hover tint and the shadows that depend on them).
 const lightVars = { ...decls(noComments(read('primitives.css'))), ...decls(noComments(read('aliases.css'))), ...decls(noComments(read('semantic.css'))) }
-lightVars['--icon-button-secondary-bg'] = 'var(--neutral-white)' // new light-safe token (see :root block)
+lightVars['--icon-button-secondary-bg'] = '#FFFFFF' // new light-safe token (see :root block)
 function resolveLight(value, trail = []) {
   return value.replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,[^)]*)?\)/g, (_, n) => {
     if (trail.includes(n)) throw new Error(`token cycle: ${[...trail, n].join(' -> ')}`)
@@ -515,10 +518,10 @@ const css = `/* ── Theme: dark ───────────────
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 255, 255, 255;
+  --surface-rgb: 252, 252, 251;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
-  --icon-button-secondary-bg: var(--neutral-white);
+  --icon-button-secondary-bg: #FFFFFF;
 
   /* Agent cards stay warm against the white page canvas. */
   --agent-card-bg: var(--neutral-100);

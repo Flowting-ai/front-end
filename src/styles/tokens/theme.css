@@ -19,10 +19,10 @@
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 255, 255, 255;
+  --surface-rgb: 252, 252, 251;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
-  --icon-button-secondary-bg: var(--neutral-white);
+  --icon-button-secondary-bg: #FFFFFF;
 
   /* Agent cards stay warm against the white page canvas. */
   --agent-card-bg: var(--neutral-100);
@@ -350,6 +350,8 @@
   --text-field-ring-hover: rgba(255, 255, 255, 0.24);
   --message-bubble-user-bg: #2A2A2A;
   --message-bubble-user-text: var(--neutral-900);
+  --chat-input-bg: var(--neutral-white);
+  --input-group-bg-focus: var(--neutral-white);
   --shadow-message-bubble-user: 0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1);
   --shadow-chat-input: 0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07);

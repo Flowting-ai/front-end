@@ -8,7 +8,6 @@ import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
   SearchOneIcon,
-  ArrowDownOneIcon,
   ArrowUpRightOneIcon,
   CopyOneIcon,
   PenOneIcon,
@@ -581,10 +580,8 @@ function PersonasPageInner() {
   const [isLoading,    setIsLoading]    = useState(true)
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all')
   const [filters,      setFilters]      = useState<AgentFilters>(EMPTY_FILTERS)
   const [sortOpen,      setSortOpen]      = useState(false)
-  const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
   const [isDeletingPersona, setIsDeletingPersona] = useState(false)
@@ -941,17 +938,8 @@ function PersonasPageInner() {
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
-  const statusFiltered = useMemo(() => {
-    // Pause is a binary backend flag (is_active). "Active" = not paused (covers
-    // live + draft that are switched on); "Paused" = is_active false. This is a
-    // clean partition and matches the pause toggle exactly.
-    if (filterStatus === 'active') return visiblePersonas.filter(p => !p.isPaused)
-    if (filterStatus === 'paused') return visiblePersonas.filter(p => p.isPaused)
-    return visiblePersonas
-  }, [visiblePersonas, filterStatus])
-
   const filterPanelFiltered = useMemo(() => {
-    let result = statusFiltered
+    let result = visiblePersonas
 
     if (filters.status.size > 0) {
       result = result.filter(p => {
@@ -986,7 +974,7 @@ function PersonasPageInner() {
 
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFiltered, filters, visibilityForPersona, activeShareRepoIds, modelIdToName])
+  }, [visiblePersonas, filters, visibilityForPersona, activeShareRepoIds, modelIdToName])
 
   const filtered = useMemo(() => {
     const searched = search.trim()
@@ -1264,26 +1252,6 @@ function PersonasPageInner() {
             {activeTab === 'my-personas' && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* Status filter */}
-                  <Dropdown.Float
-                    open={allOpen}
-                    onOpenChange={setAllOpen}
-                    placement="bottom-start"
-                    trigger={
-                      <Button variant="secondary" rightIcon={<ArrowDownOneIcon size={16} />}>
-                        {filterStatus === 'all' ? 'All' : filterStatus === 'active' ? 'Active' : 'Paused'}
-                      </Button>
-                    }
-                  >
-                    <Dropdown maxHeight={false}>
-                      <Dropdown.Section>
-                        <Dropdown.Item label="All"    selected={filterStatus === 'all'}    onClick={() => { setFilterStatus('all');    setAllOpen(false) }} fluid />
-                        <Dropdown.Item label="Active" selected={filterStatus === 'active'} onClick={() => { setFilterStatus('active'); setAllOpen(false) }} fluid />
-                        <Dropdown.Item label="Paused" selected={filterStatus === 'paused'} onClick={() => { setFilterStatus('paused'); setAllOpen(false) }} fluid />
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
-
                   {/* Search */}
                   <div style={{
                     display: 'flex',

@@ -20,9 +20,18 @@
 
 /* Search fields: pink ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
    InputField draws, so a field that already has it is unchanged. !important beats InputField's inline
-   outline, and this works for search boxes built from a raw <input> too. */
+   outline, and this works for search boxes built from a raw <input> too.
+
+   The ring animates: a field is marked data-search-field the first time it is focused, which gives it a
+   transparent ring to transition from, and data-search-active then fades it in while it settles from
+   6px out to 3px (and the reverse on blur). */
+[data-search-field] {
+  outline: 2px solid transparent;
+  outline-offset: 6px;
+  transition: outline-color 200ms ease, outline-offset 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 [data-search-active] {
-  outline: 2px solid var(--focus-ring) !important;
+  outline-color: var(--focus-ring) !important;
   outline-offset: 3px !important;
 }
 
@@ -672,8 +681,17 @@
    pink focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
    anything inside it has focus. Outlines paint outside layout, so nothing shifts. A
    scroll container that clips it needs ~6px of padding around the field. */
-.kaya-field { outline: 2px solid transparent; outline-offset: 3px; transition: outline-color 150ms; }
-.kaya-field:focus-within { outline-color: var(--focus-ring); }
+.kaya-field {
+  outline: 2px solid transparent;
+  outline-offset: 6px;
+  transition: outline-color 200ms ease, outline-offset 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.kaya-field:focus-within { outline-color: var(--focus-ring); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-search-field],
+  .kaya-field { transition: none; }
+}
 
 /* ── Logos on always-light surfaces ───────────────────────────────────────────
    In dark mode provider / Souvenir logos switch to flat WHITE marks (see "Logos" in

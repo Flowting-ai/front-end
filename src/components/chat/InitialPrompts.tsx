@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SouvenirLogo } from "@/components/SouvenirLogo";
-import { getGreeting, getSubheading } from "@/lib/greetings";
+import { getGreeting } from "@/lib/greetings";
 import { useAuth } from "@/context/auth-context";
 import { useMounted } from "@/hooks/use-mounted";
 
@@ -20,7 +20,7 @@ export function InitialPrompts({ compact = false }: { compact?: boolean }) {
         alignItems:    "center",
         padding:       compact ? "0" : "0 24px",
         textAlign:     "center",
-        maxWidth:      "640px",
+        maxWidth:      "860px",
         margin:        "0 auto",
         pointerEvents: "none",
         userSelect:    "none",
@@ -32,26 +32,29 @@ export function InitialPrompts({ compact = false }: { compact?: boolean }) {
 }
 
 function GreetingContent({ name, compact }: { name: string; compact: boolean }) {
-  const [{ greeting, subheading }] = useState(() => ({
-    greeting: getGreeting(name),
-    subheading: getSubheading(),
-  }));
+  const [greeting] = useState(() => getGreeting(name));
 
   return (
     <>
       <h1
         style={{
           fontFamily: "var(--font-title)", // Google Sans
-          fontSize:   compact ? "24px" : "28px",
+          fontSize:   compact ? "28px" : "34px",
           fontWeight: 400,
           color:      "var(--neutral-800)",
-          margin:     "0 0 6px",
+          margin:     0,
           lineHeight: 1.25,
+          // Break a long greeting into two evenly-weighted lines, never one long line and an orphan word.
+          textWrap:   "balance",
+          // Hard stop at two lines: a greeting that still does not fit on a very narrow window is clipped
+          // rather than growing a third line.
+          maxHeight:  "2.5em",
+          overflow:   "hidden",
         }}
       >
         <SouvenirLogo
           variant="gray"
-          size={compact ? 22 : 28}
+          size={compact ? 26 : 34}
           style={{
             display: "inline-block",
             verticalAlign: "middle",
@@ -60,20 +63,6 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
         />
         {greeting}
       </h1>
-
-      <p
-        style={{
-          fontFamily: "var(--font-title)", // Google Sans
-          fontSize:   compact ? "13px" : "16px",
-          fontWeight: 400,
-          color:      compact ? "var(--color-text-muted)" : "var(--neutral-800)",
-          margin:     "0",
-          lineHeight: 1.5,
-          maxWidth:   "480px",
-        }}
-      >
-        {subheading}
-      </p>
     </>
   );
 }

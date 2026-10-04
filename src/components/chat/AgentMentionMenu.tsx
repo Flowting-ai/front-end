@@ -18,7 +18,7 @@ export interface AgentMentionMenuProps {
 }
 
 /** The agent's banner colour as a small tile with its live avatar — the agent card's hero, miniature. */
-function MentionAvatar({ agent }: { agent: SelectedPersonaInfo }) {
+export function MentionAvatar({ agent }: { agent: { id: string; name: string } }) {
   const stored = useStoredAvatarChoice(agent.id)
   const avatar = getAvatarChoice(stored ?? defaultAvatarChoice(agent.name, agent.id))
   return (
