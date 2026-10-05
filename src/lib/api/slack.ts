@@ -271,6 +271,7 @@ const slackAppConfigSchema = z.object({
     name:        z.string(),
     description: z.string(),
   })).default([]),
+  check_ins:   z.boolean(),
 })
 
 export interface SlackSkill {
@@ -285,6 +286,8 @@ export interface SlackAppConfig {
   modelId:     string | null
   skills:      string[]
   availableSkills: SlackSkill[]
+  /** Souvenir posts unasked once or twice a day. A workspace opts out. */
+  checkIns:    boolean
 }
 
 function normalizeSlackAppConfig(raw: unknown): SlackAppConfig {
@@ -296,6 +299,7 @@ function normalizeSlackAppConfig(raw: unknown): SlackAppConfig {
     modelId: config.model_id,
     skills: config.skills,
     availableSkills: config.available_skills,
+    checkIns: config.check_ins,
   }
 }
 
@@ -316,6 +320,7 @@ export async function updateSlackAppConfig(
   if ('prompt' in config) body.prompt = config.prompt
   if ('modelId' in config) body.model_id = config.modelId
   if ('skills' in config) body.skills = config.skills
+  if ('checkIns' in config) body.check_ins = config.checkIns
   const raw = await apiFetchJson<unknown>(ORG_SLACK_CONFIG_ENDPOINT(orgId), {
     method: 'PATCH',
     body: JSON.stringify(body),

@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef } from "react"
+import { appendChatModelSelection } from "@/lib/chat-model-selection"
 import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { apiFetch } from "@/lib/api/client"
@@ -344,8 +345,7 @@ export function useStreamingChat({
       if (useDirectBackend) {
         // Backend-native field names — this request skips /api/chat entirely,
         // so nothing renames these camelCase → snake_case on the way through.
-        if (modelId !== null && modelId !== undefined) fd.append("model_id", String(modelId))
-        if (options?.algorithm) fd.append("algorithm", options.algorithm)
+        appendChatModelSelection(fd, modelId, options?.algorithm, "model_id")
         if (options?.webSearch) fd.append("web_search", "true")
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("persona_id", options.personaId)
@@ -359,8 +359,7 @@ export function useStreamingChat({
         if (options?.replaceMessageId && isExistingChat) fd.append("replace_message_id", options.replaceMessageId)
       } else {
         if (chatId) fd.append("chatId", chatId)
-        if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
-        if (options?.algorithm) fd.append("algorithm", options.algorithm)
+        appendChatModelSelection(fd, modelId, options?.algorithm, "modelId")
         if (options?.webSearch) fd.append("webSearch", "true")
         if (options?.enableReasoning !== undefined) {
           fd.append("enable_thinking", options.enableReasoning ? "true" : "false")

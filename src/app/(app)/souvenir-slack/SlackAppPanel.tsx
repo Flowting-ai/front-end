@@ -6,6 +6,7 @@ import { ArrowDownOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { ModelIcon } from '@/components/ModelIcon'
+import { Switch } from '@/components/Switch'
 import { getSlackAppConfig, updateSlackAppConfig, uploadSlackSkill } from '@/lib/api/slack'
 import { fetchModelsWithCache, sortModels } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
@@ -20,6 +21,7 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const [skillMenuOpen, setSkillMenuOpen] = useState(false)
   const [uploadingSkill, setUploadingSkill] = useState(false)
+  const [savingCheckIns, setSavingCheckIns] = useState(false)
   const lastSavedConfig = useRef<string | null>(null)
   const saveSequence = useRef(0)
   const skillInputRef = useRef<HTMLInputElement>(null)
@@ -97,6 +99,17 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
 
   const removeSkill = (name: string) => {
     setConfig({ ...config, skills: config.skills.filter(skill => skill !== name) })
+  }
+
+  const setCheckIns = (checkIns: boolean) => {
+    setSavingCheckIns(true)
+    setConfig(current => current && { ...current, checkIns })
+    void updateSlackAppConfig(orgId, { checkIns })
+      .catch(err => {
+        setConfig(current => current && { ...current, checkIns: !checkIns })
+        toast.error(err instanceof Error ? err.message : 'Failed to save check-ins')
+      })
+      .finally(() => setSavingCheckIns(false))
   }
 
   const handleSkillUpload = (file: File | undefined) => {
@@ -315,6 +328,22 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
         )}
       </section>
 
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionCopy}>
+            <h3 className={styles.sectionTitle}>Proactive check-ins</h3>
+            <p className={styles.sectionDescription}>
+              Once or twice a day, Souvenir looks at what happened and posts a summary or suggestion in a channel or a DM.
+            </p>
+          </div>
+          <Switch
+            aria-label="Proactive check-ins"
+            checked={config.checkIns}
+            disabled={savingCheckIns}
+            onCheckedChange={setCheckIns}
+          />
+        </div>
+      </section>
     </div>
   )
 }
