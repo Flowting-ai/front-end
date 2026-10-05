@@ -140,7 +140,7 @@ export function PanelCard({ children }: { children: React.ReactNode }) {
         display:         'flex',
         flexDirection:   'column',
         borderRadius:    16,
-        backgroundColor: 'var(--neutral-100)',
+        backgroundColor: 'var(--neutral-white)',
         boxShadow:       'inset 0 0 0 1px var(--neutral-200)',
         overflow:        'hidden',
       }}
