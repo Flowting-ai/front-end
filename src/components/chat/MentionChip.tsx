@@ -47,7 +47,7 @@ export function MentionChip({ label, onRemove }: MentionChipProps) {
           background:     'none',
           padding:        '1px',
           cursor:         'pointer',
-          color:          'var(--neutral-400)',
+          color:          'var(--neutral-600)',
           borderRadius:   '50%',
           flexShrink:     0,
         }}

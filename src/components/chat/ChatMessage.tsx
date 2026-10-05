@@ -152,7 +152,7 @@ function StandaloneActivitiesBlock({
         <span
           style={{
             fontSize: 14,
-            color: "var(--neutral-400)",
+            color: "var(--neutral-600)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -852,7 +852,7 @@ export function ChatMessage({
                         style={{
                           fontFamily: "var(--font-body)",
                           fontSize: "12px",
-                          color:      "var(--neutral-400)",
+                          color:      "var(--neutral-600)",
                           flexShrink: 0,
                         }}
                       >
@@ -865,7 +865,7 @@ export function ChatMessage({
                         style={{
                           fontFamily: "var(--font-body)",
                           fontSize: "12px",
-                          color:      "var(--neutral-400)",
+                          color:      "var(--neutral-600)",
                           flexShrink: 0,
                         }}
                       >

@@ -137,7 +137,7 @@ export function ModelSwitchDialog({
                 </span>
               </div>
 
-              <span style={{ color: "var(--neutral-400)", fontSize: "14px" }}>→</span>
+              <span style={{ color: "var(--neutral-600)", fontSize: "14px" }}>→</span>
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>

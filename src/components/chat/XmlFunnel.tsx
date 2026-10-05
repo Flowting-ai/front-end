@@ -86,7 +86,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
           <div style={{ fontFamily: "var(--font-body)", fontSize: 17, lineHeight: "21px", fontWeight: "var(--font-weight-semibold)", color: "var(--brown-700)", fontVariantNumeric: "tabular-nums" }}>
             {Math.round(finalConversion * 100)}%
           </div>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)" }}>final conversion</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-600)" }}>final conversion</div>
         </div>
       </div>
 
@@ -103,7 +103,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
                   initial={reduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: reduceMotion ? 0 : i * 0.08 }}
-                  style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 10, color: "var(--neutral-400)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 10, color: "var(--neutral-600)" }}
                 >
                   <ArrowDown size={12} />
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 11 }}>
@@ -130,7 +130,7 @@ export function XmlFunnel({ xml }: { xml: string }) {
                   <span style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-700)", fontWeight: "var(--font-weight-medium)", fontVariantNumeric: "tabular-nums" }}>
                     {formatNum(stage.value)}
                   </span>
-                  <span style={{ minWidth: 36, textAlign: "right", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)", fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ minWidth: 36, textAlign: "right", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-600)", fontVariantNumeric: "tabular-nums" }}>
                     {Math.round(pct * 100)}%
                   </span>
                 </div>

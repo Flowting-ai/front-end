@@ -59,12 +59,12 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
           {hoveredIdx !== null ? (
             <>
               <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx].color} fontSize={22} fontWeight="700" fontFamily="inherit">{Math.round(arcs[hoveredIdx].pct * 100)}%</text>
-              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="inherit">{data.unit ? `${Math.round(arcs[hoveredIdx].pct * total)}${data.unit}` : arcs[hoveredIdx].label.split(" ").slice(0, 2).join(" ")}</text>
+              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-600)" fontSize={10} fontFamily="inherit">{data.unit ? `${Math.round(arcs[hoveredIdx].pct * total)}${data.unit}` : arcs[hoveredIdx].label.split(" ").slice(0, 2).join(" ")}</text>
             </>
           ) : (
             <>
               {data.centerLabel && <text x={CX} y={CY - 4} textAnchor="middle" fill="var(--neutral-900)" fontSize={24} fontWeight="700" fontFamily="inherit">{data.centerLabel}</text>}
-              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="inherit">total</text>
+              <text x={CX} y={CY + 16} textAnchor="middle" fill="var(--neutral-600)" fontSize={10} fontFamily="inherit">total</text>
             </>
           )}
         </svg>
@@ -80,7 +80,7 @@ export function AnimatedPieChart({ data, onComplete, animate = true }: { data: P
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: "var(--neutral-700)", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>
+              <div style={{ fontSize: 12, color: "var(--neutral-600)", lineHeight: "15px" }}>
                 {Math.round(arc.pct * 100)}%
                 {data.unit && <span style={{ marginLeft: 4 }}>{Math.round(arc.pct * total)}{data.unit}</span>}
               </div>

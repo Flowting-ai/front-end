@@ -114,12 +114,12 @@ export function AnimatedLineChart({ data, onComplete, animate = true }: { data: 
           {hoverIdx !== null && tooltipItems.length > 0 && (
             <m.div key="tooltip" initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.96 }} transition={{ duration: 0.12 }}
               style={{ position: "absolute", top: -8, left: tooltipLeft, width: tooltipWidth, background: "#26211E", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
-              <div style={{ fontSize: 12, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>{data.lines[0]?.points[hoverIdx]?.x}</div>
+              <div style={{ fontSize: 12, color: "var(--neutral-600)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>{data.lines[0]?.points[hoverIdx]?.x}</div>
               {tooltipItems.map((item, ti) => (
                 <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: ti > 0 ? 3 : 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-                    {tooltipItems.length > 1 && <span style={{ fontSize: 12, color: "var(--neutral-400)", maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
+                    {tooltipItems.length > 1 && <span style={{ fontSize: 12, color: "var(--neutral-600)", maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
                   </div>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--static-white)", fontVariantNumeric: "tabular-nums" }}>{item.value}{data.unit ?? ""}</span>
                 </div>

@@ -289,7 +289,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-400)',
+          color:      'var(--neutral-600)',
           fontWeight: 'var(--font-weight-medium)',
         }}>
           {lang || 'code'}

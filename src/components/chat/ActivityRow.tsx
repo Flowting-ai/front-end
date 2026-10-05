@@ -188,7 +188,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
             style={{
               fontSize: 14,
               fontWeight: 400,
-              color: "var(--neutral-400)",
+              color: "var(--neutral-600)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -399,7 +399,7 @@ export function PromptMarkerRow({ title, state }: { title: string; state: Prompt
         {PROMPT_MARKER_TEXT[state]}
       </span>
       {detail && (
-        <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-400)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-600)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
           — {detail}
         </span>
       )}

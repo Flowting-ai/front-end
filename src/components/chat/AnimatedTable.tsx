@@ -28,7 +28,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     if (cell.type === "rich") return (
       <div>
         <div style={{ fontSize: 14, color: "var(--neutral-900)", fontWeight: 500 }}>{cell.text}</div>
-        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-400)", marginTop: 1 }}>{cell.sub}</div>}
+        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-600)", marginTop: 1 }}>{cell.sub}</div>}
         {cell.badge && (
           <span style={{
             display: "inline-flex", marginTop: 4, background: cell.badge.bg, color: cell.badge.color,
