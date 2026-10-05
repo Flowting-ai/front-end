@@ -148,6 +148,8 @@ export interface SharedChatMessage {
   id:        string
   input:     string | null
   output:    string | null
+  /** The model's reasoning for this reply, when it had any. */
+  reasoning: string | null
   modelName: string | null
   createdAt: string
 }
@@ -184,6 +186,7 @@ export async function getSharedChatView(shareId: string): Promise<SharedChatView
       id:        m.id,
       input:     m.input,
       output:    m.output,
+      reasoning: m.reasoning?.trim() ? m.reasoning : null,
       modelName: m.model_name,
       createdAt: m.created_at,
     })),
