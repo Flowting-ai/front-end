@@ -88,6 +88,8 @@ const memberResponseSchema = z.object({
 const planResponseSchema = z.object({
   organization_id:  z.string(),
   plan_type:        z.string().nullable(),    // backend: str | None ("teams" | "enterprise" | null)
+  plan_id: z.string().nullable().default(null),
+  billing_interval: z.string().nullable().default(null),
   billing_model:    z.string(),               // backend: str ("prepaid" | "postpaid")
   plan_credits:     z.number(),
   topup_credits:    z.number(),
@@ -195,6 +197,8 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     // a plan_type at all (a real subscription/contract), not the founder
     // org-create credit grant alone. See the field's own doc comment.
     hasSelectedPlan: p.plan_type != null,
+    planId: p.plan_id,
+    billingInterval: p.billing_interval,
     billingModel:   isPostpaid ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),

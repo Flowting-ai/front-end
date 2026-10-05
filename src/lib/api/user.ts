@@ -541,10 +541,11 @@ export async function deleteUser(): Promise<void> {
  */
 export async function createCheckoutSession(
   planId: CheckoutPlan,
+  billingInterval: "monthly" | "annual" = "monthly",
 ): Promise<CheckoutSessionResponse> {
   const response = await apiFetch(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ planId }),
+    body: JSON.stringify({ planId, billingInterval }),
   });
 
   const data = (await response.json().catch(() => ({}))) as
@@ -561,10 +562,10 @@ export async function createCheckoutSession(
 }
 
 /** POST /stripe/plan — change an existing Teams subscription in place. */
-export async function updatePlan(planId: CheckoutPlan): Promise<PlanInfo> {
+export async function updatePlan(planId: CheckoutPlan, billingInterval: "monthly" | "annual" = "monthly"): Promise<PlanInfo> {
   const response = await apiFetch(STRIPE_PLAN_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ planId }),
+    body: JSON.stringify({ planId, billingInterval }),
   });
   const data = (await response.json().catch(() => ({}))) as
     | PlanInfo

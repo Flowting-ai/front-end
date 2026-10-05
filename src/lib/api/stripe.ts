@@ -33,10 +33,11 @@ export {
 
 export interface CreateCheckoutSessionRequest {
   planId: CheckoutPlan;
+  billingInterval?: "monthly" | "annual";
 }
 
 export async function createCheckout(
   body: CreateCheckoutSessionRequest,
 ): Promise<CheckoutSessionResponse> {
-  return createCheckoutSession(body.planId);
+  return createCheckoutSession(body.planId, body.billingInterval);
 }

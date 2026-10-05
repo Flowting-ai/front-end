@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { useAuth } from '@/context/auth-context'
 import { createCheckout } from '@/lib/api/stripe'
+import { TeamsTier, type CheckoutPlan } from '@/lib/api/billing'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { Button } from '@/components/Button'
 import { InformationCircleIcon } from '@strange-huge/icons'
@@ -16,7 +17,7 @@ const CANVAS_GRADIENT =
   'linear-gradient(180deg, var(--neutral-50) 3.76%, var(--neutral-100,#F5F5F5) 75%, var(--neutral-200,#E5E5E5) 116.79%)'
 
 type Billing = 'monthly' | 'annual'
-type TeamPlanId = '50' | '100' | '250' | '500' | '1000' | '2000'
+type TeamPlanId = CheckoutPlan
 
 // ── Team tiers ────────────────────────────────────────────────────────────────
 
@@ -25,18 +26,16 @@ interface TeamTier {
   monthlyPrice: string
   annualPrice:  string
   annualBilled: string
-  creditsLabel: string
   planId:       TeamPlanId
 }
 
-const TEAM_TIERS: TeamTier[] = [
-  { sliderLabel: '$50',  monthlyPrice: '$50',  annualPrice: '$50',  annualBilled: '$600/yr',   creditsLabel: '40',   planId: '50'   },
-  { sliderLabel: '$100', monthlyPrice: '$100', annualPrice: '$100', annualBilled: '$1,200/yr', creditsLabel: '80',   planId: '100'  },
-  { sliderLabel: '$250', monthlyPrice: '$250', annualPrice: '$250', annualBilled: '$3,000/yr', creditsLabel: '200',  planId: '250'  },
-  { sliderLabel: '$500', monthlyPrice: '$500', annualPrice: '$500', annualBilled: '$6,000/yr', creditsLabel: '400',  planId: '500'  },
-  { sliderLabel: '$1k',  monthlyPrice: '$1k',  annualPrice: '$1k',  annualBilled: '$12,000/yr', creditsLabel: '800',  planId: '1000' },
-  { sliderLabel: '$2k',  monthlyPrice: '$2k',  annualPrice: '$2k',  annualBilled: '$24,000/yr', creditsLabel: '1,600', planId: '2000' },
-]
+const TEAM_TIERS: TeamTier[] = TeamsTier.all.map(tier => ({
+  sliderLabel: `$${tier.price.toLocaleString()}`,
+  monthlyPrice: `$${tier.price.toLocaleString()}`,
+  annualPrice: `$${(tier.price * 0.75).toLocaleString()}`,
+  annualBilled: `$${(tier.price * 9).toLocaleString()}/yr`,
+  planId: tier.planId,
+}))
 
 // ── Individual tiers ──────────────────────────────────────────────────────────
 
@@ -365,7 +364,7 @@ function OnboardingPlansContent() {
     setTeamLoading(true)
     setTeamError(null)
     try {
-      const { checkout_url } = await createCheckout({ planId: teamTier.planId })
+      const { checkout_url } = await createCheckout({ planId: teamTier.planId, billingInterval: billing })
       window.location.href = checkout_url
     } catch (err) {
       setTeamError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -491,7 +490,7 @@ function OnboardingPlansContent() {
                         transition={{ duration: 0.2, ease: 'easeOut' }}
                         style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}
                       >
-                        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--static-black)' }}>{teamTier.creditsLabel}</span>
+                        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--static-black)' }}>{new TeamsTier(teamTier.planId, billing).credits.toLocaleString()}</span>
                         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '15px', color: 'var(--neutral-600,#6a625d)' }}>credits / month</span>
                       </motion.div>
                     </AnimatePresence>
@@ -548,17 +547,17 @@ function OnboardingPlansContent() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: 'var(--neutral-white)', borderRadius: 18, border: '1px solid var(--neutral-200,#e5e5e5)', padding: 12, boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--static-black)', margin: 0 }}>Custom</h2>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500,#827a74)', margin: 0 }}>Unlimited postpaid usage with a predictable monthly platform fee.</p>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500,#827a74)', margin: 0 }}>Usage billed after each monthly cycle at 1.15 × service cost. No base fee.</p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <div style={{ display: 'flex', gap: 92, alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <SectionLabel>Team collaboration</SectionLabel>
-                    <FeatureItem label="$250 monthly platform fee" />
+                    <FeatureItem label="$0 monthly base fee" />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 24 }}>
-                    <FeatureItem label="$125 provider usage included" />
-                    <FeatureItem label="Additional usage billed at exact provider cost" />
+                    <FeatureItem label="$0 base fee · pay for usage" />
+                    <FeatureItem label="Usage at 1.15 × service cost" />
                   </div>
                 </div>
                 <Divider />

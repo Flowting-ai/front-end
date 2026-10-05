@@ -141,8 +141,8 @@ describe("Invoice", () => {
 });
 
 describe("TeamsTier", () => {
-  it("is 80% of the catalog price in display credits", () => {
-    expect(TeamsTier.fromPlanId("50")?.credits).toBe(40000);
-    expect(TeamsTier.fromCredits(200000)?.planId).toBe("250");
+  it("divides the catalog price by the 1.15 markup", () => {
+    expect(TeamsTier.fromPlanId("50")?.credits).toBe(43478);
+    expect(TeamsTier.fromCredits(217391)?.planId).toBe("250");
   });
 });

@@ -19,6 +19,7 @@ import {
   cancelSubscription,
   resumeSubscription,
 } from '@/lib/api/stripe'
+import { setupEnterprisePayment } from '@/lib/api/billing'
 import { setOrgPoolCap } from '@/lib/api/organization'
 import {
   ORG_CHANGE_PLAN_ROUTE,
@@ -119,8 +120,6 @@ const fmtUsd = (n: number) =>
 
 // Credits are USD × 1000. The Enterprise view speaks in credits, so usage/limits
 // are displayed via this helper even though the backend stores them in USD.
-const CREDITS_PER_USD = 1000
-const fmtCredits = (usd: number) => Math.round(usd * CREDITS_PER_USD).toLocaleString()
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -544,83 +543,22 @@ function OrgBillingView() {
   const isAdmin = orgRole === 'admin'
   const effectivePlan = plan
 
-  // Everything below comes straight from the plan endpoint (getOrgPlan, validated
-  // by planResponseSchema) — the single source of truth. No merge with
-  // /stripe/billing and no business-default fallbacks; the `?? 0`/`?? null` here
-  // is only null-safety while the plan loads. USD fields stay in USD; the credit
-  // view converts via `toCredits` (credits = USD × 1000).
-  const toCredits = (usd: number) => Math.round(usd * 1000)
-
-  const providerUsage     = effectivePlan?.providerUsageUsd ?? 0
-  const includedUsage     = effectivePlan?.includedUsageUsd ?? 0
-  const projectedInvoice  = effectivePlan?.projectedInvoiceUsd ?? 0
-  const poolCapUsd        = effectivePlan?.poolCapUsd ?? null
-  // The backend's own overage_usd is capped at the admin-set overage limit (it's
-  // used server-side to derive the invoice), so it silently under-reports once
-  // usage actually exceeds that limit. Recompute the true, uncapped overage
-  // client-side and use that everywhere in this UI instead — the backend field
-  // is only used below to back out baseFeeUsd, matching how the backend itself
-  // derived projectedInvoiceUsd (base fee + capped overage).
-  const backendOverageUsd = effectivePlan?.overageUsd ?? 0
-  const trueOverageUsd    = Math.max(providerUsage - includedUsage, 0)
-  const baseFeeUsd        = Math.max(projectedInvoice - backendOverageUsd, 0)
-
+  // The org plan exposes dollar charges and the prepaid Teams balance.
+  const projectedInvoice = effectivePlan?.projectedInvoiceUsd ?? 0
+  const poolCapUsd = effectivePlan?.poolCapUsd ?? null
+  const overageUsd = effectivePlan?.overageUsd ?? 0
+  const baseFeeUsd = Math.max(projectedInvoice - overageUsd, 0)
   const hasUnlimitedEnterpriseCap = poolCapUsd == null || poolCapUsd >= ENTERPRISE_INTERMAX
-  // Owner-set ceiling on overage spend *above* the included allowance (backend
-  // overage_limit / pool_cap). Usage up to the included amount is always
-  // permitted; this only caps metered overage beyond it. `null` ⇒ unlimited.
   const overageCapUsd = hasUnlimitedEnterpriseCap ? null : poolCapUsd
-  const overageUsedPct = overageCapUsd && overageCapUsd > 0
-    ? Math.min(100, (trueOverageUsd / overageCapUsd) * 100)
+  const overageUsedPct = overageCapUsd != null
+    ? (overageCapUsd > 0 ? Math.min(100, (overageUsd / overageCapUsd) * 100) : 100)
     : 0
-
-  // Credit view. Teams: the prepaid shared pool (already credits from the plan).
-  // Enterprise: total/used are the plan's real INCLUDED allowance only — NOT
-  // the included amount plus the overage cap. Folding the overage cap in here
-  // made paid overage look like part of the base balance (e.g. a 125,000-
-  // credit plan with a 1,000-credit overage cap showed "126,000" as the
-  // total), which contradicted the Overage spend limit card's own "125,000
-  // included credits" language just below. The "used > total" case already
-  // renders as "X credits in paid overage" (see the JSX below) rather than a
-  // negative/broken remaining, so going over included credits still reads
-  // correctly — the overage allowance itself is told separately, and only
-  // there, by SpendLimitCard.
-  const totalCredits   = isEnterprise
-    ? toCredits(includedUsage)
-    : (effectivePlan?.totalCredits ?? 0)
-  const usedCredits    = isEnterprise ? toCredits(providerUsage) : (effectivePlan?.used ?? 0)
-
-  // The interactive tier slider/annual toggle used to live inline here — moved
-  // entirely to ORG_CHANGE_PLAN_ROUTE, so this page just displays the current
-  // plan's real price rather than previewing a hypothetical one.
-  //
-  // `hasSelectedPlan` (OrgPlan, from the backend's real plan_type != null) is
-  // the correct signal here — NOT totalCredits > 0. A fresh org gets a
-  // founder-grant starting credit balance at onboarding with no plan ever
-  // selected, so totalCredits > 0 was true immediately and fabricated a fake
-  // "Active" plan card (org name as the plan name, the cheapest tier's price,
-  // a real-looking next-billing-date) for anyone who hadn't chosen a plan at
-  // all. Previously `TIERS.findIndex` returning -1 for "no match" also
-  // silently fell back to TIERS[0] ($125/mo) on top of that.
+  const totalCredits = effectivePlan?.totalCredits ?? 0
+  const usedCredits = effectivePlan?.used ?? 0
   const hasPlan = isEnterprise || Boolean(effectivePlan?.hasSelectedPlan)
-  // Three-step fallback, most-to-least reliable:
-  //  1. billing.teamsTier — resolves from the real Stripe plan_id
-  //     (TeamsTier.fromPlanId). Most reliable, but `billing` is admin-only
-  //     (Billing.fetch() below is gated on isAdmin) — null for anyone else.
-  //  2. TeamsTier.fromCredits(effectivePlan.planCredits) — planCredits is the
-  //     backend's own base-tier allocation, separate from topupCredits, so
-  //     it lands on an exact tier boundary even when a topup or mid-cycle
-  //     usage has moved totalCredits off of one. Available to every viewer.
-  //  3. TeamsTier.fromCredits(totalCredits) — last resort. This was
-  //     previously the ONLY source (via TIERS.findIndex(...) ?? TIERS[0]),
-  //     which is what caused the TIERS[0] ($50) bug: any credits total that
-  //     doesn't land on an exact tier boundary silently showed the cheapest
-  //     tier's price instead of the org's real one.
-  const teamsTier   = billing?.teamsTier
-    ?? TeamsTier.fromCredits(effectivePlan?.planCredits ?? 0)
-    ?? TeamsTier.fromCredits(totalCredits)
+  const teamsTier = TeamsTier.fromPlanId(effectivePlan?.planId)
   const tierMonthly  = teamsTier
-    ? (org.billingCycle === 'annual' ? Math.round(teamsTier.price * 0.75) : teamsTier.price)
+    ? (org.billingCycle === 'annual' ? teamsTier.price * 0.75 : teamsTier.price)
     : null
 
   // Fetch billing data. Payment/Invoices below are admin-only (the backend's
@@ -648,7 +586,7 @@ function OrgBillingView() {
   const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
-  const isManualBilling = isEnterprise || billing?.billingModel === 'postpaid'
+  const isAutomaticBilling = billing?.billingModel === 'automatic_postpaid'
   // Invoice history shows only real, issued invoices now — the upcoming
   // invoice (never downloadable; Invoice.projected() gives it no viewUrl) is
   // surfaced separately as the card's subtitle instead of a row in the same
@@ -658,10 +596,6 @@ function OrgBillingView() {
   const handleStripePortal = async () => {
     if (!isAdmin) {
       toast.error('Only an organization admin can manage billing.')
-      return
-    }
-    if (isManualBilling) {
-      toast.error('Pro billing is managed manually.')
       return
     }
     setOpeningPortal(true)
@@ -822,7 +756,7 @@ function OrgBillingView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ flex: '1 0 0', minWidth: 0 }}>
                         <p style={statCardBigLineStyle}>
-                          Pro Plan · ${Math.round(baseFeeUsd)}/mo
+                          {baseFeeUsd === 0 ? 'Enterprise · pay for usage' : `Enterprise · $${Math.round(baseFeeUsd)}/mo`}
                         </p>
                         <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
                           Next billing date: {nextBilling}
@@ -833,24 +767,18 @@ function OrgBillingView() {
                 </div>
 
                 <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-                  {/* "Included" in the title (and totalCredits below) is
-                      deliberately just the plan's base allowance, not the
-                      allowance plus the overage cap — see SpendLimitCard for
-                      the separate, additional paid-usage story. */}
-                  <SectionCard title="Included Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={8}>
+                  <SectionCard title="Charges this cycle" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={8}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                         <p style={{ ...statCardBigLineStyle, whiteSpace: 'nowrap' }}>
-                          {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
+                          {fmtUsd(projectedInvoice)}
                         </p>
                         <p style={statCardCaptionStyle}>
-                          credits consumed
+                          before applicable tax
                         </p>
                       </div>
                       <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
-                        {usedCredits > totalCredits
-                          ? `${(usedCredits - totalCredits).toLocaleString()} credits in paid overage — see below`
-                          : `Resets ${nextBilling}`}
+                        {`Cycle ends ${nextBilling}`}
                       </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -863,9 +791,8 @@ function OrgBillingView() {
 
             <SpendLimitCard
               overageCapUsd={overageCapUsd}
-              overage={trueOverageUsd}
+              overage={overageUsd}
               overageUsedPct={overageUsedPct}
-              includedUsage={includedUsage}
               isAdmin={isAdmin}
               onEdit={() => setCapModalOpen(true)}
               onRequest={handleRequestCapChange}
@@ -991,7 +918,7 @@ function OrgBillingView() {
         {isAdmin && (
           <SectionCard
             title="Payment"
-            subtitle={isManualBilling ? 'Pro billing is invoiced manually.' : 'Manage your billing details.'}
+            subtitle={isEnterprise ? (isAutomaticBilling ? 'Usage is billed after each monthly cycle.' : `Automatic usage billing starts ${fmtDate(billing?.autobillingStart ?? null)}.`) : 'Manage your billing details.'}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
@@ -1003,7 +930,13 @@ function OrgBillingView() {
                   {pm?.expiry ?? 'Add a card to continue.'}
                 </p>
               </div>
-              {!isManualBilling && (
+              {isEnterprise && !billing?.paymentSetupComplete ? (
+                <Button variant="secondary" loading={openingPortal} onClick={async () => {
+                  setOpeningPortal(true)
+                  try { window.location.assign(await setupEnterprisePayment()) }
+                  catch { toast.error('Could not start payment setup.'); setOpeningPortal(false) }
+                }}>Set up automatic payments</Button>
+              ) : (
                 <Button variant="secondary" loading={openingPortal} onClick={() => void handleStripePortal()}>Manage on Stripe</Button>
               )}
             </div>
@@ -1041,7 +974,6 @@ function OrgBillingView() {
       {isAdmin && isEnterprise && capModalOpen && (
         <SpendCapModal
           currentCapUsd={overageCapUsd}
-          includedUsage={includedUsage}
           saving={savingCap}
           onSave={handleSaveCap}
           onClose={() => setCapModalOpen(false)}
@@ -1616,18 +1548,12 @@ function InputField({
   )
 }
 
-// ── Overage spend limit (Enterprise) ──────────────────────────────────────────
-//
-// Enterprise usage is unlimited by default and billed in arrears. An admin can
-// cap the *overage* — usage billed beyond the $125 included each month. The cap
-// never restricts the included allowance, only spend past it (backend
-// EnterpriseContract.overage_limit; `null` here ⇒ the INTERMAX "unlimited" sentinel).
+// Enterprise spending budgets include markup; null means unlimited.
 
 function SpendLimitCard({
   overageCapUsd,
   overage,
   overageUsedPct,
-  includedUsage,
   isAdmin,
   onEdit,
   onRequest,
@@ -1635,7 +1561,6 @@ function SpendLimitCard({
   overageCapUsd:  number | null
   overage:        number
   overageUsedPct: number
-  includedUsage:  number
   isAdmin:        boolean
   onEdit:         () => void
   onRequest:      () => void
@@ -1643,8 +1568,8 @@ function SpendLimitCard({
   const unlimited = overageCapUsd == null
   return (
     <SectionCard
-      title="Overage spend limit"
-      subtitle={`Caps usage billed beyond the ${fmtCredits(includedUsage)} included credits each month. Usage up to the included amount is always allowed.`}
+      title="Monthly spending budget"
+      subtitle="A monthly spending budget before tax. New work pauses at the limit; work in progress may finish."
       action={
         isAdmin
           ? <Button variant="secondary" onClick={onEdit}>Edit limit</Button>
@@ -1664,17 +1589,17 @@ function SpendLimitCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-              {fmtCredits(overageCapUsd)}
+              {fmtUsd(overageCapUsd ?? 0)}
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              credits / month overage cap
+              USD / month budget
             </p>
           </div>
           <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--neutral-100)', width: '100%' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: overageUsedPct >= 100 ? 'var(--red-700)' : 'var(--neutral-900)', width: `${overageUsedPct}%`, transition: 'width 0.3s ease' }} />
           </div>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            {fmtCredits(overage)} of {fmtCredits(overageCapUsd)} credits used · {Math.round(overageUsedPct)}% of limit
+            {fmtUsd(overage)} of {fmtUsd(overageCapUsd ?? 0)} used · {Math.round(overageUsedPct)}% of budget
           </p>
         </div>
       )}
@@ -1684,35 +1609,32 @@ function SpendLimitCard({
 
 function SpendCapModal({
   currentCapUsd,
-  includedUsage,
   saving,
   onSave,
   onClose,
 }: {
   currentCapUsd: number | null
-  includedUsage: number
   saving:        boolean
   onSave:        (valueUsd: number | null) => void
   onClose:       () => void
 }) {
-  // Edited in credits; the backend stores the limit in USD, so convert on save.
   const [unlimited, setUnlimited] = useState(currentCapUsd == null)
   const [value,     setValue]     = useState(
-    currentCapUsd != null ? String(Math.round(currentCapUsd * CREDITS_PER_USD)) : '',
+    currentCapUsd != null ? String(currentCapUsd) : '',
   )
 
-  const parsedCredits = parseFloat(value)
-  const valid  = unlimited || (!isNaN(parsedCredits) && parsedCredits >= 0)
+  const parsedUsd = parseFloat(value)
+  const valid  = unlimited || (Number.isFinite(parsedUsd) && parsedUsd >= 0)
 
   const handleSave = () => {
     if (!valid) { toast.error('Enter a valid amount.'); return }
-    onSave(unlimited ? null : parsedCredits / CREDITS_PER_USD)
+    onSave(unlimited ? null : parsedUsd)
   }
 
   return (
     <ModalShell
-      title="Overage spend limit"
-      subtitle={`Set the maximum usage billed beyond the ${fmtCredits(includedUsage)} included credits each month. The included allowance is never restricted — only spend past it.`}
+      title="Monthly spending budget"
+      subtitle="Set a monthly budget in USD, including the usage markup and excluding tax."
       maxWidth={560}
       onClose={onClose}
       footer={
@@ -1720,7 +1642,7 @@ function SpendCapModal({
           Save limit
         </Button>
       }
-      footerNote="Usage that would exceed the limit is paused until the next cycle or until the limit is raised."
+      footerNote="New work pauses when the budget is reached. Work already running can finish and is billed."
     >
       <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1729,13 +1651,13 @@ function SpendCapModal({
               No limit
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Allow unlimited overage, billed at exact provider cost.
+              Allow unlimited usage at 1.15 × service cost.
             </p>
           </div>
           <PermToggle checked={unlimited} onChange={() => setUnlimited(u => !u)} />
         </div>
         {!unlimited && (
-          <InputField label="Cap overage at (credits, above included)" value={value} onChange={setValue} placeholder="e.g. 500,000" />
+          <InputField label="Monthly budget (USD)" value={value} onChange={setValue} placeholder="e.g. 500" />
         )}
       </div>
     </ModalShell>

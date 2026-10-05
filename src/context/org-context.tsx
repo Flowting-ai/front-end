@@ -251,7 +251,8 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     id:         orgId ?? '',
     name:       orgName,
     plan:       orgPlanType,
-    monthlyPrice: TeamsTier.fromCredits(creditPool.total)?.price ?? 0,
+    monthlyPrice: TeamsTier.fromPlanId(plan?.planId)?.price ?? 0,
+    billingCycle: plan?.billingInterval === 'annual' ? 'annual' : 'monthly',
     creditPool,
   }
 
