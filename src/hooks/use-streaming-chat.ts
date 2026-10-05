@@ -46,6 +46,16 @@ class FriendlyStreamError extends Error {
   readonly alreadyFriendly = true as const
 }
 
+/** The agent chat endpoint answers 409 for an agent that can't be chatted with right now
+ *  (no published version, paused, or disabled) — not for a retired model, which is what
+ *  the generic 409 copy says. */
+const AGENT_UNAVAILABLE_MESSAGE = "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled."
+
+function streamFailureMessage(rawText: string, status: number, endpoint: string): string {
+  if (status === 409 && endpoint.includes("persona")) return AGENT_UNAVAILABLE_MESSAGE
+  return friendlyModelError(rawText, status)
+}
+
 /** A 401 (or auth-flavored error text) from the XHR transport — the caller
  *  should sign the user out rather than show any chat error content. */
 const SESSION_EXPIRED_MESSAGE = "Your session has expired. Signing you out…"
@@ -1481,7 +1491,7 @@ export function useStreamingChat({
               ) {
                 reject(new AuthExpiredError())
               } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
               }
               return
             }
@@ -1521,7 +1531,7 @@ export function useStreamingChat({
               if (xhr.status === 401) {
                 reject(new AuthExpiredError())
               } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
               }
             } else {
               resolve()
@@ -1568,7 +1578,9 @@ export function useStreamingChat({
         return
       }
 
-      logger.error("[useStreamingChat] Error", error)
+      // A FriendlyStreamError was already logged where it was raised (status, endpoint,
+      // body); logging it again here only doubles the dev overlay's issue count.
+      if (!(error instanceof FriendlyStreamError)) logger.error("[useStreamingChat] Error", error)
 
       if (error instanceof AuthExpiredError) {
         setStreamState?.("error")

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { fetchModelsWithCache, pickDefaultModel, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import type { AIModel } from "@/types/ai-model";
 import { logger } from "@/lib/logger";
+import { toast } from "sonner";
+import { resolveStoredSelection } from "@/lib/model-fallback";
 
 const STORAGE_KEY = "souvenir_selected_model";
 
@@ -64,30 +66,17 @@ export function useModelSelection(): UseModelSelectionResult {
       if (fetched.length > 0) {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-          // 1st: match by modelId (semantic string, most stable)
-          // 2nd: match by id (numeric DB key, may change)
-          let found = fetched.find(
-            (m) =>
-              (m.modelId != null && String(m.modelId) === stored) ||
-              (m.id != null && String(m.id) === stored),
-          );
-
-          // 3rd: match by modelName + companyName from cache (guards against API id changes)
-          if (!found) {
+          // The saved model if it's still there and usable (matched by modelId, then the
+          // numeric id, then name + company from the cache — guards against API id
+          // changes); otherwise the closest usable one, because a model retired from the
+          // catalog (or blocked) would just fail when sent.
+          let cached: Partial<AIModel> | null = null;
+          try {
             const cachedRaw = localStorage.getItem(`${STORAGE_KEY}_cache`);
-            if (cachedRaw) {
-              try {
-                const cached = JSON.parse(cachedRaw) as Partial<AIModel>;
-                if (cached.modelName && cached.companyName) {
-                  found = fetched.find(
-                    (m) =>
-                      m.modelName === cached.modelName &&
-                      m.companyName === cached.companyName,
-                  );
-                }
-              } catch {}
-            }
-          }
+            if (cachedRaw) cached = JSON.parse(cachedRaw) as Partial<AIModel>;
+          } catch {}
+          const resolved = resolveStoredSelection(fetched, stored, cached);
+          const found = resolved.model;
 
           if (found) {
             setSelectedModel(found);
@@ -105,6 +94,9 @@ export function useModelSelection(): UseModelSelectionResult {
                 companyName: found.companyName,
               }),
             );
+            if (resolved.replaced) {
+              toast.info(`${resolved.previousName ?? "Your selected model"} is no longer available — switched to ${found.modelName}.`);
+            }
           }
           // If no match found at all: keep the current selectedModel (cached partial)
           // rather than clobbering it with an arbitrary fetched[0].
