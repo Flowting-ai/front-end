@@ -35,6 +35,24 @@ export function hasUploadedFiles(message: UIMessage): boolean {
 }
 
 /**
+ * The turn an edit of `messageId` replaces. A turn is one backend row shared by the
+ * user message and its reply, and only the reply's id is swapped for the real one
+ * when a stream ends (`message_saved`) — so after an edit, the user message still
+ * carries the id of the turn that was just replaced. The reply that follows it is
+ * the reliable source; the message's own id is the fallback (no reply yet).
+ */
+export function resolveEditReplaceId(
+  messages: readonly UIMessage[],
+  messageId: string,
+): string | undefined {
+  const idx = messages.findIndex((m) => m.id === messageId)
+  if (idx === -1) return resolveReplaceMessageId(messageId)
+  const next = messages[idx + 1]
+  const reply = next?.role === 'assistant' ? next : undefined
+  return resolveReplaceMessageId(reply?.id) ?? resolveReplaceMessageId(messageId)
+}
+
+/**
  * What a regenerate re-sends: the last user message, and the turn to replace —
  * the trailing reply's id, falling back to the user message's own.
  *

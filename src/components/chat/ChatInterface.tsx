@@ -24,7 +24,7 @@ import {
   USER_SCROLL_WINDOW_MS,
 } from "@/lib/stick-to-bottom";
 import { buildTurnOptions, getFolderPinIds, type TurnInput } from "@/lib/turn-options";
-import { getRegenerateTarget, resolveReplaceMessageId } from "@/lib/replace-message-id";
+import { getRegenerateTarget, resolveEditReplaceId } from "@/lib/replace-message-id";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { publishChatContext, clearChatContext } from "@/lib/chat-context-store";
@@ -991,9 +991,10 @@ export function ChatInterface({
     if (isStreaming) return  // never edit while a stream is in-flight
     if (personaConfigLoading) return  // same race as handleSend — see its comment
 
-    // History ids carry a "-prompt" suffix the backend doesn't know, and
-    // unsaved ones have no backend id at all — see resolveReplaceMessageId.
-    const replaceMessageId = resolveReplaceMessageId(messageId)
+    // History ids carry a "-prompt" suffix the backend doesn't know, unsaved ones
+    // have no backend id at all, and an already-edited message carries a stale one —
+    // see resolveEditReplaceId.
+    const replaceMessageId = resolveEditReplaceId(messages, messageId)
     const mentionedPinIds = messages.find((m) => m.id === messageId)?.mentionedPins?.map((p) => p.id)
 
     // findIndex runs inside the functional updater so it always sees the current

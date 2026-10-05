@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { UIMessage } from '@/types/chat'
-import { getRegenerateTarget, hasUploadedFiles, resolveReplaceMessageId } from './replace-message-id'
+import { getRegenerateTarget, hasUploadedFiles, resolveEditReplaceId, resolveReplaceMessageId } from './replace-message-id'
 
 const UUID = '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b'
 const OTHER_UUID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
@@ -37,6 +37,32 @@ describe('hasUploadedFiles', () => {
     }))).toBe(true)
     expect(hasUploadedFiles(msg('u', 'user', { file_attachments: [{ origin: 'uploaded', file_name: 'a.pdf' }] }))).toBe(true)
     expect(hasUploadedFiles(msg('u', 'user', { file_attachments: [{ origin: 'generated', file_name: 'a.png' }] }))).toBe(false)
+  })
+})
+
+describe('resolveEditReplaceId', () => {
+  it('uses the id of the reply after the edited message, not the message\'s own stale id', () => {
+    // First edit replaced OTHER_UUID; the user message still carries it, the reply was swapped to UUID.
+    const messages = [msg(`${OTHER_UUID}-prompt`, 'user'), msg(UUID, 'assistant')]
+    expect(resolveEditReplaceId(messages, `${OTHER_UUID}-prompt`)).toBe(UUID)
+  })
+
+  it('falls back to the message id when there is no reply yet', () => {
+    expect(resolveEditReplaceId([msg(`${UUID}-prompt`, 'user')], `${UUID}-prompt`)).toBe(UUID)
+  })
+
+  it('falls back to the message id when the reply has no backend id', () => {
+    const messages = [msg(`${UUID}-prompt`, 'user'), msg('loading-assistant-1', 'assistant')]
+    expect(resolveEditReplaceId(messages, `${UUID}-prompt`)).toBe(UUID)
+  })
+
+  it('gives undefined for an unsaved message with an unsaved reply', () => {
+    expect(resolveEditReplaceId([msg('optimistic-user-1', 'user'), msg('loading-assistant-1', 'assistant')], 'optimistic-user-1')).toBeUndefined()
+  })
+
+  it('never takes the reply of a later turn', () => {
+    const messages = [msg('optimistic-user-1', 'user'), msg('optimistic-user-2', 'user'), msg(UUID, 'assistant')]
+    expect(resolveEditReplaceId(messages, 'optimistic-user-1')).toBeUndefined()
   })
 })
 
