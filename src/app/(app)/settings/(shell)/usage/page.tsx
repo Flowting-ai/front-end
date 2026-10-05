@@ -9,7 +9,7 @@ import { useAuth } from '@/context/auth-context'
 
 const C = {
   ink:    'var(--neutral-900)',
-  muted:  'var(--neutral-500)',
+  muted:  'var(--neutral-600)',
   border: 'var(--neutral-200)',
   hair:   'var(--neutral-100)',
   white:  'var(--neutral-white)',

@@ -15,7 +15,7 @@
 .header { padding: 16px 18px; border-bottom: 1px solid var(--neutral-100); }
 .heading { flex: 1; min-width: 120px; }
 .title { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
-.caption { color: var(--neutral-500); font-size: var(--font-size-caption); line-height: var(--line-height-caption); }
+.caption { color: var(--neutral-600); font-size: var(--font-size-caption); line-height: var(--line-height-caption); }
 .icon, .avatar { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid var(--neutral-100); border-radius: 10px; background: var(--neutral-50); color: var(--neutral-700); }
 .content { padding: 18px; }
 .sender { display: flex; gap: 12px; padding: 18px; }
@@ -38,5 +38,5 @@
 .events { list-style: none; margin: 10px 0 0; padding: 0; }
 .event { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--neutral-100); }
 .event:last-child { border-bottom: 0; }
-.time { flex: 0 0 88px; color: var(--neutral-500); font-size: var(--font-size-caption); font-variant-numeric: tabular-nums; }
+.time { flex: 0 0 88px; color: var(--neutral-600); font-size: var(--font-size-caption); font-variant-numeric: tabular-nums; }
 @media (max-width: 480px) { .header, .sender, .content, .agenda { padding: 14px; } .body { padding: 0 14px 14px; } .date { min-height: 48px; } .time { flex-basis: 70px; } }

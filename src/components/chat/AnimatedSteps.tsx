@@ -52,7 +52,7 @@ export function AnimatedSteps({ data, onComplete, animate = true }: { data: Step
               </div>
               <div style={{ paddingBottom: i < data.steps.length - 1 ? 18 : 0, paddingTop: 2, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-900)", lineHeight: "20px" }}>{step.label}</div>
-                {step.description && <div style={{ fontSize: 13, color: "var(--neutral-500)", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
+                {step.description && <div style={{ fontSize: 13, color: "var(--neutral-600)", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
               </div>
             </m.div>
           ))}

@@ -529,8 +529,8 @@ const css = `/* ── Theme: dark ───────────────
   --shadow-undo-toast: 0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10);
 
   /* Thinking / reasoning text: the "Thinking…" label, step meta text, bullets, icons, the
-     rail and the shimmer sweep. Light = the exact literals these replaced (#9A9089 etc.). */
-  --thinking-text: #9A9089;
+     rail and the shimmer sweep. Light = the literals these replaced (#9A9089 etc.), with --thinking-text darkened to #776F69 for 4.5:1. */
+  --thinking-text: #776F69;
   --thinking-text-faint: #C0B5AD;
   --thinking-icon-strong: var(--neutral-200);
   --thinking-icon-active: #A89488;

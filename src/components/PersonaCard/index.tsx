@@ -156,7 +156,7 @@ function AuthorRow({
           fontFamily: 'var(--font-code)',
           fontSize:   'var(--font-size-code)',
           lineHeight: 'var(--line-height-code)',
-          color:      'var(--neutral-500)',
+          color:      'var(--neutral-600)',
         }}
       >
         @{authorHandle}
@@ -878,7 +878,7 @@ function PersonaCardInner({
                   fontFamily:   'var(--font-body)',
                   fontSize:     'var(--font-size-caption)',
                   lineHeight:   '18px',
-                  color:        'var(--neutral-500)',
+                  color:        'var(--neutral-600)',
                   overflow:     'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace:   'nowrap',
@@ -900,7 +900,7 @@ function PersonaCardInner({
                   fontFamily:       'var(--font-body)',
                   fontSize:         'var(--font-size-caption)',
                   lineHeight:       'var(--line-height-caption)',
-                  color:            'var(--neutral-500)',
+                  color:            'var(--neutral-600)',
                   display:          '-webkit-box',
                   WebkitLineClamp:  2,
                   WebkitBoxOrient:  'vertical',

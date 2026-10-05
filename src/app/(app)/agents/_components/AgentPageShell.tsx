@@ -98,7 +98,7 @@ export function AgentPageHeader({
           {title}
         </h1>
         {subtitle && (
-          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
             {subtitle}
           </p>
         )}

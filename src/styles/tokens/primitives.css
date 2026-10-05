@@ -12,7 +12,7 @@
    --neutral-200:   #E4E0DC;
    --neutral-300:   #C9C4BF;
   --neutral-400:   #9C938B;
-  --neutral-500:   #827A74;
+  --neutral-500:   #756D67;
   --neutral-600:   #6A625D;
   --neutral-700:   #524B47;
   --neutral-800:   #3B3632;
@@ -29,8 +29,8 @@
   --neutral-black-25: rgba(0, 0, 0, 0.25);
    --neutral-50-61:    rgba(255, 255, 255, 0.61);
    --neutral-300-40:   rgba(201, 196, 191, 0.40);
-  --neutral-500-12:   rgba(130, 122, 116, 0.12);
-  --neutral-500-60:   rgba(130, 122, 116, 0.60);
+  --neutral-500-12:   rgba(117, 109, 103, 0.12);
+  --neutral-500-60:   rgba(117, 109, 103, 0.60);
   --neutral-600-05:   rgba(106, 98, 93, 0.05);
   --neutral-700-12:   rgba(82, 75, 71, 0.12);
   --neutral-700-15:   rgba(82, 75, 71, 0.15);

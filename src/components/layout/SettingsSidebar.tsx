@@ -322,7 +322,7 @@ export function SettingsSidebar() {
               fontWeight: 500,
               fontSize:   14,
               lineHeight: '22px',
-              color:      'var(--neutral-500)',
+              color:      'var(--neutral-600)',
               margin:     0,
               whiteSpace: 'nowrap',
             }}>
@@ -363,7 +363,7 @@ export function SettingsSidebar() {
                 fontWeight: 500,
                 fontSize:   14,
                 lineHeight: '22px',
-                color:      'var(--neutral-500)',
+                color:      'var(--neutral-600)',
                 margin:     0,
                 whiteSpace: 'nowrap',
               }}>
@@ -403,7 +403,7 @@ export function SettingsSidebar() {
               fontWeight: 500,
               fontSize:   14,
               lineHeight: '22px',
-              color:      'var(--neutral-500)',
+              color:      'var(--neutral-600)',
               margin:     0,
               whiteSpace: 'nowrap',
             }}>

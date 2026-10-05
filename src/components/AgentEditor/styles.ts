@@ -17,7 +17,7 @@ export const HINT_STYLE: CSSProperties = {
   fontFamily: 'var(--font-body)',
   fontSize:   12,
   lineHeight: '16px',
-  color:      'var(--neutral-500)',
+  color:      'var(--neutral-600)',
 }
 
 export const BOX_STYLE: CSSProperties = {
