@@ -1,8 +1,7 @@
 import type { PlanItem } from '@/types/chat'
 
-// A turn's plan, from the proposed `plan_updated` stream event: every step up front, each
-// moving pending → in_progress → completed (or failed). The backend does not emit it yet;
-// see the schema in lib/api/sse-schemas.ts for the contract.
+// A turn's plan, from the `plan_updated` stream event: every step up front, each
+// moving pending → in_progress → completed (or failed). See lib/api/sse-schemas.ts.
 
 const STATUSES: ReadonlySet<string> = new Set(['pending', 'in_progress', 'completed', 'failed'])
 

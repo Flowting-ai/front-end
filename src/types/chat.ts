@@ -243,7 +243,7 @@ export interface ActivityItem {
   agentHandle?: string
 }
 
-/** One step of a turn's plan, from the (proposed) `plan_updated` stream event. */
+/** One step of a turn's plan, from the `plan_updated` stream event. */
 export interface PlanItem {
   id:      string
   title:   string

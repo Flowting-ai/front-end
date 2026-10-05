@@ -1234,8 +1234,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "plan_updated") {
-            // The turn's whole plan, re-sent in full on every change (see PlanItem). Not
-            // emitted by the backend yet — the Context panel falls back to tool activity.
+            // The turn's whole plan, re-sent in full on every change (see PlanItem).
             const plan = toPlan(parsed.items)
             const msgId = loadingMessageIdRef.current
             if (plan && msgId) {

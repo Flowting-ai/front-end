@@ -413,9 +413,9 @@ function stepText(activity: ActivityItem): { label: string; detail?: string } {
 
 // ── Progress ──────────────────────────────────────────────────────────────────
 
-// The backend streams no upfront plan — a step exists only once it starts — so there is no
-// total to fill a bar towards. Status lives in the header instead (a pill that stays visible
-// when collapsed, plus a hairline loading sweep while working); the body is just the steps.
+// Without a plan, a step exists only once it starts, so there is no total to fill a bar
+// towards. Status lives in the header instead (a pill that stays visible when collapsed,
+// plus a hairline loading sweep while working); the body is just the steps.
 
 /** Finished / total: plan steps when there is a plan, else tool steps. Null with none. */
 export function stepCount(steps: ActivityItem[], plan: PlanItem[] | null): { done: number; total: number } | null {
