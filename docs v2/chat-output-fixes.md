@@ -5,10 +5,11 @@ Follow-up to [chat-output-bugs-scan.md](chat-output-bugs-scan.md). Date: 2026-10
 ## TL;DR
 
 - **Fixed:** all question-card issues (Q1–Q6), all reasoning/streaming issues (R1–R10, T1–T5), all formatting issues (F1–F13), data/logic (D1–D4, D1 with one exception) and L2–L5.
-- **Not done (out of scope for this pass):** L1 mobile layout, E1–E3 prompt enhancement, all backend changes.
-- **Not done (needs a live repro):** T6 "Generation interrupted", T7 dev "1 Issue" badge.
+- **Fixed in the follow-up (2026-10-05):** E1 + E2 (Enhance calls the backend; line-based diff), editing the same message twice, the `LeftSidebar` hydration risk, and widgets on shared chats.
+- **Not done:** L1 mobile layout (skipped), E3 (backend-only), all backend changes.
+- **Not reproduced:** T6 "Generation interrupted" (needs a live repro). T7 dev "1 Issue" badge: not seen on `/chat` idle or after a reply (R2 most likely fixed it).
 - **New finding, not fixed:** the web search toggle, style picker and connector selection reach the backend nowhere — the chat endpoint doesn't accept them.
-- **Checks:** 957 tests pass (2 skipped), `tsc` clean, ESLint shows no new errors, `next build` succeeds. Not yet checked in a real browser.
+- **Checks:** 990 tests pass (2 skipped), `tsc` clean, ESLint shows no new errors, `next build` succeeds. The main behaviours were also checked in a real browser (see "Manual checks" below).
 
 Status: **Fixed**, **Partly fixed**, **Not done**.
 
@@ -92,6 +93,14 @@ Tests: `lib/chat-prompt-answers.test.ts`, `components/chat/ChatPromptCard.test.t
 | F12 | L | **Fixed** | In-page links (footnotes) open in the same tab with ids unique per message; the "Footnotes" label is visually hidden; task lists show a checkbox and no bullet | `markdown-utils.tsx` |
 | F13 | L | **Fixed (front end)** | The model's trailing "Sources:" block becomes `[N]` chips and one source list with the real numbers. The block is only removed when it is last, outside code, and every line parses. Citations the backend sends itself still take priority. Reference-style links (`[text][1]`) are left alone | `lib/citations.ts`, `ChatMessage.tsx`, `CitationChip.tsx` |
 
+### 3a. Stray symbols while streaming (found 2026-10-05)
+
+| # | Sev | Status | What changed | Where |
+|---|---|---|---|---|
+| F14 | M | **Fixed** | While a reply streamed, the unfinished tail of the last paragraph flashed as raw symbols and then reshaped: an unclosed `` ` ``, `**`, `*word`, a half-written `[text](http…`, raw `\frac{…` before the math closed (or a red KaTeX error), a table header with no separator row, a lone `-` / `1.` / `#`. `healStreamingTail` (streaming only, last paragraph only) closes unclosed inline code, bold, strikethrough and italic, holds back an opener with no text yet, keeps only the text of a half-written link (drops a half-written image/footnote), and holds back unfinished math (`$$`, `\[`, `\(`, and a single `$…` that reads as math — `$A = 1{,}000…` — but not a price like `$5`), a table that isn't one yet, and a lone list/heading marker. A closer goes right after the last word, not after trailing whitespace. Open code fences are left to `closeOpenFences`. The final text is never touched. The live "Thinking" text was watched in the same scans and showed nothing | `lib/markdown-preprocess.ts`, `lib/markdown-utils.tsx` (`streaming` prop), `lib/content-renderer.tsx` |
+
+Found by sampling the reply's text every ~60ms during real streams and flagging odd characters absent from the final text. After the fix the same scan found none, on a markdown prompt, a table + math prompt, and a links/bold/quote/strikethrough prompt.
+
 ## 4. Data and logic
 
 | # | Sev | Status | What changed | Where |
@@ -99,6 +108,7 @@ Tests: `lib/chat-prompt-answers.test.ts`, `components/chat/ChatPromptCard.test.t
 | D1 | H | **Partly fixed** | Regenerate sends `replaceMessageId` (no duplicate after reload) and one shared options builder is used by send, initial send, edit and regenerate, so they can't drift. It also no longer uses stale settings. **Exception:** turns with uploaded files still append (the backend soft-deletes a replaced turn's files) | `ChatInterface.tsx`, `lib/turn-options.ts`, `lib/replace-message-id.ts` |
 | D2 | M | **Fixed** | `mergeStreamingText` is plain concatenation (backend sends deltas only — verified). Reasoning merges fixed too; same-titled sections no longer merge | `lib/streaming.ts`, `lib/reasoning.ts` |
 | D3 | M | **Fixed** | Sidebar state lives in a `sidebar_collapsed` cookie read by the `(app)` layout; localStorage is still written. Remounts (e.g. back from Settings) use the latest toggle; existing users' localStorage value is copied into the cookie once | `(app)/layout.tsx`, `AppLayout.tsx`, `LeftSidebar.tsx`, `storage-keys.ts` |
+| D5 | M | **Fixed** | A saved model that is no longer usable now switches automatically. `use-model-selection` kept a stale saved selection ("rather than clobbering it with an arbitrary `fetched[0]`"), so a chat opened on a model retired from the catalog — or blocked — and the send failed. `resolveStoredSelection` keeps the saved model when it is in the catalog and usable (by id, then name + company); otherwise it picks the closest usable one (same provider, then pricing tier, then size class — `pickReplacementModel`), saves it, and shows a toast once. Nothing else usable → the saved model is kept. Agent chats already did this on load (Tier 3 in `PersonaChatInterface`). A send-time retry was tried and removed: the backend has no 'model retired' response at send time | `lib/model-fallback.ts`, `hooks/use-model-selection.ts` |
 | D4 | L | **Fixed** | `scripts/sse-probe.mjs` reads `SOUVENIR_JWT` and `BACKEND_URL` from env. `test-sse.mjs`, `tmp-next-dev*.log` and the `.vsix` are deleted (`git rm`, staged); `.gitignore` updated. The expired token remains in git history | `scripts/`, `.gitignore` |
 
 ## 5. Layout, accessibility, console
@@ -111,13 +121,23 @@ Tests: `lib/chat-prompt-answers.test.ts`, `components/chat/ChatPromptCard.test.t
 | L4 | L | **Fixed** | Meta pixel unmounted (it was always blocked by the CSP); map errors gone (F5); Mixpanel debug logs only with `NEXT_PUBLIC_MIXPANEL_DEBUG=true` |
 | L5 | L | **Fixed** | The edit/copy bar appears on hover anywhere across the message's width and on keyboard focus; focus returns to Edit after save/cancel. Shortcut hints show ⌘ on Apple, Ctrl elsewhere (hydration-safe) |
 
+### 5a. Dark theme (checked 2026-10-05)
+
+Dark was switched on with `localStorage['souvenir-theme']='dark'` (theming is on in `.env.local`) and checked in a real browser: screenshots plus an automated audit of every visible text node's contrast and of light surfaces left on screen. Surfaces covered: empty chat and sidebar, a reply with table / chart / steps / callout widgets, a markdown reply (table, code, blockquote, math), the map widget, code blocks, the Context panel, a question card, the agent editor with Enhance open.
+
+| # | Sev | Status | What was found / changed |
+|---|---|---|---|
+| L6 | H | **Fixed** | Code blocks were unreadable in dark: only `atom-one-light` is bundled, so plain code text was `#383a42` on the dark surface (1.6:1) and the token colours were the light-theme ones. `CodeBlock.module.css` now has an Atom One Dark palette under `[data-theme="dark"]` (comment colour lifted to ≥4.5:1). Verified: code reads cleanly, audit clean |
+| L7 | M | **Fixed** | `--neutral-400` (`#6E6E6E` in dark, 3.3:1 on cards; `#9C938B` in light, ~3:1) was used as *text* across the chat widgets: chart axis and bar labels, table sub-lines, card subtitles, the follow-ups label, tooltip text, funnel and source-card meta, activity and attachment labels. Those text uses (CSS `color:` / SVG text `fill` only) now use `--neutral-600`, the value L3 already chose for widget text. Icons, strokes, chart series colours and backgrounds still use `--neutral-400`. No token values changed. Re-audited in dark: 0 low-contrast text on the home screen, widgets, markdown and map views |
+| — | — | **Checked, fine** | Context panel card (`--neutral-white` resolves to a dark surface in dark, so the earlier white-card change is light-only), question card, widgets, tables, Enhance panel, sidebar: no unthemed light surfaces and no low-contrast text beyond L7. The map's attribution box (MapLibre's own control) and the agent card's "Use in chat" button are white in dark by design/third-party |
+
 ## 6. Prompt enhancement
 
 | # | Sev | Status | Notes |
 |---|---|---|---|
-| E1 | M | **Not done** | Out of scope. Research is done: backend `POST /persona/enhance-prompt` returns `enhanced_prompt` and up to 3 questions; it is currently unmetered and not budget-gated |
-| E2 | M | **Not done** | Out of scope |
-| E3 | L | **Not done** | Out of scope (backend prompt change; the current behaviour is locked in by `test_prompt_contract.py`) |
+| E1 | M | **Fixed** | Enhance calls `POST /persona/enhance-prompt`: the first call returns a draft and up to 3 questions (shown in the existing Q&A card with a typed "Other" row); the answers go back in a second call for the final draft, then the diff. No questions → straight to the diff. A failed call falls back to the old local flow; a failed second call shows the first draft; a reply that arrives after Close is ignored. The endpoint is still unmetered, and a click can now make up to two LLM calls | `EnhancePromptField/index.tsx`, `enhance/index.ts` (`fromBackendQuestions`) |
+| E2 | M | **Fixed** | The diff is line-based (LCS) instead of splitting on sentence punctuation, so headings and bullets stay on their own rows; blank lines and CRLF are ignored; indentation kept. `diffSentences` stays as an alias. Not done: the Markdown preview and fixed section template from the original proposal | `enhance/index.ts` (`diffLines`) |
+| E3 | L | **Not done** | Backend-only (the platform formatting block overrides the prompt's format instructions; locked in by `test_prompt_contract.py`) |
 
 ## 7. Reasoning block follow-up
 
@@ -129,9 +149,13 @@ Tests: `lib/chat-prompt-answers.test.ts`, `components/chat/ChatPromptCard.test.t
 | T4 | L | **Fixed** | Tool rows show the search query (or URL/file) from the tool arguments; a detail that just repeats the tool name is hidden. Progress and completion events no longer overwrite it |
 | T5 | L | **Fixed** | No mid-phrase ellipsis; settled label is "Thought for Ns" |
 | T6 | L | **Partly fixed** | Root cause not found (needs a live repro). Related bug fixed: card-only or file-only turns are no longer flagged "empty"/"interrupted" |
-| T7 | L | **Not done** | Not inspected. One candidate (duplicate React keys) is fixed by R2 |
+| T7 | L | **Explained; duplicate log removed** | Not seen on `/chat` idle or after a reply. It does appear in dev (the Next overlay counts every `console.error`) whenever a stream request fails — e.g. a chat with an agent whose model was retired returns 409, the UI shows "This model is no longer available", and the overlay says "2 Issues". The failure was logged twice (`Stream request failed`, then `Error`); a `FriendlyStreamError` is now logged once, where it is raised. Duplicate React keys (R2) were the other candidate. Dev-only |
 
 ## Behaviour changes to know about
+
+- An agent chat that answers 409 now says "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled" instead of "This model is no longer available". The backend returns 409 for an unpublished, paused or disabled agent (found with a draft agent), never for a retired model. A failed stream request is logged once instead of twice.
+- A saved model that is gone or blocked is replaced automatically on load, with a one-time toast (D5).
+- Chat widget text that used `--neutral-400` is darker (L7).
 
 - Every `(app)` route is now rendered per request instead of being statically prerendered, because the layout reads the sidebar cookie.
 - A widget the model starts **mid-sentence** shows as raw XML while streaming and becomes the widget once it closes. Models nearly always start widgets on their own line; this rule is what keeps `<Table>` in prose from being swallowed.
@@ -147,24 +171,27 @@ Tests: `lib/chat-prompt-answers.test.ts`, `components/chat/ChatPromptCard.test.t
 - Regenerate/edit on a turn with uploaded files: needs a backend carry-over of the turn's attachments and pins before it can replace instead of append.
 - R10 full fidelity: the backend would need to store each tool call's order, status and round.
 - F13 long term: the backend should send sources itself rather than the front end parsing the model's text.
-- L1 mobile layout, E1–E3 prompt enhancement.
+- L1 mobile layout (skipped), E3 (the platform formatting block overrides an agent's own format instructions).
+- `/persona/enhance-prompt` is unmetered, and Enhance can now make two calls per click.
 
-**Engineering follow-ups (pre-existing, found during review)**
-- Editing the same message twice can send an outdated `replace_message_id` (the user message's id isn't updated after its turn is replaced).
-- `LeftSidebar` still reads sessionStorage during render (`billingSnap`, `personaAvatarUrl`) — the same hydration risk as D3.
-- Shared chats (`/share/[id]`) render Markdown directly, so widgets show as raw XML there.
-- T6 and T7 need a live repro.
+**Engineering follow-ups**
+- Done 2026-10-05: editing the same message twice sent a stale `replace_message_id` (a turn is one backend row, only the reply's id is swapped after a stream; the edit now takes the id from the reply that follows, `resolveEditReplaceId`). Persona chat has no edit path, so it isn't affected.
+- Done 2026-10-05: `LeftSidebar` read sessionStorage during render (`billingSnap`, draft avatars). Both are now gated on `useIsClient()`, so the first client render matches the server. Cost: one frame of the default state.
+- Done 2026-10-05: the shared-chat view (`chat-shares/[shareId]`, not `/share/[id]`, which is the invite landing page) rendered Markdown directly. It now uses `ContentRenderer`. Reasoning blocks and citations aren't shown there — the page only has the reply text.
+- T6 needs a live repro.
 
-**Manual checks before shipping (nothing here was run in a real browser)**
-- Long replies with reasoning + tables + code: does follow-to-bottom hold, and does scrolling up stop it?
-- Reveal speed on a fast stream; Stop part-way through a widget.
-- A multi-question card: Back/Next, Skip, X, Enter in the custom box, screen-reader announcement.
-- Collapse the sidebar, go to Settings and back, reload: still collapsed, no hydration warning.
-- Map widget pins in light and dark theme.
+**Manual checks (run in a real browser with Playwright, 2026-10-05)**
+- Follow-to-bottom on a long reply: holds while streaming; scrolling up stops it and the view doesn't jump at the end. **Pass.**
+- Reveal speed on a fast stream: the text finished growing before the stream reported finished (no lag after the end). **Pass.**
+- Stop part-way through a table: "Couldn't display this table — the response ended early" with raw output collapsed. **Pass.**
+- Multi-question card: Next disabled until answered, Send advances, Previous restores the answer, Dismiss sends a reply, Skip shows only on optional questions and sends `null`, Enter sends from the custom box and Shift+Enter keeps a newline, the question is announced via `aria-live`. **Pass.**
+- Sidebar: collapse, Settings and back (client-side navigation), reload — stays collapsed, no hydration warning. **Pass.** (A full-page load of Settings followed by the browser Back button showed the stale page; that is the browser's cache, not the app.)
+- Map pins: three pins render. Only light theme was checked; the console showed only headless-WebGL "GPU stall" warnings.
+- Not checked: dark theme for maps; other routes for the dev "Issue" badge.
 
 ## Checks run
 
-- `npx vitest run`: 88 files, 957 passed, 2 skipped.
+- `npx vitest run`: 93 files, 990 passed, 2 skipped (re-run 2026-10-05 after the follow-up; new tests for the line diff, question mapping, `EnhancePromptField`, `useIsClient`, `resolveEditReplaceId`).
 - `npx tsc --noEmit -p .`: 0 errors.
 - ESLint: no modified file has more errors than at HEAD (two have fewer); all new files clean. The remaining errors in `Sidebar`, `AnimatedTable`, `XmlTable` and `StreamingMessageBubble` were already there.
 - `npx next build`: succeeds.
