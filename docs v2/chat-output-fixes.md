@@ -115,7 +115,7 @@ Found by sampling the reply's text every ~60ms during real streams and flagging 
 
 | # | Sev | Status | What changed |
 |---|---|---|---|
-| L1 | M | **Not done** | Out of scope for this pass |
+| L1 | M | **Not done** | Out of scope for this pass. Measured later: below ~768px the sidebar does not collapse or become a drawer, so the chat is unusable while it is open (see L8) |
 | L2 | L | **Fixed** | Composer stays enabled and focused while streaming (Enter blocked, button stays Stop). Focus returns after the reply only if the user was typing there, and not on touch devices. Image paste is blocked while streaming (attachments are locked then) |
 | L3 | L | **Fixed (chat widgets)** | Table footer, caption, action buttons and tag title use `--neutral-600`; model-coloured tag text is darkened to ≥4.5:1; Atom One Light code colours overridden with AA shades of the same hues (light theme) |
 | L4 | L | **Fixed** | Meta pixel unmounted (it was always blocked by the CSP); map errors gone (F5); Mixpanel debug logs only with `NEXT_PUBLIC_MIXPANEL_DEBUG=true` |
@@ -129,14 +129,16 @@ Dark was switched on with `localStorage['souvenir-theme']='dark'` (theming is on
 |---|---|---|---|
 | L6 | H | **Fixed** | Code blocks were unreadable in dark: only `atom-one-light` is bundled, so plain code text was `#383a42` on the dark surface (1.6:1) and the token colours were the light-theme ones. `CodeBlock.module.css` now has an Atom One Dark palette under `[data-theme="dark"]` (comment colour lifted to ≥4.5:1). Verified: code reads cleanly, audit clean |
 | L7 | M | **Fixed** | `--neutral-400` (`#6E6E6E` in dark, 3.3:1 on cards; `#9C938B` in light, ~3:1) was used as *text* across the chat widgets: chart axis and bar labels, table sub-lines, card subtitles, the follow-ups label, tooltip text, funnel and source-card meta, activity and attachment labels. Those text uses (CSS `color:` / SVG text `fill` only) now use `--neutral-600`, the value L3 already chose for widget text. Icons, strokes, chart series colours and backgrounds still use `--neutral-400`. No token values changed. Re-audited in dark: 0 low-contrast text on the home screen, widgets, markdown and map views |
+| L9 | L | **Fixed (light)** | Light-theme text on `--neutral-500` (`#827A74`) was 4.1:1 on the page and 3.8:1 on the warm cards — sidebar workspace name, "Ideas for you", step descriptions, map and email captions, agent handles, settings section labels, tab labels, agent card descriptions. The light primitive `--neutral-500` is now `#756D67` (4.9:1 / 4.6:1), with its two alpha variants kept in step; dark has its own ramp and is unchanged (`theme.css` differs only by the line below). The reasoning/"Thought for…" text (`--thinking-text`, 3.0:1) is `#776F69` in light (4.8:1) — changed in `scripts/generate-dark-theme.mjs` and the generated `theme.css`. Left as is: the pink selected chip ("Default" tone, brand accent on a pink tint, 3.8:1). A light sweep of home, widgets, map, Mermaid + email, long code, agents, the editor, usage, connectors, schedules and Enhance now reports only the audit's false positives (light text on dark gradient buttons) and that chip |
+| L8 | M | **Checked** | Dark at phone width (390px, sidebar collapsed to its rail): no horizontal scroll or overflow on home, widgets, map, Mermaid + email, long code lines (they scroll inside the block), agents, settings pages and the Enhance result; 0 low-contrast text. The Enhance questions, diff and Markdown preview were walked through end to end in dark. **At 390px with the sidebar expanded the chat is unusable** — see L1 |
 | — | — | **Checked, fine** | Context panel card (`--neutral-white` resolves to a dark surface in dark, so the earlier white-card change is light-only), question card, widgets, tables, Enhance panel, sidebar: no unthemed light surfaces and no low-contrast text beyond L7. The map's attribution box (MapLibre's own control) and the agent card's "Use in chat" button are white in dark by design/third-party |
 
 ## 6. Prompt enhancement
 
 | # | Sev | Status | Notes |
 |---|---|---|---|
-| E1 | M | **Fixed** | Enhance calls `POST /persona/enhance-prompt`: the first call returns a draft and up to 3 questions (shown in the existing Q&A card with a typed "Other" row); the answers go back in a second call for the final draft, then the diff. No questions → straight to the diff. A failed call falls back to the old local flow; a failed second call shows the first draft; a reply that arrives after Close is ignored. The endpoint is still unmetered, and a click can now make up to two LLM calls | `EnhancePromptField/index.tsx`, `enhance/index.ts` (`fromBackendQuestions`) |
-| E2 | M | **Fixed** | The diff is line-based (LCS) instead of splitting on sentence punctuation, so headings and bullets stay on their own rows; blank lines and CRLF are ignored; indentation kept. `diffSentences` stays as an alias. Not done: the Markdown preview and fixed section template from the original proposal | `enhance/index.ts` (`diffLines`) |
+| E1 | M | **Fixed** | Enhance calls `POST /persona/enhance-prompt`: the first call returns a draft and up to 3 questions (shown in the existing Q&A card with a typed "Other" row); the answers go back in a second call for the final draft, then the diff. No questions → straight to the diff. A failed call falls back to the old local flow; a failed second call shows the first draft; a reply that arrives after Close is ignored. While a call is in flight there is a visible Cancel; after 8s it adds "Still working on it — this can take a little while", and after 45s it gives up (first call → the local check, with a toast; refine call → the first draft). Measured live: ~14s for the first call, ~18s for the refine. The endpoint is still unmetered, and a click can now make up to two LLM calls | `EnhancePromptField/index.tsx`, `enhance/index.ts` (`fromBackendQuestions`) |
+| E2 | M | **Fixed** | The diff is line-based (LCS) instead of splitting on sentence punctuation, so headings and bullets stay on their own rows; blank lines and CRLF are ignored; indentation kept. `diffSentences` stays as an alias. The result has a Changes / Preview toggle: Preview renders the enhanced prompt as Markdown (headings, lists, bold) before you apply it. Not done: the fixed Role/Goal/Tone section template from the original proposal — the backend decides the structure | `enhance/index.ts` (`diffLines`) |
 | E3 | L | **Not done** | Backend-only (the platform formatting block overrides the prompt's format instructions; locked in by `test_prompt_contract.py`) |
 
 ## 7. Reasoning block follow-up
@@ -171,13 +173,14 @@ Dark was switched on with `localStorage['souvenir-theme']='dark'` (theming is on
 - Regenerate/edit on a turn with uploaded files: needs a backend carry-over of the turn's attachments and pins before it can replace instead of append.
 - R10 full fidelity: the backend would need to store each tool call's order, status and round.
 - F13 long term: the backend should send sources itself rather than the front end parsing the model's text.
-- L1 mobile layout (skipped), E3 (the platform formatting block overrides an agent's own format instructions).
+- L1 mobile layout (skipped). Measured at 390px: the left sidebar keeps its fixed 294px, so with it open the chat column is squeezed to ~70px and the composer is unusable; with the sidebar collapsed to its 48px rail every screen checked fits (L8). A phone-width fix needs the sidebar to start collapsed and open over the page (a drawer) — not built.
+- E3 (the platform formatting block overrides an agent's own format instructions).
 - `/persona/enhance-prompt` is unmetered, and Enhance can now make two calls per click.
 
 **Engineering follow-ups**
 - Done 2026-10-05: editing the same message twice sent a stale `replace_message_id` (a turn is one backend row, only the reply's id is swapped after a stream; the edit now takes the id from the reply that follows, `resolveEditReplaceId`). Persona chat has no edit path, so it isn't affected.
 - Done 2026-10-05: `LeftSidebar` read sessionStorage during render (`billingSnap`, draft avatars). Both are now gated on `useIsClient()`, so the first client render matches the server. Cost: one frame of the default state.
-- Done 2026-10-05: the shared-chat view (`chat-shares/[shareId]`, not `/share/[id]`, which is the invite landing page) rendered Markdown directly. It now uses `ContentRenderer`. Reasoning blocks and citations aren't shown there — the page only has the reply text.
+- Done 2026-10-05: the shared-chat view (`chat-shares/[shareId]`, not `/share/[id]`, which is the invite landing page) rendered Markdown directly. It now uses `ContentRenderer`, and each reply also shows its reasoning (collapsed, from the `reasoning` field the API already returned) and its sources (the model's "Sources:" block parsed into `[N]` chips and a source list). Covered by `chat-shares/[shareId]/page.test.tsx`.
 - T6 needs a live repro.
 
 **Manual checks (run in a real browser with Playwright, 2026-10-05)**
@@ -191,7 +194,7 @@ Dark was switched on with `localStorage['souvenir-theme']='dark'` (theming is on
 
 ## Checks run
 
-- `npx vitest run`: 93 files, 990 passed, 2 skipped (re-run 2026-10-05 after the follow-up; new tests for the line diff, question mapping, `EnhancePromptField`, `useIsClient`, `resolveEditReplaceId`).
+- `npx vitest run`: 96 files, 1032 passed, 2 skipped (re-run 2026-10-05 after the follow-up; new tests for the line diff, question mapping, `EnhancePromptField` (backend flow, slow call, timeout, preview), `useIsClient`, `resolveEditReplaceId`, `healStreamingTail`, `model-fallback`, and the shared chat page).
 - `npx tsc --noEmit -p .`: 0 errors.
 - ESLint: no modified file has more errors than at HEAD (two have fewer); all new files clean. The remaining errors in `Sidebar`, `AnimatedTable`, `XmlTable` and `StreamingMessageBubble` were already there.
 - `npx next build`: succeeds.
