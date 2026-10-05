@@ -18,7 +18,7 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { MoveToProjectModal } from "@/components/MoveToProjectModal";
 import { addChatToProject } from "@/lib/api/projects";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, isDraftPersona, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
@@ -988,7 +988,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   )
 
   const personas = useMemo(
-    () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
+    () => rawPersonas.filter(p => !isDraftPersona(p) && isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
     [rawPersonas, personaOwnerMap, viewerUserId, currentUserRole],
   )
 

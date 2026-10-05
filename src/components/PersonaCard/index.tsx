@@ -32,6 +32,7 @@ import { agentHeroStyle } from './AgentHero'
 import { HeroScene, sceneFor } from './HeroScene'
 import { GazeChannel, type AvatarMood } from './gaze'
 import { AgentOrb } from './AgentOrb'
+import { Badge } from '@/components/Badge'
 import { AgentCardButton } from './AgentCardButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -408,6 +409,8 @@ function PersonaCardInner({
     const [keyboardHot, setKeyboardHot] = useState(false)
     // Bumped per arrival, so the orb's "screen wake" sweep plays once each time.
     const [arrivals, setArrivals] = useState(0)
+    // The button's own hover/keyboard focus — the arrow appears only then, not on card hover.
+    const [ctaHot, setCtaHot] = useState(false)
     const isHovered   = hoveredProp ?? (internalHovered || keyboardHot)
     const isDraft     = variant === 'draft'
     const isTemplate  = variant === 'template'
@@ -637,6 +640,13 @@ function PersonaCardInner({
             )}
           </div>
         </div>
+
+        {/* ── Draft: tag in the top-left corner of the hero ──────────────── */}
+        {isDraft && (
+          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
+            <Badge color="Yellow" label="Draft" />
+          </div>
+        )}
 
         {/* ── Template: copy icon — top-right corner of the hero ─────────── */}
         {isTemplate && (
@@ -935,20 +945,20 @@ function PersonaCardInner({
           {primary && !modelUnavailable && (
             <span
               className="agent-card-cta"
-              onPointerEnter={e => attendTo(e.currentTarget)}
-              onPointerLeave={() => attendTo(null)}
-              onFocus={e => { if ((e.target as HTMLElement).matches(':focus-visible')) attendTo(e.currentTarget) }}
-              onBlur={() => attendTo(null)}
+              onPointerEnter={e => { attendTo(e.currentTarget); setCtaHot(true) }}
+              onPointerLeave={() => { attendTo(null); setCtaHot(false) }}
+              onFocus={e => { if ((e.target as HTMLElement).matches(':focus-visible')) { attendTo(e.currentTarget); setCtaHot(true) } }}
+              onBlur={() => { attendTo(null); setCtaHot(false) }}
             >
               <AgentCardButton size="sm" loading={primary.loading} disabled={primary.loading} onClick={primary.onClick}>
                 <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                   {primary.label}
-                  {/* Slides in (and takes its room) only while the card is hot, so the label
+                  {/* Slides in (and takes its room) only while the button is hot, so the label
                       stays centred at rest: "go". */}
                   <m.span
                     aria-hidden
                     initial={false}
-                    animate={{ width: animateHover ? 20 : 0, opacity: animateHover ? 1 : 0, x: animateHover ? 0 : -4 }}
+                    animate={{ width: ctaHot ? 20 : 0, opacity: ctaHot ? 1 : 0, x: ctaHot ? 0 : -4 }}
                     transition={{ duration: 0.18, ease: 'easeOut' }}
                     style={{ display: 'inline-flex', justifyContent: 'flex-end', overflow: 'hidden' }}
                   >

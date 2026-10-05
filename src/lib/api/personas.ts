@@ -158,6 +158,11 @@ export { PERSONAS_LIST_UPDATED_EVENT, bustPersonasCache } from "./persona-cache"
 // already in-flight receive the same Promise, so only one HTTP request is made.
 let _fetchPersonasInFlight: Promise<Persona[]> | null = null
 
+/** A draft is an agent that was never published or has no instructions yet — it belongs on /agents only. */
+export function isDraftPersona(persona: Pick<Persona, 'status' | 'hasSystemInstructions'>): boolean {
+  return persona.status === 'draft' || !persona.hasSystemInstructions
+}
+
 export function fetchPersonas(): Promise<Persona[]> {
   const now = Date.now()
   if (_personasCache && now - _personasCacheTime < PERSONAS_CACHE_TTL) {
