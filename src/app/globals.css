@@ -905,6 +905,9 @@
 }
 .kaya-field:focus-within { outline-color: var(--focus-ring); outline-offset: 3px; }
 
+/* /agents/new purpose box: a placeholder dark enough to read in light and dark mode. */
+.agent-purpose-input::placeholder { color: var(--neutral-500); opacity: 1; }
+
 @media (prefers-reduced-motion: reduce) {
   [data-search-field],
   .kaya-field { transition: none; }

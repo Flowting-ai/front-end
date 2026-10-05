@@ -5,6 +5,11 @@ import { useReducedMotion } from 'framer-motion'
 import type { AvatarTheme } from './AnimatedPersonaAvatar'
 import type { GazeChannel } from './gaze'
 import { SCENES, type SceneKind } from './scenes'
+import { JOB_SCENES, type JobSceneKind } from './job-scenes'
+
+/** Every banner: the themed scenes plus one per agent template. */
+export type AnySceneKind = SceneKind | JobSceneKind
+const ALL_SCENES = { ...SCENES, ...JOB_SCENES }
 
 // The living banner around an agent's avatar — the "Vegas Sphere": the avatar's theme spills
 // out of the orb into the space around it (clouds drifting past a weather agent, a plane
@@ -22,7 +27,7 @@ export function sceneFor(theme: AvatarTheme | null): SceneKind {
 }
 
 export interface HeroSceneProps {
-  kind:       SceneKind
+  kind:       AnySceneKind
   /** The avatar's [highlight, shadow] colours, for tinting. */
   colors:     [string, string]
   seed:       string
@@ -99,7 +104,7 @@ export function HeroScene({
   const built = useMemo(() => {
     if (!box || box.W === 0) return null
     const { W, H } = box
-    return SCENES[kind]({ W, H, cx: W / 2, cy: H / 2, R: avatarSize / 2, colors: [c0, c1], rand: mulberry32(hashSeed(seed)), uid, lite })
+    return ALL_SCENES[kind]({ W, H, cx: W / 2, cy: H / 2, R: avatarSize / 2, colors: [c0, c1], rand: mulberry32(hashSeed(seed)), uid, lite })
   }, [box, kind, c0, c1, seed, avatarSize, uid, lite])
 
   const st = useRef({ hover: false, inert: false, pace: 1, hv: 0, ct: -9, lastBurst: -9, t: (hashSeed(seed) % 1000) / 37, px: 0, py: 0 })

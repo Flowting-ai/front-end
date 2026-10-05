@@ -29,7 +29,7 @@ import {
   type AvatarTheme,
 } from './AnimatedPersonaAvatar'
 import { agentHeroStyle } from './AgentHero'
-import { HeroScene, sceneFor } from './HeroScene'
+import { HeroScene, sceneFor, type AnySceneKind } from './HeroScene'
 import { GazeChannel, type AvatarMood } from './gaze'
 import { AgentOrb } from './AgentOrb'
 import { Badge } from '@/components/Badge'
@@ -219,6 +219,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * for a plain sphere with no interior detail.
    */
   avatarTheme?: AvatarTheme | null
+  /** A specific banner scene (e.g. a template's own job scene) — wins over the avatar theme's. */
+  scene?: AnySceneKind
   /** A picked avatar (see AVATAR_CHOICES) — wins over the name-based theme. */
   avatarChoice?: AvatarChoice | null
   /** The agent's repo id — looks up the avatar the user picked for it. */
@@ -356,6 +358,7 @@ function PersonaCardInner({
       avatarSeed,
       avatarTheme:   avatarThemeProp,
       avatarChoice:  avatarChoiceProp,
+      scene:         sceneProp,
       repoId,
       hovered:       hoveredProp,
       paused         = false,
@@ -548,7 +551,7 @@ function PersonaCardInner({
             ? `var(--lift-shadow), 0 24px 60px -20px color-mix(in srgb, ${avatarColors[0]} 40%, transparent), ${SHADOW_CARD_HOVER}`
             : SHADOW_CARD),
           border:          isDraft
-            ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
+            ? `1px dashed ${isHovered ? 'var(--neutral-600)' : 'var(--neutral-500)'}`
             : undefined,
           cursor:          modelUnavailable ? 'default' : 'pointer',
           boxSizing:       'border-box' as const,
@@ -606,7 +609,7 @@ function PersonaCardInner({
           }}
         >
           <HeroScene
-            kind={sceneFor(avatarTheme)}
+            kind={sceneProp ?? sceneFor(avatarTheme)}
             colors={avatarColors}
             seed={seed}
             avatarSize={AVATAR_SIZE}

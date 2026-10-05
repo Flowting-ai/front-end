@@ -183,7 +183,22 @@ export function getAvatarColors(theme: AvatarTheme | null, seed: string): [strin
 }
 
 /** A pickable avatar: one of the themed ones, or a plain sphere in a fixed colourway. */
-export type AvatarChoice = AvatarTheme | 'ember' | 'mint' | 'dusk'
+export type AvatarChoice = AvatarTheme | 'ember' | 'mint' | 'dusk' | BaseColor
+
+/** Ten more plain spheres — the same orb, just in other base colours ([highlight, shadow]). */
+export const BASE_COLORS = {
+  coral:  { label: 'Coral',  colors: ['#ffb4a2', '#c2412d'] },
+  amber:  { label: 'Amber',  colors: ['#ffd27a', '#b7791f'] },
+  lime:   { label: 'Lime',   colors: ['#cde88f', '#5b8a1e'] },
+  teal:   { label: 'Teal',   colors: ['#9fe0d8', '#13756b'] },
+  sky:    { label: 'Sky',    colors: ['#a8dcf5', '#1f6f9e'] },
+  indigo: { label: 'Indigo', colors: ['#b3b8f5', '#3b3fa8'] },
+  violet: { label: 'Violet', colors: ['#d8b8f5', '#6b2fa8'] },
+  rose:   { label: 'Rose',   colors: ['#f5b8d4', '#a82f6b'] },
+  slate:  { label: 'Slate',  colors: ['#c4ccd6', '#3e4a5a'] },
+  sand:   { label: 'Sand',   colors: ['#e8d6b8', '#8a6a3a'] },
+} as const satisfies Record<string, { label: string; colors: [string, string] }>
+export type BaseColor = keyof typeof BASE_COLORS
 
 export interface AvatarChoiceConfig {
   id:     AvatarChoice
@@ -201,9 +216,14 @@ export const AVATAR_CHOICES: AvatarChoiceConfig[] = [
   { id: 'ember',     label: 'Ember',   theme: null,        colors: FALLBACK_COLORS[0] },
   { id: 'mint',      label: 'Mint',    theme: null,        colors: FALLBACK_COLORS[1] },
   { id: 'dusk',      label: 'Dusk',    theme: null,        colors: FALLBACK_COLORS[2] },
+  ...(Object.keys(BASE_COLORS) as BaseColor[]).map(id => ({
+    id, label: BASE_COLORS[id].label, theme: null, colors: [...BASE_COLORS[id].colors] as [string, string],
+  })),
 ]
 
-/** The plain spheres, in FALLBACK_COLORS order — by id, so adding a theme can't shift them. */
+/** The plain spheres, in FALLBACK_COLORS order — by id, so adding a theme can't shift them.
+ *  The BASE_COLORS are pickable but deliberately not in this pool: adding them here would
+ *  change the default avatar of every existing agent that has none picked. */
 const PLAIN_CHOICES: AvatarChoice[] = ['ember', 'mint', 'dusk']
 
 export function getAvatarChoice(id: AvatarChoice): AvatarChoiceConfig {
@@ -260,12 +280,13 @@ export interface AnimatedPersonaAvatarProps {
   gaze?:   GazeChannel
 }
 
+// Mickey-style eyes — tall white ovals side by side, no pupils.
 // Eyes, in viewBox units: centred ±EYE_X off the head's middle, a touch above its centre.
-const EYE_X = 4.4
+const EYE_X = 3.5   // eye half-width 2.5 + 1 = a 2-unit gap between the eyes
 const EYE_LIFT = 1
-/** How far a pupil can travel inside its eye, horizontally / vertically. */
-const LOOK_X = 1.15
-const LOOK_Y = 0.95
+/** How far the eyes travel across the face toward what they look at, horizontally / vertically. */
+const LOOK_X = 2
+const LOOK_Y = 1.5
 
 export function AnimatedPersonaAvatar({
   theme,
@@ -300,7 +321,6 @@ export function AnimatedPersonaAvatar({
   const flashRef = useRef<SVGRectElement>(null)
   const partsRef = useRef<SVGGElement>(null)
   const eyeRefs   = useRef<(SVGGElement | null)[]>([])
-  const pupilRefs = useRef<(SVGGElement | null)[]>([])
 
   // Animation state lives in a ref so the rAF loop reads current values
   // without restarting on every prop change.
@@ -466,45 +486,28 @@ export function AnimatedPersonaAvatar({
       s.lookX += (lx + s.microX - s.lookX) * ease
       s.lookY += (ly + s.microY - s.lookY) * ease
 
-      // ─ Pupils: wide for a moment when someone arrives, tight after a flash.
-      const sinceHover = now - s.ht
-      const sinceClick = now - s.ct
-      let pupil = 1
-      if (s.hover && sinceHover < 1.5) pupil = 1 + 0.16 * Math.min(1, sinceHover / 0.25)
-      if (interior?.flash && sinceClick < 0.3) pupil = 0.75
-
       // ─ Lids.
       let open = 1
-      if (mood === 'asleep') {
-        open = 0.12
-      } else if (!reduceMotion) {
+      // Eyes stay open in every mood (only the blink closes them).
+      if (!reduceMotion) {
         if (now >= s.nextBlink) blink(now, s)
         const b = now - s.blinkAt
         const one = (t: number) => (t < 0.06 ? t / 0.06 : t < 0.14 ? 1 - (t - 0.06) / 0.08 : 0)   // close 60ms, open 80ms
         const shut = Math.max(one(b), s.blinkTwice ? one(b - 0.22) : 0)
         open = 1 - shut * 0.9
       }
-      if (mood === 'drowsy') open = Math.min(open, 0.6)
       // Happy: the eyes become little upturned arcs, "^ ^", instead of open eyes.
       const happy = squint && open > 0.5
       const lid = happy ? 1 : open
 
       ;[-1, 1].forEach((side, i) => {
-        // Asleep, one eye peeks at a visitor for a moment.
-        const sinceVisit = now - s.vt
-        const peek = mood === 'asleep' && i === 1 && s.visitor && sinceVisit > 0.3 && sinceVisit < 1.5
-        const thisLid = peek ? 0.45 : lid
-        // A head turn: both eyes drift with the look, the far one foreshortens.
-        const far = (side < 0 && s.lookX > 0.6) || (side > 0 && s.lookX < -0.6)
-        const x = 32 + side * EYE_X + s.lookX * 0.7
+        const thisLid = lid
+        // Both eyes drift together with the look, so the gap between them never changes.
+        const x = 32 + side * EYE_X + s.lookX
         const eye = eyeRefs.current[i]
-        set(eye, { transform: `translate(${x.toFixed(2)},${ey.toFixed(2)}) scale(${far ? 0.9 : 1},${thisLid.toFixed(3)})` })
+        set(eye, { transform: `translate(${x.toFixed(2)},${(ey + s.lookY).toFixed(2)}) scale(1,${thisLid.toFixed(3)})` })
         set(eye?.children[0], { opacity: happy ? 0 : 1 })   // the open eye
         set(eye?.children[1], { opacity: happy ? 1 : 0 })   // the "^"
-        set(pupilRefs.current[i], {
-          transform: `translate(${s.lookX.toFixed(2)},${s.lookY.toFixed(2)}) scale(${pupil.toFixed(3)})`,
-          opacity: thisLid < 0.3 ? 0 : 1,
-        })
       })
     }
 
@@ -578,11 +581,7 @@ export function AnimatedPersonaAvatar({
         {eyes && [-1, 1].map((side, i) => (
           <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${21 - EYE_LIFT})`}>
             <g>
-              <ellipse rx={2.7} ry={3.2} fill="#fff" />
-              <g ref={el => { pupilRefs.current[i] = el }}>
-                <circle r={1.6} fill="#0f172a" />
-                <circle cx={-0.5} cy={-0.7} r={0.55} fill="#fff" />
-              </g>
+              <ellipse rx={2.5} ry={4} fill="#fff" />
             </g>
             <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" opacity={0} />
           </g>

@@ -48,28 +48,28 @@ export interface BuiltScene {
   update: (parts: SVGElement[], f: SceneFrame) => Point | null
 }
 
-type Builder = (ctx: SceneCtx) => BuiltScene
+export type Builder = (ctx: SceneCtx) => BuiltScene
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
-const set = (el: Element | undefined, attrs: Record<string, number | string>) => {
+export const set = (el: Element | undefined, attrs: Record<string, number | string>) => {
   if (!el) return
   for (const k in attrs) {
     const v = String(attrs[k])
     if (el.getAttribute(k) !== v) el.setAttribute(k, v)
   }
 }
-const f2 = (v: number) => v.toFixed(2)
-const place = (x: number, y: number, rotate = 0, sx = 1, sy = sx) =>
+export const f2 = (v: number) => v.toFixed(2)
+export const place = (x: number, y: number, rotate = 0, sx = 1, sy = sx) =>
   `translate(${f2(x)},${f2(y)}) rotate(${f2(rotate)}) scale(${sx.toFixed(3)},${sy.toFixed(3)})`
-const wrap = (v: number, m: number) => ((v % m) + m) % m
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-const unitOf = (R: number) => Math.max(0.55, Math.min(1.2, R / 55))
-const easeOutBack = (x: number) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
+export const wrap = (v: number, m: number) => ((v % m) + m) % m
+export const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+export const unitOf = (R: number) => Math.max(0.55, Math.min(1.2, R / 55))
+export const easeOutBack = (x: number) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
 
 /** A random point on the banner `pad` px clear of the orb and `edge` px in from the sides,
  *  avoiding the ⋮ menu's corner. */
-function scatter(ctx: SceneCtx, pad: number, edge: number): Point {
+export function scatter(ctx: SceneCtx, pad: number, edge: number): Point {
   for (let tries = 0; tries < 60; tries++) {
     const x = edge + ctx.rand() * (ctx.W - edge * 2)
     const y = edge + ctx.rand() * (ctx.H - edge * 2)
@@ -83,7 +83,7 @@ function scatter(ctx: SceneCtx, pad: number, edge: number): Point {
 /** Where the avatar's head is, for keeping front-layer things off its eyes. */
 const headOf = (f: SceneFrame) => ({ x: f.cx, y: f.cy - f.R * 0.62, r: f.R * 0.3 })
 /** Dims a front element that would sit over the eyes. */
-function overEyes(f: SceneFrame, p: Point): number {
+export function overEyes(f: SceneFrame, p: Point): number {
   const h = headOf(f)
   return Math.hypot(p.x - h.x, p.y - h.y) < h.r + 8 ? 0.35 : 1
 }

@@ -52,8 +52,9 @@ async function render() {
   await act(async () => root.render(<PersonaTemplatesPage />))
   await settle()
 }
-const cards = () => Array.from(document.querySelectorAll<HTMLButtonElement>('button')).filter(b => /^(Customer Support|Sales|Legal|Research|Content Writer|Code Review|Onboarding|Marketing|Data Analyst|HR & Recruiting|Executive Assistant|Education|Productivity|Tutoring|Web QA)/.test(b.textContent ?? ''))
-const cardNames = () => cards().map(b => b.querySelector('span')?.textContent)
+// Each template is an agent card; its "Use template" button starts the flow.
+const cards = () => Array.from(document.querySelectorAll<HTMLElement>('[data-template]'))
+const cardNames = () => cards().map(c => c.dataset.template)
 function tab(name: string) {
   return Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]')).find(t => t.textContent?.trim() === name)!
 }
@@ -102,7 +103,7 @@ describe('templates page', () => {
 
   it('a template card starts the new-agent flow pre-filled; "Start blank" starts it empty', async () => {
     await render()
-    await act(async () => { cards()[0].click() })
+    await act(async () => { Array.from(cards()[0].querySelectorAll<HTMLButtonElement>('button')).find(b => b.textContent?.includes('Use template'))!.click() })
     expect(nav.push).toHaveBeenCalledWith('/agents/new?template=Customer%20Support')
 
     const blank = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(b => b.textContent?.includes('Start blank'))!

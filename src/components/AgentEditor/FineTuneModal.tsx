@@ -13,6 +13,9 @@ import { clampTemperature } from '@/lib/agent-draft'
 import { CreativityField } from './CreativityField'
 import { HINT_STYLE, LABEL_STYLE } from './styles'
 
+/** The Preferences tab (skills, memories, creativity) is hidden for now; flip to bring it back. */
+const SHOW_PREFERENCES = false
+
 export interface AdvancedValues {
   instructions: string
   temperature:  number
@@ -74,12 +77,14 @@ function Body({
   return (
     <>
       <Tabs value={tab} onValueChange={setTab} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: '1 1 auto' }}>
-        <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>
-          <TabsList>
-            <TabsTrigger value="instructions">Instructions</TabsTrigger>
-            <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          </TabsList>
-        </div>
+        {SHOW_PREFERENCES && (
+          <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>
+            <TabsList>
+              <TabsTrigger value="instructions">Instructions</TabsTrigger>
+              <TabsTrigger value="preferences">Preferences</TabsTrigger>
+            </TabsList>
+          </div>
+        )}
         <div
           className="kaya-scrollbar"
           style={{ display: 'flex', flexDirection: 'column', padding: 20, overflowY: 'auto', minHeight: 0, flex: '1 1 auto' }}
@@ -92,11 +97,11 @@ function Body({
               </p>
             )}
           </TabsContent>
-          <TabsContent value="preferences" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {SHOW_PREFERENCES && <TabsContent value="preferences" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <ComingSoonSection title="Skills" hint="Teach this agent reusable abilities it can call on." />
             <ComingSoonSection title="Memories" hint="Preferences this agent should always remember about you." />
             <CreativityField value={temperature} onChange={setTemperature} disabled={saving} />
-          </TabsContent>
+          </TabsContent>}
         </div>
       </Tabs>
       <div
