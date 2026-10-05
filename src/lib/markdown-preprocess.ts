@@ -248,6 +248,121 @@ function escapeDollarsInMath(content: string): string {
   return out.replace(/\x03C(\d+)\x03/g, (_, n) => code[Number(n)] ?? '')
 }
 
+// ── Streaming tail ────────────────────────────────────────────────────────────
+// While a reply streams, the last paragraph is usually mid-construct: an opening
+// backtick or `**` whose partner hasn't arrived, a half-written `[text](http`, an
+// unfinished `\frac{`, a table header with no separator row yet, a lone `-` or `#`.
+// Rendered as-is each of these flashes as raw symbols (or a red KaTeX error) and
+// then reshapes itself. `healStreamingTail` closes what can be closed (code,
+// bold, strikethrough), keeps just the text of a half-written link, and holds
+// back what can't be shown yet (unfinished math, a table that isn't one yet, a
+// lone list/heading marker) until its next piece arrives. Only for a reply that
+// is still streaming — the final text is always rendered untouched.
+
+const TABLE_DELIMITER_ROW = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/
+
+// Same length as the input, with every code region blanked to "x" so scans can't see inside it.
+function maskCode(value: string): string {
+  const chars = value.split('')
+  for (const [start, end] of findCodeRanges(value)) for (let i = start; i < end; i++) chars[i] = 'x'
+  return chars.join('')
+}
+
+function countUnescaped(haystack: string, needle: string): number {
+  let count = 0
+  for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) {
+    if (haystack[i - 1] !== '\\') count++
+  }
+  return count
+}
+
+export function healStreamingTail(content: string): string {
+  // Inside a code fence that is still open, everything is code — leave it for closeOpenFences.
+  if (((content.match(/^```/gm) ?? []).length) % 2 !== 0) return content
+
+  // Unfinished math is held back from its opener on: partial LaTeX renders as raw
+  // source or a KaTeX error.
+  const masked = maskCode(content)
+  let cut = -1
+  if (countUnescaped(masked, '$$') % 2 === 1) cut = masked.lastIndexOf('$$')
+  const lastBracketOpen = masked.lastIndexOf('\\[')
+  if (lastBracketOpen !== -1 && masked.indexOf('\\]', lastBracketOpen) === -1) cut = Math.max(cut, lastBracketOpen)
+  const paragraphBreak = masked.lastIndexOf('\n\n')
+  const paragraphStart = paragraphBreak === -1 ? 0 : paragraphBreak + 2
+  const lastParenOpen = masked.lastIndexOf('\\(')
+  if (lastParenOpen >= paragraphStart && masked.indexOf('\\)', lastParenOpen) === -1) cut = Math.max(cut, lastParenOpen)
+  if (cut !== -1) return content.slice(0, cut).replace(/[ \t]+$/, '')
+
+  // An inline `$…` still open on the current line, whose text reads as math ("$A = 1{,}000",
+  // "$\frac"), is held back; a price ("$5", "$1,000") starts with a digit and is not.
+  const lineStart = masked.lastIndexOf('\n') + 1
+  const line = masked.slice(lineStart)
+  for (let i = line.indexOf('$'); i !== -1; i = line.indexOf('$', i + 1)) {
+    if (line[i - 1] === '\\' || line[i + 1] === '$' || line[i - 1] === '$') continue
+    const rest = line.slice(i + 1)
+    if (!rest.includes('$') && /^[A-Za-z\\({]/.test(rest) && /[\\^_{}=]/.test(rest)) {
+      return content.slice(0, lineStart + i).replace(/[ \t]+$/, '')
+    }
+    break
+  }
+
+  const head = content.slice(0, paragraphStart)
+  let tail = content.slice(paragraphStart)
+  if (!tail) return content
+
+  // A table still being written: its header (and a partial separator row) shows
+  // as text with pipes until the separator row is complete.
+  const lines = tail.split('\n')
+  if (/^\s*\|/.test(lines[0]) && (lines.length === 1 || (lines.length === 2 && !TABLE_DELIMITER_ROW.test(lines[1]) && /^[\s|:-]*$/.test(lines[1])))) {
+    return head
+  }
+
+  // A marker with nothing after it yet: "-", "1.", ">", "##", or "---" under text.
+  const last = lines[lines.length - 1]
+  if (/^\s*([-*+>]|\d{1,3}[.)]|#{1,6})\s*$/.test(last) || (lines.length > 1 && lines[lines.length - 2].trim() !== '' && /^\s*(-+|=+)\s*$/.test(last))) {
+    lines.pop()
+    tail = lines.join('\n')
+    if (!tail.trim()) return head
+  }
+
+  const m = maskCode(tail)
+  // A half-written image or link keeps only its visible text.
+  const image = /!\[[^\]\n]*(\](\([^)\n]*)?)?$/.exec(m)
+  if (image) return head + tail.slice(0, image.index)
+  const footnote = /\[\^[^\]\n]*$/.exec(m)
+  if (footnote) return head + tail.slice(0, footnote.index)
+  const link = /\[([^\]\n]*)\]\([^)\n]*$/.exec(m) ?? /\[([^\]\n]*)$/.exec(m)
+  if (link) tail = tail.slice(0, link.index) + tail.slice(link.index + 1, link.index + 1 + link[1].length)
+
+  // An opener with no text after it yet ("more than **") has nothing to style:
+  // hold the marker back until its first word arrives.
+  tail = tail.replace(/(^|[ \t])(\*{1,3}|~~|_{1,2}|`+)$/, '$1')
+
+  // Unclosed inline code / bold / emphasis / strikethrough: close it so the text
+  // renders styled from its first word instead of showing the marker.
+  // A closer straight after a space isn't one ("**Title **" stays literal), so it goes
+  // right after the last word.
+  const closeWith = (mark: string) => head + tail.replace(/\s+$/, '') + mark
+  const inline = maskCode(tail)
+  const ticks = [...inline.matchAll(/`+/g)]
+  // The opening run is the first one left unmasked; a closer must match its length.
+  if (ticks.length > 0) return closeWith(ticks[0][0])
+  if (!inline.includes('***')) {
+    if ((inline.match(/\*\*/g) ?? []).length % 2 === 1) return closeWith('**')
+  }
+  if ((inline.match(/~~/g) ?? []).length % 2 === 1) return closeWith('~~')
+  // Single emphasis: "*word" opens (not a bullet or a spaced "*"), "word*" closes.
+  // Underscores inside identifiers (snake_case) are neither.
+  const star = inline.replace(/\*{2,}/g, '')
+  const starOpen = (star.match(/(?<![\w*])\*(?=[^\s*])/g) ?? []).length
+  const starClose = (star.match(/(?<=[^\s*])\*(?![\w*])/g) ?? []).length
+  if (starOpen > starClose) return closeWith('*')
+  const underOpen = (inline.match(/(?<!\w)_(?=[^\s_])/g) ?? []).length
+  const underClose = (inline.match(/(?<=[^\s_])_(?!\w)/g) ?? []).length
+  if (underOpen > underClose) return closeWith('_')
+  return head + tail
+}
+
 // Markdown preprocessing pipeline (excluding web-citation handling and HTML
 // sanitisation). Shared by every renderer (e.g. the pin card) so behaviour is
 // consistent. Only additive, non-destructive normalisations live here — emphasis
@@ -262,9 +377,10 @@ function escapeDollarsInMath(content: string): string {
 // currency-detection scan never sees the $...$/$$...$$ spans normalizeMath
 // Delimiters just produced from explicit model LaTeX — see the comment on
 // normalizeMathDelimiters.
-export function preprocessMarkdown(content: string): string {
+export function preprocessMarkdown(content: string, options: { streaming?: boolean } = {}): string {
   const mathStash: string[] = [];
-  const withoutHtml = stripCollapsibleHtml(stripResponseInterruptedMarker(content));
+  const source = options.streaming ? healStreamingTail(content) : content;
+  const withoutHtml = stripCollapsibleHtml(stripResponseInterruptedMarker(source));
   const withHeadingSpace = fixHeadingSpace(withoutHtml);
   const withMathTokens = normalizeMathDelimiters(withHeadingSpace, mathStash);
   const withCurrencyEscaped = escapeCurrencyDollars(withMathTokens);

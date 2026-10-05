@@ -150,6 +150,7 @@ export function ContentRenderer({
             content={seg.text}
             webCitations={webCitations}
             highlights={isStreaming ? undefined : highlights}
+            streaming={Boolean(isStreaming) && i === segments.length - 1}
           />
         )
 

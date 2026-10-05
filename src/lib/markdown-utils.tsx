@@ -492,9 +492,15 @@ interface MarkdownRendererProps {
    * URLs, and inline event handlers are stripped. Default: false.
    */
   allowHtml?: boolean;
+  /**
+   * The text is still arriving: the unfinished tail (an open backtick or `**`, a
+   * half-written link, unfinished math, a table with no separator row yet) is closed
+   * or held back so it doesn't flash as raw symbols — see healStreamingTail.
+   */
+  streaming?: boolean;
 }
 
-export function MarkdownRenderer({ content, webCitations, highlights, allowHtml = false }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, webCitations, highlights, allowHtml = false, streaming = false }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
   // Footnote ids/hrefs get a per-renderer prefix so two messages' footnotes
   // (both "fn-1") never collide or jump to each other.
@@ -510,15 +516,15 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
 
   const processed = useMemo(() => {
     const base = hasCitations
-      ? preprocessMarkdown(preprocessCitations(content))
-      : preprocessMarkdown(content);
+      ? preprocessMarkdown(preprocessCitations(content), { streaming })
+      : preprocessMarkdown(content, { streaming });
     // Sanitise only when about to ask rehype-raw to parse HTML — for pure-markdown
     // rendering, DOMPurify's HTML-context parsing corrupts `<` in code/math.
     // sanitizePreservingMath stashes math blocks before DOMPurify runs.
     return allowHtml
       ? sanitizePreservingMath(base)
       : base;
-  }, [hasCitations, content, allowHtml]);
+  }, [hasCitations, content, allowHtml, streaming]);
 
   const resolvedRehypePlugins = useMemo<Pluggable[]>(() => {
     const plugins: Pluggable[] = highlights?.length
