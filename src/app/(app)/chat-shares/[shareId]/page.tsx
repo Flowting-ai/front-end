@@ -11,7 +11,7 @@ import {
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
-import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { ContentRenderer } from '@/lib/content-renderer'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { Skeleton } from '@/components/Skeleton'
@@ -223,7 +223,7 @@ function SharedChatContent() {
                 )}
                 {msg.output && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
-                    <MarkdownRenderer content={msg.output} />
+                    <ContentRenderer content={msg.output} />
                   </div>
                 )}
               </div>
