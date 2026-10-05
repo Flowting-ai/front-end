@@ -18,6 +18,8 @@ import {
   buildRewrite, diffLines, diffSummary, fromBackendQuestions,
 } from '@/enhance'
 import { enhancePrompt } from '@/lib/api/personas'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { toast } from 'sonner'
 import type {
   EnhanceMode, PersonaContext, Question, Answers,
 } from '@/enhance'
@@ -59,6 +61,7 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
 }
 
 type EnhanceState = 'idle' | 'scanning' | 'qa' | 'diff' | 'complete'
+type DiffView = 'changes' | 'preview'
 
 const DEFAULT_CONTEXT: PersonaContext = {
   knowledgeCount:    0,
@@ -67,6 +70,10 @@ const DEFAULT_CONTEXT: PersonaContext = {
 }
 
 const SCAN_DURATION_MS = 1800   // PRD §11
+// A backend call that takes longer than this gets a "still working" note and a Cancel; one that
+// takes longer than the timeout is dropped for the local check.
+const SLOW_AFTER_MS = 8_000
+const GIVE_UP_AFTER_MS = 45_000
 const APPLY_TRANSITION_MS = 180
 // Max textarea height before internal scroll kicks in (container max = 534, minus 24px padding, 25px gap, 36px footer)
 const TEXTAREA_MAX_H = 449
@@ -97,6 +104,13 @@ export function EnhancePromptField(
     const [customText, setCustomText] = useState<Record<string, string>>({})  // questionId → in-progress custom string
     const [draftRewrite, setDraftRewrite] = useState<string>('')
 
+    const [diffView, setDiffView] = useState<DiffView>('changes')
+    // A backend call is in flight; `slow` once it has taken a while.
+    const [waiting, setWaiting] = useState(false)
+    const [slow, setSlow] = useState(false)
+    const giveUpRef = useRef<() => void>(() => {})
+    // A call ended (or was cancelled): the in-flight flag and the "still working" note both go.
+    const stopWaiting = () => { setWaiting(false); setSlow(false) }
     const [backendMode, setBackendMode] = useState(false)
     const [backendDraft, setBackendDraft] = useState('')
     const requestId = useRef(0)   // bumped to ignore a stale response after close / restart
@@ -104,6 +118,13 @@ export function EnhancePromptField(
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     useEffect(() => () => { if (scanTimer.current) clearTimeout(scanTimer.current) }, [])
+
+    useEffect(() => {
+      if (!waiting) return
+      const slowTimer = setTimeout(() => setSlow(true), SLOW_AFTER_MS)
+      const giveUpTimer = setTimeout(() => giveUpRef.current(), GIVE_UP_AFTER_MS)
+      return () => { clearTimeout(slowTimer); clearTimeout(giveUpTimer) }
+    }, [waiting])
 
     const isOpen = state !== 'idle'
 
@@ -145,25 +166,37 @@ export function EnhancePromptField(
       setAnswers({})
       setCustomText({})
       setState('scanning')
+      setWaiting(true)
+      giveUpRef.current = () => {
+        requestId.current++
+        stopWaiting()
+        toast.info('Enhance is taking too long — using a quick local check instead.')
+        openLocalEnhance()
+      }
       enhancePrompt(value, []).then(res => {
         if (run !== requestId.current) return
+        stopWaiting()
         setBackendMode(true)
         setBackendDraft(res.enhanced_prompt)
         const qs = fromBackendQuestions(res.questions)
         setQuestions(qs)
         if (qs.length === 0) {
           setDraftRewrite(res.enhanced_prompt)
+          setDiffView('changes')
           setState('diff')
         } else {
           setState('qa')
         }
       }).catch(() => {
-        if (run === requestId.current) openLocalEnhance()
+        if (run !== requestId.current) return
+        stopWaiting()
+        openLocalEnhance()
       })
     }
 
     const closeEnhance = () => {
       requestId.current++
+      stopWaiting()
       if (scanTimer.current) clearTimeout(scanTimer.current)
       setState('idle')
     }
@@ -176,14 +209,27 @@ export function EnhancePromptField(
         return a.length > 0 ? [{ question: q.text, answer: a.join(', ') }] : []
       })
       setState('scanning')
+      setWaiting(true)
+      const showFirstDraft = () => {
+        stopWaiting()
+        setDraftRewrite(backendDraft)   // fall back to the first draft
+        setDiffView('changes')
+        setState('diff')
+      }
+      giveUpRef.current = () => {
+        requestId.current++
+        toast.info('Enhance is taking too long — showing the first draft.')
+        showFirstDraft()
+      }
       enhancePrompt(value, payload).then(res => {
         if (run !== requestId.current) return
+        stopWaiting()
         setDraftRewrite(res.enhanced_prompt)
+        setDiffView('changes')
         setState('diff')
       }).catch(() => {
         if (run !== requestId.current) return
-        setDraftRewrite(backendDraft)   // fall back to the first draft
-        setState('diff')
+        showFirstDraft()
       })
     }
 
@@ -460,7 +506,21 @@ export function EnhancePromptField(
                   margin:              -8,
                 }}
               >
-              {state === 'scanning' && <EnhanceScanningState />}
+              {state === 'scanning' && (
+                <>
+                  <EnhanceScanningState />
+                  {waiting && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: -16 }}>
+                      {slow && (
+                        <p role="status" style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-600)', textAlign: 'center' }}>
+                          Still working on it — this can take a little while.
+                        </p>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={closeEnhance}>Cancel</Button>
+                    </div>
+                  )}
+                </>
+              )}
 
               {state === 'qa' && currentQuestion && (
                 <QAStep
@@ -483,6 +543,20 @@ export function EnhancePromptField(
                     wordsAdded={summary.wordsAdded}
                     guidelineGroups={summary.guidelineGroups}
                   />
+                  <div role="group" aria-label="View" style={{ display: 'flex', gap: 6 }}>
+                    <Button size="sm" variant={diffView === 'changes' ? 'default' : 'ghost'} aria-pressed={diffView === 'changes'} onClick={() => setDiffView('changes')}>Changes</Button>
+                    <Button size="sm" variant={diffView === 'preview' ? 'default' : 'ghost'} aria-pressed={diffView === 'preview'} onClick={() => setDiffView('preview')}>Preview</Button>
+                  </div>
+                  {diffView === 'preview' && (
+                    <div
+                      aria-label="Preview of the enhanced prompt"
+                      className="kaya-scrollbar"
+                      style={{ maxHeight: 240, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2, borderRadius: 8 }}
+                    >
+                      <MarkdownRenderer content={draftRewrite} />
+                    </div>
+                  )}
+                  {diffView === 'changes' && (
                   <div
                     role="list"
                     aria-label="Diff between original and enhanced prompt"
@@ -500,6 +574,7 @@ export function EnhancePromptField(
                       <DiffLine key={i} variant={seg.type} style={{ whiteSpace: 'pre-wrap' }}>{seg.text}</DiffLine>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
 

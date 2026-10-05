@@ -132,3 +132,63 @@ describe('EnhancePromptField (backend flow)', () => {
     expect(api.enhancePrompt).not.toHaveBeenCalled()
   })
 })
+
+describe('EnhancePromptField (slow backend)', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('says it is still working after a while, and Cancel closes it and drops the late reply', async () => {
+    vi.useFakeTimers()
+    let release!: (v: unknown) => void
+    api.enhancePrompt.mockReturnValueOnce(new Promise(r => { release = r }))
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    expect(text()).not.toContain('Still working on it')
+    expect(button(/^Cancel$/)).toBeTruthy()
+
+    await act(async () => { vi.advanceTimersByTime(8_100) })
+    expect(text()).toContain('Still working on it')
+
+    await click(button(/^Cancel$/))
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+    await act(async () => { release({ enhanced_prompt: 'LATE', questions: [] }); await Promise.resolve() })
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+    expect(text()).not.toContain('LATE')
+  })
+
+  it('gives up after a long wait and falls back to the local check', async () => {
+    vi.useFakeTimers()
+    api.enhancePrompt.mockReturnValueOnce(new Promise(() => {}))
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    await act(async () => { vi.advanceTimersByTime(45_100) })
+    // The local scan runs on its own timer, then shows a question or "comprehensive".
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    expect(document.querySelector('[role=dialog]')).toBeTruthy()
+    expect(text()).toMatch(/Step 1 of|comprehensive/)
+    expect(text()).not.toContain('Still working on it')
+  })
+})
+
+describe('EnhancePromptField (result preview)', () => {
+  it('switches between the changes and a rendered preview of the enhanced prompt', async () => {
+    api.enhancePrompt.mockResolvedValueOnce({ enhanced_prompt: '## Role\nYou are a **contracts** lawyer.', questions: [] })
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    await flush()
+    expect(document.querySelector('[aria-label="Diff between original and enhanced prompt"]')).toBeTruthy()
+    expect(document.querySelector('[aria-label="Preview of the enhanced prompt"]')).toBeNull()
+
+    await click(button(/^Preview$/))
+    const preview = document.querySelector('[aria-label="Preview of the enhanced prompt"]')
+    expect(preview).toBeTruthy()
+    expect(preview?.querySelector('h2')?.textContent).toBe('Role')
+    expect(preview?.querySelector('strong')?.textContent).toBe('contracts')
+    expect(document.querySelector('[aria-label="Diff between original and enhanced prompt"]')).toBeNull()
+
+    await click(button(/^Changes$/))
+    expect(document.querySelector('[aria-label="Diff between original and enhanced prompt"]')).toBeTruthy()
+    // Apply still commits the draft from either view.
+    await click(button(/Apply changes/))
+    expect(onChange).toHaveBeenCalledWith('## Role\nYou are a **contracts** lawyer.')
+  })
+})
