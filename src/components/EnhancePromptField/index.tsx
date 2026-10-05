@@ -15,8 +15,9 @@ import { EnhanceSummaryBar } from '@/components/EnhanceSummaryBar'
 import { DiffLine } from '@/components/DiffLine'
 import {
   scanPrompt, classifyMode, selectQuestions,
-  buildRewrite, diffSentences, diffSummary,
+  buildRewrite, diffLines, diffSummary, fromBackendQuestions,
 } from '@/enhance'
+import { enhancePrompt } from '@/lib/api/personas'
 import type {
   EnhanceMode, PersonaContext, Question, Answers,
 } from '@/enhance'
@@ -96,6 +97,9 @@ export function EnhancePromptField(
     const [customText, setCustomText] = useState<Record<string, string>>({})  // questionId → in-progress custom string
     const [draftRewrite, setDraftRewrite] = useState<string>('')
 
+    const [backendMode, setBackendMode] = useState(false)
+    const [backendDraft, setBackendDraft] = useState('')
+    const requestId = useRef(0)   // bumped to ignore a stale response after close / restart
     const scanTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -114,12 +118,12 @@ export function EnhancePromptField(
 
     // ── Open / close ───────────────────────────────────────────────────────────
 
-    const openEnhance = () => {
-      trackFeature('agent_enhance_instructions')
-      // Run scan immediately so we can decide between [scanning] → [qa] / [complete].
+    // Local (rule-based) flow — used when the backend is unavailable.
+    const openLocalEnhance = () => {
       const scores = scanPrompt(value)
       const detectedMode = forceMode ?? classifyMode(scores)
       const qs = selectQuestions(detectedMode, scores, personaContext)
+      setBackendMode(false)
       setMode(detectedMode)
       setQuestions(qs)
       setQIdx(0)
@@ -132,9 +136,55 @@ export function EnhancePromptField(
       }, SCAN_DURATION_MS)
     }
 
+    const openEnhance = () => {
+      trackFeature('agent_enhance_instructions')
+      if (!value.trim()) { openLocalEnhance(); return }
+      const run = ++requestId.current
+      setMode('BUILD')
+      setQIdx(0)
+      setAnswers({})
+      setCustomText({})
+      setState('scanning')
+      enhancePrompt(value, []).then(res => {
+        if (run !== requestId.current) return
+        setBackendMode(true)
+        setBackendDraft(res.enhanced_prompt)
+        const qs = fromBackendQuestions(res.questions)
+        setQuestions(qs)
+        if (qs.length === 0) {
+          setDraftRewrite(res.enhanced_prompt)
+          setState('diff')
+        } else {
+          setState('qa')
+        }
+      }).catch(() => {
+        if (run === requestId.current) openLocalEnhance()
+      })
+    }
+
     const closeEnhance = () => {
+      requestId.current++
       if (scanTimer.current) clearTimeout(scanTimer.current)
       setState('idle')
+    }
+
+    // Send the answers back so the backend folds them into a final draft.
+    const refineWithBackend = () => {
+      const run = ++requestId.current
+      const payload = questions.flatMap(q => {
+        const a = answers[q.id] ?? []
+        return a.length > 0 ? [{ question: q.text, answer: a.join(', ') }] : []
+      })
+      setState('scanning')
+      enhancePrompt(value, payload).then(res => {
+        if (run !== requestId.current) return
+        setDraftRewrite(res.enhanced_prompt)
+        setState('diff')
+      }).catch(() => {
+        if (run !== requestId.current) return
+        setDraftRewrite(backendDraft)   // fall back to the first draft
+        setState('diff')
+      })
     }
 
     // ── Q&A handlers ───────────────────────────────────────────────────────────
@@ -180,6 +230,7 @@ export function EnhancePromptField(
     const goNext = (skipped = false) => {
       if (!skipped && !canAdvance) return
       if (qIdx >= questions.length - 1) {
+        if (backendMode) { refineWithBackend(); return }
         // Build rewrite + advance to diff
         const rewrite = buildRewrite(value, questions, answers)
         setDraftRewrite(rewrite)
@@ -222,7 +273,7 @@ export function EnhancePromptField(
     // ── Diff content ───────────────────────────────────────────────────────────
 
     const diffSegments = useMemo(
-      () => (state === 'diff' ? diffSentences(value, draftRewrite) : []),
+      () => (state === 'diff' ? diffLines(value, draftRewrite) : []),
       [state, value, draftRewrite],
     )
     const summary = useMemo(
@@ -446,7 +497,7 @@ export function EnhancePromptField(
                   >
                     {diffSegments.map((seg, i) => (
                       // eslint-disable-next-line react/no-array-index-as-key -- diff segments are positionally stable; no stable IDs available
-                      <DiffLine key={i} variant={seg.type}>{seg.text}</DiffLine>
+                      <DiffLine key={i} variant={seg.type} style={{ whiteSpace: 'pre-wrap' }}>{seg.text}</DiffLine>
                     ))}
                   </div>
                 </div>
@@ -482,6 +533,7 @@ export function EnhancePromptField(
                   // Re-enter scan with forced AUDIT
                   const scores = scanPrompt(value)
                   const qs = selectQuestions('AUDIT', scores, personaContext)
+                  setBackendMode(false)
                   setMode('AUDIT')
                   setQuestions(qs)
                   setQIdx(0)
@@ -554,15 +606,17 @@ function QAStep({
         }}>
           {question.text}
         </h3>
-        <p style={{
-          margin:     0,
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      'var(--neutral-500)',
-        }}>
-          {audit ? 'Consider carefully.' : question.sub}
-        </p>
+        {(audit || question.sub) && (
+          <p style={{
+            margin:     0,
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-500)',
+          }}>
+            {audit ? 'Consider carefully.' : question.sub}
+          </p>
+        )}
       </div>
 
       {/* Selected custom chips */}
