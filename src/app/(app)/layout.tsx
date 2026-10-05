@@ -1,5 +1,6 @@
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
+import { cookies } from "next/headers";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";
@@ -16,12 +17,18 @@ import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
+import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
 
-export default function AppGroupLayout({
+export default async function AppGroupLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Read the sidebar's collapsed state from its cookie here, on the server, so
+  // the server-rendered sidebar matches the client's first render (it used to
+  // read localStorage during render and mismatch on hydration).
+  const sidebarCollapsed = parseSidebarCollapsed((await cookies()).get(SIDEBAR_COLLAPSED_KEY)?.value);
+
   return (
     <OnboardingGuard>
       <NavGuardProvider>
@@ -36,7 +43,7 @@ export default function AppGroupLayout({
                 <ModelSelectorProvider>
                   <SearchProvider>
                     <ProjectPanelProvider>
-                      <AppLayout>
+                      <AppLayout defaultSidebarCollapsed={sidebarCollapsed}>
                         {children}
                       </AppLayout>
                     </ProjectPanelProvider>

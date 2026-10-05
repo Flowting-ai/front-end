@@ -235,7 +235,7 @@ mixpanel.init(mixpanelToken, {
   track_pageview: false,       // we emit screen_viewed ourselves
   persistence: "localStorage", // SPA-friendly
   record_sessions_percent: 0,  // Session Replay is a later, masked phase
-  debug: isDev,
+  debug: process.env.NEXT_PUBLIC_MIXPANEL_DEBUG === "true", // opt-in console logging
 });
 mixpanel.register({ surface: "web" }); // constant stamp on EVERY event
 ```

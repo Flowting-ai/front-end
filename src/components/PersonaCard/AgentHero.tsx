@@ -1,8 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
-import { AnimatedPersonaAvatar, defaultAvatarChoice, getAvatarChoice } from './AnimatedPersonaAvatar'
+import { defaultAvatarChoice, getAvatarChoice } from './AnimatedPersonaAvatar'
+import { AgentOrb } from './AgentOrb'
+import { HeroScene, sceneFor } from './HeroScene'
+import { GazeChannel } from './gaze'
 
 // The banner every agent card opens with (the layout of a Grok Bot template card): the agent's
 // own colour as a soft glow over a deeper base, with its live avatar centred on it. Shared by the
@@ -71,39 +74,51 @@ export function AgentHero({
 }: AgentHeroProps) {
   const stored = useStoredAvatarChoice(agentId)
   const avatar = getAvatarChoice(stored ?? defaultAvatarChoice(name, agentId))
+  // The same living scene, orb and eyes as the agents grid, in the lite cut for a small hero.
+  const [gaze] = useState(() => new GazeChannel())
+  const borderRadius = rounded ? radius : `${radius}px ${radius}px 0 0`
 
   return (
-    <div style={{ position: 'relative', height, width, flexShrink: 0 }}>
+    <div
+      className="agent-hero-screen"
+      style={{ position: 'relative', height, width, flexShrink: 0, borderRadius }}
+      onPointerMove={e => gaze.setPointer({ x: e.clientX, y: e.clientY })}
+      onPointerLeave={() => gaze.setPointer(null)}
+    >
       <div
         style={{
           position:     'absolute',
           inset:        0,
-          borderRadius: rounded ? radius : `${radius}px ${radius}px 0 0`,
+          borderRadius,
           ...agentHeroStyle(avatar.colors[0]),
           opacity,
           transition:   'opacity 0.2s ease',
         }}
       />
-      <div
-        style={{
-          position:        'absolute',
-          left:            '50%',
-          top:             '50%',
-          transform:       'translate(-50%, -50%)',
-          borderRadius:    '50%',
-          backgroundColor: 'var(--static-white)',
-          opacity:         inert ? 0.7 : 1,
-        }}
-      >
-        <AnimatedPersonaAvatar
+      <HeroScene
+        kind={sceneFor(avatar.theme)}
+        colors={avatar.colors}
+        seed={agentId}
+        avatarSize={avatarSize}
+        hovered={hovered}
+        bounceKey={bounceKey}
+        inert={inert}
+        gaze={gaze}
+        lite
+        opacity={opacity}
+        filter={inert ? 'saturate(0.35)' : undefined}
+      />
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 2, opacity: inert ? 0.85 : 1 }}>
+        <AgentOrb
           size={avatarSize}
-          radius="50%"
           theme={avatar.theme}
           colors={avatar.colors}
           seed={agentId}
           hovered={hovered}
           bounceKey={bounceKey}
           inert={inert}
+          eyes
+          gaze={gaze}
         />
       </div>
       {children}

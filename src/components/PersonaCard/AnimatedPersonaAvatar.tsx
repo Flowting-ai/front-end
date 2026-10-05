@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
+import type { AvatarMood, GazeChannel } from './gaze'
 
 // ── Animated persona avatar ───────────────────────────────────────────────────
 // Port of agent_cards_iteration_2.html: two gooey spheres (head + body) that
@@ -38,6 +39,8 @@ export interface InteriorFrame {
   /** Mutable per-avatar state the interior may use (e.g. rotation phase). */
   state: { ph: number }
   reduceMotion: boolean
+  /** The avatar has eyes drawn on its head — keep the head's interior clear of them. */
+  face: boolean
 }
 
 export interface AvatarInterior {
@@ -122,17 +125,38 @@ const signalsInterior: AvatarInterior = {
       const scale  = r / (sp ? 25 : 13)
       const base   = sp ? 3.6 : 2.4
       const pop    = f.hover && !f.reduceMotion ? Math.max(0, Math.sin(f.now * 5 - n * 0.8)) : 0
-      set(parts[n], { cx: 32 + dx * scale, cy: y + dy * scale, r: base * (1 + pop * 0.7) })
+      // With a face, the head's three dots would read as a second set of eyes.
+      const hidden = sp === 0 && f.face
+      set(parts[n], { cx: 32 + dx * scale, cy: y + dy * scale, r: hidden ? 0 : base * (1 + pop * 0.7) })
     })
   },
 }
 
-export type AvatarTheme = 'guide' | 'weather' | 'scout'
+// Hearts — four little hearts bubbling up through the body and wrapping, like live
+// reactions; quicker on hover.
+const HEART = 'M0 1.6C-3-1-2-3.6 0-2C2-3.6 3-1 0 1.6Z'
+const heartsInterior: AvatarInterior = {
+  count:  4,
+  render: i => <path key={i} d={HEART} fill="#fff" />,
+  update: (parts, f) => {
+    if (!f.reduceMotion) f.state.ph += f.dt * (f.hover ? 0.5 : 0.12)
+    const [by, br] = f.body
+    parts.forEach((part, n) => {
+      const q = (f.state.ph + n / 4) % 1
+      const x = 32 + Math.sin(q * Math.PI * 2 + n * 1.7) * br * 0.45
+      const y = by + br * 0.55 - q * br * 1.25
+      set(part, { transform: `translate(${x},${y}) scale(${0.8 + Math.sin(q * Math.PI) * 0.6})`, opacity: Math.sin(q * Math.PI) * 0.9 })
+    })
+  },
+}
+
+export type AvatarTheme = 'guide' | 'weather' | 'scout' | 'marketing'
 
 export const AVATAR_THEMES: Record<AvatarTheme, AvatarThemeConfig> = {
-  guide:   { colors: ['#4a4a4a', '#030303'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'], interior: globeInterior },
-  weather: { colors: ['#8cc8ff', '#0a4fb0'], status: ['Fetching radar…', 'Reading alerts…', 'Forecast ready'],     interior: cloudsInterior },
-  scout:   { colors: ['#b4cef0', '#2f5f9e'], status: ['Scanning arXiv…', 'Verifying sources…', '3 new papers'],    interior: signalsInterior },
+  guide:     { colors: ['#4a4a4a', '#030303'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'],    interior: globeInterior },
+  weather:   { colors: ['#8cc8ff', '#0a4fb0'], status: ['Fetching radar…', 'Reading alerts…', 'Forecast ready'],        interior: cloudsInterior },
+  scout:     { colors: ['#b4cef0', '#2f5f9e'], status: ['Scanning arXiv…', 'Verifying sources…', '3 new papers'],       interior: signalsInterior },
+  marketing: { colors: ['#ffa3bd', '#b3124f'], status: ['Drafting hooks…', 'Checking engagement…', 'Campaign ready'],   interior: heartsInterior },
 }
 
 /** Themeless agents: plain sphere (no interior) and generic status copy. */
@@ -144,9 +168,12 @@ const FALLBACK_COLORS: [string, string][] = [
 export const GENERIC_STATUS = ['Loading context…', 'Checking tools…', 'Ready to chat']
 
 const THEME_KEYWORDS: [AvatarTheme, RegExp][] = [
-  ['guide',   /\b(guide|travel|trip|international|worldwide|world|global|globe|country|countries)\b/i],
-  ['weather', /\b(weather|forecast|climate|storm|rain|radar)\b/i],
-  ['scout',   /\b(research|news|scout|paper|papers|arxiv|science|study|studies)\b/i],
+  ['guide',     /\b(guide|travel|trip|international|worldwide|world|global|globe|country|countries)\b/i],
+  ['weather',   /\b(weather|forecast|climate|storm|rain|radar)\b/i],
+  // Kept to unmistakable marketing words: a match changes the default avatar of every agent
+  // whose name contains it (one with a picked avatar keeps theirs).
+  ['marketing', /\b(marketing|marketer|campaigns?|branding|seo|advertising|newsletters?|copywriter|copywriting|influencer)\b/i],
+  ['scout',     /\b(research|news|scout|paper|papers|arxiv|science|study|studies)\b/i],
 ]
 
 /** Picks a theme from the agent's name, or null when nothing matches. */
@@ -169,11 +196,15 @@ export interface AvatarChoiceConfig {
 export const AVATAR_CHOICES: AvatarChoiceConfig[] = [
   { id: 'guide',   label: 'Voyager', theme: 'guide',   colors: AVATAR_THEMES.guide.colors },
   { id: 'weather', label: 'Stormy',  theme: 'weather', colors: AVATAR_THEMES.weather.colors },
-  { id: 'scout',   label: 'Scout',   theme: 'scout',   colors: AVATAR_THEMES.scout.colors },
-  { id: 'ember',   label: 'Ember',   theme: null,      colors: FALLBACK_COLORS[0] },
-  { id: 'mint',    label: 'Mint',    theme: null,      colors: FALLBACK_COLORS[1] },
-  { id: 'dusk',    label: 'Dusk',    theme: null,      colors: FALLBACK_COLORS[2] },
+  { id: 'scout',     label: 'Scout',   theme: 'scout',     colors: AVATAR_THEMES.scout.colors },
+  { id: 'marketing', label: 'Spark',   theme: 'marketing', colors: AVATAR_THEMES.marketing.colors },
+  { id: 'ember',     label: 'Ember',   theme: null,        colors: FALLBACK_COLORS[0] },
+  { id: 'mint',      label: 'Mint',    theme: null,        colors: FALLBACK_COLORS[1] },
+  { id: 'dusk',      label: 'Dusk',    theme: null,        colors: FALLBACK_COLORS[2] },
 ]
+
+/** The plain spheres, in FALLBACK_COLORS order — by id, so adding a theme can't shift them. */
+const PLAIN_CHOICES: AvatarChoice[] = ['ember', 'mint', 'dusk']
 
 export function getAvatarChoice(id: AvatarChoice): AvatarChoiceConfig {
   return AVATAR_CHOICES.find(choice => choice.id === id) ?? AVATAR_CHOICES[0]
@@ -183,7 +214,7 @@ export function getAvatarChoice(id: AvatarChoice): AvatarChoiceConfig {
 export function defaultAvatarChoice(name: string, seed: string): AvatarChoice {
   const theme = pickAvatarTheme(name)
   if (theme) return theme
-  return AVATAR_CHOICES[3 + (hashSeed(seed) % FALLBACK_COLORS.length)].id
+  return PLAIN_CHOICES[hashSeed(seed) % PLAIN_CHOICES.length]
 }
 
 export function pickAvatarTheme(name: string): AvatarTheme | null {
@@ -219,7 +250,22 @@ export interface AnimatedPersonaAvatarProps {
   inert?:  boolean
   /** Forces the sphere colours (a picked avatar); otherwise they come from the theme / seed. */
   colors?: [string, string]
+  /** Draws eyes on the head that look at `gaze` and blink. Closed while `inert` (asleep). */
+  eyes?:   boolean
+  /** Fill behind the spheres. Defaults to the page's light surface; the orb passes 'transparent'. */
+  backdrop?: string
+  /** Awake, asleep (paused — eyes shut), drowsy (draft — half-lidded) or unavailable. Defaults from `inert`. */
+  mood?:   AvatarMood
+  /** What the eyes follow — see gaze.ts. Without it they look ahead. */
+  gaze?:   GazeChannel
 }
+
+// Eyes, in viewBox units: centred ±EYE_X off the head's middle, a touch above its centre.
+const EYE_X = 4.4
+const EYE_LIFT = 1
+/** How far a pupil can travel inside its eye, horizontally / vertically. */
+const LOOK_X = 1.15
+const LOOK_Y = 0.95
 
 export function AnimatedPersonaAvatar({
   theme,
@@ -230,6 +276,10 @@ export function AnimatedPersonaAvatar({
   radius    = 8,
   inert     = false,
   colors: colorsProp,
+  eyes      = false,
+  backdrop  = 'var(--neutral-50)',
+  mood: moodProp,
+  gaze,
 }: AnimatedPersonaAvatarProps) {
   const reduceMotion = useReducedMotion() ?? false
   const uid  = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -239,6 +289,7 @@ export function AnimatedPersonaAvatar({
   const config = theme ? AVATAR_THEMES[theme] : null
   const [c0, c1] = colorsProp ?? config?.colors ?? FALLBACK_COLORS[hash % FALLBACK_COLORS.length]
   const interior = config?.interior
+  const mood: AvatarMood = moodProp ?? (inert ? 'asleep' : 'awake')
 
   const rootRef  = useRef<HTMLDivElement>(null)
   const headRef  = useRef<SVGCircleElement>(null)
@@ -248,14 +299,35 @@ export function AnimatedPersonaAvatar({
   const ringRef  = useRef<SVGCircleElement>(null)
   const flashRef = useRef<SVGRectElement>(null)
   const partsRef = useRef<SVGGElement>(null)
+  const eyeRefs   = useRef<(SVGGElement | null)[]>([])
+  const pupilRefs = useRef<(SVGGElement | null)[]>([])
 
   // Animation state lives in a ref so the rAF loop reads current values
   // without restarting on every prop change.
-  const st = useRef({ hover: false, ht: 0, ct: -9, interior: { ph: (hash % 97) / 97 } })
+  const st = useRef({
+    hover: false, ht: 0, ct: -9, interior: { ph: (hash % 97) / 97 },
+    inert: false,
+    // Eyes: eased pupil offset, the last blink, and when the next one is due.
+    lookX: 0, lookY: 0, blinkAt: -9, nextBlink: 1 + (hash % 300) / 100, blinkTwice: false,
+    lookSource: 'ahead', saccadeUntil: 0, microAt: 0, microX: 0, microY: 0,
+    heldTarget: null as [number, number] | null, heldUntil: 0,
+    rect: null as DOMRect | null,
+    visitor: false, vt: 0,
+  })
 
   useEffect(() => {
-    st.current.hover = hovered && !inert
-    if (hovered && !inert) st.current.ht = performance.now() / 1000
+    const s = st.current
+    const now = performance.now() / 1000
+    s.hover = hovered && !inert
+    s.inert = inert
+    // Visits count even for a sleeping agent — that's when it peeks.
+    if (hovered && !s.visitor) s.vt = now
+    s.visitor = hovered
+    if (hovered && !inert) {
+      s.ht = now
+      // A blink on arrival — the agent noticing you.
+      s.nextBlink = now + 0.05
+    }
   }, [hovered, inert])
 
   useEffect(() => {
@@ -303,11 +375,137 @@ export function AnimatedPersonaAvatar({
         const frame: InteriorFrame = {
           now, dt, hover: s.hover, sinceClick: c,
           head: [hy, hr], body: [cy, ry],
-          state: s.interior, reduceMotion,
+          state: s.interior, reduceMotion, face: eyes,
         }
         interior.update(parts, frame)
         set(flashRef.current, { opacity: interior.flash?.(frame) ?? 0 })
       }
+
+      if (eyes) drawEyes(now, dt, hy)
+    }
+
+    // ── Eyes ──────────────────────────────────────────────────────────────────
+    // Pursuit with quick saccades on a jump, tiny micro-saccades, a slight head turn, pupils
+    // that widen when you arrive, blinks (sometimes double), a happy squint at the button,
+    // and moods: asleep (paused, peeks when you come by), drowsy (draft), unavailable.
+
+    const viewBoxPoint = (client: { x: number; y: number }): [number, number] | null => {
+      const s = st.current
+      const root = rootRef.current
+      if (!root) return null
+      // Measured once per pointer visit and on scroll/resize — never every frame.
+      if (!s.rect) s.rect = root.getBoundingClientRect()
+      const box = s.rect
+      return box.width > 0 ? [(client.x - box.left) * 64 / box.width, (client.y - box.top) * 64 / box.height] : null
+    }
+    const dropRect = () => { st.current.rect = null }
+    window.addEventListener('scroll', dropRect, true)
+    window.addEventListener('resize', dropRect)
+
+    const blink = (now: number, s: typeof st.current) => {
+      s.blinkAt = now
+      // One in six is a double blink.
+      s.blinkTwice = Math.random() < 0.16
+      s.nextBlink = now + (mood === 'unavailable' ? 6 : 2.6 + Math.random() * 3.4)
+    }
+
+    const drawEyes = (now: number, dt: number, hy: number) => {
+      const s = st.current
+      const g = gaze
+      const ey = hy - EYE_LIFT
+      const awake = mood === 'awake' || mood === 'drowsy'
+
+      // ─ Where to look. Attention (the button) > pointer > a held last look > the scene.
+      let target: [number, number] | null = null
+      let source = 'ahead'
+      let squint = false
+      if (g?.attention && awake) {
+        target = viewBoxPoint(g.attention); source = 'attention'; squint = true
+      } else if (g?.pointer && mood !== 'unavailable') {
+        target = viewBoxPoint(g.pointer); source = 'pointer'
+        s.heldTarget = target; s.heldUntil = 0
+      } else if (s.heldTarget && s.heldUntil === 0) {
+        // The pointer just left: hold the look half a second, then blink and glide back.
+        s.heldUntil = now + 0.5
+        target = s.heldTarget; source = 'pointer'
+      } else if (s.heldTarget && now < s.heldUntil) {
+        target = s.heldTarget; source = 'pointer'
+      } else {
+        if (s.heldTarget) { s.heldTarget = null; if (awake && !reduceMotion) blink(now, s) }
+        if (mood === 'unavailable') { target = [32 - 6, ey + 8]; source = 'down' }
+        else if (g?.ambient) { target = [g.ambient.x, g.ambient.y]; source = 'ambient' }
+      }
+      if (!g?.pointer) s.rect = null
+
+      let lx = 0, ly = 0
+      if (target) {
+        const dx = target[0] - 32, dy = target[1] - ey
+        const d = Math.hypot(dx, dy) || 1
+        const reach = Math.min(1, d / 14)   // a target right on the face barely moves them
+        lx = (dx / d) * LOOK_X * reach
+        ly = (dy / d) * LOOK_Y * reach
+      }
+
+      // ─ Saccade: a big change of direction or of what's being watched snaps quickly.
+      const turn = Math.abs(Math.atan2(ly, lx) - Math.atan2(s.lookY, s.lookX))
+      const jumped = source !== s.lookSource || (Math.hypot(lx - s.lookX, ly - s.lookY) > 0.5 && Math.min(turn, Math.PI * 2 - turn) > 0.44)
+      if (jumped) {
+        s.saccadeUntil = now + 0.09
+        // A long hand-off between scene elements gets a blink, like a real glance.
+        if (source === 'ambient' && s.lookSource === 'ambient' && Math.hypot(lx - s.lookX, ly - s.lookY) > 1.2 && !reduceMotion) blink(now, s)
+        s.lookSource = source
+      }
+      // ─ Micro-saccades: small held jitters every ~0.6–1.6s.
+      if (now >= s.microAt && !reduceMotion) {
+        s.microX = (Math.random() - 0.5) * 0.24
+        s.microY = (Math.random() - 0.5) * 0.24
+        s.microAt = now + 0.6 + Math.random()
+      }
+      const rate = reduceMotion ? Infinity : now < s.saccadeUntil ? 28 : 10
+      const ease = dt > 0 && rate !== Infinity ? 1 - Math.exp(-dt * rate) : 1
+      s.lookX += (lx + s.microX - s.lookX) * ease
+      s.lookY += (ly + s.microY - s.lookY) * ease
+
+      // ─ Pupils: wide for a moment when someone arrives, tight after a flash.
+      const sinceHover = now - s.ht
+      const sinceClick = now - s.ct
+      let pupil = 1
+      if (s.hover && sinceHover < 1.5) pupil = 1 + 0.16 * Math.min(1, sinceHover / 0.25)
+      if (interior?.flash && sinceClick < 0.3) pupil = 0.75
+
+      // ─ Lids.
+      let open = 1
+      if (mood === 'asleep') {
+        open = 0.12
+      } else if (!reduceMotion) {
+        if (now >= s.nextBlink) blink(now, s)
+        const b = now - s.blinkAt
+        const one = (t: number) => (t < 0.06 ? t / 0.06 : t < 0.14 ? 1 - (t - 0.06) / 0.08 : 0)   // close 60ms, open 80ms
+        const shut = Math.max(one(b), s.blinkTwice ? one(b - 0.22) : 0)
+        open = 1 - shut * 0.9
+      }
+      if (mood === 'drowsy') open = Math.min(open, 0.6)
+      // Happy: the eyes become little upturned arcs, "^ ^", instead of open eyes.
+      const happy = squint && open > 0.5
+      const lid = happy ? 1 : open
+
+      ;[-1, 1].forEach((side, i) => {
+        // Asleep, one eye peeks at a visitor for a moment.
+        const sinceVisit = now - s.vt
+        const peek = mood === 'asleep' && i === 1 && s.visitor && sinceVisit > 0.3 && sinceVisit < 1.5
+        const thisLid = peek ? 0.45 : lid
+        // A head turn: both eyes drift with the look, the far one foreshortens.
+        const far = (side < 0 && s.lookX > 0.6) || (side > 0 && s.lookX < -0.6)
+        const x = 32 + side * EYE_X + s.lookX * 0.7
+        const eye = eyeRefs.current[i]
+        set(eye, { transform: `translate(${x.toFixed(2)},${ey.toFixed(2)}) scale(${far ? 0.9 : 1},${thisLid.toFixed(3)})` })
+        set(eye?.children[0], { opacity: happy ? 0 : 1 })   // the open eye
+        set(eye?.children[1], { opacity: happy ? 1 : 0 })   // the "^"
+        set(pupilRefs.current[i], {
+          transform: `translate(${s.lookX.toFixed(2)},${s.lookY.toFixed(2)}) scale(${pupil.toFixed(3)})`,
+          opacity: thisLid < 0.3 ? 0 : 1,
+        })
+      })
     }
 
     const frame = () => {
@@ -320,10 +518,13 @@ export function AnimatedPersonaAvatar({
     // First frame synchronously so the initial paint is never an unpositioned
     // interior; under reduced motion that static frame is all we draw.
     draw(last, 0)
-    if (reduceMotion) return
-    raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
-  }, [interior, phase, reduceMotion])
+    if (!reduceMotion) raf = requestAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', dropRect, true)
+      window.removeEventListener('resize', dropRect)
+    }
+  }, [interior, phase, reduceMotion, eyes, gaze, mood])
 
 
   const gradId = `pa-g-${uid}`
@@ -341,7 +542,7 @@ export function AnimatedPersonaAvatar({
         overflow:        'hidden',
         flexShrink:      0,
         // Always white behind the spheres, in light and dark.
-        backgroundColor: 'var(--neutral-50)',
+        backgroundColor: backdrop,
       }}
     >
       <svg viewBox="0 0 64 64" width={size} height={size} style={{ display: 'block' }}>
@@ -373,6 +574,19 @@ export function AnimatedPersonaAvatar({
             {Array.from({ length: interior.count }, (_, i) => interior.render(i))}
           </g>
         )}
+
+        {eyes && [-1, 1].map((side, i) => (
+          <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${21 - EYE_LIFT})`}>
+            <g>
+              <ellipse rx={2.7} ry={3.2} fill="#fff" />
+              <g ref={el => { pupilRefs.current[i] = el }}>
+                <circle r={1.6} fill="#0f172a" />
+                <circle cx={-0.5} cy={-0.7} r={0.55} fill="#fff" />
+              </g>
+            </g>
+            <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" opacity={0} />
+          </g>
+        ))}
 
         <rect ref={flashRef} width={64} height={64} fill="#fff" opacity={0} pointerEvents="none" />
       </svg>

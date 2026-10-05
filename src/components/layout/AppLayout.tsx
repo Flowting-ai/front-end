@@ -44,6 +44,8 @@ interface AppLayoutProps {
   onCitationsToggle?: () => void;
   onSelectChat?: (id: string) => void;
   onNewChat?: () => void;
+  /** Initial LeftSidebar collapsed state, read from its cookie on the server. */
+  defaultSidebarCollapsed?: boolean;
 }
 
 export function AppLayout({
@@ -54,6 +56,7 @@ export function AppLayout({
   onCitationsToggle,
   onSelectChat,
   onNewChat,
+  defaultSidebarCollapsed,
 }: AppLayoutProps) {
   const { close: closePinboard } = usePinboard()
   const { close: closeHighlight } = useHighlight()
@@ -172,6 +175,7 @@ export function AppLayout({
             activeChatId={activeChatId}
             onSelectChat={onSelectChat}
             onNewChat={onNewChat}
+            defaultCollapsed={defaultSidebarCollapsed}
           />
         </Suspense>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -198,6 +202,7 @@ export function AppLayout({
           activeChatId={activeChatId}
           onSelectChat={onSelectChat}
           onNewChat={onNewChat}
+          defaultCollapsed={defaultSidebarCollapsed}
         />
       </Suspense>
 

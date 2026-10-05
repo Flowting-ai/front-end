@@ -669,11 +669,228 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: persona-card-read 1.6s linear infinite;
+  /* Once per hover-in — a loop across a whole grid of cards gets noisy. */
+  animation: persona-card-read 1.2s linear 1 both;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .persona-card-desc-reading { animation: none; }
+}
+
+/* ── Agent card: the orb, the hero "screen", the glare ─────────────────────────
+   The avatar sits in a lit glass sphere (the "Vegas Sphere"): a backdrop tinted with the
+   agent's colour, an LED dot matrix fading toward the limb, a specular sheen that follows
+   the pointer (--px/--py, −1…1, written by HeroScene), a rim light and a coloured halo.
+   --c0/--c1 are the avatar's [highlight, shadow] colours, set inline. */
+.agent-orb {
+  position: relative;
+  border-radius: 50%;
+  isolation: isolate;
+  background: radial-gradient(circle at 50% 35%, #fff, color-mix(in srgb, var(--c0) 12%, #f3f1ee));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 0 0 5px color-mix(in srgb, var(--c1) 8%, transparent),
+    0 10px 24px -8px rgba(28, 25, 23, 0.22),
+    0 0 36px 2px color-mix(in srgb, var(--c1) 20%, transparent);
+  transition: box-shadow 400ms ease, transform 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.agent-orb[data-hot="true"] {
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 0 0 5px color-mix(in srgb, var(--c1) 12%, transparent),
+    0 14px 30px -8px rgba(28, 25, 23, 0.26),
+    0 0 50px 6px color-mix(in srgb, var(--c1) 30%, transparent);
+}
+:root[data-theme="dark"] .agent-orb {
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c0) 22%, #0c0c0e) 0%, #070708 72%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 0 0 5px color-mix(in srgb, var(--c0) 10%, transparent),
+    0 10px 30px -6px rgba(0, 0, 0, 0.55),
+    0 0 42px 4px color-mix(in srgb, var(--c0) 38%, transparent);
+}
+:root[data-theme="dark"] .agent-orb[data-hot="true"] {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 0 5px color-mix(in srgb, var(--c0) 14%, transparent),
+    0 14px 34px -6px rgba(0, 0, 0, 0.6),
+    0 0 56px 8px color-mix(in srgb, var(--c0) 55%, transparent);
+}
+.agent-orb__dots,
+.agent-orb__sheen,
+.agent-orb__wake {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.agent-orb__dots {
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.05) 0.6px, transparent 0.9px) 0 0 / 4px 4px;
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 40%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 45%, #000 40%, transparent 72%);
+}
+:root[data-theme="dark"] .agent-orb__dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 0.6px, transparent 0.9px);
+}
+.agent-orb__sheen {
+  background: radial-gradient(46% 30% at calc(32% + var(--px, 0) * 6%) calc(22% + var(--py, 0) * 5%), rgba(255, 255, 255, 0.26), transparent 70%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 8px 14px -10px rgba(255, 255, 255, 0.35),
+    inset 0 -10px 18px -8px color-mix(in srgb, var(--c0) 45%, transparent);
+}
+/* "Screen wake": one scanline sweeps the orb on hover-in (the element mounts per hover). */
+.agent-orb__wake { overflow: hidden; }
+.agent-orb__wake::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18%;
+  top: -20%;
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: agent-orb-wake 0.9s ease-out 1 both;
+}
+@keyframes agent-orb-wake { to { top: 110%; } }
+
+/* The hero as an inset screen: a frame and, in dark, a vignette over the scenery. Its
+   children stack: scenery back (0), vignette (1), orb (2), scenery front (3). */
+.agent-hero-screen {
+  isolation: isolate;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  -webkit-mask-image: -webkit-radial-gradient(white, black); /* Safari: keep the radius under 3D */
+}
+:root[data-theme="dark"] .agent-hero-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 80% at 50% 52%, transparent 45%, rgba(0, 0, 0, 0.38) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 -24px 32px -24px rgba(0, 0, 0, 0.45);
+}
+
+/* Card-wide glare: a soft spotlight and a lit border following the pointer (--mx/--my,
+   px, written on pointermove). Shown while the card is hot (hovered or keyboard-focused). */
+.agent-card-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, 0.06), transparent 60%);
+}
+.agent-card-glare::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 30%), color-mix(in srgb, color-mix(in srgb, var(--c0) 60%, white) 55%, transparent), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+[data-hot="true"] > .agent-card-glare { opacity: 1; }
+:root:not([data-theme="dark"]) .agent-card-glare { background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, 0.35), transparent 60%); }
+
+/* The ⋮ chip on the banner: frosted glass, quiet until the card is hot. */
+.agent-card-chip {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  opacity: 0.55;
+  transition: opacity 180ms ease;
+}
+:root[data-theme="dark"] .agent-card-chip {
+  background: rgba(10, 10, 10, 0.32);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+[data-hot="true"] .agent-card-chip,
+.agent-card-chip:focus-within,
+.agent-card-chip[data-open="true"] { opacity: 1; }
+@media (hover: none) { .agent-card-chip { opacity: 1; } }
+@media (prefers-reduced-transparency: reduce) {
+  .agent-card-chip { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, 0.92); }
+  :root[data-theme="dark"] .agent-card-chip { background: rgba(10, 10, 10, 0.5); }
+}
+
+/* The card itself: lift + tilt while hot (--rx/--ry written on pointermove), a ring and a
+   keyboard focus ring in the agent's colour. */
+.agent-card {
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms ease, opacity 150ms, background-size 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.agent-card { --lift-shadow: 0 16px 32px -12px rgba(28, 25, 23, 0.18); }
+:root[data-theme="dark"] .agent-card { --lift-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6); }
+.agent-card[data-hot="true"] { --lift: -4px; }
+
+/* The title doubles as the card's keyboard entry point (opens Details) — looks like text. */
+.agent-card__title {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* A paused agent sleeps: three z's drift up off the orb. */
+.agent-zzz {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.agent-zzz > span {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  opacity: 0;
+  animation: agent-zzz 2.4s ease-out infinite;
+}
+.agent-zzz > span:nth-child(1) { font-size: 10px; }
+.agent-zzz > span:nth-child(2) { font-size: 8px; animation-delay: 0.8s; }
+.agent-zzz > span:nth-child(3) { font-size: 6px; animation-delay: 1.6s; }
+@keyframes agent-zzz {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(14px, -20px); opacity: 0; }
+}
+
+/* "Use in chat": glows in the agent's colour, a sheen sweeps across once on hover, and it
+   presses in. The arrow beside the label slides in while the card is hot (see the card). */
+.agent-card-cta { position: relative; display: inline-flex; border-radius: 999px; transition: box-shadow 200ms ease, transform 120ms ease; }
+.agent-card-cta:hover { box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--c0) 55%, transparent); }
+.agent-card-cta:active { transform: scale(0.96); }
+.agent-card-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%) -150% 0 / 250% 100% no-repeat;
+}
+.agent-card-cta:hover::after { animation: agent-cta-sheen 0.6s ease-out 1; }
+@keyframes agent-cta-sheen { to { background-position: 150% 0; } }
+.agent-card[data-menu-open="true"] { transform: none; }  /* keeps the menu's fixed backdrop viewport-sized */
+/* Keyboard focus only (:focus-visible) — a mouse click on the button shouldn't ring the card. */
+.agent-card:has(:focus-visible) { outline: 2px solid color-mix(in srgb, var(--c0) 70%, white); outline-offset: 3px; }
+@media (hover: none) { .agent-card { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .agent-card { transform: none; transition: box-shadow 300ms ease, opacity 150ms; }
+  .agent-orb { transition: box-shadow 400ms ease; }
+  .agent-orb[data-hot="true"] { transform: none; }
+  .agent-orb__wake::before { animation: none; display: none; }
+  .agent-zzz > span { animation: none; opacity: 0.7; }
+  .agent-zzz > span:nth-child(n + 2) { display: none; }
+  .agent-card-cta:hover::after { animation: none; }
+  .agent-card-cta:active { transform: none; }
 }
 
 /* ── Field focus ring ─────────────────────────────────────────────────────────

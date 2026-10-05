@@ -6,6 +6,11 @@ import Script from "next/script";
 
 // Meta (Facebook) Pixel base code, ported to next/script.
 //
+// NOT MOUNTED: removed from src/app/layout.tsx until a cookie-consent banner
+// exists (see the TODO(privacy) below). Kept so it can be re-mounted behind
+// that consent flag rather than rebuilt. The CSP in next.config.ts doesn't
+// allow connect.facebook.net in script-src, so re-mounting needs that too.
+//
 // Why this is more than a copy-paste of the standard snippet:
 // this app is a Next.js App Router SPA. The inline base code fires a single
 // `PageView` on the initial hard load. Client-side navigations (the usual way

@@ -1,0 +1,46 @@
+/* Atom One Light (imported globally in app/(app)/layout.tsx) draws several
+   token colours below 4.5:1 on the code block's background. These darker
+   values keep each hue. The selectors outrank the theme's own (at most two
+   classes) so stylesheet import order doesn't matter. Light theme only: the
+   dark theme keeps the original, lighter values. */
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-comment),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-quote) {
+  color: #686b77;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-string),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-regexp),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-addition),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-attribute),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-meta .hljs-string) {
+  color: #3c7d3b;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-symbol),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-bullet),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-link),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-meta),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-selector-id),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-title) {
+  color: #3366d6;
+}
+
+/* After .hljs-title so class titles keep the built_in colour, as in the theme. */
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-built_in),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-title.class_),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-class .hljs-title) {
+  color: #8f6200;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-literal) {
+  color: #0170a3;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-section),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-name),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-selector-tag),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-deletion),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-subst) {
+  color: #c7372a;
+}

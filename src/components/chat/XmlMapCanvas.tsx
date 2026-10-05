@@ -16,6 +16,7 @@ import type { GeoJSONSource, LngLatBoundsLike } from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { mapStyleUrl } from "@/lib/config"
 import type { ParsedMap, ParsedMapPoint } from "./XmlMap.parse"
+import { resolveMapColors } from "./XmlMap.colors"
 import styles from "./XmlMap.module.css"
 
 const SOURCE_ID = "souvenir-map-points"
@@ -23,30 +24,18 @@ const CLUSTER_LAYER_ID = "souvenir-map-clusters"
 const CLUSTER_COUNT_LAYER_ID = "souvenir-map-cluster-count"
 const POINT_LAYER_ID = "souvenir-map-points-layer"
 
-const clusterLayer: LayerProps = {
-  id: CLUSTER_LAYER_ID,
-  type: "circle",
-  source: SOURCE_ID,
-  filter: ["has", "point_count"],
-  paint: {
-    "circle-color": ["step", ["get", "point_count"], "var(--blue-300)", 10, "var(--blue-500)", 30, "var(--blue-600)"],
-    "circle-radius": ["step", ["get", "point_count"], 17, 10, 21, 30, 25],
-    "circle-stroke-width": 2,
-    "circle-stroke-color": "var(--neutral-white-90)",
-  },
+// The resolved token values change with the theme, which the app flips via
+// data-theme on <html>; re-resolve whenever that attribute changes.
+function subscribeTheme(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] })
+  return () => observer.disconnect()
 }
+const getThemeSnapshot = () => document.documentElement.getAttribute("data-theme") ?? ""
+const getThemeServerSnapshot = () => ""
 
-const clusterCountLayer: LayerProps = {
-  id: CLUSTER_COUNT_LAYER_ID,
-  type: "symbol",
-  source: SOURCE_ID,
-  filter: ["has", "point_count"],
-  layout: {
-    "text-field": ["get", "point_count_abbreviated"],
-    "text-font": ["Noto Sans Regular"],
-    "text-size": 12,
-  },
-  paint: { "text-color": "var(--static-white)" },
+function readCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name)
 }
 
 interface RankedGroup {
@@ -159,6 +148,39 @@ export function XmlMapCanvas({ data }: { data: ParsedMap }) {
   const selectedPoint = data.points.find((point) => point.id === selectedId) ?? null
   const visiblePoints = data.points.filter((point) => visibleIds.has(point.id))
 
+  const theme = React.useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot)
+  // MapLibre can't parse var(--…), so paint props get concrete colours.
+  const colors = React.useMemo(() => {
+    void theme // re-resolve after a theme switch
+    return resolveMapColors(readCssVar)
+  }, [theme])
+
+  const clusterLayer = React.useMemo<LayerProps>(() => ({
+    id: CLUSTER_LAYER_ID,
+    type: "circle",
+    source: SOURCE_ID,
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": ["step", ["get", "point_count"], colors.clusterLow, 10, colors.clusterMid, 30, colors.clusterHigh],
+      "circle-radius": ["step", ["get", "point_count"], 17, 10, 21, 30, 25],
+      "circle-stroke-width": 2,
+      "circle-stroke-color": colors.clusterStroke,
+    },
+  }), [colors])
+
+  const clusterCountLayer = React.useMemo<LayerProps>(() => ({
+    id: CLUSTER_COUNT_LAYER_ID,
+    type: "symbol",
+    source: SOURCE_ID,
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": ["get", "point_count_abbreviated"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 12,
+    },
+    paint: { "text-color": colors.clusterText },
+  }), [colors])
+
   const valueMax = Math.max(...data.points.map((point) => point.value), 1)
   const pointLayer = React.useMemo<LayerProps>(() => ({
     id: POINT_LAYER_ID,
@@ -166,13 +188,13 @@ export function XmlMapCanvas({ data }: { data: ParsedMap }) {
     source: SOURCE_ID,
     filter: ["!", ["has", "point_count"]],
     paint: {
-      "circle-color": ["interpolate", ["linear"], ["get", "value"], 0, "var(--blue-300)", valueMax, "var(--blue-600)"],
+      "circle-color": ["interpolate", ["linear"], ["get", "value"], 0, colors.pointLow, valueMax, colors.pointHigh],
       "circle-radius": ["interpolate", ["linear"], ["get", "value"], 0, 6, valueMax, 17],
       "circle-opacity": 0.88,
       "circle-stroke-width": ["case", ["==", ["get", "id"], selectedId ?? ""], 3, 1.5],
-      "circle-stroke-color": ["case", ["==", ["get", "id"], selectedId ?? ""], "var(--neutral-900)", "var(--static-white)"],
+      "circle-stroke-color": ["case", ["==", ["get", "id"], selectedId ?? ""], colors.pointStrokeSelected, colors.pointStroke],
     },
-  }), [selectedId, valueMax])
+  }), [colors, selectedId, valueMax])
 
   const geojson = React.useMemo(() => ({
     type: "FeatureCollection" as const,

@@ -17,6 +17,14 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { registerChatScroller } from "@/lib/chat-scroller";
+import {
+  createStickToBottom,
+  scrollIntentForKey,
+  shouldAdjustScrollOnItemResize,
+  USER_SCROLL_WINDOW_MS,
+} from "@/lib/stick-to-bottom";
+import { buildTurnOptions, getFolderPinIds, type TurnInput } from "@/lib/turn-options";
+import { getRegenerateTarget, resolveReplaceMessageId } from "@/lib/replace-message-id";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { publishChatContext, clearChatContext } from "@/lib/chat-context-store";
@@ -42,6 +50,16 @@ import type { PinFolder } from "@/lib/api/pins";
 import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
 import { MentionChip } from "@/components/chat/MentionChip";
+
+// How long to wait, once a stream has ended, for a reply's reveal to report
+// settled before the completion UI stops waiting — see handleRevealSettled.
+// The short wait applies while the reply's row isn't rendered (nothing on
+// screen to wait for); the cap applies while it is.
+const REVEAL_SETTLE_FALLBACK_MS = 2_000;
+const REVEAL_SETTLE_MAX_MS = 30_000;
+// After a reply finishes, keep following content growth this long (lazy code
+// highlighting, chart mounts) before growth counts as the user's own doing.
+const FOLLOW_GRACE_MS = 1_500;
 
 interface ChatInterfaceProps {
   chatId: string | undefined;
@@ -253,16 +271,15 @@ export function ChatInterface({
     clearMentions,
   } = usePinMentions(setInputValue);
 
+  // Whether the view follows new content at the bottom ("stuck") — see
+  // stick-to-bottom.ts. `atBottom` mirrors it for the scroll-to-bottom button.
+  const [stickToBottom] = useState(() => createStickToBottom());
   const [atBottom, setAtBottom] = useState(true);
 
   // True during the brief window after messages load while the virtualizer
   // measures all rendered items. Keeps the spinner up and content hidden so
   // the first visible frame is already at settled positions (no jitter).
   const [isSettling, setIsSettling] = useState(false);
-  // Mirror of atBottom as a ref so the streaming scroll effect can read the
-  // latest value without needing it as a dependency (which would re-fire the
-  // effect on every scroll event, defeating the purpose).
-  const atBottomRef = useRef(true);
 
   // Reset composed-but-unsent input whenever the user switches to a different chat.
   // Safe on new-chat creation: handleSend already clears inputValue before onChatCreated fires.
@@ -297,7 +314,7 @@ export function ChatInterface({
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const streamingTopMessageIdRef = useRef<string | null>(null);
+  const messagesListRef      = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks which attachment IDs already have an active simulation interval
   // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
@@ -444,6 +461,14 @@ export function ChatInterface({
     overscan:         10,
   });
 
+  // The last (streaming) row's growth is left to the stick-to-bottom logic
+  // below instead of the virtualizer's scroll compensation — see
+  // shouldAdjustScrollOnItemResize.
+  useEffect(() => {
+    msgVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item, _delta, instance) =>
+      shouldAdjustScrollOnItemResize(item, instance.options.count, instance.scrollOffset ?? 0);
+  }, [msgVirtualizer]);
+
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
 
   // Register the virtualizer-backed scroller so jump-gutter / highlight-panel
@@ -452,6 +477,10 @@ export function ChatInterface({
     registerChatScroller((messageId, onRendered) => {
       const idx = messages.findIndex((m) => m.id === messageId)
       if (idx === -1) return
+      // A jump the user asked for — stop following the bottom so new content
+      // doesn't pull the view straight back down.
+      stickToBottom.unstick()
+      setAtBottom(false)
       msgVirtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' })
       // Poll until the row renders in the DOM (up to 40 × 50 ms = 2 s)
       let attempts = 0
@@ -462,10 +491,13 @@ export function ChatInterface({
           if (el) onRendered(el)
         }
       }, 50)
+    }, () => {
+      stickToBottom.unstick()
+      setAtBottom(false)
     })
     return () => registerChatScroller(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, msgVirtualizer])
+  }, [messages, msgVirtualizer, stickToBottom])
 
   // Wrap onChatCreated to mark the new ID as optimistic BEFORE the parent
   // updates the URL/chatId prop - prevents useChatState from wiping messages.
@@ -495,6 +527,68 @@ export function ChatInterface({
   const isSendingRef = useRef(false);
   // Set by the host's "send anyway" so the next handleSend skips onBeforeSend.
   const skipBeforeSendRef = useRef(false);
+
+  // Schedules a frame that scrolls to the bottom while stuck; installed by the
+  // follow effect further down.
+  const scheduleFollowRef = useRef<() => void>(() => {});
+
+  // A user's own send always returns the view to the bottom and follows the
+  // new reply, unlike passively arriving content, which never yanks someone
+  // away from history they scrolled up to read — sending is an explicit
+  // action by the user, not a background event.
+  const stickAndFollow = () => {
+    stickToBottom.stick();
+    setAtBottom(true);
+    scheduleFollowRef.current();
+  };
+
+  // reactKey of the reply streamed in this session until its text reveal has
+  // settled (ChatMessage's onRevealSettled). The reveal runs on after the
+  // stream ends, so the completion UI — the Regenerate button and the
+  // "response complete" announcement — waits for it.
+  const [revealingKey, setRevealingKey] = useState<string | null>(null);
+
+  // Whether a reply is still arriving or revealing — the only time content
+  // growth should drive the follow (see the follow effect). Read from a ref by
+  // the ResizeObserver; the grace covers growth that lands just after.
+  const followLiveRef = useRef({ live: false, graceUntil: 0 });
+  useEffect(() => {
+    const live = isStreaming || revealingKey !== null;
+    if (followLiveRef.current.live && !live) {
+      followLiveRef.current.graceUntil = performance.now() + FOLLOW_GRACE_MS;
+    }
+    followLiveRef.current.live = live;
+  }, [isStreaming, revealingKey]);
+
+  // Every turn (send, initial send, edit, regenerate) is sent with the
+  // composer's current settings, read at send time — see buildTurnOptions.
+  const turnOptions = (turn: TurnInput) => buildTurnOptions({
+    webSearch:              webSearchEnabled,
+    reasoningEffort,
+    algorithm,
+    personaId:              selectedPersonaId,
+    systemPrompt:           selectedPersonaSystemPrompt,
+    temperature:            selectedPersonaTemperature,
+    toneId:                 selectedStyleId,
+    connectorSlugs,
+    chatOwnershipConfirmed,
+    pinsEnabled:            PINS_ENABLED,
+    folderPinIds:           getFolderPinIds(pins, selectedFolders),
+  }, turn);
+
+  // Mirrors the real XHR upload progress onto the optimistic user message's attachment chips.
+  const trackUploadProgress = (userMsgId: string) => (pct: number) => {
+    setMessages((prev) => prev.map((msg) =>
+      msg.id !== userMsgId ? msg : {
+        ...msg,
+        attachments: msg.attachments?.map((att) => ({
+          ...att,
+          uploadProgress: pct,
+          uploading: pct < 100,
+        })),
+      }
+    ));
+  };
 
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
@@ -527,49 +621,17 @@ export function ChatInterface({
         initialMentionedPinObjects.length > 0 ? initialMentionedPinObjects : undefined,
       );
       const loadingId = addLoadingAssistantMessage();
-      // A user's own send always jumps the view to the bottom, unlike a
-      // passively arriving streamed update (which intentionally does NOT
-      // yank someone away from history they scrolled up to read) — sending
-      // is an explicit action by the user, not a background event. This
-      // just marks intent; the streaming-follow effects below do the actual
-      // scrollToIndex once `messages`/`isStreaming` have committed, so it
-      // isn't racing a stale `messages` closure from calling scrollToBottom
-      // directly here.
-      atBottomRef.current = true;
-      setAtBottom(true);
+      setRevealingKey(loadingId);
+      stickAndFollow();
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
-        ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
-        : [];
-      const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
-      fetchAiResponse(content, null, loadingId, selectedModelId, {
-        webSearch: webSearchEnabled,
-        enableReasoning,
-        reasoningEffort,
-        algorithm,
-        files: files.length > 0 ? files : undefined,
+      fetchAiResponse(content, null, loadingId, selectedModelId, turnOptions({
+        files,
         userMessageId: userMsgId,
-        pinIds: PINS_ENABLED && allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
-        personaId: selectedPersonaId ?? undefined,
-        systemPrompt: selectedPersonaSystemPrompt ?? undefined,
-        temperature: selectedPersonaTemperature ?? undefined,
-        toneId: selectedStyleId ?? undefined,
-        connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
-        onUploadProgress: files.length > 0 ? (pct) => {
-          setMessages((prev) => prev.map((msg) =>
-            msg.id !== userMsgId ? msg : {
-              ...msg,
-              attachments: msg.attachments?.map((att) => ({
-                ...att,
-                uploadProgress: pct,
-                uploading: pct < 100,
-              })),
-            }
-          ));
-        } : undefined,
-      });
+        mentionedPinIds: initialMentionedPinObjects.map(p => p.id),
+        onUploadProgress: trackUploadProgress(userMsgId),
+      }));
     }
     }
   })
@@ -607,13 +669,17 @@ export function ChatInterface({
         const idx = messages.findIndex((m) => m.id === scrollToMessageId);
         if (idx !== -1) {
           scrolledToMessageRef.current = scrollToMessageId;
+          stickToBottom.unstick();
+          setAtBottom(false);
           msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
         }
       } else {
+        stickToBottom.stick();
+        setAtBottom(true);
         msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
       }
     }
-  }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
+  }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer, stickToBottom]);
 
   // Leave settling two frames later, so the browser finishes its layout pass and
   // the first visible frame is already at settled positions. Keyed on isSettling
@@ -633,84 +699,116 @@ export function ChatInterface({
     };
   }, [isSettling]);
 
-  // Scroll to the start of a new streaming reply — but only when the user is
-  // already at (or near) the bottom. If they scrolled up to read earlier
-  // messages while the model is generating, we must NOT force them back down;
-  // atBottomRef always reflects the latest scroll position without creating a
-  // dependency cycle.
+  // Follow the bottom while stuck. Driven by the list's size rather than by
+  // `messages`, so it also tracks growth that happens after a chunk lands or
+  // after the stream ends — the text reveal's tail, lazily highlighted code,
+  // charts — and the scroller itself resizing. Growth never unsticks the view;
+  // only the user's own gestures, recorded here, can (see stick-to-bottom.ts).
   useEffect(() => {
-    if (!isStreaming) {
-      streamingTopMessageIdRef.current = null;
-      return;
-    }
-    if (isLoadingMessages || messages.length === 0) return;
+    const scroller = messagesContainerRef.current;
+    const list = messagesListRef.current;
+    if (!scroller || !list) return;
 
-    const idx = messages.findLastIndex((m) => m.role === "assistant");
-    if (idx === -1) return;
+    let frame = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const follow = () => {
+      frame = 0;
+      if (!stickToBottom.stuck) return;
+      if (!stickToBottom.canFollow(performance.now())) {
+        // Held off mid-gesture; look again once the gesture window has passed.
+        clearTimeout(retry);
+        retry = setTimeout(schedule, USER_SCROLL_WINDOW_MS);
+        return;
+      }
+      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(follow);
+    };
+    scheduleFollowRef.current = schedule;
 
-    const messageId = messages[idx]?.id;
-    if (!messageId || streamingTopMessageIdRef.current === messageId) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!stickToBottom.stuck) return;
+      // The scroller resizing (window, composer height) always keeps the bottom
+      // pinned. The list growing only follows while a reply is arriving or
+      // revealing (plus a short grace for late code highlighting and charts):
+      // growth when nothing is arriving is the user's own doing, e.g.
+      // expanding a Thinking panel, and must not scroll it out from under them.
+      const scrollerResized = entries.some((entry) => entry.target === scroller);
+      const { live, graceUntil } = followLiveRef.current;
+      if (scrollerResized || live || performance.now() < graceUntil) schedule();
+    });
+    resizeObserver.observe(list);
+    resizeObserver.observe(scroller);
 
-    // Only treat the user as "scrolled away" when the content actually
-    // overflows the viewport. Otherwise (e.g. the first short reply in a new
-    // chat) there is nothing to scroll, no scroll event fires to correct the
-    // flag, and the scroll-to-bottom button lingers with nowhere to go. Don't
-    // mark this message as handled until it's scrollable, so this re-evaluates
-    // as more streamed content arrives.
-    const container = messagesContainerRef.current;
-    const isScrollable = container
-      ? container.scrollHeight - container.clientHeight > 80
-      : false;
-    if (!isScrollable) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) stickToBottom.userIntent(e.deltaY < 0 ? "up" : "down", performance.now());
+    };
+    let touchY: number | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY;
+      if (y === undefined) return;
+      // A finger moving down drags the content down, toward history.
+      stickToBottom.userIntent(touchY !== null && y > touchY ? "up" : "down", performance.now());
+      touchY = y;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Keys typed into a field (e.g. editing a message) don't scroll the chat.
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) return;
+      const direction = scrollIntentForKey(e.key, e.shiftKey);
+      if (direction) stickToBottom.userIntent(direction, performance.now());
+    };
+    // A press on the scroller itself rather than on a message is a scrollbar drag.
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.target === scroller) stickToBottom.pointerDown();
+    };
+    const onPointerUp = () => {
+      if (stickToBottom.pointerUp(performance.now()) && stickToBottom.stuck) schedule();
+    };
 
-    streamingTopMessageIdRef.current = messageId;
-    // A user who had already scrolled away stays exactly where they are —
-    // don't yank them to the new reply's start either. Only the
-    // already-at-bottom case jumps, and only then do we mark it "left the
-    // bottom" (the jump reveals mostly-empty new-message space below).
-    if (!atBottomRef.current) return;
-    atBottomRef.current = false;
-    setAtBottom(false);
-    msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
-  }, [isStreaming, messages, isLoadingMessages, msgVirtualizer]);
+    scroller.addEventListener("wheel", onWheel, { passive: true });
+    scroller.addEventListener("touchstart", onTouchStart, { passive: true });
+    scroller.addEventListener("touchmove", onTouchMove, { passive: true });
+    scroller.addEventListener("keydown", onKeyDown);
+    scroller.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(retry);
+      resizeObserver.disconnect();
+      scheduleFollowRef.current = () => {};
+      scroller.removeEventListener("wheel", onWheel);
+      scroller.removeEventListener("touchstart", onTouchStart);
+      scroller.removeEventListener("touchmove", onTouchMove);
+      scroller.removeEventListener("keydown", onKeyDown);
+      scroller.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [stickToBottom]);
 
-  // Continuously follow the bottom as streamed content grows — the effect
-  // above only jumps once, to the *start* of a new reply; without this, a
-  // reply that keeps growing past the viewport leaves the user stuck exactly
-  // there instead of tracking new tokens the way ChatGPT-style UIs do. Fires
-  // on every `messages` update (each streamed chunk produces a new array
-  // reference) but only follows while atBottomRef is true, so a manual
-  // scroll-up during generation is never overridden.
-  useEffect(() => {
-    if (!isStreaming) return;
-    if (!atBottomRef.current) return;
-    if (messages.length === 0) return;
-    msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
-  }, [isStreaming, messages, msgVirtualizer]);
-
-  // Scroll-to-top for pagination + track whether user is at bottom.
-  // We gate setAtBottom behind a threshold comparison against the ref value
-  // to avoid triggering React re-renders on every scroll pixel during streaming.
+  // Scroll-to-top for pagination + stick/unstick from the scroll position.
+  // setAtBottom only re-renders when the value actually flips.
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
     if (container.scrollTop === 0 && hasMoreMessages) {
       loadMoreMessages();
     }
-    const dist = container.scrollHeight - container.scrollTop - container.clientHeight;
-    const nowAtBottom = dist < 80;
-    // Always update the ref synchronously so the streaming effect sees it immediately.
-    atBottomRef.current = nowAtBottom;
-    // Only update state (and trigger a re-render) when the boolean value flips.
-    setAtBottom((prev) => (prev === nowAtBottom ? prev : nowAtBottom));
+    setAtBottom(stickToBottom.onScroll(container, performance.now()));
   };
 
   const scrollToBottom = useCallback(() => {
     if (messages.length === 0) return;
-    atBottomRef.current = true;
+    stickToBottom.stick();
     setAtBottom(true);
     msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
-  }, [messages.length, msgVirtualizer]);
+  }, [messages.length, msgVirtualizer, stickToBottom]);
 
   // File drop (drag-and-drop into the chat area)
   const { isDragging } = useFileDrop({
@@ -759,6 +857,10 @@ export function ChatInterface({
       return;
     }
 
+    // The composer stays editable while a reply streams, but sending waits
+    // for it (ChatInput already holds Enter back; this is the backstop).
+    if (isStreaming) return;
+
     // Reentrancy guard: see isSendingRef declaration above.
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -772,21 +874,19 @@ export function ChatInterface({
       capturedMentionedPins.length > 0 ? capturedMentionedPins : undefined,
     );
     const loadingId = addLoadingAssistantMessage();
-    // See the matching comment in sendInitialPrompt — a user's own send
-    // always jumps to the bottom, exempt from the "only follow if already
-    // at bottom" gate that guards passively arriving streamed updates.
-    atBottomRef.current = true;
-    setAtBottom(true);
+    setRevealingKey(loadingId);
+    stickAndFollow();
     setInputValue("");
     setAttachments([]);
     clearMentions();
     onClearAddMenuFiles?.();
 
-    const folderPinIds = PINS_ENABLED && selectedFolders && selectedFolders.length > 0
-      ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
-      : [];
-    const mentionedPinIds = capturedMentionedPins.map(m => m.id);
-    const allPinIds = [...new Set([...folderPinIds, ...mentionedPinIds])];
+    const options = turnOptions({
+      files: allFiles,
+      userMessageId: userMsgId,
+      mentionedPinIds: capturedMentionedPins.map(m => m.id),
+      onUploadProgress: trackUploadProgress(userMsgId),
+    });
 
     // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
     trackBrowserEvent("chat_message_sent", {
@@ -796,37 +896,11 @@ export function ChatInterface({
       web_search: webSearchEnabled,
       reasoning: enableReasoning,
       attachment_count: allFiles.length,
-      pin_count: allPinIds.length,
+      pin_count: options.pinIds?.length ?? 0,
     });
 
     try {
-      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
-        webSearch: webSearchEnabled,
-        enableReasoning,
-        reasoningEffort,
-        algorithm,
-        files: allFiles.length > 0 ? allFiles : undefined,
-        userMessageId: userMsgId,
-        pinIds: PINS_ENABLED && allPinIds.length > 0 ? allPinIds : undefined,
-        personaId: selectedPersonaId ?? undefined,
-        systemPrompt: selectedPersonaSystemPrompt ?? undefined,
-        temperature: selectedPersonaTemperature ?? undefined,
-        toneId: selectedStyleId ?? undefined,
-        connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
-        chatOwnershipConfirmed,
-        onUploadProgress: allFiles.length > 0 ? (pct) => {
-          setMessages((prev) => prev.map((msg) =>
-            msg.id !== userMsgId ? msg : {
-              ...msg,
-              attachments: msg.attachments?.map((att) => ({
-                ...att,
-                uploadProgress: pct,
-                uploading: pct < 100,
-              })),
-            }
-          ));
-        } : undefined,
-      });
+      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, options);
     } catch {
       rollbackLast(2);
       toast.error("Failed to send message. Please try again.");
@@ -835,33 +909,34 @@ export function ChatInterface({
     }
   };
 
-  // Regenerate last assistant message
-  const handleRegenerate = () => {
-    if (isSendingRef.current) return;
+  // Regenerate the last reply (also the error state's Retry). Replaces the
+  // turn in the backend's history, like an edit, and re-sends with the
+  // composer's current settings — minus files: a turn whose message had
+  // uploaded files is appended instead (see getRegenerateTarget).
+  //
+  // Same stable-ref pattern as handleEditMessage below: ChatMessageMemo only
+  // compares onRegenerate's null-ness, so a plain function would be frozen at
+  // whatever settings and messages it closed over when the button appeared.
+  const _handleRegenerateImpl = useRef<() => void>(() => {});
+  // Update the ref synchronously during render (safe: only read in event handlers)
+  _handleRegenerateImpl.current = () => {
+    if (isStreaming || isSendingRef.current) return;
+    if (personaConfigLoading) return;  // same race as handleSend — see its comment
 
-    const lastUserMsg = [...messages]
-      .reverse()
-      .find((m) => m.role === "user");
-    if (!lastUserMsg) return;
+    const target = getRegenerateTarget(messages);
+    if (!target) return;
 
     isSendingRef.current = true;
 
     setMessages((prev) => {
-      const lastAssistantIdx = prev.findLastIndex(
-        (m) => m.role === "assistant",
-      );
-      if (lastAssistantIdx >= 0) {
-        return prev.filter((_, i) => i !== lastAssistantIdx);
-      }
-      return prev;
+      const userIdx = prev.findLastIndex((m) => m.role === "user");
+      const replyIdx = prev.findLastIndex((m) => m.role === "assistant");
+      return replyIdx > userIdx ? prev.filter((_, i) => i !== replyIdx) : prev;
     });
 
     const loadingId = addLoadingAssistantMessage();
-    // See the matching comment in sendInitialPrompt — regenerating is just
-    // as much a user-initiated send as a fresh message, so it should reveal
-    // the new reply the same way.
-    atBottomRef.current = true;
-    setAtBottom(true);
+    setRevealingKey(loadingId);
+    stickAndFollow();
     // Analytics: part of the override rate (earliest answer-quality warning).
     trackFeature("regenerate", {
       model_pick: "manual",
@@ -869,15 +944,19 @@ export function ChatInterface({
       reasoning: enableReasoning,
     });
     fetchAiResponse(
-      lastUserMsg.content,
+      target.userMessage.content,
       chatId ?? null,
       loadingId,
       selectedModelId,
-      { enableReasoning, reasoningEffort, algorithm, chatOwnershipConfirmed },
+      turnOptions({
+        mentionedPinIds: target.userMessage.mentionedPins?.map((p) => p.id),
+        replaceMessageId: target.replaceMessageId,
+      }),
     ).finally(() => {
       isSendingRef.current = false;
     });
   };
+  const handleRegenerate = useCallback(() => _handleRegenerateImpl.current(), []);
 
   // Permission-prompt answers live on the message, not in card-local state —
   // otherwise the message_saved id swap remounts the row and resurrects
@@ -912,20 +991,10 @@ export function ChatInterface({
     if (isStreaming) return  // never edit while a stream is in-flight
     if (personaConfigLoading) return  // same race as handleSend — see its comment
 
-    // User messages loaded from history have IDs like "{uuid}-prompt" (added by
-    // normalizeMessages). The backend requires a bare UUID for replace_message_id,
-    // so we strip the "-prompt" suffix before forwarding.
-    const bareMessageId = messageId.endsWith("-prompt")
-      ? messageId.slice(0, messageId.length - "-prompt".length)
-      : messageId
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    const replaceMessageId =
-      bareMessageId &&
-      !bareMessageId.startsWith("temp-") &&
-      !bareMessageId.startsWith("optimistic-") &&
-      UUID_RE.test(bareMessageId)
-        ? bareMessageId
-        : undefined
+    // History ids carry a "-prompt" suffix the backend doesn't know, and
+    // unsaved ones have no backend id at all — see resolveReplaceMessageId.
+    const replaceMessageId = resolveReplaceMessageId(messageId)
+    const mentionedPinIds = messages.find((m) => m.id === messageId)?.mentionedPins?.map((p) => p.id)
 
     // findIndex runs inside the functional updater so it always sees the current
     // messages array — not a stale snapshot from the render closure.
@@ -937,29 +1006,59 @@ export function ChatInterface({
         .slice(0, idx + 1)
     })
     const loadingId = addLoadingAssistantMessage()
-    // See the matching comment in sendInitialPrompt.
-    atBottomRef.current = true
-    setAtBottom(true)
+    setRevealingKey(loadingId)
+    stickAndFollow()
 
-    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
-      webSearch: webSearchEnabled,
-      enableReasoning,
-      reasoningEffort,
-      algorithm,
-      personaId: selectedPersonaId ?? undefined,
-      systemPrompt: selectedPersonaSystemPrompt ?? undefined,
-      temperature: selectedPersonaTemperature ?? undefined,
-      toneId: selectedStyleId ?? undefined,
-      connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
-      chatOwnershipConfirmed,
-      ...(replaceMessageId ? { replaceMessageId } : {}),
-    })
+    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, turnOptions({
+      mentionedPinIds,
+      replaceMessageId,
+    }))
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stable wrapper; impl updates via ref
   const handleEditMessage = useCallback(
     (messageId: string, newContent: string) => _handleEditMessageImpl.current(messageId, newContent),
     [],
   )
+
+  // The streamed reply whose text is still being revealed, if any. Errors and
+  // stopped replies don't wait: they're announced, and can be retried, at once.
+  const revealingMessage = revealingKey === null
+    ? undefined
+    : messages.findLast((m) => (m.reactKey ?? m.id) === revealingKey);
+  const isRevealing = !!revealingMessage && !revealingMessage.isError && !revealingMessage.stoppedByUser;
+
+  // Bound to the key, so a late call from an earlier reply's row can't end a
+  // newer reply's wait.
+  const handleRevealSettled = useMemo(
+    () => revealingKey === null
+      ? undefined
+      : () => setRevealingKey((key) => (key === revealingKey ? null : key)),
+    [revealingKey],
+  );
+
+  // Backstop for a settle that never arrives (e.g. the row was virtualized
+  // away mid-reveal and unmounted). Once the stream has ended, stop waiting
+  // shortly if the row isn't rendered, or after a hard cap if it is.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
+    if (revealingKey === null || isStreaming) return;
+    const startedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => {
+      const index = messagesRef.current.findLastIndex((m) => (m.reactKey ?? m.id) === revealingKey);
+      const rendered = index !== -1 && msgVirtualizer.getVirtualItems().some((row) => row.index === index);
+      if (rendered && Date.now() - startedAt < REVEAL_SETTLE_MAX_MS) {
+        timer = setTimeout(check, REVEAL_SETTLE_FALLBACK_MS);
+        return;
+      }
+      setRevealingKey((key) => (key === revealingKey ? null : key));
+    };
+    timer = setTimeout(check, REVEAL_SETTLE_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [revealingKey, isStreaming, msgVirtualizer]);
 
   // Attachment via hidden file input (triggered by onAdd on the ChatInput)
   const handleAdd = () => {
@@ -1047,7 +1146,7 @@ export function ChatInterface({
             border: 0,
           }}
         >
-          {isStreaming ? "Assistant is responding." : "Assistant response complete."}
+          {isStreaming || isRevealing ? "Assistant is responding." : "Assistant response complete."}
         </div>
         <div
           ref={messagesContainerRef}
@@ -1065,6 +1164,10 @@ export function ChatInterface({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
+            // Bottom-following is owned by the stick-to-bottom logic; browser
+            // scroll anchoring would fight it (and the virtualizer's own
+            // compensation) as rows resize.
+            overflowAnchor: "none",
           }}
         >
           {/* 2px right padding on the scrolling element above sits the scrollbar
@@ -1123,7 +1226,7 @@ export function ChatInterface({
           {/* Messages — virtualised: only renders visible rows.
               Hidden (not unmounted) during settling so the virtualizer can
               measure items while the spinner is still shown. */}
-          <div style={{ position: 'relative', height: msgVirtualizer.getTotalSize(), visibility: isSettling ? 'hidden' : 'visible' }}>
+          <div ref={messagesListRef} style={{ position: 'relative', height: msgVirtualizer.getTotalSize(), visibility: isSettling ? 'hidden' : 'visible' }}>
             {msgVirtualizer.getVirtualItems().map((vRow) => {
               const message = messages[vRow.index];
               const idx     = vRow.index;
@@ -1174,8 +1277,14 @@ export function ChatInterface({
                     onRegenerate={
                       idx === messages.length - 1 &&
                       message.role === "assistant" &&
-                      !isStreaming
+                      !isStreaming &&
+                      !(isRevealing && message === revealingMessage)
                         ? handleRegenerate
+                        : undefined
+                    }
+                    onRevealSettled={
+                      (message.reactKey ?? message.id) === revealingKey
+                        ? handleRevealSettled
                         : undefined
                     }
                     onEdit={
@@ -1345,7 +1454,9 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={readOnly || archived || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
+            // Not disabled while streaming: the box keeps focus and can be
+            // typed in; ChatInput holds sending back until the reply is done.
+            disabled={readOnly || archived || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
               readOnly
                 ? 'Create your own copy to continue this chat.'

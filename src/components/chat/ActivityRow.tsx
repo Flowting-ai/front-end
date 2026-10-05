@@ -11,6 +11,7 @@ import Link01Icon from "@hugeicons/core-free-icons/Link01Icon";
 import Doc01Icon from "@hugeicons/core-free-icons/Doc01Icon";
 import AiBrain01Icon from "@hugeicons/core-free-icons/AiBrain01Icon";
 import AiUserIcon from "@hugeicons/core-free-icons/AiUserIcon";
+import MessageQuestionIcon from "@hugeicons/core-free-icons/MessageQuestionIcon";
 import Spinner from "@hugeicons/core-free-icons/Loading01Icon";
 import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
@@ -107,6 +108,26 @@ function FaviconImg({ domain, size = 14 }: { domain?: string; size?: number }) {
   );
 }
 
+// ── Detail text ──────────────────────────────────────────────────────────────
+
+// Case- and separator-blind form, so "search_web" matches "Search web".
+function comparable(text: string) {
+  return text.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// The muted text after the verb. Dropped when it only repeats the row: the verb
+// itself, or the raw tool name the verb already describes ("Searching the web
+// — search web"). A generic verb ("Running tool") does not say which tool, so
+// there the tool name is the detail.
+function activityDetail(activity: ActivityItem, verb: string): string {
+  const toolName = activity.toolName?.replace(/_/g, " ") ?? "";
+  const genericVerb = verb === ACTIVITY_VERB["tool-call"] || verb === ACTIVITY_VERB.other;
+  const detail = activity.detail?.trim() || (genericVerb ? toolName : "");
+  if (!detail || comparable(detail) === comparable(verb)) return "";
+  if (!genericVerb && comparable(detail) === comparable(toolName)) return "";
+  return detail;
+}
+
 // ── ActivityRow component ─────────────────────────────────────────────────────
 
 export function ActivityRow({ activity }: { activity: ActivityItem }) {
@@ -123,8 +144,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
   const hasOutput = activity.type === "agent" && Boolean(activity.output);
   const expandable = !isWebSearch && (hasResults || hasOutput);
 
-  // Build detail text
-  const detailText = activity.detail || activity.toolName?.replace(/_/g, " ") || "";
+  const detailText = activityDetail(activity, verb);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -346,6 +366,42 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         <div style={{ paddingLeft: 44, fontSize: 13, color: "var(--neutral-300)", fontStyle: "italic", paddingTop: 4 }}>
           {activity.progressMessage}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Question marker - where the model stopped to ask the user ─────────────────
+
+export type PromptMarkerState = "waiting" | "answered" | "dismissed" | "asked";
+
+const PROMPT_MARKER_TEXT: Record<PromptMarkerState, string> = {
+  waiting: "Waiting for your answer",
+  answered: "Asked you a question → you answered",
+  dismissed: "Asked you a question → you dismissed it",
+  // Nothing followed and the turn is over (stopped, or the reply went straight
+  // to text), so claim neither waiting nor an answer.
+  asked: "Asked you a question",
+};
+
+export function PromptMarkerRow({ title, state }: { title: string; state: PromptMarkerState }) {
+  const detail = title.trim();
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 22, fontFamily: "var(--font-body)" }}>
+      {state === "answered" && <CheckmarkIcon />}
+      <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
+        <HIcon icon={MessageQuestionIcon} size={16} color={state === "answered" ? "var(--green-600)" : "var(--neutral-500)"} />
+      </span>
+      <span
+        className={state === "waiting" ? "kaya-thinking-step-shimmer" : undefined}
+        style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-700)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {PROMPT_MARKER_TEXT[state]}
+      </span>
+      {detail && (
+        <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-400)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+          — {detail}
+        </span>
       )}
     </div>
   );

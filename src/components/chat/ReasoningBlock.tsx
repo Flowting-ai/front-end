@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useState, type ReactNode } from "react";
+import { Fragment, useId, useState, type ReactNode } from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import AiVisionRecognitionIcon from "@hugeicons/core-free-icons/AiVisionRecognitionIcon";
@@ -19,7 +19,7 @@ import Brain01Icon from "@hugeicons/core-free-icons/Brain01Icon";
 import Brain02Icon from "@hugeicons/core-free-icons/Brain02Icon";
 import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import { LineRenderer } from "@/lib/line-renderer";
-import { ActivitiesSection } from "./ActivityRow";
+import { ActivitiesSection, PromptMarkerRow, type PromptMarkerState } from "./ActivityRow";
 import { ACTIVITY_VERB } from "@/lib/activity";
 import { springs } from "@/lib/springs";
 import {
@@ -27,13 +27,12 @@ import {
   groupReasoningTimeline,
   splitHeading,
   splitReasoningText,
+  thoughtLabel,
   type ReasoningSection,
   type ReasoningTimelineItem,
 } from "@/lib/reasoning";
 import { ModelIcon } from "@/components/ModelIcon";
 import type { ActivityItem, ModelSelectedMeta } from "@/types/chat";
-
-const THINKING_WORDS = ["Thinking", "Analysing", "Processing", "Considering"];
 
 function isActivityRunning(activity: ActivityItem) {
   return activity.status === "start" || activity.status === "executing" || activity.status === "reading";
@@ -182,36 +181,6 @@ function ChevronDown({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-// Swaps words on a timer so the collapsed trigger reads as live activity rather
-// than a frozen label. Static under reduced motion.
-function CyclingLabel({ words }: { words: string[] }) {
-  const shouldReduceMotion = useReducedMotion() ?? false;
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (shouldReduceMotion) return;
-    const id = setInterval(() => setIndex((value) => (value + 1) % words.length), 2200);
-    return () => clearInterval(id);
-  }, [shouldReduceMotion, words.length]);
-
-  if (shouldReduceMotion) return <>{words[0]}</>;
-
-  return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      <m.span
-        key={words[index]}
-        initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-        animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" }, scale: 1 }}
-        exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-        transition={{ type: "spring", stiffness: 520, damping: 32 }}
-        style={{ display: "block", transformOrigin: "left center" }}
-      >
-        {words[index]}
-      </m.span>
-    </AnimatePresence>
-  );
-}
-
 function WorkingPulse() {
   const shouldReduceMotion = useReducedMotion() ?? false;
   return (
@@ -260,7 +229,10 @@ function ResearchTitle({ text }: { text: string }) {
   );
 }
 
-function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { open: boolean; onToggle: () => void; controls: string; summary?: string; streaming: boolean }) {
+// One line whatever the text: the label and summary never wrap (the summary
+// ellipsises), so a live status changing under a collapsed panel cannot change
+// the block's height.
+function ThinkingTrigger({ open, onToggle, controls, label, summary, live }: { open: boolean; onToggle: () => void; controls: string; label: string; summary?: string; live: boolean }) {
   return (
     <div style={{ position: "relative", width: summary ? "100%" : "fit-content", maxWidth: "100%" }}>
       <button
@@ -275,27 +247,17 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
           cursor: "pointer", fontFamily: "var(--font-body)", userSelect: "none", maxWidth: "100%",
         }}
       >
-        <span style={{ display: "inline-grid", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
-          {/* Reserves the widest cycling word so the summary beside it never reflows. */}
-          <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden", fontWeight: 500 }}>
-            {streaming ? "Considering" : "Thinking"}
-          </span>
-          <span
-            // Shimmers (shadcn's `shimmer` utility, ported below in
-            // globals.css — see kaya-shimmer) only while actively
-            // reasoning; the idle "Thinking" label is plain static text.
-            className={streaming ? "kaya-shimmer" : undefined}
-            style={{
-              gridArea: "1 / 1",
-              color: "var(--thinking-text)",
-              fontWeight: 500,
-            }}
-          >
-            {streaming ? <CyclingLabel words={THINKING_WORDS} /> : "Thinking"}
-          </span>
+        <span
+          // Shimmers (shadcn's `shimmer` utility, ported below in
+          // globals.css — see kaya-shimmer) only while live; the settled
+          // "Thought for Ns" label is plain static text.
+          className={live ? "kaya-shimmer" : undefined}
+          style={{ flexShrink: 0, color: "var(--thinking-text)", fontSize: 14, fontWeight: 500, lineHeight: "22px", whiteSpace: "nowrap" }}
+        >
+          {label}
         </span>
         {summary && (
-          <span style={{ minWidth: 0, flex: 1, color: "var(--thinking-text)", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
+          <span style={{ display: "flex", minWidth: 0, flex: 1, color: "var(--thinking-text)", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
             <ResearchTitle text={summary} />
           </span>
         )}
@@ -305,7 +267,7 @@ function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { ope
   );
 }
 
-function ThinkingCollapse({ open, id, children, instant }: { open: boolean; id: string; children: ReactNode; instant?: boolean }) {
+function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; children: ReactNode }) {
   return (
     <m.div
       id={id}
@@ -313,28 +275,14 @@ function ThinkingCollapse({ open, id, children, instant }: { open: boolean; id: 
       inert={!open}
       initial={false}
       animate={{ height: open ? "auto" : 0 }}
-      // `instant` (true whenever this open/close transition is auto-driven
-      // by streaming — thinking starting or finishing — rather than the
-      // user clicking the trigger) skips the height animation entirely:
-      // this row lives in a TanStack-Virtual-managed list that measures
-      // each row's real DOM height via ResizeObserver on every frame it
-      // changes. A multi-hundred-ms height *animation* here means the
-      // row's measured size — and therefore the list's total scroll
-      // height — changes continuously while the "stay scrolled to bottom"
-      // effect keeps re-snapping to the (constantly moving) max scroll
-      // offset, which reads as the whole message list visibly shaking for
-      // that animation's duration. Snapping straight to the final height
-      // for auto transitions removes the moving target; the spring is
-      // reserved for the user's own manual expand/collapse click, which
-      // isn't happening while new content is actively streaming in, so it
-      // can't fight the auto-scroll the same way.
-      // Separately: `bounce` only has any effect when framer-motion's
-      // spring resolver sees NO stiffness/damping/mass keys (this repo's
-      // springs.moderate sets stiffness+damping), so a lingering
-      // `bounce: 0` here would be silently ignored — damping: 35 against
-      // stiffness: 300 is genuinely critically damped (ratio ≈ 1, no
-      // overshoot) for the manual-toggle case.
-      transition={instant ? { duration: 0 } : { type: "spring", stiffness: springs.moderate.stiffness, damping: 35 }}
+      // Only the user opens or closes the panel, so this spring runs once per
+      // click, never on streaming state changes. `bounce` only has any
+      // effect when framer-motion's spring resolver sees NO stiffness/damping/
+      // mass keys (this repo's springs.moderate sets stiffness+damping), so a
+      // lingering `bounce: 0` here would be silently ignored — damping: 35
+      // against stiffness: 300 is genuinely critically damped (ratio ≈ 1, no
+      // overshoot).
+      transition={{ type: "spring", stiffness: springs.moderate.stiffness, damping: 35 }}
       style={{ overflow: "hidden" }}
     >
       <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--neutral-700)" }}>
@@ -372,18 +320,24 @@ function getReasoningIcon(heading: string): any {
 }
 
 function ReasoningStep({
-  section, index, total, isActive,
+  section, index, total, isActive, defaultExpanded = false, skipEntrance = false,
 }: {
   section: ReasoningSection;
   index: number;
   total: number;
   isActive: boolean;
+  /** Open until the user toggles it. Derived, not seeded into state, so a
+   *  lone step that gains a sibling falls back to collapsed. */
+  defaultExpanded?: boolean;
+  /** Mount at full height: the row replaces content already on screen. */
+  skipEntrance?: boolean;
 }) {
   const heading = cleanReasoningHeading(section.heading);
   const hasBody = section.body.trim().length > 0;
   const isLast = index === total - 1;
   const icon = getReasoningIcon(heading);
-  const [expanded, setExpanded] = useState(false);
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const expanded = toggled ?? defaultExpanded;
   const bodyId = useId();
   const shouldReduceMotion = useReducedMotion() ?? false;
   const { verb, rest } = splitHeading(section.heading);
@@ -391,7 +345,7 @@ function ReasoningStep({
   return (
     <m.div
       style={{ position: "relative", zIndex: 1, overflow: "hidden" }}
-      initial={{ height: 0 }}
+      initial={skipEntrance ? false : { height: 0 }}
       animate={{ height: "auto" }}
       transition={springs.slow}
     >
@@ -427,7 +381,7 @@ function ReasoningStep({
               disabled={isActive || !hasBody}
               aria-expanded={!isActive && hasBody ? expanded : undefined}
               aria-controls={!isActive && hasBody ? bodyId : undefined}
-              onClick={() => setExpanded((value) => !value)}
+              onClick={() => setToggled(!expanded)}
               style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
                 padding: "3px 0", border: 0, background: "transparent",
@@ -436,11 +390,13 @@ function ReasoningStep({
               }}
             >
               <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--neutral-700)", fontSize: 14, lineHeight: "22px" }}>
+                {/* No trailing "…" while active: the shimmer already says so,
+                    and on the verb alone it read "Clarifying… the topic". */}
                 <strong
                   className={isActive ? "kaya-thinking-step-shimmer" : undefined}
                   style={{ color: "var(--neutral-900)", fontWeight: 600 }}
                 >
-                  {verb}{isActive ? "…" : ""}
+                  {verb}
                 </strong>
                 {rest ? <> {rest}</> : null}
               </span>
@@ -473,9 +429,12 @@ function ReasoningStep({
 function ReasoningSections({
   sections,
   isStreaming,
+  expandSole,
 }: {
   sections: ReasoningSection[];
   isStreaming: boolean;
+  /** Nothing else shares the panel, so a lone step opens with it. */
+  expandSole: boolean;
 }) {
   const valid = sections.filter((s) => cleanReasoningHeading(s.heading).length > 2);
   if (valid.length === 0) return null;
@@ -483,12 +442,15 @@ function ReasoningSections({
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {valid.map((s, i) => (
+        // Position-keyed: the body grows with every delta, so a content key
+        // would remount the row (replaying its entrance) on each one.
         <ReasoningStep
-          key={`${s.heading}-${s.body}`}
+          key={`${i}-${s.heading}`}
           section={s}
           index={i}
           total={valid.length}
           isActive={isStreaming && i === valid.length - 1}
+          defaultExpanded={expandSole && valid.length === 1}
         />
       ))}
     </div>
@@ -556,9 +518,13 @@ function ActivityGroup({ activities }: { activities: ActivityItem[] }) {
 
 // ── Left bar + thinking content ────────────────────────────────────────────────
 
-function TimelineReasoningStep({ content, active }: { content: string; active: boolean }) {
+function TimelineReasoningStep({ content, active, expandSole }: { content: string; active: boolean; expandSole: boolean }) {
   const parsed = splitReasoningText(content);
   const chunks = parsed.filter((section) => cleanReasoningHeading(section.heading).length > 2);
+  // A segment can stream as plain text until its first title line completes.
+  // That first step then takes the plain text's place at full height instead
+  // of collapsing it and growing back from zero.
+  const [startedPlain] = useState(chunks.length === 0);
 
   if (chunks.length === 0) {
     return (
@@ -583,25 +549,23 @@ function TimelineReasoningStep({ content, active }: { content: string; active: b
     );
   }
 
+  // Each step animates its own entrance, so the list itself does not.
   return (
-    <m.div
-      initial={{ height: 0 }}
-      animate={{ height: "auto" }}
-      transition={springs.slow}
-      style={{ overflow: "hidden" }}
-    >
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {chunks.map((section, index) => (
-          <ReasoningStep
-            key={`${section.heading}-${section.body}`}
-            section={section}
-            index={index}
-            total={chunks.length}
-            isActive={active && index === chunks.length - 1}
-          />
-        ))}
-      </div>
-    </m.div>
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {chunks.map((section, index) => (
+        // Position-keyed so a growing body does not remount the row (see
+        // ReasoningSections).
+        <ReasoningStep
+          key={`${index}-${section.heading}`}
+          section={section}
+          index={index}
+          total={chunks.length}
+          isActive={active && index === chunks.length - 1}
+          defaultExpanded={expandSole && chunks.length === 1}
+          skipEntrance={startedPlain && index === 0}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -611,6 +575,11 @@ export interface ReasoningContentProps {
   activities?: ActivityItem[];
   reasoningTimeline?: ReasoningTimelineItem[];
   isStreaming: boolean;
+  /** The turn is still open (the stream is waiting or running). Thinking may
+   *  have stopped while the turn waits on a question card. */
+  isTurnActive?: boolean;
+  /** Decision per question-card prompt id ("resolved" | "dismissed"). */
+  promptDecisions?: Record<string, string>;
 }
 
 export function ReasoningContent({
@@ -619,6 +588,8 @@ export function ReasoningContent({
   activities,
   reasoningTimeline,
   isStreaming,
+  isTurnActive,
+  promptDecisions,
 }: ReasoningContentProps) {
   const hasActivities = Boolean(activities?.length);
   // Show structured sections whenever they exist - even during streaming.
@@ -630,35 +601,67 @@ export function ReasoningContent({
   const anyRunning = (activities ?? []).some(isActivityRunning);
 
   if (hasTimeline) {
-    const groups = groupReasoningTimeline(reasoningTimeline!);
+    // An activity group whose rows have not arrived yet renders nothing; drop
+    // it up front so it cannot leave a stray divider.
+    const groups = groupReasoningTimeline(reasoningTimeline!).filter(
+      (group) => group.kind !== "activities" || group.activityIds.some((id) => activityById.has(id)),
+    );
     // A reasoning segment only shimmers while it is genuinely the newest thing;
-    // once a tool starts, the activity row carries the live state instead.
-    const lastReasoning = groups.reduce((acc, group, i) => (group.kind === "reasoning" ? i : acc), -1);
+    // once a tool starts, the activity row carries the live state instead, and
+    // once the model asks a question it is waiting on the user, not thinking.
+    const lastReasoning = groups.reduce(
+      (acc, group, i) => (group.kind === "reasoning" ? i : group.kind === "prompt" ? -1 : acc),
+      -1,
+    );
+    const lastItemId = reasoningTimeline!.at(-1)?.id;
+    // The card's own decision is the best evidence; otherwise anything after
+    // the marker means the turn carried on, i.e. the user answered.
+    const markerState = (group: { id: string; promptId: string }): PromptMarkerState => {
+      const decision = promptDecisions?.[group.promptId];
+      if (decision === "dismissed") return "dismissed";
+      if (decision || group.id !== lastItemId) return "answered";
+      return isTurnActive || isStreaming ? "waiting" : "asked";
+    };
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {groups.map((group, index) => {
+          const divider = index > 0 && <StepDivider />;
+
           if (group.kind === "reasoning") {
             return (
-              <TimelineReasoningStep
-                key={group.id}
-                content={group.contents.join("\n\n")}
-                active={isStreaming && index === lastReasoning && !anyRunning}
-              />
+              <Fragment key={group.id}>
+                {divider}
+                <TimelineReasoningStep
+                  content={group.contents.join("\n\n")}
+                  active={isStreaming && index === lastReasoning && !anyRunning}
+                  expandSole={groups.length === 1}
+                />
+              </Fragment>
             );
           }
 
-          const items = group.activityIds
-            .map((id) => activityById.get(id))
-            .filter((activity): activity is ActivityItem => Boolean(activity));
-          if (items.length === 0) return null;
+          const row = group.kind === "prompt"
+            ? (
+              <PromptMarkerRow
+                title={group.title}
+                state={markerState(group)}
+              />
+            )
+            : (
+              <ActivityGroup
+                activities={group.activityIds
+                  .map((id) => activityById.get(id))
+                  .filter((activity): activity is ActivityItem => Boolean(activity))}
+              />
+            );
 
           return (
             <Fragment key={group.id}>
-              {index > 0 && groups[index - 1].kind === "reasoning" && <StepDivider />}
+              {divider}
               <m.div initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden" }}>
                 <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
-                  <ActivityGroup activities={items} />
+                  {row}
                 </m.div>
               </m.div>
             </Fragment>
@@ -670,9 +673,9 @@ export function ReasoningContent({
   }
 
   const steps = hasStructured
-    ? <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+    ? <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} expandSole={!hasActivities} />
     : thinkingContent
-      ? <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
+      ? <TimelineReasoningStep content={thinkingContent} active={isStreaming} expandSole={!hasActivities} />
       : null;
 
   if (!steps) return hasActivities ? <ActivityGroup activities={activities!} /> : null;
@@ -704,6 +707,33 @@ export interface ReasoningBlockProps {
   reasoningSections?: ReasoningSection[];
   /** Live arrival-ordered reasoning/tool trace. */
   reasoningTimeline?: ReasoningTimelineItem[];
+  /** How long the model thought, for the settled "Thought for Ns" label.
+   *  Unknown (e.g. a message reloaded from history) reads as "Thought". */
+  durationMs?: number;
+  /** The turn is still open — true while a question card waits on the user,
+   *  even though thinking itself has stopped. */
+  isTurnActive?: boolean;
+  /** Decision per question-card prompt id ("resolved" | "dismissed"). */
+  promptDecisions?: Record<string, string>;
+}
+
+function latestHeading(
+  thinkingContent: string,
+  reasoningSections?: ReasoningSection[],
+  reasoningTimeline?: ReasoningTimelineItem[],
+): string {
+  const lastReasoning = reasoningTimeline?.findLast((item) => item.kind === "reasoning");
+  if (lastReasoning) {
+    const parsedTimeline = splitReasoningText(lastReasoning.content);
+    const timelineHeading = cleanReasoningHeading(parsedTimeline.findLast((section) => section.heading)?.heading ?? "");
+    if (timelineHeading) return timelineHeading;
+  }
+
+  const sectionHeading = cleanReasoningHeading(reasoningSections?.at(-1)?.heading ?? "");
+  if (sectionHeading) return sectionHeading;
+
+  const parsedThinking = splitReasoningText(thinkingContent);
+  return cleanReasoningHeading(parsedThinking.findLast((section) => section.heading)?.heading ?? "");
 }
 
 export function ReasoningBlock({
@@ -712,37 +742,34 @@ export function ReasoningBlock({
   activities,
   reasoningSections,
   reasoningTimeline,
+  durationMs,
+  isTurnActive,
+  promptDecisions,
 }: ReasoningBlockProps) {
-  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  // Only the user opens the panel. It never opens or closes itself as
+  // streaming starts and stops: that flip resized the message mid-stream.
+  // While live, the trigger line carries the progress instead.
+  const [open, setOpen] = useState(false);
   const panelId = useId();
   const runningActivity = activities?.find(isActivityRunning);
-  const open = manualOpen ?? Boolean(isThinkingInProgress || runningActivity);
-  // Whether the CURRENT open/close transition is auto-driven by streaming
-  // state (thinking starting/finishing) rather than the user clicking the
-  // trigger. Auto transitions skip the height animation entirely — see
-  // ThinkingCollapse's `instant` prop for why.
-  const isAutoControlled = manualOpen === null;
+  // The ask_user round ends thinking before the card arrives, so "waiting"
+  // keys off the turn still being open, not off isThinkingInProgress.
+  const lastItem = reasoningTimeline?.at(-1);
+  const waitingOnUser = Boolean(isTurnActive || isThinkingInProgress)
+    && lastItem?.kind === "prompt"
+    && !promptDecisions?.[lastItem.promptId];
+  const live = Boolean(isThinkingInProgress || runningActivity || waitingOnUser);
 
-  const fallbackTitle = (() => {
-    const lastReasoning = reasoningTimeline?.findLast((item) => item.kind === "reasoning");
-    if (lastReasoning) {
-      const parsedTimeline = splitReasoningText(lastReasoning.content);
-      const timelineHeading = cleanReasoningHeading(parsedTimeline.findLast((section) => section.heading)?.heading ?? "");
-      if (timelineHeading) return timelineHeading;
-    }
-
-    const sectionHeading = cleanReasoningHeading(reasoningSections?.at(-1)?.heading ?? "");
-    if (sectionHeading) return sectionHeading;
-
-    const parsedThinking = splitReasoningText(thinkingContent);
-    return cleanReasoningHeading(parsedThinking.findLast((section) => section.heading)?.heading ?? "");
-  })();
   // A running tool is the most specific thing we can say, so it wins in both
-  // states. Otherwise fall back to the newest heading, and only while collapsed:
-  // expanded, the step row below renders that identical string, which would put
-  // the same text on two nested disclosures.
-  const liveStatus = runningActivity ? activityVerb(runningActivity) : "";
-  const summary = liveStatus || (open ? "" : fallbackTitle);
+  // states. Otherwise fall back to a pending question or the newest heading,
+  // and only while collapsed: expanded, the row below renders that identical
+  // string, which would put the same text on two nested disclosures. Settled,
+  // the label alone ("Thought for 12s") is the summary.
+  let summary = "";
+  if (runningActivity) summary = activityVerb(runningActivity);
+  else if (live && !open) {
+    summary = waitingOnUser ? "Waiting for your answer" : latestHeading(thinkingContent, reasoningSections, reasoningTimeline);
+  }
 
   if (!thinkingContent && !reasoningSections?.length && !reasoningTimeline?.length && !activities?.length && !isThinkingInProgress) return null;
 
@@ -750,16 +777,25 @@ export function ReasoningBlock({
     <div style={{ width: "100%", margin: "4px 0 10px", fontFamily: "var(--font-body)" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
-      <ThinkingTrigger open={open} onToggle={() => setManualOpen(!open)} controls={panelId} summary={summary || undefined} streaming={!!isThinkingInProgress} />
+      <ThinkingTrigger
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+        controls={panelId}
+        label={live ? "Thinking" : thoughtLabel(durationMs)}
+        summary={summary || undefined}
+        live={live}
+      />
 
       {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
-      <ThinkingCollapse open={open} id={panelId} instant={isAutoControlled}>
+      <ThinkingCollapse open={open} id={panelId}>
         <ReasoningContent
           thinkingContent={thinkingContent}
           reasoningSections={reasoningSections}
           activities={activities}
           reasoningTimeline={reasoningTimeline}
           isStreaming={!!isThinkingInProgress}
+          isTurnActive={isTurnActive}
+          promptDecisions={promptDecisions}
         />
       </ThinkingCollapse>
 

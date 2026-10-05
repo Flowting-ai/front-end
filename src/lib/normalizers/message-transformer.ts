@@ -1,5 +1,8 @@
 import type { Message } from "@/types/chat"
 import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/types/chat"
+import { toolNameToType, webSearchResults } from "@/lib/activity"
+import { deriveActivityDetail } from "@/lib/activity-detail"
+import { placeErrorNotice } from "@/lib/turn-outcome"
 
 /** Infer company from a model name string for icon/logo display. */
 function inferCompany(modelName: string): string | undefined {
@@ -78,6 +81,33 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
   };
 }
 
+/**
+ * Persisted `tool_calls` → the same activity rows the live stream builds, so a
+ * reloaded turn keeps its tool trace. Web-search rows take their results from
+ * the turn's `web_searches`, in order.
+ */
+function toolCallActivities(raw: Message): ActivityItem[] {
+  const searches = raw.web_searches ?? [];
+  let searchIndex = 0;
+  return (raw.tool_calls ?? []).flatMap((call, i): ActivityItem[] => {
+    const toolName = typeof call === "string" ? call : call.tool;
+    if (!toolName) return [];
+    const type = toolNameToType(toolName);
+    const search = type === "web-search" ? searches[searchIndex++] : undefined;
+    const results = search ? webSearchResults(search.links, search.results) : [];
+    const durationS = typeof call === "object" && typeof call.duration_s === "number" ? call.duration_s : undefined;
+    return [{
+      id: `${raw.id}-tool-${i}`,
+      type,
+      toolName,
+      detail: deriveActivityDetail(toolName, typeof call === "object" ? call.args : undefined) ?? search?.query,
+      status: "done",
+      ...(durationS !== undefined ? { durationS } : {}),
+      ...(results.length > 0 ? { results } : {}),
+    }];
+  });
+}
+
 /** Converts a raw API Message into a UIMessage ready for rendering. */
 export function toUIMessage(raw: Message): UIMessage {
   // ── modelName + modelMeta from model_name (or model) field ─────────────
@@ -93,9 +123,10 @@ export function toUIMessage(raw: Message): UIMessage {
     };
   }
 
-  // ── webCitations + activity row from persisted sources ───────────────────
+  // ── webCitations + activity rows from persisted tool calls and sources ──
   let webCitations: WebCitation[] | undefined;
-  let activities: ActivityItem[] | undefined;
+  const toolActivities = toolCallActivities(raw);
+  let activities: ActivityItem[] | undefined = toolActivities.length > 0 ? toolActivities : undefined;
 
   if (raw.sources && raw.sources.length > 0) {
     webCitations = raw.sources.map((s) => ({
@@ -104,10 +135,11 @@ export function toUIMessage(raw: Message): UIMessage {
       domain: s.url ? (() => { try { return new URL(s.url).hostname.replace(/^www\./, ""); } catch { return undefined; } })() : undefined,
     }));
 
-    // Synthesise a completed web-search activity row so "Searching the web" shows on refresh.
+    // Synthesise a completed web-search activity row so "Searching the web" shows on refresh,
+    // unless the persisted tool calls already carry the search.
     // Use the query from web_searches if available, otherwise leave blank.
     const firstQuery = raw.web_searches?.[0]?.query;
-    activities = [{
+    if (!toolActivities.some((a) => a.type === "web-search")) activities = [{
       id: `${raw.id}-websearch`,
       type: "web-search",
       label: "Searching the web",
@@ -118,7 +150,7 @@ export function toUIMessage(raw: Message): UIMessage {
         url: s.url,
         domain: s.url ? (() => { try { return new URL(s.url).hostname.replace(/^www\./, ""); } catch { return undefined; } })() : undefined,
       })),
-    }];
+    }, ...toolActivities];
   }
 
   // ── file_attachments → generatedFiles + uploaded attachment URLs ─────────
@@ -163,8 +195,19 @@ export function toUIMessage(raw: Message): UIMessage {
   }
   const restoredImages = mergedImages.length > 0 ? mergedImages : undefined;
 
+  // A turn whose answer never got written (see splitPersistedAnswer in
+  // api/chat.ts) shows the notice as the message itself when nothing else shows.
+  const errorFields = raw.errorNotice
+    ? placeErrorNotice(raw.content, raw.errorNotice, Boolean(restoredImages || fileData.generatedFiles))
+    : {};
+
+  // tool_calls only feed the activity rows above; UI state doesn't keep them.
+  const message: Message = { ...raw };
+  delete message.tool_calls;
+
   return {
-    ...raw,
+    ...message,
+    ...errorFields,
     isLoading: false,
     isThinkingInProgress: false,
     ...(modelName ? { modelName } : {}),

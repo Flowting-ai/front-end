@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useSyncExternalStore } from "react";
 import { Copy, Check } from "lucide-react";
 import { MermaidDiagram } from "@/components/chat/MermaidDiagram";
 import { DiffBlock } from "@/components/chat/DiffBlock";
@@ -8,16 +8,13 @@ import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
 import { hasRawRange } from "@/lib/highlight-offsets";
 import type { HighlightSpec } from "@/lib/markdown-utils";
 import { applyMarksToHtml } from "@/lib/apply-marks";
-
-// Module-level cache - one load shared across all CodeBlock instances
-let _hljsPromise: Promise<typeof import("@/lib/highlight").default> | null = null;
-
-function loadHljs() {
-  if (!_hljsPromise) {
-    _hljsPromise = import("@/lib/highlight").then((mod) => mod.default);
-  }
-  return _hljsPromise;
-}
+import {
+  ensureHighlighter,
+  getHighlighterServerSnapshot,
+  getHighlighterSnapshot,
+  subscribeHighlighter,
+} from "@/lib/highlight-loader";
+import styles from "./CodeBlock.module.css";
 
 interface CodeBlockProps {
   language?: string;
@@ -92,35 +89,47 @@ export function CodeBlock({ language, value, elementKey, highlights, sourceOffse
 
 function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-// Raw hljs output — recomputed only when code content changes
-  const [rawHtml, setRawHtml] = useState<string | null>(null);
+  // Changes when hljs finishes loading or a lazy grammar registers; until then
+  // the block renders plain. Once both are in place, highlighting happens
+  // synchronously on first render (no unhighlighted flash).
+  const highlighter = useSyncExternalStore(subscribeHighlighter, getHighlighterSnapshot, getHighlighterServerSnapshot);
+  // Language picked by highlightAuto (which tries every registered grammar),
+  // reused until the code doubles in length so a block that is streaming in
+  // isn't re-detected on every chunk.
+  const [detected, setDetected] = useState<{ language: string; length: number } | null>(null);
+  const trimmed = value.trimEnd();
 
-  // Run hljs whenever the code itself changes
+  // Load hljs plus this block's grammar (sql, java, go, rust, … load lazily).
   useEffect(() => {
-    let cancelled = false;
-    const trimmed = value.trimEnd();
-
-    loadHljs().then((hljs) => {
-      if (cancelled) return;
-      try {
-        const result =
-          language && hljs.getLanguage(language)
-            ? hljs.highlight(trimmed, { language, ignoreIllegals: true })
-            : hljs.highlightAuto(trimmed);
-        setRawHtml(result.value);
-      } catch {
-        setRawHtml(null);
-      }
+    ensureHighlighter(language).catch(() => {
+      // Chunk failed to load: the code stays plain but readable.
     });
+  }, [language]);
 
-    return () => { cancelled = true; };
-  }, [value, language]);
+  const explicitLanguage = language && highlighter.hljs?.getLanguage(language) ? language : undefined;
+  const autoLanguage = detected && trimmed.length < detected.length * 2 ? detected.language : undefined;
+
+  // Raw hljs output — recomputed only when the code or available grammars change
+  const raw = useMemo(() => {
+    const hljs = highlighter.hljs;
+    if (!hljs || !trimmed) return null;
+    try {
+      const known = explicitLanguage ?? autoLanguage;
+      if (known) return { html: hljs.highlight(trimmed, { language: known, ignoreIllegals: true }).value };
+      const result = hljs.highlightAuto(trimmed);
+      return { html: result.value, detected: result.language ?? "plaintext" };
+    } catch {
+      return null;
+    }
+  }, [highlighter, trimmed, explicitLanguage, autoLanguage]);
+
+  if (raw?.detected) setDetected({ language: raw.detected, length: trimmed.length });
 
   // Re-apply marks whenever the raw syntax-highlighted HTML or specs change
   const highlightedHtml = useMemo(() => {
-    if (rawHtml === null) return null;
-    return highlights?.length ? applyMarksToHtml(rawHtml, highlights, 'pre', sourceOffset) : rawHtml;
-  }, [rawHtml, highlights, sourceOffset]);
+    if (raw === null) return null;
+    return highlights?.length ? applyMarksToHtml(raw.html, highlights, 'pre', sourceOffset) : raw.html;
+  }, [raw, highlights, sourceOffset]);
 
   const handleCopy = async () => {
     try {
@@ -143,6 +152,7 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
   return (
     <div
       key={elementKey}
+      className={styles.codeBlock}
       style={{
         position: "relative",
         borderRadius: "16px",

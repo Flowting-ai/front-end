@@ -368,7 +368,7 @@ export function StreamingMessageBubble({
       animate={{ opacity: 1, y: 0,  filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
       transition={springs.moderate}
     >
-      <StreamingContentRenderer content={content} />
+      <StreamingContentRenderer content={content} isStreaming={!isComplete} />
       {!isComplete && (
         <BreathingDot
           size="sm"

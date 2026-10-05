@@ -214,9 +214,11 @@ function ConnectorResultCard({ data }: { data: ConnectorResultJson }) {
 
 export interface StreamingContentRendererProps {
   content: string
+  /** True while tokens are still arriving: unclosed widget blocks show a skeleton. */
+  isStreaming?: boolean
 }
 
-export function StreamingContentRenderer({ content }: StreamingContentRendererProps) {
+export function StreamingContentRenderer({ content, isStreaming }: StreamingContentRendererProps) {
   const trimmed = content.trim()
 
   // Leaked "you MUST show this connect URL" tool instruction → clean prompt,
@@ -257,5 +259,5 @@ export function StreamingContentRenderer({ content }: StreamingContentRendererPr
     )
   }
 
-  return <ContentRenderer content={content} />
+  return <ContentRenderer content={content} isStreaming={isStreaming} />
 }

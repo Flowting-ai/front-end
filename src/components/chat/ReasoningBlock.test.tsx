@@ -53,14 +53,153 @@ describe('ReasoningContent', () => {
         thinkingContent=""
         reasoningSections={[{
           heading: 'Planned what to search for and in what order',
-          body: 'This full summary should stay inside the expandable block.',
+          body: 'The full summary.',
         }]}
         isStreaming={false}
       />,
     )
 
     expect(html).toContain('>Planned</strong> what to search for and in what order')
-    expect(html).not.toContain('This full summary should stay inside the expandable block.')
+  })
+
+  it('opens a lone reasoning step so one click on the panel shows its text', () => {
+    const timeline = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningTimeline={[{ kind: 'reasoning', id: 'r-1', content: '**Clarifying the topic**\nThe only body.' }]}
+        isStreaming={false}
+      />,
+    )
+    const sections = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningSections={[{ heading: 'Clarifying the topic', body: 'The only body.' }]}
+        isStreaming={false}
+      />,
+    )
+
+    for (const html of [timeline, sections]) {
+      expect(html).toContain('aria-expanded="true"')
+      expect(html).toContain('The only body.')
+    }
+  })
+
+  it('keeps steps collapsed when the lone step shares the panel', () => {
+    const withTool = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        activities={[{ id: 'a-1', type: 'tool-call', label: 'Query data', status: 'done' }]}
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: '**Clarifying the topic**\nHidden body.' },
+          { kind: 'activity', id: 't-1', activityId: 'a-1' },
+        ]}
+        isStreaming={false}
+      />,
+    )
+    const twoSteps = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningTimeline={[{ kind: 'reasoning', id: 'r-1', content: '**First step**\nHidden one.\n**Second step**\nHidden two.' }]}
+        isStreaming={false}
+      />,
+    )
+    const sectionsWithTool = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningSections={[{ heading: 'Clarifying the topic', body: 'Hidden body.' }]}
+        activities={[{ id: 'a-1', type: 'tool-call', label: 'Query data', status: 'done' }]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(withTool).not.toContain('Hidden body.')
+    expect(twoSteps).not.toContain('Hidden one.')
+    expect(twoSteps).not.toContain('Hidden two.')
+    expect(sectionsWithTool).not.toContain('Hidden body.')
+  })
+
+  it('does not put an ellipsis inside the active step label', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningTimeline={[{ kind: 'reasoning', id: 'r-1', content: '**Clarifying the topic**\n' }]}
+        isStreaming
+      />,
+    )
+
+    expect(html).toContain('>Clarifying</strong> the topic')
+    expect(html).not.toContain('…')
+  })
+
+  it('draws a divider between every pair of adjacent groups', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        activities={[
+          { id: 'a-1', type: 'tool-call', label: 'Query data', status: 'done' },
+          { id: 'a-2', type: 'tool-call', label: 'Query more', status: 'done' },
+        ]}
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: 'First.' },
+          { kind: 'activity', id: 't-1', activityId: 'a-1' },
+          { kind: 'reasoning', id: 'r-2', content: 'Second.' },
+          { kind: 'activity', id: 't-2', activityId: 'a-2' },
+          // Not resolved to a row yet: renders nothing, so no divider either.
+          { kind: 'activity', id: 't-3', activityId: 'missing' },
+        ]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(html.match(/height:1px/g)).toHaveLength(3)
+  })
+
+  it('marks an answered question between the reasoning before and after it', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: 'Before asking.' },
+          { kind: 'prompt', id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+          { kind: 'reasoning', id: 'r-2', content: 'After the answer.' },
+        ]}
+        isStreaming
+      />,
+    )
+
+    expect(html.indexOf('Before asking.')).toBeLessThan(html.indexOf('Asked you a question → you answered'))
+    expect(html.indexOf('Which topic?')).toBeLessThan(html.indexOf('After the answer.'))
+    expect(html.match(/height:1px/g)).toHaveLength(2)
+  })
+
+  it('shows a trailing question as waiting while live, and makes no claim once settled', () => {
+    const timeline = [
+      { kind: 'reasoning' as const, id: 'r-1', content: '**Clarifying the topic**\nBody.' },
+      { kind: 'prompt' as const, id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+    ]
+    const live = renderToStaticMarkup(<ReasoningContent thinkingContent="" reasoningTimeline={timeline} isStreaming />)
+    const settled = renderToStaticMarkup(<ReasoningContent thinkingContent="" reasoningTimeline={timeline} isStreaming={false} />)
+
+    expect(live).toContain('Waiting for your answer')
+    // The reasoning before the question is no longer the live step.
+    expect(live).toContain('>Clarifying</strong>')
+    expect(live).not.toMatch(/kaya-thinking-step-shimmer"[^>]*>Clarifying/)
+    expect(settled).toContain('Asked you a question')
+    expect(settled).not.toContain('you answered')
+    expect(settled).not.toContain('Waiting for your answer')
+  })
+
+  it('marks a question by its card decision: waiting while the turn is open, dismissed or answered after', () => {
+    const timeline = [
+      { kind: 'reasoning' as const, id: 'r-1', content: '**Clarifying the topic**\nBody.' },
+      { kind: 'prompt' as const, id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+    ]
+    const render = (props: { isTurnActive?: boolean; promptDecisions?: Record<string, string> }) =>
+      renderToStaticMarkup(<ReasoningContent thinkingContent="" reasoningTimeline={timeline} isStreaming={false} {...props} />)
+
+    expect(render({ isTurnActive: true })).toContain('Waiting for your answer')
+    expect(render({ isTurnActive: true, promptDecisions: { 'q-1': 'dismissed' } })).toContain('you dismissed it')
+    expect(render({ isTurnActive: true, promptDecisions: { 'q-1': 'resolved' } })).toContain('you answered')
   })
 
   it('keeps a single-word heading whole with no trailing remainder', () => {
@@ -118,7 +257,7 @@ describe('ReasoningContent', () => {
     expect(html).toContain('Working…')
   })
 
-  it('uses the last reasoning heading as the compact Thinking summary', () => {
+  it('uses the last reasoning heading as the live Thinking summary', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
         thinkingContent="**Clarifying research needs**\nFirst body.\n\n**Researching multi-model execution**\nSecond body."
@@ -126,34 +265,31 @@ describe('ReasoningContent', () => {
           { heading: 'Clarifying research needs', body: 'First body.' },
           { heading: 'Researching multi-model execution', body: 'Second body.' },
         ]}
-        isNewMessage={false}
-        isThinkingInProgress={false}
-      />,
-    )
-
-    expect(html.match(/execution/g)).toHaveLength(2)
-  })
-
-  it('drops the borrowed step heading from the trigger once the panel is open', () => {
-    const html = renderToStaticMarkup(
-      <ReasoningBlock
-        thinkingContent="**Identifying execution issues**\nThe reasoning body."
-        reasoningSections={[
-          { heading: 'Identifying execution issues', body: 'The reasoning body.' },
-        ]}
         isNewMessage
         isThinkingInProgress
       />,
     )
 
-    expect(html).toContain('aria-expanded="true"')
-    // The heading is the step row's; copying it up would put identical text on
-    // two nested disclosures. It renders split, so count the remainder.
-    expect(html).toContain('>Identifying…</strong> execution issues')
-    expect(html.match(/execution issues/g)).toHaveLength(1)
+    // Once in the trigger summary, once in the (collapsed) step row.
+    expect(html.match(/execution/g)).toHaveLength(2)
   })
 
-  it('shows the running tool label in the trigger even while open', () => {
+  it('stays collapsed while thinking, with a single-line live status', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="Checking context"
+        isNewMessage
+        isThinkingInProgress
+      />,
+    )
+
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('class="kaya-shimmer"')
+    expect(html).toContain('>Thinking</span>')
+    expect(html).toContain('aria-controls=')
+  })
+
+  it('shows a running tool as the live status without opening the panel', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
         thinkingContent="**Identifying execution issues**\nThe reasoning body."
@@ -168,28 +304,66 @@ describe('ReasoningContent', () => {
       />,
     )
 
-    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('width:100%')
     // ResearchTitle wraps each word in its own span, so assert word by word.
-    expect(html).toContain('Searching')
-    expect(html).toContain('web')
+    expect(html).toContain('>Searching</span>')
+    expect(html).toContain('> web</span>')
   })
 
-  it('uses the expanded ThinkingSteps trigger by default', () => {
+  it('shows a pending question as the live status', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
-        thinkingContent="Checking context"
+        thinkingContent="**Clarifying the topic**\nBody."
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: '**Clarifying the topic**\nBody.' },
+          { kind: 'prompt', id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+        ]}
         isNewMessage
         isThinkingInProgress
       />,
     )
 
-    expect(html).toContain('Thinking')
-    expect(html).toContain('aria-expanded="true"')
-    expect(html).toContain('aria-controls=')
-    expect(html).toContain('width:100%')
+    expect(html).toContain('>Waiting</span>')
+    expect(html).toContain('> answer</span>')
   })
 
-  it('collapses to the last heading when reasoning completes', () => {
+  it('shows a pending question as live while the turn is open, even after thinking ended', () => {
+    // The ask_user round ends thinking (isThinkingInProgress false) before the
+    // card arrives; the turn itself is still open.
+    const timeline = [
+      { kind: 'reasoning' as const, id: 'r-1', content: '**Clarifying the topic**\nBody.' },
+      { kind: 'prompt' as const, id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+    ]
+    const waiting = renderToStaticMarkup(
+      <ReasoningBlock thinkingContent="x" reasoningTimeline={timeline} isNewMessage isTurnActive />,
+    )
+    expect(waiting).toContain('>Waiting</span>')
+
+    const answered = renderToStaticMarkup(
+      <ReasoningBlock thinkingContent="x" reasoningTimeline={timeline} isNewMessage isTurnActive promptDecisions={{ 'q-1': 'resolved' }} />,
+    )
+    expect(answered).not.toContain('>Waiting</span>')
+  })
+
+  it('reads "Thought for Ns" with no heading summary once reasoning completes', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="**Synthesised the final answer**\nFinished reasoning."
+        isNewMessage={false}
+        isThinkingInProgress={false}
+        durationMs={12_300}
+      />,
+    )
+
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('>Thought for 12s</span>')
+    expect(html).not.toContain('class="kaya-shimmer"')
+    // Only the step row inside the panel carries the heading.
+    expect(html.match(/final answer/g)).toHaveLength(1)
+  })
+
+  it('reads plain "Thought" when the duration is unknown', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock
         thinkingContent="**Synthesised the final answer**\nFinished reasoning."
@@ -198,9 +372,6 @@ describe('ReasoningContent', () => {
       />,
     )
 
-    expect(html).toContain('aria-expanded="false"')
-    expect(html).toContain('Synthesised')
-    expect(html).toContain('final')
-    expect(html).toContain('answer')
+    expect(html).toContain('>Thought</span>')
   })
 })

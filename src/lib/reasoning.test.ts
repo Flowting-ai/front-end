@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   appendActivityTimeline,
+  appendPromptMarker,
   appendReasoningTimeline,
   cleanReasoningHeading,
   createReasoningAccumulator,
@@ -11,6 +12,7 @@ import {
   reasoningEventText,
   splitHeading,
   splitReasoningText,
+  thoughtLabel,
 } from '@/lib/reasoning'
 
 describe('ordered reasoning timeline', () => {
@@ -26,14 +28,62 @@ describe('ordered reasoning timeline', () => {
     ])
   })
 
-  it('merges snapshots only inside the same reasoning segment', () => {
+  it('concatenates deltas only inside the same reasoning segment', () => {
     let timeline = appendReasoningTimeline([], 'Checking', 'r-0', 0)
-    timeline = appendReasoningTimeline(timeline, 'Checking context', 'unused', 0)
+    timeline = appendReasoningTimeline(timeline, ' context', 'unused', 0)
     timeline = appendActivityTimeline(timeline, 'tool-0', 'a-0', 0)
     timeline = appendReasoningTimeline(timeline, 'Continuing', 'r-1', 1)
 
     expect(timeline[0]).toMatchObject({ kind: 'reasoning', content: 'Checking context' })
     expect(timeline[2]).toMatchObject({ kind: 'reasoning', content: 'Continuing' })
+  })
+
+  it('keeps deltas that repeat or extend the text so far', () => {
+    let timeline = appendReasoningTimeline([], 'ha', 'r-0')
+    timeline = appendReasoningTimeline(timeline, 'ha', 'unused')
+    timeline = appendReasoningTimeline(timeline, 'hah', 'unused')
+    timeline = appendReasoningTimeline(timeline, '\n', 'unused')
+    timeline = appendReasoningTimeline(timeline, '\n', 'unused')
+
+    expect(timeline).toEqual([{ kind: 'reasoning', id: 'r-0', content: 'hahahah\n\n', roundIndex: undefined }])
+  })
+
+  it('starts a new reasoning segment after a question marker', () => {
+    let timeline = appendReasoningTimeline([], 'Before asking.', 'r-0', 0)
+    timeline = appendPromptMarker(timeline, { promptId: 'p-1', title: 'Which topic?' })
+    timeline = appendReasoningTimeline(timeline, 'After the answer.', 'r-1', 0)
+
+    expect(timeline).toEqual([
+      { kind: 'reasoning', id: 'r-0', content: 'Before asking.', roundIndex: 0 },
+      { kind: 'prompt', id: 'prompt-p-1-1', promptId: 'p-1', title: 'Which topic?' },
+      { kind: 'reasoning', id: 'r-1', content: 'After the answer.', roundIndex: 0 },
+    ])
+  })
+})
+
+describe('appendPromptMarker', () => {
+  it('appends a marker without mutating the timeline it was given', () => {
+    const timeline = appendReasoningTimeline([], 'Thinking.', 'r-0')
+    const next = appendPromptMarker(timeline, { promptId: 'p-1', title: 'Pick one' })
+
+    expect(timeline).toHaveLength(1)
+    expect(next).toHaveLength(2)
+    expect(next[1]).toMatchObject({ kind: 'prompt', promptId: 'p-1', title: 'Pick one' })
+  })
+
+  it('is a no-op when the last item is already the same marker', () => {
+    const timeline = appendPromptMarker([], { promptId: 'p-1', title: 'Pick one' })
+    expect(appendPromptMarker(timeline, { promptId: 'p-1', title: 'Pick one' })).toBe(timeline)
+  })
+
+  it('appends a different prompt, and the same prompt once something came between', () => {
+    let timeline = appendPromptMarker([], { promptId: 'p-1', title: 'First' })
+    timeline = appendPromptMarker(timeline, { promptId: 'p-2', title: 'Second' })
+    timeline = appendActivityTimeline(timeline, 'tool-0', 'a-0')
+    timeline = appendPromptMarker(timeline, { promptId: 'p-1', title: 'First' })
+
+    expect(timeline.map((item) => item.kind)).toEqual(['prompt', 'prompt', 'activity', 'prompt'])
+    expect(new Set(timeline.map((item) => item.id)).size).toBe(timeline.length)
   })
 })
 
@@ -49,11 +99,11 @@ describe('reasoning stream accumulation', () => {
     expect(eventRoundIndex({})).toBeUndefined()
   })
 
-  it('builds multiple structured sections and merges body snapshots', () => {
+  it('builds multiple structured sections from body deltas', () => {
     const reasoning = createReasoningAccumulator()
     reasoning.event('reasoning_heading', '**Clarifying user intent**')
     reasoning.event('reasoning_body', 'I need')
-    reasoning.event('reasoning_body', 'I need more context.')
+    reasoning.event('reasoning_body', ' more context.')
     reasoning.event('reasoning_heading', 'Planning the response')
     reasoning.event('reasoning_body', 'I will outline')
     reasoning.event('reasoning_body', ' the next steps.')
@@ -82,12 +132,40 @@ describe('reasoning stream accumulation', () => {
     ])
   })
 
-  it('ignores a repeated heading event', () => {
+  it('keeps body deltas that repeat the body so far', () => {
+    const reasoning = createReasoningAccumulator()
+    reasoning.event('reasoning_heading', 'Laughing')
+    reasoning.event('reasoning_body', 'ha')
+    reasoning.event('reasoning_body', 'ha')
+
+    expect(reasoning.sections()).toEqual([{ heading: 'Laughing', body: 'haha' }])
+    expect(reasoning.text()).toBe('**Laughing**\n\nhaha')
+  })
+
+  it('opens a new section for every heading event, even a repeated title', () => {
     const reasoning = createReasoningAccumulator()
     reasoning.event('reasoning_heading', 'Checking context')
+    reasoning.event('reasoning_body', 'First pass.')
     reasoning.event('reasoning_heading', 'Checking context')
+    reasoning.event('reasoning_body', 'Second pass.')
 
-    expect(reasoning.sections()).toHaveLength(1)
+    expect(reasoning.sections()).toEqual([
+      { heading: 'Checking context', body: 'First pass.' },
+      { heading: 'Checking context', body: 'Second pass.' },
+    ])
+  })
+
+  it('records a question marker between the reasoning before and after it', () => {
+    const reasoning = createReasoningAccumulator()
+    reasoning.event('reasoning_body', 'Before asking.')
+    reasoning.snapshot()
+    reasoning.prompt({ promptId: 'p-1', title: 'Which topic?' })
+    // The cached snapshot must not hide the marker from consumers.
+    expect(reasoning.snapshot().timeline.at(-1)).toMatchObject({ kind: 'prompt', promptId: 'p-1' })
+    reasoning.event('reasoning_body', 'After the answer.')
+
+    expect(reasoning.timeline().map((item) => item.kind)).toEqual(['reasoning', 'prompt', 'reasoning'])
+    expect(reasoning.text()).toBe('Before asking.\n\nAfter the answer.')
   })
 
   it('falls back to raw text when a body arrives without a heading', () => {
@@ -302,5 +380,43 @@ describe('groupReasoningTimeline', () => {
 
   it('returns an empty list for an empty timeline', () => {
     expect(groupReasoningTimeline([])).toEqual([])
+  })
+
+  it('breaks reasoning and activity runs at a question marker', () => {
+    expect(groupReasoningTimeline([
+      { kind: 'reasoning', id: 'r-1', content: 'A' },
+      { kind: 'prompt', id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+      { kind: 'reasoning', id: 'r-2', content: 'B' },
+      { kind: 'activity', id: 't-1', activityId: 'a-1' },
+      { kind: 'prompt', id: 'p-2', promptId: 'q-2', title: 'Confirm?' },
+      { kind: 'activity', id: 't-2', activityId: 'a-2' },
+    ])).toEqual([
+      { kind: 'reasoning', id: 'r-1', contents: ['A'] },
+      { kind: 'prompt', id: 'p-1', promptId: 'q-1', title: 'Which topic?' },
+      { kind: 'reasoning', id: 'r-2', contents: ['B'] },
+      { kind: 'activities', id: 't-1', activityIds: ['a-1'] },
+      { kind: 'prompt', id: 'p-2', promptId: 'q-2', title: 'Confirm?' },
+      { kind: 'activities', id: 't-2', activityIds: ['a-2'] },
+    ])
+  })
+})
+
+describe('thoughtLabel', () => {
+  it('reads plain "Thought" when no duration is known', () => {
+    expect(thoughtLabel(undefined)).toBe('Thought')
+    expect(thoughtLabel(Number.NaN)).toBe('Thought')
+  })
+
+  it('rounds to whole seconds with a 1s floor', () => {
+    expect(thoughtLabel(0)).toBe('Thought for 1s')
+    expect(thoughtLabel(400)).toBe('Thought for 1s')
+    expect(thoughtLabel(12_499)).toBe('Thought for 12s')
+    expect(thoughtLabel(12_500)).toBe('Thought for 13s')
+  })
+
+  it('switches to minutes past 60s', () => {
+    expect(thoughtLabel(59_600)).toBe('Thought for 1m')
+    expect(thoughtLabel(65_000)).toBe('Thought for 1m 5s')
+    expect(thoughtLabel(125_000)).toBe('Thought for 2m 5s')
   })
 })

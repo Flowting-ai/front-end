@@ -1,21 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import { HighlightMark } from "@/components/HighlightMark";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import remarkBreaks from "remark-breaks";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import DOMPurify from "isomorphic-dompurify";
 import { CodeBlock } from "@/components/chat/CodeBlock";
 import { CitationChip } from "@/components/chat/CitationChip";
-import type { Components } from "react-markdown";
+import { Checkbox } from "@/components/Checkbox";
+import type { Components, ExtraProps } from "react-markdown";
 import type { Pluggable } from "unified";
 import type { WebCitation } from "@/types/chat";
-import { preprocessMarkdown } from "@/lib/markdown-preprocess";
+import { preprocessMarkdown, readCodeBlock, withoutNode } from "@/lib/markdown-preprocess";
 
-const remarkPlugins = [remarkGfm, remarkMath];
+// remark-breaks: a single newline inside a paragraph is a line break, the way
+// chat replies are written, instead of collapsing into one line.
+const remarkPlugins = [remarkGfm, remarkMath, remarkBreaks];
 const rehypePlugins: Pluggable[] = [rehypeKatex];
 
 function markdownUrlTransform(value: string, key: string): string {
@@ -114,14 +118,53 @@ function makeHighlightMarksPlugin(specs: HighlightSpec[]) {
   }
 }
 
+// GFM footnotes give the (visually hidden) "Footnotes" heading of every
+// message the same id, "footnote-label", and point each reference's
+// aria-describedby at it. clobberPrefix doesn't cover that one id, so prefix
+// both here to keep ids unique when several messages have footnotes.
+function makeFootnoteLabelPlugin(prefix: string) {
+  const labelId = `${prefix}footnote-label`
+  const visit = (node: HastNodeAny): void => {
+    const props = node.properties
+    if (props?.id === 'footnote-label') props.id = labelId
+    if (Array.isArray(props?.ariaDescribedBy)) {
+      props.ariaDescribedBy = props.ariaDescribedBy.map((id) => (id === 'footnote-label' ? labelId : id))
+    }
+    node.children?.forEach(visit)
+  }
+  return function () {
+    return visit
+  }
+}
+
 // ── Base link component (no citation awareness) ───────────────────────────────
 
-function BaseLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+type LinkProps = React.ComponentProps<"a"> & ExtraProps & {
+  "data-footnote-ref"?: unknown;
+  "data-footnote-backref"?: unknown;
+};
+
+function BaseLink({
+  href,
+  children,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-label": ariaLabel,
+  "data-footnote-ref": footnoteRef,
+  "data-footnote-backref": footnoteBackref,
+}: LinkProps) {
+  // In-page anchors (footnote references and back-links) stay in this tab.
+  const isInPage = href?.startsWith("#") ?? false;
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      id={id}
+      target={isInPage ? undefined : "_blank"}
+      rel={isInPage ? undefined : "noopener noreferrer"}
+      aria-describedby={ariaDescribedBy}
+      aria-label={ariaLabel}
+      data-footnote-ref={footnoteRef}
+      data-footnote-backref={footnoteBackref}
       style={{
         color: "var(--brown-500)",
         textDecoration: "underline",
@@ -145,15 +188,15 @@ function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
   const urlMap = new Map<string, number>();
   webCitations.forEach((c, i) => { if (c.url) urlMap.set(c.url, i); });
 
-  return function CitationAwareLink({ href, children }) {
+  return function CitationAwareLink(props) {
     // Explicit citation reference: citation://N (from preprocessCitations)
-    const citRef = href?.match(/^citation:\/\/(\d+)$/);
+    const citRef = props.href?.match(/^citation:\/\/(\d+)$/);
     if (citRef) {
       const n = parseInt(citRef[1], 10);
       return <CitationChip n={n} citation={webCitations[n - 1]} />;
     }
     // All other links render as proper clickable links
-    return <BaseLink href={href}>{children}</BaseLink>;
+    return <BaseLink {...props} />;
   };
 }
 
@@ -173,33 +216,46 @@ function preprocessCitations(content: string): string {
     .replace(/(?<![[\]\w])\[(\d+)\](?!\()/g, (_, n) => `[[${n}]](citation://${n})`);
 }
 
+const VISUALLY_HIDDEN: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+const H3_STYLE: React.CSSProperties = { fontSize: "var(--prose-size-h3)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h3)", margin: "var(--prose-h3-space-before) 0 var(--prose-h3-space-after)" };
+
+// Every component spreads its props through withoutNode so react-markdown's
+// HAST `node` never reaches the DOM as node="[object Object]".
 const BASE_COMPONENTS: Components = {
-  code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || "");
-    const language = match ? match[1] : undefined;
-    const value = String(children).replace(/\n$/, "");
-
-    // Inline code (no language class, inside a <p>)
-    if (!className && !value.includes("\n")) {
-      return (
-        <code
-          style={{
-            fontFamily: "var(--font-code)",
-            fontSize: "var(--prose-size-code)",
-            background: "var(--neutral-800-10)",
-            color: "var(--prose-heading)",
-            borderRadius: "4px",
-            padding: "1px 5px",
-            border: "1px solid var(--neutral-700-12)",
-            whiteSpace: "pre",
-          }}
-          {...props}
-        >
-          {children}
-        </code>
-      );
-    }
-
+  // Inline code only — fenced blocks are rendered by `pre` below, so a
+  // one-line fence without a language is still a full CodeBlock.
+  code({ children, ...props }) {
+    return (
+      <code
+        style={{
+          fontFamily: "var(--font-code)",
+          fontSize: "var(--prose-size-code)",
+          background: "var(--neutral-800-10)",
+          color: "var(--prose-heading)",
+          borderRadius: "4px",
+          padding: "1px 5px",
+          border: "1px solid var(--neutral-700-12)",
+          whiteSpace: "pre",
+        }}
+        {...withoutNode(props)}
+      >
+        {children}
+      </code>
+    );
+  },
+  pre({ node }) {
+    const { language, value } = readCodeBlock(node);
     return (
       <CodeBlock
         language={language}
@@ -208,13 +264,7 @@ const BASE_COMPONENTS: Components = {
       />
     );
   },
-  pre({ children }) {
-    // Let CodeBlock handle the wrapping
-    return <>{children}</>;
-  },
-  a({ href, children }) {
-    return <BaseLink href={href}>{children}</BaseLink>;
-  },
+  a: BaseLink,
   table({ children, ...props }) {
     return (
       <div
@@ -231,7 +281,7 @@ const BASE_COMPONENTS: Components = {
             fontFamily: "var(--font-body)",
             tableLayout: "auto",
           }}
-          {...props}
+          {...withoutNode(props)}
         >
           {children}
         </table>
@@ -242,7 +292,7 @@ const BASE_COMPONENTS: Components = {
     return (
       <thead
         style={{ backgroundColor: "var(--neutral-50)" }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </thead>
@@ -261,7 +311,7 @@ const BASE_COMPONENTS: Components = {
           whiteSpace: "nowrap",
           verticalAlign: "top",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </th>
@@ -278,7 +328,7 @@ const BASE_COMPONENTS: Components = {
           minWidth: "120px",
           wordBreak: "break-word",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </td>
@@ -296,7 +346,7 @@ const BASE_COMPONENTS: Components = {
           fontStyle: "italic",
           lineHeight: "var(--prose-line-body)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </blockquote>
@@ -304,44 +354,82 @@ const BASE_COMPONENTS: Components = {
   },
   ul({ children, ...props }) {
     return (
-      <ul style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "disc", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...props}>
+      <ul style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "disc", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...withoutNode(props)}>
         {children}
       </ul>
     );
   },
   ol({ children, ...props }) {
     return (
-      <ol style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "decimal", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...props}>
+      <ol style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "decimal", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...withoutNode(props)}>
         {children}
       </ol>
     );
   },
   li({ children, ...props }) {
+    // GFM task items carry their own checkbox, so they drop the bullet.
+    const isTask = props.className?.split(" ").includes("task-list-item");
     return (
-      <li style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }} {...props}>
+      <li style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)", listStyleType: isTask ? "none" : undefined }} {...withoutNode(props)}>
         {children}
       </li>
     );
   },
+  input({ type, checked, ...props }) {
+    if (type !== "checkbox") return <input type={type} checked={checked} {...withoutNode(props)} />;
+    // Task-list checkbox: read-only, sitting inline before the item text.
+    return (
+      <span style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 8 }}>
+        <Checkbox checked={Boolean(checked)} disabled aria-label="Task" />
+      </span>
+    );
+  },
   h1({ children, ...props }) {
     return (
-      <h2 style={{ fontSize: "var(--prose-size-h1)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h1)", margin: "var(--prose-h1-space-before) 0 var(--prose-h1-space-after)" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h1)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h1)", margin: "var(--prose-h1-space-before) 0 var(--prose-h1-space-after)" }} {...withoutNode(props)}>
         {children}
       </h2>
     );
   },
   h2({ children, ...props }) {
+    // GFM's "Footnotes" label is a screen-reader-only h2. `sr-only` isn't in
+    // the app's generated CSS, so hide it here.
+    if (props.className?.split(" ").includes("sr-only")) {
+      return <h2 style={VISUALLY_HIDDEN} {...withoutNode(props)}>{children}</h2>;
+    }
     return (
-      <h2 style={{ fontSize: "var(--prose-size-h2)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h2)", margin: "var(--prose-h2-space-before) 0 var(--prose-h2-space-after)" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h2)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h2)", margin: "var(--prose-h2-space-before) 0 var(--prose-h2-space-after)" }} {...withoutNode(props)}>
         {children}
       </h2>
     );
   },
   h3({ children, ...props }) {
     return (
-      <h3 style={{ fontSize: "var(--prose-size-h3)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-ai-output)", lineHeight: "var(--prose-line-h3)", margin: "var(--prose-h3-space-before) 0 var(--prose-h3-space-after)" }} {...props}>
+      <h3 style={H3_STYLE} {...withoutNode(props)}>
         {children}
       </h3>
+    );
+  },
+  // h4–h6 keep their semantic level but look like h3: the prose scale stops there.
+  h4({ children, ...props }) {
+    return (
+      <h4 style={H3_STYLE} {...withoutNode(props)}>
+        {children}
+      </h4>
+    );
+  },
+  h5({ children, ...props }) {
+    return (
+      <h5 style={H3_STYLE} {...withoutNode(props)}>
+        {children}
+      </h5>
+    );
+  },
+  h6({ children, ...props }) {
+    return (
+      <h6 style={H3_STYLE} {...withoutNode(props)}>
+        {children}
+      </h6>
     );
   },
   hr() {
@@ -351,7 +439,7 @@ const BASE_COMPONENTS: Components = {
   },
   p({ children, ...props }) {
     return (
-      <p style={{ margin: "0", marginBottom: "var(--prose-block-gap)", lineHeight: "var(--prose-line-body)", fontWeight: 400, fontSize: "var(--prose-size-body)", color: "var(--prose-text)" }} {...props}>
+      <p style={{ margin: "0", marginBottom: "var(--prose-block-gap)", lineHeight: "var(--prose-line-body)", fontWeight: 400, fontSize: "var(--prose-size-body)", color: "var(--prose-text)" }} {...withoutNode(props)}>
         {children}
       </p>
     );
@@ -378,11 +466,15 @@ function sanitizePreservingMath(content: string): string {
   const stash: string[] = []
   const token = (i: number) => `\x02M${i}\x02`
 
+  // An escaped `\$` is a literal dollar, never a delimiter: remark-math won't
+  // treat a span starting there as math, so stashing it would let raw HTML
+  // in it skip sanitisation. (preprocessMarkdown already rewrote any `\$`
+  // inside real math, so real spans contain no `$` of their own.)
   const guarded = content
     // Display math first (longer delimiter wins over inline $)
-    .replace(/\$\$([\s\S]*?)\$\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
+    .replace(/(?<!\\)\$\$([\s\S]*?)(?<!\\)\$\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
     // Inline math (no newlines inside — avoids grabbing prose dollar signs)
-    .replace(/\$([^$\n]+?)\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
+    .replace(/(?<!\\)\$([^$\n]+?)(?<!\\)\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
 
   const sanitized = DOMPurify.sanitize(guarded, { USE_PROFILES: { html: true } })
 
@@ -404,6 +496,10 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, webCitations, highlights, allowHtml = false }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
+  // Footnote ids/hrefs get a per-renderer prefix so two messages' footnotes
+  // (both "fn-1") never collide or jump to each other.
+  const footnotePrefix = `${useId().replace(/[^\w-]/g, "")}-`;
+  const remarkRehypeOptions = useMemo(() => ({ clobberPrefix: footnotePrefix }), [footnotePrefix]);
 
   const resolvedComponents = useMemo<Components>(
     () => hasCitations
@@ -428,13 +524,14 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     const plugins: Pluggable[] = highlights?.length
       ? [rehypeKatex, makeHighlightMarksPlugin(highlights)]
       : [...rehypePlugins];
+    plugins.push(makeFootnoteLabelPlugin(footnotePrefix));
     // rehype-katex must run BEFORE rehype-raw. rehype-raw re-serialises the
     // HAST tree, which would destroy the math node metadata that rehype-katex
     // needs to render KaTeX. By running rehype-katex first, math is already
     // rendered to HTML before rehype-raw processes the rest of the document.
     if (allowHtml) plugins.push(rehypeRaw);
     return plugins;
-  }, [highlights, allowHtml]);
+  }, [highlights, allowHtml, footnotePrefix]);
 
   return (
     <div
@@ -450,6 +547,7 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     >
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
+        remarkRehypeOptions={remarkRehypeOptions}
         rehypePlugins={resolvedRehypePlugins}
         components={resolvedComponents}
         urlTransform={markdownUrlTransform}

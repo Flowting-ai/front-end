@@ -33,6 +33,8 @@ import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 const SHADOW_DEFAULT = "var(--shadow-chat-input)";
 const SHADOW_HOVER = "var(--shadow-chat-input-hover)";
 const SHADOW_FOCUS = "var(--shadow-chat-input-focus)";
+// A send counts toward refocusing only if its stream starts within this long.
+const SEND_TO_STREAM_MS = 1_000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -224,6 +226,43 @@ export function ChatInput(
       observer.observe(el);
       return () => observer.disconnect();
     }, []);
+
+    // When a message was last sent from the focused box (performance.now()),
+    // and whether that focus should come back after the reply — see below.
+    const focusedSendAtRef = useRef<number | null>(null);
+    const focusedAtSendRef = useRef(false);
+    const wasStreamingRef = useRef(isStreaming);
+
+    // The box stays editable while a reply streams, so focus normally never
+    // leaves it. If it did drop to <body> anyway (e.g. a host that disables
+    // the box while streaming), hand it back once the reply is done — but
+    // only if the user was typing here when they sent, never away from
+    // another control they moved to, and not on touch screens, where focusing
+    // would pop the on-screen keyboard back up.
+    useEffect(() => {
+      const wasStreaming = wasStreamingRef.current;
+      wasStreamingRef.current = isStreaming;
+      if (!wasStreaming && isStreaming) {
+        // Judge focus when the stream starts, not at send: a send the host
+        // turned down (credits, takeover) starts no stream, and must not make
+        // a later one (e.g. a Regenerate click) pull focus back here. A host
+        // that disables the box while streaming has already moved focus to
+        // <body>, so a send from this box moments ago counts too.
+        const sentAt = focusedSendAtRef.current;
+        focusedSendAtRef.current = null;
+        focusedAtSendRef.current = document.activeElement === textareaRef.current
+          || (sentAt !== null && performance.now() - sentAt < SEND_TO_STREAM_MS);
+        return;
+      }
+      if (!wasStreaming || isStreaming) return;
+      const hadFocus = focusedAtSendRef.current;
+      focusedAtSendRef.current = false;
+      if (!hadFocus) return;
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (window.matchMedia?.("(pointer: coarse)").matches) return;
+      textareaRef.current?.focus();
+    }, [isStreaming]);
 
     const isDraggingRef        = useRef(false);
     const dragStartXRef        = useRef(0);
@@ -444,7 +483,9 @@ export function ChatInput(
     };
 
     const handleSend = () => {
-      if ((!value && !hasAttachments) || disabled) return;
+      // Typing ahead is allowed while a reply streams; sending waits for it.
+      if ((!value && !hasAttachments) || disabled || isStreaming) return;
+      focusedSendAtRef.current = document.activeElement === textareaRef.current ? performance.now() : null;
       const text = value;
       if (!isControlled) setInternalValue("");
       onChange?.("");
@@ -453,7 +494,9 @@ export function ChatInput(
     };
 
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      if (!onFilePaste) return;
+      // Attachments can't be added or removed while a reply streams (the
+      // attachment list and drag-and-drop are locked), so images wait too.
+      if (!onFilePaste || isStreaming) return;
       const items = Array.from(e.clipboardData.items);
       const files = items
         .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
@@ -496,9 +539,17 @@ export function ChatInput(
         }
       }
 
-      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && value && !disabled && !isRecording) {
-        e.preventDefault();
-        handleSend();
+      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+        // Enter still means "send" while a reply streams: swallow it rather
+        // than insert a newline, and keep the draft to send once it's done.
+        if (isStreaming) {
+          e.preventDefault();
+          return;
+        }
+        if (value && !disabled && !isRecording) {
+          e.preventDefault();
+          handleSend();
+        }
       }
     };
 
@@ -558,6 +609,11 @@ export function ChatInput(
         : value || hasAttachments
           ? "send"
           : "mic";
+
+    // Only `disabled` locks the textarea, so it keeps focus and can be typed
+    // in while a reply streams; the add menu and model selector stay locked
+    // for the stream, as they were when the host disabled the whole input.
+    const controlsDisabled = disabled || isStreaming;
 
     // Button is disabled only when the disabled prop is set AND there's no
     // in-progress action to cancel, AND browser doesn't support speech with
@@ -769,7 +825,7 @@ export function ChatInput(
                         size={szBtn}
                         icon={<PlusSignIcon size={20} />}
                         aria-label="Add attachment"
-                        disabled={disabled}
+                        disabled={controlsDisabled}
                       />
                     }
                   >
@@ -785,7 +841,7 @@ export function ChatInput(
                     icon={<PlusSignIcon size={20} />}
                     aria-label="Add attachment"
                     onClick={onAdd}
-                    disabled={disabled}
+                    disabled={controlsDisabled}
                   />
                 )}
               </div>}
@@ -885,7 +941,7 @@ export function ChatInput(
                     size={szBtn}
                     leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
                     rightIcon={<ArrowDownOneIcon size={16} />}
-                    disabled={disabled}
+                    disabled={controlsDisabled}
                   >
                     {modelName}
                   </Button>
@@ -909,7 +965,7 @@ export function ChatInput(
                 leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
                 rightIcon={<ArrowDownOneIcon size={16} />}
                 onClick={onModelClick}
-                disabled={disabled}
+                disabled={controlsDisabled}
               >
                 {modelName}
               </Button>

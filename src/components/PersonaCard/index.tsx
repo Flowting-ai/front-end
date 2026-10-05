@@ -21,7 +21,6 @@ import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import {
-  AnimatedPersonaAvatar,
   getAvatarColors,
   getAvatarChoice,
   defaultAvatarChoice,
@@ -30,6 +29,9 @@ import {
   type AvatarTheme,
 } from './AnimatedPersonaAvatar'
 import { agentHeroStyle } from './AgentHero'
+import { HeroScene, sceneFor } from './HeroScene'
+import { GazeChannel, type AvatarMood } from './gaze'
+import { AgentOrb } from './AgentOrb'
 import { AgentCardButton } from './AgentCardButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -55,6 +57,8 @@ const CARD_RADIUS = 20
 const HERO_HEIGHT = CARD_HEIGHT * 0.5
 const ACTION_HEIGHT = CARD_HEIGHT * 0.15
 const AVATAR_SIZE = 110
+/** The hero sits this far in from the card's top and sides, like a screen in a bezel. */
+const HERO_INSET = 6
 
 const EMPTY_PERSONA_TAGS: string[] = []
 
@@ -394,11 +398,17 @@ function PersonaCardInner({
       ...props
     }: PersonaCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [internalHovered, setInternalHovered] = useState(false)
+    // Where the avatar's eyes look: the hero scene's lead element, or the pointer over the card.
+    const [gaze] = useState(() => new GazeChannel())
     const [menuOpen,         setMenuOpen]         = useState(false)
     const [dropUp,           setDropUp]           = useState(false)
     const menuTriggerRef = useRef<HTMLDivElement>(null)
 
-    const isHovered   = hoveredProp ?? internalHovered
+    // Keyboard focus inside the card counts as being there — it wakes the card like a hover.
+    const [keyboardHot, setKeyboardHot] = useState(false)
+    // Bumped per arrival, so the orb's "screen wake" sweep plays once each time.
+    const [arrivals, setArrivals] = useState(0)
+    const isHovered   = hoveredProp ?? (internalHovered || keyboardHot)
     const isDraft     = variant === 'draft'
     const isTemplate  = variant === 'template'
     const isCommunity = variant === 'community' || variant === 'community-imported'
@@ -454,19 +464,63 @@ function PersonaCardInner({
     }, [])
 
     const Comp = (asChild ? Slot : 'div') as React.ElementType
+    const mood: AvatarMood = modelUnavailable ? 'unavailable' : paused ? 'asleep' : isDraft ? 'drowsy' : 'awake'
+    const canTilt = !modelUnavailable && !isDraft
+
+    // Pointer over the card: the eyes follow it, the glare tracks it (--mx/--my) and the card
+    // tilts toward it (--rx/--ry) — all straight onto the element, never through React state.
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      gaze.setPointer({ x: e.clientX, y: e.clientY })
+      const el = e.currentTarget
+      const box = el.getBoundingClientRect()
+      const mx = e.clientX - box.left, my = e.clientY - box.top
+      el.style.setProperty('--mx', `${mx.toFixed(0)}px`)
+      el.style.setProperty('--my', `${my.toFixed(0)}px`)
+      if (e.pointerType === 'mouse' && canTilt && !menuOpen) {
+        el.style.setProperty('--ry', `${(((mx / box.width) * 2 - 1) * 4).toFixed(2)}deg`)
+        el.style.setProperty('--rx', `${(-((my / box.height) * 2 - 1) * 3).toFixed(2)}deg`)
+      }
+    }
+    const settle = (el: HTMLElement) => {
+      el.style.setProperty('--rx', '0deg')
+      el.style.setProperty('--ry', '0deg')
+    }
+
+    // "Use in chat" holds the eyes' attention — they look at it, happily.
+    const attendTo = (el: HTMLElement | null) => {
+      if (!el) { gaze.setAttention(null); return }
+      const box = el.getBoundingClientRect()
+      gaze.setAttention({ x: box.left + box.width / 2, y: box.top + box.height / 2 })
+    }
 
     return (
       <Comp
         ref={ref}
-        className={cn(className)}
+        className={cn('agent-card', className)}
+        data-hot={(animateHover && !isDraft) || undefined}
+        data-menu-open={menuOpen || undefined}
         onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
           setInternalHovered(true)
+          setArrivals(n => n + 1)
           onMouseEnterProp?.(e)
         }}
+        onPointerMove={handlePointerMove}
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+          gaze.setPointer(null)
+          gaze.setAttention(null)
+          settle(e.currentTarget)
           setInternalHovered(false)
           setLeaveCount(n => n + 1)
           onMouseLeaveProp?.(e)
+        }}
+        onFocus={(e: React.FocusEvent<HTMLDivElement>) => {
+          if ((e.target as HTMLElement).matches(':focus-visible')) {
+            if (!keyboardHot) setArrivals(n => n + 1)
+            setKeyboardHot(true)
+          }
+        }}
+        onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setKeyboardHot(false)
         }}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           if (!modelUnavailable) setBounceKey(n => n + 1)
@@ -486,7 +540,10 @@ function PersonaCardInner({
           backgroundSize:     animateHover || isDraft ? '100% 100%' : '260% 260%',
           backgroundPosition: 'center',
           backgroundRepeat:   'no-repeat',
-          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : (animateHover && !isDraft ? SHADOW_CARD_HOVER : SHADOW_CARD),
+          // Hot: lifted, with a shadow tinted by the agent's colour under the brightened ring.
+          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : (animateHover && !isDraft
+            ? `var(--lift-shadow), 0 24px 60px -20px color-mix(in srgb, ${avatarColors[0]} 40%, transparent), ${SHADOW_CARD_HOVER}`
+            : SHADOW_CARD),
           border:          isDraft
             ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
             : undefined,
@@ -495,7 +552,9 @@ function PersonaCardInner({
           zIndex:          menuOpen ? 100 : undefined,
           opacity:         pausePending ? 0.6 : 1,
           pointerEvents:   pausePending ? 'none' : undefined,
-          transition:      'opacity 150ms, box-shadow 300ms, background-size 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+          // Lift, tilt and their transitions come from .agent-card (globals.css).
+          ['--c0' as string]: avatarColors[0],
+          ['--c1' as string]: avatarColors[1],
           ...style,
         }}
         // Dark mode: the card sits on a lighter grey, so its muted text/icon tones are lifted
@@ -503,6 +562,8 @@ function PersonaCardInner({
         data-surface="raised"
         {...props}
       >
+        {/* Pointer spotlight + lit border, while the card is hot. */}
+        <div className="agent-card-glare" aria-hidden />
 
         {/* ── Template: copy icon — top-right corner ──────────────────── */}
         {isTemplate && (
@@ -525,39 +586,55 @@ function PersonaCardInner({
         )}
 
         {/* ── Hero: the agent's colour as a banner, avatar centred on it ───── */}
+        {/* The hero is an inset "screen" (HERO_INSET in from the card's edges, concentric
+            corners): the agent's living scene, with the avatar in its glass orb at the centre. */}
         <div
-          aria-hidden={false}
+          className="agent-hero-screen"
           style={{
             position:     'relative',
-            height:       HERO_HEIGHT,
+            height:       HERO_HEIGHT - HERO_INSET,
+            margin:       `${HERO_INSET}px ${HERO_INSET}px 0`,
             flexShrink:   0,
-            borderRadius: `${CARD_RADIUS}px ${CARD_RADIUS}px 0 0`,
+            borderRadius: CARD_RADIUS - HERO_INSET,
             ...agentHeroStyle(avatarColors[0]),
             // A draft is not live yet — mute its banner.
             opacity:      isDraft ? 0.55 : paused ? 0.6 : 1,
             transition:   'opacity 0.2s ease',
           }}
         >
-          <div
-            style={{
-              position:        'absolute',
-              left:            '50%',
-              top:             '50%',
-              transform:       'translate(-50%, -50%)',
-              borderRadius:    '50%',
-              backgroundColor: 'var(--static-white)',
-            }}
-          >
-            <AnimatedPersonaAvatar
+          <HeroScene
+            kind={sceneFor(avatarTheme)}
+            colors={avatarColors}
+            seed={seed}
+            avatarSize={AVATAR_SIZE}
+            hovered={animateHover && !isDraft}
+            bounceKey={bounceKey}
+            inert={paused || modelUnavailable}
+            gaze={gaze}
+            // Paused: a still, faded scene. Unavailable: still and grey. Draft: slow and faint.
+            filter={modelUnavailable ? 'grayscale(1)' : paused ? 'saturate(0.35)' : undefined}
+            pace={isDraft ? 0.4 : 1}
+            opacity={isDraft ? 0.5 : 1}
+          />
+          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 2 }}>
+            <AgentOrb
               size={AVATAR_SIZE}
-              radius="50%"
               theme={avatarTheme}
-              colors={picked?.colors}
+              colors={avatarColors}
               seed={seed}
-              hovered={animateHover}
+              hovered={animateHover && !isDraft}
+              wakeKey={arrivals}
               bounceKey={bounceKey}
               inert={paused || modelUnavailable}
+              mood={mood}
+              eyes
+              gaze={gaze}
             />
+            {paused && (
+              <span className="agent-zzz" aria-hidden style={{ left: AVATAR_SIZE * 0.78, top: AVATAR_SIZE * 0.12 }}>
+                <span>z</span><span>z</span><span>z</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -591,7 +668,7 @@ function PersonaCardInner({
             flex:          '1 1 0',
             minHeight:     0,
             boxSizing:     'border-box' as const,
-            padding:       '12px 14px 0',
+            padding:       '14px 18px 0',
             // No opacity here when unavailable — the scrim below already dims
             // the content, and `opacity < 1` would create a stacking context
             // that traps the ··· menu underneath it.
@@ -649,14 +726,14 @@ function PersonaCardInner({
             // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
             <div
               ref={menuTriggerRef}
+              className="agent-card-chip"
+              data-open={menuOpen || undefined}
               style={{
                 position:      'absolute',
-                top:           8,
-                right:         8,
-                zIndex:        2,
-                borderRadius:    8,
-                backgroundColor: 'color-mix(in srgb, var(--neutral-white) 62%, transparent)',
-                ...(modelUnavailable ? { zIndex: 3, pointerEvents: 'auto' as const } : null),
+                top:           12,
+                right:         12,
+                zIndex:        3,
+                ...(modelUnavailable ? { pointerEvents: 'auto' as const } : null),
               }}
               onMouseDown={e => e.stopPropagation()}
               onClick={e => e.stopPropagation()}
@@ -665,7 +742,12 @@ function PersonaCardInner({
                 variant="ghost"
                 size="xs"
                 aria-label="More options"
-                icon={<MoreVerticalIcon />}
+                aria-expanded={menuOpen}
+                icon={
+                  <m.span animate={{ rotate: menuOpen ? 90 : 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} style={{ display: 'inline-flex' }}>
+                    <MoreVerticalIcon />
+                  </m.span>
+                }
                 onClick={handleMenuToggle}
               />
 
@@ -761,24 +843,30 @@ function PersonaCardInner({
 
           {/* Identity: name, "by" line, description — centred under the hero */}
           <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <span
-              title={name}
-              style={{
-                width:        '100%',
-                fontFamily:   'var(--font-title)', // Google Sans
-                fontSize:     18,
-                lineHeight:   '24px',
-                fontWeight:   'var(--font-weight-medium)',
-                color:        'var(--neutral-950)',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-                opacity:      paused ? 0.6 : 1,
-                transition:   'opacity 0.2s ease',
-              }}
-            >
-              {name}
-            </span>
+            {(() => {
+              const titleStyle: React.CSSProperties = {
+                width:         '100%',
+                fontFamily:    'var(--font-title)', // Google Sans
+                fontSize:      18,
+                lineHeight:    '24px',
+                fontWeight:    'var(--font-weight-medium)',
+                letterSpacing: '-0.01em',
+                color:         'var(--neutral-950)',
+                overflow:      'hidden',
+                textOverflow:  'ellipsis',
+                whiteSpace:    'nowrap',
+                opacity:       paused ? 0.6 : 1,
+                transition:    'opacity 0.2s ease',
+              }
+              // With a Details action, the title is the card's keyboard entry point (Tab → Enter).
+              return onMenuDetails ? (
+                <button type="button" className="agent-card__title" title={name} aria-label={`${name} — details`} onClick={onMenuDetails} style={titleStyle}>
+                  {name}
+                </button>
+              ) : (
+                <span title={name} style={titleStyle}>{name}</span>
+              )
+            })()}
 
             {(createdBy || authorHandle) && (
               <m.span
@@ -836,14 +924,39 @@ function PersonaCardInner({
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'center',
-            borderTop:      primary && !modelUnavailable ? '1px solid var(--neutral-100)' : undefined,
+            // A hairline that fades out at both ends.
+            backgroundImage:    primary && !modelUnavailable ? 'linear-gradient(90deg, transparent, var(--neutral-200), transparent)' : undefined,
+            backgroundSize:     '100% 1px',
+            backgroundPosition: 'top',
+            backgroundRepeat:   'no-repeat',
             marginInline:   14,
           }}
         >
           {primary && !modelUnavailable && (
-            <AgentCardButton size="sm" loading={primary.loading} disabled={primary.loading} onClick={primary.onClick}>
-              {primary.label}
-            </AgentCardButton>
+            <span
+              className="agent-card-cta"
+              onPointerEnter={e => attendTo(e.currentTarget)}
+              onPointerLeave={() => attendTo(null)}
+              onFocus={e => { if ((e.target as HTMLElement).matches(':focus-visible')) attendTo(e.currentTarget) }}
+              onBlur={() => attendTo(null)}
+            >
+              <AgentCardButton size="sm" loading={primary.loading} disabled={primary.loading} onClick={primary.onClick}>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {primary.label}
+                  {/* Slides in (and takes its room) only while the card is hot, so the label
+                      stays centred at rest: "go". */}
+                  <m.span
+                    aria-hidden
+                    initial={false}
+                    animate={{ width: animateHover ? 20 : 0, opacity: animateHover ? 1 : 0, x: animateHover ? 0 : -4 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    style={{ display: 'inline-flex', justifyContent: 'flex-end', overflow: 'hidden' }}
+                  >
+                    <ArrowRightTwoIcon size={14} />
+                  </m.span>
+                </span>
+              </AgentCardButton>
+            </span>
           )}
         </div>
 

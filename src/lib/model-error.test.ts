@@ -52,4 +52,17 @@ describe("stripResponseInterruptedMarker", () => {
   it("is a no-op when no marker is present", () => {
     expect(stripResponseInterruptedMarker("Just a normal message.")).toBe("Just a normal message.");
   });
+
+  it("closes a code fence the interruption left open before adding the friendly line", () => {
+    const result = stripResponseInterruptedMarker("```js\nconst a = 1\n[Response interrupted: 500: boom]");
+    expect(result.startsWith("```js\nconst a = 1\n```\n\n")).toBe(true);
+    expect(stripResponseInterruptedMarker("~~~~\nx\n[Response interrupted: boom]")).toMatch(/^~~~~\nx\n~~~~\n\n/);
+    // Inside a list item the closer keeps the item's indentation.
+    expect(stripResponseInterruptedMarker("2. ```bash\n   npm i\n[Response interrupted: boom]")).toMatch(/^2\. ```bash\n {3}npm i\n {3}```\n\n/);
+  });
+
+  it("leaves already-closed fences alone", () => {
+    const result = stripResponseInterruptedMarker("```\na\n```\nDone\n[Response interrupted: boom]");
+    expect(result.startsWith("```\na\n```\nDone\n\n")).toBe(true);
+  });
 });

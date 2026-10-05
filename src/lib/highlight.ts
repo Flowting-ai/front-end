@@ -45,6 +45,7 @@ const LAZY_LOADERS: Record<string, Loader> = {
   csharp:     () => import("highlight.js/lib/languages/csharp"),
   cs:         () => import("highlight.js/lib/languages/csharp"),
   cpp:        () => import("highlight.js/lib/languages/cpp"),
+  "c++":      () => import("highlight.js/lib/languages/cpp"),
   c:          () => import("highlight.js/lib/languages/c"),
   go:         () => import("highlight.js/lib/languages/go"),
   golang:     () => import("highlight.js/lib/languages/go"),
@@ -74,28 +75,40 @@ const LAZY_LOADERS: Record<string, Loader> = {
   elixir:     () => import("highlight.js/lib/languages/elixir"),
   objectivec: () => import("highlight.js/lib/languages/objectivec"),
   objc:       () => import("highlight.js/lib/languages/objectivec"),
+  "objective-c": () => import("highlight.js/lib/languages/objectivec"),
+  "obj-c":    () => import("highlight.js/lib/languages/objectivec"),
 };
 
 // Canonical name used for registration (aliases map to the same canonical)
 const CANONICAL: Record<string, string> = {
   sass: "scss", cs: "csharp", golang: "go", rs: "rust", rb: "ruby",
   kt: "kotlin", hs: "haskell", docker: "dockerfile", toml: "ini",
-  gql: "graphql", objc: "objectivec",
+  gql: "graphql", objc: "objectivec", "c++": "cpp",
+  "objective-c": "objectivec", "obj-c": "objectivec",
 };
 
 const _pending = new Map<string, Promise<void>>();
+
+// Makes `key` resolve once its grammar is registered under `canonical`, for
+// spellings the grammar doesn't list itself (e.g. "objective-c", "sass").
+function aliasToCanonical(key: string, canonical: string): void {
+  if (!hljs.getLanguage(key) && hljs.getLanguage(canonical)) {
+    hljs.registerAliases(key, { languageName: canonical });
+  }
+}
 
 export async function ensureLanguage(lang: string): Promise<void> {
   const key = lang.toLowerCase();
   const canonical = CANONICAL[key] ?? key;
 
-  if (hljs.getLanguage(canonical) || hljs.getLanguage(key)) return;
+  if (hljs.getLanguage(key)) return;
+  if (hljs.getLanguage(canonical)) return aliasToCanonical(key, canonical);
 
   const loader = LAZY_LOADERS[key];
   if (!loader) return;
 
   const existing = _pending.get(canonical);
-  if (existing) return existing;
+  if (existing) return existing.then(() => aliasToCanonical(key, canonical));
 
   const p = loader().then((mod) => {
     const fn = (mod as { default: unknown }).default;

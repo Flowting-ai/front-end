@@ -18,6 +18,8 @@ import { mixpanelToken, analyticsEnabled } from "@/lib/config";
 import { STAMP, SURFACE_WEB, ORG_GROUP_KEY } from "./stamps";
 
 const isDev = process.env.NODE_ENV === "development";
+// SDK debug logging is opt-in (it logs every call to the console), even in dev.
+const sdkDebug = process.env.NEXT_PUBLIC_MIXPANEL_DEBUG === "true";
 let initialized = false;
 
 function warn(label: string, err: unknown): void {
@@ -64,7 +66,7 @@ export function initAnalytics(): void {
       persistence: "localStorage",
       // Session Replay is a later, masked phase — off for now.
       record_sessions_percent: 0,
-      debug: isDev,
+      debug: sdkDebug,
       // TODO(privacy): gate initialization behind cookie consent before we have
       // EU/UK users, mirroring the note in src/components/MetaPixel/index.tsx.
     });

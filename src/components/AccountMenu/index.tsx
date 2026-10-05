@@ -16,6 +16,7 @@ import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { ThemeModeSwitcher } from '@/components/ThemeModeSwitcher'
 import { useTheme } from '@/context/theme-context'
+import { useModKeyLabel } from '@/lib/platform'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -295,6 +296,7 @@ export function AccountMenu({
   onLogOut,
 }: AccountMenuProps & { ref?: React.Ref<HTMLDivElement> }) {
   const [internalOpen, setInternalOpen] = useState(false)
+  const modKey = useModKeyLabel()
   const isControlled = controlledOpen !== undefined
   const open         = isControlled ? controlledOpen : internalOpen
 
@@ -375,7 +377,7 @@ export function AccountMenu({
             <Dropdown.Item
               icon={<SettingsOneIcon />}
               label="Settings"
-              badge={<ShortcutPill label="⌘ ," />}
+              badge={<ShortcutPill label={`${modKey} ,`} />}
               fluid
               onClick={() => { onSettings?.(); close() }}
             />

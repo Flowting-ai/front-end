@@ -20,7 +20,42 @@ function emit() {
   listeners.forEach(listener => listener())
 }
 
+// ── Turn timing ───────────────────────────────────────────────────────────────
+// Messages carry no duration, so how long a turn ran is clocked here, where every
+// publish passes through — whether or not the panel is open to watch. A turn starts at
+// its loading message's (client-stamped) created_at and ends at the first publish that
+// shows it no longer loading. Keyed by reactKey, which survives the temp → real id swap.
+
+export interface TurnTiming {
+  startedAt:   number
+  /** Unset while the turn is still running. */
+  finishedAt?: number
+}
+
+const turnTimings = new Map<string, TurnTiming>()
+
+function clockTurns(messages: UIMessage[]): void {
+  for (const message of messages) {
+    if (message.role !== 'assistant' || !message.reactKey) continue
+    const timing = turnTimings.get(message.reactKey)
+    if (message.isLoading) {
+      if (!timing) {
+        const created = Date.parse(message.created_at)
+        turnTimings.set(message.reactKey, { startedAt: Number.isNaN(created) ? Date.now() : created })
+      }
+    } else if (timing && timing.finishedAt === undefined) {
+      timing.finishedAt = Date.now()
+    }
+  }
+}
+
+/** When this turn ran, if it ran in this tab. Turns loaded from history have no timing. */
+export function turnTiming(message: UIMessage | undefined): TurnTiming | undefined {
+  return message?.reactKey ? turnTimings.get(message.reactKey) : undefined
+}
+
 export function publishChatContext(next: ChatContextSnapshot): void {
+  clockTurns(next.messages)
   snapshot = next
   emit()
 }

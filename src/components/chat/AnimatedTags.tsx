@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { m } from "framer-motion";
 import type { TagsData } from "@/types/chat";
+import { useTheme } from "@/context/theme-context";
+import { blendOver, ensureContrast } from "./AnimatedTags.contrast";
 
 // �"��"� AnimatedTags �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
@@ -16,15 +18,19 @@ const TAG_PALETTES = [
 
 /** Tag colors arrive from the model, and the `15`/`28` alpha suffixes below are
  *  only valid on a 6-digit hex — anything else silently produced an unparseable
- *  color, so it falls back to the cycling palette instead. */
-function tagPalette(color: string | undefined, i: number) {
+ *  color, so it falls back to the cycling palette instead.
+ *  In the light theme the label is darkened as needed to stay ≥4.5:1 against
+ *  the tint (`15` ≈ 8% alpha) over the chat surface (--neutral-white). */
+function tagPalette(color: string | undefined, i: number, isLight: boolean) {
   const pal = TAG_PALETTES[i % TAG_PALETTES.length];
   if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return pal;
-  return { bg: `${color}15`, text: color, border: `${color}28` };
+  const text = isLight ? ensureContrast(color, blendOver(color, 0x15 / 255, "#FCFCFB")) : color;
+  return { bg: `${color}15`, text, border: `${color}28` };
 }
 
 export function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
   const [revealedTags, setRevealedTags] = useState(() => animate ? 0 : data.tags.length);
+  const isLight = useTheme().resolved === "light";
   useEffect(() => {
     if (!animate) { onComplete(); return; }
     let idx = 0;
@@ -42,10 +48,10 @@ export function AnimatedTags({ data, onComplete, animate = true }: { data: TagsD
 
   return (
     <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} style={{ fontFamily: "var(--font-body)" }}>
-      {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-400)", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
+      {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {data.tags.slice(0, revealedTags).map((tag, i) => {
-          const pal = tagPalette(tag.color, i);
+          const pal = tagPalette(tag.color, i, isLight);
           return (
             <m.span key={tag.label} initial={{ scale: 0.55, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}>

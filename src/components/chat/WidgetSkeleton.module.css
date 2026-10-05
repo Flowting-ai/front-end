@@ -1,0 +1,25 @@
+/* Placeholder shown while a structured XML block is still streaming in, and
+   the fade the finished widget plays when it replaces it. */
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--neutral-100);
+  border-radius: 12px;
+  background: var(--neutral-white);
+}
+
+.reveal {
+  animation: widget-reveal 180ms ease-out both;
+}
+
+@keyframes widget-reveal {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .skeleton :global(.kaya-skeleton) {
+    animation: none;
+  }
+}

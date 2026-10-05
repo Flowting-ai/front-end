@@ -36,7 +36,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { ChipColor } from "@/components/Chip";
-import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
+import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed, personaProfileKey } from "@/lib/storage-keys";
 import { useMobile } from "@/hooks/use-mobile";
 import {
   PROJECT_ROUTE,
@@ -69,9 +69,37 @@ import type { Chat } from "@/types/chat";
 
 // -- Collapse state persistence ------------------------------------------------
 
-function readCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+// The initial state comes from the `sidebar_collapsed` cookie, read on the
+// server by the (app) layout and passed down as `defaultCollapsed`, so the
+// server render and the client's first render agree (no localStorage read
+// during render — that's what caused the 294px-vs-48px hydration mismatch).
+// localStorage is still written for agent/configure/layout.tsx, which reads it
+// to decide whether to toggle the sidebar.
+
+const SIDEBAR_COLLAPSED_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+// The latest toggle in this page session. The (app) layout isn't re-rendered
+// on client navigation, so its cookie-derived prop goes stale; a sidebar that
+// remounts (e.g. coming back from Settings) must start from this instead.
+let sessionCollapsed: boolean | undefined;
+
+function writeCollapsedCookie(collapsed: boolean) {
+  document.cookie = `${SIDEBAR_COLLAPSED_KEY}=${collapsed}; path=/; max-age=${SIDEBAR_COLLAPSED_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function writeCollapsed(collapsed: boolean) {
+  sessionCollapsed = collapsed;
+  writeCollapsedCookie(collapsed);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+}
+
+// One-time migration: the preference used to live only in localStorage. Copy
+// it into the cookie so the next page load renders it on the server.
+function migrateCollapsedCookie() {
+  const hasCookie = document.cookie.split("; ").some((c) => c.startsWith(`${SIDEBAR_COLLAPSED_KEY}=`));
+  if (hasCookie) return;
+  const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  if (stored !== null) writeCollapsedCookie(parseSidebarCollapsed(stored));
 }
 
 // -- Draft avatar fallback ------------------------------------------------------
@@ -2229,12 +2257,16 @@ interface LeftSidebarProps {
   activeChatId?: string;
   onSelectChat?: (id: string) => void;
   onNewChat?: () => void;
+  /** Initial collapsed state, from the `sidebar_collapsed` cookie read on the
+   *  server (see src/app/(app)/layout.tsx). Only read on mount. */
+  defaultCollapsed?: boolean;
 }
 
 function LeftSidebarImpl({
   activeChatId,
   onSelectChat,
   onNewChat,
+  defaultCollapsed = false,
 }: LeftSidebarProps) {
   const { push } = useGuardedRouter();
   const { guardedNavigate } = useNavGuard();
@@ -2290,7 +2322,10 @@ function LeftSidebarImpl({
     : 'chats'
   ) as 'chats' | 'agents' | 'admin' | 'new-chat' | 'projects';
 
-  const collapsedRef = useRef<boolean>(readCollapsed());
+  // First mount hydrates from the server's cookie read; a remount later in the
+  // session starts from the latest toggle (see sessionCollapsed).
+  const collapsedRef = useRef<boolean>(sessionCollapsed ?? defaultCollapsed);
+  useEffect(() => { migrateCollapsedCookie() }, []);
 
   // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
@@ -2335,9 +2370,7 @@ function LeftSidebarImpl({
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsedRef.current));
-    }
+    writeCollapsed(collapsedRef.current);
   };
 
   const handleNewChat = () => {

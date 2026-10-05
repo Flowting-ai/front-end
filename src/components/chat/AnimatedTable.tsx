@@ -181,7 +181,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
         <AnimatePresence>
           {data.caption && isDone && (
             <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-400)", fontStyle: "italic" }}>
+              style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-600)", fontStyle: "italic" }}>
               {data.caption}
             </m.div>
           )}

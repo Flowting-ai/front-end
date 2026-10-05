@@ -138,6 +138,16 @@ export const customEventSchemas = {
     error: z.string().nullable().optional(),
   }),
   stream_heartbeat: z.looseObject({ elapsed_seconds: z.number().optional() }),
+  // Proposed — not emitted by the backend yet. The turn's whole plan, sent in full each
+  // time any item changes (mirrors Slack's task_update in services/slack/streaming.py).
+  plan_updated: z.looseObject({
+    items: z.array(z.looseObject({
+      id:     z.string(),
+      title:  z.string(),
+      status: z.enum(["pending", "in_progress", "completed", "failed"]),
+      detail: z.string().nullable().optional(),
+    })),
+  }),
 } as const
 
 export type CustomEventName = keyof typeof customEventSchemas
