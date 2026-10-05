@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
@@ -106,9 +107,11 @@ function migrateCollapsedCookie() {
 // Draft agents' active version often has no persisted image_url yet — the
 // configure flow stashes the in-progress avatar in sessionStorage (same key the
 // /agents grid reads) before it's reflected in the fetched persona record.
-function personaAvatarUrl(persona: Persona): string | null {
+// `isClient` (useIsClient) keeps the sessionStorage read out of the server render
+// and hydration pass.
+function personaAvatarUrl(persona: Persona, isClient: boolean): string | null {
   if (persona.imageUrl) return persona.imageUrl;
-  if (typeof window === "undefined") return null;
+  if (!isClient) return null;
   try {
     const raw = sessionStorage.getItem(personaProfileKey(persona.id));
     const draft = JSON.parse(raw ?? "null") as Record<string, unknown> | null;
@@ -950,6 +953,7 @@ function goToAgentsLibrary(pathname: string | null, push: (href: string) => void
 const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
 
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
+  const isClient            = useIsClient()
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
@@ -1143,7 +1147,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
             ) ?? []
 
-            const avatarUrl  = personaAvatarUrl(persona)
+            const avatarUrl  = personaAvatarUrl(persona, isClient)
             const avatarIcon = avatarUrl
               ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
               : <UserAiIcon size={20} />
@@ -1240,6 +1244,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
 // sourceShareId: shared agents (accepted via Super Link) vs owned agents.
 
 function PersonasSectionIndividual() {
+  const isClient            = useIsClient()
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
@@ -1374,7 +1379,7 @@ function PersonasSectionIndividual() {
       c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
     ) ?? []
 
-    const avatarUrl  = personaAvatarUrl(persona)
+    const avatarUrl  = personaAvatarUrl(persona, isClient)
     const avatarIcon = avatarUrl
       ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
       : <UserAiIcon size={20} />
@@ -2423,8 +2428,10 @@ function LeftSidebarImpl({
 
   // Fall back to roleFit + billing snapshot to detect team accounts when orgId
   // hasn't resolved yet (e.g. an admin whose profile lacks org_id, or org API failed).
+  const isClient = useIsClient()
   const billingSnap = (() => {
-    try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
+    if (!isClient) return null
+    try { const r = window.sessionStorage.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
   const isTeamUser = Boolean(
     orgId ||
