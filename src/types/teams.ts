@@ -198,6 +198,8 @@ export interface MemberBurn {
 }
 
 export interface OrgPlan {
+  planId?: string | null
+  billingInterval?: string | null
   organizationId: string
   planType: 'teams' | 'enterprise'
   /**

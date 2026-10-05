@@ -20,18 +20,10 @@ const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
 const MONO  = "var(--font-code)"
 
-// Matches what the backend actually grants: services/stripe/catalog.py's
-// usageCredits() is a flat 80% of the monthly price, × 1000 for display units
-// (see toDisplayCredits in lib/api/organization.ts, and plans.yaml's comment).
-const CREDITS_BY_PRICE: Record<number, number> = {
-  50:   40_000,
-  100:  80_000,
-  125:  100_000,
-  250:  200_000,
-  500:  400_000,
-  1000: 800_000,
-  2000: 1_600_000,
-}
+// Share the Teams allowance calculation across pricing surfaces.
+const CREDITS_BY_PRICE: Record<number, number> = Object.fromEntries(
+  TeamsTier.all.map(tier => [tier.price, tier.credits]),
+)
 
 const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: CheckoutPlan }[] = [
   { price: 50,   credits: CREDITS_BY_PRICE[50],   label: '$50',  planId: '50'   },
@@ -43,10 +35,7 @@ const WORKSPACE_PLANS: { price: number; credits: number; label: string; planId: 
   { price: 2000, credits: CREDITS_BY_PRICE[2000], label: '$2k',  planId: '2000' },
 ]
 
-// Annual pricing is display-only (matches the 25% discount already shown on
-// settings/plans-and-billing) — checkout still runs through the same
-// monthly `updatePlan`/`createCheckout` call, there's no separate annual
-// planId on the backend yet.
+// Annual catalog prices collect nine monthly payments per year.
 const ANNUAL_MULTIPLIER = 0.75
 
 // Every tier the pricing sheet lists, for the dropdown — mirrors
@@ -319,21 +308,8 @@ function OrgChangePlanPageInner() {
   const currentPlan        = user?.planType ?? null
   const selectedWorkspace  = WORKSPACE_PLANS[workspaceIdx]!
 
-  // `org.monthlyPrice` is `TeamsTier.fromCredits(creditPool.total)?.price ?? 0`
-  // — an EXACT match of total credits (which drift off the 6 fixed tier
-  // boundaries the moment there's a topup or mid-cycle usage) against the
-  // Teams tiers, silently falling back to 0 on no match. That falsely read
-  // as "no plan" here, so upgrades went through createCheckout() (new
-  // subscription) instead of updatePlan() (existing subscription), which the
-  // backend correctly rejects with "You already have a plan. Use update plan
-  // to change it." The reliable "does this org have a plan at all" signal is
-  // `plan.hasSelectedPlan` (real backend plan_type != null) — used on its own,
-  // NOT combined with a tier-price match, since that match can independently
-  // fail (e.g. `planCredits` not landing exactly on one of the 6 tiers) and
-  // would silently reintroduce the same bug this is fixing. `currentTier` is
-  // only used below for cosmetics (which tier to preselect/label as current);
-  // it's allowed to come back unknown (-1) without affecting hasWorkspacePlan.
-  const currentTier             = TeamsTier.fromCredits(plan?.planCredits ?? 0)
+  // The backend's plan ID identifies the tier independently of wallet usage.
+  const currentTier             = TeamsTier.fromPlanId(plan?.planId)
   const currentWorkspaceTierIdx = currentTier ? WORKSPACE_PLANS.findIndex(p => p.price === currentTier.price) : -1
   const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org.plan !== 'enterprise'
   // No backend field distinguishes "org is on a free/trial plan" from "org has
@@ -404,16 +380,15 @@ function OrgChangePlanPageInner() {
     setChangingTo(planId)
     try {
       if (hasWorkspacePlan) {
-        await updatePlan(planId)
+        await updatePlan(planId, billing)
         trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
-        // See the matching comment in settings/billing/change-plan/page.tsx —
-        // without this the plans-and-billing page would show the OLD tier/price
+        // Refresh so the plans-and-billing page reflects the purchased tier.
         // right after an upgrade, until some unrelated remount refetched it.
         refreshMembers()
         router.replace(ORG_PLANS_ROUTE)
         return
       }
-      const checkout = await createCheckout({ planId })
+      const checkout = await createCheckout({ planId, billingInterval: billing })
       trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: planId })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
@@ -424,7 +399,7 @@ function OrgChangePlanPageInner() {
     }
   }
 
-  const workspaceIsCurrent      = hasWorkspacePlan && workspaceIdx === currentWorkspaceTierIdx
+  const workspaceIsCurrent      = hasWorkspacePlan && workspaceIdx === currentWorkspaceTierIdx && billing === plan?.billingInterval
   const workspaceIsDowngrade    = hasWorkspacePlan && workspaceIdx < currentWorkspaceTierIdx
   const workspaceButtonDisabled = workspaceIsCurrent || workspaceIsDowngrade || !!changingTo
 
@@ -437,7 +412,7 @@ function OrgChangePlanPageInner() {
   })()
 
   const displayedPrice = billing === 'annual'
-    ? Math.round(selectedWorkspace.price * ANNUAL_MULTIPLIER)
+    ? selectedWorkspace.price * ANNUAL_MULTIPLIER
     : selectedWorkspace.price
   const workspacePriceLabel = fmtPrice(displayedPrice)
 
@@ -655,14 +630,14 @@ function OrgChangePlanPageInner() {
                               const available = i !== -1
                               const p = available ? WORKSPACE_PLANS[i]! : null
                               const displayPrice = available && billing === 'annual'
-                                ? Math.round(p!.price * ANNUAL_MULTIPLIER)
+                                ? p!.price * ANNUAL_MULTIPLIER
                                 : price
                               return (
                                 <Dropdown.Item
                                   key={price}
                                   label={fmtPrice(displayPrice)}
                                   subLabel={available
-                                    ? `${fmtNum(p!.credits)} credits/mo`
+                                    ? `${fmtNum(new TeamsTier(p!.planId, billing).credits)} credits/mo`
                                     : `${fmtNum(CREDITS_BY_PRICE[price])} credits/mo · Coming soon`}
                                   selected={available && i === workspaceIdx}
                                   rightIcon={available && i === workspaceIdx ? <TickTwoIcon size={16} color="var(--neutral-700)" /> : undefined}
@@ -680,7 +655,7 @@ function OrgChangePlanPageInner() {
                       </p>
                     </div>
                     <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)', margin: 0 }}>
-                      {fmtNum(selectedWorkspace.credits)} credits
+                      {fmtNum(new TeamsTier(selectedWorkspace.planId, billing).credits)} credits
                     </p>
                   </div>
 

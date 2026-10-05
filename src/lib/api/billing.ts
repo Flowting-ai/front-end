@@ -23,13 +23,13 @@ import {
 export type CheckoutPlan = "50" | "100" | "125" | "250" | "500" | "1000" | "2000";
 
 export const CREDITS_PER_USD = 1000;
-const USAGE_RATIO = 0.8;
+const USAGE_RATIO = 1 / 1.15;
 const TEAMS_PLAN_IDS = ["50", "100", "125", "250", "500", "1000", "2000"] as const;
 
 // Enterprise orgs are funded with this explicit "never runs out" sentinel
 // (back-end/services/users/enterprise_pricing.py's ENTERPRISE_INTERMAX) as
-// their pool's dollar balance, so it never empties — non-payment is the only
-// stop. Any consumer of a raw dollar/credit figure that could carry this
+// their pool's dollar balance. Access follows the contract, payment readiness,
+// and spending budget. Any consumer of a raw dollar/credit figure that could carry this
 // value must check for it and render "Unlimited" instead of the literal
 // number (~2.15 trillion once converted to credits).
 export const ENTERPRISE_INTERMAX = 2_147_483_647;
@@ -75,10 +75,10 @@ export class TeamsTier {
   readonly usageUsd: number;
   readonly credits: number;
 
-  constructor(planId: CheckoutPlan) {
+  constructor(planId: CheckoutPlan, interval: "monthly" | "annual" = "monthly") {
     this.planId = planId;
     this.price = Number(planId);
-    this.usageUsd = this.price * USAGE_RATIO;
+    this.usageUsd = Math.floor(this.price * (interval === "annual" ? 0.75 : 1) * USAGE_RATIO * 1_000_000) / 1_000_000;
     this.credits = dollarsToCredits(this.usageUsd);
   }
 
@@ -318,6 +318,11 @@ export class Billing {
   readonly upcomingInvoice: UpcomingInvoice | null;
   readonly credits: CreditSummary;
   readonly billingModel: string | null;
+  readonly markupMultiplier: number;
+  readonly autobillingStart: string | null;
+  readonly paymentSetupComplete: boolean;
+  readonly paymentDueAt: string | null;
+  readonly collectionEnabled: boolean;
   readonly baseFeeUsd: number;
   readonly includedUsageUsd: number;
   readonly providerUsageUsd: number;
@@ -344,6 +349,11 @@ export class Billing {
       : null;
     this.credits = new CreditSummary(wire.credits);
     this.billingModel = wire.billing_model;
+    this.markupMultiplier = wire.markup_multiplier;
+    this.autobillingStart = wire.autobilling_start;
+    this.paymentSetupComplete = wire.payment_setup_complete;
+    this.paymentDueAt = wire.payment_due_at;
+    this.collectionEnabled = wire.collection_enabled;
     this.baseFeeUsd = wire.base_fee_usd;
     this.includedUsageUsd = wire.included_usage_usd;
     this.providerUsageUsd = wire.provider_usage_usd;
@@ -376,4 +386,11 @@ export class Billing {
   get teamsTier(): TeamsTier | null {
     return TeamsTier.fromPlanId(this.planId);
   }
+}
+
+export async function setupEnterprisePayment(): Promise<string> {
+  const response = await apiFetch(`${STRIPE_BILLING_ENDPOINT.replace(/\/billing$/, "")}/enterprise/setup`, { method: "POST" });
+  if (!response.ok) throw new Error("Could not start payment setup");
+  const session: { checkout_url: string } = await response.json();
+  return session.checkout_url;
 }
