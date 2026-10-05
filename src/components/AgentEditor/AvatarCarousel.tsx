@@ -121,6 +121,7 @@ export function AvatarCarousel({
                     seed={choice.id}
                     hovered={isMiddle}
                     inert={!isMiddle}
+                    eyes
                     // A fresh bounce each time this avatar becomes the selected one.
                     bounceKey={isMiddle ? selected + 1 : 0}
                   />

@@ -2,7 +2,8 @@
 
 import React from 'react'
 import { Dropdown } from '@/components/Dropdown'
-import { AnimatedPersonaAvatar, defaultAvatarChoice, getAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { defaultAvatarChoice, getAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { AgentOrb } from '@/components/PersonaCard/AgentOrb'
 import { agentHeroStyle } from '@/components/PersonaCard/AgentHero'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -35,9 +36,7 @@ export function MentionAvatar({ agent }: { agent: { id: string; name: string } }
         flexShrink:      0,
       }}
     >
-      <span style={{ display: 'inline-flex', borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
-        <AnimatedPersonaAvatar size={20} radius="50%" theme={avatar.theme} colors={avatar.colors} seed={agent.id} hovered={false} inert />
-      </span>
+      <AgentOrb size={22} theme={avatar.theme} colors={avatar.colors} seed={agent.id} hovered={false} inert eyes />
     </span>
   )
 }

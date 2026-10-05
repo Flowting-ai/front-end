@@ -396,7 +396,6 @@ function NewAgentContent() {
         <AgentEditor
           draft={draft}
           onChange={editDraft}
-          tones={tones}
           models={models}
           modelsLoading={modelsLoading}
           handle={handle}

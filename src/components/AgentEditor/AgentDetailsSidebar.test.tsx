@@ -184,7 +184,7 @@ describe('AgentDetailsSidebar', () => {
       await blur(nameBox())
       expect(api.updateVersion).not.toHaveBeenCalled()
       expect(saveButton()!.textContent).toBe('Save 1 change')
-      expect(document.body.textContent).toContain('Unsaved changes')
+      expect(document.body.textContent).not.toContain('Unsaved changes')
     })
 
     it('one Save saves everything unsaved — name and description together', async () => {
@@ -203,7 +203,7 @@ describe('AgentDetailsSidebar', () => {
       expect(toast.success).toHaveBeenCalledWith('2 changes saved')
       // Nothing left to save, so the button is gone.
       expect(hasSave()).toBe(false)
-      expect(document.body.textContent).toContain('Saved')
+      expect(document.body.textContent).not.toContain('All changes saved')
     })
 
     it('saves only the one field that changed when only one did', async () => {
@@ -261,33 +261,31 @@ describe('AgentDetailsSidebar', () => {
     })
   })
 
-  it('persists Advanced personalize edits directly', async () => {
+  it('persists Fine-tune edits directly', async () => {
     await render()
-    await click(byText('Advanced personalize'))
-    const warm = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] button')).find(b => b.textContent === 'Direct & confident')!
-    await click(warm)
+    await click(byText('Fine-tune'))
+    await type(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!, 'You triage support emails and escalate urgent ones.')
     await click(byText('Save'))
     expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'You triage support emails.\n\nTone: Direct & confident — Gets to the point. No filler.',
+      prompt: 'You triage support emails and escalate urgent ones.',
     }))
     // The modal closes after a successful save.
-    expect(document.querySelector('[aria-label="Advanced personalize"]')).toBeNull()
+    expect(document.querySelector('[aria-label="Fine-tune"]')).toBeNull()
   })
 
-  it('keeps Advanced personalize open when the save fails', async () => {
+  it('keeps Fine-tune open when the save fails', async () => {
     api.updateVersion.mockRejectedValue(new Error('nope'))
     await render()
-    await click(byText('Advanced personalize'))
-    const direct = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] button')).find(b => b.textContent === 'Direct & confident')!
-    await click(direct)
+    await click(byText('Fine-tune'))
+    await type(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!, 'You triage support emails and escalate urgent ones.')
     await click(byText('Save'))
-    expect(document.querySelector('[aria-label="Advanced personalize"]')).not.toBeNull()
+    expect(document.querySelector('[aria-label="Fine-tune"]')).not.toBeNull()
   })
 
-  it('has only Advanced personalize at the bottom — no Edit details and no link to the edit page', async () => {
+  it('has only Fine-tune at the bottom — no Edit details and no link to the edit page', async () => {
     await render()
     const labels = Array.from(document.querySelectorAll<HTMLElement>('button')).map(b => b.textContent)
-    expect(labels).toContain('Advanced personalize')
+    expect(labels).toContain('Fine-tune')
     expect(labels).not.toContain('Edit details')
     expect(labels).not.toContain('Edit page')
   })
@@ -312,7 +310,7 @@ describe('AgentDetailsSidebar', () => {
       expect(document.body.textContent).toContain('Pro Model')
       expect(document.body.textContent).toContain('Sorts support emails.')
       expect(document.body.textContent).toContain('Only the owner can edit this agent.')
-      expect(document.body.textContent).not.toContain('Advanced personalize')
+      expect(document.body.textContent).not.toContain('Fine-tune')
     })
   })
 

@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
+import { GazeChannel } from '@/components/PersonaCard/gaze'
+import { AgentOrb } from '@/components/PersonaCard/AgentOrb'
 import {
-  AnimatedPersonaAvatar,
   defaultAvatarChoice,
   getAvatarChoice,
   type AvatarChoice,
@@ -35,12 +36,15 @@ export function AgentAvatar({
   const config = getAvatarChoice(choiceProp ?? stored ?? defaultAvatarChoice(name || 'agent', seed || repoId || name || 'agent'))
   const [hovered, setHovered] = useState(false)
   const [bounceKey, setBounceKey] = useState(0)
+  // The eyes follow the pointer while it is over the avatar, as on the agent card.
+  const [gaze] = useState(() => new GazeChannel())
 
   return (
     <div
       aria-hidden
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); gaze.setPointer(null) }}
+      onPointerMove={e => gaze.setPointer({ x: e.clientX, y: e.clientY })}
       onClick={() => setBounceKey(n => n + 1)}
       style={{ position: 'relative', width: size, height: size, margin: HALO, flexShrink: 0, cursor: 'pointer' }}
     >
@@ -54,15 +58,17 @@ export function AgentAvatar({
           transition:      'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />
-      <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
-        <AnimatedPersonaAvatar
+      {/* The agent card's glass orb, so the avatar reads the same here as on the card. */}
+      <div style={{ position: 'relative' }}>
+        <AgentOrb
           size={size}
-          radius="50%"
           theme={config.theme}
           colors={config.colors}
           seed={seed || repoId || name || 'agent'}
           hovered={hovered}
           bounceKey={bounceKey}
+          eyes
+          gaze={gaze}
         />
       </div>
     </div>

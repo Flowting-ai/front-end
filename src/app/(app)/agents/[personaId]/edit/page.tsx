@@ -228,7 +228,6 @@ function EditAgentContent() {
       <AgentEditor
         draft={draft}
         onChange={edit}
-        tones={FALLBACK_TONES}
         models={models}
         modelsLoading={modelsLoading}
         handle={handle}

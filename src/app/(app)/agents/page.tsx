@@ -25,7 +25,7 @@ import { IconButton } from '@/components/IconButton'
 import { Skeleton } from '@/components/Skeleton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { Avatar } from '@/components/Avatar'
+import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { Tooltip } from '@/components/Tooltip'
 import { DateRangePill } from '@/components/DateRangePill'
 import {
@@ -1740,12 +1740,7 @@ function PersonasPageInner() {
                             Most active agent
                           </p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            {topAgentInfo?.imageUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                              <img src={topAgentInfo.imageUrl} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                            ) : (
-                              <Avatar name={topAgentName ?? 'Agent'} color={colorFromName(topAgentName ?? 'Agent')} size="xs" />
-                            )}
+                            <MentionAvatar agent={{ id: topAgentInfo?.repoId ?? topShare.persona_repo_id, name: topAgentName ?? 'Agent' }} />
                             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {topAgentName}
                             </p>
@@ -1895,7 +1890,6 @@ function PersonasPageInner() {
                           {!sharesLoading && shares.map(share => {
                             const personaInfo = versionToPersona[share.persona_repo_id]
                             const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
-                            const imageUrl    = personaInfo?.imageUrl ?? null
                             const repoId      = personaInfo?.repoId ?? ''
                             const recipients  = share.recipients ?? []
                             const uniqueUsers = new Set(recipients.map(r => r.recipient_user_id)).size
@@ -1912,12 +1906,7 @@ function PersonasPageInner() {
                               >
                                 <SettingsTableCell>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                    {imageUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                                      <img src={imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                    ) : (
-                                      <Avatar name={name} color={colorFromName(name)} size="xs" />
-                                    )}
+                                    <MentionAvatar agent={{ id: repoId || share.persona_repo_id, name }} />
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                                       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {name}
@@ -2026,12 +2015,7 @@ function PersonasPageInner() {
                             <SettingsTableRow key={share.share_id} minHeight={64}>
                               <SettingsTableCell>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                  {share.image_url ? (
-                                    // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                                    <img src={share.image_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                  ) : (
-                                    <Avatar name={share.name} color={colorFromName(share.name)} size="xs" />
-                                  )}
+                                  <MentionAvatar agent={{ id: persona?.id ?? share.persona_repo_id, name: share.name }} />
                                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {share.name}
                                   </p>

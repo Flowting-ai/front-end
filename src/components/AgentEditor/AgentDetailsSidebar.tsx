@@ -17,7 +17,6 @@ import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import {
   DESCRIPTION_MAX,
-  FALLBACK_TONES,
   NAME_MAX,
   draftProblems,
   type AgentDraft,
@@ -25,7 +24,7 @@ import {
 import { recordFromRepo } from '@/lib/agent-record'
 import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
-import { AdvancedPersonalizeModal } from './AdvancedPersonalizeModal'
+import { FineTuneModal } from './FineTuneModal'
 import { AvatarField } from './AvatarField'
 import { AgentAvatar } from './AgentAvatar'
 import { ModelField } from './ModelField'
@@ -36,7 +35,7 @@ import { BOX_STYLE, HINT_STYLE, INPUT_STYLE, LABEL_STYLE } from './styles'
 const PROBLEM_MESSAGE = {
   name:         'Give the agent a name.',
   model:        'Choose a model for the agent.',
-  instructions: 'The agent needs instructions — add them in Advanced personalize.',
+  instructions: 'The agent needs instructions — add them in Fine-tune.',
 } as const
 
 export interface AgentDetailsSidebarProps {
@@ -64,7 +63,7 @@ function ReadOnlyRow({ label, children }: { label: string; children: React.React
  * says how many changes it will save. Always white and black (not themed), so it reads the
  * same on the light and dark panel.
  */
-function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () => void; disabled?: boolean }) {
+function SaveChanges({ count, onClick, loading }: { count: number; onClick: () => void; loading?: boolean }) {
   return (
     <AnimatePresence initial={false}>
       {count > 0 && (
@@ -78,7 +77,8 @@ function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () 
         >
           <button
             type="button"
-            disabled={disabled}
+            disabled={loading}
+            aria-busy={loading || undefined}
             onClick={onClick}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -86,11 +86,11 @@ function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () 
               backgroundColor: 'var(--static-white)', color: 'var(--static-black)',
               fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '20px',
               boxShadow: '0px 1px 3px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0px 0px 1px color-mix(in srgb, var(--static-black) 8%, transparent)',
-              cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
+              cursor: loading ? 'progress' : 'pointer', opacity: loading ? 0.85 : 1,
             }}
           >
-            <TickTwoIcon size={16} color="var(--static-black)" />
-            {`Save ${count} ${count === 1 ? 'change' : 'changes'}`}
+            {loading ? <Spinner size={16} /> : <TickTwoIcon size={16} color="var(--static-black)" />}
+            {loading ? 'Saving…' : `Save ${count} ${count === 1 ? 'change' : 'changes'}`}
           </button>
         </m.div>
       )}
@@ -98,7 +98,7 @@ function SaveChanges({ count, onClick, disabled }: { count: number; onClick: () 
   )
 }
 
-/** The details content itself (model saves as you pick; name and description have their own save tick; Advanced personalize) — no header or frame. */
+/** The details content itself (model saves as you pick; name and description have their own save tick; Fine-tune) — no header or frame. */
 export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean; onClose: () => void }) {
   const { repo, isLoading } = usePersonaRepoById(repoId)
   const record = useMemo(() => (repo ? recordFromRepo(repo) : null), [repo])
@@ -109,7 +109,6 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   const [modelsLoading, setModelsLoading] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
-  const [justSaved, setJustSaved] = useState(false)
   useEffect(() => {
     let cancelled = false
     fetchModelsWithCache()
@@ -144,20 +143,17 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
     const [first] = draftProblems(next)
     if (first) { setProblem(PROBLEM_MESSAGE[first]); return }
     setProblem(null)
-    setJustSaved(false)
     const pending: Partial<AgentDraft> = {}
     if (!('name' in patch) && draft.name !== baseline.name) pending.name = draft.name
     if (!('description' in patch) && draft.description !== baseline.description) pending.description = draft.description
     if (!('modelId' in patch) && draft.modelId !== baseline.modelId) pending.modelId = draft.modelId
     if (await save(next, { quiet: true })) {
       if (Object.keys(pending).length > 0) edit(pending)
-      setJustSaved(true)
       toast.success(saved)
     }
   }
 
   function change(patch: Partial<AgentDraft>) {
-    setJustSaved(false)
     setProblem(null)
     edit(patch)
   }
@@ -246,29 +242,18 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
                   </div>
                 </div>
 
-                <SaveChanges count={unsavedCount} disabled={saving} onClick={saveChanges} />
+                <SaveChanges count={unsavedCount} loading={saving} onClick={saveChanges} />
 
                 <Button variant="outline" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={() => setAdvancedOpen(true)}>
-                  Advanced personalize
+                  Fine-tune
                 </Button>
-
-                {/* Save status */}
-                <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  {problem ? (
-                    <>
-                      <Badge color="Red" label="Not saved" />
-                      <p role="alert" style={{ ...HINT_STYLE, textAlign: 'center', color: 'var(--color-tag-Red-text, var(--red-700))' }}>{problem}</p>
-                    </>
-                  ) : saving ? (
-                    <Badge color="Blue" label="Saving…" />
-                  ) : nameDirty || descriptionDirty ? (
-                    <Badge color="Yellow" label="Unsaved changes" />
-                  ) : justSaved ? (
-                    <Badge color="Green" label="Saved" />
-                  ) : (
-                    <Badge color="Neutral" label="All changes saved" />
-                  )}
-                </div>
+                {/* Save failures stay visible; success is shown by the button and a toast. */}
+                {problem && (
+                  <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <Badge color="Red" label="Not saved" />
+                    <p role="alert" style={{ ...HINT_STYLE, textAlign: 'center', color: 'var(--color-tag-Red-text, var(--red-700))' }}>{problem}</p>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -294,11 +279,10 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
       </div>
 
       {canEdit && draft && (
-        <AdvancedPersonalizeModal
+        <FineTuneModal
           open={advancedOpen}
           onClose={() => setAdvancedOpen(false)}
           values={{ instructions: draft.instructions, temperature: draft.temperature }}
-          tones={FALLBACK_TONES}
           saveLabel="Save"
           onSave={async values => {
             const ok = await save({ ...draft, ...values })
@@ -312,7 +296,7 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
 
 /**
  * Quick look and quick fixes for one agent, beside the list — avatar, name, model
- * and description save as you leave each field; Advanced personalize opens the
+ * and description save as you leave each field; Fine-tune opens the
  * rest. Reads and writes the same record as the editor page, so an edit here shows
  * up there (and the other way round) straight away.
  */

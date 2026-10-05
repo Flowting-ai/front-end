@@ -10,7 +10,6 @@ vi.mock('@/lib/api/personas', () => ({ testVersionStream: vi.fn() }))
 
 import { AgentEditor } from './AgentEditor'
 import { ModelField } from './ModelField'
-import { ToneField } from './ToneField'
 
 const DRAFT: AgentDraft = {
   name: 'Contract Reviewer',
@@ -33,7 +32,6 @@ function render(over: Partial<React.ComponentProps<typeof AgentEditor>> = {}) {
     <AgentEditor
       draft={DRAFT}
       onChange={noop}
-      tones={FALLBACK_TONES}
       models={MODELS}
       modelsLoading={false}
       handle="contract-reviewer"
@@ -56,8 +54,8 @@ describe('AgentEditor', () => {
     expect(html).toContain('contract-reviewer')
     expect(html).toContain('Pro Model')
     expect(html).toContain('Live preview')
-    // Instructions, tone and creativity are all on the page, so there is no Advanced personalize button.
-    expect(html).not.toContain('Advanced personalize')
+    // Instructions and creativity are all on the page, so there is no Fine-tune button.
+    expect(html).not.toContain('Fine-tune')
     expect(html).toContain('Creativity')
     expect(html).toContain('0.30 · Precise')
   })
@@ -93,27 +91,6 @@ describe('AgentEditor', () => {
     const html = render({ below: <p>BELOW-SLOT</p>, aside: <p>ASIDE-SLOT</p> })
     expect(html).toContain('BELOW-SLOT')
     expect(html).toContain('ASIDE-SLOT')
-  })
-})
-
-describe('ToneField', () => {
-  it('selects the tone found in the instructions and shows its description', () => {
-    const html = renderToStaticMarkup(
-      <ToneField instructions={DRAFT.instructions} tones={FALLBACK_TONES} onChange={noop} />,
-    )
-    expect(html).toMatch(/aria-pressed="true"[^>]*>Direct &amp; confident</)
-    expect(html).toContain('Gets to the point. No filler.')
-  })
-
-  it('selects Default with no tone line', () => {
-    const html = renderToStaticMarkup(<ToneField instructions="You help." tones={FALLBACK_TONES} onChange={noop} />)
-    expect(html).toMatch(/aria-pressed="true"[^>]*>Default</)
-  })
-
-  it('shows a Custom chip for a tone line it does not recognise', () => {
-    const html = renderToStaticMarkup(<ToneField instructions={'You help.\nTone: sarcastic'} tones={FALLBACK_TONES} onChange={noop} />)
-    expect(html).toContain('Custom')
-    expect(html).toContain('Set by a')
   })
 })
 
