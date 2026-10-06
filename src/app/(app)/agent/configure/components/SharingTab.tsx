@@ -473,7 +473,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 </span>
                 <div
                   style={{
-                    backgroundColor: 'var(--neutral-white)',
+                    backgroundColor: 'var(--field-surface)',
                     border: '1px solid var(--neutral-200)',
                     borderRadius: 8,
                     padding: 7,
@@ -567,7 +567,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'var(--field-surface)',
                 border: '1px solid var(--neutral-200)',
                 borderRadius: 10,
                 padding: '8px 12px',
@@ -599,7 +599,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           {/* Token limit for this invite */}
           <div
             style={{
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--field-surface)',
               border: '1px solid var(--neutral-200)',
               borderRadius: 10,
               padding: '8px 12px',

@@ -24,7 +24,7 @@ const INPUT_BASE: React.CSSProperties = {
   fontSize:     '14px',
   lineHeight:   '22px',
   color:        'var(--legacy-1a1714)',
-  background:   'var(--neutral-white)',
+  background:   'var(--field-surface)',
   border:       '1px solid var(--neutral-200)',
   borderRadius: '10px',
   boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.12)',

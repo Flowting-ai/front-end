@@ -20,7 +20,7 @@ const TEAM_SIZE_LABELS: Record<string, string> = Object.fromEntries(
 )
 
 const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
-const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)'
 
 const S = {
   label: {
@@ -35,7 +35,7 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 2,
-    background: 'var(--neutral-white)',
+    background: 'var(--field-surface)',
     borderRadius: 10,
     padding: '7px 10px',
     boxShadow: SHADOW_INPUT,
@@ -256,7 +256,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
                       boxSizing: 'border-box',
                       border: 'none',
                       outline: 'none',
-                      background: 'var(--neutral-white)',
+                      background: 'var(--field-surface)',
                       borderRadius: 10,
                       padding: '9px 12px',
                       boxShadow: SHADOW_INPUT,

@@ -140,7 +140,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'var(--neutral-white)',
+                      backgroundColor: 'var(--field-surface)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -186,7 +186,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                   </p>
                   <div
                     style={{
-                      backgroundColor: 'var(--neutral-white)',
+                      backgroundColor: 'var(--field-surface)',
                       display: 'flex',
                       flex: '1 0 0',
                       minHeight: 0,

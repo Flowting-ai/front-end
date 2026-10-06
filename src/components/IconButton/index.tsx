@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { useCorrosion } from '@/lib/useCorrosion'
 import { useSquircle } from '@/lib/useSquircle'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Shadows - all reference semantic CSS variables ────────────────────────────
 
@@ -82,6 +83,10 @@ function IconButtonSpinner({ color, size: px = 24 }: { color: string; size?: num
   )
 }
 
+function MaybeTip({ title, children }: { title?: string; children: React.ReactElement }) {
+  return title ? <Tooltip content={title}>{children}</Tooltip> : children
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function IconButton({
@@ -97,6 +102,7 @@ export function IconButton({
   onMouseLeave: externalMouseLeave,
   onFocus: externalFocus,
   onBlur: externalBlur,
+  title,
   ...props
 }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
   const Comp = asChild ? Slot : 'button'
@@ -290,6 +296,7 @@ export function IconButton({
           />
         </div>
       )}
+    <MaybeTip title={title}>
     <Comp
       ref={mergedRef}
       disabled={isDisabled}
@@ -466,6 +473,7 @@ export function IconButton({
       )}
 
     </Comp>
+    </MaybeTip>
     </m.span>
   )
 }

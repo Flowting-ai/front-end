@@ -1534,7 +1534,7 @@ function InputField({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
       <p id={labelId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--field-surface)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         {prefix && <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', padding: '0 2px' }}>{prefix}</span>}
         <input
           aria-labelledby={labelId}

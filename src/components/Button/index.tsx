@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCorrosion } from '@/lib/useCorrosion'
 import { useSquircle } from '@/lib/useSquircle'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Shadows ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,10 @@ function ButtonSpinner({ color }: { color: string }) {
   )
 }
 
+function MaybeTip({ title, children }: { title?: string; children: React.ReactElement }) {
+  return title ? <Tooltip content={title}>{children}</Tooltip> : children
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Button({
@@ -96,6 +101,7 @@ export function Button({
   onMouseLeave: externalMouseLeave,
   onFocus: externalFocus,
   onBlur: externalBlur,
+  title,
   ...props
 }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
   const Comp = asChild ? Slot : 'button'
@@ -206,6 +212,8 @@ export function Button({
           backgroundColor: isDisabled && !isMd ? 'var(--color-interactive-primary-surface-disabled-to)' : undefined,
         }
       : {}),
+    // Ghost / outline sit on a solid field-coloured fill (pure white in light mode), not the page.
+    ...((variant === 'outline' || variant === 'ghost') ? { backgroundColor: 'var(--field-surface)' } : {}),
     ...(isSecondary ? {
       backgroundColor: 'var(--button-secondary-bg)',
       boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
@@ -263,6 +271,7 @@ export function Button({
         </div>
       )}
 
+      <MaybeTip title={title}>
       <Comp
         ref={mergedRef}
         disabled={isDisabled}
@@ -360,6 +369,7 @@ export function Button({
         )}
 
       </Comp>
+      </MaybeTip>
     </motion.span>
   )
 }

@@ -94,7 +94,7 @@ function PurposeStep({
         <div
           className="kaya-field"
           style={{
-            background: 'var(--neutral-white)', borderRadius: 10, padding: '12px 10px',
+            background: 'var(--field-surface)', borderRadius: 10, padding: '12px 10px',
             boxShadow: '0px 1px 2px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-300)',
           }}
         >

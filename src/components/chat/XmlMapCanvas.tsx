@@ -1,5 +1,6 @@
 "use client"
 
+import { Tooltip } from '@/components/Tooltip'
 import React from "react"
 import {
   FullscreenControl,
@@ -127,7 +128,7 @@ function MapRail({
               onClick={() => onSelectGroup(group.key)}
             >
               <span className={styles.rankMeta}>
-                <span className={styles.rankLabel} title={group.label}>{group.label}</span>
+                <Tooltip content={group.label} maxWidth={280}><span className={styles.rankLabel}>{group.label}</span></Tooltip>
                 <span className={styles.rankValue}>{formatValue(group.value, data.unit)}</span>
               </span>
               <span className={styles.barTrack} aria-hidden>

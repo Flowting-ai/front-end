@@ -73,7 +73,7 @@ const PINK_BORDER = '#FF6B97'
 const PINK_TOOLTIP_TO = '#D81857'
 const GREY_SURFACE = '#1C1C1C' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
 const TAB_TRACK = '#262626' // tab bar track: lifted well above the page so the tab strip reads as a control
-const FIELD_BG = '#262626'  // text fields: brighter than the card they sit on, with a visible ring
+const FIELD_BG = '#2E2E2E'  // every input surface (--field-surface): clearly brighter than the #1C1C1C page and cards, with a visible ring
 const AGENT_CARD = GREY_SURFACE
 
 // Content on that lighter grey needs its muted tones lifted or it becomes hard to read
@@ -342,15 +342,16 @@ const overrides = [
   ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
   // Text fields: a brighter fill than cards plus a clearly visible ring, so inputs stand out.
+  ['--field-surface', FIELD_BG],
   ['--text-field-bg', FIELD_BG],
-  ['--text-field-ring', 'rgba(255, 255, 255, 0.14)'],
-  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.24)'],
+  ['--text-field-ring', 'rgba(255, 255, 255, 0.22)'],
+  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.34)'],
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
   // Light mode keeps the chat input pure white; in dark it follows the card surface as before.
-  ['--chat-input-bg', 'var(--neutral-white)'],
-  ['--input-group-bg-focus', 'var(--neutral-white)'],
+  ['--chat-input-bg', '#262626'],
+  ['--input-group-bg-focus', FIELD_BG],
   ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1)'],
   // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
@@ -518,7 +519,7 @@ const css = `/* ── Theme: dark ───────────────
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 252, 252, 251;
+  --surface-rgb: 249, 248, 245;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
   --icon-button-secondary-bg: #FFFFFF;

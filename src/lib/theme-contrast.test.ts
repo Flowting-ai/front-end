@@ -226,7 +226,7 @@ describe("secondary buttons, icon buttons and the selected tab are raised dark s
   });
 
   it("the user's message bubble is cream in light but a raised dark-grey card in dark; the chat input stays dark", () => {
-    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#FCFCFB")).toBe("#FCFCFB");
+    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#F9F8F5")).toBe("#F9F8F5");
     const bubble = color(DARK, "--message-bubble-user-bg");
     expect(resolveVar(DARK, "--message-bubble-user-bg")?.toUpperCase()).toBe("#2A2A2A");
     // Dark (not a white block), yet clearly raised above both the page and the chat input surface.
@@ -357,7 +357,7 @@ describe("agent cards (grey surface + raised scope)", () => {
 
 describe("translucent veils (rgba(var(--surface-rgb), A))", () => {
   it("light: --surface-rgb is the cream surface (--neutral-white), so every veil matches the page it sits on", () => {
-    expect(resolveVar(LIGHT, "--surface-rgb")).toBe("252, 252, 251");
+    expect(resolveVar(LIGHT, "--surface-rgb")).toBe("249, 248, 245");
   });
 
   it("dark: --surface-rgb is the dark card colour, so a veil is never a bright white sheet", () => {
@@ -409,7 +409,7 @@ describe("dark theme: no light-grey fills", () => {
 
 describe("text fields stand out in dark", () => {
   it("the field fill is brighter than the card it sits on, and its ring is a visible light hairline", () => {
-    expect(resolveVar(DARK, "--text-field-bg")?.toUpperCase()).toBe("#262626");
+    expect(resolveVar(DARK, "--text-field-bg")?.toUpperCase()).toBe("#2E2E2E");
     expect(contrast(color(DARK, "--text-field-bg"), CARD)).toBeGreaterThanOrEqual(1.05);
     expect(contrast(color(DARK, "--text-field-bg"), PAGE)).toBeGreaterThanOrEqual(1.15);
     expect(resolveVar(DARK, "--text-field-ring")).toMatch(/rgba\(255, 255, 255, 0\.\d+\)/);

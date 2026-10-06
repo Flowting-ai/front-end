@@ -11,6 +11,7 @@
 import {
   bustPersonasCache,
   createPersonaRepo,
+  findAgentNameConflict,
   publishPersonaVersion,
   updateVersion,
   urlToImageFile,
@@ -53,9 +54,16 @@ export async function avatarToFile(avatarUrl: string | null): Promise<File | nul
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export class AgentSaveError extends Error {
-  constructor(message: string, readonly reason: 'invalid' | 'avatar' | 'create' | 'update') {
+  constructor(message: string, readonly reason: 'invalid' | 'name' | 'avatar' | 'create' | 'update') {
     super(message)
     this.name = 'AgentSaveError'
+  }
+}
+
+/** Agent names are unique: throws a 'name' error naming the clash. */
+async function assertNameAvailable(name: string, excludeRepoId?: string): Promise<void> {
+  if (await findAgentNameConflict(name, excludeRepoId)) {
+    throw new AgentSaveError(`An agent named “${name.trim()}” already exists. Choose a different name.`, 'name')
   }
 }
 
@@ -82,6 +90,8 @@ export async function createAgent(
   if (draftProblems(draft).length > 0 || !draft.modelId) {
     throw new AgentSaveError('The agent needs a name, a model and instructions.', 'invalid')
   }
+
+  await assertNameAvailable(draft.name)
 
   const image = await avatarToFile(draft.avatarUrl)
   if (draft.avatarUrl && !image) {
@@ -161,6 +171,8 @@ export async function saveAgentChanges(input: SaveAgentInput): Promise<SavedAgen
   if (draftProblems(draft).length > 0 || !draft.modelId) {
     throw new AgentSaveError('The agent needs a name, a model and instructions.', 'invalid')
   }
+
+  if (draft.name.trim() !== baseline.name.trim()) await assertNameAvailable(draft.name, repoId)
 
   const avatarChanged = avatarKey(draft.avatarUrl) !== avatarKey(baseline.avatarUrl)
   let image: File | null = null

@@ -124,7 +124,7 @@ export function ChipInput(
           minWidth:        MIN_WIDTH,
           padding:         '2px 4px',
           borderRadius:    '6px',
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--field-surface)',
           boxShadow:       shadow,
           overflow:        'clip',
           transition:      'box-shadow 150ms',

@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AlertTwoIcon, LinkSixIcon } from '@strange-huge/icons'
+import { AlertTwoIcon, BubbleChatAddIcon, ExchangeOneIcon, LinkSixIcon, TickTwoIcon } from '@strange-huge/icons'
+import { Tooltip } from '@/components/Tooltip'
 import { AgentHero } from '@/components/PersonaCard/AgentHero'
-import { AgentCardButton } from '@/components/PersonaCard/AgentCardButton'
+import { AgentCardButton, AgentCardIconButton } from '@/components/PersonaCard/AgentCardButton'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import type { ModelUnavailableReason } from '@/lib/agent-model-health'
 
@@ -19,8 +20,12 @@ const TILE_RADIUS = 12
 export interface CompactAgentCardProps {
   agent:     SelectedPersonaInfo
   superlink: boolean
-  /** Label of the pill button (also its accessible name). */
+  /** Label of the use button (its tooltip and accessible name). */
   useLabel?: string
+  /** This is the agent already attached to the chat — it shows an "in use" tick instead of a button. */
+  inUse?: boolean
+  /** Another agent's chip is active — the button replaces it ("Replace agent") instead of "Use agent". */
+  replaces?: boolean
   /** Card clicked — open details. */
   onOpen:    () => void
   /** Pill clicked — use the agent. */
@@ -36,7 +41,7 @@ export interface CompactAgentCardProps {
   onFixModel?: () => void
 }
 
-export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onOpen, onUse, modelUnavailable, onFixModel }: CompactAgentCardProps) {
+export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inUse = false, replaces = false, onOpen, onUse, modelUnavailable, onFixModel }: CompactAgentCardProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [bounceKey, setBounceKey] = useState(0)
@@ -98,19 +103,18 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
 
       <div style={{ flex: '1 1 0', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span
-            title={agent.name}
+          <Tooltip content={agent.name} maxWidth={260}><span
             style={{
               minWidth: 0, fontFamily: 'var(--font-title)', fontSize: 15, lineHeight: '20px', fontWeight: 'var(--font-weight-medium)',
               color: unavailable ? 'var(--neutral-500)' : 'var(--neutral-950)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}
           >
             {agent.name}
-          </span>
+          </span></Tooltip>
           {superlink && (
-            <span title="Has an active Super Link" style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--neutral-500)' }}>
+            <Tooltip content="Has an active Super Link"><span style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--neutral-500)' }}>
               <LinkSixIcon size={13} />
-            </span>
+            </span></Tooltip>
           )}
         </div>
         {unavailable ? (
@@ -127,15 +131,14 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
             </span>
           </p>
         ) : (
-          <p
-            title={agent.description || undefined}
+          <Tooltip content={agent.description} maxWidth={280} disabled={!agent.description}><p
             style={{
               margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}
           >
             {agent.description || agent.handle}
-          </p>
+          </p></Tooltip>
         )}
       </div>
 
@@ -145,7 +148,13 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
         {unavailable && onFixModel ? (
           <AgentCardButton size="sm" onClick={onFixModel}>Fix model</AgentCardButton>
         ) : (
-          <AgentCardButton size="sm" disabled={agent.paused || unavailable} onClick={onUse}>{useLabel}</AgentCardButton>
+          inUse ? (
+            <AgentCardIconButton label="In use in this chat" icon={<TickTwoIcon size={16} />} disabled />
+          ) : replaces ? (
+            <AgentCardIconButton label="Replace agent" icon={<ExchangeOneIcon size={16} />} disabled={agent.paused || unavailable} onClick={onUse} />
+          ) : (
+            <AgentCardIconButton label={useLabel} icon={<BubbleChatAddIcon size={16} />} disabled={agent.paused || unavailable} onClick={onUse} />
+          )
         )}
       </div>
     </div>

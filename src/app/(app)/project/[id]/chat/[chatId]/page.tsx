@@ -30,6 +30,7 @@ import { usePendingPersonaHandoff } from '@/hooks/use-pending-persona-handoff'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
+import { AgentChip } from '@/components/chat/AgentChip'
 import { Button }                                          from '@/components/Button'
 import {
   FolderOneIcon,
@@ -438,11 +439,10 @@ function ProjectChatPageInner() {
           onOpenChange={setPersonaChipOpen}
           placement="top-start"
           trigger={
-            <Chip
-              label={selectedPersona.name}
-              personaImage={selectedPersona.imageUrl ?? undefined}
+            <AgentChip
+              agent={selectedPersona}
               onRemove={() => setSelectedPersona(null)}
-              onExpand={() => setPersonaChipOpen(v => !v)}
+              onOpenPanel={() => setPersonaChipOpen(v => !v)}
             />
           }
         >

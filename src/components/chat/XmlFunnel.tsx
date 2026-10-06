@@ -17,6 +17,7 @@
  * See: docs/ui/frontend-rendering.md - Funnel section.
  */
 
+import { Tooltip } from '@/components/Tooltip'
 import React from "react"
 import { m, useReducedMotion } from "framer-motion"
 import { ArrowDown, Filter, TrendingDown } from "lucide-react"
@@ -124,9 +125,9 @@ export function XmlFunnel({ xml }: { xml: string }) {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 7 }}>
-                  <span style={{ flex: "1 1 0", minWidth: 0, fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", fontWeight: "var(--font-weight-medium)", color: "var(--neutral-800)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={stage.label}>
+                  <Tooltip content={stage.label} maxWidth={280}><span style={{ flex: "1 1 0", minWidth: 0, fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", fontWeight: "var(--font-weight-medium)", color: "var(--neutral-800)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {stage.label}
-                  </span>
+                  </span></Tooltip>
                   <span style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-700)", fontWeight: "var(--font-weight-medium)", fontVariantNumeric: "tabular-nums" }}>
                     {formatNum(stage.value)}
                   </span>

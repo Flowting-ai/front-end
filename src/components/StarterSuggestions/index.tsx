@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import type { CardApp, StarterCard } from '@/lib/api/recommendations'
@@ -37,10 +38,10 @@ export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelec
       <ul className={`${styles.list} ${styles.listSnug}`}>
         {cards.map(card => (
           <li key={card.label}>
-            <button type="button" className={styles.row} title={card.detail ?? undefined} onClick={() => onSelect(card)}>
+            <Tooltip content={card.detail} disabled={!(card.detail)} maxWidth={280}><button type="button" className={styles.row} onClick={() => onSelect(card)}>
               <span className={styles.lead}><Lead card={card} size={20} /></span>
               <span className={styles.rowLabel}>{card.label}</span>
-            </button>
+            </button></Tooltip>
           </li>
         ))}
       </ul>

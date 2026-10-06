@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { ConnectorCatalog, listLinkedConnectors } from '@/lib/api/connectors'
@@ -19,11 +20,10 @@ function ConnectorChip({
   const logo = entry.logo
 
   return (
-    <button
+    <Tooltip content={`${enabled ? 'Disable' : 'Enable'} ${entry.displayName} in this agent`} maxWidth={280}><button
       type="button"
       onClick={onToggle}
       disabled={saving}
-      title={`${enabled ? 'Disable' : 'Enable'} ${entry.displayName} in this agent`}
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -62,7 +62,7 @@ function ConnectorChip({
       }}>
         {entry.displayName}
       </span>
-    </button>
+    </button></Tooltip>
   )
 }
 

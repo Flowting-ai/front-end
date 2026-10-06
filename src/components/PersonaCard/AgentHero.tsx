@@ -21,6 +21,7 @@ const NOISE =
   "<feColorMatrix type='saturate' values='0'/></filter>" +
   "<rect width='100%' height='100%' filter='url(%23n)'/></svg>\")"
 
+
 /** The banner's background for an agent's colour: a light glow top-left and a dark pool bottom-right over a deep base, with film grain on top. Spread into a style object. */
 export function agentHeroStyle(color: string): React.CSSProperties {
   return {

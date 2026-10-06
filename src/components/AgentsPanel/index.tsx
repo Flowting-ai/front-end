@@ -22,6 +22,8 @@ import { fetchModelsWithCache } from '@/lib/ai-models'
 import { buildModelBlockedMap, modelUnavailableReason } from '@/lib/agent-model-health'
 import { agentFixModelHref } from '@/lib/notifications/build'
 import { useDevNotificationsVersion } from '@/lib/notifications/dev'
+import { useActiveChatAgentId } from '@/lib/active-chat-agent-store'
+import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
 
@@ -87,6 +89,20 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const { personas, loading } = useSelectableChatPersonas(true)
   const { setPanel } = useProjectPanel()
   const router = useRouter()
+  // The agent whose chip is attached to the chat, if any: its card shows a tick and every other card
+  // offers "Replace agent" instead of "Use agent".
+  const activeAgentId = useActiveChatAgentId()
+
+  // Every way the details view opens or closes (card click, Back, the panel's own close) toasts the
+  // same "Editing …" / "Closed agent details" the /agents page shows.
+  const openAgentDetails = (id: string) => {
+    setDetailsId(id)
+    toastAgentDetailsOpened(personas.find(p => p.id === id)?.name)
+  }
+  const closeAgentDetails = () => {
+    setDetailsId(null)
+    toastAgentDetailsClosed()
+  }
 
   function closeSearch() {
     setIsSearchOpen(false)
@@ -173,7 +189,9 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const handleSelect = (persona: SelectedPersonaInfo) => {
     emitAgentSelect(persona)
     setPanel(null)
-    toast.success(inProject ? `Using “${persona.name}” in this project chat` : `Using “${persona.name}” in this chat`)
+    toast.success(activeAgentId && activeAgentId !== persona.id
+      ? `Replaced the agent with “${persona.name}”`
+      : inProject ? `Using “${persona.name}” in this project chat` : `Using “${persona.name}” in this chat`)
   }
 
   const handleManageAgents = () => {
@@ -329,7 +347,9 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                     agent={p}
                     superlink={isSuperlink(p)}
                     useLabel={inProject ? 'Use agent in project' : 'Use agent'}
-                    onOpen={() => setDetailsId(p.id)}
+                    inUse={activeAgentId === p.id}
+                    replaces={!!activeAgentId && activeAgentId !== p.id}
+                    onOpen={() => openAgentDetails(p.id)}
                     onUse={() => handleSelect(p)}
                     modelUnavailable={modelUnavailableReason(p.modelId, modelBlockedMap)}
                     onFixModel={() => handleFixModel(p)}
@@ -506,7 +526,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingBottom: 12 }}>
               <Tooltip content="Back to agents">
-                <IconButton variant="ghost" size="sm" icon={<ArrowLeftOneIcon size={20} />} aria-label="Back to agents" onClick={() => setDetailsId(null)} />
+                <IconButton variant="ghost" size="sm" icon={<ArrowLeftOneIcon size={20} />} aria-label="Back to agents" onClick={closeAgentDetails} />
               </Tooltip>
               <p style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-700)' }}>
                 {detailsAgent?.name ?? 'Agent details'}
@@ -517,7 +537,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                 key={detailsId}
                 repoId={detailsId}
                 canEdit={detailsAgent ? detailsAgent.ownedByViewer : false}
-                onClose={() => setDetailsId(null)}
+                onClose={closeAgentDetails}
               />
             </div>
           </m.div>

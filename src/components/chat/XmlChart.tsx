@@ -13,6 +13,7 @@
  * See: docs/ui/frontend-rendering.md - Charts section.
  */
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, m } from "framer-motion"
 import { ChatChartShell } from "@/components/chat/ChatChartShell"
@@ -458,13 +459,12 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
             const barH = Math.max((bin.count / maxCount) * chartH, 2)
             return (
               <div key={bin.rangeStart} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                <m.div
+                <Tooltip content={`${bin.label}: ${bin.count}`}><m.div
                   initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                   transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: i * 0.05 }}
                   style={{ width: "100%", height: barH, background: color, borderRadius: "2px 2px 0 0", transformOrigin: "bottom" }}
                 >
-                  <title>{`${bin.label}: ${bin.count}`}</title>
-                </m.div>
+                </m.div></Tooltip>
               </div>
             )
           })}

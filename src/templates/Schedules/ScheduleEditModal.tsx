@@ -150,7 +150,7 @@ const fieldShellStyle: React.CSSProperties = {
   fontSize:        'var(--font-size-body)',
   lineHeight:      'var(--line-height-body)',
   color:           'var(--neutral-800)',
-  backgroundColor: 'var(--neutral-white)',
+  backgroundColor: 'var(--field-surface)',
   boxShadow:       '0px 1px 1.5px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
   border:          'none',
   borderRadius:    10,

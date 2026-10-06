@@ -68,6 +68,7 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
+import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -557,6 +558,8 @@ function PersonasPageInner() {
     const params = new URLSearchParams(searchParams.toString())
     params.set('agent', id)
     replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+    const name = personas.find(p => p.id === id)?.name
+    toastAgentDetailsOpened(name)
   }
 
   function closeDetails() {
@@ -564,6 +567,7 @@ function PersonasPageInner() {
     params.delete('agent')
     const query = params.toString()
     replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+    toastAgentDetailsClosed()
   }
 
   // The sidebar's "See all agents" row emits this while this page is already

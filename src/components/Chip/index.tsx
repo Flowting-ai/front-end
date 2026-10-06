@@ -71,6 +71,11 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    */
   personaImage?: string
   /**
+   * A ready-made avatar node (e.g. the agent's animated avatar) - Medium only.
+   * Takes precedence over `personaImage`; rendered in the same 24×24 slot.
+   */
+  personaAvatar?: React.ReactNode
+  /**
    * Called when the × (remove) button is clicked.
    * Medium: fires on hover; Small: fires on direct click of the always-visible × button.
    */
@@ -98,14 +103,14 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    */
   leftIcon?: React.ReactNode
   /**
-   * Override the icon shown in the right ChipButton - **Small only.**
+   * Override the icon shown in the right ChipButton (Small: 14×14; Medium: 20×20 when `onExpand` is set).
    * Defaults to `<ArrowDownOneIcon size={14} />` (chevron-down). Only renders
    * when `onExpand` is provided. Render at 14×14 with `color="var(--chip-text)"`.
    */
   rightIcon?: React.ReactNode
   /** Aria-label for the left ChipButton - **Small only.** Defaults to `"Remove"`. */
   leftLabel?: string
-  /** Aria-label for the right ChipButton - **Small only.** Defaults to `"Open menu"`. */
+  /** Aria-label for the right ChipButton. Defaults to `"Open menu"` (Small) / `"Open picker"` (Medium). */
   rightLabel?: string
   /**
    * Color variant - **Small chips only.**
@@ -136,13 +141,14 @@ export function Chip(
     label = 'Souvenir',
     icon,
     personaImage,
+    personaAvatar,
     onRemove,
     onChange,
     onExpand,
     leftIcon,
     rightIcon,
     leftLabel  = 'Remove',
-    rightLabel = 'Open menu',
+    rightLabel,
     color     = 'Blue',
     size      = 'Medium',
     disabled  = false,
@@ -243,7 +249,7 @@ export function Chip(
             <ChipButton
               size="16px"
               icon={rightIcon ?? <ArrowDownOneIcon size={14} color={cfg.text} />}
-              aria-label={rightLabel}
+              aria-label={rightLabel ?? 'Open menu'}
               onClick={handleExpand}
               disabled={disabled}
             />
@@ -360,7 +366,7 @@ export function Chip(
               pointerEvents:   effectiveActive ? 'none' : undefined,
             }}
           >
-            {personaImage && !imageError
+            {personaAvatar ? personaAvatar : personaImage && !imageError
               ? <Image src={personaImage} alt="" width={24} height={24} unoptimized style={{ borderRadius: '6px', display: 'block' }} onError={() => setImageError(true)} />
               : personaImage
                 ? <UserAiIcon size={20} color="var(--chip-text)" animated />
@@ -432,8 +438,8 @@ export function Chip(
             }}
           >
             <ChipButton
-              icon={<ArrowDownOneIcon size={20} color="var(--chip-text)" />}
-              aria-label="Open picker"
+              icon={rightIcon ?? <ArrowDownOneIcon size={20} color="var(--chip-text)" />}
+              aria-label={rightLabel ?? 'Open picker'}
               // Stop bubbling: when the chip is wrapped in `Dropdown.Float`
               // (the auto-chip pattern in ChatInput), the wrapping span
               // toggles the picker on click. The chevron's own onExpand

@@ -21,9 +21,13 @@ export function AgentOrb({ colors, size = 110, hovered, wakeKey = 0, ...avatar }
       style={{ width: size, height: size, ['--c0' as string]: colors[0], ['--c1' as string]: colors[1] }}
     >
       <div className="agent-orb__dots" />
-      <AnimatedPersonaAvatar {...avatar} size={size} radius="50%" colors={colors} hovered={hovered} backdrop="transparent" />
+      {/* Glass sheen sits behind the avatar so the head and body stay fully opaque. */}
       <div className="agent-orb__sheen" />
-      {hovered && <div key={wakeKey} className="agent-orb__wake" />}
+      {/* Positioned + z-indexed: absolutely-positioned layers otherwise paint over a static avatar. */}
+      <div style={{ position: 'relative', zIndex: 1, width: size, height: size }}>
+        <AnimatedPersonaAvatar {...avatar} size={size} radius="50%" colors={colors} hovered={hovered} backdrop="transparent" />
+      </div>
+      {hovered && <div key={wakeKey} className="agent-orb__wake" style={{ zIndex: 2 }} />}
     </div>
   )
 }

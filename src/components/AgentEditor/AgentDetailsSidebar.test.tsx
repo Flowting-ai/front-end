@@ -21,6 +21,7 @@ const api = vi.hoisted(() => ({
   urlToImageFile:        vi.fn(),
   bustPersonasCache:     vi.fn(),
   createPersonaRepo:     vi.fn(),
+  findAgentNameConflict: vi.fn().mockResolvedValue(null),
 }))
 const models = vi.hoisted(() => ({ fetchModelsWithCache: vi.fn() }))
 
@@ -261,25 +262,29 @@ describe('AgentDetailsSidebar', () => {
     })
   })
 
-  it('persists Fine-tune edits directly', async () => {
+  it('Fine-tune opens the agent edit page instead of a dialog', async () => {
     await render()
     await click(byText('Fine-tune'))
-    await type(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!, 'You triage support emails and escalate urgent ones.')
-    await click(byText('Save'))
-    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'You triage support emails and escalate urgent ones.',
-    }))
-    // The modal closes after a successful save.
-    expect(document.querySelector('[aria-label="Fine-tune"]')).toBeNull()
+    expect(nav.push).toHaveBeenCalledWith('/agents/repo-1/edit')
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(api.updateVersion).not.toHaveBeenCalled()
   })
 
-  it('keeps Fine-tune open when the save fails', async () => {
+  it('saves what was typed in the panel before Fine-tune opens the edit page', async () => {
+    await render()
+    await type(nameBox(), 'Triage Pro')
+    await click(byText('Fine-tune'))
+    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({ name: 'Triage Pro' }))
+    expect(nav.push).toHaveBeenCalledWith('/agents/repo-1/edit')
+  })
+
+  it('stays put when that save fails, so nothing typed is lost', async () => {
     api.updateVersion.mockRejectedValue(new Error('nope'))
     await render()
+    await type(nameBox(), 'Triage Pro')
     await click(byText('Fine-tune'))
-    await type(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!, 'You triage support emails and escalate urgent ones.')
-    await click(byText('Save'))
-    expect(document.querySelector('[aria-label="Fine-tune"]')).not.toBeNull()
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(nameBox().value).toBe('Triage Pro')
   })
 
   it('has only Fine-tune at the bottom — no Edit details and no link to the edit page', async () => {

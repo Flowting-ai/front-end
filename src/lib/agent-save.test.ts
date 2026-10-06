@@ -4,6 +4,7 @@ import type { AgentDraft } from './agent-draft'
 const api = vi.hoisted(() => ({
   bustPersonasCache:    vi.fn(),
   createPersonaRepo:    vi.fn(),
+  findAgentNameConflict: vi.fn(),
   publishPersonaVersion: vi.fn(),
   updateVersion:        vi.fn(),
   urlToImageFile:       vi.fn(),
@@ -32,6 +33,7 @@ const PNG_FILE = new File([new Uint8Array([1, 2, 3])], 'avatar.jpg', { type: 'im
 beforeEach(() => {
   vi.resetAllMocks()
   api.urlToImageFile.mockResolvedValue(PNG_FILE)
+  api.findAgentNameConflict.mockResolvedValue(null)
   api.createPersonaRepo.mockResolvedValue({ id: 'repo-1', active_version: { id: 'ver-1', image_url: 'https://cdn/a.jpg' } })
   api.updateVersion.mockResolvedValue({ image_url: 'https://cdn/b.jpg' })
   api.publishPersonaVersion.mockResolvedValue({})
@@ -67,6 +69,12 @@ describe('avatarToFile', () => {
 })
 
 describe('createAgent', () => {
+  it('refuses a name another agent already has, and creates nothing', async () => {
+    api.findAgentNameConflict.mockResolvedValue({ id: 'other', name: DRAFT.name })
+    await expect(createAgent(DRAFT)).rejects.toMatchObject({ reason: 'name' })
+    expect(api.createPersonaRepo).not.toHaveBeenCalled()
+  })
+
   it('creates with its tags and publishes, trimmed', async () => {
     const result = await createAgent(DRAFT, { templateSlug: 'Support' })
 

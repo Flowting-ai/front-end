@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useRef } from 'react'
 import { m, useReducedMotion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -95,14 +96,13 @@ export function ThemeModeSwitcher() {
       {OPTIONS.map((option, index) => {
         const active = index === activeIndex
         return (
-          <button
+          <Tooltip content={option.label}><button
             key={option.value}
             ref={node => { buttonRefs.current[index] = node }}
             type="button"
             role="radio"
             aria-checked={active}
             aria-label={option.label}
-            title={option.label}
             tabIndex={active ? 0 : -1}
             onClick={() => setMode(option.value)}
             style={{
@@ -132,7 +132,7 @@ export function ThemeModeSwitcher() {
             >
               <HugeiconsIcon icon={option.icon} size={12} color="currentColor" strokeWidth={1.6} />
             </m.span>
-          </button>
+          </button></Tooltip>
         )
       })}
     </div>

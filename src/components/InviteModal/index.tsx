@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
@@ -84,8 +85,7 @@ interface EmailChip {
 function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => void }) {
   const isBad = chip.status !== 'pending'
   return (
-    <span
-      title={chip.reason}
+    <Tooltip content={chip.reason} disabled={!chip.reason} maxWidth={280}><span
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -127,7 +127,7 @@ function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => vo
       >
         <CancelOneIcon size={12} />
       </button>
-    </span>
+    </span></Tooltip>
   )
 }
 
@@ -445,7 +445,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             minHeight:       36,
             padding:         '6px 8px',
             borderRadius:    10,
-            backgroundColor: 'var(--neutral-white)',
+            backgroundColor: 'var(--field-surface)',
             boxShadow:       SHADOW_INPUT,
             boxSizing:       'border-box' as const,
           }}>

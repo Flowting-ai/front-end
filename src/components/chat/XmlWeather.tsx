@@ -6,6 +6,7 @@
  * liveliness is presentation-only and respects reduced-motion preferences.
  */
 
+import { Tooltip } from '@/components/Tooltip'
 import React from "react"
 import { m, useReducedMotion } from "framer-motion"
 import {
@@ -254,8 +255,7 @@ function ForecastTile({
         </span>
         <span style={{ ...captionStyle }}>{day.low ?? "–"}°</span>
       </div>
-      <div
-        title={hasRange ? `${day.low}–${day.high}${unit}` : undefined}
+      <Tooltip content={`${day.low}–${day.high}${unit}`} disabled={!hasRange}><div
         style={{ width: "100%", height: 4, borderRadius: 999, background: "var(--neutral-100)", position: "relative", overflow: "hidden" }}
       >
         {hasRange && (
@@ -274,7 +274,7 @@ function ForecastTile({
             }}
           />
         )}
-      </div>
+      </div></Tooltip>
     </m.div>
   )
 }

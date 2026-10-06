@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { AlertTwoIcon, CancelCircleIcon, CheckmarkCircleTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -95,9 +96,9 @@ export function AccountRow({
       {...props}
     >
       <div className={styles.identity}>
-        <span className={styles.name} title={name}>{name}</span>
-        {email && <span className={styles.email} title={email}>{email}</span>}
-        {addedBy && <span className={styles.email} title={`Added by ${addedBy}`}>Added by {addedBy}</span>}
+        <Tooltip content={name} maxWidth={280}><span className={styles.name}>{name}</span></Tooltip>
+        {email && <Tooltip content={email} maxWidth={280}><span className={styles.email}>{email}</span></Tooltip>}
+        {addedBy && <Tooltip content={`Added by ${addedBy}`} maxWidth={280}><span className={styles.email}>Added by {addedBy}</span></Tooltip>}
         {needsReconnect && <span className={styles.warning}>{canManage ? 'Reconnect to restore access' : 'The owner needs to reconnect this account'}</span>}
       </div>
       <div className={styles.visibility} aria-label={`Visibility for ${name}: ${visibility}`}>

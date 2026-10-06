@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
@@ -32,11 +33,11 @@ export function ChatHomeActions({
         onOpenChange={setOpen}
         placement="bottom-start"
         trigger={
-          <button type="button" className={styles.contextAction} title={selected?.name} aria-label={selected ? `Project: ${selected.name}` : 'Work in a project'}>
+          <Tooltip content={selected?.name} disabled={!selected?.name} maxWidth={280}><button type="button" className={styles.contextAction} aria-label={selected ? `Project: ${selected.name}` : 'Work in a project'}>
             <FolderOneIcon size={16} />
             <span className={styles.actionLabel}>{selected?.name ?? 'Work in a project'}</span>
             <ArrowDownOneIcon size={12} />
-          </button>
+          </button></Tooltip>
         }
       >
         <Dropdown size="sm" style={{ width: 'min(300px, calc(100vw - 48px))' }} maxHeight="min(320px, calc(100dvh - 120px))">

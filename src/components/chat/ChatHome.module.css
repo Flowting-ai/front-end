@@ -130,3 +130,20 @@
     max-width: 100%;
   }
 }
+
+/* Dark mode: a neutral tab between the page (#161616) and the chat input above it (#262626) (the neutral-100
+   it uses in light mode is almost the page colour there). */
+:global(:root[data-theme="dark"]) .contextBar {
+  background: #202020;
+  border-color: rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+:global(:root[data-theme="dark"]) .contextBar .contextAction {
+  color: #b5b5b5;
+}
+
+:global(:root[data-theme="dark"]) .contextBar .contextAction:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}

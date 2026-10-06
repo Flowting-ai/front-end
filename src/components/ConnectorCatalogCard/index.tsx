@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
@@ -101,6 +102,7 @@ export function ConnectorCatalogCard({
   actionPending = false,
   className,
   style,
+  title,
   ...props
 }: ConnectorCatalogCardProps) {
   const resolvedAction =
@@ -112,7 +114,7 @@ export function ConnectorCatalogCard({
   const artworkSize = isCompact ? '100%' : 32
 
   return (
-    <div
+    <Tooltip content={title} disabled={!title} maxWidth={280}><div
       className={cn(className)}
       style={{
         boxSizing: 'border-box',
@@ -228,8 +230,7 @@ export function ConnectorCatalogCard({
             {badge ? (
               <Badge label={badge.label} color={badge.color} />
             ) : description && density === 'detailed' ? (
-              <span
-                title={description}
+              <Tooltip content={description} maxWidth={280}><span
                 style={{
                   maxWidth: '100%',
                   overflow: 'hidden',
@@ -242,7 +243,7 @@ export function ConnectorCatalogCard({
                 }}
               >
                 {description}
-              </span>
+              </span></Tooltip>
             ) : null}
           </>
         )}
@@ -270,7 +271,7 @@ export function ConnectorCatalogCard({
           {actionCopy(state, resolvedAction)}
         </Button>
       ) : null}
-    </div>
+    </div></Tooltip>
   )
 }
 

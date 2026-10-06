@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react'
-import { SettingsOneIcon } from '@strange-huge/icons'
 
 // ── "Sidebar / Profile Row" (Figma 109:4650) ─────────────────────────────────
 // "50px, avatar centred by counter-axis alignment rather than vertical
@@ -114,15 +113,7 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
             {planLabel}
           </span>
         )}
-        {/* Settings glyph → bell: 8 px gap plus the bell's own 4 px hit-area
-            padding puts the two glyphs 12 px apart, so they read as two
-            separate controls rather than one pair. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}>
-            <SettingsOneIcon size={16} triggered={isActive} />
-          </span>
-          {trailing}
-        </div>
+        {trailing}
       </div>
     </div>
   )

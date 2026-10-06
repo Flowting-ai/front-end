@@ -1528,3 +1528,26 @@ export async function streamPersonaMessage(
   readPersonaSSEStream(reader, callbacks);
   return () => controller.abort();
 }
+
+/** Names compare ignoring case, outer whitespace and runs of inner whitespace. */
+export function normalizeAgentName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/**
+ * The agent that already uses `name`, if any (every agent the viewer can see, so a name never
+ * means two things in the list or the @-mention menu). `excludeRepoId` is the agent being
+ * edited, so keeping its own name is fine. Reads a fresh list; fails open (null) when the
+ * list can't be fetched — the backend stays the final word.
+ */
+export async function findAgentNameConflict(name: string, excludeRepoId?: string): Promise<Persona | null> {
+  const wanted = normalizeAgentName(name)
+  if (!wanted) return null
+  try {
+    bustPersonasCache()
+    const personas = await fetchPersonas()
+    return personas.find(p => p.id !== excludeRepoId && normalizeAgentName(p.name) === wanted) ?? null
+  } catch {
+    return null
+  }
+}

@@ -10,9 +10,7 @@ import type { AvatarMood, GazeChannel } from './gaze'
 // the sphere silhouettes (the clip follows the animated shapes every frame).
 //
 // Motion:
-// - Idle   — head bobs ±0.9px on a ~1.8 rad/s sine, phase-offset per card.
-// - Hover  — head sinks 17px into the body over 0.4s (ease-in-out), then
-//            springs back over 0.7s with an easeOutBack overshoot (c1 1.9).
+// - Idle / hover — the head stays merged with the body (no bob or dip).
 // - Click  — head hops 20px on a sine arc (~0.6s); on landing the body
 //            squashes (rx ×1.16, ry ×0.84, top edge grounded) and a ring
 //            (r 6→36, opacity 0.8→0) emits from the body's top. 0.75s total.
@@ -65,26 +63,6 @@ export interface AvatarThemeConfig {
 const set = (el: Element | null | undefined, attrs: Record<string, number | string>) => {
   if (!el) return
   for (const k in attrs) el.setAttribute(k, String(attrs[k]))
-}
-
-// Globe — 4 rotating meridians (rx = r·|cos a|) + an equator (ry = r·0.22) per
-// sphere. Slow at idle, ~6× faster on hover.
-const GLOBE_LINES = [0, 1].flatMap(s => [
-  ...[0, 1, 2, 3].map(m => ({ s, m, equator: false })),
-  { s, m: 0, equator: true },
-])
-const globeInterior: AvatarInterior = {
-  count:  GLOBE_LINES.length,
-  render: i => <ellipse key={i} cx={32} fill="none" stroke="#fff" strokeWidth={0.6} opacity={0.3} />,
-  update: (parts, f) => {
-    if (!f.reduceMotion) f.state.ph += f.dt * (f.hover ? 0.5 : 0.08)
-    GLOBE_LINES.forEach((line, i) => {
-      const [y, r] = line.s ? f.body : f.head
-      if (line.equator) { set(parts[i], { cy: y, rx: r, ry: r * 0.22 }); return }
-      const a = ((f.state.ph + line.m / 4) % 1) * Math.PI
-      set(parts[i], { cy: y, rx: Math.abs(r * Math.cos(a)), ry: r })
-    })
-  },
 }
 
 // Clouds — 3 puff clusters drifting left→right and wrapping; faster on hover.
@@ -153,7 +131,7 @@ const heartsInterior: AvatarInterior = {
 export type AvatarTheme = 'guide' | 'weather' | 'scout' | 'marketing'
 
 export const AVATAR_THEMES: Record<AvatarTheme, AvatarThemeConfig> = {
-  guide:     { colors: ['#4a4a4a', '#030303'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'],    interior: globeInterior },
+  guide:     { colors: ['#e3e5e8', '#8e949d'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'] },
   weather:   { colors: ['#8cc8ff', '#0a4fb0'], status: ['Fetching radar…', 'Reading alerts…', 'Forecast ready'],        interior: cloudsInterior },
   scout:     { colors: ['#b4cef0', '#2f5f9e'], status: ['Scanning arXiv…', 'Verifying sources…', '3 new papers'],       interior: signalsInterior },
   marketing: { colors: ['#ffa3bd', '#b3124f'], status: ['Drafting hooks…', 'Checking engagement…', 'Campaign ready'],   interior: heartsInterior },
@@ -185,7 +163,7 @@ export function getAvatarColors(theme: AvatarTheme | null, seed: string): [strin
 /** A pickable avatar: one of the themed ones, or a plain sphere in a fixed colourway. */
 export type AvatarChoice = AvatarTheme | 'ember' | 'mint' | 'dusk' | BaseColor
 
-/** Ten more plain spheres — the same orb, just in other base colours ([highlight, shadow]). */
+/** Eleven more plain spheres — the same orb, just in other base colours ([highlight, shadow]). */
 export const BASE_COLORS = {
   coral:  { label: 'Coral',  colors: ['#ffb4a2', '#c2412d'] },
   amber:  { label: 'Amber',  colors: ['#ffd27a', '#b7791f'] },
@@ -197,6 +175,7 @@ export const BASE_COLORS = {
   rose:   { label: 'Rose',   colors: ['#f5b8d4', '#a82f6b'] },
   slate:  { label: 'Slate',  colors: ['#c4ccd6', '#3e4a5a'] },
   sand:   { label: 'Sand',   colors: ['#e8d6b8', '#8a6a3a'] },
+  white:  { label: 'White',  colors: ['#ffffff', '#b9bec7'] },
 } as const satisfies Record<string, { label: string; colors: [string, string] }>
 export type BaseColor = keyof typeof BASE_COLORS
 
@@ -248,11 +227,6 @@ function hashSeed(seed: string): number {
   return h
 }
 
-// ── Easing ────────────────────────────────────────────────────────────────────
-
-const easeOutBack = (x: number) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
-const easeInOut   = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2)
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface AnimatedPersonaAvatarProps {
@@ -280,48 +254,13 @@ export interface AnimatedPersonaAvatarProps {
   gaze?:   GazeChannel
 }
 
-// Eyes — the CodePen "Animated Eyes" (codepen.io/Alhefel/pen/WNWqKGK), scaled onto the head.
-// Two solid pills with a fixed gap, centred in the head; the pair glides across the face to
-// look, and the shape carries the expression: round 50×50 → wide 60×40 → round → a 10×50
-// slit (the blink), on the pen's 6s loop. The pen's head is 350px and ours is 26 units
-// across, so its px × PEN = viewBox units.
-const PEN = 26 / 350
-const EYE_SIZE = 50 * PEN   // ≈ 3.7: a round eye
-/** The gap between the eyes, edge to edge (the pen's column-gap) — constant whatever the shape. */
-const EYE_GAP = 20 * PEN    // ≈ 1.5
-const EYE_X = EYE_SIZE / 2 + EYE_GAP / 2
-/** How far the pair can travel across the face toward what it looks at (the pen's range). */
-const LOOK_X = 80 * PEN * 0.75
-const LOOK_Y = 50 * PEN * 0.8
-
-/** The pen's keyframes as [time 0…1, a, b] in pen px, eased per segment like CSS `ease`. */
-type PenTrack = [number, number, number][]
-/** `blink`: the eyes' [width, height] — round, the long wide hold, round, the slit. */
-const PEN_SHAPE: PenTrack = [[0, 50, 50], [0.15, 60, 40], [0.2, 60, 40], [0.6, 60, 40], [0.7, 50, 50], [0.85, 10, 50], [0.9, 10, 50], [1, 50, 50]]
-/** `moving`: the pair's [x, y] look-around, for when there's nothing to watch. */
-const PEN_MOVE: PenTrack = [[0, 0, 0], [0.4, 20, 50], [0.6, 80, -30], [0.8, 0, 0], [1, 0, 0]]
-const PEN_CYCLE = 6
-
-/** A pen track's value at time `t` (s), in viewBox units. */
-function penAt(track: PenTrack, t: number): [number, number] {
-  const q = ((t % PEN_CYCLE) + PEN_CYCLE) % PEN_CYCLE / PEN_CYCLE
-  for (let k = 1; k < track.length; k++) {
-    const [t1, a1, b1] = track[k], [t0, a0, b0] = track[k - 1]
-    if (q <= t1) {
-      const p = easeInOut((q - t0) / (t1 - t0 || 1))
-      return [(a0 + (a1 - a0) * p) * PEN, (b0 + (b1 - b0) * p) * PEN]
-    }
-  }
-  return [track[0][1] * PEN, track[0][2] * PEN]
-}
-
-/** Black pills like the pen — white on a dark head (the travel globe), where black would vanish. */
-function eyeInk(highlight: string): string {
-  const hex = /^#([0-9a-f]{6})$/i.exec(highlight)?.[1]
-  if (!hex) return '#0a0a0c'
-  const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35 ? '#ffffff' : '#0a0a0c'
-}
+// Eyes — two vertical pills side by side.
+// Eyes, in viewBox units: centred ±EYE_X off the head's middle, a touch above its centre.
+const EYE_X = 3.5   // eye half-width 1.8 + 1.7 = a 3.4-unit gap between the eyes
+const EYE_LIFT = 1
+/** How far the eyes travel across the face toward what they look at, horizontally / vertically. */
+const LOOK_X = 2
+const LOOK_Y = 1.5
 
 export function AnimatedPersonaAvatar({
   theme,
@@ -333,7 +272,7 @@ export function AnimatedPersonaAvatar({
   inert     = false,
   colors: colorsProp,
   eyes      = false,
-  backdrop  = 'var(--neutral-50)',
+  backdrop  = 'var(--avatar-backdrop, var(--neutral-50))',
   mood: moodProp,
   gaze,
 }: AnimatedPersonaAvatarProps) {
@@ -350,12 +289,12 @@ export function AnimatedPersonaAvatar({
   const rootRef  = useRef<HTMLDivElement>(null)
   const headRef  = useRef<SVGCircleElement>(null)
   const bodyRef  = useRef<SVGEllipseElement>(null)
-  const clipHRef = useRef<SVGCircleElement>(null)
+  const visorRef = useRef<SVGGElement>(null)
   const clipBRef = useRef<SVGEllipseElement>(null)
   const ringRef  = useRef<SVGCircleElement>(null)
   const flashRef = useRef<SVGRectElement>(null)
   const partsRef = useRef<SVGGElement>(null)
-  const eyeRefs   = useRef<(SVGRectElement | null)[]>([])
+  const eyeRefs   = useRef<(SVGGElement | null)[]>([])
 
   // Animation state lives in a ref so the rAF loop reads current values
   // without restarting on every prop change.
@@ -365,9 +304,6 @@ export function AnimatedPersonaAvatar({
     // Eyes: eased pupil offset, the last blink, and when the next one is due.
     lookX: 0, lookY: 0, blinkAt: -9, nextBlink: 1 + (hash % 300) / 100, blinkTwice: false,
     lookSource: 'ahead', saccadeUntil: 0, microAt: 0, microX: 0, microY: 0,
-    // The eyes' eased size, and the "getting comfortable" pointer-dwell timer.
-    eyeW: EYE_SIZE, eyeH: EYE_SIZE,
-    lastPointer: null as { x: number; y: number } | null, stillSince: 0,
     heldTarget: null as [number, number] | null, heldUntil: 0,
     rect: null as DOMRect | null,
     visitor: false, vt: 0,
@@ -401,15 +337,11 @@ export function AnimatedPersonaAvatar({
 
     const draw = (now: number, dt: number) => {
       const s = st.current
-      const hr = 13, by = 61, br = 25
-      let hy = 21 + (reduceMotion ? 0 : Math.sin(now * 1.8 + phase) * 0.9)
+      const hr = 15, by = 67, br = 25
+      // The head rests joined to the body (no idle bob or hover dip to pull them apart);
+      // only the click hop lifts it off.
+      let hy = 28
       let sq = 0, rk = -1
-
-      if (s.hover && !reduceMotion) {
-        const t = now - s.ht
-        if (t < 0.4)      hy += easeInOut(t / 0.4) * 17
-        else if (t < 1.1) hy += 17 * (1 - easeOutBack((t - 0.4) / 0.7))
-      }
 
       const c = now - s.ct
       if (c < 0.75 && !reduceMotion) {
@@ -420,7 +352,6 @@ export function AnimatedPersonaAvatar({
       }
 
       set(headRef.current,  { cy: hy, r: hr })
-      set(clipHRef.current, { cy: hy, r: hr })
 
       const rx = br * (1 + sq), ry = br * (1 - sq), cy = by + br * sq
       set(bodyRef.current,  { cy, rx, ry })
@@ -439,7 +370,11 @@ export function AnimatedPersonaAvatar({
         set(flashRef.current, { opacity: interior.flash?.(frame) ?? 0 })
       }
 
-      if (eyes) drawEyes(now, dt, hy)
+      if (eyes) {
+        // The visor rides the head (it jumps on click).
+        set(visorRef.current, { transform: `translate(32,${(hy - EYE_LIFT).toFixed(2)})` })
+        drawEyes(now, dt, hy)
+      }
     }
 
     // ── Eyes ──────────────────────────────────────────────────────────────────
@@ -470,7 +405,7 @@ export function AnimatedPersonaAvatar({
     const drawEyes = (now: number, dt: number, hy: number) => {
       const s = st.current
       const g = gaze
-      const ey = hy   // centred in the head, like the pen
+      const ey = hy - EYE_LIFT
       const awake = mood === 'awake' || mood === 'drowsy'
 
       // ─ Where to look. Attention (the button) > pointer > a held last look > the scene.
@@ -495,68 +430,57 @@ export function AnimatedPersonaAvatar({
       }
       if (!g?.pointer) s.rect = null
 
-      // ─ Where the pair sits: toward what it's watching, within the pen's range of the face.
-      //   With nothing to watch, it runs the pen's own look-around.
       let lx = 0, ly = 0
       if (target) {
         const dx = target[0] - 32, dy = target[1] - ey
         const d = Math.hypot(dx, dy) || 1
-        const reach = Math.min(1, d / 16)   // a target right on the face barely moves them
+        const reach = Math.min(1, d / 14)   // a target right on the face barely moves them
         lx = (dx / d) * LOOK_X * reach
         ly = (dy / d) * LOOK_Y * reach
-      } else if (!reduceMotion) {
-        ;[lx, ly] = penAt(PEN_MOVE, now + phase)
       }
-      // The pen's `transition: 0.5s ease` — smooth, no overshoot.
-      const glide = reduceMotion || dt === 0 ? 1 : 1 - Math.exp(-dt * 7)
-      s.lookX += (lx - s.lookX) * glide
-      s.lookY += (ly - s.lookY) * glide
 
-      // ─ Pointer dwell: a cursor resting on the card for a while → the content, wide eyes.
-      const p = g?.pointer
-      if (p) {
-        if (!s.lastPointer || Math.hypot(p.x - s.lastPointer.x, p.y - s.lastPointer.y) > 3) { s.stillSince = now; s.lastPointer = { x: p.x, y: p.y } }
-      } else s.lastPointer = null
-      const dwelling = !!p && now - s.stillSince > 1.4
+      // ─ Saccade: a big change of direction or of what's being watched snaps quickly.
+      const turn = Math.abs(Math.atan2(ly, lx) - Math.atan2(s.lookY, s.lookX))
+      const jumped = source !== s.lookSource || (Math.hypot(lx - s.lookX, ly - s.lookY) > 0.5 && Math.min(turn, Math.PI * 2 - turn) > 0.44)
+      if (jumped) {
+        s.saccadeUntil = now + 0.09
+        // A long hand-off between scene elements gets a blink, like a real glance.
+        if (source === 'ambient' && s.lookSource === 'ambient' && Math.hypot(lx - s.lookX, ly - s.lookY) > 1.2 && !reduceMotion) blink(now, s)
+        s.lookSource = source
+      }
+      // ─ Micro-saccades: small held jitters every ~0.6–1.6s.
+      if (now >= s.microAt && !reduceMotion) {
+        s.microX = (Math.random() - 0.5) * 0.24
+        s.microY = (Math.random() - 0.5) * 0.24
+        s.microAt = now + 0.6 + Math.random()
+      }
+      const rate = reduceMotion ? Infinity : now < s.saccadeUntil ? 28 : 10
+      const ease = dt > 0 && rate !== Infinity ? 1 - Math.exp(-dt * rate) : 1
+      s.lookX += (lx + s.microX - s.lookX) * ease
+      s.lookY += (ly + s.microY - s.lookY) * ease
 
-      // ─ Shape. At rest the eyes play the pen's 6s loop (round → wide → round → slit), which
-      //   carries its own blink. When the viewer engages, they hold a shape instead and blink
-      //   with the pen's slit: round and attentive while following you, wide and content when
-      //   you settle or hover the button, a wider round on a click.
-      const ROUND: [number, number] = [EYE_SIZE, EYE_SIZE]
-      const WIDE:  [number, number] = [60 * PEN, 40 * PEN]
-      const SLIT:  [number, number] = [10 * PEN, 50 * PEN]
-      const sinceClick = now - s.ct
-      const sleepy = mood === 'asleep' || mood === 'drowsy'
-      const engaged = squint || !!p || source === 'pointer' || sinceClick < 0.45
-      let shape: [number, number]
-      if (reduceMotion)                shape = ROUND
-      else if (sinceClick < 0.45)      shape = [EYE_SIZE * 1.15, EYE_SIZE * 1.15]
-      else if (squint || dwelling)     shape = WIDE
-      else if (engaged)                shape = ROUND
-      else if (mood === 'unavailable') shape = [EYE_SIZE * 0.8, EYE_SIZE * 0.8]
-      // Sleepy agents run the loop at half speed.
-      else                             shape = penAt(PEN_SHAPE, sleepy ? (now + phase) * 0.5 : now + phase)
-      // Blinks while engaged (the loop has its own): the pen's slit, ~0.2s, sometimes twice.
-      if (engaged && !reduceMotion) {
+      // ─ Lids.
+      let open = 1
+      // Eyes stay open in every mood (only the blink closes them).
+      if (!reduceMotion) {
         if (now >= s.nextBlink) blink(now, s)
         const b = now - s.blinkAt
-        if (b < 0.2 || (s.blinkTwice && b > 0.3 && b < 0.5)) shape = SLIT
+        const one = (t: number) => (t < 0.06 ? t / 0.06 : t < 0.14 ? 1 - (t - 0.06) / 0.08 : 0)   // close 60ms, open 80ms
+        const shut = Math.max(one(b), s.blinkTwice ? one(b - 0.22) : 0)
+        open = 1 - shut * 0.9
       }
-      const morph = reduceMotion || dt === 0 ? 1 : 1 - Math.exp(-dt * 18)
-      s.eyeW += (shape[0] - s.eyeW) * morph
-      s.eyeH += (shape[1] - s.eyeH) * morph
+      // Happy: the eyes become little upturned arcs, "^ ^", instead of open eyes.
+      const happy = squint && open > 0.5
+      const lid = happy ? 1 : open
 
-      // ─ Draw: two pills, the gap held at EYE_GAP edge to edge whatever their width.
-      const w = s.eyeW, h = s.eyeH
-      const cx = 32 + s.lookX, cy = ey + s.lookY
       ;[-1, 1].forEach((side, i) => {
-        const x = cx + side * (w / 2 + EYE_GAP / 2)
-        set(eyeRefs.current[i], {
-          x: (x - w / 2).toFixed(2), y: (cy - h / 2).toFixed(2),
-          width: w.toFixed(2), height: h.toFixed(2),
-          rx: (Math.min(w, h) / 2).toFixed(2),
-        })
+        const thisLid = lid
+        // Both eyes drift together with the look, so the gap between them never changes.
+        const x = 32 + side * EYE_X + s.lookX
+        const eye = eyeRefs.current[i]
+        set(eye, { transform: `translate(${x.toFixed(2)},${(ey + s.lookY).toFixed(2)}) scale(1,${thisLid.toFixed(3)})` })
+        set(eye?.children[0], { opacity: happy ? 0 : 1 })   // the open eye
+        set(eye?.children[1], { opacity: happy ? 1 : 0 })   // the "^"
       })
     }
 
@@ -582,6 +506,7 @@ export function AnimatedPersonaAvatar({
   const gradId = `pa-g-${uid}`
   const gooId  = `pa-goo-${uid}`
   const clipId = `pa-cp-${uid}`
+  const visorId = `pa-vz-${uid}`
 
   return (
     <div
@@ -604,21 +529,28 @@ export function AnimatedPersonaAvatar({
             <stop offset=".14" stopColor={c0} />
             <stop offset="1"   stopColor={c1} />
           </radialGradient>
-          <filter id={gooId} x="-20%" y="-20%" width="140%" height="140%">
+          <filter id={gooId} x="-20%" y="-20%" width="140%" height="150%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b" />
-            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -10" />
+            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -10" result="goo" />
+            {/* A soft shadow under the merged head + body, lifting them off the background. */}
+            <feDropShadow in="goo" dx="0" dy="1.6" stdDeviation="1.6" style={{ floodColor: 'var(--avatar-shadow, rgba(20,20,30,0.28))' }} />
           </filter>
+          {/* Face screen colours come from theme tokens (globals.css): a black screen in both modes. */}
+          <radialGradient id={visorId} cx=".4" cy=".3" r=".9">
+            <stop offset="0" style={{ stopColor: 'var(--avatar-visor-a, #262b38)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--avatar-visor-b, #07080c)' }} />
+          </radialGradient>
+          {/* Interiors live in the body only — heads are solid, never see-through. */}
           <clipPath id={clipId}>
-            <circle  ref={clipHRef} cx={32} cy={21} r={13} />
-            <ellipse ref={clipBRef} cx={32} cy={61} rx={25} ry={25} />
+            <ellipse ref={clipBRef} cx={32} cy={67} rx={25} ry={25} />
           </clipPath>
         </defs>
 
         <circle ref={ringRef} cx={32} fill="none" stroke={c1} strokeWidth={1.2} opacity={0} />
 
         <g filter={`url(#${gooId})`}>
-          <ellipse ref={bodyRef} cx={32} cy={61} rx={25} ry={25} fill={`url(#${gradId})`} />
-          <circle  ref={headRef} cx={32} cy={21} r={13} fill={`url(#${gradId})`} />
+          <ellipse ref={bodyRef} cx={32} cy={67} rx={25} ry={25} fill={`url(#${gradId})`} />
+          <circle  ref={headRef} cx={32} cy={28} r={15} fill={`url(#${gradId})`} />
         </g>
 
         {interior && (
@@ -627,18 +559,27 @@ export function AnimatedPersonaAvatar({
           </g>
         )}
 
-        {/* The pen's eyes: two solid pills (positioned and shaped each frame by drawEyes). */}
+        {/* EVE-style face: a round screen across the head, the eyes on it. */}
+        {eyes && (
+          <g ref={visorRef} transform={`translate(32,${28 - EYE_LIFT})`}>
+            <path d="M-12.2 0A12.2 10.2 0 0 1 12.2 0A12.2 12.2 0 0 1 -12.2 0Z" fill={`url(#${visorId})`} />
+            <path d="M-12.2 0A12.2 10.2 0 0 1 12.2 0A12.2 12.2 0 0 1 -12.2 0Z" fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={0.5} />
+            {/* Gloss: a soft sheen across the top of the glass. */}
+            <ellipse cx={-2.5} cy={-7.2} rx={5} ry={1.2} fill="#fff" opacity={0.18} />
+          </g>
+        )}
+
         {eyes && [-1, 1].map((side, i) => (
-          <rect
-            key={side}
-            ref={el => { eyeRefs.current[i] = el }}
-            x={32 + side * EYE_X - EYE_SIZE / 2}
-            y={21 - EYE_SIZE / 2}
-            width={EYE_SIZE}
-            height={EYE_SIZE}
-            rx={EYE_SIZE / 2}
-            fill={eyeInk(c0)}
-          />
+          <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${28 - EYE_LIFT})`}>
+            <g>
+              {/* Retro-TV eye: a vertical pill with faint scanlines (chord-width so they stay inside the round ends). */}
+              <rect x={-1.8} y={-3.6} width={3.6} height={7.2} rx={1.8} style={{ fill: 'var(--avatar-eye, #9fd8ff)' }} />
+              {[[-3, 1.34], [-1.8, 1.8], [-0.6, 1.8], [0.6, 1.8], [1.8, 1.8], [3, 1.34]].map(([y, hw]) => (
+                <line key={y} x1={-hw} x2={hw} y1={y} y2={y} style={{ stroke: 'var(--avatar-eye-line, #07080c)' }} strokeOpacity={0.3} strokeWidth={0.4} />
+              ))}
+            </g>
+            <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" style={{ stroke: 'var(--avatar-eye, #9fd8ff)' }} strokeWidth={1.4} strokeLinecap="round" opacity={0} />
+          </g>
         ))}
 
         <rect ref={flashRef} width={64} height={64} fill="#fff" opacity={0} pointerEvents="none" />

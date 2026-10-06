@@ -28,6 +28,8 @@ export interface SliderProps
   fluid?:         boolean
   /** CSS color for the filled (active) portion of the track. Defaults to `var(--neutral-700)`. */
   fillColor?:     string
+  /** CSS color for the unfilled track. Defaults to `var(--neutral-100)`. */
+  trackColor?:    string
 }
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ export function Slider({
     variant = 'default',
     fluid     = true,
     fillColor = 'var(--neutral-700)',
+    trackColor = 'var(--neutral-100)',
     disabled,
     ...props
   }: SliderProps & { ref?: React.Ref<React.ComponentRef<typeof SliderPrimitive.Root>> }) {
@@ -129,7 +132,7 @@ export function Slider({
             flexGrow:        1,
             height:          trackHeight,
             borderRadius:    999,
-            backgroundColor: 'var(--neutral-100)',
+            backgroundColor: trackColor,
             overflow:        'hidden',
           }}
         >

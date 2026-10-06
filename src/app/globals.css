@@ -225,6 +225,18 @@
   --kaya-orbit-color-b: var(--neutral-500);
 }
 
+:root {
+  /* Agent avatar face screen (AnimatedPersonaAvatar): a solid black screen with light blue eyes,
+     the same in light and dark mode. */
+  --avatar-backdrop: var(--neutral-50);   /* the circle/tile behind the head and body */
+  --avatar-shadow:   rgba(20, 20, 30, 0.5);
+  --field-track:     #d6d1cb;   /* unfilled slider track inside a field card: visible on white */
+  --avatar-visor-a:  #262b38;
+  --avatar-visor-b:  #07080c;
+  --avatar-eye:      #9fd8ff;
+  --avatar-eye-line: #07080c;
+}
+
 .kaya-input-orbit {
   position: absolute;
   inset: 0;
@@ -703,7 +715,7 @@
     0 0 50px 6px color-mix(in srgb, var(--c1) 30%, transparent);
 }
 :root[data-theme="dark"] .agent-orb {
-  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c0) 22%, #0c0c0e) 0%, #070708 72%);
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c0) 30%, #4a4e5a) 0%, #2c2f38 72%);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.10),
     0 0 0 5px color-mix(in srgb, var(--c0) 10%, transparent),
@@ -731,7 +743,7 @@
   mask-image: radial-gradient(circle at 50% 45%, #000 40%, transparent 72%);
 }
 :root[data-theme="dark"] .agent-orb__dots {
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 0.6px, transparent 0.9px);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.6px, transparent 0.9px);
 }
 .agent-orb__sheen {
   background: radial-gradient(46% 30% at calc(32% + var(--px, 0) * 6%) calc(22% + var(--py, 0) * 5%), rgba(255, 255, 255, 0.26), transparent 70%);
@@ -925,3 +937,26 @@
 :root[data-theme="dark"] .kds-light-surface .kds-logo-dark {
   display: none !important;
 }
+
+:root[data-theme="dark"] {
+  /* Dark mode: a lighter slate behind the head and body so the black avatars stand out. */
+  --avatar-backdrop: #3d414d;
+  --avatar-shadow:   rgba(0, 0, 0, 0.75);
+  --field-track:     #55575e;   /* ...and on the lifted dark field surface */
+}
+
+/* The agent chip in the composer: the default dark-mode chip (deep navy, muted blue text) is hard to read,
+   so in dark it gets a brighter steel-blue fill, near-white text and a light ring. */
+:root[data-theme="dark"] .agent-chip {
+  --chip-bg:   #28507c;
+  --chip-text: #eaf3ff;
+  --chip-shadow:
+    0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+    0px 0px 0px 1px rgba(147, 197, 253, 0.55);
+  --chip-inner-shadow:
+    inset 0px  1px 0px 0px rgba(255, 255, 255, 0.18),
+    inset 0px -1px 0px 0px rgba(0, 0, 0, 0.25);
+  --chip-button-bg-hover: rgba(255, 255, 255, 0.16);
+  --chip-button-inner-shadow: none;
+}
+

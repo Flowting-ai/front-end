@@ -43,7 +43,7 @@ function TextInput({
       readOnly={readOnly}
       style={{
         height:          36,
-        backgroundColor: readOnly ? 'var(--neutral-50)' : 'white',
+        backgroundColor: readOnly ? 'var(--neutral-50)' : 'var(--field-surface)',
         borderRadius:    10,
         boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         border:          'none',
@@ -1024,7 +1024,7 @@ export default function OrgGeneralPage() {
                   width:           '100%',
                   height:          96,
                   resize:          'none',
-                  backgroundColor: 'var(--neutral-50)',
+                  backgroundColor: 'var(--field-surface)',
                   borderRadius:    10,
                   boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                   border:          'none',

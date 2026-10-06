@@ -141,7 +141,7 @@ export function TextField({
           width: "100%",
           padding: "7px 10px",
           borderRadius: 10,
-          backgroundColor: "var(--neutral-white)",
+          backgroundColor: "var(--field-surface)",
           boxSizing: "border-box",
           boxShadow: error
             ? "0px 0px 0px 1px var(--red-600,#c62b29)"

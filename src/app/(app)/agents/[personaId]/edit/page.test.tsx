@@ -27,6 +27,7 @@ const api = vi.hoisted(() => ({
   enhancePrompt:         vi.fn(),
   testVersionStream:     vi.fn(),
   createPersonaRepo:     vi.fn(),
+  findAgentNameConflict: vi.fn().mockResolvedValue(null),
 }))
 const models = vi.hoisted(() => ({ fetchModelsWithCache: vi.fn() }))
 

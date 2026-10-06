@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 // ── Shadow ────────────────────────────────────────────────────────────────────
 
-const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
+const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring-hover)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ function ProjectTrigger({
       gap:             6,
       padding:         '5px 10px',
       borderRadius:    8,
-      backgroundColor: open ? 'var(--neutral-100)' : 'var(--neutral-white)',
+      backgroundColor: open ? 'var(--neutral-100)' : 'var(--field-surface)',
       boxShadow:       SHADOW_TRIGGER,
       cursor:          'pointer',
       transition:      'background-color 120ms',

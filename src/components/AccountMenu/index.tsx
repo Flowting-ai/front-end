@@ -1,12 +1,12 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
 import {
   UserIcon,
   ArrowUpRightOneIcon,
   SettingsOneIcon,
   InformationCircleIcon,
-  ArrowRightOneIcon,
   CourtHouseIcon,
   AlertCircleIcon,
   LoginOneIcon,
@@ -124,8 +124,7 @@ const ShortcutPill = ({ label }: { label: string }) => (
 
 const EmailHeader = ({ email }: { email: string }) => (
   <div style={{ padding: '6px 8px 2px' }}>
-    <p
-      title={email}
+    <Tooltip content={email} maxWidth={280}><p
       style={{
         margin:       0,
         fontFamily:   'var(--font-body)',
@@ -139,7 +138,7 @@ const EmailHeader = ({ email }: { email: string }) => (
       }}
     >
       {email}
-    </p>
+    </p></Tooltip>
   </div>
 )
 
@@ -196,6 +195,11 @@ const PlanChip = ({ label, tone }: { label: string; tone: PlanTone }) => {
   )
 }
 
+/** "Core" → "Core Plan", "Pro" → "Pro Plan"; labels that already say what they are ("Free Plan", "Free Trial") are kept. */
+function withPlanSuffix(label: string): string {
+  return /(plan|trial)/i.test(label) ? label : `${label} Plan`
+}
+
 const formatCredits = (n: number) => Math.max(0, Math.round(n)).toLocaleString()
 
 const PlanCard = ({
@@ -217,7 +221,7 @@ const PlanCard = ({
   const shownCredits = planWarning ? undefined : (creditsTotal ?? credits)
   if (!planWarning && !planType && shownCredits === undefined && !themingEnabled) return null
 
-  const planLabel = planWarning ? 'No plan selected' : (planType ?? 'Plan')
+  const planLabel = planWarning ? 'No plan selected' : withPlanSuffix(planType ?? 'Plan')
 
   const creditsBlock = shownCredits !== undefined ? (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
@@ -225,7 +229,7 @@ const PlanCard = ({
         {formatCredits(shownCredits)}
       </span>
       <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-        credits
+        total credits
       </span>
     </span>
   ) : null
@@ -392,7 +396,6 @@ export function AccountMenu({
             <Dropdown.Item
               icon={<InformationCircleIcon />}
               label="Help"
-              rightIcon={<ArrowRightOneIcon />}
               fluid
               onClick={() => { onHelp?.(); close() }}
             />

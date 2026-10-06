@@ -411,7 +411,7 @@
      Hover glow:  --neutral-100-60 at 3px
      Focus glow:  --neutral-100-60 at 6px
      ─────────────────────────────────────────────────────────────────────────── */
-  --chat-input-bg:               #FFFFFF;  /* stays pure white on the #FCFCFB page; dark overrides it (theme.css) */
+  --chat-input-bg:               #FFFFFF;  /* stays pure white on the #F9F8F5 page; dark overrides it (theme.css) */
   --chat-input-placeholder:      var(--color-text-placeholder);
   --chat-input-text:             var(--color-text-primary);
   --chat-input-scrollbar-thumb:  var(--color-scrollbar-thumb);
@@ -471,6 +471,7 @@
   --text-field-placeholder:    var(--color-text-placeholder);  /* neutral-600 */
   --text-field-icon:           var(--color-text-muted);        /* neutral-500 */
   --text-field-bg:             #FFFFFF;   /* #ffffff */
+  --field-surface:             #FFFFFF;   /* every input / textarea / select surface: pure white in light mode, even on the cream page */
   --text-field-ring:           var(--neutral-100);             /* 1px ring at rest / filled */
   --text-field-ring-hover:     var(--neutral-200);             /* 1px ring on hover */
 

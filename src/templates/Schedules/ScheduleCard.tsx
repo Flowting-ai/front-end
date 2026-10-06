@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
 import { CalendarThreeIcon, AlertTwoIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
@@ -127,9 +128,9 @@ export function ScheduleCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {drift && (
-            <span title="This schedule's last edit may not have fully synced">
+            <Tooltip content="This schedule's last edit may not have fully synced"><span>
               <AlertTwoIcon size={14} color="var(--yellow-600)" />
-            </span>
+            </span></Tooltip>
           )}
           {isRunning && <Badge color="Blue" label="Running" />}
           <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
@@ -220,8 +221,7 @@ export function ScheduleCard({
         )}
 
         {connectors.length > 0 && (
-          <div
-            title={connectors.map(connector => connector.name).join(', ')}
+          <Tooltip content={connectors.map(connector => connector.name).join(', ')} maxWidth={280}><div
             style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 }}
           >
             {connectors.slice(0, MAX_CARD_CONNECTORS).map(connector => (
@@ -232,7 +232,7 @@ export function ScheduleCard({
                 +{connectors.length - MAX_CARD_CONNECTORS}
               </span>
             )}
-          </div>
+          </div></Tooltip>
         )}
       </div>
     </button>

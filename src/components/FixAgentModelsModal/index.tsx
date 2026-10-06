@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { AlertTwoIcon, ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, StarIcon } from '@strange-huge/icons'
@@ -345,8 +346,7 @@ function AgentRow({ agent, chosenModelName, failed, disabled, onPick }: {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            title={agent.name}
+          <Tooltip content={agent.name} maxWidth={280}><span
             style={{
               fontFamily:   'var(--font-body)',
               fontSize:     'var(--font-size-body)',
@@ -358,7 +358,7 @@ function AgentRow({ agent, chosenModelName, failed, disabled, onPick }: {
             }}
           >
             {agent.name}
-          </span>
+          </span></Tooltip>
           <Badge
             label={agent.reason === 'blocked' ? 'Turned off' : 'Retired'}
             color={agent.reason === 'blocked' ? 'Neutral' : 'Yellow'}

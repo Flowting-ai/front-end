@@ -8,6 +8,7 @@
 // docs v1.5/connectors-v1.5-migration-plan.md). Fabricating a URL would be
 // worse than omitting the row.
 
+import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { useOrg } from '@/context/org-context'
 import { connectionAddedBy } from '@/lib/connector-owner'
@@ -109,7 +110,7 @@ export function ConnectorDetailView({
           )}
           <Button variant="outline" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={addAccount}>Add account</Button>
         </div>
-        {catalog.description && <p className={styles.description} title={catalog.description}>{catalog.description}</p>}
+        {catalog.description && <Tooltip content={catalog.description} maxWidth={280}><p className={styles.description}>{catalog.description}</p></Tooltip>}
       </header>
       <section className={styles.accounts} aria-labelledby="connector-accounts-heading">
         <div className={styles.sectionHeader}>
