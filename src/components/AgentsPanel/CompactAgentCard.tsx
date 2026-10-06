@@ -84,6 +84,8 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inU
       }}
       data-surface="raised"
     >
+      {/* Keeps the bottom edge hovered while the card lifts 1px (otherwise the pointer on that edge flickers). */}
+      <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: -3, height: 3 }} />
       {/* Unavailable: still and grey, like PersonaCard's scene. Paused: still and faded. */}
       <div style={{ display: 'flex', flexShrink: 0, filter: unavailable ? 'grayscale(1)' : undefined }}>
         <AgentHero
