@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { LinkSixIcon } from '@strange-huge/icons'
+import { AlertTwoIcon, LinkSixIcon } from '@strange-huge/icons'
 import { AgentHero } from '@/components/PersonaCard/AgentHero'
 import { AgentCardButton } from '@/components/PersonaCard/AgentCardButton'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
+import type { ModelUnavailableReason } from '@/lib/agent-model-health'
 
 // The compact agent card for the narrow agents panel: the grid card's look in one slim row. A small
 // rounded tile carries the grainy colour banner and the live avatar; the name (Google Sans) and a
@@ -24,13 +25,24 @@ export interface CompactAgentCardProps {
   onOpen:    () => void
   /** Pill clicked — use the agent. */
   onUse:     () => void
+  /**
+   * Set when the agent's model is retired or turned off (lib/agent-model-health),
+   * matching PersonaCard's unavailable state on /agents: the tile goes grey and
+   * faded, the description becomes the reason, and the pill swaps "Use" for
+   * "Fix model" (when `onFixModel` is given) or stays disabled.
+   */
+  modelUnavailable?: ModelUnavailableReason | null
+  /** "Fix model" pill clicked — open the Change model flow for this agent. */
+  onFixModel?: () => void
 }
 
-export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onOpen, onUse }: CompactAgentCardProps) {
+export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onOpen, onUse, modelUnavailable, onFixModel }: CompactAgentCardProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [bounceKey, setBounceKey] = useState(0)
   const active = hovered || focused
+  const unavailable = !!modelUnavailable
+  const dimmed = agent.paused || unavailable
 
   return (
     <div
@@ -67,19 +79,22 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
       }}
       data-surface="raised"
     >
-      <AgentHero
-        name={agent.name}
-        agentId={agent.id}
-        height={TILE}
-        width={TILE}
-        avatarSize={38}
-        radius={TILE_RADIUS}
-        rounded
-        hovered={active && !agent.paused}
-        bounceKey={bounceKey}
-        inert={agent.paused}
-        opacity={agent.paused ? 0.6 : 1}
-      />
+      {/* Unavailable: still and grey, like PersonaCard's scene. Paused: still and faded. */}
+      <div style={{ display: 'flex', flexShrink: 0, filter: unavailable ? 'grayscale(1)' : undefined }}>
+        <AgentHero
+          name={agent.name}
+          agentId={agent.id}
+          height={TILE}
+          width={TILE}
+          avatarSize={38}
+          radius={TILE_RADIUS}
+          rounded
+          hovered={active && !dimmed}
+          bounceKey={bounceKey}
+          inert={dimmed}
+          opacity={dimmed ? 0.6 : 1}
+        />
+      </div>
 
       <div style={{ flex: '1 1 0', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -87,7 +102,7 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
             title={agent.name}
             style={{
               minWidth: 0, fontFamily: 'var(--font-title)', fontSize: 15, lineHeight: '20px', fontWeight: 'var(--font-weight-medium)',
-              color: 'var(--neutral-950)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              color: unavailable ? 'var(--neutral-500)' : 'var(--neutral-950)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}
           >
             {agent.name}
@@ -98,20 +113,40 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
             </span>
           )}
         </div>
-        <p
-          title={agent.description || undefined}
-          style={{
-            margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}
-        >
-          {agent.description || agent.handle}
-        </p>
+        {unavailable ? (
+          // Same reason copy as PersonaCard's scrim, in the same warning tone.
+          <p
+            style={{
+              margin: 0, display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
+              fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--color-tag-Yellow-text)',
+            }}
+          >
+            <AlertTwoIcon size={12} aria-hidden style={{ flexShrink: 0 }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {modelUnavailable === 'blocked' ? 'Model turned off — needs attention' : 'Model no longer available — needs attention'}
+            </span>
+          </p>
+        ) : (
+          <p
+            title={agent.description || undefined}
+            style={{
+              margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {agent.description || agent.handle}
+          </p>
+        )}
       </div>
 
-      {/* A paused agent can't be used, so the pill stays, disabled, rather than a status tag. */}
+      {/* A paused agent can't be used, so the pill stays, disabled, rather than a status tag.
+          An agent whose model is gone can't be used either — its pill fixes the model instead. */}
       <div style={{ flexShrink: 0 }}>
-        <AgentCardButton size="sm" disabled={agent.paused} onClick={onUse}>{useLabel}</AgentCardButton>
+        {unavailable && onFixModel ? (
+          <AgentCardButton size="sm" onClick={onFixModel}>Fix model</AgentCardButton>
+        ) : (
+          <AgentCardButton size="sm" disabled={agent.paused || unavailable} onClick={onUse}>{useLabel}</AgentCardButton>
+        )}
       </div>
     </div>
   )

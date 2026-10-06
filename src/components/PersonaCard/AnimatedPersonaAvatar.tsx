@@ -280,13 +280,48 @@ export interface AnimatedPersonaAvatarProps {
   gaze?:   GazeChannel
 }
 
-// Mickey-style eyes — tall white ovals side by side, no pupils.
-// Eyes, in viewBox units: centred ±EYE_X off the head's middle, a touch above its centre.
-const EYE_X = 3.5   // eye half-width 2.5 + 1 = a 2-unit gap between the eyes
-const EYE_LIFT = 1
-/** How far the eyes travel across the face toward what they look at, horizontally / vertically. */
-const LOOK_X = 2
-const LOOK_Y = 1.5
+// Eyes — the CodePen "Animated Eyes" (codepen.io/Alhefel/pen/WNWqKGK), scaled onto the head.
+// Two solid pills with a fixed gap, centred in the head; the pair glides across the face to
+// look, and the shape carries the expression: round 50×50 → wide 60×40 → round → a 10×50
+// slit (the blink), on the pen's 6s loop. The pen's head is 350px and ours is 26 units
+// across, so its px × PEN = viewBox units.
+const PEN = 26 / 350
+const EYE_SIZE = 50 * PEN   // ≈ 3.7: a round eye
+/** The gap between the eyes, edge to edge (the pen's column-gap) — constant whatever the shape. */
+const EYE_GAP = 20 * PEN    // ≈ 1.5
+const EYE_X = EYE_SIZE / 2 + EYE_GAP / 2
+/** How far the pair can travel across the face toward what it looks at (the pen's range). */
+const LOOK_X = 80 * PEN * 0.75
+const LOOK_Y = 50 * PEN * 0.8
+
+/** The pen's keyframes as [time 0…1, a, b] in pen px, eased per segment like CSS `ease`. */
+type PenTrack = [number, number, number][]
+/** `blink`: the eyes' [width, height] — round, the long wide hold, round, the slit. */
+const PEN_SHAPE: PenTrack = [[0, 50, 50], [0.15, 60, 40], [0.2, 60, 40], [0.6, 60, 40], [0.7, 50, 50], [0.85, 10, 50], [0.9, 10, 50], [1, 50, 50]]
+/** `moving`: the pair's [x, y] look-around, for when there's nothing to watch. */
+const PEN_MOVE: PenTrack = [[0, 0, 0], [0.4, 20, 50], [0.6, 80, -30], [0.8, 0, 0], [1, 0, 0]]
+const PEN_CYCLE = 6
+
+/** A pen track's value at time `t` (s), in viewBox units. */
+function penAt(track: PenTrack, t: number): [number, number] {
+  const q = ((t % PEN_CYCLE) + PEN_CYCLE) % PEN_CYCLE / PEN_CYCLE
+  for (let k = 1; k < track.length; k++) {
+    const [t1, a1, b1] = track[k], [t0, a0, b0] = track[k - 1]
+    if (q <= t1) {
+      const p = easeInOut((q - t0) / (t1 - t0 || 1))
+      return [(a0 + (a1 - a0) * p) * PEN, (b0 + (b1 - b0) * p) * PEN]
+    }
+  }
+  return [track[0][1] * PEN, track[0][2] * PEN]
+}
+
+/** Black pills like the pen — white on a dark head (the travel globe), where black would vanish. */
+function eyeInk(highlight: string): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(highlight)?.[1]
+  if (!hex) return '#0a0a0c'
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35 ? '#ffffff' : '#0a0a0c'
+}
 
 export function AnimatedPersonaAvatar({
   theme,
@@ -320,7 +355,7 @@ export function AnimatedPersonaAvatar({
   const ringRef  = useRef<SVGCircleElement>(null)
   const flashRef = useRef<SVGRectElement>(null)
   const partsRef = useRef<SVGGElement>(null)
-  const eyeRefs   = useRef<(SVGGElement | null)[]>([])
+  const eyeRefs   = useRef<(SVGRectElement | null)[]>([])
 
   // Animation state lives in a ref so the rAF loop reads current values
   // without restarting on every prop change.
@@ -330,6 +365,9 @@ export function AnimatedPersonaAvatar({
     // Eyes: eased pupil offset, the last blink, and when the next one is due.
     lookX: 0, lookY: 0, blinkAt: -9, nextBlink: 1 + (hash % 300) / 100, blinkTwice: false,
     lookSource: 'ahead', saccadeUntil: 0, microAt: 0, microX: 0, microY: 0,
+    // The eyes' eased size, and the "getting comfortable" pointer-dwell timer.
+    eyeW: EYE_SIZE, eyeH: EYE_SIZE,
+    lastPointer: null as { x: number; y: number } | null, stillSince: 0,
     heldTarget: null as [number, number] | null, heldUntil: 0,
     rect: null as DOMRect | null,
     visitor: false, vt: 0,
@@ -432,7 +470,7 @@ export function AnimatedPersonaAvatar({
     const drawEyes = (now: number, dt: number, hy: number) => {
       const s = st.current
       const g = gaze
-      const ey = hy - EYE_LIFT
+      const ey = hy   // centred in the head, like the pen
       const awake = mood === 'awake' || mood === 'drowsy'
 
       // ─ Where to look. Attention (the button) > pointer > a held last look > the scene.
@@ -457,57 +495,68 @@ export function AnimatedPersonaAvatar({
       }
       if (!g?.pointer) s.rect = null
 
+      // ─ Where the pair sits: toward what it's watching, within the pen's range of the face.
+      //   With nothing to watch, it runs the pen's own look-around.
       let lx = 0, ly = 0
       if (target) {
         const dx = target[0] - 32, dy = target[1] - ey
         const d = Math.hypot(dx, dy) || 1
-        const reach = Math.min(1, d / 14)   // a target right on the face barely moves them
+        const reach = Math.min(1, d / 16)   // a target right on the face barely moves them
         lx = (dx / d) * LOOK_X * reach
         ly = (dy / d) * LOOK_Y * reach
+      } else if (!reduceMotion) {
+        ;[lx, ly] = penAt(PEN_MOVE, now + phase)
       }
+      // The pen's `transition: 0.5s ease` — smooth, no overshoot.
+      const glide = reduceMotion || dt === 0 ? 1 : 1 - Math.exp(-dt * 7)
+      s.lookX += (lx - s.lookX) * glide
+      s.lookY += (ly - s.lookY) * glide
 
-      // ─ Saccade: a big change of direction or of what's being watched snaps quickly.
-      const turn = Math.abs(Math.atan2(ly, lx) - Math.atan2(s.lookY, s.lookX))
-      const jumped = source !== s.lookSource || (Math.hypot(lx - s.lookX, ly - s.lookY) > 0.5 && Math.min(turn, Math.PI * 2 - turn) > 0.44)
-      if (jumped) {
-        s.saccadeUntil = now + 0.09
-        // A long hand-off between scene elements gets a blink, like a real glance.
-        if (source === 'ambient' && s.lookSource === 'ambient' && Math.hypot(lx - s.lookX, ly - s.lookY) > 1.2 && !reduceMotion) blink(now, s)
-        s.lookSource = source
-      }
-      // ─ Micro-saccades: small held jitters every ~0.6–1.6s.
-      if (now >= s.microAt && !reduceMotion) {
-        s.microX = (Math.random() - 0.5) * 0.24
-        s.microY = (Math.random() - 0.5) * 0.24
-        s.microAt = now + 0.6 + Math.random()
-      }
-      const rate = reduceMotion ? Infinity : now < s.saccadeUntil ? 28 : 10
-      const ease = dt > 0 && rate !== Infinity ? 1 - Math.exp(-dt * rate) : 1
-      s.lookX += (lx + s.microX - s.lookX) * ease
-      s.lookY += (ly + s.microY - s.lookY) * ease
+      // ─ Pointer dwell: a cursor resting on the card for a while → the content, wide eyes.
+      const p = g?.pointer
+      if (p) {
+        if (!s.lastPointer || Math.hypot(p.x - s.lastPointer.x, p.y - s.lastPointer.y) > 3) { s.stillSince = now; s.lastPointer = { x: p.x, y: p.y } }
+      } else s.lastPointer = null
+      const dwelling = !!p && now - s.stillSince > 1.4
 
-      // ─ Lids.
-      let open = 1
-      // Eyes stay open in every mood (only the blink closes them).
-      if (!reduceMotion) {
+      // ─ Shape. At rest the eyes play the pen's 6s loop (round → wide → round → slit), which
+      //   carries its own blink. When the viewer engages, they hold a shape instead and blink
+      //   with the pen's slit: round and attentive while following you, wide and content when
+      //   you settle or hover the button, a wider round on a click.
+      const ROUND: [number, number] = [EYE_SIZE, EYE_SIZE]
+      const WIDE:  [number, number] = [60 * PEN, 40 * PEN]
+      const SLIT:  [number, number] = [10 * PEN, 50 * PEN]
+      const sinceClick = now - s.ct
+      const sleepy = mood === 'asleep' || mood === 'drowsy'
+      const engaged = squint || !!p || source === 'pointer' || sinceClick < 0.45
+      let shape: [number, number]
+      if (reduceMotion)                shape = ROUND
+      else if (sinceClick < 0.45)      shape = [EYE_SIZE * 1.15, EYE_SIZE * 1.15]
+      else if (squint || dwelling)     shape = WIDE
+      else if (engaged)                shape = ROUND
+      else if (mood === 'unavailable') shape = [EYE_SIZE * 0.8, EYE_SIZE * 0.8]
+      // Sleepy agents run the loop at half speed.
+      else                             shape = penAt(PEN_SHAPE, sleepy ? (now + phase) * 0.5 : now + phase)
+      // Blinks while engaged (the loop has its own): the pen's slit, ~0.2s, sometimes twice.
+      if (engaged && !reduceMotion) {
         if (now >= s.nextBlink) blink(now, s)
         const b = now - s.blinkAt
-        const one = (t: number) => (t < 0.06 ? t / 0.06 : t < 0.14 ? 1 - (t - 0.06) / 0.08 : 0)   // close 60ms, open 80ms
-        const shut = Math.max(one(b), s.blinkTwice ? one(b - 0.22) : 0)
-        open = 1 - shut * 0.9
+        if (b < 0.2 || (s.blinkTwice && b > 0.3 && b < 0.5)) shape = SLIT
       }
-      // Happy: the eyes become little upturned arcs, "^ ^", instead of open eyes.
-      const happy = squint && open > 0.5
-      const lid = happy ? 1 : open
+      const morph = reduceMotion || dt === 0 ? 1 : 1 - Math.exp(-dt * 18)
+      s.eyeW += (shape[0] - s.eyeW) * morph
+      s.eyeH += (shape[1] - s.eyeH) * morph
 
+      // ─ Draw: two pills, the gap held at EYE_GAP edge to edge whatever their width.
+      const w = s.eyeW, h = s.eyeH
+      const cx = 32 + s.lookX, cy = ey + s.lookY
       ;[-1, 1].forEach((side, i) => {
-        const thisLid = lid
-        // Both eyes drift together with the look, so the gap between them never changes.
-        const x = 32 + side * EYE_X + s.lookX
-        const eye = eyeRefs.current[i]
-        set(eye, { transform: `translate(${x.toFixed(2)},${(ey + s.lookY).toFixed(2)}) scale(1,${thisLid.toFixed(3)})` })
-        set(eye?.children[0], { opacity: happy ? 0 : 1 })   // the open eye
-        set(eye?.children[1], { opacity: happy ? 1 : 0 })   // the "^"
+        const x = cx + side * (w / 2 + EYE_GAP / 2)
+        set(eyeRefs.current[i], {
+          x: (x - w / 2).toFixed(2), y: (cy - h / 2).toFixed(2),
+          width: w.toFixed(2), height: h.toFixed(2),
+          rx: (Math.min(w, h) / 2).toFixed(2),
+        })
       })
     }
 
@@ -578,13 +627,18 @@ export function AnimatedPersonaAvatar({
           </g>
         )}
 
+        {/* The pen's eyes: two solid pills (positioned and shaped each frame by drawEyes). */}
         {eyes && [-1, 1].map((side, i) => (
-          <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${21 - EYE_LIFT})`}>
-            <g>
-              <ellipse rx={2.5} ry={4} fill="#fff" />
-            </g>
-            <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" opacity={0} />
-          </g>
+          <rect
+            key={side}
+            ref={el => { eyeRefs.current[i] = el }}
+            x={32 + side * EYE_X - EYE_SIZE / 2}
+            y={21 - EYE_SIZE / 2}
+            width={EYE_SIZE}
+            height={EYE_SIZE}
+            rx={EYE_SIZE / 2}
+            fill={eyeInk(c0)}
+          />
         ))}
 
         <rect ref={flashRef} width={64} height={64} fill="#fff" opacity={0} pointerEvents="none" />

@@ -15,7 +15,7 @@ import {
   type ModelUnavailableReason,
 } from '@/components/ChangeAgentModelModal/shared'
 import { pickReplacementModel } from '@/lib/ai-models'
-import { updateVersion } from '@/lib/api/personas'
+import { bustPersonasCache, updateVersion } from '@/lib/api/personas'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 import type { AIModel } from '@/types/ai-model'
 
@@ -146,7 +146,12 @@ export function FixAgentModelsModal({ open, onClose, agents, onSaved }: FixAgent
     })
 
     setSaving(false)
-    if (saved.length) onSaved(saved)
+    if (saved.length) {
+      // Same as the single-agent modal: let cached readers (the sidebar bell,
+      // the agents panel) see the new models right away.
+      bustPersonasCache()
+      onSaved(saved)
+    }
 
     if (failed.length) {
       // Keep the modal open so the failures stay actionable — the parent has

@@ -16,6 +16,7 @@ import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResul
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
+import { NotificationsProvider } from "@/context/notifications-context";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
 
@@ -35,6 +36,7 @@ export default async function AppGroupLayout({
       <NavGuardModal />
       <OrgProvider>
       <OrgStamps />
+      <NotificationsProvider>
       <ProjectsProvider>
         <ChatHistoryProvider>
           <PinboardProvider>
@@ -57,6 +59,7 @@ export default async function AppGroupLayout({
           </PinboardProvider>
         </ChatHistoryProvider>
       </ProjectsProvider>
+      </NotificationsProvider>
       </OrgProvider>
       </NavGuardProvider>
     </OnboardingGuard>

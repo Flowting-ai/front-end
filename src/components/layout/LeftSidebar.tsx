@@ -66,6 +66,8 @@ import {
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
 import { ReportBugModal } from "@/components/ReportBugModal";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
 import type { Chat } from "@/types/chat";
 
 // -- Collapse state persistence ------------------------------------------------
@@ -2287,6 +2289,11 @@ function LeftSidebarImpl({
 
   // -- Account menu: Report a bug modal ---------------------------------------
   const [reportBugOpen, setReportBugOpen] = useState(false);
+  // The flat sidebar's profile row carries both the account menu and the
+  // notification bell — both controlled here so opening one closes the other
+  // (the bell sits inside the account trigger, so outside-click alone can't).
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   // All 5 Agent Configure tabs (Instructions/Profile/Knowledge/Connectors/
@@ -2506,6 +2513,20 @@ function LeftSidebarImpl({
   // migration plan for why).
   const useFlatSidebar = !isAdminPage;
 
+  // "N new notifications" toast → Open: only the flat sidebar has the bell, so
+  // only it claims the event (marks it handled); otherwise the provider falls
+  // back to navigating straight to the newest item.
+  useEffect(() => {
+    if (!useFlatSidebar) return;
+    const onOpen = (e: Event) => {
+      if (e instanceof CustomEvent && e.detail && typeof e.detail === "object") (e.detail as { handled?: boolean }).handled = true;
+      setAccountMenuOpen(false);
+      setNotificationsOpen(true);
+    };
+    window.addEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+  }, [useFlatSidebar]);
+
   if (useFlatSidebar) {
     return (
       <>
@@ -2585,6 +2606,11 @@ function LeftSidebarImpl({
                   </Tooltip>
                 ) : undefined}
                 placement="top-start"
+                open={accountMenuOpen}
+                onOpenChange={(next) => {
+                  setAccountMenuOpen(next);
+                  if (next) setNotificationsOpen(false);
+                }}
                 renderTrigger={({ onOpenSettingsClick }) => (
                   <FlatSidebarProfileRow
                     name={displayName || "Account"}
@@ -2593,6 +2619,15 @@ function LeftSidebarImpl({
                     planLabel={!orgId && user?.planType ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1) : undefined}
                     onOpenSettingsClick={onOpenSettingsClick}
                     collapsed={collapsed}
+                    trailing={
+                      <NotificationBell
+                        open={notificationsOpen}
+                        onOpenChange={(next) => {
+                          setNotificationsOpen(next);
+                          if (next) setAccountMenuOpen(false);
+                        }}
+                      />
+                    }
                   />
                 )}
                 onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}

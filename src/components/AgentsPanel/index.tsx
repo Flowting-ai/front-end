@@ -18,6 +18,10 @@ import { listShares } from '@/lib/api/persona-shares'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { AGENTS_ROUTE, AGENTS_NEW_ROUTE } from '@/lib/routes'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import { buildModelBlockedMap, modelUnavailableReason } from '@/lib/agent-model-health'
+import { agentFixModelHref } from '@/lib/notifications/build'
+import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
 
@@ -110,6 +114,21 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
 
   const isSuperlink = (p: SelectedPersonaInfo) => activeSuperlinkRepoIds.has(p.id)
 
+  // Full model catalog (blocked models included) so an agent whose model was
+  // retired or turned off fades out here exactly as its card does on /agents.
+  // Empty until loaded, which modelUnavailableReason treats as "all fine".
+  const [modelBlockedMap, setModelBlockedMap] = useState<Map<string, boolean>>(() => new Map())
+  useEffect(() => {
+    let cancelled = false
+    fetchModelsWithCache()
+      .then(models => { if (!cancelled) setModelBlockedMap(buildModelBlockedMap(models)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  // Dev builds only: re-render when the notifications playground simulates
+  // a model outage. Always 0 in production.
+  useDevNotificationsVersion()
+
   const byFilter = useMemo(() => {
     if (filter === 'team') return personas.filter(p => p.visibility === 'team')
     if (filter === 'superlink') return personas.filter(isSuperlink)
@@ -165,6 +184,13 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const handleCreateNew = () => {
     setPanel(null)
     router.push(AGENTS_NEW_ROUTE)
+  }
+
+  // Same destination as the sidebar bell's "needs attention" row: /agents
+  // opens the Change model modal for this agent.
+  const handleFixModel = (persona: SelectedPersonaInfo) => {
+    setPanel(null)
+    router.push(agentFixModelHref(persona.id))
   }
 
   const listView = (
@@ -305,6 +331,8 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                     useLabel={inProject ? 'Use agent in project' : 'Use agent'}
                     onOpen={() => setDetailsId(p.id)}
                     onUse={() => handleSelect(p)}
+                    modelUnavailable={modelUnavailableReason(p.modelId, modelBlockedMap)}
+                    onFixModel={() => handleFixModel(p)}
                   />
                 ))}
               </TemplateCardList>
