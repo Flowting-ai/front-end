@@ -841,16 +841,18 @@
 .agent-card { --lift-shadow: 0 16px 32px -12px rgba(28, 25, 23, 0.18); }
 :root[data-theme="dark"] .agent-card { --lift-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6); }
 .agent-card[data-hot="true"] { --lift: -4px; }
-/* The card lifts 4px on hover, so a pointer resting on its very bottom edge would fall out from under
-   it, un-hover, drop back and re-enter — a flicker loop. This invisible strip travels with the card and
-   keeps the bottom edge hovered for as long as the pointer is over the card's resting footprint. */
+/* The card lifts 4px on hover, so a pointer resting on its bottom edge would fall out from under it,
+   un-hover, drop back, re-enter, and so on (a flicker loop). This invisible strip is counter-translated
+   by the lift so it stays put on screen: the card's hover area is the same lifted or not, and the pointer
+   within 4px of the bottom never toggles it. */
 .agent-card::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -6px;
-  height: 6px;
+  bottom: -4px;
+  height: 8px;
+  transform: translateY(calc(var(--lift, 0px) * -1));
   pointer-events: auto;
 }
 
