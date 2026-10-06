@@ -31,9 +31,7 @@ function formatConnectedOn(iso: string): string | undefined {
 // accounts split by visibility. Empty groups render nothing. Ported from the
 // story's Figma-sourced AccountGroups (163:22383).
 //
-// A person may own several accounts per app. Exactly one of them is in use —
-// the account every turn, automation and trigger resolves to — and the rest
-// are held until switched to, which is what `inUse` marks on the row.
+// A person may own several accounts per app. Every live one is usable.
 function AccountGroups({ accounts, tools, open, reconnect, addedBy }: { accounts: ConnectorConnection[]; tools: ConnectorCatalog['tools']; open: (account: ConnectorConnection) => void; reconnect: (account: ConnectorConnection) => void; addedBy: (account: ConnectorConnection) => string }) {
   const attention = accounts.filter(a => a.needsReconnect)
   const healthy = accounts.filter(a => !a.needsReconnect)
@@ -62,7 +60,6 @@ function AccountPanel({ accounts, tools, tone, open, reconnect, addedBy }: { acc
             canManage={item.canManage}
             email={item.email}
             visibility={item.visibility}
-            inUse={item.inUse}
             state={item.connectionState}
             permission={item.permissionSummary(tools)}
             connectedOn={formatConnectedOn(item.createdAt)}

@@ -1,7 +1,7 @@
 'use client'
 
 // Account detail — S20/S21/S22 in one dialog over the connector page: the
-// name renames in place, the rail holds sharing, in-use and removal, and the
+// name renames in place, the rail holds sharing and removal, and the
 // permissions list fills the rest. See docs v1.5/connectors-v1.5-migration-plan.md
 // §4 (edge cases to preserve).
 //
@@ -25,7 +25,6 @@ import {
   PenOneIcon,
   SearchOneIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Dropdown } from '@/components/Dropdown'
 import { IconButton } from '@/components/IconButton'
@@ -428,10 +427,7 @@ function AccountRail({
     setShared(account.isShared)
   }
   const [sharing, setSharing] = useState(false)
-  const [switching, setSwitching] = useState(false)
   const owned = account.owned
-  const inUseElsewhere = catalog.connectionInUse
-  const canSwitch = owned && !account.inUse && !account.needsReconnect
 
   async function changeSharing(next: boolean) {
     setShared(next)
@@ -445,19 +441,6 @@ function AccountRail({
       toast.error(err instanceof Error ? err.message : 'Failed to change access')
     } finally {
       setSharing(false)
-    }
-  }
-
-  async function switchToThis() {
-    setSwitching(true)
-    try {
-      await updateAccount(account.id, { inUse: true, expectedVersion: account.version })
-      toast.success(`${catalog.name} now runs through ${account.nickname}`)
-      onChanged()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to switch account')
-    } finally {
-      setSwitching(false)
     }
   }
 
@@ -481,28 +464,6 @@ function AccountRail({
           </span>
           <Switch checked={shared} disabled={!owned || sharing} onCheckedChange={next => void changeSharing(next)} aria-label="Share with workspace" />
         </label>
-      </RailSection>
-
-      <RailSection title="In use">
-        {account.inUse ? (
-          <p style={secondary}>
-            Every chat, automation and trigger that reaches {catalog.name} runs through this account.
-          </p>
-        ) : (
-          <>
-            <p style={secondary}>
-              {catalog.name} runs through {inUseElsewhere?.nickname ?? 'another account'}.
-              {account.needsReconnect ? ' Reconnect this one before switching to it.' : ' This one stays connected until you switch.'}
-            </p>
-            {owned && (
-              <div>
-                <Button size="sm" variant="outline" disabled={!canSwitch || switching} loading={switching} onClick={() => void switchToThis()}>
-                  Use this account
-                </Button>
-              </div>
-            )}
-          </>
-        )}
       </RailSection>
 
       {owned && (

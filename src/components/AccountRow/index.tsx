@@ -22,8 +22,6 @@ export interface AccountRowProps extends Omit<React.HTMLAttributes<HTMLElement>,
   email: string
   /** Account visibility, shown as a quiet label. */
   visibility: AccountRowVisibility
-  /** The account its app runs through. Only one of a person's can be. */
-  inUse?: boolean
   /** @default 'connected' */
   state?: AccountRowState
   /**
@@ -75,7 +73,6 @@ export function AccountRow({
   canManage = true,
   email,
   visibility,
-  inUse = true,
   state = 'connected',
   permission = 'custom',
   onManage,
@@ -104,7 +101,6 @@ export function AccountRow({
         <span className={styles.pill} data-tone={visibility}>
           {visibility === 'shared' ? 'Shared' : 'Private'}
         </span>
-        {!inUse && <span className={styles.pill}>Not in use</span>}
       </div>
       <div className={styles.permission}>
         {!needsReconnect && (

@@ -117,7 +117,6 @@ export class ConnectorConnection {
   readonly version: number
   readonly ownerId: string
   readonly owned: boolean
-  readonly inUse: boolean
   readonly permissions: ToolPermissionEntryWire[]
   readonly createdAt: string
   readonly updatedAt: string
@@ -133,7 +132,6 @@ export class ConnectorConnection {
     this.version = wire.version
     this.ownerId = wire.owner_id
     this.owned = wire.owned
-    this.inUse = wire.in_use
     this.permissions = wire.permissions
     this.createdAt = wire.created_at
     this.updatedAt = wire.updated_at
@@ -265,11 +263,6 @@ export class ConnectorCatalog {
     return this.connections.filter(row => row.owned)
   }
 
-  /** The one of them this app runs through, or null when they own none. */
-  get connectionInUse(): ConnectorConnection | null {
-    return this.ownedConnections.find(row => row.inUse) ?? null
-  }
-
   get privateConnections(): ConnectorConnection[] {
     return this.connections.filter(row => row.isPrivate)
   }
@@ -321,9 +314,6 @@ export interface UpdateAccountRequest {
   accountIdentifier?: string
   /** Open it to everyone sharing an organization with you, or close it again. */
   shared?:            boolean
-  /** Switch this app onto this account. True only — you move the flag by
-      raising another account, never by lowering this one. */
-  inUse?:             true
   permissions?:       { key: string; permission: ConnectorToolPermission }[]
   credentials?:       Record<string, string>
   status?:            ConnectorAccountStatus
