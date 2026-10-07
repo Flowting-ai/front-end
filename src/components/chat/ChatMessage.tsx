@@ -13,6 +13,8 @@ import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import { ChatPromptCard } from "./ChatPromptCard";
 import { ContentRenderer } from "@/lib/content-renderer";
+import { nextReveal, REVEAL_DRAIN_MS, REVEAL_STEP_MS } from "@/lib/reveal";
+import { deriveCitationsFromSources } from "@/lib/citations";
 import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import { usePinboardActions } from "@/context/pinboard-context";
@@ -150,7 +152,7 @@ function StandaloneActivitiesBlock({
         <span
           style={{
             fontSize: 14,
-            color: "var(--neutral-400)",
+            color: "var(--neutral-600)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -222,50 +224,146 @@ function StandaloneActivitiesBlock({
 // formatting quality during streaming — code blocks, math, GFM tables all
 // render properly while the stream is active.
 
-function StreamingTextContent({
+export function StreamingTextContent({
   content,
   citations,
   animate,
   isLoading,
+  stopped,
+  revealFrom = "",
+  onCaughtUp,
 }: {
   content: string;
   citations?: WebCitation[];
+  /** Reveal the text progressively. False for history and reduced motion: shown in full. */
   animate: boolean;
   isLoading: boolean;
+  /** User pressed Stop: freeze the reveal where it is instead of draining the buffered text. */
+  stopped: boolean;
+  /** Text already on screen when this mounts — what a remounted row (e.g. scrolled
+   *  back into view mid-stream) showed before, so its reveal doesn't replay. */
+  revealFrom?: string;
+  /** Called with `content` once the stream is over and all of it is on screen. */
+  onCaughtUp?: (content: string) => void;
 }) {
-  const shouldReduceMotion = useReducedMotion() ?? false;
-  const targetRef = useRef(content);
-  const animateOnMountRef = useRef(animate);
+  const [displayedContent, setDisplayedContent] = useState(revealFrom);
+  const displayedRef = useRef(revealFrom);
+  const lastStepAtRef = useRef<number | null>(null);
+  const drainStartedAtRef = useRef<number | null>(null);
 
-  const [displayedContent, setDisplayedContent] = useState("");
-
+  // Steps through `nextReveal` on animation frames, at most every
+  // REVEAL_STEP_MS: each step re-renders the message's whole Markdown.
+  // Restarted whenever the content grows, so each run closes over the latest
+  // text; the step clock and drain deadline live in refs so a restart doesn't
+  // reset them. The loop stops while there's nothing it can reveal (caught up,
+  // or held at a widget still being written) until the content changes.
   useEffect(() => {
-    targetRef.current = content;
-  }, [content]);
+    if (!animate || stopped) return;
 
+    let active = true;
+    let frame: number | null = null;
+    const show = (next: string) => {
+      if (!active || next === displayedRef.current) return;
+      displayedRef.current = next;
+      setDisplayedContent(next);
+    };
+
+    const tick = (now: number) => {
+      frame = null;
+      if (isLoading) drainStartedAtRef.current = null;
+      else drainStartedAtRef.current ??= now;
+      const drainMsLeft = drainStartedAtRef.current === null
+        ? undefined
+        : Math.max(0, REVEAL_DRAIN_MS - (now - drainStartedAtRef.current));
+      // The first step after a pause goes straight away.
+      const elapsedMs = lastStepAtRef.current === null ? REVEAL_STEP_MS : now - lastStepAtRef.current;
+      const deadlineDue = drainMsLeft !== undefined && drainMsLeft <= elapsedMs;
+      if (elapsedMs < REVEAL_STEP_MS && !deadlineDue) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      lastStepAtRef.current = now;
+      const previous = displayedRef.current;
+      const next = nextReveal({ displayed: previous, target: content, elapsedMs, drainMsLeft });
+      show(next);
+      const held = next === previous && drainMsLeft === undefined;
+      if (next === content || held) lastStepAtRef.current = null;
+      else frame = requestAnimationFrame(tick);
+    };
+
+    // A hidden tab gets no animation frames, and nobody is watching the
+    // reveal: show everything at once (also when the tab comes back).
+    const showAll = () => show(content);
+    if (document.hidden) void Promise.resolve().then(showAll);
+    else frame = requestAnimationFrame(tick);
+    document.addEventListener("visibilitychange", showAll);
+
+    return () => {
+      active = false;
+      if (frame !== null) cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", showAll);
+    };
+  }, [animate, stopped, content, isLoading]);
+
+  const caughtUp = animate && !stopped && !isLoading && displayedContent === content;
   useEffect(() => {
-    if (shouldReduceMotion || !animateOnMountRef.current) return;
+    if (caughtUp) onCaughtUp?.(content);
+  }, [caughtUp, content, onCaughtUp]);
 
-    const interval = window.setInterval(() => {
-      setDisplayedContent((current) => {
-        const target = targetRef.current;
-        if (current === target) return current;
-        if (!target.startsWith(current)) return target;
-
-        const nextWord = target.slice(current.length).match(/^\s*\S+(?:\s+|$)/)?.[0];
-        return nextWord ? current + nextWord : target;
-      });
-    }, 28);
-
-    return () => window.clearInterval(interval);
-  }, [shouldReduceMotion]);
-
-  const shownContent = shouldReduceMotion || (!isLoading && !displayedContent)
-    ? content
-    : displayedContent;
-  const showCursor = isLoading || Boolean(displayedContent && displayedContent !== content);
+  // A stopped message that was being revealed stays frozen at what the user saw.
+  // One that was never animated (e.g. loaded from history) shows in full.
+  const shownContent = animate ? displayedContent : content;
+  const showCursor = !stopped && (isLoading || shownContent !== content);
   const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
   return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
+}
+
+// ── ErrorNotice - a failure below output that was already shown ───────────────
+// Styled after the connector-error card (AnimatedConnectorError).
+
+function ErrorNotice({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <m.div
+      role="alert"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        marginTop: 12,
+        padding: "10px 12px 10px 14px",
+        borderRadius: 12,
+        background: "color-mix(in srgb, var(--red-500) 4%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--red-500) 18%, transparent)",
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px", color: "var(--neutral-700)" }}>
+        {message}
+      </span>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            flexShrink: 0,
+            background: "transparent",
+            border: "1px solid color-mix(in srgb, var(--red-500) 28%, transparent)",
+            borderRadius: 8,
+            padding: "6px 12px",
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--red-600)",
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
+      )}
+    </m.div>
+  );
 }
 
 // ── Main ChatMessage Component ────────────────────────────────────────────────
@@ -293,6 +391,10 @@ interface ChatMessageProps {
   /** Records a permission-prompt answer in the owning messages state so the
    *  card stays hidden across remounts (message-id swap, virtualizer). */
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
+  /** Called once per message when it has stopped loading and its text reveal
+   *  has finished (straight away for a message that isn't animated). The memo
+   *  comparator only tracks whether it is set, so pass a stable function. */
+  onRevealSettled?: (messageId: string) => void;
 }
 
 export function ChatMessage({
@@ -310,6 +412,7 @@ export function ChatMessage({
   onFollowUp,
   onRetry,
   onPromptDecided,
+  onRevealSettled,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
@@ -339,6 +442,14 @@ export function ChatMessage({
     [message.responseBlocks],
   )
 
+  // Question-card decisions by prompt id, for the reasoning trace's markers.
+  const promptDecisions = useMemo(
+    () => Object.fromEntries(
+      (message.chatPrompts ?? []).flatMap((prompt) => prompt.decision ? [[prompt.request_id, prompt.decision]] : []),
+    ) as Record<string, string>,
+    [message.chatPrompts],
+  )
+
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking || message.reasoning_sections?.length);
@@ -350,6 +461,56 @@ export function ChatMessage({
   const showReasoningBlock = hasThinking && showReasoning;
   const canUseContentActions = Boolean(message.content.trim()) && !message.isError;
   const pinned = isAssistant && pinnedProp;
+
+  // The model ends a web-sourced answer with its own "Sources:" block. Parsed,
+  // it backs the [N] chips and gives way to the SourceList below; citations
+  // the backend sends itself still win.
+  const sourcesBlock = useMemo(
+    () => isAssistant && !message.isError
+      ? deriveCitationsFromSources(message.content, { streaming: Boolean(message.isLoading) })
+      : null,
+    [isAssistant, message.isError, message.content, message.isLoading],
+  );
+  const answerText = sourcesBlock?.contentWithoutSourcesBlock ?? message.content;
+  const citations = message.webCitations?.length
+    ? message.webCitations
+    : sourcesBlock?.citations.length ? sourcesBlock.citations : undefined;
+
+  // Whether the answer text reveals progressively. Decided while the message
+  // is still empty so it can't flip part-way through a reveal.
+  const reduceMotion = useReducedMotion() ?? false;
+  const [revealsText, setRevealsText] = useState(isNewMessage);
+  if (isNewMessage && !revealsText && !message.content) setRevealsText(true);
+  const animateText = revealsText && !reduceMotion;
+  // A fresh reply mounts empty and reveals from the start. A row that mounts
+  // with text already there (remounted mid-stream, e.g. scrolled back into
+  // view) showed that text before, so its reveal picks up from there.
+  const [revealFrom] = useState(answerText);
+
+  // The answer is complete on screen: the stream is over and the reveal has
+  // caught up (or was frozen by Stop). Completion UI — actions, sources,
+  // the error notice, aria-busy — waits for this rather than the stream.
+  const [caughtUpText, setCaughtUpText] = useState<string | null>(null);
+  const revealSettled = !message.isLoading &&
+    (!animateText || Boolean(message.stoppedByUser) || !answerText || caughtUpText === answerText);
+
+  const onRevealSettledRef = useRef(onRevealSettled);
+  const revealReportedRef = useRef(false);
+  const hasRevealListener = Boolean(onRevealSettled);
+  useEffect(() => {
+    onRevealSettledRef.current = onRevealSettled;
+  });
+  useEffect(() => {
+    if (message.isLoading) {
+      revealReportedRef.current = false;
+      return;
+    }
+    if (!revealSettled || revealReportedRef.current || !onRevealSettledRef.current) return;
+    revealReportedRef.current = true;
+    onRevealSettledRef.current(message.id);
+  }, [revealSettled, message.isLoading, message.id, hasRevealListener]);
+
+  const retry = onRetry ?? onRegenerate;
 
   // Resolve the actual model display name — never expose "souvenir" as a routing label.
   const modelDisplayName = (() => {
@@ -570,7 +731,7 @@ export function ChatMessage({
       data-message-id={message.id}
       role="article"
       aria-label={isUser ? "Your message" : "Assistant response"}
-      aria-busy={!isUser && message.isLoading ? true : undefined}
+      aria-busy={!isUser && !revealSettled ? true : undefined}
       initial={isNewMessage
         ? (isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10 })
         : false}
@@ -691,7 +852,7 @@ export function ChatMessage({
                         style={{
                           fontFamily: "var(--font-body)",
                           fontSize: "12px",
-                          color:      "var(--neutral-400)",
+                          color:      "var(--neutral-600)",
                           flexShrink: 0,
                         }}
                       >
@@ -704,7 +865,7 @@ export function ChatMessage({
                         style={{
                           fontFamily: "var(--font-body)",
                           fontSize: "12px",
-                          color:      "var(--neutral-400)",
+                          color:      "var(--neutral-600)",
                           flexShrink: 0,
                         }}
                       >
@@ -756,7 +917,7 @@ export function ChatMessage({
             <m.div
               key="model-header"
               initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
-              animate={{ opacity: 1, y: 0, filter: "none" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
               transition={{ type: "spring", stiffness: 420, damping: 30 }}
               draggable={false}
               style={{
@@ -785,12 +946,12 @@ export function ChatMessage({
                     <m.span
                       key={label}
                       initial={{ opacity: 0, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, filter: "none" }}
+                      animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                       transition={{ type: "spring", stiffness: 520, damping: 32 }}
                       style={{
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
-                        fontWeight: 600,
+                        fontWeight: 500,
                         color: "var(--model-name-text)",                      }}
                     >
                       {label}
@@ -822,7 +983,7 @@ export function ChatMessage({
                 className="kaya-label-shimmer"
                 style={{
                   fontSize: 14,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   lineHeight: "18px",
                 }}
               >
@@ -848,6 +1009,9 @@ export function ChatMessage({
             activities={message.activities}
             reasoningSections={message.reasoning_sections}
             reasoningTimeline={message.reasoningTimeline}
+            durationMs={message.reasoningDurationMs}
+            isTurnActive={message.isLoading}
+            promptDecisions={promptDecisions}
           />
         )}
 
@@ -855,7 +1019,7 @@ export function ChatMessage({
         {/* Text content always renders via ContentRenderer so that markdown
             structure, links, bold, code, math, and citation chips are handled uniformly
             regardless of whether the backend also sends a text responseBlock. */}
-        {message.content ? (
+        {answerText ? (
           <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
@@ -863,10 +1027,13 @@ export function ChatMessage({
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
             <StreamingTextContent
-              content={message.content}
-              citations={message.webCitations}
-              animate={isNewMessage}
+              content={answerText}
+              citations={citations}
+              animate={animateText}
               isLoading={!!message.isLoading}
+              stopped={!!message.stoppedByUser}
+              revealFrom={revealFrom}
+              onCaughtUp={setCaughtUpText}
             />
           </m.div>
         ) : null}
@@ -879,13 +1046,13 @@ export function ChatMessage({
             static={!message.isLoading}
             onFollowUp={onFollowUp}
             onRetry={onRetry}
-            webCitations={message.webCitations}
+            webCitations={citations}
           />
         ) : null}
 
-        {/* Citation sources - shown below response when citations are present */}
-        {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (
-          <SourceList citations={message.webCitations} />
+        {/* Citation sources - shown once the answer is fully on screen. */}
+        {citations && revealSettled && (
+          <SourceList citations={citations} />
         )}
 
         {/* Connector connect prompts — inline CTA when a tool needs linking */}
@@ -1061,11 +1228,10 @@ export function ChatMessage({
                     }}
                   >
                     {/* View - opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
-                    <a
+                    <Tooltip content="View"><a aria-label="View"
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="View"
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -1097,13 +1263,12 @@ export function ChatMessage({
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </a>
+                    </a></Tooltip>
 
                     {/* Download - proxied through /api/download so browser always saves */}
-                    <a
+                    <Tooltip content="Download"><a aria-label="Download"
                       href={downloadHref}
                       download={file.filename}
-                      title="Download"
                       onClick={() => trackFeature("document_download", { file_ext: file.filename?.split(".").pop()?.toLowerCase() })}
                       style={{
                         display: "flex",
@@ -1136,7 +1301,7 @@ export function ChatMessage({
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </a>
+                    </a></Tooltip>
                   </div>
                 </m.div>
               )
@@ -1160,16 +1325,22 @@ export function ChatMessage({
           </span>
         )}
 
+        {/* The turn failed after part of the answer was shown: the part stays
+            (Copy/Pin work on it) and the failure sits below it. */}
+        {message.errorNotice && revealSettled && (
+          <ErrorNotice message={message.errorNotice} onRetry={archived ? undefined : retry} />
+        )}
+
         {/* Content actions require an actual answer; errors can still regenerate.
             Hidden entirely on an archived chat — nothing here should be actionable. */}
         {!archived && (canUseContentActions || (isLast && onRegenerate)) && <m.div
-          animate={{ opacity: !message.isLoading ? 1 : 0 }}
+          animate={{ opacity: revealSettled ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
             display: "flex",
             gap: 2,
             marginTop: 4,
-            pointerEvents: !message.isLoading ? "auto" : "none",
+            pointerEvents: revealSettled ? "auto" : "none",
           }}
         >
           {PINS_ENABLED && canUseContentActions && !hidePinAction && (
@@ -1246,7 +1417,8 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     // lifetime), so we only check null-ness to gate assistant regen button.
     (prev.onEdit == null) === (next.onEdit == null) &&
     // Re-render when regen availability flips (streaming starts/ends).
-    (prev.onRegenerate == null) === (next.onRegenerate == null)
+    (prev.onRegenerate == null) === (next.onRegenerate == null) &&
+    (prev.onRevealSettled == null) === (next.onRevealSettled == null)
   )
 }
 

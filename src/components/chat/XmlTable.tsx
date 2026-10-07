@@ -186,7 +186,7 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
         {isDone && (
           <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
             style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
-            <span style={{ fontSize: 12, color: "var(--neutral-300)", flex: 1 }}>
+            <span style={{ fontSize: 12, color: "var(--neutral-600)", flex: 1 }}>
               {rows.length} {rows.length === 1 ? "row" : "rows"} · {headers.length} col
             </span>
             <TableActionButton onClick={copyMarkdown}>
@@ -204,7 +204,7 @@ function TableActionButton({ onClick, children }: { onClick: () => void; childre
   const [hov, setHov] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6, border: "1px solid var(--neutral-700-12)", background: hov ? "var(--neutral-800-05)" : "transparent", cursor: "pointer", fontSize: 12, color: hov ? "var(--neutral-700)" : "var(--neutral-500)", fontFamily: "var(--font-body)", transition: "background 120ms, color 120ms" }}>
+      style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6, border: "1px solid var(--neutral-700-12)", background: hov ? "var(--neutral-800-05)" : "transparent", cursor: "pointer", fontSize: 12, color: hov ? "var(--neutral-700)" : "var(--neutral-600)", fontFamily: "var(--font-body)", transition: "background 120ms, color 120ms" }}>
       {children}
     </button>
   )

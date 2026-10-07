@@ -31,13 +31,22 @@ export interface ClarificationCardProps {
   /** Fires with the user's typed text when they submit via the open-ended
    *  input. Without this prop, free-text answers are silently dropped. */
   onOpenEndedSubmit?: (text: string) => void
+  /** Fires on every edit of the open-ended text. */
+  onOpenEndedChange?: (text: string) => void
+  /** Omit to hide Skip (required questions). */
   onSkip?:            () => void
+  /** Dismisses the whole card (top-right X). Omit to hide the X. */
+  onDismiss?:         () => void
   onSend?:            () => void
   onPrev?:            () => void
   onNext?:            () => void
   /** True while the current answer's response is in flight — disables
    *  Send/Skip and shows a spinner on Send. */
   pending?:           boolean
+  /** Keep Send disabled until the question has an answer. */
+  requireAnswer?:     boolean
+  /** Restores typed text when returning to an answered question. */
+  defaultOpenEndedText?: string
 }
 
 export function ClarificationCard({
@@ -52,11 +61,15 @@ export function ClarificationCard({
   openEndedLabel,
   onSelect,
   onOpenEndedSubmit,
+  onOpenEndedChange,
   onSkip,
+  onDismiss,
   onSend,
   onPrev,
   onNext,
   pending,
+  requireAnswer,
+  defaultOpenEndedText,
 }: ClarificationCardProps) {
   // Only render pagination when the caller knows both numerator and
   // denominator. Showing "1/3" when only one question will ever be asked
@@ -77,12 +90,16 @@ export function ClarificationCard({
       paginationLabel={paginationLabel}
       openEndedLabel={openEndedLabel}
       onOpenEndedSubmit={onOpenEndedSubmit}
+      onOpenEndedChange={onOpenEndedChange}
       onPrev={onPrev}
       onNext={onNext}
       onSkip={onSkip}
       onSend={onSend}
-      onClose={onSkip}
+      onClose={onDismiss}
       pending={pending}
+      requireAnswer={requireAnswer}
+      defaultOpenEndedText={defaultOpenEndedText}
+      autoFocusWhenIdle
     />
   )
 }

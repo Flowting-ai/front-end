@@ -17,7 +17,12 @@ import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
 import { PINS_ENABLED } from '@/lib/feature-flags'
-import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
+import { usePathname } from 'next/navigation'
+import { useProjectPanel } from '@/context/project-panel-context'
+import { useHighlight } from '@/context/highlight-context'
+import { AgentsPanelContent } from '@/components/AgentsPanel'
+import { CHAT_ROUTE } from '@/lib/routes'
+import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AGENTS_NEW_ROUTE } from '@/lib/routes'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -66,6 +71,18 @@ export function ChatAddMenu({
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
   const { push } = useRouter()
+  // On /chat the agent list is the Agents side panel (same one the floating toolbar opens); elsewhere
+  // nothing listens for it, so the inline submenu stays.
+  const onChatPage = usePathname() === CHAT_ROUTE
+  const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
+  const { close: closeHighlight } = useHighlight()
+  const { close: closePinboard } = usePinboard()
+  const openAgentsPanel = () => {
+    if (sidePanel?.title === 'Agents') return
+    closePinboard()
+    closeHighlight()
+    setSidePanel({ title: 'Agents', content: <AgentsPanelContent />, onClose: () => setSidePanel(null), sidePadding: 8 })
+  }
 
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
@@ -101,7 +118,10 @@ export function ChatAddMenu({
             </Dropdown>
           </Dropdown.Float>
         )}
-        {!hidePersona && (
+        {!hidePersona && onChatPage && (
+          <Dropdown.Item label="Add agent" icon={<UserAiIcon />} fluid rightIcon={<ArrowRightOneIcon />} selected={!!selectedPersonaId} onClick={openAgentsPanel} />
+        )}
+        {!hidePersona && !onChatPage && (
           <Dropdown.Float
             open={personaMenuOpen}
             onOpenChange={(open) => setOpenSubmenu(open ? 'persona' : null)}
@@ -125,13 +145,7 @@ export function ChatAddMenu({
                         <Dropdown.Item
                           key={p.id}
                           label={p.name}
-                          avatar={
-                            <img
-                              src={p.imageUrl ?? getPersonaFallbackAvatar(p.id)}
-                              alt=""
-                              style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }}
-                            />
-                          }
+                          avatar={<MentionAvatar agent={p} />}
                           fluid
                           selected={selectedPersonaId === p.id}
                           onClick={() => {

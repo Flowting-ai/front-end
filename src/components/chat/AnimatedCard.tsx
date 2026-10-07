@@ -18,7 +18,7 @@ export function AnimatedCard({ data, onComplete }: { data: CardData; onComplete:
         </div>
       )}
       {data.title && <div style={{ fontSize: 16, fontWeight: 600, color: "var(--neutral-900)", lineHeight: "22px", marginBottom: data.subtitle ? 2 : 8 }}>{data.title}</div>}
-      {data.subtitle && <div style={{ fontSize: 12, color: "var(--neutral-400)", marginBottom: 10 }}>{data.subtitle}</div>}
+      {data.subtitle && <div style={{ fontSize: 12, color: "var(--neutral-600)", marginBottom: 10 }}>{data.subtitle}</div>}
       <div style={{ fontSize: 14, color: "var(--neutral-700)", lineHeight: "22px" }}><InlineMd text={data.body} /></div>
     </m.div>
   );

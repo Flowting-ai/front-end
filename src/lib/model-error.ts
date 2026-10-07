@@ -118,16 +118,42 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
 // braces/quotes it contains.
 const RESPONSE_INTERRUPTED_RE = /\n*\[Response interrupted:\s*([\s\S]*)\]\s*$/;
 
+const FENCE_OPEN_RE = /^((?:[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+|[ \t]*>)*[ \t]*)(`{3,}|~{3,})(.*)$/;
+const FENCE_CLOSE_RE = /^[ \t>]*(`{3,}|~{3,})[ \t]*\r?$/;
+
+// The line that closes a ``` / ~~~ fence left open at the end of `text`, or
+// "" when every fence is closed. It keeps the opener's indentation (list
+// markers become spaces, quote markers stay) so it closes the fence inside
+// the same list item or quote.
+function openFenceCloser(text: string): string {
+  let open: { marker: string; prefix: string } | null = null;
+  for (const line of text.split("\n")) {
+    if (!open) {
+      const m = FENCE_OPEN_RE.exec(line);
+      if (m && !(m[2][0] === "`" && m[3].includes("`"))) {
+        open = { marker: m[2], prefix: m[1].replace(/[^\s>]/g, " ") };
+      }
+    } else {
+      const m = FENCE_CLOSE_RE.exec(line);
+      if (m && m[1][0] === open.marker[0] && m[1].length >= open.marker.length) open = null;
+    }
+  }
+  return open ? `${open.prefix}${open.marker}` : "";
+}
+
 /**
  * Detects a trailing "[Response interrupted: ...]" marker in persisted
  * message content and replaces it with one friendly sentence. Safe to run
  * on any content — it's a no-op when the marker isn't present, so it can
- * sit in the general markdown pipeline.
+ * sit in the general markdown pipeline. A code fence the interruption left
+ * open is closed first, so the sentence isn't rendered (or copied) as code.
  */
 export function stripResponseInterruptedMarker(content: string): string {
   const match = RESPONSE_INTERRUPTED_RE.exec(content);
   if (!match) return content;
-  const before = content.slice(0, match.index).replace(/\s+$/, "");
+  let before = content.slice(0, match.index).replace(/\s+$/, "");
+  const closer = openFenceCloser(before);
+  if (closer) before = `${before}\n${closer}`;
   const friendly = friendlyModelError(match[1]);
   return before ? `${before}\n\n${friendly}` : friendly;
 }

@@ -30,6 +30,7 @@ import { usePendingPersonaHandoff } from '@/hooks/use-pending-persona-handoff'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
+import { AgentChip } from '@/components/chat/AgentChip'
 import { Button }                                          from '@/components/Button'
 import {
   FolderOneIcon,
@@ -89,6 +90,11 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
+  const mountedRef    = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
   const { recommendations, loading: recommendationsLoading } = useRecommendationsState()
 
   const {
@@ -438,11 +444,10 @@ function ProjectChatPageInner() {
           onOpenChange={setPersonaChipOpen}
           placement="top-start"
           trigger={
-            <Chip
-              label={selectedPersona.name}
-              personaImage={selectedPersona.imageUrl ?? undefined}
+            <AgentChip
+              agent={selectedPersona}
               onRemove={() => setSelectedPersona(null)}
-              onExpand={() => setPersonaChipOpen(v => !v)}
+              onOpenPanel={() => setPersonaChipOpen(v => !v)}
             />
           }
         >
@@ -708,6 +713,14 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={activeChatId}
               onChatCreated={(newChatId) => {
+                // The user may have navigated away (e.g. sidebar "New chat")
+                // while this first message was still being created. The chat is
+                // real, so keep it in the project list, but don't rewrite the
+                // live URL — that would pull them back into this chat.
+                if (!mountedRef.current) {
+                  addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
+                  return
+                }
                 // Clear initialPrompt so ChatInterface's addMenuFiles absorb effect
                 // is no longer blocked for subsequent file uploads in this session.
                 setInitialPrompt(null)

@@ -180,9 +180,10 @@ export function InputField({
             // border-radius (10px + 3px offset = 13px, matching Figma exactly)
             outlineStyle:    'solid',
             outlineWidth:    '2px',
-            outlineOffset:   '3px',
+            // The ring settles in from 6px out to 3px while it fades up (and back on blur).
+            outlineOffset:   isFocused && !error ? '3px' : '6px',
             outlineColor:    isFocused && !error ? 'var(--focus-ring)' : 'transparent',
-            transition:      'box-shadow 150ms, outline-color 150ms',
+            transition:      'box-shadow 150ms, outline-color 200ms ease, outline-offset 260ms cubic-bezier(0.22, 1, 0.36, 1)',
             cursor:          disabled ? 'not-allowed' : 'text',
           }}
           onMouseEnter={(e) => {

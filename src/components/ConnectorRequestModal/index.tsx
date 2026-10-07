@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 // ── Shadows — match ShareModal exactly ───────────────────────────────────────
 const SHADOW_MODAL   = '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
+const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring-hover)'
 const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function UrgencyDropdown({ value, onChange }: { value: ConnectorRequestUrgency; 
       trigger={
         <button type="button" id="connector-request-urgency"
           onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: hov ? 'var(--neutral-50)' : 'var(--neutral-white)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none', transition: 'background-color 120ms' }}>
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: hov ? 'var(--neutral-50)' : 'var(--field-surface)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none', transition: 'background-color 120ms' }}>
           <span>{label}</span>
           <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
         </button>
@@ -184,7 +184,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
               rows={3}
               style={{
                 fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)',
-                backgroundColor: 'var(--neutral-white)', borderRadius: 10, border: 'none',
+                backgroundColor: 'var(--field-surface)', borderRadius: 10, border: 'none',
                 boxShadow: SHADOW_INPUT, padding: '8px 12px', resize: 'vertical',
                 lineHeight: 'var(--line-height-body)', outline: 'none', boxSizing: 'border-box', width: '100%',
                 fontWeight: 400,

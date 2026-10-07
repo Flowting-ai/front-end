@@ -1,44 +1,53 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
-import { BubbleChatAddIcon, LinkSixIcon } from '@strange-huge/icons'
-import { Badge } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
+import { AlertTwoIcon, BubbleChatAddIcon, ExchangeOneIcon, LinkSixIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Tooltip } from '@/components/Tooltip'
-import { AnimatedPersonaAvatar, defaultAvatarChoice, getAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
-import { useStoredAvatarChoice } from '@/lib/avatar-choice'
+import { AgentHero } from '@/components/PersonaCard/AgentHero'
+import { AgentCardButton, AgentCardIconButton } from '@/components/PersonaCard/AgentCardButton'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
+import type { ModelUnavailableReason } from '@/lib/agent-model-health'
 
-// ── Compact agent card ────────────────────────────────────────────────────────
-// A one-row version of the agent card for the narrow agents panel (~64px tall vs the
-// 264px grid card): live avatar in a tinted halo, name, one line of description, and on
-// the right either quiet status (paused / Super Link) or — on hover — a "Use" pill that
-// slides in. Hovering also lets the avatar play its sink-and-spring animation and floats
-// the row up a pixel; clicking the row opens the agent's details.
+// The compact agent card for the narrow agents panel: the grid card's look in one slim row. A small
+// rounded tile carries the grainy colour banner and the live avatar; the name (Google Sans) and a
+// one-line description sit beside it, with the white "Use" pill at the right end. Clicking the card
+// opens the agent's details; the pill uses the agent. Hovering plays the avatar and lifts the card a pixel.
 
-const AVATAR = 40
-const HALO = 4
+const RADIUS = 16
+const TILE = 52
+const TILE_RADIUS = 12
 
 export interface CompactAgentCardProps {
   agent:     SelectedPersonaInfo
   superlink: boolean
-  /** Accessible name + tooltip of the hover icon button. */
+  /** Label of the use button (its tooltip and accessible name). */
   useLabel?: string
-  /** Row clicked — open details. */
+  /** This is the agent already attached to the chat — it shows an "in use" tick instead of a button. */
+  inUse?: boolean
+  /** Another agent's chip is active — the button replaces it ("Replace agent") instead of "Use agent". */
+  replaces?: boolean
+  /** Card clicked — open details. */
   onOpen:    () => void
-  /** Hover button clicked — use the agent. */
+  /** Pill clicked — use the agent. */
   onUse:     () => void
+  /**
+   * Set when the agent's model is retired or turned off (lib/agent-model-health),
+   * matching PersonaCard's unavailable state on /agents: the tile goes grey and
+   * faded, the description becomes the reason, and the pill swaps "Use" for
+   * "Fix model" (when `onFixModel` is given) or stays disabled.
+   */
+  modelUnavailable?: ModelUnavailableReason | null
+  /** "Fix model" pill clicked — open the Change model flow for this agent. */
+  onFixModel?: () => void
 }
 
-export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onOpen, onUse }: CompactAgentCardProps) {
+export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inUse = false, replaces = false, onOpen, onUse, modelUnavailable, onFixModel }: CompactAgentCardProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [bounceKey, setBounceKey] = useState(0)
   const active = hovered || focused
-  const stored = useStoredAvatarChoice(agent.id)
-  const avatar = getAvatarChoice(stored ?? defaultAvatarChoice(agent.name, agent.id))
-  const tint = avatar.colors[0]
+  const unavailable = !!modelUnavailable
+  const dimmed = agent.paused || unavailable
 
   return (
     <div
@@ -60,110 +69,95 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', onO
         position:        'relative',
         display:         'flex',
         alignItems:      'center',
-        gap:             12,
+        gap:             10,
         width:           '100%',
         boxSizing:       'border-box',
-        padding:         '10px 12px 10px 12px',
-        borderRadius:    14,
+        padding:         8,
+        borderRadius:    RADIUS,
         cursor:          'pointer',
-        overflow:        'hidden',
         backgroundColor: 'var(--agent-card-bg)',
-        backgroundImage: 'var(--agent-card-gradient)',
-        // Same trick as the full card: rests zoomed in, relaxes to the full gradient on hover.
-        backgroundSize:  active ? '100% 100%' : '260% 260%',
-        backgroundPosition: 'center',
         boxShadow:       active
-          ? '0px 3px 8px -2px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
+          ? '0px 6px 14px -4px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
           : '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
         transform:       active ? 'translateY(-1px)' : 'none',
-        opacity:         agent.paused ? 0.7 : 1,
-        transition:      'box-shadow 200ms, transform 200ms cubic-bezier(0.22, 1, 0.36, 1), background-size 700ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms',
+        transition:      'box-shadow 200ms, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
       data-surface="raised"
     >
-      {/* Avatar in a halo of its own colour */}
-      <div style={{ position: 'relative', width: AVATAR, height: AVATAR, margin: HALO, flexShrink: 0 }}>
-        <div
-          aria-hidden
-          style={{
-            position:        'absolute',
-            inset:           -HALO,
-            borderRadius:    '50%',
-            backgroundColor: `color-mix(in srgb, ${tint} 40%, transparent)`,
-            transform:       active ? 'scale(1.12)' : 'scale(1)',
-            transition:      'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
-          }}
+      {/* Keeps the bottom edge hovered while the card lifts 1px (otherwise the pointer on that edge flickers). */}
+      <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: -2, height: 4, transform: active ? 'translateY(1px)' : undefined }} />
+      {/* Unavailable: still and grey, like PersonaCard's scene. Paused: still and faded. */}
+      <div style={{ display: 'flex', flexShrink: 0, filter: unavailable ? 'grayscale(1)' : undefined }}>
+        <AgentHero
+          name={agent.name}
+          agentId={agent.id}
+          height={TILE}
+          width={TILE}
+          avatarSize={38}
+          radius={TILE_RADIUS}
+          rounded
+          hovered={active && !dimmed}
+          bounceKey={bounceKey}
+          inert={dimmed}
+          opacity={dimmed ? 0.6 : 1}
         />
-        <div style={{ position: 'relative', borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
-          <AnimatedPersonaAvatar
-            size={AVATAR}
-            radius="50%"
-            theme={avatar.theme}
-            colors={avatar.colors}
-            seed={agent.id}
-            hovered={active && !agent.paused}
-            bounceKey={bounceKey}
-            inert={agent.paused}
-          />
-        </div>
       </div>
 
-      {/* Name + one line of description */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <span
-          title={agent.name}
-          style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', fontWeight: 'var(--font-weight-semibold)',
-            color: 'var(--neutral-950)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}
-        >
-          {agent.name}
-        </span>
-        <span
-          title={agent.description || undefined}
-          style={{
-            fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px',
-            color: 'var(--neutral-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}
-        >
-          {agent.description || agent.handle}
-        </span>
-      </div>
-
-      {/* Right side: quiet status at rest, "Use" pill on hover */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, minWidth: 28, height: 32 }}>
-        <AnimatePresence initial={false} mode="popLayout">
-          {active && !agent.paused ? (
-            <m.div
-              key="use"
-              initial={{ opacity: 0, x: 10, scale: 0.92 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 10, scale: 0.92 }}
-              transition={{ type: 'spring', stiffness: 520, damping: 34 }}
-            >
-              {/* Icon-only "use" button; the label stays as its tooltip + accessible name. */}
-              <Tooltip content={useLabel}>
-                <IconButton variant="default" size="sm" icon={<BubbleChatAddIcon animated />} aria-label={useLabel} onClick={onUse} />
-              </Tooltip>
-            </m.div>
-          ) : (
-            <m.div
-              key="status"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              {agent.paused && <Badge color="Yellow" label="Paused" />}
-              {superlink && (
-                <span title="Has an active Super Link" style={{ display: 'inline-flex', color: 'var(--neutral-500)' }}>
-                  <LinkSixIcon size={16} />
-                </span>
-              )}
-            </m.div>
+      <div style={{ flex: '1 1 0', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <Tooltip content={agent.name} maxWidth={260}><span
+            style={{
+              minWidth: 0, fontFamily: 'var(--font-title)', fontSize: 15, lineHeight: '20px', fontWeight: 'var(--font-weight-medium)',
+              color: unavailable ? 'var(--neutral-500)' : 'var(--neutral-950)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {agent.name}
+          </span></Tooltip>
+          {superlink && (
+            <Tooltip content="Has an active Super Link"><span style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--neutral-500)' }}>
+              <LinkSixIcon size={13} />
+            </span></Tooltip>
           )}
-        </AnimatePresence>
+        </div>
+        {unavailable ? (
+          // Same reason copy as PersonaCard's scrim, in the same warning tone.
+          <p
+            style={{
+              margin: 0, display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
+              fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--color-tag-Yellow-text)',
+            }}
+          >
+            <AlertTwoIcon size={12} aria-hidden style={{ flexShrink: 0 }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {modelUnavailable === 'blocked' ? 'Model turned off — needs attention' : 'Model no longer available — needs attention'}
+            </span>
+          </p>
+        ) : (
+          <Tooltip content={agent.description} maxWidth={280} disabled={!agent.description}><p
+            style={{
+              margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {agent.description || agent.handle}
+          </p></Tooltip>
+        )}
+      </div>
+
+      {/* A paused agent can't be used, so the pill stays, disabled, rather than a status tag.
+          An agent whose model is gone can't be used either — its pill fixes the model instead. */}
+      <div style={{ flexShrink: 0 }}>
+        {unavailable && onFixModel ? (
+          <AgentCardButton size="sm" onClick={onFixModel}>Fix model</AgentCardButton>
+        ) : (
+          inUse ? (
+            <AgentCardIconButton label="In use in this chat" icon={<TickTwoIcon size={16} />} disabled />
+          ) : replaces ? (
+            <AgentCardIconButton label="Replace agent" icon={<ExchangeOneIcon size={16} />} disabled={agent.paused || unavailable} onClick={onUse} />
+          ) : (
+            <AgentCardIconButton label={useLabel} icon={<BubbleChatAddIcon size={16} />} disabled={agent.paused || unavailable} onClick={onUse} />
+          )
+        )}
       </div>
     </div>
   )

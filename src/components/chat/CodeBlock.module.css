@@ -1,0 +1,113 @@
+/* Atom One Light (imported globally in app/(app)/layout.tsx) draws several
+   token colours below 4.5:1 on the code block's background. These darker
+   values keep each hue. The selectors outrank the theme's own (at most two
+   classes) so stylesheet import order doesn't matter. The light block below is
+   for the light theme only. The dark theme gets the Atom One Dark palette
+   (the bundled stylesheet is Atom One Light only, whose dark text and token
+   colours are unreadable on a dark surface), with the comment colour lifted to
+   clear 4.5:1. */
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-comment),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-quote) {
+  color: #686b77;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-string),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-regexp),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-addition),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-attribute),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-meta .hljs-string) {
+  color: #3c7d3b;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-symbol),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-bullet),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-link),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-meta),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-selector-id),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-title) {
+  color: #3366d6;
+}
+
+/* After .hljs-title so class titles keep the built_in colour, as in the theme. */
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-built_in),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-title.class_),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-class .hljs-title) {
+  color: #8f6200;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-literal) {
+  color: #0170a3;
+}
+
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-section),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-name),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-selector-tag),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-deletion),
+:global(:root:not([data-theme="dark"])) .codeBlock :global(.hljs-subst) {
+  color: #c7372a;
+}
+
+/* ── Dark theme: Atom One Dark ─────────────────────────────────────────────── */
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs) {
+  color: #abb2bf;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-comment),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-quote) {
+  color: #8a93a3;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-doctag),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-keyword),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-formula) {
+  color: #c678dd;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-section),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-name),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-selector-tag),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-deletion),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-subst) {
+  color: #e06c75;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-literal) {
+  color: #56b6c2;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-string),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-regexp),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-addition),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-attribute),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-meta .hljs-string) {
+  color: #98c379;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-attr),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-variable),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-template-variable),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-type),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-selector-class),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-selector-attr),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-selector-pseudo),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-number) {
+  color: #d19a66;
+}
+
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-symbol),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-bullet),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-link),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-meta),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-selector-id),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-title) {
+  color: #61afef;
+}
+
+/* After .hljs-title so class titles keep the built_in colour, as in the theme. */
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-built_in),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-title.class_),
+:global(:root[data-theme="dark"]) .codeBlock :global(.hljs-class .hljs-title) {
+  color: #e6c07b;
+}

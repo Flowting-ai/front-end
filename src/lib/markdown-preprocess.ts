@@ -11,16 +11,72 @@
  */
 
 import { stripResponseInterruptedMarker } from "@/lib/model-error";
+import { findCodeRanges } from "@/lib/content-parser";
 
+// Indented code blocks (4+ spaces or a tab) that start after a blank line
+// following a top-level paragraph, or at the top. Indented lines under a list
+// item are list content, not code, so they are left out (conservatively).
+function findIndentedCodeRanges(content: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  let offset = 0
+  let prevBlank = true
+  let inList = false
+  let block: [number, number] | null = null
+  for (const line of content.split('\n')) {
+    const blank = /^[ \t\r]*$/.test(line)
+    const indented = /^(?: {4}|\t)/.test(line)
+    if (block && !blank && !indented) {
+      ranges.push(block)
+      block = null
+    }
+    if (block) {
+      if (!blank) block[1] = offset + line.length
+    } else if (!blank && indented && prevBlank && !inList) {
+      block = [offset, offset + line.length]
+    } else if (!blank && !indented) {
+      inList = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/.test(line)
+    }
+    prevBlank = blank
+    offset += line.length + 1
+  }
+  if (block) ranges.push(block)
+  return ranges
+}
+
+// Replaces each range (merged where they overlap) with a stash token.
+function stashRanges(content: string, ranges: Array<[number, number]>, stash: string[], token: (i: number) => string): string {
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0])
+  let out = ''
+  let last = 0
+  for (let r = 0; r < sorted.length; r++) {
+    const start = Math.max(sorted[r][0], last)
+    let end = sorted[r][1]
+    while (r + 1 < sorted.length && sorted[r + 1][0] < end) end = Math.max(end, sorted[++r][1])
+    if (end <= start) continue
+    out += content.slice(last, start)
+    stash.push(content.slice(start, end))
+    out += token(stash.length - 1)
+    last = end
+  }
+  return out + content.slice(last)
+}
+
+// Code (fenced ``` / ~~~ blocks, unclosed ones to the end, and inline spans —
+// the same scanner the widget parser uses) and display math are hidden from
+// `transform`, then restored.
 function protectMarkdownRegions(content: string, transform: (value: string) => string): string {
   const stash: string[] = []
   const token = (i: number) => `\x03P${i}\x03`
-  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]*`|\$\$[\s\S]*?\$\$/g, (match) => {
-    stash.push(match)
-    return token(stash.length - 1)
-  })
+  const guarded = stashRanges(content, findCodeRanges(content), stash, token)
+    .replace(/\$\$[\s\S]*?\$\$/g, (match) => {
+      stash.push(match)
+      return token(stash.length - 1)
+    })
 
-  return transform(guarded).replace(/\x03P(\d+)\x03/g, (_, i) => stash[Number(i)] ?? '')
+  // A display-math stash can itself contain code tokens, so restore recursively.
+  const restore = (value: string): string =>
+    value.replace(/\x03P(\d+)\x03/g, (_, i) => restore(stash[Number(i)] ?? ''))
+  return restore(transform(guarded))
 }
 
 function findNextUnescapedDollar(content: string, start: number): number {
@@ -151,6 +207,162 @@ function restoreMathStash(content: string, stash: string[]): string {
   return content.replace(/\x04N(\d+)\x04/g, (_, i) => stash[Number(i)] ?? '')
 }
 
+// remark-math ends a math span at the first `$`, escaped or not, so `$\$5$`
+// closes right after the backslash and garbles the rest of the line. Inside a
+// math span, rewrite each `\$` to a KaTeX dollar that contains no `$`. Spans
+// are paired on unescaped dollars (display `$$…$$` may span lines, inline
+// `$…$` may not); `\$` outside math is left for Markdown to unescape. Code
+// (fenced, including a fence still open mid-stream, inline, and indented
+// blocks) is untouched.
+function escapeDollarsInMath(content: string): string {
+  const escape = (math: string) => math.replace(/\\\$/g, '\\text{\\textdollar}')
+  const code: string[] = []
+  const codeRanges = [...findCodeRanges(content), ...findIndentedCodeRanges(content)]
+  const guarded = stashRanges(content, codeRanges, code, (i) => `\x03C${i}\x03`)
+
+  let out = ''
+  let i = 0
+  while (i < guarded.length) {
+    if (guarded[i] === '$' && guarded[i - 1] !== '\\') {
+      if (guarded[i + 1] === '$') {
+        let close = guarded.indexOf('$$', i + 2)
+        while (close !== -1 && guarded[close - 1] === '\\') close = guarded.indexOf('$$', close + 1)
+        if (close !== -1) {
+          out += `$$${escape(guarded.slice(i + 2, close))}$$`
+          i = close + 2
+          continue
+        }
+      } else {
+        const close = findNextUnescapedDollar(guarded, i + 1)
+        if (close !== -1) {
+          out += `$${escape(guarded.slice(i + 1, close))}$`
+          i = close + 1
+          continue
+        }
+      }
+    }
+    out += guarded[i]
+    i++
+  }
+
+  return out.replace(/\x03C(\d+)\x03/g, (_, n) => code[Number(n)] ?? '')
+}
+
+// ── Streaming tail ────────────────────────────────────────────────────────────
+// While a reply streams, the last paragraph is usually mid-construct: an opening
+// backtick or `**` whose partner hasn't arrived, a half-written `[text](http`, an
+// unfinished `\frac{`, a table header with no separator row yet, a lone `-` or `#`.
+// Rendered as-is each of these flashes as raw symbols (or a red KaTeX error) and
+// then reshapes itself. `healStreamingTail` closes what can be closed (code,
+// bold, strikethrough), keeps just the text of a half-written link, and holds
+// back what can't be shown yet (unfinished math, a table that isn't one yet, a
+// lone list/heading marker) until its next piece arrives. Only for a reply that
+// is still streaming — the final text is always rendered untouched.
+
+const TABLE_DELIMITER_ROW = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/
+
+// Same length as the input, with every code region blanked to "x" so scans can't see inside it.
+function maskCode(value: string): string {
+  const chars = value.split('')
+  for (const [start, end] of findCodeRanges(value)) for (let i = start; i < end; i++) chars[i] = 'x'
+  return chars.join('')
+}
+
+function countUnescaped(haystack: string, needle: string): number {
+  let count = 0
+  for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) {
+    if (haystack[i - 1] !== '\\') count++
+  }
+  return count
+}
+
+export function healStreamingTail(content: string): string {
+  // Inside a code fence that is still open, everything is code — leave it for closeOpenFences.
+  if (((content.match(/^```/gm) ?? []).length) % 2 !== 0) return content
+
+  // Unfinished math is held back from its opener on: partial LaTeX renders as raw
+  // source or a KaTeX error.
+  const masked = maskCode(content)
+  let cut = -1
+  if (countUnescaped(masked, '$$') % 2 === 1) cut = masked.lastIndexOf('$$')
+  const lastBracketOpen = masked.lastIndexOf('\\[')
+  if (lastBracketOpen !== -1 && masked.indexOf('\\]', lastBracketOpen) === -1) cut = Math.max(cut, lastBracketOpen)
+  const paragraphBreak = masked.lastIndexOf('\n\n')
+  const paragraphStart = paragraphBreak === -1 ? 0 : paragraphBreak + 2
+  const lastParenOpen = masked.lastIndexOf('\\(')
+  if (lastParenOpen >= paragraphStart && masked.indexOf('\\)', lastParenOpen) === -1) cut = Math.max(cut, lastParenOpen)
+  if (cut !== -1) return content.slice(0, cut).replace(/[ \t]+$/, '')
+
+  // An inline `$…` still open on the current line, whose text reads as math ("$A = 1{,}000",
+  // "$\frac"), is held back; a price ("$5", "$1,000") starts with a digit and is not.
+  const lineStart = masked.lastIndexOf('\n') + 1
+  const line = masked.slice(lineStart)
+  for (let i = line.indexOf('$'); i !== -1; i = line.indexOf('$', i + 1)) {
+    if (line[i - 1] === '\\' || line[i + 1] === '$' || line[i - 1] === '$') continue
+    const rest = line.slice(i + 1)
+    if (!rest.includes('$') && /^[A-Za-z\\({]/.test(rest) && /[\\^_{}=]/.test(rest)) {
+      return content.slice(0, lineStart + i).replace(/[ \t]+$/, '')
+    }
+    break
+  }
+
+  const head = content.slice(0, paragraphStart)
+  let tail = content.slice(paragraphStart)
+  if (!tail) return content
+
+  // A table still being written: its header (and a partial separator row) shows
+  // as text with pipes until the separator row is complete.
+  const lines = tail.split('\n')
+  if (/^\s*\|/.test(lines[0]) && (lines.length === 1 || (lines.length === 2 && !TABLE_DELIMITER_ROW.test(lines[1]) && /^[\s|:-]*$/.test(lines[1])))) {
+    return head
+  }
+
+  // A marker with nothing after it yet: "-", "1.", ">", "##", or "---" under text.
+  const last = lines[lines.length - 1]
+  if (/^\s*([-*+>]|\d{1,3}[.)]|#{1,6})\s*$/.test(last) || (lines.length > 1 && lines[lines.length - 2].trim() !== '' && /^\s*(-+|=+)\s*$/.test(last))) {
+    lines.pop()
+    tail = lines.join('\n')
+    if (!tail.trim()) return head
+  }
+
+  const m = maskCode(tail)
+  // A half-written image or link keeps only its visible text.
+  const image = /!\[[^\]\n]*(\](\([^)\n]*)?)?$/.exec(m)
+  if (image) return head + tail.slice(0, image.index)
+  const footnote = /\[\^[^\]\n]*$/.exec(m)
+  if (footnote) return head + tail.slice(0, footnote.index)
+  const link = /\[([^\]\n]*)\]\([^)\n]*$/.exec(m) ?? /\[([^\]\n]*)$/.exec(m)
+  if (link) tail = tail.slice(0, link.index) + tail.slice(link.index + 1, link.index + 1 + link[1].length)
+
+  // An opener with no text after it yet ("more than **") has nothing to style:
+  // hold the marker back until its first word arrives.
+  tail = tail.replace(/(^|[ \t])(\*{1,3}|~~|_{1,2}|`+)$/, '$1')
+
+  // Unclosed inline code / bold / emphasis / strikethrough: close it so the text
+  // renders styled from its first word instead of showing the marker.
+  // A closer straight after a space isn't one ("**Title **" stays literal), so it goes
+  // right after the last word.
+  const closeWith = (mark: string) => head + tail.replace(/\s+$/, '') + mark
+  const inline = maskCode(tail)
+  const ticks = [...inline.matchAll(/`+/g)]
+  // The opening run is the first one left unmasked; a closer must match its length.
+  if (ticks.length > 0) return closeWith(ticks[0][0])
+  if (!inline.includes('***')) {
+    if ((inline.match(/\*\*/g) ?? []).length % 2 === 1) return closeWith('**')
+  }
+  if ((inline.match(/~~/g) ?? []).length % 2 === 1) return closeWith('~~')
+  // Single emphasis: "*word" opens (not a bullet or a spaced "*"), "word*" closes.
+  // Underscores inside identifiers (snake_case) are neither.
+  const star = inline.replace(/\*{2,}/g, '')
+  const starOpen = (star.match(/(?<![\w*])\*(?=[^\s*])/g) ?? []).length
+  const starClose = (star.match(/(?<=[^\s*])\*(?![\w*])/g) ?? []).length
+  if (starOpen > starClose) return closeWith('*')
+  const underOpen = (inline.match(/(?<!\w)_(?=[^\s_])/g) ?? []).length
+  const underClose = (inline.match(/(?<=[^\s_])_(?!\w)/g) ?? []).length
+  if (underOpen > underClose) return closeWith('_')
+  return head + tail
+}
+
 // Markdown preprocessing pipeline (excluding web-citation handling and HTML
 // sanitisation). Shared by every renderer (e.g. the pin card) so behaviour is
 // consistent. Only additive, non-destructive normalisations live here — emphasis
@@ -159,20 +371,61 @@ function restoreMathStash(content: string, stash: string[]): string {
 // Innermost runs first:
 //   stripResponseInterruptedMarker → stripCollapsibleHtml → fixHeadingSpace
 //   → normalizeMathDelimiters → escapeCurrencyDollars → restoreMathStash
-//   → closeOpenFences
+//   → escapeDollarsInMath → closeOpenFences
 // The math stash is threaded through and restored AFTER escapeCurrencyDollars
 // (not inside normalizeMathDelimiters itself) specifically so that stage's
 // currency-detection scan never sees the $...$/$$...$$ spans normalizeMath
 // Delimiters just produced from explicit model LaTeX — see the comment on
 // normalizeMathDelimiters.
-export function preprocessMarkdown(content: string): string {
+export function preprocessMarkdown(content: string, options: { streaming?: boolean } = {}): string {
   const mathStash: string[] = [];
-  const withoutHtml = stripCollapsibleHtml(stripResponseInterruptedMarker(content));
+  const source = options.streaming ? healStreamingTail(content) : content;
+  const withoutHtml = stripCollapsibleHtml(stripResponseInterruptedMarker(source));
   const withHeadingSpace = fixHeadingSpace(withoutHtml);
   const withMathTokens = normalizeMathDelimiters(withHeadingSpace, mathStash);
   const withCurrencyEscaped = escapeCurrencyDollars(withMathTokens);
   const withMathRestored = restoreMathStash(withCurrencyEscaped, mathStash);
-  return closeOpenFences(withMathRestored);
+  return closeOpenFences(escapeDollarsInMath(withMathRestored));
+}
+
+// Minimal HAST shape (react-markdown's `node` prop) - avoids importing @types/hast.
+interface HastLike {
+  type: string
+  value?: string
+  tagName?: string
+  properties?: Record<string, unknown>
+  children?: HastLike[]
+}
+
+function hastText(node: HastLike): string {
+  if (node.type === 'text') return node.value ?? ''
+  return (node.children ?? []).map(hastText).join('')
+}
+
+/**
+ * Reads a fenced code block from the HAST `pre > code` pair react-markdown
+ * hands a `pre` component: the language is the `language-*` class verbatim
+ * (so `c++` and `objective-c` survive) and the value is the code's text,
+ * never `String(undefined)`. A `pre` without a `code` child (raw HTML) yields
+ * its own text.
+ */
+export function readCodeBlock(pre: HastLike | undefined): { language?: string; value: string } {
+  const code = pre?.children?.find((child) => child.type === 'element' && child.tagName === 'code')
+  const cls = code?.properties?.className
+  const classes = Array.isArray(cls) ? cls : typeof cls === 'string' ? cls.split(/\s+/) : []
+  const languageClass = classes.find((c): c is string => typeof c === 'string' && c.startsWith('language-'))
+  const source = code ?? pre
+  return {
+    language: languageClass?.slice('language-'.length) || undefined,
+    value: source ? hastText(source).replace(/\n$/, '') : '',
+  }
+}
+
+/** react-markdown hands every custom component the HAST `node`; spread as-is
+ *  it lands on the DOM element as node="[object Object]". */
+export function withoutNode<T extends { node?: unknown }>(props: T): Omit<T, "node"> {
+  const { node: _node, ...rest } = props // eslint-disable-line @typescript-eslint/no-unused-vars
+  return rest
 }
 
 export function stripMarkdown(text: unknown): string {

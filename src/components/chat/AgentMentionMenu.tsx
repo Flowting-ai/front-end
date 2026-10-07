@@ -2,7 +2,10 @@
 
 import React from 'react'
 import { Dropdown } from '@/components/Dropdown'
-import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
+import { defaultAvatarChoice, getAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import { AgentOrb } from '@/components/PersonaCard/AgentOrb'
+import { agentHeroStyle } from '@/components/PersonaCard/AgentHero'
+import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 export interface AgentMentionMenuProps {
@@ -13,6 +16,29 @@ export interface AgentMentionMenuProps {
   selectedId:  string | null
   onPick:      (agent: SelectedPersonaInfo) => void
   onHover:     (index: number) => void
+}
+
+/** The agent's banner colour as a small tile with its live avatar — the agent card's hero, miniature. */
+export function MentionAvatar({ agent }: { agent: { id: string; name: string } }) {
+  const stored = useStoredAvatarChoice(agent.id)
+  const avatar = getAvatarChoice(stored ?? defaultAvatarChoice(agent.name, agent.id))
+  return (
+    <span
+      aria-hidden
+      style={{
+        display:         'inline-flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        width:           28,
+        height:          28,
+        borderRadius:    8,
+        ...agentHeroStyle(avatar.colors[0]),
+        flexShrink:      0,
+      }}
+    >
+      <AgentOrb size={22} theme={avatar.theme} colors={avatar.colors} seed={agent.id} hovered={false} inert eyes />
+    </span>
+  )
 }
 
 /** The list that appears above the chat box while typing `@agent`. */
@@ -36,14 +62,8 @@ export function AgentMentionMenu({ items, loading, activeIndex, selectedId, onPi
               <div key={agent.id} role="option" aria-selected={index === activeIndex} onMouseEnter={() => onHover(index)}>
                 <Dropdown.Item
                   label={agent.name}
-                  avatar={
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar may be a signed remote URL
-                    <img
-                      src={agent.imageUrl ?? getPersonaFallbackAvatar(agent.id)}
-                      alt=""
-                      style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }}
-                    />
-                  }
+                  subLabel={agent.description || agent.handle}
+                  avatar={<MentionAvatar agent={agent} />}
                   fluid
                   selected={index === activeIndex || agent.id === selectedId}
                   onClick={() => onPick(agent)}

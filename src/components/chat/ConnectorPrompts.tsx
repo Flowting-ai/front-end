@@ -318,7 +318,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                         outline:         'none',
                         width:           '100%',
                         boxSizing:       'border-box',
-                        backgroundColor: 'var(--neutral-0, var(--static-white))',
+                        backgroundColor: 'var(--field-surface)',
                       }}
                     />
                   </div>
@@ -362,7 +362,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             )}
           </PromptButton>
           {state === 'polling' && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-600)' }}>
               Complete the sign-in in the new tab, then come back here.
             </span>
           )}

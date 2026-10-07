@@ -8,7 +8,6 @@ import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
   SearchOneIcon,
-  ArrowDownOneIcon,
   ArrowUpRightOneIcon,
   CopyOneIcon,
   PenOneIcon,
@@ -26,7 +25,7 @@ import { IconButton } from '@/components/IconButton'
 import { Skeleton } from '@/components/Skeleton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { Avatar } from '@/components/Avatar'
+import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { Tooltip } from '@/components/Tooltip'
 import { DateRangePill } from '@/components/DateRangePill'
 import {
@@ -41,6 +40,8 @@ import {
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, copyPersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo } from '@/lib/chat-personas'
 import { normalizeModels } from '@/lib/ai-models'
+import { buildModelBlockedMap, modelUnavailableReason as resolveModelUnavailableReason, patchableVersionId, type ModelUnavailableReason } from '@/lib/agent-model-health'
+import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
 import { AGENTS_SEE_ALL_EVENT, emitSidebarNewChat } from '@/hooks/use-sidebar-events'
@@ -67,6 +68,7 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
+import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -556,6 +558,8 @@ function PersonasPageInner() {
     const params = new URLSearchParams(searchParams.toString())
     params.set('agent', id)
     replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+    const name = personas.find(p => p.id === id)?.name
+    toastAgentDetailsOpened(name)
   }
 
   function closeDetails() {
@@ -563,6 +567,7 @@ function PersonasPageInner() {
     params.delete('agent')
     const query = params.toString()
     replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+    toastAgentDetailsClosed()
   }
 
   // The sidebar's "See all agents" row emits this while this page is already
@@ -581,10 +586,8 @@ function PersonasPageInner() {
   const [isLoading,    setIsLoading]    = useState(true)
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all')
   const [filters,      setFilters]      = useState<AgentFilters>(EMPTY_FILTERS)
   const [sortOpen,      setSortOpen]      = useState(false)
-  const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
   const [isDeletingPersona, setIsDeletingPersona] = useState(false)
@@ -597,6 +600,9 @@ function PersonasPageInner() {
   // in Settings, or retired by the provider, still resolves to a real name here
   // instead of falling through to the raw model id.
   const [modelsForNameLookup, setModelsForNameLookup] = useState<AIModel[]>([])
+  // Flips once the catalog request above settles (even empty/failed) — the
+  // ?fixModel= deep link waits on it so it never decides on a half-loaded page.
+  const [modelCatalogSettled, setModelCatalogSettled] = useState(false)
   const filterSharesLoadedRef = useRef(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
@@ -749,6 +755,7 @@ function PersonasPageInner() {
     fetchAllModels()
       .then(list => setModelsForNameLookup(normalizeModels(list)))
       .catch(() => {})
+      .finally(() => setModelCatalogSettled(true))
   }, [activeTab])
 
   // Map share persona_id → persona info.
@@ -845,26 +852,21 @@ function PersonasPageInner() {
   // Map from stable model ID → whether the user has disabled it in Settings.
   // Absence from the map (rather than false) means it's gone from the catalog
   // entirely — deprecated/retired by the provider.
-  const modelIdToBlocked = useMemo(() => {
-    const map = new Map<string, boolean>()
-    for (const m of modelsForNameLookup) {
-      const key = String(m.modelId ?? m.id ?? '')
-      if (key) map.set(key, !!m.blocked)
-    }
-    return map
-  }, [modelsForNameLookup])
+  const modelIdToBlocked = useMemo(() => buildModelBlockedMap(modelsForNameLookup), [modelsForNameLookup])
+
+  // Dev builds only: re-render when the /dev/notifications playground
+  // simulates a model outage, so the cards below pick it up. Always 0 in prod.
+  const devNotificationsVersion = useDevNotificationsVersion()
 
   // Why a persona's configured model can't be used, or null when it's fine.
   // 'blocked' — still in the catalog but turned off for this account.
   // 'retired' — absent from the catalog entirely (deprecated by the provider).
   // The two get different copy, so they can't collapse into one boolean here.
   // Requires the full catalog to have loaded at least once — otherwise every
-  // persona would flash as unavailable during the initial fetch.
-  function modelUnavailableReason(modelId: string | null): 'retired' | 'blocked' | null {
-    if (!modelId || !modelsForNameLookup.length) return null
-    const blocked = modelIdToBlocked.get(modelId)
-    if (blocked === undefined) return 'retired'
-    return blocked ? 'blocked' : null
+  // persona would flash as unavailable during the initial fetch. Shared with
+  // the sidebar notification bell via lib/agent-model-health.
+  function modelUnavailableReason(modelId: string | null): ModelUnavailableReason | null {
+    return resolveModelUnavailableReason(modelId, modelIdToBlocked)
   }
 
   // Draft/unpublished cards already have their own "finish setup" treatment,
@@ -873,12 +875,8 @@ function PersonasPageInner() {
     return persona.status === 'draft' || !persona.hasSystemInstructions || !!unpublishedMap[persona.id]
   }
 
-  // The version a model reassignment would patch. activeVersionId is the
-  // common case (published agent); workingVersionId covers a paused agent
-  // that was never published. Without either there is nothing to write to.
-  function patchableVersionId(persona: Persona): string | null {
-    return persona.activeVersionId ?? persona.workingVersionId ?? null
-  }
+  // patchableVersionId (the version a model reassignment would write to) now
+  // lives in lib/agent-model-health alongside the rest of this logic.
 
   // Unique model display names present in the current persona list.
   const uniqueModelNames = useMemo(() => {
@@ -937,21 +935,36 @@ function PersonasPageInner() {
     }
     return rows
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap])
+  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap, devNotificationsVersion])
+
+  // ?fixModel=<id> — where the sidebar bell's "<agent> needs attention" rows
+  // land. Once the agents and the model catalog have both loaded, open the
+  // single-agent Change model modal; if the agent was fixed in the meantime,
+  // show its details instead. The param is dropped either way so a reload or
+  // Back doesn't reopen the modal.
+  const fixModelId = searchParams.get('fixModel')
+  useEffect(() => {
+    if (!fixModelId || isLoading || !modelCatalogSettled) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('fixModel')
+    const persona = personas.find(p => p.id === fixModelId)
+    if (!persona) {
+      toast.info('That agent is no longer in your library.')
+    } else if (modelUnavailableReason(persona.modelId) && patchableVersionId(persona)) {
+      setChangeModelTarget(persona)
+    } else {
+      toast.success(`${persona.name} is already on an available model.`)
+      params.set('agent', persona.id)
+    }
+    const query = params.toString()
+    replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixModelId, isLoading, modelCatalogSettled, personas])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
-  const statusFiltered = useMemo(() => {
-    // Pause is a binary backend flag (is_active). "Active" = not paused (covers
-    // live + draft that are switched on); "Paused" = is_active false. This is a
-    // clean partition and matches the pause toggle exactly.
-    if (filterStatus === 'active') return visiblePersonas.filter(p => !p.isPaused)
-    if (filterStatus === 'paused') return visiblePersonas.filter(p => p.isPaused)
-    return visiblePersonas
-  }, [visiblePersonas, filterStatus])
-
   const filterPanelFiltered = useMemo(() => {
-    let result = statusFiltered
+    let result = visiblePersonas
 
     if (filters.status.size > 0) {
       result = result.filter(p => {
@@ -986,7 +999,7 @@ function PersonasPageInner() {
 
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFiltered, filters, visibilityForPersona, activeShareRepoIds, modelIdToName])
+  }, [visiblePersonas, filters, visibilityForPersona, activeShareRepoIds, modelIdToName])
 
   const filtered = useMemo(() => {
     const searched = search.trim()
@@ -1264,26 +1277,6 @@ function PersonasPageInner() {
             {activeTab === 'my-personas' && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* Status filter */}
-                  <Dropdown.Float
-                    open={allOpen}
-                    onOpenChange={setAllOpen}
-                    placement="bottom-start"
-                    trigger={
-                      <Button variant="secondary" rightIcon={<ArrowDownOneIcon size={16} />}>
-                        {filterStatus === 'all' ? 'All' : filterStatus === 'active' ? 'Active' : 'Paused'}
-                      </Button>
-                    }
-                  >
-                    <Dropdown maxHeight={false}>
-                      <Dropdown.Section>
-                        <Dropdown.Item label="All"    selected={filterStatus === 'all'}    onClick={() => { setFilterStatus('all');    setAllOpen(false) }} fluid />
-                        <Dropdown.Item label="Active" selected={filterStatus === 'active'} onClick={() => { setFilterStatus('active'); setAllOpen(false) }} fluid />
-                        <Dropdown.Item label="Paused" selected={filterStatus === 'paused'} onClick={() => { setFilterStatus('paused'); setAllOpen(false) }} fluid />
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
-
                   {/* Search */}
                   <div style={{
                     display: 'flex',
@@ -1772,12 +1765,7 @@ function PersonasPageInner() {
                             Most active agent
                           </p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            {topAgentInfo?.imageUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                              <img src={topAgentInfo.imageUrl} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                            ) : (
-                              <Avatar name={topAgentName ?? 'Agent'} color={colorFromName(topAgentName ?? 'Agent')} size="xs" />
-                            )}
+                            <MentionAvatar agent={{ id: topAgentInfo?.repoId ?? topShare.persona_repo_id, name: topAgentName ?? 'Agent' }} />
                             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {topAgentName}
                             </p>
@@ -1927,7 +1915,6 @@ function PersonasPageInner() {
                           {!sharesLoading && shares.map(share => {
                             const personaInfo = versionToPersona[share.persona_repo_id]
                             const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
-                            const imageUrl    = personaInfo?.imageUrl ?? null
                             const repoId      = personaInfo?.repoId ?? ''
                             const recipients  = share.recipients ?? []
                             const uniqueUsers = new Set(recipients.map(r => r.recipient_user_id)).size
@@ -1944,12 +1931,7 @@ function PersonasPageInner() {
                               >
                                 <SettingsTableCell>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                    {imageUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                                      <img src={imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                    ) : (
-                                      <Avatar name={name} color={colorFromName(name)} size="xs" />
-                                    )}
+                                    <MentionAvatar agent={{ id: repoId || share.persona_repo_id, name }} />
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                                       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {name}
@@ -2058,12 +2040,7 @@ function PersonasPageInner() {
                             <SettingsTableRow key={share.share_id} minHeight={64}>
                               <SettingsTableCell>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                  {share.image_url ? (
-                                    // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
-                                    <img src={share.image_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                  ) : (
-                                    <Avatar name={share.name} color={colorFromName(share.name)} size="xs" />
-                                  )}
+                                  <MentionAvatar agent={{ id: persona?.id ?? share.persona_repo_id, name: share.name }} />
                                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {share.name}
                                   </p>

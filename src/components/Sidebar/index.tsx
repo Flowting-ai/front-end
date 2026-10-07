@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useModKeyLabel } from '@/lib/platform'
 import {
   SearchOneIcon,
   UserAiIcon,
@@ -667,6 +668,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     const [collapseHovered,  setCollapseHovered]  = useState(false)
     const [atScrollTop,      setAtScrollTop]      = useState(true)
     const [atScrollBottom,   setAtScrollBottom]   = useState(false)
+    const modKey = useModKeyLabel()
 
     // Measured header height — the absolute top zone (logo + tab strip + nav strip)
     // varies by section (nav-row count) and mode (collapsed). Measuring it with a
@@ -1012,7 +1014,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 variant="default"
                 icon={<SearchOneIcon size={20} />}
                 label="Search"
-                shortcut={isCollapsed ? undefined : '⌘ K'}
+                shortcut={isCollapsed ? undefined : `${modKey} K`}
                 selected={searchActive}
                 onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
               />
@@ -1052,7 +1054,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           {/* Projects/Agents + Recents — always mounted so shown/scroll state survives collapse/expand.
               motion.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <motion.div
-            animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
+            animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)', transitionEnd: isCollapsed ? {} : { filter: 'none' } }}
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}

@@ -31,7 +31,7 @@ export function AnimatedFollowUps({ data, onComplete, onFollowUp, animate = true
 
   return (
     <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-400)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-600)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
         Follow-up suggestions
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

@@ -1,5 +1,3 @@
-import { mergeStreamingText } from '@/lib/streaming'
-
 export type ReasoningSection = {
   heading: string
   body: string
@@ -18,15 +16,24 @@ export type ReasoningTimelineItem =
       activityId: string
       roundIndex?: number
     }
+  | {
+      // Where the model stopped to ask the user something (a question card);
+      // everything after it in the timeline happened once they answered.
+      kind: 'prompt'
+      id: string
+      promptId: string
+      title: string
+      roundIndex?: number
+    }
 
 export type ReasoningEventType =
   | 'reasoning_heading'
   | 'reasoning_body'
 
 /** Append a reasoning delta to the current ordered stream segment. A tool
- * activity or a changed backend round starts a new segment, preventing words
- * and Markdown delimiters from separate model messages from being glued
- * together. */
+ * activity, a question marker or a changed backend round starts a new
+ * segment, preventing words and Markdown delimiters from separate model
+ * messages from being glued together. */
 export function appendReasoningTimeline(
   timeline: ReasoningTimelineItem[],
   incoming: string,
@@ -37,9 +44,7 @@ export function appendReasoningTimeline(
   const last = timeline[timeline.length - 1]
   const sameRound = roundIndex === undefined || last?.roundIndex === undefined || last.roundIndex === roundIndex
   if (last?.kind === 'reasoning' && sameRound) {
-    const content = mergeStreamingText(last.content, incoming)
-    if (content === last.content) return timeline
-    return [...timeline.slice(0, -1), { ...last, content }]
+    return [...timeline.slice(0, -1), { ...last, content: last.content + incoming }]
   }
   return [...timeline, { kind: 'reasoning', id: newId, content: incoming, roundIndex }]
 }
@@ -52,6 +57,21 @@ export function appendActivityTimeline(
 ): ReasoningTimelineItem[] {
   if (timeline.some((item) => item.kind === 'activity' && item.activityId === activityId)) return timeline
   return [...timeline, { kind: 'activity', id: newId, activityId, roundIndex }]
+}
+
+/** Mark the point where the model asked the user something. Reasoning that
+ * arrives afterwards starts a new segment, so the run before the question and
+ * the run after the answer never read as one. */
+export function appendPromptMarker(
+  timeline: ReasoningTimelineItem[],
+  marker: { promptId: string; title: string },
+): ReasoningTimelineItem[] {
+  const last = timeline[timeline.length - 1]
+  if (last?.kind === 'prompt' && last.promptId === marker.promptId) return timeline
+  // Positional suffix: the id doubles as a React key, and the same prompt id
+  // can recur further down the timeline.
+  const id = `prompt-${marker.promptId}-${timeline.length}`
+  return [...timeline, { kind: 'prompt', id, promptId: marker.promptId, title: marker.title }]
 }
 
 export function replaceTimelineActivityId(
@@ -187,19 +207,37 @@ export function splitHeading(heading: string): { verb: string; rest: string } {
   return { verb: clean.slice(0, boundary), rest: clean.slice(boundary + 1) }
 }
 
+// Label for a finished Thinking panel: "Thought for 12s", "Thought for 1m 5s".
+// Whole seconds with a 1s floor, so a sub-second run never reads as 0s. No
+// duration (e.g. a message reloaded from history) reads as plain "Thought".
+export function thoughtLabel(durationMs?: number): string {
+  if (durationMs === undefined || !Number.isFinite(durationMs)) return 'Thought'
+  const total = Math.max(1, Math.round(durationMs / 1000))
+  if (total < 60) return `Thought for ${total}s`
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `Thought for ${minutes}m${seconds ? ` ${seconds}s` : ''}`
+}
+
 export type ReasoningTimelineGroup =
   | { kind: 'reasoning'; id: string; contents: string[] }
   | { kind: 'activities'; id: string; activityIds: string[] }
+  | { kind: 'prompt'; id: string; promptId: string; title: string }
 
 // Collapse each run of same-kind timeline items into one group: a tool batch
 // becomes a single "Ran N actions" row, and adjacent reasoning segments become
-// one step list so the connector line runs unbroken between them.
+// one step list so the connector line runs unbroken between them. A question
+// marker is always its own group, so it breaks whatever run it lands in.
 export function groupReasoningTimeline(
   timeline: ReasoningTimelineItem[],
 ): ReasoningTimelineGroup[] {
   const groups: ReasoningTimelineGroup[] = []
   for (const item of timeline) {
     const last = groups[groups.length - 1]
+    if (item.kind === 'prompt') {
+      groups.push({ kind: 'prompt', id: item.id, promptId: item.promptId, title: item.title })
+      continue
+    }
     if (item.kind === 'reasoning') {
       if (last?.kind === 'reasoning') last.contents.push(item.content)
       else groups.push({ kind: 'reasoning', id: item.id, contents: [item.content] })
@@ -233,6 +271,7 @@ export type ReasoningAccumulator = {
   step(section: ReasoningSection, index?: number): void
   activity(activityId: string, roundIndex?: number): void
   renameActivity(previousId: string, nextId: string): void
+  prompt(marker: { promptId: string; title: string }): void
 }
 
 export function eventRoundIndex(data: Record<string, unknown>): number | undefined {
@@ -303,9 +342,8 @@ export function createReasoningAccumulator(): ReasoningAccumulator {
       if (!content) return
 
       if (type === 'reasoning_heading') {
-        // Re-sent headings are common on reconnect; committing the same one
-        // twice would duplicate the section and its timeline segment.
-        if (heading === content) return
+        // Every heading event opens a new section, even one titled like the
+        // last, so consecutive same-titled sections stay separate.
         if (heading) committed.push({ heading, body })
         heading = content
         body = ''
@@ -317,7 +355,7 @@ export function createReasoningAccumulator(): ReasoningAccumulator {
         return
       }
 
-      body = mergeStreamingText(body, content)
+      body += content
       invalidateSections()
       appendDelta(content, roundIndex)
     },
@@ -334,6 +372,11 @@ export function createReasoningAccumulator(): ReasoningAccumulator {
 
     renameActivity(previousId, replacementId) {
       timeline = replaceTimelineActivityId(timeline, previousId, replacementId)
+      cachedSnapshot = null
+    },
+
+    prompt(marker) {
+      timeline = appendPromptMarker(timeline, marker)
       cachedSnapshot = null
     },
   }

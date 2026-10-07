@@ -1,9 +1,11 @@
 "use client";
 
+import { Tooltip } from '@/components/Tooltip'
 import { m } from "framer-motion";
 import { SourceCitation, SourceList as SourceListUI } from "@/components/SourceCitation";
 import type { SourceItem } from "@/components/SourceCitation";
 import type { WebCitation } from "@/types/chat";
+import { listedSources } from "@/lib/citations";
 
 // -- CitationChip � inline numbered chip backed by SourceCitation hover card ----
 
@@ -19,10 +21,9 @@ function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
   if (!citation) {
     return (
-      <span
+      <Tooltip content="Source unavailable"><span
         role="note"
         aria-label={`Source ${n} unavailable`}
-        title="Source unavailable"
         data-missing-citation="true"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -33,7 +34,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
         }}
       >
         ?
-      </span>
+      </span></Tooltip>
     )
   }
   return (
@@ -48,8 +49,10 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
 
 // -- SourceList � footnote list of web citations backed by SourceListUI ---------
 
+// `citations` is indexed by citation number (citation N at index N - 1) and may
+// have holes for numbers the answer skipped; each card keeps its own N.
 export function SourceList({ citations }: { citations: WebCitation[] }) {
-  const sources = citations.map((c, i) => webCitationToSourceItem(c, i + 1))
+  const sources = listedSources(citations).map(({ n, citation }) => webCitationToSourceItem(citation, n))
   return (
     <m.div
       initial={{ opacity: 0, y: 6 }}

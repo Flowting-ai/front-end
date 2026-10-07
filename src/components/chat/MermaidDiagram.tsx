@@ -46,7 +46,7 @@ function Skeleton() {
         borderRadius: 8,
         border:       "1px dashed var(--neutral-200)",
         background:   "var(--neutral-50)",
-        color:        "var(--neutral-400)",
+        color:        "var(--neutral-600)",
         fontSize:     13,
         fontFamily:   "var(--font-body)",
       }}
@@ -128,7 +128,7 @@ export function MermaidDiagram({ code }: { code: string }) {
             borderTop:  "1px solid var(--neutral-200)",
             fontFamily: "var(--font-body)",
             fontSize:   "var(--font-size-caption)",
-            color:      "var(--neutral-400)",
+            color:      "var(--neutral-600)",
           }}
         >
           Diagram could not be rendered

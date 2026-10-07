@@ -229,7 +229,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
           }}
         >
           <motion.div
-            animate={{ opacity: effectiveCollapsed ? 0 : 1, filter: effectiveCollapsed ? 'blur(4px)' : 'blur(0px)' }}
+            animate={{ opacity: effectiveCollapsed ? 0 : 1, filter: effectiveCollapsed ? 'blur(4px)' : 'blur(0px)', transitionEnd: effectiveCollapsed ? {} : { filter: 'none' } }}
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', gap: 16, pointerEvents: effectiveCollapsed ? 'none' : 'auto' }}

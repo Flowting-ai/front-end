@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { AlertTwoIcon, ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, StarIcon } from '@strange-huge/icons'
@@ -15,7 +16,7 @@ import {
   type ModelUnavailableReason,
 } from '@/components/ChangeAgentModelModal/shared'
 import { pickReplacementModel } from '@/lib/ai-models'
-import { updateVersion } from '@/lib/api/personas'
+import { bustPersonasCache, updateVersion } from '@/lib/api/personas'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 import type { AIModel } from '@/types/ai-model'
 
@@ -146,7 +147,12 @@ export function FixAgentModelsModal({ open, onClose, agents, onSaved }: FixAgent
     })
 
     setSaving(false)
-    if (saved.length) onSaved(saved)
+    if (saved.length) {
+      // Same as the single-agent modal: let cached readers (the sidebar bell,
+      // the agents panel) see the new models right away.
+      bustPersonasCache()
+      onSaved(saved)
+    }
 
     if (failed.length) {
       // Keep the modal open so the failures stay actionable — the parent has
@@ -340,8 +346,7 @@ function AgentRow({ agent, chosenModelName, failed, disabled, onPick }: {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            title={agent.name}
+          <Tooltip content={agent.name} maxWidth={280}><span
             style={{
               fontFamily:   'var(--font-body)',
               fontSize:     'var(--font-size-body)',
@@ -353,7 +358,7 @@ function AgentRow({ agent, chosenModelName, failed, disabled, onPick }: {
             }}
           >
             {agent.name}
-          </span>
+          </span></Tooltip>
           <Badge
             label={agent.reason === 'blocked' ? 'Turned off' : 'Retired'}
             color={agent.reason === 'blocked' ? 'Neutral' : 'Yellow'}

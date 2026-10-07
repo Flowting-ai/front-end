@@ -1,4 +1,5 @@
 "use client";
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, type JSX } from "react";
 import Image from "next/image";
 import { m, AnimatePresence } from "framer-motion";
@@ -586,7 +587,7 @@ function ModelCard({
   const tierColor: ChipColor = /^power$/i.test(model.tierLabel) ? "purple" : /^pro$/i.test(model.tierLabel) ? "blue" : "neutral";
 
   return (
-    <div
+    <Tooltip content="This model is missing a backend ID and cannot be tested." disabled={!!model.requestModelId} maxWidth={280}><div
       role="button"
       tabIndex={isDisabled ? -1 : 0}
       aria-pressed={isSelected}
@@ -594,7 +595,6 @@ function ModelCard({
       onKeyDown={(e) => { if (!isDisabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(); } }}
       onMouseEnter={() => !isDisabled && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      title={!model.requestModelId ? "This model is missing a backend ID and cannot be tested." : undefined}
       style={{
         width:           "100%",
         height:          "100%",
@@ -711,7 +711,7 @@ function ModelCard({
           ))}
         </div>
       </div>
-    </div>
+    </div></Tooltip>
   );
 }
 
@@ -1659,7 +1659,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     borderRadius: 10,
                     border:       "none",
                     outline:      "none",
-                    background:   "var(--neutral-white)",
+                    background:   "var(--field-surface)",
                     boxShadow:    "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)",
                     fontFamily:   "var(--font-body)",
                     fontSize:     "var(--font-size-body)",

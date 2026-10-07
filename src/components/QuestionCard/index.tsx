@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, m, Reorder } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
@@ -43,10 +43,15 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   openEndedLabel?: string
   /** Fires with the typed text when user sends the open-ended answer */
   onOpenEndedSubmit?: (text: string) => void
+  /** Fires on every edit of the open-ended text (cleared to '' on Escape). */
+  onOpenEndedChange?: (text: string) => void
+  /** Omit to hide the Skip button (e.g. required questions). */
   onSkip?: () => void
   onSend?: () => void
   onRankChange?: (orderedIds: string[]) => void
+  /** Omit to hide the dismiss (X) button. */
   onClose?: () => void
+  /** Omit to disable the ‹ / › pagination arrows. */
   onPrev?: () => void
   onNext?: () => void
   /** Badge shown beside the title in 'info' mode (e.g. Required / Optional for the whole tab) */
@@ -58,6 +63,24 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   /** True while `onSend`/`onSkip`'s response is in flight — disables both
    *  buttons and shows a spinner in place of Send's arrow. */
   pending?: boolean
+  /** When true, Send stays disabled until an option is selected or the
+   *  open-ended box has non-blank text. */
+  requireAnswer?: boolean
+  /** Initial open-ended text, e.g. when returning to an answered question. */
+  defaultOpenEndedText?: string
+  /** Focus the card when it mounts, but only if nothing else has focus —
+   *  never pulls focus away from where the user is typing. */
+  autoFocusWhenIdle?: boolean
+}
+
+/** True when focus is on nothing in particular (the page body). */
+const isFocusIdle = () =>
+  typeof document !== 'undefined' &&
+  (document.activeElement == null || document.activeElement === document.body)
+
+const VISUALLY_HIDDEN: React.CSSProperties = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -102,14 +125,14 @@ function SkipButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
 
 // ── SendButton ────────────────────────────────────────────────────────────────
 
-function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<HTMLButtonElement>; disabled?: boolean }) {
+function SendButton({ onClick, disabled, pending }: { onClick?: React.MouseEventHandler<HTMLButtonElement>; disabled?: boolean; pending?: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
       type="button"
       aria-label="Send"
-      disabled={disabled}
-      aria-busy={disabled || undefined}
+      disabled={disabled || pending}
+      aria-busy={pending || undefined}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -124,8 +147,8 @@ function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         padding:        '7px 8px 9px',
         borderRadius:   10,
         border:         'none',
-        cursor:         disabled ? 'not-allowed' : 'pointer',
-        opacity:        disabled ? 0.6 : 1,
+        cursor:         disabled || pending ? 'not-allowed' : 'pointer',
+        opacity:        disabled || pending ? 0.6 : 1,
         overflow:       'hidden',
         boxShadow:      '0px 0px 0px 1px var(--neutral-black, black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
       }}
@@ -149,7 +172,7 @@ function SendButton({ onClick, disabled }: { onClick?: React.MouseEventHandler<H
         }}
       />
       <div style={{ position: 'relative', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {disabled ? <Spinner size={18} color="var(--neutral-white, white)" /> : <ArrowUpTwoIcon size={20} color="var(--neutral-white, white)" />}
+        {pending ? <Spinner size={18} color="var(--neutral-white, white)" /> : <ArrowUpTwoIcon size={20} color="var(--neutral-white, white)" />}
       </div>
     </button>
   )
@@ -328,6 +351,7 @@ export function QuestionCard(
     selectionCount,
     openEndedLabel = 'Something else on your mind',
     onOpenEndedSubmit,
+    onOpenEndedChange,
     onSkip,
     onSend,
     onRankChange,
@@ -338,6 +362,9 @@ export function QuestionCard(
     tabProgress,
     topSlot,
     pending = false,
+    requireAnswer = false,
+    defaultOpenEndedText,
+    autoFocusWhenIdle = false,
     className,
     style,
     ref,
@@ -365,11 +392,18 @@ export function QuestionCard(
     // A question with no options is inherently free-text, so open the input
     // immediately even when the same card instance receives a new question shape.
     const shouldOpenEndedByDefault = options.length === 0 && type !== 'rank' && type !== 'info'
-    const [openEndedOpen, setOpenEndedOpen] = useState(false)
+    const [openEndedOpen, setOpenEndedOpen] = useState(() => Boolean(defaultOpenEndedText))
     const isOpenEndedOpen = shouldOpenEndedByDefault || openEndedOpen
-    const [openEndedText, setOpenEndedText] = useState('')
+    const [openEndedText, setOpenEndedText] = useState(defaultOpenEndedText ?? '')
     const openEndedRef  = useRef<HTMLTextAreaElement>(null)
+    const openEndedTriggerRef = useRef<HTMLButtonElement>(null)
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])
+    // Only a click on "Something else" moves focus into the textarea. A box
+    // that starts open (free-text question, restored answer) waits for
+    // autoFocusWhenIdle so it never steals focus on mount.
+    const userOpenedRef = useRef(false)
+    const questionId    = useId()
+    const [announcement, setAnnouncement] = useState('')
 
     // Auto-grow textarea - fires on open (initial size) and on every keystroke
     useEffect(() => {
@@ -379,14 +413,40 @@ export function QuestionCard(
       el.style.height = `${el.scrollHeight}px`
     }, [openEndedText, isOpenEndedOpen])
 
-    // Focus textarea immediately on open
-    useEffect(() => {
-      if (isOpenEndedOpen) openEndedRef.current?.focus()
-    }, [isOpenEndedOpen])
+    const returnFocusToTriggerRef = useRef(false)
 
+    // Focus textarea when the user opens it; after Escape closes it, return
+    // focus to the "Something else" trigger rather than dropping it to <body>.
+    useEffect(() => {
+      if (openEndedOpen && userOpenedRef.current) openEndedRef.current?.focus()
+      if (!openEndedOpen && returnFocusToTriggerRef.current) {
+        returnFocusToTriggerRef.current = false
+        openEndedTriggerRef.current?.focus()
+      }
+    }, [openEndedOpen])
 
     const selectedIds: string[] = Array.isArray(selected)
-      ? selected : selected != null ? [selected] : []
+      ? selected : selected ? [selected] : []
+    const selectedIndex = options.findIndex(o => selectedIds.includes(o.id))
+
+    // Mount only: a card that appears mid-reply takes focus when the user
+    // isn't focused anywhere else (e.g. focus fell to <body>).
+    useEffect(() => {
+      if (!autoFocusWhenIdle || !isFocusIdle()) return
+      // preventScroll: never move the chat a reader has scrolled away from
+      if (isOpenEndedOpen && options.length === 0) openEndedRef.current?.focus({ preventScroll: true })
+      else optionRefs.current[Math.max(0, selectedIndex)]?.focus({ preventScroll: true })
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // Announce the question to screen readers. Set after mount so the live
+    // region already exists when its text changes.
+    useEffect(() => {
+      if (type === 'info' || type === 'rank') return
+      const position = paginationLabel ? ` ${paginationLabel.replace('/', ' of ')}` : ''
+      const id = window.setTimeout(() => setAnnouncement(`Question${position}: ${question}`), 100)
+      return () => window.clearTimeout(id)
+    }, [question, paginationLabel, type])
 
     const getRowVariant = (id: string) => {
       const isSelected = selectedIds.includes(id)
@@ -409,12 +469,27 @@ export function QuestionCard(
     // Badge exits on click (one step) - not deferred to when typing starts
     const showEditBadge = !isOpenEndedOpen
 
+    const hasAnswer = selectedIds.length > 0 || (isOpenEndedOpen && openEndedText.trim() !== '')
+    const sendDisabled = requireAnswer && !hasAnswer
 
+    // Contract: the typed text is reported first, then onSend fires in the
+    // same event (QuestionStep and ChatPromptCard both rely on this order).
+    const handleSend = () => {
+      if (pending || sendDisabled) return
+      if (isOpenEndedOpen) onOpenEndedSubmit?.(openEndedText)
+      onSend?.()
+    }
+
+    // Single choice uses one tab stop for the group (roving tabindex);
+    // arrow keys move between rows.
+    const rovingIndex = Math.max(0, selectedIndex)
 
     return (
       <m.div
         ref={ref}
         className={cn(className)}
+        role="group"
+        aria-labelledby={questionId}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0, transition: springs.moderate }}
         exit={{ opacity: 0, y: 12, transition: { duration: 0.1, ease: 'easeIn' } }}
@@ -516,7 +591,7 @@ export function QuestionCard(
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, width: '100%', flexShrink: 0 }}>
           {type === 'info' ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 0', minWidth: 1, flexWrap: 'wrap' }}>
-              <p style={{
+              <p id={questionId} style={{
                 fontFamily:   'var(--font-title)',
                 fontWeight:   400,
                 fontSize:     20,
@@ -529,7 +604,7 @@ export function QuestionCard(
               {titleBadge && <Badge label={titleBadge.label} color={titleBadge.color} />}
             </div>
           ) : (
-          <p style={{
+          <p id={questionId} style={{
             flex:       '1 0 0',
             minWidth:   1,
             fontFamily: 'var(--font-body)',
@@ -548,11 +623,11 @@ export function QuestionCard(
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             {hasPagination && type !== 'info' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
-                <IconButton size="xs" variant="ghost" aria-label="Previous question" icon={<ArrowLeftOneIcon size={18} />} onClick={onPrev} />
+                <IconButton size="xs" variant="ghost" aria-label="Previous question" icon={<ArrowLeftOneIcon size={18} />} onClick={onPrev} disabled={!onPrev} />
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body, 14px)', lineHeight: 'var(--line-height-body, 22px)', color: 'var(--neutral-600, #6a625d)', whiteSpace: 'nowrap', flexShrink: 0, padding: '0 2px' }}>
                   {paginationLabel}
                 </span>
-                <IconButton size="xs" variant="ghost" aria-label="Next question" icon={<ArrowRightOneIcon size={18} />} onClick={onNext} />
+                <IconButton size="xs" variant="ghost" aria-label="Next question" icon={<ArrowRightOneIcon size={18} />} onClick={onNext} disabled={!onNext} />
               </div>
             )}
             {hasSelectionMode && !hasPagination && (
@@ -560,7 +635,7 @@ export function QuestionCard(
                 {selectionCount} Selected
               </span>
             )}
-            {!(type === 'info' && topSlot) && (
+            {onClose && !(type === 'info' && topSlot) && (
               <IconButton size="xs" variant="ghost" aria-label="Dismiss question" icon={<CancelOneIcon size={18} />} onClick={onClose} />
             )}
           </div>
@@ -596,12 +671,16 @@ export function QuestionCard(
                 animate={{ opacity: 1, transition: { duration: 0.15, ease: 'easeOut' } }}
                 exit={{ opacity: 0, transition: { duration: 0.08, ease: 'easeIn' } }}
                 style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                role={type === 'single' ? 'radiogroup' : 'group'}
+                aria-labelledby={questionId}
               >
                 {options.map((opt, i) => (
                   <OptionRow
                     key={opt.id}
                     ref={(el) => { optionRefs.current[i] = el }}
-                    tabIndex={0}
+                    role={type === 'single' ? 'radio' : 'checkbox'}
+                    aria-checked={selectedIds.includes(opt.id)}
+                    tabIndex={type === 'single' && i !== rovingIndex ? -1 : 0}
                     variant={getRowVariant(opt.id)}
                     num={i + 1}
                     label={opt.label}
@@ -645,9 +724,21 @@ export function QuestionCard(
                 <textarea
                   ref={openEndedRef}
                   value={openEndedText}
-                  onChange={(e) => setOpenEndedText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setOpenEndedOpen(false); setOpenEndedText('') } }}
+                  onChange={(e) => { setOpenEndedText(e.target.value); onOpenEndedChange?.(e.target.value) }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setOpenEndedOpen(false)
+                      setOpenEndedText('')
+                      onOpenEndedChange?.('')
+                      returnFocusToTriggerRef.current = !shouldOpenEndedByDefault
+                    } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      // Enter sends; Shift+Enter keeps a newline
+                      e.preventDefault()
+                      handleSend()
+                    }
+                  }}
                   placeholder={openEndedLabel}
+                  aria-label={openEndedLabel}
                   rows={1}
                   style={{
                     display:    'block',
@@ -669,9 +760,17 @@ export function QuestionCard(
                   }}
                 />
               ) : (
-                <p
-                  onClick={() => setOpenEndedOpen(true)}
+                <button
+                  type="button"
+                  ref={openEndedTriggerRef}
+                  onClick={() => { userOpenedRef.current = true; setOpenEndedOpen(true) }}
                   style={{
+                    display:      'block',
+                    width:        '100%',
+                    padding:      0,
+                    border:       'none',
+                    background:   'transparent',
+                    textAlign:    'left',
                     fontFamily:   'var(--font-body)',
                     fontWeight:   'var(--font-weight-medium)',
                     fontSize:     'var(--font-size-body-lg, 16px)',
@@ -685,24 +784,24 @@ export function QuestionCard(
                   }}
                 >
                   {openEndedLabel}
-                </p>
+                </button>
               )}
             </div>
 
-            {/* Skip + Send - always present, always visible */}
+            {/* Skip (only when the caller allows skipping) + Send */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <SkipButton onClick={onSkip} disabled={pending} />
+              {onSkip && <SkipButton onClick={onSkip} disabled={pending} />}
               <SendButton
-                disabled={pending}
-                onClick={isOpenEndedOpen
-                  ? () => { onOpenEndedSubmit?.(openEndedText); onSend?.() }
-                  : onSend
-                }
+                pending={pending}
+                disabled={sendDisabled}
+                onClick={handleSend}
               />
             </div>
           </div>}
 
         </div>
+
+        <span aria-live="polite" style={VISUALLY_HIDDEN}>{announcement}</span>
       </m.div>
     )
 }

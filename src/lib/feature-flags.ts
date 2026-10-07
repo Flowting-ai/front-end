@@ -29,6 +29,16 @@ export const HIGHLIGHTS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_HIGHLIGHTS === 
  */
 export const THEMING_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THEMING === 'true'
 
+/**
+ * The agent's live browser, as a "Browser" tab in the chat's Context panel.
+ * HIDDEN for now, everywhere including local development: the UI is built but
+ * not linked to the backend (see components/BrowserPanel/use-browser-session.ts).
+ * With it off the Context panel shows the overview alone, with no tab strip.
+ * To bring it back, set
+ *   NEXT_PUBLIC_ENABLE_BROWSER_VIEW=true
+ */
+export const BROWSER_VIEW_ENABLED = process.env.NEXT_PUBLIC_ENABLE_BROWSER_VIEW === 'true'
+
 /** Thrown by API wrappers when called while their feature is switched off. */
 export class FeatureDisabledError extends Error {
   constructor(feature: 'Pins' | 'Highlights') {

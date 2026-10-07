@@ -13,6 +13,7 @@
  * See: docs/ui/frontend-rendering.md - Charts section.
  */
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, m } from "framer-motion"
 import { ChatChartShell } from "@/components/chat/ChatChartShell"
@@ -96,7 +97,7 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
   return (
     <ChatChartShell title={attrs.title}>
       {attrs.yLabel && (
-        <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
+        <div style={{ fontSize: 12, color: "var(--neutral-600)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
       <div style={{ position: "relative", height: chartH }}>
         {[0.25, 0.5, 0.75, 1].map((pct) => (
@@ -130,13 +131,13 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
       <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "0 0 8px" }} />
       <div style={{ display: "flex", gap: 10 }}>
         {bars.map((bar) => (
-          <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>
+          <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>
             {bar.label}
           </div>
         ))}
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-600)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChatChartShell>
   )
@@ -208,10 +209,10 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
               <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx]!.color} fontSize={20} fontWeight="700" fontFamily="var(--font-body)">
                 {formatNum(arcs[hoveredIdx]!.value)}
               </text>
-              <text x={CX} y={CY + 10} textAnchor="middle" fill="var(--neutral-400)" fontSize={10} fontFamily="var(--font-body)">
+              <text x={CX} y={CY + 10} textAnchor="middle" fill="var(--neutral-600)" fontSize={10} fontFamily="var(--font-body)">
                 {Math.round(arcs[hoveredIdx]!.pct * 100)}%
               </text>
-              <text x={CX} y={CY + 23} textAnchor="middle" fill="var(--neutral-400)" fontSize={9} fontFamily="var(--font-body)">
+              <text x={CX} y={CY + 23} textAnchor="middle" fill="var(--neutral-600)" fontSize={9} fontFamily="var(--font-body)">
                 {arcs[hoveredIdx]!.label.split(" ").slice(0, 2).join(" ")}
               </text>
             </>
@@ -220,7 +221,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
               <text x={CX} y={CY + 5} textAnchor="middle" fill="var(--neutral-600)" fontSize={16} fontWeight="600" fontFamily="var(--font-body)">
                 {formatNum(total)}
               </text>
-              <text x={CX} y={CY + 20} textAnchor="middle" fill="var(--neutral-400)" fontSize={9} fontFamily="var(--font-body)">total</text>
+              <text x={CX} y={CY + 20} textAnchor="middle" fill="var(--neutral-600)" fontSize={9} fontFamily="var(--font-body)">total</text>
             </>
           )}
         </svg>
@@ -237,7 +238,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: "var(--neutral-700)", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>{formatNum(arc.value)} <span style={{ opacity: 0.6 }}>· {Math.round(arc.pct * 100)}%</span></div>
+              <div style={{ fontSize: 12, color: "var(--neutral-600)", lineHeight: "15px" }}>{formatNum(arc.value)} <span style={{ opacity: 0.6 }}>· {Math.round(arc.pct * 100)}%</span></div>
             </div>
           </m.div>
         ))}
@@ -307,7 +308,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
   return (
     <ChatChartShell title={attrs.title}>
       {attrs.yLabel && (
-        <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
+        <div style={{ fontSize: 12, color: "var(--neutral-600)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
       <div ref={containerRef} style={{ position: "relative" }}>
         <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`}
@@ -391,7 +392,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
               exit={{ opacity: 0, y: 4, scale: 0.96 }}
               transition={{ duration: 0.12 }}
               style={{ position: "absolute", top: -8, left: Math.max(4, Math.min(tooltipLeft, containerWidth - tooltipWidth - 4)), width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
-              <div style={{ fontSize: 12, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
+              <div style={{ fontSize: 12, color: "var(--neutral-600)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
                 {String(points[hoverIdx]?.x ?? "")}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -407,7 +408,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
         </AnimatePresence>
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-600)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChatChartShell>
   )
@@ -458,13 +459,12 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
             const barH = Math.max((bin.count / maxCount) * chartH, 2)
             return (
               <div key={bin.rangeStart} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                <m.div
+                <Tooltip content={`${bin.label}: ${bin.count}`}><m.div
                   initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                   transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: i * 0.05 }}
                   style={{ width: "100%", height: barH, background: color, borderRadius: "2px 2px 0 0", transformOrigin: "bottom" }}
                 >
-                  <title>{`${bin.label}: ${bin.count}`}</title>
-                </m.div>
+                </m.div></Tooltip>
               </div>
             )
           })}
@@ -476,14 +476,14 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
           const skip = Math.ceil(bins.length / 8)
           if (i % skip !== 0 && i !== bins.length - 1) return <div key={`spacer-${bin.rangeStart}`} style={{ flex: 1 }} />
           return (
-            <div key={`label-${bin.rangeStart}`} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "14px" }}>
+            <div key={`label-${bin.rangeStart}`} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "14px" }}>
               {formatNum(bin.rangeStart)}
             </div>
           )
         })}
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-600)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChatChartShell>
   )

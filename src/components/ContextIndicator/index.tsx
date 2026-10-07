@@ -3,6 +3,7 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,13 +64,12 @@ export const ContextIndicator = React.forwardRef<HTMLButtonElement, ContextIndic
     const isClickable = !locked && !!onClick
 
     return (
-      <Comp
+      <Tooltip content="Context is locked while an automation is running" disabled={!locked}><span style={{ display: 'inline-flex' }}><Comp
         ref={ref}
         type="button"
         onClick={isClickable ? onClick : undefined}
         disabled={locked}
         aria-label={`Current context: ${scope} — ${label ?? scope}`}
-        title={locked ? 'Context is locked while an automation is running' : undefined}
         className={cn(className)}
         style={{
           display:         'inline-flex',
@@ -110,7 +110,7 @@ export const ContextIndicator = React.forwardRef<HTMLButtonElement, ContextIndic
           }}
         />
         {label ?? scope}
-      </Comp>
+      </Comp></span></Tooltip>
     )
   },
 )

@@ -1,8 +1,9 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { m, AnimatePresence, useIsPresent } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import {
   MoreVerticalIcon,
@@ -15,25 +16,25 @@ import {
   AlertTwoIcon,
   InformationCircleIcon,
 } from '@strange-huge/icons'
-import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { Tooltip } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
-import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import {
-  AnimatedPersonaAvatar,
-  AVATAR_THEMES,
   getAvatarColors,
   getAvatarChoice,
   defaultAvatarChoice,
   type AvatarChoice,
-  GENERIC_STATUS,
   pickAvatarTheme,
   type AvatarTheme,
 } from './AnimatedPersonaAvatar'
+import { agentHeroStyle } from './AgentHero'
+import { HeroScene, sceneFor, type AnySceneKind } from './HeroScene'
+import { GazeChannel, type AvatarMood } from './gaze'
+import { AgentOrb } from './AgentOrb'
+import { Badge } from '@/components/Badge'
+import { AgentCardButton } from './AgentCardButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -46,15 +47,20 @@ const SHADOW_CARD_TEMPLATE ='0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px 
 // regardless of description length or which badges/footer content is
 // present — the footer is pinned to the bottom of this via marginTop:'auto'
 // rather than sitting wherever the content above happens to end.
-const CARD_HEIGHT = 264
+const CARD_HEIGHT = 320
 /** Card size, for layouts and skeletons that must match it. */
 export const PERSONA_CARD_HEIGHT = CARD_HEIGHT
 export const PERSONA_CARD_WIDTH = 314
 
-// Avatar size — centered at the top of the card.
-// How far the translucent halo circle extends past the avatar on each side.
-const HALO_OVERHANG = 9
-const AVATAR_SIZE = 88
+// Card layout, top to bottom: a tinted hero banner holding the avatar (50% of the card), the
+// details — name, "by" line, description (35%) — and the action row (15%). Heights are px so the
+// auto-height template/community variants keep the same banner and action row.
+const CARD_RADIUS = 20
+const HERO_HEIGHT = CARD_HEIGHT * 0.5
+const ACTION_HEIGHT = CARD_HEIGHT * 0.15
+const AVATAR_SIZE = 110
+/** The hero sits this far in from the card's top and sides, like a screen in a bezel. */
+const HERO_INSET = 6
 
 const EMPTY_PERSONA_TAGS: string[] = []
 
@@ -75,90 +81,11 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-// ── StatusTicker ──────────────────────────────────────────────────────────────
-// Live status in the hover action bar: steps through `messages` every 1.2s
-// (each line rising in) while a 1px progress line sweeps the bar's top edge,
-// staying full once the last line lands. Mounts on hover, so its clock starts
-// at hover-in.
-
-const STATUS_STEP_S = 1.2
+// Rises the "by" line back in after the pointer leaves, like a label returning.
 const RISE = {
   initial:    { y: 8, opacity: 0 },
   animate:    { y: 0, opacity: 1 },
   transition: { duration: 0.3, ease: 'easeOut' as const },
-}
-
-function StatusTicker({ messages, inline = false }: { messages: string[]; inline?: boolean }) {
-  const [idx, setIdx] = useState(0)
-  const barRef = useRef<HTMLDivElement>(null)
-  // Once the last line ("ready") lands the loader is finished: the line stops shimmering
-  // and settles to a plain solid silver.
-  const done = idx === messages.length - 1
-
-  useEffect(() => {
-    const start = performance.now() / 1000
-    const lastIdx = messages.length - 1
-    let raf = 0
-    const tick = () => {
-      const t    = performance.now() / 1000 - start
-      const next = Math.min(Math.floor(t / STATUS_STEP_S), lastIdx)
-      setIdx(next)
-      if (barRef.current) {
-        const pct = next === lastIdx ? 100 : ((t % STATUS_STEP_S) / STATUS_STEP_S) * 100
-        barRef.current.style.width = `${pct}%`
-      }
-      if (next < lastIdx) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [messages])
-
-  return (
-    <>
-      {/* Full-width shimmering track — keeps the line visible for the whole run, not just as it fills. */}
-      {inline && !done && (
-        <div
-          aria-hidden
-          className="kaya-silver-line"
-          style={{ position: 'absolute', bottom: -4, left: 0, right: 0, height: 2, borderRadius: 1, opacity: 0.35, pointerEvents: 'none' }}
-        />
-      )}
-      <div
-        ref={barRef}
-        aria-hidden
-        className={done ? undefined : 'kaya-silver-line'}
-        style={{
-          position:        'absolute',
-          ...(inline ? { bottom: -4 } : { top: -1 }),
-          ...(done ? { backgroundColor: 'var(--neutral-300)' } : null),
-          left:            0,
-          height:          2,
-          borderRadius:    1,
-          width:           0,
-          pointerEvents:   'none',
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', justifyContent: inline ? 'center' : 'flex-end' }}>
-        <m.span
-          key={idx}
-          {...RISE}
-          style={{
-            display:      'inline-block',
-            fontFamily:   'var(--font-body)',
-            fontSize:     'var(--font-size-caption)',
-            lineHeight:   'var(--line-height-caption)',
-            color:        'var(--neutral-500)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-            maxWidth:     '100%',
-          }}
-        >
-          {messages[idx]}
-        </m.span>
-      </div>
-    </>
-  )
 }
 
 // ── AuthorRow ─────────────────────────────────────────────────────────────────
@@ -231,7 +158,7 @@ function AuthorRow({
           fontFamily: 'var(--font-code)',
           fontSize:   'var(--font-size-code)',
           lineHeight: 'var(--line-height-code)',
-          color:      'var(--neutral-500)',
+          color:      'var(--neutral-600)',
         }}
       >
         @{authorHandle}
@@ -293,6 +220,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * for a plain sphere with no interior detail.
    */
   avatarTheme?: AvatarTheme | null
+  /** A specific banner scene (e.g. a template's own job scene) — wins over the avatar theme's. */
+  scene?: AnySceneKind
   /** A picked avatar (see AVATAR_CHOICES) — wins over the name-based theme. */
   avatarChoice?: AvatarChoice | null
   /** The agent's repo id — looks up the avatar the user picked for it. */
@@ -418,155 +347,6 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   asChild?: boolean
 }
 
-// ── ActionBar ─────────────────────────────────────────────────────────────────
-// Absolute overlay for ALL variants — card height never changes.
-// Separate component so useIsPresent works inside AnimatePresence.
-// always=true  → renders without a hover trigger (draft, template, community, paused)
-// always=false → renders only when hovered (default variant)
-
-const ACTION_BAR_TRANSITION = { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] as const }
-
-type ActionBarType = 'hover' | 'resume' | 'draft' | 'template' | 'community'
-
-function ActionBar({
-  type,
-  isDraft,
-  authorHandle,
-  authorAvatarUrl,
-  onEdit,
-  onLink,
-  onUseInChat,
-  useInChatLabel = 'Use in chat',
-  onResume,
-  resumePending,
-  onTry,
-  onOpen,
-  statusMessages,
-}: {
-  type:             ActionBarType
-  isDraft?:         boolean
-  authorHandle?:    string
-  authorAvatarUrl?: string
-  onEdit?:          () => void
-  onLink?:          () => void
-  onUseInChat?:     () => void
-  useInChatLabel?:  string
-  onResume?:        () => void
-  resumePending?:   boolean
-  onTry?:           () => void
-  onOpen?:          () => void
-  statusMessages?:  string[]
-}) {
-  const isPresent = useIsPresent()
-
-  return (
-    <m.div
-      initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      exit={{   opacity: 0, y: 4, filter: 'blur(4px)' }}
-      transition={ACTION_BAR_TRANSITION}
-      style={{
-        position:                'absolute',
-        bottom:                  0,
-        left:                    0,
-        right:                   0,
-        backgroundColor:         isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
-        borderBottomLeftRadius:  16,
-        borderBottomRightRadius: 16,
-        padding:                 '8px 10px',
-        display:                 'flex',
-        alignItems:              'center',
-        gap:                     6,
-        zIndex:                  1,
-        pointerEvents:           isPresent ? 'auto' : 'none',
-        // Stands in for the footer divider it covers, so the status
-        // ticker's progress line has an edge to sweep along.
-        borderTop:               statusMessages ? '1px solid var(--neutral-100)' : undefined,
-      }}
-    >
-      {type === 'hover' && (
-        <>
-          {onEdit && (
-            <Tooltip content="Edit">
-              <IconButton variant="ghost" size="sm" aria-label="Edit agent" icon={<PenOneIcon />} onClick={onEdit} />
-            </Tooltip>
-          )}
-          {onLink && (
-            <Tooltip content="Share">
-              <IconButton variant="ghost" size="sm" aria-label="Copy link" icon={<ShareOneIcon />} onClick={onLink} />
-            </Tooltip>
-          )}
-          {statusMessages ? <StatusTicker messages={statusMessages} /> : <div style={{ flex: 1 }} />}
-          <Button variant="secondary" size="sm" onClick={onUseInChat}>{useInChatLabel}</Button>
-        </>
-      )}
-
-      {type === 'resume' && onResume && (
-        <Button variant="outline" size="sm" style={{ flex: 1 }} loading={resumePending} disabled={resumePending} onClick={onResume}>Resume</Button>
-      )}
-
-      {type === 'draft' && (
-        <>
-          {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit draft" icon={<PenOneIcon />} onClick={onEdit} />}
-          <div style={{ flex: 1 }} />
-          {onEdit && <Button variant="outline" size="sm" onClick={onEdit}>Continue building</Button>}
-        </>
-      )}
-
-      {type === 'template' && (
-        <>
-          <div style={{ flex: 1 }} />
-          <Button variant="secondary" size="sm" onClick={onTry}>Try</Button>
-        </>
-      )}
-
-      {type === 'community' && (
-        <>
-          {authorHandle && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, minWidth: 0 }}>
-              <div
-                style={{
-                  width:           18,
-                  height:          18,
-                  borderRadius:    '50%',
-                  overflow:        'hidden',
-                  backgroundColor: 'var(--neutral-200)',
-                  flexShrink:      0,
-                }}
-              >
-                <Image
-                  src={authorAvatarUrl ?? getPersonaFallbackAvatar(authorHandle)}
-                  alt=""
-                  fill
-                  sizes="18px"
-                  style={{ objectFit: 'cover', display: 'block' }}
-                  unoptimized
-                />
-              </div>
-              <span
-                style={{
-                  fontFamily:   'var(--font-code)',
-                  fontSize:     'var(--font-size-code)',
-                  lineHeight:   'var(--line-height-code)',
-                  color:        'var(--neutral-500)',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                  maxWidth:     90,
-                }}
-              >
-                @{authorHandle}
-              </span>
-            </div>
-          )}
-          <div style={{ flex: 1 }} />
-          <Button variant="secondary" size="sm" onClick={onOpen}>Open</Button>
-        </>
-      )}
-    </m.div>
-  )
-}
-
 // ── PersonaCard ───────────────────────────────────────────────────────────────
 
 function PersonaCardInner({
@@ -579,21 +359,22 @@ function PersonaCardInner({
       avatarSeed,
       avatarTheme:   avatarThemeProp,
       avatarChoice:  avatarChoiceProp,
+      scene:         sceneProp,
       repoId,
       hovered:       hoveredProp,
       paused         = false,
-      superlink      = false,
+      superlink:     _superlink,
       modelUnavailable = false,
       modelUnavailableReason = 'retired',
       unavailableModelName,
       onChangeModel,
       createdBy,
-      visibility,
-      teamCount,
+      visibility:    _visibility,
+      teamCount:     _teamCount,
       tags:          _tags = EMPTY_PERSONA_TAGS,
-      shared         = false,
+      shared:        _shared,
       authorHandle,
-      authorAvatarUrl,
+      authorAvatarUrl: _authorAvatarUrl,
       useCount,
       onEdit,
       onLink,
@@ -622,11 +403,19 @@ function PersonaCardInner({
       ...props
     }: PersonaCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [internalHovered, setInternalHovered] = useState(false)
+    // Where the avatar's eyes look: the hero scene's lead element, or the pointer over the card.
+    const [gaze] = useState(() => new GazeChannel())
     const [menuOpen,         setMenuOpen]         = useState(false)
     const [dropUp,           setDropUp]           = useState(false)
     const menuTriggerRef = useRef<HTMLDivElement>(null)
 
-    const isHovered   = hoveredProp ?? internalHovered
+    // Keyboard focus inside the card counts as being there — it wakes the card like a hover.
+    const [keyboardHot, setKeyboardHot] = useState(false)
+    // Bumped per arrival, so the orb's "screen wake" sweep plays once each time.
+    const [arrivals, setArrivals] = useState(0)
+    // The button's own hover/keyboard focus — the arrow appears only then, not on card hover.
+    const [ctaHot, setCtaHot] = useState(false)
+    const isHovered   = hoveredProp ?? (internalHovered || keyboardHot)
     const isDraft     = variant === 'draft'
     const isTemplate  = variant === 'template'
     const isCommunity = variant === 'community' || variant === 'community-imported'
@@ -642,21 +431,22 @@ function PersonaCardInner({
     const picked = chosenId ? getAvatarChoice(chosenId) : null
     const avatarTheme = picked ? picked.theme : avatarThemeProp !== undefined ? avatarThemeProp : pickAvatarTheme(name)
     const avatarColors = picked?.colors ?? getAvatarColors(avatarTheme, seed)
-    const statusMessages = avatarTheme ? AVATAR_THEMES[avatarTheme].status : GENERIC_STATUS
     const [bounceKey,  setBounceKey]  = useState(0)
     // Bumped on hover-out so "Created by" rises back in, like the reference
     // footer label returning after its status run.
     const [leaveCount, setLeaveCount] = useState(0)
     const animateHover = isHovered && !modelUnavailable
-    const statusBadgesShown = variant === 'community-imported' || isDraft || shared || superlink || paused
 
-    // Which content to render inside the action bar.
-    const actionBarType =
-      paused        ? 'resume'    :
-      isDraft       ? 'draft'     :
-      isTemplate    ? 'template'  :
-      isCommunity   ? 'community' :
-                      'hover'
+    // The one centred button under the description — what a tap on this card should do.
+    // Live agents "Use in chat"; a draft resumes building; a paused agent resumes; templates
+    // try and community agents open. No handler → no button.
+    const primary: { label: string; onClick: () => void; loading?: boolean } | null =
+      paused && onResume ? { label: 'Resume', onClick: onResume, loading: pausePending } :
+      isDraft && onEdit ? { label: 'Continue building', onClick: onEdit } :
+      isTemplate && onTry ? { label: 'Try', onClick: onTry } :
+      isCommunity && onOpen ? { label: 'Open', onClick: onOpen } :
+      !paused && !isDraft && !isTemplate && !isCommunity && onUseInChat ? { label: useInChatLabel ?? 'Use in chat', onClick: onUseInChat } :
+      null
 
     // Close dropdown when clicking anywhere outside the card.
     useEffect(() => {
@@ -681,19 +471,63 @@ function PersonaCardInner({
     }, [])
 
     const Comp = (asChild ? Slot : 'div') as React.ElementType
+    const mood: AvatarMood = modelUnavailable ? 'unavailable' : paused ? 'asleep' : isDraft ? 'drowsy' : 'awake'
+    const canTilt = !modelUnavailable && !isDraft
+
+    // Pointer over the card: the eyes follow it, the glare tracks it (--mx/--my) and the card
+    // tilts toward it (--rx/--ry) — all straight onto the element, never through React state.
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      gaze.setPointer({ x: e.clientX, y: e.clientY })
+      const el = e.currentTarget
+      const box = el.getBoundingClientRect()
+      const mx = e.clientX - box.left, my = e.clientY - box.top
+      el.style.setProperty('--mx', `${mx.toFixed(0)}px`)
+      el.style.setProperty('--my', `${my.toFixed(0)}px`)
+      if (e.pointerType === 'mouse' && canTilt && !menuOpen) {
+        el.style.setProperty('--ry', `${(((mx / box.width) * 2 - 1) * 4).toFixed(2)}deg`)
+        el.style.setProperty('--rx', `${(-((my / box.height) * 2 - 1) * 3).toFixed(2)}deg`)
+      }
+    }
+    const settle = (el: HTMLElement) => {
+      el.style.setProperty('--rx', '0deg')
+      el.style.setProperty('--ry', '0deg')
+    }
+
+    // "Use in chat" holds the eyes' attention — they look at it, happily.
+    const attendTo = (el: HTMLElement | null) => {
+      if (!el) { gaze.setAttention(null); return }
+      const box = el.getBoundingClientRect()
+      gaze.setAttention({ x: box.left + box.width / 2, y: box.top + box.height / 2 })
+    }
 
     return (
       <Comp
         ref={ref}
-        className={cn(className)}
+        className={cn('agent-card', className)}
+        data-hot={(animateHover && !isDraft) || undefined}
+        data-menu-open={menuOpen || undefined}
         onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
           setInternalHovered(true)
+          setArrivals(n => n + 1)
           onMouseEnterProp?.(e)
         }}
+        onPointerMove={handlePointerMove}
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+          gaze.setPointer(null)
+          gaze.setAttention(null)
+          settle(e.currentTarget)
           setInternalHovered(false)
           setLeaveCount(n => n + 1)
           onMouseLeaveProp?.(e)
+        }}
+        onFocus={(e: React.FocusEvent<HTMLDivElement>) => {
+          if ((e.target as HTMLElement).matches(':focus-visible')) {
+            if (!keyboardHot) setArrivals(n => n + 1)
+            setKeyboardHot(true)
+          }
+        }}
+        onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setKeyboardHot(false)
         }}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           if (!modelUnavailable) setBounceKey(n => n + 1)
@@ -701,9 +535,11 @@ function PersonaCardInner({
         }}
         style={{
           position:        'relative',
+          display:         'flex',
+          flexDirection:   'column',
           width:           314,
           height:          (!isTemplate && !isCommunity) ? CARD_HEIGHT : undefined,
-          borderRadius:    16,
+          borderRadius:    CARD_RADIUS,
           backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
           // Dark: pink → black → dark pink toward the bottom-right. Light: none (flat colour above).
           backgroundImage: isDraft ? undefined : 'var(--agent-card-gradient)',
@@ -711,16 +547,21 @@ function PersonaCardInner({
           backgroundSize:     animateHover || isDraft ? '100% 100%' : '260% 260%',
           backgroundPosition: 'center',
           backgroundRepeat:   'no-repeat',
-          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : (animateHover && !isDraft ? SHADOW_CARD_HOVER : SHADOW_CARD),
+          // Hot: lifted, with a shadow tinted by the agent's colour under the brightened ring.
+          boxShadow:       isTemplate ? SHADOW_CARD_TEMPLATE : (animateHover && !isDraft
+            ? `var(--lift-shadow), 0 24px 60px -20px color-mix(in srgb, ${avatarColors[0]} 40%, transparent), ${SHADOW_CARD_HOVER}`
+            : SHADOW_CARD),
           border:          isDraft
-            ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
+            ? `1px dashed ${isHovered ? 'var(--neutral-600)' : 'var(--neutral-500)'}`
             : undefined,
           cursor:          modelUnavailable ? 'default' : 'pointer',
           boxSizing:       'border-box' as const,
           zIndex:          menuOpen ? 100 : undefined,
           opacity:         pausePending ? 0.6 : 1,
           pointerEvents:   pausePending ? 'none' : undefined,
-          transition:      'opacity 150ms, box-shadow 300ms, background-size 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+          // Lift, tilt and their transitions come from .agent-card (globals.css).
+          ['--c0' as string]: avatarColors[0],
+          ['--c1' as string]: avatarColors[1],
           ...style,
         }}
         // Dark mode: the card sits on a lighter grey, so its muted text/icon tones are lifted
@@ -728,6 +569,8 @@ function PersonaCardInner({
         data-surface="raised"
         {...props}
       >
+        {/* Pointer spotlight + lit border, while the card is hot. */}
+        <div className="agent-card-glare" aria-hidden />
 
         {/* ── Template: copy icon — top-right corner ──────────────────── */}
         {isTemplate && (
@@ -749,14 +592,97 @@ function PersonaCardInner({
           </div>
         )}
 
+        {/* ── Hero: the agent's colour as a banner, avatar centred on it ───── */}
+        {/* The hero is an inset "screen" (HERO_INSET in from the card's edges, concentric
+            corners): the agent's living scene, with the avatar in its glass orb at the centre. */}
+        <div
+          className="agent-hero-screen"
+          style={{
+            position:     'relative',
+            height:       HERO_HEIGHT - HERO_INSET,
+            margin:       `${HERO_INSET}px ${HERO_INSET}px 0`,
+            flexShrink:   0,
+            borderRadius: CARD_RADIUS - HERO_INSET,
+            ...agentHeroStyle(avatarColors[0]),
+            // A draft is not live yet — mute its banner.
+            opacity:      isDraft ? 0.55 : paused ? 0.6 : 1,
+            transition:   'opacity 0.2s ease',
+          }}
+        >
+          <HeroScene
+            kind={sceneProp ?? sceneFor(avatarTheme)}
+            colors={avatarColors}
+            seed={seed}
+            avatarSize={AVATAR_SIZE}
+            hovered={animateHover && !isDraft}
+            bounceKey={bounceKey}
+            inert={paused || modelUnavailable}
+            gaze={gaze}
+            // Paused: a still, faded scene. Unavailable: still and grey. Draft: slow and faint.
+            filter={modelUnavailable ? 'grayscale(1)' : paused ? 'saturate(0.35)' : undefined}
+            pace={isDraft ? 0.4 : 1}
+            opacity={isDraft ? 0.5 : 1}
+          />
+          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 2 }}>
+            <AgentOrb
+              size={AVATAR_SIZE}
+              theme={avatarTheme}
+              colors={avatarColors}
+              seed={seed}
+              hovered={animateHover && !isDraft}
+              wakeKey={arrivals}
+              bounceKey={bounceKey}
+              inert={paused || modelUnavailable}
+              mood={mood}
+              eyes
+              gaze={gaze}
+            />
+            {paused && (
+              <span className="agent-zzz" aria-hidden style={{ left: AVATAR_SIZE * 0.78, top: AVATAR_SIZE * 0.12 }}>
+                <span>z</span><span>z</span><span>z</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Draft: tag in the top-left corner of the hero ──────────────── */}
+        {isDraft && (
+          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
+            <Badge color="Yellow" label="Draft" />
+          </div>
+        )}
+
+        {/* ── Template: copy icon — top-right corner of the hero ─────────── */}
+        {isTemplate && (
+          <div
+            style={{
+              position:        'absolute',
+              top:             10,
+              right:           10,
+              zIndex:          2,
+              borderRadius:    8,
+              backgroundColor: 'color-mix(in srgb, var(--neutral-white) 62%, transparent)',
+            }}
+          >
+            <IconButton
+              variant="ghost"
+              size="xs"
+              aria-label="Copy template"
+              icon={<CopyOneIcon />}
+              onClick={onCopy}
+            />
+          </div>
+        )}
+
         {/* ── Main content ────────────────────────────────────────────── */}
         <div
           style={{
             display:       'flex',
             flexDirection: 'column',
-            height:        (!isTemplate && !isCommunity) ? '100%' : undefined,
+            flex:          '1 1 0',
+            minHeight:     0,
             boxSizing:     'border-box' as const,
-            padding:       12,
+            padding:       '14px 18px 0',
             // No opacity here when unavailable — the scrim below already dims
             // the content, and `opacity < 1` would create a stacking context
             // that traps the ··· menu underneath it.
@@ -765,376 +691,286 @@ function PersonaCardInner({
           }}
         >
 
-          {/* Identity block (avatar, name, description) — vertically centred in the space above the footer */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-
-          {/* Header row: avatar + meta */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
-
-            {/* Avatar — fades to 60 % when paused */}
+          {/* Corner controls (bookmark / ··· menu) float over the hero's top-right. */}
+          {/* Community: bookmark icon + save count in name row */}
+          {isCommunity && (
             <div
               style={{
-                position:   'relative',
-                // Room for the halo, which overhangs the avatar by HALO_OVERHANG on every side.
-                margin:     `${HALO_OVERHANG - 6}px 0 ${HALO_OVERHANG - 8}px`,
-                opacity:    paused ? 0.6 : 1,
-                flexShrink: 0,
-                transition: 'opacity 0.2s ease',
+                position:   'absolute',
+                top:        8,
+                right:      8,
+                zIndex:     2,
+                display:    'flex',
+                alignItems: 'center',
+                gap:        2,
+                borderRadius:    8,
+                padding:         '0 4px 0 0',
+                backgroundColor: 'color-mix(in srgb, var(--neutral-white) 62%, transparent)',
               }}
             >
-              {/* Medium-opacity circle behind the avatar, larger in radius than it. */}
-              <div
-                aria-hidden
-                style={{
-                  position:        'absolute',
-                  inset:           -HALO_OVERHANG,
-                  borderRadius:    '50%',
-                  zIndex:          0,
-                  // Same colour as the avatar sphere, at 40% opacity.
-                  backgroundColor: `color-mix(in srgb, ${avatarColors[0]} 40%, transparent)`,
-                  pointerEvents:   'none',
-                }}
+              <IconButton
+                variant="ghost"
+                size="xs"
+                aria-label="Bookmark agent"
+                icon={<BookmarkTwoIcon />}
+                onClick={onBookmark}
               />
-              {/* Avatar: white-backed circle sitting ABOVE the halo (a positioned wrapper,
-                  since the halo is absolutely positioned and would otherwise paint over it). */}
-              <div style={{ position: 'relative', zIndex: 1, borderRadius: '50%', backgroundColor: 'var(--static-white)' }}>
-              <AnimatedPersonaAvatar
-                size={AVATAR_SIZE}
-                radius="50%"
-                theme={avatarTheme}
-                colors={picked?.colors}
-                seed={seed}
-                hovered={animateHover}
-                bounceKey={bounceKey}
-                inert={paused || modelUnavailable}
-              />
-              </div>
-            </div>
-
-            {/* Meta column */}
-            <div style={{ width: '100%', minWidth: 0 }}>
-
-              {/* Name row (centered) — bookmark / ··· menu float in the top-right corner */}
-              <div
-                style={{
-                  display:        'flex',
-                  alignItems:     'flex-start',
-                  justifyContent: 'center',
-                  gap:            4,
-                  padding:        '0 22px',
-                }}
-              >
+              {useCount !== undefined && (
                 <span
-                  title={name}
                   style={{
-                    fontFamily:   'var(--font-body)',
-                    fontSize:     'var(--font-size-body-lg)',
-                    // Tighter than --line-height-body-lg (~24px) — that much
-                    // leading was the real source of the name/handle gap,
-                    // not the handle's own margin.
-                    lineHeight:   '20px',
-                    fontWeight:   'var(--font-weight-semibold)',
-                    textAlign:    'center',
-                    color:        'var(--neutral-950)',
-                    flex:         1,
-                    minWidth:     0,
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                    opacity:      paused ? 0.6 : 1,
-                    transition:   'opacity 0.2s ease',
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-caption)',
+                    lineHeight: 'var(--line-height-caption)',
+                    color:      'var(--neutral-400)',
+                    flexShrink: 0,
                   }}
                 >
-                  {name}
+                  {formatCount(useCount)}
                 </span>
-
-                {/* Community: bookmark icon + save count in name row */}
-                {isCommunity && (
-                  <div
-                    style={{
-                      position:   'absolute',
-                      top:        8,
-                      right:      8,
-                      zIndex:     2,
-                      display:    'flex',
-                      alignItems: 'center',
-                      gap:        2,
-                    }}
-                  >
-                    <IconButton
-                      variant="ghost"
-                      size="xs"
-                      aria-label="Bookmark agent"
-                      icon={<BookmarkTwoIcon />}
-                      onClick={onBookmark}
-                    />
-                    {useCount !== undefined && (
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-body)',
-                          fontSize:   'var(--font-size-caption)',
-                          lineHeight: 'var(--line-height-caption)',
-                          color:      'var(--neutral-400)',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {formatCount(useCount)}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* ··· menu trigger + dropdown (default variant only).
-                    Stays interactive when the model is unavailable — the
-                    surrounding content sets pointerEvents:none and the scrim
-                    paints over it, so this opts both back in for itself. */}
-                {!isTemplate && !isCommunity && !hideMenu && (
-                  // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
-                  <div
-                    ref={menuTriggerRef}
-                    style={{
-                      position:      'absolute',
-                      top:           8,
-                      right:         8,
-                      zIndex:        2,
-                      ...(modelUnavailable ? { zIndex: 3, pointerEvents: 'auto' as const } : null),
-                    }}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <IconButton
-                      variant="ghost"
-                      size="xs"
-                      aria-label="More options"
-                      icon={<MoreVerticalIcon />}
-                      onClick={handleMenuToggle}
-                    />
-
-                    {/* Dropdown menu */}
-                    <AnimatePresence>
-                      {menuOpen && (
-                        <>
-                          {/* Click-outside backdrop */}
-                          {/* eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-                          <div
-                            style={{
-                              position: 'fixed',
-                              inset:    0,
-                              zIndex:   10,
-                            }}
-                            onMouseDown={() => setMenuOpen(false)}
-                          />
-                          <m.div
-                            {...DROPDOWN_SCALE_PRESET}
-                            initial={{ ...DROPDOWN_SCALE_PRESET.initial, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
-                            animate={{ ...DROPDOWN_SCALE_PRESET.animate, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
-                            style={{
-                              position: 'absolute',
-                              ...(dropUp ? { bottom: 28, top: 'auto' } : { top: 28 }),
-                              right:    0,
-                              zIndex:   20,
-                            }}
-                          >
-                            <Dropdown size="sm" maxHeight={false}>
-                              <Dropdown.Section fluid>
-                                {onMenuDetails && (
-                                  <Dropdown.Item
-                                    label="Details"
-                                    icon={<InformationCircleIcon />}
-                                    fluid
-                                    onClick={() => { setMenuOpen(false); onMenuDetails() }}
-                                  />
-                                )}
-                                {onMenuEdit && (
-                                  <Dropdown.Item
-                                    label="Edit"
-                                    icon={<PenOneIcon />}
-                                    fluid
-                                    onClick={() => { setMenuOpen(false); onMenuEdit() }}
-                                  />
-                                )}
-                                {onMenuShare && (
-                                  <Dropdown.Item
-                                    label="Share"
-                                    icon={<ShareOneIcon />}
-                                    fluid
-                                    onClick={() => { setMenuOpen(false); onMenuShare() }}
-                                  />
-                                )}
-                                {onMenuPauseToggle && (
-                                  <Dropdown.Item
-                                    label={paused ? 'Resume' : 'Pause'}
-                                    icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
-                                    fluid
-                                    loading={pausePending}
-                                    onClick={() => { setMenuOpen(false); onMenuPauseToggle() }}
-                                  />
-                                )}
-                              </Dropdown.Section>
-                              {onMenuDuplicate && (
-                                <Dropdown.Section fluid divider>
-                                  <Dropdown.Item
-                                    label="Copy & Edit"
-                                    icon={<CopyOneIcon />}
-                                    fluid
-                                    onClick={() => { setMenuOpen(false); onMenuDuplicate() }}
-                                  />
-                                </Dropdown.Section>
-                              )}
-                              {onMenuDelete && (
-                                <Dropdown.Section fluid divider>
-                                  <Dropdown.Item
-                                    label="Delete"
-                                    variant="danger"
-                                    fluid
-                                    onClick={() => { setMenuOpen(false); onMenuDelete() }}
-                                  />
-                                </Dropdown.Section>
-                              )}
-                            </Dropdown>
-                          </m.div>
-                        </>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-
-            </div>{/* /Meta column */}
-          </div>{/* /Header row */}
-
-          {/* Description */}
-          {(description || (!isTemplate && !isCommunity)) && (
-            <p
-              title={description}
-              className={animateHover ? 'persona-card-desc-reading' : undefined}
-              style={{
-                margin:           '8px 0 0',
-                // Always two lines tall, so avatar/name/description sit in the same place on
-                // every card whether the description is one line or two.
-                minHeight:        'calc(2 * var(--line-height-caption))',
-                textAlign:        'center',
-                fontFamily:       'var(--font-body)',
-                fontSize:         'var(--font-size-caption)',
-                lineHeight:       'var(--line-height-caption)',
-                color:            'var(--neutral-500)',
-                display:          '-webkit-box',
-                WebkitLineClamp:  2,
-                WebkitBoxOrient:  'vertical',
-                overflow:         'hidden',
-              }}
-            >
-              {description}
-            </p>
-          )}
-
-          </div>{/* /Identity block */}
-
-          {/* Hover status ticker — a fixed slot pinned directly above the footer on every
-              default card (reserved even when idle, so nothing shifts on hover). Mounts the
-              ticker on hover so its clock starts at hover-in. */}
-          {actionBarType === 'hover' && (
-            <div style={{ position: 'relative', display: 'flex', marginTop: 'auto', minHeight: 16, paddingBottom: 22 }}>
-              {animateHover && (
-                <m.div
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                  style={{ position: 'relative', display: 'flex', flex: 1, minWidth: 0 }}
-                >
-                  <StatusTicker inline messages={statusMessages} />
-                </m.div>
               )}
             </div>
           )}
 
-          {/* Footer — status tags bottom-left, "Created by" bottom-right (end to end).
-              Pinned to the bottom of the fixed-height card
-              via marginTop:'auto' regardless of how much content sits above
-              it — this is what keeps every card the same height. No
-              minWidth/overflow clamps on the slots — those clipped content
-              before; both sides are short enough to size to their own
-              content within the card's width. */}
-          {(visibility || createdBy || statusBadgesShown) && (
-            <div
-              style={{
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'space-between',
-                flexWrap:       'wrap',
-                gap:            6,
-                marginTop:      actionBarType === 'hover' ? 0 : 'auto',
-                paddingTop:     8,
-                borderTop:      '1px solid var(--neutral-100)',
-              }}
-            >
-              {/* Bottom-left slot: status tags only (Draft / Imported / Shared /
-                  Superlink / Paused) plus visibility — "N teams" rather than the
-                  team's actual name, so this never depends on a name lookup.
-                  Descriptive tags are intentionally not shown on the card. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', minWidth: 0 }}>
-                {variant === 'community-imported' && <Badge color="Green" label="Imported" />}
-                {isDraft && <Badge color="Yellow" label="Draft" />}
-                {shared && <Badge color="Blue" label="Shared" />}
-                {superlink && <Badge color="Blue" label="Superlink" />}
-                {paused && <Badge color="Yellow" label="Paused" />}
-                {visibility === 'team' ? (
-                  <Badge
-                    color="Neutral"
-                    label={teamCount ? `${teamCount} team${teamCount === 1 ? '' : 's'}` : 'Team'}
-                  />
-                ) : visibility === 'private' ? (
-                  <Badge color="Neutral" label="Private" />
-                ) : null}
-              </div>
 
-              {/* Bottom-right slot: creator attribution. */}
-              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                {createdBy && (
-                  <m.span
-                    key={leaveCount}
-                    {...(leaveCount > 0 ? RISE : null)}
-                    title={`Created by ${createdBy}`}
-                    style={{
-                      fontFamily:   'var(--font-body)',
-                      fontSize:     'var(--font-size-caption)',
-                      lineHeight:   'var(--line-height-caption)',
-                      color:        'var(--neutral-500)',
-                      overflow:     'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace:   'nowrap',
-                      display:      'inline-block',
-                    }}
-                  >
-                    Created by {createdBy}
+          {/* ··· menu trigger + dropdown (default variant only).
+              Stays interactive when the model is unavailable — the
+              surrounding content sets pointerEvents:none and the scrim
+              paints over it, so this opts both back in for itself. */}
+          {!isTemplate && !isCommunity && !hideMenu && (
+            // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
+            <div
+              ref={menuTriggerRef}
+              className="agent-card-chip"
+              data-open={menuOpen || undefined}
+              style={{
+                position:      'absolute',
+                top:           12,
+                right:         12,
+                zIndex:        3,
+                ...(modelUnavailable ? { pointerEvents: 'auto' as const } : null),
+              }}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+            >
+              <IconButton
+                variant="ghost"
+                size="xs"
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                icon={
+                  <m.span animate={{ rotate: menuOpen ? 90 : 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} style={{ display: 'inline-flex' }}>
+                    <MoreVerticalIcon />
                   </m.span>
+                }
+                onClick={handleMenuToggle}
+              />
+
+              {/* Dropdown menu */}
+              <AnimatePresence>
+                {menuOpen && (
+                  <>
+                    {/* Click-outside backdrop */}
+                    {/* eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
+                    <div
+                      style={{
+                        position: 'fixed',
+                        inset:    0,
+                        zIndex:   10,
+                      }}
+                      onMouseDown={() => setMenuOpen(false)}
+                    />
+                    <m.div
+                      {...DROPDOWN_SCALE_PRESET}
+                      initial={{ ...DROPDOWN_SCALE_PRESET.initial, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
+                      animate={{ ...DROPDOWN_SCALE_PRESET.animate, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
+                      style={{
+                        position: 'absolute',
+                        ...(dropUp ? { bottom: 28, top: 'auto' } : { top: 28 }),
+                        right:    0,
+                        zIndex:   20,
+                      }}
+                    >
+                      <Dropdown size="sm" maxHeight={false}>
+                        <Dropdown.Section fluid>
+                          {onMenuDetails && (
+                            <Dropdown.Item
+                              label="Details"
+                              icon={<InformationCircleIcon />}
+                              fluid
+                              onClick={() => { setMenuOpen(false); onMenuDetails() }}
+                            />
+                          )}
+                          {(onMenuEdit ?? onEdit) && (
+                            <Dropdown.Item
+                              label="Edit"
+                              icon={<PenOneIcon />}
+                              fluid
+                              onClick={() => { setMenuOpen(false); (onMenuEdit ?? onEdit)?.() }}
+                            />
+                          )}
+                          {(onMenuShare ?? onLink) && (
+                            <Dropdown.Item
+                              label="Share"
+                              icon={<ShareOneIcon />}
+                              fluid
+                              onClick={() => { setMenuOpen(false); (onMenuShare ?? onLink)?.() }}
+                            />
+                          )}
+                          {onMenuPauseToggle && (
+                            <Dropdown.Item
+                              label={paused ? 'Resume' : 'Pause'}
+                              icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
+                              fluid
+                              loading={pausePending}
+                              onClick={() => { setMenuOpen(false); onMenuPauseToggle() }}
+                            />
+                          )}
+                        </Dropdown.Section>
+                        {onMenuDuplicate && (
+                          <Dropdown.Section fluid divider>
+                            <Dropdown.Item
+                              label="Copy & Edit"
+                              icon={<CopyOneIcon />}
+                              fluid
+                              onClick={() => { setMenuOpen(false); onMenuDuplicate() }}
+                            />
+                          </Dropdown.Section>
+                        )}
+                        {onMenuDelete && (
+                          <Dropdown.Section fluid divider>
+                            <Dropdown.Item
+                              label="Delete"
+                              variant="danger"
+                              fluid
+                              onClick={() => { setMenuOpen(false); onMenuDelete() }}
+                            />
+                          </Dropdown.Section>
+                        )}
+                      </Dropdown>
+                    </m.div>
+                  </>
                 )}
-              </div>
+              </AnimatePresence>
             </div>
           )}
 
+
+          {/* Identity: name, "by" line, description — centred under the hero */}
+          <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            {(() => {
+              const titleStyle: React.CSSProperties = {
+                width:         '100%',
+                fontFamily:    'var(--font-title)', // Google Sans
+                fontSize:      18,
+                lineHeight:    '24px',
+                fontWeight:    'var(--font-weight-medium)',
+                letterSpacing: '-0.01em',
+                color:         'var(--neutral-950)',
+                overflow:      'hidden',
+                textOverflow:  'ellipsis',
+                whiteSpace:    'nowrap',
+                opacity:       paused ? 0.6 : 1,
+                transition:    'opacity 0.2s ease',
+              }
+              // With a Details action, the title is the card's keyboard entry point (Tab → Enter).
+              return onMenuDetails ? (
+                <Tooltip content={name} maxWidth={280}><button type="button" className="agent-card__title" aria-label={`${name} — details`} onClick={onMenuDetails} style={titleStyle}>
+                  {name}
+                </button></Tooltip>
+              ) : (
+                <Tooltip content={name} maxWidth={280}><span style={titleStyle}>{name}</span></Tooltip>
+              )
+            })()}
+
+            {(createdBy || authorHandle) && (
+              <Tooltip content={createdBy ? `Created by ${createdBy}` : `@${authorHandle}`} maxWidth={280}><m.span
+                key={leaveCount}
+                {...(leaveCount > 0 ? RISE : null)}
+                style={{
+                  maxWidth:     '100%',
+                  fontFamily:   'var(--font-body)',
+                  fontSize:     'var(--font-size-caption)',
+                  lineHeight:   '18px',
+                  color:        'var(--neutral-600)',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                }}
+              >
+                by {createdBy ?? `@${authorHandle}`}
+              </m.span></Tooltip>
+            )}
+
+            {/* Description */}
+            {(description || (!isTemplate && !isCommunity)) && (
+              <Tooltip content={description} disabled={!description} maxWidth={280}><p
+                className={animateHover ? 'persona-card-desc-reading' : undefined}
+                style={{
+                  margin:           '8px 0 0',
+                  // Always two lines tall, so every card's action row lines up whatever the description length.
+                  minHeight:        'calc(2 * var(--line-height-caption))',
+                  fontFamily:       'var(--font-body)',
+                  fontSize:         'var(--font-size-caption)',
+                  lineHeight:       'var(--line-height-caption)',
+                  color:            'var(--neutral-600)',
+                  display:          '-webkit-box',
+                  WebkitLineClamp:  2,
+                  WebkitBoxOrient:  'vertical',
+                  overflow:         'hidden',
+                }}
+              >
+                {description}
+              </p></Tooltip>
+            )}
+          </div>
+
         </div>{/* /Main content */}
 
-        {/* ── Action bar — hover-triggered absolute overlay, same for every variant ── */}
-        <AnimatePresence initial={false}>
-          {isHovered && !modelUnavailable && (
-            <ActionBar
-              key="action-bar"
-              type={actionBarType}
-              isDraft={isDraft}
-              authorHandle={authorHandle}
-              authorAvatarUrl={authorAvatarUrl}
-              onEdit={onEdit}
-              onLink={onLink}
-              onUseInChat={onUseInChat}
-              useInChatLabel={useInChatLabel}
-              onResume={onResume}
-              resumePending={pausePending}
-              onTry={onTry}
-              onOpen={onOpen}
-            />
+        {/* ── Action row: the one centred button, under a hairline like the reference card's
+            divider. The row is always there so the 40 / 40 / 20 split holds with or without a button. ── */}
+        <div
+          style={{
+            height:         ACTION_HEIGHT,
+            flexShrink:     0,
+            boxSizing:      'border-box' as const,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            // A hairline that fades out at both ends.
+            backgroundImage:    primary && !modelUnavailable ? 'linear-gradient(90deg, transparent, var(--neutral-200), transparent)' : undefined,
+            backgroundSize:     '100% 1px',
+            backgroundPosition: 'top',
+            backgroundRepeat:   'no-repeat',
+            marginInline:   14,
+          }}
+        >
+          {primary && !modelUnavailable && (
+            <span
+              className="agent-card-cta"
+              onPointerEnter={e => { attendTo(e.currentTarget); setCtaHot(true) }}
+              onPointerLeave={() => { attendTo(null); setCtaHot(false) }}
+              onFocus={e => { if ((e.target as HTMLElement).matches(':focus-visible')) { attendTo(e.currentTarget); setCtaHot(true) } }}
+              onBlur={() => { attendTo(null); setCtaHot(false) }}
+            >
+              <AgentCardButton size="sm" loading={primary.loading} disabled={primary.loading} onClick={primary.onClick}>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {primary.label}
+                  {/* Slides in (and takes its room) only while the button is hot, so the label
+                      stays centred at rest: "go". */}
+                  <m.span
+                    aria-hidden
+                    initial={false}
+                    animate={{ width: ctaHot ? 20 : 0, opacity: ctaHot ? 1 : 0, x: ctaHot ? 0 : -4 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    style={{ display: 'inline-flex', justifyContent: 'flex-end', overflow: 'hidden' }}
+                  >
+                    <ArrowRightTwoIcon size={14} />
+                  </m.span>
+                </span>
+              </AgentCardButton>
+            </span>
           )}
-        </AnimatePresence>
+        </div>
 
         {/* ── Model unavailable — muted scrim + centered "Change model" over
             the dimmed content (kept faintly visible so the card still reads
@@ -1148,7 +984,7 @@ function PersonaCardInner({
               style={{
                 position:        'absolute',
                 inset:           0,
-                borderRadius:    16,
+                borderRadius:    CARD_RADIUS,
                 backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--agent-card-bg)',
                 // Carries the whole dim now that the content div no longer
                 // fades itself (see the pointerEvents note above).

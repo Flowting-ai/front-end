@@ -12,17 +12,17 @@ const LABEL_SPRING  = { type: 'spring', stiffness: 520, damping: 32 } as const
 const LOGO_SPRING   = { type: 'spring', stiffness: 220, damping: 11, mass: 0.9 } as const
 
 const LABEL_ENTER = { opacity: 0, filter: 'blur(5px)', scale: 0.82, y:  5 }
-const LABEL_SHOW  = { opacity: 1, filter: 'blur(0px)', scale: 1,    y:  0 }
+const LABEL_SHOW  = { opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' }, scale: 1,    y:  0 }
 const LABEL_EXIT  = { opacity: 0, filter: 'blur(5px)', scale: 0.82, y: -5 }
 
 const WORD_ENTER = { opacity: 0, filter: 'blur(4px)', scale: 0.75 }
-const WORD_SHOW  = { opacity: 1, filter: 'blur(0px)', scale: 1    }
+const WORD_SHOW  = { opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' }, scale: 1    }
 const WORD_EXIT  = { opacity: 0, filter: 'blur(4px)', scale: 0.75 }
 
 // Logo swap - smooth crossfade with gentle scale
 const LOGO_EXIT  = { opacity: 0, scale: 0.6, filter: 'blur(4px)' }
 const LOGO_ENTER = { opacity: 0, scale: 0.6, filter: 'blur(4px)' }
-const LOGO_SHOW  = { opacity: 1, scale: 1,   filter: 'blur(0px)' }
+const LOGO_SHOW  = { opacity: 1, scale: 1,   filter: 'blur(0px)', transitionEnd: { filter: 'none' } }
 
 // ── Default thinking words ─────────────────────────────────────────────────────
 export const THINKING_WORDS = ['Thinking…', 'Analysing…', 'Processing…', 'Considering…'] as const
@@ -122,7 +122,7 @@ export function StreamingLogo({ phase, llmId, logo, logoKey, size = 16 }: Stream
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
             animate={shouldReduceMotion
               ? { opacity: 1 }
-              : { opacity: 1, scale: 1, filter: 'blur(0px)', rotate: [0, 360] }
+              : { opacity: 1, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' }, rotate: [0, 360] }
             }
             exit={shouldReduceMotion ? { opacity: 0 } : LOGO_EXIT}
             transition={shouldReduceMotion

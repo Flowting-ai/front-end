@@ -85,7 +85,7 @@ export function AnimatedBarChart({ data, onComplete, animate = true }: { data: B
         <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 10 }}>
           {data.bars.map((bar) => (
-            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>{bar.label}</div>
+            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>{bar.label}</div>
           ))}
         </div>
       </BarChartShell>
@@ -152,7 +152,7 @@ export function AnimatedBarChart({ data, onComplete, animate = true }: { data: B
         <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 16 }}>
           {data.labels.map((label) => (
-            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>{label}</div>
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
@@ -200,7 +200,7 @@ export function AnimatedBarChart({ data, onComplete, animate = true }: { data: B
         <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 14 }}>
           {data.labels.map((label) => (
-            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>{label}</div>
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
@@ -242,7 +242,7 @@ export function AnimatedBarChart({ data, onComplete, animate = true }: { data: B
         <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "6px 0 8px" }} />
         <div style={{ display: "flex", gap: 10 }}>
           {data.labels.map((label) => (
-            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>{label}</div>
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
@@ -300,7 +300,7 @@ export function AnimatedBarChart({ data, onComplete, animate = true }: { data: B
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           {data.bars.map((bar) => (
-            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>{bar.label}</div>
+            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-600)", lineHeight: "16px" }}>{bar.label}</div>
           ))}
         </div>
       </BarChartShell>

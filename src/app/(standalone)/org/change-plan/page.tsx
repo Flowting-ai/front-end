@@ -623,7 +623,8 @@ function OrgChangePlanPageInner() {
                         }
                       >
                         <Dropdown size="md" maxHeight={false}>
-                          <Dropdown.Section>
+                          {/* fluid: without it the section is a fixed 217px inside the 240px panel, leaving a dead strip on the right. */}
+                          <Dropdown.Section fluid>
                             {DROPDOWN_TIER_PRICES.map(price => {
                               const i = WORKSPACE_PLANS.findIndex(p => p.price === price)
                               const available = i !== -1

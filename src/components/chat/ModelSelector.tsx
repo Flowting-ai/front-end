@@ -89,7 +89,7 @@ function ModelSelectorItem({
               <m.span
                 key="info"
                 initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
-                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                 exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{
@@ -106,7 +106,7 @@ function ModelSelectorItem({
               <m.span
                 key="logo"
                 initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
-                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                 exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{ display: "flex", lineHeight: 0 }}
@@ -307,7 +307,7 @@ export function ModelSelector({
                   padding: "8px 12px",
                   borderRadius: "8px",
                   border: "1px solid var(--neutral-200)",
-                  backgroundColor: "var(--neutral-50)",
+                  backgroundColor: "var(--field-surface)",
                 }}
               >
                 <Search size={16} style={{ color: "var(--neutral-400)" }} />

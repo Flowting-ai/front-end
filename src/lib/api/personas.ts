@@ -158,6 +158,11 @@ export { PERSONAS_LIST_UPDATED_EVENT, bustPersonasCache } from "./persona-cache"
 // already in-flight receive the same Promise, so only one HTTP request is made.
 let _fetchPersonasInFlight: Promise<Persona[]> | null = null
 
+/** A draft is an agent that was never published or has no instructions yet — it belongs on /agents only. */
+export function isDraftPersona(persona: Pick<Persona, 'status' | 'hasSystemInstructions'>): boolean {
+  return persona.status === 'draft' || !persona.hasSystemInstructions
+}
+
 export function fetchPersonas(): Promise<Persona[]> {
   const now = Date.now()
   if (_personasCache && now - _personasCacheTime < PERSONAS_CACHE_TTL) {
@@ -1522,4 +1527,27 @@ export async function streamPersonaMessage(
   }
   readPersonaSSEStream(reader, callbacks);
   return () => controller.abort();
+}
+
+/** Names compare ignoring case, outer whitespace and runs of inner whitespace. */
+export function normalizeAgentName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/**
+ * The agent that already uses `name`, if any (every agent the viewer can see, so a name never
+ * means two things in the list or the @-mention menu). `excludeRepoId` is the agent being
+ * edited, so keeping its own name is fine. Reads a fresh list; fails open (null) when the
+ * list can't be fetched — the backend stays the final word.
+ */
+export async function findAgentNameConflict(name: string, excludeRepoId?: string): Promise<Persona | null> {
+  const wanted = normalizeAgentName(name)
+  if (!wanted) return null
+  try {
+    bustPersonasCache()
+    const personas = await fetchPersonas()
+    return personas.find(p => p.id !== excludeRepoId && normalizeAgentName(p.name) === wanted) ?? null
+  } catch {
+    return null
+  }
 }

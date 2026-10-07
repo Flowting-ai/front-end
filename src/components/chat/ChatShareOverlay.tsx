@@ -326,7 +326,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <ShareOneIcon size={20} color="var(--neutral-400)" />
                           </div>
-                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-400)', margin: 0 }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-600)', margin: 0 }}>
                             Everyone in the workspace already has this chat shared with them.
                           </p>
                         </div>
@@ -355,7 +355,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                   {member.name || member.email}
                                 </p>
                                 {member.name && member.email && (
-                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-600)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {member.email}
                                   </p>
                                 )}
@@ -402,7 +402,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-700)', margin: 0 }}>
                             No active shares
                           </p>
-                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '18px', color: 'var(--neutral-400)', margin: '4px 0 0' }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '18px', color: 'var(--neutral-600)', margin: '4px 0 0' }}>
                             Use the Share tab to share this chat with a person or project.
                           </p>
                         </div>
@@ -430,7 +430,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                 {label}
                               </p>
                               {share.targetUserName && share.targetUserEmail && (
-                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: 'var(--neutral-600)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {share.targetUserEmail}
                                 </p>
                               )}

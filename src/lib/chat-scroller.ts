@@ -21,9 +21,14 @@ interface ChatScrollerFn {
 }
 
 let _scroller: ChatScrollerFn | null = null
+let _onJump: (() => void) | null = null
 
-export function registerChatScroller(fn: ChatScrollerFn | null): void {
+/** `onJump` runs before a fast-path jump (the registered scroller handles its
+ *  own), so the chat can stop following the bottom — otherwise a streaming
+ *  reply would pull the view straight back down. */
+export function registerChatScroller(fn: ChatScrollerFn | null, onJump?: () => void): void {
   _scroller = fn
+  _onJump = fn ? onJump ?? null : null
 }
 
 /**
@@ -37,6 +42,7 @@ export function scrollChatToMessage(messageId: string, onRendered: OnRendered): 
   // Fast path: element already in DOM (message is in the visible viewport)
   const existing = document.querySelector(`[data-message-id="${messageId}"]`)
   if (existing) {
+    _onJump?.()
     onRendered(existing)
     return
   }

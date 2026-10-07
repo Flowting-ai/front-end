@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
@@ -187,9 +188,9 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
               {link ? (
                 <>
                   <div style={{ ...BOX_STYLE, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px 6px 12px' }}>
-                    <span title={linkUrl} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-800)' }}>
+                    <Tooltip content={linkUrl} maxWidth={280}><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-800)' }}>
                       {linkUrl.replace(/^https?:\/\//, '')}
-                    </span>
+                    </span></Tooltip>
                     <Button variant="secondary" size="sm" leftIcon={<CopyOneIcon />} onClick={copyLink}>Copy</Button>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

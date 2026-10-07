@@ -9,7 +9,7 @@ import { useAuth } from '@/context/auth-context'
 
 const C = {
   ink:    'var(--neutral-900)',
-  muted:  'var(--neutral-500)',
+  muted:  'var(--neutral-600)',
   border: 'var(--neutral-200)',
   hair:   'var(--neutral-100)',
   white:  'var(--neutral-white)',
@@ -77,11 +77,13 @@ function StackedProgressBar({ segments }: { segments: { color: string; value: nu
   )
 }
 
-function ProgressBar({ used, total }: { used: number; total: number }) {
+// Fill = this category's credits against the plan's total credits. A non-zero
+// category always gets a minimum sliver so small spend on a large plan still shows.
+function ProgressBar({ used, total, color }: { used: number; total: number; color: string }) {
   const pct = total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0
   return (
-    <div style={{ height: 4, width: '100%', borderRadius: 2, backgroundColor: C.hair, overflow: 'hidden', position: 'relative' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 4, width: `${pct}%`, borderRadius: 2, backgroundColor: 'var(--blue-600,#0d6eb2)' }} />
+    <div style={{ height: 4, width: '100%', borderRadius: 2, backgroundColor: C.border, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, height: 4, width: `${pct}%`, minWidth: pct > 0 ? 4 : 0, borderRadius: 2, backgroundColor: BAR_TOKENS[color] }} />
     </div>
   )
 }
@@ -126,6 +128,11 @@ export default function UsagePage() {
       : c.key === 'slack' ? usage.byCategory.slackCredits
       : usage.byCategory.automationCredits,
   }))
+  // Unlimited (Enterprise) plans have no real total to measure against, so their
+  // bars fall back to each category's share of the period's spend.
+  const barTotalCredits = usage.isUnlimited
+    ? categoryCredits.reduce((sum, c) => sum + c.credits, 0)
+    : usage.totalCredits
   // "This period's usage" said that repeatedly with no date to anchor it to
   // for anyone not on a trial — `nextBillingDate` (from the user's own
   // profile, already loaded by AuthProvider, same field plans-and-billing's
@@ -207,7 +214,7 @@ export default function UsagePage() {
                     {fmtNum(c.credits)} credits
                   </p>
                 </div>
-                <ProgressBar used={c.credits} total={usage.totalCredits} />
+                <ProgressBar used={c.credits} total={barTotalCredits} color={c.chipColor} />
               </div>
             ))}
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useEffect, useMemo, useState } from 'react'
 import { SearchOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
@@ -265,9 +266,9 @@ export default function OrgActivityPage() {
                 return (
                   <SettingsTableRow key={entry.id} minHeight={72}>
                     <SettingsTableCell>
-                      <span title={formatServerDateTime(entry.createdAt, entry.createdAt)} style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', cursor: 'default' }}>
+                      <Tooltip content={formatServerDateTime(entry.createdAt, entry.createdAt)}><span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', cursor: 'default' }}>
                         {relativeTime(entry.createdAt)}
-                      </span>
+                      </span></Tooltip>
                     </SettingsTableCell>
                     <SettingsTableCell>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>

@@ -1,17 +1,34 @@
+#!/usr/bin/env node
 /**
- * SSE stream tester — hits the backend /chats/create directly with the JWT token
- * and pretty-prints every event as it arrives.
+ * SSE stream probe — hits the backend /chats/create directly with a JWT and
+ * pretty-prints every event as it arrives.
  *
- * Usage:  node test-sse.mjs [message] [--web-search] [--reasoning]
+ * Usage:
+ *   SOUVENIR_JWT=<access token> BACKEND_URL=<backend origin> \
+ *     node scripts/sse-probe.mjs [message] [--web-search] [--reasoning]
+ *
+ * Both env vars are required — there is no default backend, and the token is
+ * never printed. To get a short-lived access token, open /auth/access-token
+ * on the running front-end while signed in — it returns `{ "token": … }`.
  */
 
-import { createRequire } from "module"
 import https from "https"
 import http from "http"
 
-const JWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IklPc0Z6MmphWElsZWl5TXU3eXlhcCJ9.eyJpc3MiOiJodHRwczovL2Rldi1pamtheHd6eG91NTBmZm10LnVzLmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHw2OWQyMDY4NzRkNzRiNjFiZjhiZmFiYWQiLCJhdWQiOlsiaHR0cHM6Ly9zZXJ2ZXItYWNjZXNzIiwiaHR0cHM6Ly9kZXYtaWprYXh3enhvdTUwZmZtdC51cy5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNzgwMjU5OTYwLCJleHAiOjE3ODAzNDYzNjAsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgb2ZmbGluZV9hY2Nlc3MiLCJhenAiOiJGa3h6bEx4eEFVeDhleXdIcXVUQ3dWbGRqb1dKR1pMciJ9.LjsuArsCNObOiregwi7P79XAe_nHSVETSmJHNUqoXS4ocKQEebiHQUBouWBY9_HLxI2CV80Tthqn3dATNL5J_VXKgCTN62w7fBGwzqsa_FmG0QBWDRUKJf-BucmbGY5kr-YBtdMJ5wTDSPT1b9OoCV2yjhr57jYJmgFW4UNf_aq17A6puyVSiZS52zQKYY1XLggN2dl_AuTGfqEx_35as4uaaTvVtOkBoZDrgC060h9Q9pF4YEczk2foQEt-IXpccRmTKSCJ7UPqrylMO5a0wyaCnbIxL2MQrNiVo8Mx7AjxkJkA-gFRNqwtAW36wJ7A1JDEllQMytS-CBsVyJaZUw"
+const JWT = process.env.SOUVENIR_JWT?.trim()
+const BACKEND = process.env.BACKEND_URL?.trim().replace(/\/+$/, "")
 
-const BACKEND = "https://devapi.getsouvenir.com"
+const missing = [!JWT && "SOUVENIR_JWT", !BACKEND && "BACKEND_URL"].filter(Boolean)
+if (missing.length) {
+  console.error(`Missing required env var${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`)
+  console.error("Usage: SOUVENIR_JWT=<access token> BACKEND_URL=<backend origin> node scripts/sse-probe.mjs [message] [--web-search] [--reasoning]")
+  process.exit(1)
+}
+if (!URL.canParse(BACKEND)) {
+  console.error(`BACKEND_URL is not a valid URL: ${BACKEND}`)
+  process.exit(1)
+}
+
 const ENDPOINT = `${BACKEND}/chats/create`
 
 // CLI args
@@ -220,7 +237,7 @@ function buildFormData(fields) {
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
-console.log(`\n${C.bold}${C.cyan}=== SSE Stream Tester ===${C.reset}`)
+console.log(`\n${C.bold}${C.cyan}=== SSE Stream Probe ===${C.reset}`)
 console.log(`${C.dim}Endpoint: ${ENDPOINT}${C.reset}`)
 console.log(`${C.dim}Message:  "${message}"${C.reset}`)
 console.log(`${C.dim}Options:  webSearch=${webSearch}  reasoning=${reasoning}${C.reset}`)
@@ -299,4 +316,3 @@ req.on("error", (err) => {
 
 req.write(body)
 req.end()
-// This file already has everything — running the existing stream test.

@@ -83,25 +83,27 @@ describe('removeOrgSlackInstallation', () => {
     apiFetchJson.mockResolvedValue({
       name: 'Souvenir', description: '', prompt: 'Be brief.', model_id: 'model-1',
       skills: ['pdf'], available_skills: [{ name: 'pdf', description: 'Work with PDFs.' }],
+      check_ins: true,
     })
 
     await expect(getSlackAppConfig('org-1')).resolves.toMatchObject({
       prompt: 'Be brief.', modelId: 'model-1', skills: ['pdf'],
       availableSkills: [{ name: 'pdf', description: 'Work with PDFs.' }],
+      checkIns: true,
     })
   })
 
   it('serializes model and skill updates for the backend', async () => {
     apiFetchJson.mockResolvedValue({
       name: 'Souvenir', description: '', prompt: '', model_id: null,
-      skills: ['documents'], available_skills: [],
+      skills: ['documents'], available_skills: [], check_ins: false,
     })
 
-    await updateSlackAppConfig('org-1', { modelId: null, skills: ['documents'] })
+    await updateSlackAppConfig('org-1', { modelId: null, skills: ['documents'], checkIns: false })
 
     expect(apiFetchJson).toHaveBeenCalledWith(expect.any(String), {
       method: 'PATCH',
-      body: JSON.stringify({ model_id: null, skills: ['documents'] }),
+      body: JSON.stringify({ model_id: null, skills: ['documents'], check_ins: false }),
     })
   })
 
@@ -109,6 +111,7 @@ describe('removeOrgSlackInstallation', () => {
     apiFetchJson.mockResolvedValue({
       name: 'Souvenir', description: '', prompt: '', model_id: null,
       skills: ['briefing'], available_skills: [{ name: 'briefing', description: 'Write briefs.' }],
+      check_ins: true,
     })
     const file = new File(['# Briefing'], 'briefing.md', { type: 'text/markdown' })
 

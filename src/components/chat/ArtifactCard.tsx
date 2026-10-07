@@ -97,7 +97,7 @@ export function ArtifactCard({ icon, title, meta, onClick, draftVersion, onViewH
                   fontFamily:          'var(--font-body)',
                   fontSize:            'var(--font-size-caption)',
                   lineHeight:          'var(--line-height-caption)',
-                  color:               'var(--neutral-400)',
+                  color:               'var(--neutral-600)',
                   background:          'none',
                   border:              'none',
                   padding:             0,

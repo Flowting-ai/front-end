@@ -9,8 +9,9 @@ import { useEffect } from 'react'
  * <input> (agents, models, pins, highlights, Slack panels, …). Rather than patching each one, this
  * listens for focus once, document-wide: when the focused element is a search input
  * (type="search", role="searchbox", or a placeholder / aria-label that says "search"), it marks the
- * field's visible box with `data-search-active`, and `globals.css` paints the ring on that attribute
- * (same 2px --focus-ring outline InputField uses, so there is never a double ring).
+ * field's visible box with `data-search-field` (once) and `data-search-active` (while focused), and
+ * `globals.css` paints the ring on those attributes, animating it in and out (same 2px --focus-ring
+ * outline InputField uses, so there is never a double ring).
  */
 
 const SEARCH = /search/i
@@ -38,12 +39,27 @@ function fieldBox(input: HTMLInputElement): HTMLElement {
 export function SearchFieldRing() {
   useEffect(() => {
     let active: HTMLElement | null = null
-    const clear = () => { active?.removeAttribute('data-search-active'); active = null }
+    let raf = 0
+    // Only the active attribute is removed: data-search-field stays on the box, so the ring has a
+    // transparent state to transition back to instead of vanishing.
+    const clear = () => {
+      cancelAnimationFrame(raf)
+      active?.removeAttribute('data-search-active')
+      active = null
+    }
     const onFocusIn = (e: FocusEvent) => {
       clear()
       if (!isSearchInput(e.target)) return
-      active = fieldBox(e.target)
-      active.setAttribute('data-search-active', '')
+      const box = fieldBox(e.target)
+      active = box
+      // First focus: give the box its transparent ring and let it paint once, so turning the
+      // ring on in the next frame animates (a ring added in the same frame would just appear).
+      const first = !box.hasAttribute('data-search-field')
+      box.setAttribute('data-search-field', '')
+      if (first) void box.offsetWidth
+      raf = requestAnimationFrame(() => {
+        if (active === box) box.setAttribute('data-search-active', '')
+      })
     }
     const onFocusOut = () => clear()
     document.addEventListener('focusin', onFocusIn)

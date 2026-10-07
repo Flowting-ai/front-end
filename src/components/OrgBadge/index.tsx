@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { m } from 'framer-motion'
 import { LogoIcon } from '@strange-huge/icons'
@@ -111,8 +112,7 @@ export function OrgBadge(
     <>
       {avatar}
       {/* Org name — truncates; full name in title tooltip */}
-      <span
-        title={fullName ?? orgName}
+      <Tooltip content={fullName ?? orgName} maxWidth={280}><span
         style={{
           padding:      '0 2px',
           fontFamily:   'var(--font-body)',
@@ -130,7 +130,7 @@ export function OrgBadge(
         }}
       >
         {orgName}
-      </span>
+      </span></Tooltip>
       {/* Inner depth/highlight — above content */}
       <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: innerShadow }} />
     </>

@@ -36,7 +36,7 @@
 
 .subtitle {
   margin-top: 2px;
-  color: var(--neutral-500);
+  color: var(--neutral-600);
   font-family: var(--font-body);
   font-size: 11px;
   line-height: 16px;
@@ -99,7 +99,7 @@
 
 .visibleCount,
 .emptyRail {
-  color: var(--neutral-500);
+  color: var(--neutral-600);
   font-family: var(--font-body);
   font-size: 10px;
   line-height: 15px;

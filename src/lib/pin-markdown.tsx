@@ -3,43 +3,21 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import remarkBreaks from "remark-breaks";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
-import { preprocessMarkdown } from "./markdown-preprocess";
+import { preprocessMarkdown, readCodeBlock, withoutNode } from "./markdown-preprocess";
 
-const remarkPlugins = [remarkGfm, remarkMath];
+const remarkPlugins = [remarkGfm, remarkMath, remarkBreaks];
 const rehypePlugins = [rehypeKatex, rehypeRaw];
 
+// Every component spreads its props through withoutNode so react-markdown's
+// HAST `node` never reaches the DOM as node="[object Object]".
 const pinComponents: Components = {
-  code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || "");
-    const value = String(children).replace(/\n$/, "");
-
-    // Code block
-    if (match || value.includes("\n")) {
-      return (
-        <pre
-          className="kaya-scrollbar"
-          style={{
-            margin: "4px 0",
-            padding: "6px 8px",
-            borderRadius: 6,
-            background: "var(--neutral-800-10, rgba(59,54,50,0.06))",
-            overflowX: "auto",
-            fontSize: 12,
-            lineHeight: "14px",
-            fontFamily: "var(--font-code, monospace)",
-            color: "var(--neutral-700)",
-            border: "1px solid var(--neutral-700-12, rgba(59,54,50,0.08))",
-          }}
-        >
-          <code>{children}</code>
-        </pre>
-      );
-    }
-
-    // Inline code
+  // Inline code only — fenced blocks (even one-line ones without a language)
+  // are rendered by `pre` below.
+  code({ children, ...props }) {
     return (
       <code
         style={{
@@ -51,14 +29,33 @@ const pinComponents: Components = {
           padding: "0px 3px",
           border: "1px solid var(--neutral-700-12, rgba(59,54,50,0.08))",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </code>
     );
   },
-  pre({ children }) {
-    return <>{children}</>;
+  pre({ node }) {
+    const { language, value } = readCodeBlock(node);
+    return (
+      <pre
+        className="kaya-scrollbar"
+        style={{
+          margin: "4px 0",
+          padding: "6px 8px",
+          borderRadius: 6,
+          background: "var(--neutral-800-10, rgba(59,54,50,0.06))",
+          overflowX: "auto",
+          fontSize: 12,
+          lineHeight: "14px",
+          fontFamily: "var(--font-code, monospace)",
+          color: "var(--neutral-700)",
+          border: "1px solid var(--neutral-700-12, rgba(59,54,50,0.08))",
+        }}
+      >
+        <code className={language ? `language-${language}` : undefined}>{value}</code>
+      </pre>
+    );
   },
   p({ children, ...props }) {
     return (
@@ -69,7 +66,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-600)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -87,7 +84,7 @@ const pinComponents: Components = {
           textUnderlineOffset: "1px",
           fontSize: 12,
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </a>
@@ -104,7 +101,7 @@ const pinComponents: Components = {
           flexDirection: "column",
           gap: 1,
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </ul>
@@ -121,7 +118,7 @@ const pinComponents: Components = {
           flexDirection: "column",
           gap: 1,
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </ol>
@@ -135,7 +132,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-600)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </li>
@@ -151,7 +148,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-800)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -167,7 +164,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-800)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -183,7 +180,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-800)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -199,7 +196,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-700)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -215,7 +212,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-700)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -231,7 +228,7 @@ const pinComponents: Components = {
           lineHeight: "16px",
           color: "var(--neutral-700)",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </p>
@@ -249,7 +246,7 @@ const pinComponents: Components = {
           fontSize: 12,
           lineHeight: "16px",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </blockquote>
@@ -259,7 +256,7 @@ const pinComponents: Components = {
     return (
       <strong
         style={{ fontWeight: 600, color: "var(--neutral-700)" }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </strong>
@@ -267,7 +264,7 @@ const pinComponents: Components = {
   },
   em({ children, ...props }) {
     return (
-      <em style={{ fontStyle: "italic" }} {...props}>
+      <em style={{ fontStyle: "italic" }} {...withoutNode(props)}>
         {children}
       </em>
     );
@@ -302,7 +299,7 @@ const pinComponents: Components = {
             lineHeight: "14px",
             whiteSpace: "nowrap",
           }}
-          {...props}
+          {...withoutNode(props)}
         >
           {children}
         </table>
@@ -322,7 +319,7 @@ const pinComponents: Components = {
           background: "var(--neutral-50)",
           whiteSpace: "nowrap",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </th>
@@ -338,7 +335,7 @@ const pinComponents: Components = {
           borderBottom: "1px solid var(--neutral-100)",
           whiteSpace: "nowrap",
         }}
-        {...props}
+        {...withoutNode(props)}
       >
         {children}
       </td>

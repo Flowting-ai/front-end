@@ -7,7 +7,7 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { usePinboard } from "@/context/pinboard-context";
 import { PINS_ENABLED } from "@/lib/feature-flags";
-import { fetchPersonas, fetchPersonaChats } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, isDraftPersona } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import {
   CHAT_ROUTE,
@@ -202,6 +202,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       .map(p => ({ id: p.id, type: 'project' as const, title: p.name, subtitle: p.description || undefined }));
 
     const personaResults: SearchResult[] = searchPersonas
+      .filter(p => !isDraftPersona(p))
       .filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.handle.toLowerCase().includes(q) ||

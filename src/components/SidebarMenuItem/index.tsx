@@ -84,6 +84,8 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   viewAllAlwaysVisible?: boolean
   /** Persistent selected state — default, new-chat, chat-item variants only */
   selected?: boolean
+  /** Render the icon and label in the danger (red) colour — default variant only, e.g. "Log out" */
+  danger?: boolean
   /** Stretch to full width instead of fixed 217px — use inside Sidebar */
   fluid?: boolean
   /** Icon-only mode for collapsed sidebar — hides labels, shortcut, and text content */
@@ -91,6 +93,12 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   /** Optional route for rows that should preserve native link behavior. */
   href?: string
 }
+
+// Same red the dropdown danger rows use, so "Log out" matches across menus.
+const DANGER_COLOR        = 'var(--dropdown-menu-item-danger-text)'
+const DANGER_HOVER_BG     = 'var(--dropdown-menu-item-danger-hover-bg)'
+const DANGER_HOVER_SHADOW = 'var(--shadow-dropdown-item-danger-hover)'
+const DANGER_INNER_SHADOW = 'var(--shadow-dropdown-item-danger-inner)'
 
 // ── Shared text styles ────────────────────────────────────────────────────────
 
@@ -140,6 +148,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       onViewAllClick,
       viewAllAlwaysVisible = false,
       selected = false,
+      danger = false,
       fluid = false,
       collapsed = false,
       href,
@@ -283,6 +292,8 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
     if (collapsed && (isHeader || isChatItem || isEditVariant)) return null
 
     // ── Container style ────────────────────────────────────────────────────────
+    const isDangerRow = danger && variant === 'default'
+
     const containerStyle: React.CSSProperties = {
       position:        'relative',
       display:         'flex',
@@ -295,10 +306,10 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       paddingRight:    (!collapsed && isChatItem && isActive) ? '0px' : '6px',
       paddingTop:      (!collapsed && isChatItem && isActive) ? '0px' : (isAccountItem && collapsed) ? '9px' : isAccountItem ? '6px' : (isChatItem || isEditVariant) ? '3px' : collapsed ? '6px' : '5px',
       paddingBottom:   (!collapsed && isChatItem && isActive) ? '0px' : (isAccountItem && collapsed) ? '9px' : isAccountItem ? '6px' : (isChatItem || isEditVariant) ? '3px' : collapsed ? '6px' : '5px',
-      backgroundColor: isEditVariant || (!isHeader && isActive) ? 'var(--sidebar-menu-item-hover-bg)' : 'transparent',
+      backgroundColor: isEditVariant || (!isHeader && isActive) ? (isDangerRow ? DANGER_HOVER_BG : 'var(--sidebar-menu-item-hover-bg)') : 'transparent',
       boxShadow:       isEditVariant
                          ? '0px 0px 0px 1px var(--focus-ring)'
-                         : (!isHeader && isActive) ? SHADOW_ITEM_HOVER : undefined,
+                         : (!isHeader && isActive) ? (isDangerRow ? DANGER_HOVER_SHADOW : SHADOW_ITEM_HOVER) : undefined,
       cursor:          isHeader ? 'default' : isEditVariant ? 'text' : isInert ? 'default' : 'pointer',
       transition:      isEditVariant ? undefined : 'background-color 150ms, box-shadow 150ms',
     }
@@ -403,14 +414,14 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
         {variant === 'default' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
+              <div style={{ color: danger ? DANGER_COLOR : 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
                 {React.cloneElement(icon, { triggered: isHovered })}
               </div>
               <AnimatePresence mode="popLayout" initial={false}>
                 {!collapsed && (
                   <motion.p
                     key="label"
-                    style={bodyTextStyle}
+                    style={danger ? { ...bodyTextStyle, color: DANGER_COLOR } : bodyTextStyle}
                     initial={{ opacity: 0, filter: 'blur(4px)' }}
                     animate={{ opacity: 1, filter: 'blur(0px)' }}
                     exit={{ opacity: 0, filter: 'blur(4px)' }}
@@ -461,7 +472,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
 
             {/* Inner depth shadow — hover + selected */}
             {isActive && (
-              <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
+              <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: isDangerRow ? DANGER_INNER_SHADOW : SHADOW_ITEM_INNER }} />
             )}
           </>
         )}

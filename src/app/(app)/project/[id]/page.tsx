@@ -6,6 +6,8 @@ import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Chip } from '@/components/Chip'
+import { AgentChip } from '@/components/chat/AgentChip'
+import { publishActiveChatAgent } from '@/lib/active-chat-agent-store'
 import { useProjects } from '@/context/projects-context'
 import { emitProjectNewChat } from '@/hooks/use-sidebar-events'
 import { useAuth } from '@/context/auth-context'
@@ -46,7 +48,6 @@ import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from '@/components/chat/ModelMenu'
-import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -129,8 +130,6 @@ export default function ProjectPage() {
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([])
   const [selectedPersona,      setSelectedPersona]      = useState<SelectedPersonaInfo | null>(null)
-  const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
-  const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen)
   const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
@@ -164,7 +163,6 @@ export default function ProjectPage() {
     setSelectedStyleId(null)
     setWebSearchEnabled(false)
     setStyleChipOpen(false)
-    setPersonaChipOpen(false)
     setPanelOpen(true)
     setAgentsPanelOpen(false)
     setMembersPanelOpen(false)
@@ -254,6 +252,12 @@ export default function ProjectPage() {
     wasSharedPanelOpenRef.current = sharedPanel !== null
     if (agentsPanelOpen && wasOpen && sharedPanel === null) setAgentsPanelOpen(false)
   }, [sharedPanel, agentsPanelOpen])
+
+  // Tell the Agents panel which agent is attached so it offers "Replace agent" while a chip is active.
+  useEffect(() => {
+    publishActiveChatAgent(selectedPersona?.id ?? null)
+  }, [selectedPersona])
+  useEffect(() => () => publishActiveChatAgent(null), [])
 
   // Listen for AgentsPanelContent's selection — same cross-tree pattern
   // /chat/page.tsx uses (the panel renders via the shared AppLayout tree,
@@ -866,40 +870,17 @@ export default function ProjectPage() {
                     />
                   )}
                   {selectedPersona && (
-                    <Dropdown.Float
-                      open={personaChipOpen}
-                      onOpenChange={setPersonaChipOpen}
-                      placement="top-start"
-                      trigger={
-                        <Chip
-                          label={selectedPersona.name}
-                          personaImage={selectedPersona.imageUrl ?? undefined}
-                          onRemove={() => setSelectedPersona(null)}
-                          onExpand={() => setPersonaChipOpen(v => !v)}
-                          title={undefined}
-                          style={undefined}
-                        />
-                      }
-                    >
-                      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
-                        <Dropdown.Section fluid>
-                          {loadingChipPersonas
-                            ? <Dropdown.Item label="Loading…" fluid disabled />
-                            : chipPersonas.length > 0
-                              ? chipPersonas.map(p => (
-                                  <Dropdown.Item
-                                    key={p.id}
-                                    label={p.name}
-                                    fluid
-                                    selected={selectedPersona.id === p.id}
-                                    onClick={() => { trackFeature('project_agent_attached', { persona_id: p.id }); setSelectedPersona(p); setPersonaChipOpen(false) }}
-                                  />
-                                ))
-                              : <Dropdown.Item label="No agents yet" fluid disabled />
-                          }
-                        </Dropdown.Section>
-                      </Dropdown>
-                    </Dropdown.Float>
+                    <AgentChip
+                      agent={selectedPersona}
+                      onRemove={() => setSelectedPersona(null)}
+                      onOpenPanel={() => {
+                        if (agentsPanelOpen) return
+                        closePinboard()
+                        setPanelOpen(false)
+                        setMembersPanelOpen(false)
+                        setAgentsPanelOpen(true)
+                      }}
+                    />
                   )}
                 </>
               }

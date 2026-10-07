@@ -294,3 +294,185 @@ describe("ContentRenderer markdown formatting", () => {
     expect(html).toContain("Heads up.")
   })
 })
+
+describe("ContentRenderer structured blocks", () => {
+  it("shows a table-shaped skeleton with an accessible label while a block streams in", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content={"Here:\n<table><tr><th>A</th>"} isStreaming cursor={<span>cursor</span>} />,
+    )
+
+    expect(html).toContain('role="status"')
+    expect(html).toContain('aria-busy="true"')
+    expect(html).toContain('aria-label="Loading table…"')
+    expect(html).toContain("Rendering table…")
+    expect(html).toContain("kaya-skeleton")
+    expect(html).not.toContain("&lt;table")
+  })
+
+  it("does not let an inline-code tag swallow the rest of the message", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content={"Wrap it in `<chart>` tags.\n\nEverything after still shows."} />,
+    )
+
+    expect(html).toContain("&lt;chart&gt;</code>")
+    expect(html).toContain("Everything after still shows.")
+    expect(html).not.toContain("Rendering")
+  })
+
+  it("explains an unclosed block after the stream ends and keeps the text after it", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content={"Intro\n<table>\n<tr><td>1</td></tr>\n\nText after the block."} />,
+    )
+
+    expect(html).toContain("Couldn&#x27;t display this table — the response ended early.")
+    expect(html).toContain("<details>")
+    expect(html).toContain("&lt;table&gt;")
+    expect(html).toContain("Text after the block.")
+    expect(html).not.toContain("Rendering")
+  })
+
+  it("turns the interrupted marker into a friendly line instead of hiding it in a broken block", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content={"Here:\n<table>\n<tr><td>1</td>\n[Response interrupted: something failed]"} isStreaming />,
+    )
+
+    expect(html).toContain("Couldn&#x27;t display this table")
+    expect(html).not.toContain("[Response interrupted")
+    expect(html).not.toContain("Rendering")
+  })
+
+  it("renders the interrupted line outside a code fence the interruption left open", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"```js\nconst a = 1\n[Response interrupted: 500: boom]"} />)
+    const dom = new JSDOM(html).window.document
+
+    expect(dom.querySelector("pre")?.textContent).toBe("const a = 1")
+    expect(dom.querySelector("p")?.textContent?.length).toBeGreaterThan(0)
+    expect(html).not.toContain("[Response interrupted")
+  })
+})
+
+describe("ContentRenderer streaming cursor", () => {
+  it("anchors the cursor out of flow after the last block", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content={"First paragraph.\n\n"} isStreaming cursor={<span>cursor</span>} />,
+    )
+
+    expect(html).toContain(
+      '<div style="position:relative;height:0"><span style="position:absolute;top:0;left:0;line-height:var(--prose-line-body);white-space:nowrap"><span>cursor</span></span></div>',
+    )
+    // The cursor is no longer rendered inside a markdown block of its own.
+    expect((html.match(/kaya-chat-markdown/g) ?? []).length).toBe(1)
+  })
+
+  it("renders no cursor once streaming is over", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content="Done." cursor={<span>cursor</span>} />)
+
+    expect(html).not.toContain("cursor")
+  })
+})
+
+describe("ContentRenderer markdown details", () => {
+  it("renders a one-line fence without a language as a full code block with Copy", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"```\nnpm install\n```"} />)
+
+    expect(html).toContain('aria-label="Copy code"')
+    expect(html).toContain("npm install")
+    expect(html).not.toContain("undefined")
+  })
+
+  it("keeps language labels like c++ and objective-c intact", () => {
+    const cpp = renderToStaticMarkup(<ContentRenderer content={"```c++\nint main() {}\n```"} />)
+    const objc = renderToStaticMarkup(<ContentRenderer content={"```objective-c\n@interface A\n```"} />)
+
+    expect(cpp).toContain(">c++</span>")
+    expect(cpp).toContain('class="language-c++"')
+    expect(objc).toContain(">objective-c</span>")
+  })
+
+  it("never renders the text undefined for an empty fence", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"```\n```"} />)
+
+    expect(html).toContain('aria-label="Copy code"')
+    expect(html).not.toContain("undefined")
+  })
+
+  it("keeps a single newline as a line break", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"Line one\nLine two"} />)
+
+    expect(html).toContain("Line one<br/>")
+  })
+
+  it("styles h4-h6 like h3 while keeping their semantic level", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"### Three\n\n#### Four\n\n##### Five\n\n###### Six"} />)
+    const style = (tag: string) => html.match(new RegExp(`<${tag} style="([^"]*)"`))?.[1]
+
+    expect(style("h3")).toContain("font-size:var(--prose-size-h3)")
+    expect(style("h4")).toBe(style("h3"))
+    expect(style("h5")).toBe(style("h3"))
+    expect(style("h6")).toBe(style("h3"))
+  })
+
+  it("never leaks the HAST node onto DOM elements", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={"# H\n\nPara `code`\n\n> quote\n\n- item\n\n1. one\n\n| a | b |\n|---|---|\n| 1 | 2 |"}
+      />,
+    )
+
+    expect(html).not.toContain("node=")
+    expect(html).not.toContain("[object Object]")
+  })
+
+  it("keeps footnote links in the tab with per-message ids and a hidden label", () => {
+    const content = "Claim.[^1]\n\n[^1]: The source."
+    const html = renderToStaticMarkup(
+      <>
+        <ContentRenderer content={content} />
+        <ContentRenderer content={content} />
+      </>,
+    )
+    const dom = new JSDOM(html).window.document
+    const refs = [...dom.querySelectorAll("a[data-footnote-ref]")]
+    const backrefs = [...dom.querySelectorAll("a[data-footnote-backref]")]
+
+    expect(refs).toHaveLength(2)
+    expect(backrefs).toHaveLength(2)
+    for (const link of [...refs, ...backrefs]) {
+      expect(link.getAttribute("href")).toMatch(/^#/)
+      expect(link.hasAttribute("target")).toBe(false)
+      expect(link.hasAttribute("rel")).toBe(false)
+      // Each in-page link points at an element that exists.
+      expect(dom.getElementById(link.getAttribute("href")!.slice(1))).not.toBeNull()
+    }
+    expect(backrefs[0].getAttribute("aria-label")).toBe("Back to reference 1")
+
+    const ids = [...dom.querySelectorAll("[id]")].map((el) => el.id)
+    expect(new Set(ids).size).toBe(ids.length)
+
+    const label = dom.querySelector("h2.sr-only") as HTMLElement
+    expect(label.textContent).toBe("Footnotes")
+    expect(label.getAttribute("style")).toContain("position:absolute")
+    expect(refs[0].getAttribute("aria-describedby")).toBe(label.id)
+  })
+
+  it("renders GFM task lists with a read-only checkbox and no bullet", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"- [x] Done\n- [ ] Todo"} />)
+    const dom = new JSDOM(html).window.document
+    const items = [...dom.querySelectorAll("li")]
+    const boxes = [...dom.querySelectorAll('[role="checkbox"]')]
+
+    expect(items.every((li) => li.getAttribute("style")?.includes("list-style-type:none"))).toBe(true)
+    expect(boxes.map((box) => box.getAttribute("aria-checked"))).toEqual(["true", "false"])
+    expect(boxes.every((box) => box.hasAttribute("disabled"))).toBe(true)
+    // Only the KDS checkbox is exposed (Radix keeps a hidden form input of its own).
+    expect(dom.querySelector("input:not([aria-hidden])")).toBeNull()
+  })
+
+  it("renders an escaped dollar inside math without breaking the span", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content={"It costs $\\$5 + x$ today."} />)
+
+    expect(html).toContain("katex")
+    expect(html).toContain("today.")
+    expect(html).not.toContain("katex-error")
+  })
+})

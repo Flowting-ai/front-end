@@ -214,25 +214,58 @@ export function buildRewrite(
     : additions.join(' ')
 }
 
-export function diffSentences(original: string, rewrite: string): DiffSegment[] {
-  const split = (s: string) =>
-    s.split(/(?<=[.!?])\s+/).flatMap(t => { const v = t.trim(); return v ? [v] : [] })
+/**
+ * Line-based diff (LCS). Lines are the unit so headings and bullets stay separate
+ * from the text around them; blank lines are dropped. Output keeps document order,
+ * with removed lines directly before the lines that replace them.
+ */
+export function diffLines(original: string, rewrite: string): DiffSegment[] {
+  const split = (s: string) => s.split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.trim() !== '')
+  const a = split(original)
+  const b = split(rewrite)
 
-  const origSents = split(original)
-  const newSents  = split(rewrite)
-  const origSet   = new Set(origSents)
-  const newSet    = new Set(newSents)
+  // lcs[i][j] = length of the longest common subsequence of a[i..] and b[j..]
+  const lcs: number[][] = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0))
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lcs[i][j] = a[i].trim() === b[j].trim() ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1])
+    }
+  }
 
   const result: DiffSegment[] = []
-
-  for (const s of origSents) {
-    result.push({ type: newSet.has(s) ? 'unchanged' : 'removed', text: s })
+  let i = 0
+  let j = 0
+  while (i < a.length && j < b.length) {
+    if (a[i].trim() === b[j].trim()) {
+      result.push({ type: 'unchanged', text: b[j] }); i++; j++
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+      result.push({ type: 'removed', text: a[i] }); i++
+    } else {
+      result.push({ type: 'added', text: b[j] }); j++
+    }
   }
-  for (const s of newSents) {
-    if (!origSet.has(s)) result.push({ type: 'added', text: s })
-  }
-
+  for (; i < a.length; i++) result.push({ type: 'removed', text: a[i] })
+  for (; j < b.length; j++) result.push({ type: 'added', text: b[j] })
   return result
+}
+
+/** @deprecated Kept for callers of the old name; the diff is line-based now. */
+export const diffSentences = diffLines
+
+/** Backend questions (`/persona/enhance-prompt`) → the card's `Question` shape, plus an "Other" row. */
+export function fromBackendQuestions(
+  qs: { question: string; options: { label: string; description: string }[]; multi_select: boolean }[],
+): Question[] {
+  return qs.map((q, i) => ({
+    id:          `q${i}`,
+    text:        q.question,
+    sub:         '',
+    multiSelect: q.multi_select || undefined,
+    options: [
+      ...q.options.map((o, k) => ({ id: `o${k}`, label: o.label })),
+      { id: 'custom', label: 'Other' },
+    ],
+  }))
 }
 
 export function diffSummary(
@@ -242,7 +275,7 @@ export function diffSummary(
   const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length
   const wordsAdded = Math.max(0, wordCount(rewrite) - wordCount(original))
 
-  const segments = diffSentences(original, rewrite)
+  const segments = diffLines(original, rewrite)
   let guidelineGroups = 0
   let inAdded = false
   for (const seg of segments) {

@@ -20,8 +20,11 @@ import type {
   Message,
   ChatsListResponse,
   MessagesListResponse,
+  PersistedToolCall,
 } from "@/types/chat";
 import type { ReasoningSection } from "@/lib/reasoning";
+import { extractThinkingContent } from "@/lib/parsers/content-parser";
+import { INCOMPLETE_ANSWER_MESSAGE } from "@/lib/turn-outcome";
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
 
@@ -233,6 +236,8 @@ interface BackendMessage {
   web_searches?: Array<{ query: string; links: string[]; results?: Array<Record<string, unknown>> }> | null;
   // Structured reasoning steps
   reasoning_sections?: ReasoningSection[] | null;
+  // Tool calls the turn made (legacy rows: bare tool names)
+  tool_calls?: Array<string | { tool?: string | null; args?: unknown; output?: unknown; duration_s?: number | null } | null> | null;
 }
 
 /** Normalize a backend message entry into one or two Message objects. */
@@ -283,14 +288,14 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         // the single ID for the AI response.
         id: baseId,
         role: "assistant",
-        content: aiText ?? "",
+        ...splitPersistedAnswer(aiText ?? "", raw.reasoning ?? raw.thinking_content),
         created_at: createdAt,
         chat_id: chatId,
-        thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
         reasoning_sections: raw.reasoning_sections ?? undefined,
         model_name: raw.model_name ?? undefined,
         sources: sources.length > 0 ? sources : undefined,
         web_searches: raw.web_searches ?? undefined,
+        tool_calls: normalizeToolCalls(raw),
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
       });
@@ -311,17 +316,47 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
   return [{
     id: baseId,
     role,
-    content,
+    ...(role === "assistant"
+      ? splitPersistedAnswer(content, raw.reasoning ?? raw.thinking_content)
+      : { content, thinking: raw.reasoning ?? raw.thinking_content ?? undefined }),
     created_at: createdAt,
     chat_id: chatId,
-    thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
     reasoning_sections: raw.reasoning_sections ?? undefined,
     model_name: raw.model_name ?? undefined,
     sources: sources.length > 0 ? sources : undefined,
     web_searches: raw.web_searches ?? undefined,
+    tool_calls: role === "assistant" ? normalizeToolCalls(raw) : undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
     image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
   }];
+}
+
+/**
+ * A persisted answer with a leading <think> block moved to reasoning — the
+ * split the live stream makes. A block that never closed means the answer was
+ * never written, which the message notes rather than showing nothing.
+ */
+function splitPersistedAnswer(
+  text: string,
+  persistedThinking: string | null | undefined,
+): Pick<Message, "content" | "thinking" | "errorNotice"> {
+  const { visibleText, thinkingText, thinkingOpen } = extractThinkingContent(text);
+  return {
+    content: visibleText,
+    thinking: persistedThinking || thinkingText || undefined,
+    errorNotice: thinkingOpen ? INCOMPLETE_ANSWER_MESSAGE : undefined,
+  };
+}
+
+/** The turn's tool calls without their outputs, which can be large and are never shown. */
+function normalizeToolCalls(raw: BackendMessage): PersistedToolCall[] | undefined {
+  if (!Array.isArray(raw.tool_calls) || raw.tool_calls.length === 0) return undefined;
+  const calls = raw.tool_calls.flatMap((call): PersistedToolCall[] => {
+    if (typeof call === "string") return call ? [call] : [];
+    if (!call || typeof call !== "object") return [];
+    return [{ tool: call.tool ?? undefined, args: call.args, duration_s: call.duration_s ?? undefined }];
+  });
+  return calls.length > 0 ? calls : undefined;
 }
 
 /** Extract and normalise file_attachments from a backend message entry. */

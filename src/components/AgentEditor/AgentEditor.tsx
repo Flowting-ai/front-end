@@ -6,20 +6,17 @@ import { EnhancePromptField } from '@/components/EnhancePromptField'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import type { AIModel } from '@/types/ai-model'
-import type { PersonaSound } from '@/lib/api/persona-schemas'
 import { DESCRIPTION_MAX, NAME_MAX, type AgentDraft } from '@/lib/agent-draft'
 import { AgentPreviewCard } from './AgentPreviewCard'
 import { AvatarField } from './AvatarField'
 import type { AvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { CreativityField } from './CreativityField'
 import { ModelField } from './ModelField'
-import { ToneField } from './ToneField'
 import { BOX_STYLE, HINT_STYLE, INPUT_STYLE, LABEL_STYLE, SECTION_TITLE_STYLE } from './styles'
 
 export interface AgentEditorProps {
   draft:     AgentDraft
   onChange:  (patch: Partial<AgentDraft>) => void
-  tones:     readonly PersonaSound[]
   models:    AIModel[]
   modelsLoading: boolean
   /** Handle without the leading @ (the backend's real one when editing, a preview when creating). */
@@ -82,7 +79,7 @@ function FieldHeader({ label, htmlFor, action, counter }: { label: string; htmlF
  * and to edit — the host decides what Finish / Save does.
  */
 export function AgentEditor({
-  draft, onChange, tones, models, modelsLoading, handle, disabled = false,
+  draft, onChange, models, modelsLoading, handle, disabled = false,
   onRegenerateName, onRegenerateDescription, avatarChoice, onAvatarChoice, onRegenerateInstructions,
   regeneratingInstructions = false, below, aside,
 }: AgentEditorProps) {
@@ -182,13 +179,6 @@ export function AgentEditor({
               </p>
             )}
           </div>
-
-          <ToneField
-            instructions={draft.instructions}
-            tones={tones}
-            onChange={instructions => onChange({ instructions })}
-            disabled={disabled}
-          />
 
           <CreativityField value={draft.temperature} onChange={temperature => onChange({ temperature })} disabled={disabled} />
         </section>

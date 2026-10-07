@@ -37,7 +37,7 @@
   /* ── Button / Secondary ─────────────────────────────────────────────────────
      White elevated button - same warm shadow language as FloatingMenu.
      ─────────────────────────────────────────────────────────────────────────── */
-  --button-secondary-bg:            var(--neutral-white);
+  --button-secondary-bg:            #FFFFFF;
   --button-secondary-text:          var(--neutral-700);
   --button-secondary-text-disabled: var(--neutral-800);
   --button-secondary-bg-hover:      var(--neutral-100-60);
@@ -221,7 +221,7 @@
   --tab-item-text-default:   var(--neutral-500);
   --tab-item-text-hover:     var(--neutral-700);
   --tab-item-text-disabled:  var(--neutral-300);
-  --tab-item-bg-selected:    var(--neutral-white);
+  --tab-item-bg-selected:    #FFFFFF;
 
   /* Outer shadow + 1px ring on selected */
   --shadow-tab-item-selected:
@@ -235,7 +235,7 @@
   /* ── Tabs (pill container) ───────────────────────────────────────────────────
      Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
      ─────────────────────────────────────────────────────────────────────────── */
-  --tab-bg: var(--neutral-50-50);
+  --tab-bg: var(--neutral-100);  /* light gray track behind the white selected tab */
 
   /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */
   --shadow-tab-inner:
@@ -412,7 +412,7 @@
      Hover glow:  --neutral-100-60 at 3px
      Focus glow:  --neutral-100-60 at 6px
      ─────────────────────────────────────────────────────────────────────────── */
-  --chat-input-bg:               var(--color-surface-default);
+  --chat-input-bg:               #FFFFFF;  /* stays pure white on the #F9F8F5 page; dark overrides it (theme.css) */
   --chat-input-placeholder:      var(--color-text-placeholder);
   --chat-input-text:             var(--color-text-primary);
   --chat-input-scrollbar-thumb:  var(--color-scrollbar-thumb);
@@ -443,7 +443,7 @@
   --input-group-icon:            var(--color-text-muted);     /* neutral-500 - resting */
   --input-group-icon-active:     var(--color-text-default);   /* neutral-700 - hover/focus */
   --input-group-bg-hover:        var(--neutral-100-60);       /* proximity highlight */
-  --input-group-bg-focus:        var(--color-surface-default); /* white on focus */
+  --input-group-bg-focus:        #FFFFFF; /* white on focus */
   --input-group-bg-error-hover:  var(--red-400-10);           /* subtle red tint on proximity */
 
   /* Shadows reuse the chat-input shadow family - same depth, ring, glow language */
@@ -471,7 +471,8 @@
   --text-field-text:           var(--color-text-primary);      /* neutral-900 */
   --text-field-placeholder:    var(--color-text-placeholder);  /* neutral-600 */
   --text-field-icon:           var(--color-text-muted);        /* neutral-500 */
-  --text-field-bg:             var(--color-surface-default);   /* #ffffff */
+  --text-field-bg:             #FFFFFF;   /* #ffffff */
+  --field-surface:             #FFFFFF;   /* every input / textarea / select surface: pure white in light mode, even on the cream page */
   --text-field-ring:           var(--neutral-100);             /* 1px ring at rest / filled */
   --text-field-ring-hover:     var(--neutral-200);             /* 1px ring on hover */
 
@@ -511,8 +512,9 @@
 
   /* Outer: two-layer lift + 1px warm border ring */
   --shadow-message-bubble-user:
-    0px 1.091px 1.091px 0px var(--neutral-800-05),
-    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 1.091px 1.091px 0px rgba(38, 33, 30, 0.08),
+    0px 2px 5px 0px        rgba(38, 33, 30, 0.17),
+    0px 5px 12px -2px      rgba(38, 33, 30, 0.10),
     0px 0px 0px 1px        var(--neutral-100);
 
   /* Inner: bottom-only depth shadow — grounds the bubble. Blur bumped up from
@@ -520,7 +522,7 @@
      a small/short bubble (it needs enough surface for anti-aliasing to catch
      it), so the groove was only visible on wider bubbles. */
   --shadow-message-bubble-user-inner:
-    inset 0px -2px 1.5px 0px var(--neutral-100);
+    inset 0px -2px 1.5px 0px var(--neutral-200);
 
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);

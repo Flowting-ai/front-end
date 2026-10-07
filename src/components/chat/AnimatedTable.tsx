@@ -28,7 +28,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     if (cell.type === "rich") return (
       <div>
         <div style={{ fontSize: 14, color: "var(--neutral-900)", fontWeight: 500 }}>{cell.text}</div>
-        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-400)", marginTop: 1 }}>{cell.sub}</div>}
+        {cell.sub && <div style={{ fontSize: 12, color: "var(--neutral-600)", marginTop: 1 }}>{cell.sub}</div>}
         {cell.badge && (
           <span style={{
             display: "inline-flex", marginTop: 4, background: cell.badge.bg, color: cell.badge.color,
@@ -181,7 +181,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
         <AnimatePresence>
           {data.caption && isDone && (
             <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-400)", fontStyle: "italic" }}>
+              style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-600)", fontStyle: "italic" }}>
               {data.caption}
             </m.div>
           )}

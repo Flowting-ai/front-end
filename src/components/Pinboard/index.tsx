@@ -136,7 +136,7 @@ function TagSearchInput({
           borderRadius: 10,
           border:       'none',
           outline:      'none',
-          background:   'var(--neutral-white)',
+          background:   'var(--field-surface)',
           boxShadow:
             '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
           fontFamily:   'var(--font-body)',

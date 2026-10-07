@@ -1,6 +1,7 @@
 import {
   fetchPersonas,
   isPersonaOwnedByViewer,
+  isDraftPersona,
   copyPersonaRepoDeduped,
   PERSONAS_LIST_UPDATED_EVENT,
   type Persona,
@@ -151,7 +152,7 @@ export function fetchSelectableChatPersonas(
     // Team-visibility agents excluded — that UI is hidden for now (see
     // SharingTab.tsx), so they're not selectable here either. Drafts are
     // excluded too — they aren't published/usable yet.
-    const personas = allPersonas.filter(persona => persona.status !== 'draft' && persona.visibility === 'private')
+    const personas = allPersonas.filter(persona => !isDraftPersona(persona) && persona.visibility === 'private')
     const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
     _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved

@@ -191,6 +191,12 @@ export function PersonaChatInterface({
   const personaIdRef = useRef(personaId);
   personaIdRef.current = personaId;
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false };
+  }, []);
+
   const personaRef = useRef(persona);
   personaRef.current = persona;
 
@@ -204,6 +210,13 @@ export function PersonaChatInterface({
   // ── useStreamingChat — same infrastructure as main chat ───────────────────
 
   const handleChatCreated = useCallback((chatId: string) => {
+    // User navigated away (e.g. sidebar "New chat") while the first message was
+    // still being created: the chat is real so the sidebar still hears about
+    // it, but the live URL must not be rewritten back into this chat.
+    if (!mountedRef.current) {
+      emitPersonaChatCreated({ personaId: personaIdRef.current, chatId, title: "New chat" });
+      return;
+    }
     optimisticChatIdsRef.current.add(chatId);
     justCreatedChatRef.current = true;
     setActiveChatId(chatId);

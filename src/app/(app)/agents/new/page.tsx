@@ -90,13 +90,16 @@ function PurposeStep({
     <Centered>
       <Heading title="What should this agent do?" subtitle="One sentence is enough — we’ll set up the name, model and instructions for you." />
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 684, gap: 12 }}>
+        {/* kaya-field: the signature pink focus ring. A stronger edge than the other cards so the box reads in both themes. */}
         <div
+          className="kaya-field"
           style={{
-            background: 'var(--neutral-white)', borderRadius: 10, padding: '12px 10px',
-            boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+            background: 'var(--field-surface)', borderRadius: 10, padding: '12px 10px',
+            boxShadow: '0px 1px 2px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-300)',
           }}
         >
           <textarea
+            className="agent-purpose-input"
             value={purpose}
             autoFocus
             rows={3}
@@ -108,7 +111,7 @@ function PurposeStep({
             }}
             style={{
               width: '100%', resize: 'none', background: 'transparent', border: 'none', outline: 'none',
-              fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
+              fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-950)',
             }}
           />
         </div>
@@ -117,7 +120,16 @@ function PurposeStep({
           <span>{purpose.length}/{PURPOSE_MAX}</span>
         </div>
 
-        <div role="group" aria-label="Starter ideas" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <p
+          id="agent-purpose-suggestions"
+          style={{
+            margin: '8px 0 -4px', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+            fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
+          }}
+        >
+          Suggestions
+        </p>
+        <div role="group" aria-labelledby="agent-purpose-suggestions" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {STARTER_CHIPS.map(chip => (
             <button
               key={chip}
@@ -396,7 +408,6 @@ function NewAgentContent() {
         <AgentEditor
           draft={draft}
           onChange={editDraft}
-          tones={tones}
           models={models}
           modelsLoading={modelsLoading}
           handle={handle}

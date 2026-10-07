@@ -73,7 +73,7 @@ const PINK_BORDER = '#FF6B97'
 const PINK_TOOLTIP_TO = '#D81857'
 const GREY_SURFACE = '#1C1C1C' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
 const TAB_TRACK = '#262626' // tab bar track: lifted well above the page so the tab strip reads as a control
-const FIELD_BG = '#262626'  // text fields: brighter than the card they sit on, with a visible ring
+const FIELD_BG = '#2E2E2E'  // every input surface (--field-surface): clearly brighter than the #1C1C1C page and cards, with a visible ring
 const AGENT_CARD = GREY_SURFACE
 
 // Content on that lighter grey needs its muted tones lifted or it becomes hard to read
@@ -342,14 +342,18 @@ const overrides = [
   ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
   // Text fields: a brighter fill than cards plus a clearly visible ring, so inputs stand out.
+  ['--field-surface', FIELD_BG],
   ['--text-field-bg', FIELD_BG],
-  ['--text-field-ring', 'rgba(255, 255, 255, 0.14)'],
-  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.24)'],
+  ['--text-field-ring', 'rgba(255, 255, 255, 0.22)'],
+  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.34)'],
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
-  ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(0, 0, 0, 0.35), 0px 0px 0px 1px rgba(255, 255, 255, 0.08)'],
-  ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(0, 0, 0, 0.22)'],
+  // Light mode keeps the chat input pure white; in dark it follows the card surface as before.
+  ['--chat-input-bg', '#262626'],
+  ['--input-group-bg-focus', FIELD_BG],
+  ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
+  ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1)'],
   // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
   // invisible on a near-black page). Hover and focus step the glow up.
   ['--shadow-chat-input', '0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07)'],
@@ -415,7 +419,7 @@ for (const [, v] of Object.entries(LEGACY)) lines.push(`  ${v.token}: ${v.dark};
 // message bubble are white surfaces with dark text in light. They keep exactly their
 // LIGHT values here (surface, text, hover tint and the shadows that depend on them).
 const lightVars = { ...decls(noComments(read('primitives.css'))), ...decls(noComments(read('aliases.css'))), ...decls(noComments(read('semantic.css'))) }
-lightVars['--icon-button-secondary-bg'] = 'var(--neutral-white)' // new light-safe token (see :root block)
+lightVars['--icon-button-secondary-bg'] = '#FFFFFF' // new light-safe token (see :root block)
 function resolveLight(value, trail = []) {
   return value.replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,[^)]*)?\)/g, (_, n) => {
     if (trail.includes(n)) throw new Error(`token cycle: ${[...trail, n].join(' -> ')}`)
@@ -515,10 +519,10 @@ const css = `/* ── Theme: dark ───────────────
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 255, 255, 255;
+  --surface-rgb: 249, 248, 245;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
-  --icon-button-secondary-bg: var(--neutral-white);
+  --icon-button-secondary-bg: #FFFFFF;
 
   /* Agent cards stay warm against the white page canvas. */
   --agent-card-bg: var(--neutral-100);
@@ -526,8 +530,8 @@ const css = `/* ── Theme: dark ───────────────
   --shadow-undo-toast: 0px 2px 4px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px rgba(59,54,50,0.10);
 
   /* Thinking / reasoning text: the "Thinking…" label, step meta text, bullets, icons, the
-     rail and the shimmer sweep. Light = the exact literals these replaced (#9A9089 etc.). */
-  --thinking-text: #9A9089;
+     rail and the shimmer sweep. Light = the literals these replaced (#9A9089 etc.), with --thinking-text darkened to #776F69 for 4.5:1. */
+  --thinking-text: #776F69;
   --thinking-text-faint: #C0B5AD;
   --thinking-icon-strong: var(--neutral-200);
   --thinking-icon-active: #A89488;

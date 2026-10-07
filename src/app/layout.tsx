@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Google_Sans } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/Toast";
 import { MotionProvider } from "@/components/MotionProvider";
-import { MetaPixel } from "@/components/MetaPixel";
 import { MixpanelProvider } from "@/components/Analytics/MixpanelProvider";
 import { QueryProvider } from "@/components/QueryProvider";
 import { SearchFieldRing } from "@/components/SearchFieldRing";
@@ -79,7 +78,6 @@ export default function RootLayout({
         </head>
       )}
       <body className="h-full antialiased" suppressHydrationWarning>
-        <MetaPixel />
         <SearchFieldRing />
         <ThemeProvider>
           <QueryProvider>

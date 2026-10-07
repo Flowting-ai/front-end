@@ -6,7 +6,8 @@ import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { apiFetch } from "@/lib/api/client"
 import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
-import { EMPTY_TURN_MESSAGE, friendlyModelError } from "@/lib/model-error"
+import { friendlyModelError } from "@/lib/model-error"
+import { resolveTurnOutcome, type TurnEnd } from "@/lib/turn-outcome"
 import {
   CHAT_STOP_ENDPOINT,
   CHATS_CREATE_ENDPOINT,
@@ -21,13 +22,15 @@ import { AguiSSEDecoder } from "@/lib/sse-decoder"
 import { toConnector } from "@/lib/connector"
 import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/types/chat"
-import { registerStream, completeStream } from "@/lib/stream-registry"
+import { toPlan } from "@/lib/plan"
+import { registerStream, completeStream, type StreamOutcome } from "@/lib/stream-registry"
 import {
   createReasoningAccumulator,
   eventRoundIndex,
   reasoningEventText,
 } from "@/lib/reasoning"
 import { normalizeActivityStatus, stopActiveActivities, toolNameToType, webSearchResults } from "@/lib/activity"
+import { deriveActivityDetail } from "@/lib/activity-detail"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -43,11 +46,23 @@ class FriendlyStreamError extends Error {
   readonly alreadyFriendly = true as const
 }
 
+/** The agent chat endpoint answers 409 for an agent that can't be chatted with right now
+ *  (no published version, paused, or disabled) — not for a retired model, which is what
+ *  the generic 409 copy says. */
+const AGENT_UNAVAILABLE_MESSAGE = "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled."
+
+function streamFailureMessage(rawText: string, status: number, endpoint: string): string {
+  if (status === 409 && endpoint.includes("persona")) return AGENT_UNAVAILABLE_MESSAGE
+  return friendlyModelError(rawText, status)
+}
+
 /** A 401 (or auth-flavored error text) from the XHR transport — the caller
  *  should sign the user out rather than show any chat error content. */
+const SESSION_EXPIRED_MESSAGE = "Your session has expired. Signing you out…"
+
 class AuthExpiredError extends Error {
   constructor() {
-    super("Your session has expired. Signing you out…")
+    super(SESSION_EXPIRED_MESSAGE)
   }
 }
 
@@ -114,6 +129,9 @@ export function useStreamingChat({
   const userMessageIdRef = useRef<string | null>(null)
   // Resolved chat ID (may start as null/temp and update once backend confirms)
   const resolvedChatIdRef = useRef<string | null>(null)
+  // Stops the current call's stream, and only that one — registered with the
+  // stream registry so the stream can be stopped from wherever its chat is shown.
+  const activeStopRef = useRef<(() => void) | null>(null)
 
   // ── Flush helpers ───────────────────────────────────────────────────────────
 
@@ -168,7 +186,7 @@ export function useStreamingChat({
     xhrRef.current?.abort()
     stopFlushInterval()
     flushPending()
-    completeStream(resolvedChatIdRef.current)
+    completeStream(resolvedChatIdRef.current, "aborted")
     setStreamState?.("aborted")
 
     const msgId = loadingMessageIdRef.current
@@ -209,6 +227,9 @@ export function useStreamingChat({
    * The function is NOT memoised - re-creating it every render ensures it
    * always closes over the freshest callbacks without ref gymnastics.
    * It is only ever called from event handlers, so identity changes are safe.
+   *
+   * Resolves with how the turn ended — the message queue holds a queued
+   * message back after a reply that failed or was stopped.
    */
   const fetchAiResponse = async (
     input: string,
@@ -216,13 +237,19 @@ export function useStreamingChat({
     loadingMessageId: string,
     modelId?: string | number | null,
     options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
-  ): Promise<void> => {
+  ): Promise<StreamOutcome> => {
     stopRequestedRef.current = false
     xhrRef.current = null
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
-    registerStream(chatId)
+    // The refs above belong to whichever call ran last, so stopping through
+    // the registry is a no-op once a newer call has taken over this hook.
+    const stopThisCall = () => {
+      if (activeStopRef.current === stopThisCall) handleStopGeneration()
+    }
+    activeStopRef.current = stopThisCall
+    registerStream(chatId, stopThisCall)
 
     // Returns true if this stream's chat is still the one the user is viewing.
     // Used to suppress setStreamState calls for background (unfocused) streams.
@@ -237,6 +264,8 @@ export function useStreamingChat({
     let assistantContent = ""
     const reasoning = createReasoningAccumulator()
     let streamFinished = false
+    // The turn ended with an error (shown as the reply or as a notice below it).
+    let turnFailed = false
     let terminalErrorSeen = false
     let titleWasSet = false    // guards: prevent `done` from overwriting a title already set by the `title` SSE event
     let receivedRenderableOutput = false
@@ -248,6 +277,62 @@ export function useStreamingChat({
     const erroredToolNames = new Set<string>()
     // Agent name → its open activity row, between agent_started and agent_finished.
     const agentActivityIds = new Map<string, string>()
+    // Prompt cards already marked in the reasoning trace (events can repeat).
+    const promptMarkerIds = new Set<string>()
+    // Reasoning time behind the "Thought for Ns" label: from the turn's first
+    // reasoning to its first answer token, or to the end of the turn.
+    let reasoningStartedAt: number | null = null
+    let reasoningDurationMs: number | undefined
+
+    const startReasoningClock = () => {
+      if (reasoningStartedAt === null && reasoningDurationMs === undefined) reasoningStartedAt = Date.now()
+    }
+
+    const stopReasoningClock = (): Pick<UIMessage, "reasoningDurationMs"> => {
+      if (reasoningStartedAt !== null && reasoningDurationMs === undefined) {
+        reasoningDurationMs = Date.now() - reasoningStartedAt
+      }
+      return reasoningDurationMs === undefined ? {} : { reasoningDurationMs }
+    }
+
+    // Every way the turn ends goes through here, so text the user has already
+    // seen is never replaced by an error (see resolveTurnOutcome). Reasoning is
+    // finalised either way; tools still running on an early end are marked stopped.
+    const finishTurn = (end: TurnEnd, error?: string) => {
+      flushPending()
+      streamFinished = true
+      const msgId = loadingMessageIdRef.current
+      if (!msgId) return
+      const outcome = resolveTurnOutcome({
+        end,
+        rawContent: assistantContent,
+        reasoningText: reasoning.text(),
+        error,
+        hasOtherOutput: receivedRenderableOutput,
+      })
+      if (outcome.isError || outcome.errorNotice) turnFailed = true
+      const sections = reasoning.sections()
+      const timeline = reasoning.timeline()
+      const duration = stopReasoningClock()
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === msgId
+            ? {
+                ...msg,
+                ...outcome,
+                ...duration,
+                isThinkingInProgress: false,
+                isLoading: false,
+                ...(end === "done"
+                  ? { stoppedByUser: false }
+                  : { activities: stopActiveActivities(msg.activities) }),
+                reasoning_sections: sections.length > 0 ? sections : undefined,
+                reasoningTimeline: timeline.length > 0 ? timeline : undefined,
+              }
+            : msg,
+        ),
+      )
+    }
 
     try {
       // ── Resolve transport: direct-to-backend vs proxy ─────────────────────
@@ -386,6 +471,7 @@ export function useStreamingChat({
               }
 
               if (newGeneratedFiles.length > 0 || newGeneratedImages.length > 0) {
+                receivedRenderableOutput = true
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== universalMsgId) return msg
@@ -426,6 +512,7 @@ export function useStreamingChat({
 
           if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
             const wasEmpty = reasoning.isEmpty()
+            startReasoningClock()
             reasoning.event(eventName, reasoningEventText(parsed), eventRoundIndex(parsed))
             const sections = reasoning.sections()
             queueUpdate({
@@ -442,15 +529,17 @@ export function useStreamingChat({
             const delta = typeof parsed.content === "string" ? parsed.content : ""
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, delta)
-            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-            const hasOpenThink = /<think>/i.test(assistantContent)
-            const hasCloseThink = /<\/think>/i.test(assistantContent)
-            const stillThinking = hasOpenThink && !hasCloseThink
+            // Only a leading <think> block is reasoning; while it is open,
+            // everything after it is reasoning too.
+            const { visibleText, thinkingText, thinkingOpen } = extractThinkingContent(assistantContent)
+            if (thinkingText || thinkingOpen) startReasoningClock()
             queueUpdate({
-              content: visibleText || "",
+              content: visibleText,
               thinking: reasoning.text() || thinkingText || undefined,
-              isThinkingInProgress: stillThinking && !reasoning.text(),
+              isThinkingInProgress: thinkingOpen && !reasoning.text(),
               isLoading: true,
+              // The first answer token ends the reasoning time.
+              ...(visibleText ? stopReasoningClock() : {}),
             }, wasEmpty)  // flush immediately on first content chunk
             continue
           }
@@ -548,6 +637,7 @@ export function useStreamingChat({
               }
 
               if (generatedFromSaved.length > 0 || imagesFromSaved.length > 0) {
+                receivedRenderableOutput = true
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== currentMsgId) return msg
@@ -712,7 +802,9 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === activityId
-                          ? { ...a, status, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
+                          // The detail (e.g. the search query) came from the tool's
+                          // args; a progress label must not replace it.
+                          ? { ...a, status, label: label ?? a.label, detail: a.detail ?? label, progressMessage, codePreview }
                           : a,
                       ),
                       reasoningTimeline: reasoning.timeline(),
@@ -755,7 +847,8 @@ export function useStreamingChat({
             toolCallIdByName.set(toolName, toolCallId)
 
             const activityType = toolNameToType(toolName)
-            const detail = label ?? toolName.replace(/_/g, " ")
+            // What the call was given (its query, URL…), not the tool's name again.
+            const detail = deriveActivityDetail(toolName, toolCall?.arguments)
             if (existingActivityId) {
               reasoning.renameActivity(existingActivityId, toolCallId)
             } else {
@@ -775,7 +868,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === existingActivityId
-                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: label ?? a.detail }
+                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: detail ?? a.detail }
                           : a,
                       ),
                       reasoningTimeline: reasoning.timeline(),
@@ -827,7 +920,7 @@ export function useStreamingChat({
                   type: activityType,
                   toolName,
                   label,
-                  detail: label ?? toolName.replace(/_/g, " "),
+                  detail: deriveActivityDetail(toolName, toolCall?.arguments),
                   status: "start",
                 }
                 reasoning.activity(callId, eventRoundIndex(parsed))
@@ -886,6 +979,7 @@ export function useStreamingChat({
                 }),
               )
             }
+            receivedRenderableOutput = true
             continue
           }
 
@@ -893,6 +987,16 @@ export function useStreamingChat({
             const prompt = parseChatPrompt(eventName, parsed)
             if (!prompt) continue
             const promptId = prompt.request_id
+            // A card is the turn's output as much as text is: a turn that ends
+            // on one isn't empty or interrupted.
+            receivedRenderableOutput = true
+            // Mark in the reasoning trace where the turn stopped to ask, so
+            // reasoning after the answer reads as a new stretch.
+            if (!promptMarkerIds.has(promptId)) {
+              promptMarkerIds.add(promptId)
+              reasoning.prompt({ promptId, title: prompt.questions?.[0]?.question || prompt.title })
+            }
+            flushPending()
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               setMessages((prev) => prev.map((msg) => {
@@ -900,7 +1004,7 @@ export function useStreamingChat({
                 const existing = msg.chatPrompts ?? []
                 return existing.some((item) => item.request_id === promptId)
                   ? msg
-                  : { ...msg, chatPrompts: [...existing, prompt] }
+                  : { ...msg, chatPrompts: [...existing, prompt], reasoningTimeline: reasoning.timeline() }
               }))
             }
             continue
@@ -924,6 +1028,7 @@ export function useStreamingChat({
                 }),
               )
             }
+            receivedRenderableOutput = true
             continue
           }
 
@@ -951,7 +1056,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === toolCallId
-                          ? { ...a, status: "done" as const, durationS, ...(label ? { label, detail: label } : {}) }
+                          ? { ...a, status: "done" as const, durationS, ...(label ? { label } : {}) }
                           : a,
                       ),
                     }
@@ -1104,6 +1209,7 @@ export function useStreamingChat({
                 toolName: "ask_agent",
                 label: agent,
                 detail: asString(parsed.task),
+                agentHandle: asString(parsed.handle),
                 status: "executing",
               }
               setMessages((prev) =>
@@ -1138,6 +1244,16 @@ export function useStreamingChat({
                   }
                 }),
               )
+            }
+            continue
+          }
+
+          if (eventName === "plan_updated") {
+            // The turn's whole plan, re-sent in full on every change (see PlanItem).
+            const plan = toPlan(parsed.items)
+            const msgId = loadingMessageIdRef.current
+            if (plan && msgId) {
+              setMessages((prev) => prev.map((msg) => (msg.id === msgId ? { ...msg, plan } : msg)))
             }
             continue
           }
@@ -1180,9 +1296,6 @@ export function useStreamingChat({
             }
 
             // Final round (finish_reason: "stop", "length", etc.)
-            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-            const finalReasoning = reasoning.text() || thinkingText
-
             if (resolvedChatIdRef.current) {
               onChatMoveToTop?.(resolvedChatIdRef.current)
             }
@@ -1206,6 +1319,7 @@ export function useStreamingChat({
 
             // Merge with any files already set via generated_file SSE events
             const msgId = loadingMessageIdRef.current
+            if (doneGeneratedFiles.length > 0) receivedRenderableOutput = true
             if (msgId && doneGeneratedFiles.length > 0) {
               setMessages((prev) =>
                 prev.map((msg) => {
@@ -1264,22 +1378,7 @@ export function useStreamingChat({
               }
             }
 
-            queueUpdate(
-              {
-                content:
-                  visibleText || (receivedRenderableOutput ? "" : EMPTY_TURN_MESSAGE),
-                thinking: finalReasoning || undefined,
-                isThinkingInProgress: false,
-                isLoading: false,
-                isError: !visibleText && !receivedRenderableOutput,
-                stoppedByUser: false,
-                reasoning_sections: reasoning.sections().length > 0 ? reasoning.sections() : undefined,
-                reasoningTimeline: reasoning.timeline().length > 0 ? reasoning.timeline() : undefined,
-              },
-              true,
-            )
-
-            streamFinished = true
+            finishTurn("done")
             continue
           }
 
@@ -1305,7 +1404,7 @@ export function useStreamingChat({
             ) {
               queueUpdate(
                 {
-                  content: "Your session has expired. Signing you out…",
+                  content: SESSION_EXPIRED_MESSAGE,
                   isLoading: false,
                   isError: true,
                 },
@@ -1315,15 +1414,7 @@ export function useStreamingChat({
                 window.dispatchEvent(new Event("auth:session-expired"))
               }
             } else {
-              queueUpdate(
-                {
-                  content: friendlyModelError(rawError),
-                  isThinkingInProgress: false,
-                  isLoading: false,
-                  isError: true,
-                },
-                true,
-              )
+              finishTurn("error", friendlyModelError(rawError))
             }
 
             streamFinished = true
@@ -1414,15 +1505,17 @@ export function useStreamingChat({
               ) {
                 reject(new AuthExpiredError())
               } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
               }
               return
             }
             const headerChatId =
               xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
+            // Adopted like the stream's own chat-id events, so the new chat's
+            // stream is registered too — the message queue must not treat a
+            // chat whose first reply is still running as idle.
             if (headerChatId && (!chatId || chatId.startsWith("temp-"))) {
-              resolvedChatIdRef.current = headerChatId
-              onChatCreated?.(headerChatId)
+              adoptChatId(headerChatId)
             }
           }
 
@@ -1454,7 +1547,7 @@ export function useStreamingChat({
               if (xhr.status === 401) {
                 reject(new AuthExpiredError())
               } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
               }
             } else {
               resolve()
@@ -1483,52 +1576,38 @@ export function useStreamingChat({
       stopFlushInterval()
       flushPending()
 
-      // Stream ended without a done or error event - treat accumulated content
-      // as the complete response
-      if (!streamFinished) {
-        if (assistantContent) {
-          const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-          const finalReasoning = reasoning.text() || thinkingText
-          queueUpdate(
-            {
-              content: visibleText || assistantContent,
-              thinking: finalReasoning || undefined,
-              isThinkingInProgress: false,
-              isLoading: false,
-              reasoning_sections: reasoning.sections().length > 0 ? reasoning.sections() : undefined,
-            },
-            true,
-          )
-        } else {
-          queueUpdate(
-            { content: "Generation interrupted. Please retry.", isLoading: false, isError: true },
-            true,
-          )
-        }
-      }
+      // Stream ended without a done or error event - treat what was shown as
+      // the complete response. A user Stop already finalised the message.
+      if (!streamFinished && !stopRequestedRef.current) finishTurn("ended")
 
-      completeStream(resolvedChatIdRef.current)
+      const outcome: StreamOutcome = stopRequestedRef.current ? "aborted" : turnFailed ? "error" : "done"
+      completeStream(resolvedChatIdRef.current, outcome)
       setStreamState?.("done")
       onStreamDone?.()
+      return outcome
     } catch (error) {
       stopFlushInterval()
       flushPending()
-      completeStream(resolvedChatIdRef.current)
+      completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
 
       // User-initiated stop - not an error
       if (stopRequestedRef.current) {
         setStreamState?.("aborted")
-        return
+        return "aborted"
       }
 
-      logger.error("[useStreamingChat] Error", error)
+      // A FriendlyStreamError was already logged where it was raised (status, endpoint,
+      // body); logging it again here only doubles the dev overlay's issue count.
+      if (!(error instanceof FriendlyStreamError)) logger.error("[useStreamingChat] Error", error)
 
       if (error instanceof AuthExpiredError) {
         setStreamState?.("error")
+        // Settle the reply (no cursor or busy state) while the sign-out runs.
+        if (!streamFinished) finishTurn("error", SESSION_EXPIRED_MESSAGE)
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("auth:session-expired"))
         }
-        return
+        return "error"
       }
 
       const rawMsg =
@@ -1545,28 +1624,25 @@ export function useStreamingChat({
         lower.includes("401")
       ) {
         setStreamState?.("error")
+        if (!streamFinished) finishTurn("error", SESSION_EXPIRED_MESSAGE)
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("auth:session-expired"))
         }
-        return
+        return "error"
       }
 
       setStreamState?.("error")
-      queueUpdate(
-        {
-          // Errors from the XHR paths above are already translated by
-          // friendlyModelError at the point of failure, when the real status
-          // code / raw backend text was still available. Re-running the
-          // translator on that already-friendly text would match no known
-          // pattern and flatten it into the generic fallback — so only
-          // translate genuinely-raw messages here.
-          content: error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg),
-          isThinkingInProgress: false,
-          isLoading: false,
-          isError: true,
-        },
-        true,
-      )
+      // A turn already finished by its done/error event keeps that outcome.
+      if (!streamFinished) {
+        // Errors from the XHR paths above are already translated by
+        // friendlyModelError at the point of failure, when the real status
+        // code / raw backend text was still available. Re-running the
+        // translator on that already-friendly text would match no known
+        // pattern and flatten it into the generic fallback — so only
+        // translate genuinely-raw messages here.
+        finishTurn("error", error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg))
+      }
+      return "error"
     }
   }
 
@@ -1576,7 +1652,7 @@ export function useStreamingChat({
     if (resolvedChatIdRef.current === chatId) return
     if (resolvedChatIdRef.current && !resolvedChatIdRef.current.startsWith("temp-")) return
     resolvedChatIdRef.current = chatId
-    registerStream(chatId)
+    registerStream(chatId, activeStopRef.current ?? undefined)
     onChatCreated?.(chatId)
   }
 

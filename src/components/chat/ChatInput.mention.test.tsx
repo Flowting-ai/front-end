@@ -82,7 +82,8 @@ afterEach(async () => {
 
 const box = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')!
 const menu = () => document.querySelector('[role="listbox"]')
-const options = () => Array.from(document.querySelectorAll('[role="option"]')).map(el => el.textContent)
+// Each row is name + a one-line description; the name is the first paragraph.
+const options = () => Array.from(document.querySelectorAll('[role="option"]')).map(el => el.querySelector('p')?.textContent)
 
 async function mount(props: Parameters<typeof Harness>[0] = {}) {
   await act(async () => root.render(<Harness {...props} />))

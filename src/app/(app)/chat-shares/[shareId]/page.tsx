@@ -1,21 +1,49 @@
 'use client'
 
-import React, { Suspense, useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   getSharedChatView,
   forkChatShare,
   type SharedChatView,
+  type SharedChatMessage,
 } from '@/lib/api/chat-shares'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
-import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { ContentRenderer } from '@/lib/content-renderer'
+import { deriveCitationsFromSources } from '@/lib/citations'
+import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
+import { SourceList } from '@/components/chat/CitationChip'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { Skeleton } from '@/components/Skeleton'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
+
+/**
+ * One shared reply: the reasoning the model did (collapsed, as in the chat), the answer, and
+ * the sources behind it. The model ends a web-sourced answer with its own "Sources:" block;
+ * parsed, it backs the [N] chips and gives way to the source list — same as in a live chat.
+ */
+function SharedReply({ message }: { message: SharedChatMessage }) {
+  const output = message.output ?? ''
+  const sources = useMemo(() => deriveCitationsFromSources(output), [output])
+  const citations = sources.citations.length > 0 ? sources.citations : undefined
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
+      {message.reasoning && (
+        <ReasoningBlock
+          thinkingContent={message.reasoning}
+          isNewMessage={false}
+          modelName={message.modelName ?? undefined}
+        />
+      )}
+      {output && <ContentRenderer content={sources.contentWithoutSourcesBlock} webCitations={citations} />}
+      {citations && <SourceList citations={citations} />}
+    </div>
+  )
+}
 
 function SharedChatContent() {
   const params   = useParams()
@@ -221,11 +249,7 @@ function SharedChatContent() {
                     </div>
                   </div>
                 )}
-                {msg.output && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
-                    <MarkdownRenderer content={msg.output} />
-                  </div>
-                )}
+                {(msg.output || msg.reasoning) && <SharedReply message={msg} />}
               </div>
             ))}
           </div>

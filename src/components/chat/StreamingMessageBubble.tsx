@@ -289,7 +289,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-400)',
+          color:      'var(--neutral-600)',
           fontWeight: 'var(--font-weight-medium)',
         }}>
           {lang || 'code'}
@@ -365,10 +365,10 @@ export function StreamingMessageBubble({
   return (
     <m.div
       initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
-      animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
+      animate={{ opacity: 1, y: 0,  filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
       transition={springs.moderate}
     >
-      <StreamingContentRenderer content={content} />
+      <StreamingContentRenderer content={content} isStreaming={!isComplete} />
       {!isComplete && (
         <BreathingDot
           size="sm"

@@ -31,11 +31,13 @@ import { PINS_ENABLED } from "@/lib/feature-flags";
 import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
+import { AgentChip } from "@/components/chat/AgentChip";
+import { useOpenAgentsPanel } from "@/hooks/use-open-agents-panel";
+import { publishActiveChatAgent } from "@/lib/active-chat-agent-store";
 import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
 import { getVersion } from "@/lib/api/personas";
-import { useSelectableChatPersonas } from "@/hooks/use-selectable-chat-personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -67,6 +69,8 @@ interface ChatSettings {
   webSearch: boolean;
   persona: SelectedPersonaInfo | null;
 }
+
+const NEVER_RAN = Symbol("chat-url-effect-not-run");
 
 function loadChatSettings(chatId: string): ChatSettings | null {
   try {
@@ -121,6 +125,11 @@ function ChatPageInner() {
   const fromSchedule = searchParams.get("fromSchedule");
   const scheduleKeyRef = useRef<string | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false };
+  }, []);
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
@@ -136,7 +145,6 @@ function ChatPageInner() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
   const [styleChipOpen,       setStyleChipOpen]       = useState(false);
-  const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
   const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
@@ -149,7 +157,6 @@ function ChatPageInner() {
       description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
     } },
   );
-  const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
   // Tracks which chatIds were created in this session as persona chats.
   // This prevents routing an existing regular chatId through the persona endpoint.
@@ -163,7 +170,13 @@ function ChatPageInner() {
 
   // When the URL chatId changes (navigation), load that chat's stored settings.
   // Settings are per-chat — navigating away resets to defaults so no cross-chat bleed.
+  const lastChatIdRef = useRef<unknown>(NEVER_RAN);
   useEffect(() => {
+    // React strict mode (dev) runs effects twice on mount with the same URL. The first run consumes
+    // the pending-agent handoff flag below, so the second would fall into the blank-chat branch and
+    // wipe the freshly attached agent chip. Only react to the URL actually changing.
+    if (lastChatIdRef.current === (chatIdFromUrl ?? null)) return;
+    lastChatIdRef.current = chatIdFromUrl ?? null;
     if (chatIdFromUrl) {
       // Skip the reload for the chat we JUST created via handleChatCreated in
       // this session — it already set selectedPersona/webSearchEnabled
@@ -343,41 +356,13 @@ function ChatPageInner() {
     );
   });
 
+  const openAgentsPanel = useOpenAgentsPanel();
   const personaChip = selectedPersona ? (
-    <Dropdown.Float
-      open={personaChipOpen}
-      onOpenChange={setPersonaChipOpen}
-      placement="top-start"
-      trigger={
-        <Chip
-          label={selectedPersona.name}
-          personaImage={selectedPersona.imageUrl ?? undefined}
-          onRemove={() => setSelectedPersona(null)}
-          onExpand={() => setPersonaChipOpen(v => !v)}
-          title={undefined}
-          style={undefined}
-        />
-      }
-    >
-      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
-        <Dropdown.Section fluid>
-          {loadingChipPersonas
-            ? <Dropdown.Item label="Loading…" fluid disabled />
-            : chipPersonas.length > 0
-              ? chipPersonas.map(p => (
-                  <Dropdown.Item
-                    key={p.id}
-                    label={p.name}
-                    fluid
-                    selected={selectedPersona.id === p.id}
-                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
-                  />
-                ))
-              : <Dropdown.Item label="No agents yet" fluid disabled />
-          }
-        </Dropdown.Section>
-      </Dropdown>
-    </Dropdown.Float>
+    <AgentChip
+      agent={selectedPersona}
+      onRemove={() => setSelectedPersona(null)}
+      onOpenPanel={openAgentsPanel}
+    />
   ) : null;
 
   // Chips for ChatInterface (style + folder chips + web search + persona)
@@ -445,6 +430,13 @@ function ChatPageInner() {
   useEffect(() => {
     setPersonaActive(!!selectedPersona);
   }, [selectedPersona, setPersonaActive]);
+
+  // Tell the Agents panel (rendered in the app shell) which agent is attached, so it offers
+  // "Replace agent" instead of "Use agent" while a chip is active. Cleared when leaving the page.
+  useEffect(() => {
+    publishActiveChatAgent(selectedPersona?.id ?? null);
+  }, [selectedPersona]);
+  useEffect(() => () => publishActiveChatAgent(null), []);
 
   useEffect(() => {
     if (!selectedPersona) return
@@ -615,6 +607,28 @@ function ChatPageInner() {
 
   const handleChatCreated = (chatId: string) => {
     newlyCreatedChatIdRef.current = chatId;
+    // "New chat" remounts this component, but a first message that was still
+    // being created keeps streaming in the discarded instance and reports its
+    // chat id here a few seconds later. The chat is real, so the sidebar still
+    // gets it, but it must not steer the live URL/state — otherwise the user
+    // who just clicked "New chat" is yanked back into the old chat. Same when
+    // they opened a different existing chat from the sidebar meanwhile (this
+    // component stays mounted for that, so the live URL already names another
+    // chat).
+    const liveId = new URLSearchParams(window.location.search).get("id");
+    if (!mountedRef.current || (liveId && liveId !== chatId)) {
+      const stub = {
+        id: chatId,
+        can_edit: true,
+        title: "New chat",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        starred: false,
+      };
+      addOptimistic(stub);
+      emitChatCreated(stub);
+      return;
+    }
     if (selectedProjectId) {
       const projectId = selectedProjectId;
       void addChatToProject(projectId, chatId)

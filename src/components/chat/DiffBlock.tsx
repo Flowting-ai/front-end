@@ -19,7 +19,7 @@ function lineStyle(line: string): React.CSSProperties {
     return { backgroundColor: "color-mix(in srgb, var(--red-500) 8%, transparent)", color: "var(--color-tag-Red-text, var(--red-500))" }
   }
   if (line.startsWith("@@") || line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ")) {
-    return { color: "var(--neutral-400)" }
+    return { color: "var(--neutral-600)" }
   }
   return { color: "var(--neutral-700)" }
 }

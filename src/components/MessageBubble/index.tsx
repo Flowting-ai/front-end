@@ -12,12 +12,13 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import Exchange01Icon from '@hugeicons/core-free-icons/Exchange01Icon'
 import { cn } from '@/lib/utils'
+import { useModKeyLabel } from '@/lib/platform'
 import { ContentRenderer } from '@/lib/content-renderer'
 
 // ── Animation constants (KDS in-place swap pattern) ────────────────────────────
 const SPRING       = { type: 'spring', stiffness: 500, damping: 30 } as const
 const SWAP_INITIAL = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
-const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
+const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }
 const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 
 // ── Shadow / focus constants ──────────────────────────────────────────────────
@@ -50,7 +51,7 @@ const WIDTH_MS = 200
 // ── Shared text style (view <p> + edit <textarea> + mirror <div> must match) ──
 const TEXT_STYLE: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
-  fontWeight:   'var(--font-weight-medium)',
+  fontWeight:   'var(--font-weight-regular)',
   fontSize:     'var(--font-size-body-lg)',
   lineHeight:   'var(--line-height-body-lg)',
   color:        'var(--message-bubble-user-text)',
@@ -83,10 +84,14 @@ export function MessageBubble({
     role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, hideActions, className, ...props
   }: MessageBubbleProps & { ref?: React.Ref<HTMLDivElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
+    const modKey = useModKeyLabel()
 
     const [copied,      setCopied]      = useState(false)
     const [editing,     setEditing]     = useState(false)
     const [hovered,     setHovered]     = useState(false)
+    // Focus on any action-bar button (e.g. tabbing to it) reveals the bar too,
+    // so a focused button is never invisible.
+    const [barFocused,  setBarFocused]  = useState(false)
     const [editDraft,   setEditDraft]   = useState(content)
     // Drives the CSS width during animated transitions. Normally 'fit-content';
     // briefly set to a measured px value so CSS can interpolate.
@@ -94,6 +99,7 @@ export function MessageBubble({
 
     const textareaRef     = useRef<HTMLTextAreaElement>(null)
     const bubbleCardRef   = useRef<HTMLDivElement>(null)
+    const editButtonRef   = useRef<HTMLButtonElement>(null)
     // Pixel width captured just before entering edit mode - used to animate back on exit.
     const naturalWidthRef = useRef<number>(0)
     const timers          = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
@@ -149,6 +155,9 @@ export function MessageBubble({
     const exitEditMode = (resetDraft: boolean) => {
       setEditing(false)
       if (resetDraft) setEditDraft(content)
+      // The textarea (or Cancel/Save) holding focus is about to unmount — hand
+      // focus back to the control that opened the editor instead of <body>.
+      editButtonRef.current?.focus()
 
       if (!shouldReduceMotion && naturalWidthRef.current) {
         // Animate from 100% back to the captured natural width (px → px, interpolatable),
@@ -178,6 +187,7 @@ export function MessageBubble({
     }
 
     const fadeDuration = shouldReduceMotion ? 0 : 0.15
+    const actionsRevealed = (hovered || barFocused) && !editing
 
     // ── Assistant bubble ───────────────────────────────────────────────────────
     if (!isUser) {
@@ -198,19 +208,28 @@ export function MessageBubble({
     }
 
     // ── User bubble ────────────────────────────────────────────────────────────
+    // The root spans the full width it's given (the bubble stays right-aligned
+    // inside it), so hovering anywhere across the message row — not just the
+    // fit-content bubble — reveals the action bar. The inner wrapper keeps the
+    // bubble's own fit-content sizing, which edit mode's width animation
+    // resolves against.
     return (
       <div
         ref={ref}
-        className={cn('relative flex flex-col items-end', className)}
+        className={cn('flex flex-col items-end', className)}
+        style={{ width: '100%' }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        {...props}
+      >
+      <div
+        className="relative flex flex-col items-end"
         style={{
           maxWidth: maxWidth ?? 566,
           // Reserve space for absolute-positioned CTAs so siblings never shift
           paddingBottom: editing ? CTA_ZONE : 0,
           transition:    shouldReduceMotion ? 'none' : `padding-bottom ${fadeDuration}s ease-out`,
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        {...props}
       >
         {/* ── Bubble card ── */}
         {/*                                                                          */}
@@ -355,17 +374,21 @@ export function MessageBubble({
                   padding:    0,
                 }}
               >
-                ⌘↵
+                {modKey}↵
               </kbd>
             </m.div>
           )}
         </AnimatePresence>
 
-        {/* ── Action bar — revealed on bubble hover, matching chat preview ── */}
+        {/* ── Action bar — revealed on row hover or button focus, matching chat preview ── */}
         {!hideActions && (
           <m.div
-            animate={{ opacity: hovered && !editing ? 1 : 0 }}
+            animate={{ opacity: actionsRevealed ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
+            onFocus={() => setBarFocused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setBarFocused(false)
+            }}
             style={{
               display:       'flex',
               alignItems:    'center',
@@ -374,7 +397,7 @@ export function MessageBubble({
               height:        24,
               marginTop:     6,
               paddingRight:  2,
-              pointerEvents: hovered && !editing ? 'auto' : 'none',
+              pointerEvents: actionsRevealed ? 'auto' : 'none',
             }}
           >
             {timestamp && (
@@ -404,6 +427,7 @@ export function MessageBubble({
             )}
             {onEditSave && (
               <IconButton
+                ref={editButtonRef}
                 variant="ghost-2" size="xs"
                 aria-label="Edit message"
                 icon={<span style={{ display: 'flex', color: 'var(--message-bubble-action-icon)' }}><PenOneIcon size={16} /></span>}
@@ -430,6 +454,7 @@ export function MessageBubble({
             />
           </m.div>
         )}
+      </div>
       </div>
     )
 }

@@ -1,26 +1,14 @@
 ﻿'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { trackFeature } from '@/lib/analytics/events'
-import CustomerService01Icon from '@hugeicons/core-free-icons/CustomerService01Icon'
-import GoldSellIcon from '@hugeicons/core-free-icons/GoldSellIcon'
-import CourtHouseIcon from '@hugeicons/core-free-icons/CourtHouseIcon'
-import SearchVisualIcon from '@hugeicons/core-free-icons/SearchVisualIcon'
-import ContentWritingIcon from '@hugeicons/core-free-icons/ContentWritingIcon'
-import InspectCodeIcon from '@hugeicons/core-free-icons/InspectCodeIcon'
-import Login01Icon from '@hugeicons/core-free-icons/Login01Icon'
-import Target02Icon from '@hugeicons/core-free-icons/Target02Icon'
-import AnalysisTextLinkIcon from '@hugeicons/core-free-icons/AnalysisTextLinkIcon'
-import OfficeChairIcon from '@hugeicons/core-free-icons/OfficeChairIcon'
-import Briefcase08Icon from '@hugeicons/core-free-icons/Briefcase08Icon'
-import Mortarboard01Icon from '@hugeicons/core-free-icons/Mortarboard01Icon'
-import Analytics01Icon from '@hugeicons/core-free-icons/Analytics01Icon'
-import MentoringIcon from '@hugeicons/core-free-icons/MentoringIcon'
-import BrowserIcon from '@hugeicons/core-free-icons/BrowserIcon'
 import { Button } from '@/components/Button'
+import { PersonaCard, PERSONA_CARD_HEIGHT, PERSONA_CARD_WIDTH } from '@/components/PersonaCard'
+import type { AvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
+import type { AnySceneKind } from '@/components/PersonaCard/HeroScene'
 import Tabs from '@/components/Tabs'
 import { AgentPageShell } from '../_components/AgentPageShell'
 import { TEMPLATE_PRESETS } from '../_data/template-presets'
@@ -30,24 +18,6 @@ import { recommendTemplates, type TemplateRecommendation } from '@/lib/agent-tem
 import { AGENTS_NEW_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 
 // ── Template categories ───────────────────────────────────────────────────────
-
-const TEMPLATE_ICONS: Record<string, typeof CustomerService01Icon> = {
-  'Customer Support': CustomerService01Icon,
-  'Sales': GoldSellIcon,
-  'Legal': CourtHouseIcon,
-  'Research': SearchVisualIcon,
-  'Content Writer': ContentWritingIcon,
-  'Code Review': InspectCodeIcon,
-  'Onboarding': Login01Icon,
-  'Marketing': Target02Icon,
-  'Data Analyst': AnalysisTextLinkIcon,
-  'HR & Recruiting': OfficeChairIcon,
-  'Executive Assistant': Briefcase08Icon,
-  'Education': Mortarboard01Icon,
-  'Productivity': Analytics01Icon,
-  'Tutoring': MentoringIcon,
-  'Web QA': BrowserIcon,
-}
 
 // One line each — clamped to 2 lines in the card, so longer copy just wraps.
 const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
@@ -68,109 +38,75 @@ const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
   'Web QA': 'Test flows and catch UI regressions',
 }
 
-// Reuses the shared tag palette (`--color-tag-{Color}-*`, see Badge) so each
-// category reads as a distinct, on-brand accent rather than an arbitrary hue.
-type TagColor = 'Blue' | 'Red' | 'Green' | 'Yellow' | 'Purple' | 'Brown' | 'Neutral'
-
-const TEMPLATE_COLORS: Record<string, TagColor> = {
-  'Customer Support': 'Blue',
-  'Sales': 'Green',
-  'Legal': 'Brown',
-  'Research': 'Purple',
-  'Content Writer': 'Yellow',
-  'Code Review': 'Neutral',
-  'Onboarding': 'Blue',
-  'Marketing': 'Green',
-  'Data Analyst': 'Purple',
-  'HR & Recruiting': 'Yellow',
-  'Executive Assistant': 'Neutral',
-  'Education': 'Brown',
-  'Productivity': 'Blue',
-  'Tutoring': 'Yellow',
-  'Web QA': 'Red',
+// Each template gets its own animated avatar, so a template card reads like the agent it becomes.
+const TEMPLATE_AVATARS: Record<string, AvatarChoice> = {
+  'Customer Support':    'sky',
+  'Sales':               'lime',
+  'Legal':               'slate',
+  'Research':            'scout',
+  'Content Writer':      'coral',
+  'Code Review':         'indigo',
+  'Onboarding':          'teal',
+  'Marketing':           'marketing',
+  'Data Analyst':        'violet',
+  'HR & Recruiting':     'amber',
+  'Executive Assistant': 'dusk',
+  'Education':           'sand',
+  'Productivity':        'mint',
+  'Tutoring':            'rose',
+  'Web QA':              'ember',
 }
 
-const TEMPLATE_ROWS: string[][] = [
-  ['Customer Support', 'Sales', 'Legal', 'Research'],
-  ['Content Writer', 'Code Review', 'Onboarding', 'Marketing'],
-  ['Data Analyst', 'HR & Recruiting', 'Executive Assistant', 'Education'],
-  ['Productivity', 'Tutoring', 'Web QA'],
-]
+// …and its own animated banner for the job. Research and Marketing use their avatars'
+// themed scenes (radar, social reactions), which already are those jobs.
+const TEMPLATE_SCENES: Record<string, AnySceneKind> = {
+  'Customer Support':    'support',
+  'Sales':               'sales',
+  'Legal':               'legal',
+  'Research':            'scout',
+  'Content Writer':      'writer',
+  'Code Review':         'code',
+  'Onboarding':          'onboarding',
+  'Marketing':           'marketing',
+  'Data Analyst':        'data',
+  'HR & Recruiting':     'hr',
+  'Executive Assistant': 'exec',
+  'Education':           'education',
+  'Productivity':        'productivity',
+  'Tutoring':            'tutoring',
+  'Web QA':              'webqa',
+}
+
+const TEMPLATE_NAMES = Object.keys(TEMPLATE_DESCRIPTIONS)
 
 // ── Template card ─────────────────────────────────────────────────────────────
-// Fixed width AND height so the grid stays aligned regardless of how long a
-// given name/description is — both are 2-line-clamped rather than left to
-// grow the card.
+// The same animated agent card as /agents, with the template's own avatar and job banner; its button
+// starts building an agent from the template.
 
-const CARD_WIDTH = 179
-const CARD_HEIGHT = 172
+const CARD_WIDTH = PERSONA_CARD_WIDTH
+const CARD_HEIGHT = PERSONA_CARD_HEIGHT
+
+// Three columns of agent cards; the page is as wide as the three plus their gaps.
+const GRID_GAP = 16
+const GRID_WIDTH = CARD_WIDTH * 3 + GRID_GAP * 2
+const GRID_STYLE: React.CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(3, ${CARD_WIDTH}px)`, gap: GRID_GAP }
 
 function TemplateCard({ name, onClick, disabled }: { name: string; onClick: () => void; disabled?: boolean }) {
-  const [hovered, setHovered] = useState(false)
-  const color = TEMPLATE_COLORS[name] ?? 'Neutral'
-
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
-        border: `1.274px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-100)'}`,
-        borderRadius: 15,
-        padding: '20px 16px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        boxShadow: hovered
-          ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 60%, transparent)'
-          : '0px 2.548px 3.821px 0px color-mix(in srgb, var(--blue-100) 40%, transparent)',
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        transform: hovered ? 'translateY(-2px)' : 'none',
-        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms, opacity 150ms',
-      }}
-    >
-      <div style={{
-        width: 44, height: 44,
-        borderRadius: 12,
-        flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `var(--color-tag-${color}-bg)`,
-        transform: hovered ? 'scale(1.06)' : 'scale(1)',
-        transition: 'transform 150ms',
-      }}>
-        <HugeiconsIcon
-          icon={TEMPLATE_ICONS[name]}
-          size={22}
-          color={`var(--color-tag-${color}-text)`}
-          strokeWidth={1.5}
-        />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minHeight: 0 }}>
-        <span style={{
-          fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-          fontSize: 15, lineHeight: '20px', color: 'var(--neutral-950)',
-          textAlign: 'center',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {name}
-        </span>
-        <span
-          title={TEMPLATE_DESCRIPTIONS[name]}
-          style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400,
-            fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
-            color: 'var(--neutral-500)',
-            textAlign: 'center',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}
-        >
-          {TEMPLATE_DESCRIPTIONS[name]}
-        </span>
-      </div>
-    </button>
+    <div data-template={name} style={{ opacity: disabled ? 0.6 : 1, pointerEvents: disabled ? 'none' : undefined }}>
+      <PersonaCard
+        name={name}
+        handle=""
+        description={TEMPLATE_DESCRIPTIONS[name]}
+        avatarSeed={name}
+        avatarChoice={TEMPLATE_AVATARS[name] ?? null}
+        scene={TEMPLATE_SCENES[name]}
+        createdBy="Souvenir"
+        hideMenu
+        onUseInChat={onClick}
+        useInChatLabel="Use template"
+      />
+    </div>
   )
 }
 
@@ -195,7 +131,7 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
         borderRadius: 16,
         padding: '16px 17px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        width: 764,
+        width: GRID_WIDTH,
         boxShadow: hovered
           ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 50%, transparent), 0px 0px 0px 1px var(--neutral-100)'
           : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
@@ -253,11 +189,6 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
 
 // ── Recommended grid ──────────────────────────────────────────────────────────
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const rows: T[][] = []
-  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size))
-  return rows
-}
 
 function RecommendedGrid({
   recommendation, disabled, onPick, onBrowseAll,
@@ -269,8 +200,8 @@ function RecommendedGrid({
 }) {
   if (!recommendation) {
     return (
-      <div role="status" aria-live="polite" style={{ display: 'flex', gap: 16 }}>
-        {[0, 1, 2, 3].map(i => <div key={i} className="kaya-skeleton" style={{ width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 15 }} />)}
+      <div role="status" aria-live="polite" style={GRID_STYLE}>
+        {[0, 1, 2].map(i => <div key={i} className="kaya-skeleton" style={{ height: CARD_HEIGHT, borderRadius: 15 }} />)}
       </div>
     )
   }
@@ -290,26 +221,23 @@ function RecommendedGrid({
           </button>
         </p>
       ) : (
-        chunk(items, 4).map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', gap: 16 }}>
-            {row.map(item => (
-              <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, width: CARD_WIDTH }}>
-                <TemplateCard name={item.name} onClick={() => onPick(item.name)} disabled={disabled} />
-                {item.because.length > 0 && (
-                  <span
-                    title={`Works with ${item.because.join(', ')}`}
-                    style={{
-                      fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
-                      color: 'var(--neutral-500)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Works with {item.because.join(', ')}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ))
+        <div style={GRID_STYLE}>
+          {items.map(item => (
+            <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, width: CARD_WIDTH }}>
+              <TemplateCard name={item.name} onClick={() => onPick(item.name)} disabled={disabled} />
+              {item.because.length > 0 && (
+                <Tooltip content={`Works with ${item.because.join(', ')}`} maxWidth={280}><span
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+                    color: 'var(--neutral-500)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                >
+                  Works with {item.because.join(', ')}
+                </span></Tooltip>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -354,7 +282,7 @@ export default function PersonaTemplatesPage() {
   const recommended = useMemo(() => {
     if (!signals) return null
     return recommendTemplates({
-      templates: TEMPLATE_ROWS.flat(),
+      templates: TEMPLATE_NAMES,
       linked: signals.linked,
       existingAgents: signals.agents,
       presetNames: Object.fromEntries(Object.entries(TEMPLATE_PRESETS).map(([name, preset]) => [name, preset.name])),
@@ -367,7 +295,7 @@ export default function PersonaTemplatesPage() {
   }
 
   return (
-    <AgentPageShell maxWidth={780}>
+    <AgentPageShell maxWidth={GRID_WIDTH}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 36, alignItems: 'center', width: '100%' }}>
 
         {/* Heading */}
@@ -401,13 +329,11 @@ export default function PersonaTemplatesPage() {
 
           {tab === 'general' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {TEMPLATE_ROWS.map((row, ri) => (
-                <div key={ri} style={{ display: 'flex', gap: 16 }}>
-                  {row.map(name => (
-                    <TemplateCard key={name} name={name} onClick={() => startFromTemplate(name)} disabled={!hydrated} />
-                  ))}
-                </div>
-              ))}
+              <div style={GRID_STYLE}>
+                {TEMPLATE_NAMES.map(name => (
+                  <TemplateCard key={name} name={name} onClick={() => startFromTemplate(name)} disabled={!hydrated} />
+                ))}
+              </div>
             </div>
           ) : (
             <RecommendedGrid
@@ -422,7 +348,7 @@ export default function PersonaTemplatesPage() {
         {/* Footer */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          width: 764, paddingTop: 64,
+          width: GRID_WIDTH, paddingTop: 64,
         }}>
           <Button
             variant="outline"

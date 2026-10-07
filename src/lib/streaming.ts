@@ -1,23 +1,11 @@
 /**
- * Merges a streaming text delta into the accumulated content.
+ * Appends a streaming text delta to the accumulated content.
  *
- * Handles both delta-mode (sends only new chars) and snapshot-mode
- * (sends the full accumulated string each time) backends.
+ * The backend streams deltas only (each event carries just the new chars), so
+ * this is plain concatenation. Never dedupe: a delta that repeats the text so
+ * far ("ha" + "ha") or extends it ("a" + "ab") is genuine new content.
  */
 export const mergeStreamingText = (
   currentValue: string | null | undefined,
   incomingValue: string | null | undefined,
-): string => {
-  const current = currentValue ?? ""
-  const incoming = incomingValue ?? ""
-
-  if (!incoming) return current
-  if (!current) return incoming
-  if (incoming === current) return current
-
-  // Snapshot mode: backend resent the full accumulated string, now longer
-  if (incoming.length > current.length && incoming.startsWith(current)) return incoming
-
-  // Delta mode: always append
-  return `${current}${incoming}`
-}
+): string => `${currentValue ?? ""}${incomingValue ?? ""}`

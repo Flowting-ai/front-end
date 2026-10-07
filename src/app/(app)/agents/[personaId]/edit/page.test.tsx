@@ -27,6 +27,7 @@ const api = vi.hoisted(() => ({
   enhancePrompt:         vi.fn(),
   testVersionStream:     vi.fn(),
   createPersonaRepo:     vi.fn(),
+  findAgentNameConflict: vi.fn().mockResolvedValue(null),
 }))
 const models = vi.hoisted(() => ({ fetchModelsWithCache: vi.fn() }))
 
@@ -212,21 +213,9 @@ describe('/agents/[personaId]/edit', () => {
     expect(api.updateVersion).not.toHaveBeenCalled()
   })
 
-  it('has no Advanced personalize button — instructions, tone and creativity are on the page', async () => {
+  it('has no Fine-tune button — instructions and creativity are on the page', async () => {
     await render()
-    expect(document.body.textContent).not.toContain('Advanced personalize')
-  })
-
-  it('applies a tone picked on the page to the draft, saved with the page', async () => {
-    await render()
-    const tone = Array.from(document.querySelectorAll<HTMLElement>('button')).find(b => b.textContent === 'Warm & approachable')!
-    await click(tone)
-    expect(api.updateVersion).not.toHaveBeenCalled()
-
-    await click(saveButton())
-    expect(api.updateVersion).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'You triage support emails.\n\nTone: Warm & approachable — Human first, solution second.',
-    }))
+    expect(document.body.textContent).not.toContain('Fine-tune')
   })
 
   describe('who may edit', () => {

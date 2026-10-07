@@ -483,7 +483,7 @@ export function ShareModal({
             gap:             8,
             padding:         '7px 10px',
             borderRadius:    10,
-            backgroundColor: 'var(--neutral-white)',
+            backgroundColor: 'var(--field-surface)',
             boxShadow:       SHADOW_INPUT,
             boxSizing:       'border-box' as const,
           }}

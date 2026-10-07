@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { m } from "framer-motion";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { BubbleChatAddIcon, CalendarThreeIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
@@ -17,7 +18,7 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { MoveToProjectModal } from "@/components/MoveToProjectModal";
 import { addChatToProject } from "@/lib/api/projects";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, isDraftPersona, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { resolveViewerUserId } from "@/lib/api/teams";
 import { usePersonas } from "@/lib/queries/personas";
@@ -36,7 +37,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { ChipColor } from "@/components/Chip";
-import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
+import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed, personaProfileKey } from "@/lib/storage-keys";
 import { useMobile } from "@/hooks/use-mobile";
 import {
   PROJECT_ROUTE,
@@ -65,22 +66,57 @@ import {
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
 import { ReportBugModal } from "@/components/ReportBugModal";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
 import type { Chat } from "@/types/chat";
+
+// Notifications bell in the account-menu row is switched off; flip to true to restore it.
+const SHOW_NOTIFICATION_BELL = false;
 
 // -- Collapse state persistence ------------------------------------------------
 
-function readCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+// The initial state comes from the `sidebar_collapsed` cookie, read on the
+// server by the (app) layout and passed down as `defaultCollapsed`, so the
+// server render and the client's first render agree (no localStorage read
+// during render — that's what caused the 294px-vs-48px hydration mismatch).
+// localStorage is still written for agent/configure/layout.tsx, which reads it
+// to decide whether to toggle the sidebar.
+
+const SIDEBAR_COLLAPSED_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+// The latest toggle in this page session. The (app) layout isn't re-rendered
+// on client navigation, so its cookie-derived prop goes stale; a sidebar that
+// remounts (e.g. coming back from Settings) must start from this instead.
+let sessionCollapsed: boolean | undefined;
+
+function writeCollapsedCookie(collapsed: boolean) {
+  document.cookie = `${SIDEBAR_COLLAPSED_KEY}=${collapsed}; path=/; max-age=${SIDEBAR_COLLAPSED_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function writeCollapsed(collapsed: boolean) {
+  sessionCollapsed = collapsed;
+  writeCollapsedCookie(collapsed);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+}
+
+// One-time migration: the preference used to live only in localStorage. Copy
+// it into the cookie so the next page load renders it on the server.
+function migrateCollapsedCookie() {
+  const hasCookie = document.cookie.split("; ").some((c) => c.startsWith(`${SIDEBAR_COLLAPSED_KEY}=`));
+  if (hasCookie) return;
+  const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  if (stored !== null) writeCollapsedCookie(parseSidebarCollapsed(stored));
 }
 
 // -- Draft avatar fallback ------------------------------------------------------
 // Draft agents' active version often has no persisted image_url yet — the
 // configure flow stashes the in-progress avatar in sessionStorage (same key the
 // /agents grid reads) before it's reflected in the fetched persona record.
-function personaAvatarUrl(persona: Persona): string | null {
+// `isClient` (useIsClient) keeps the sessionStorage read out of the server render
+// and hydration pass.
+function personaAvatarUrl(persona: Persona, isClient: boolean): string | null {
   if (persona.imageUrl) return persona.imageUrl;
-  if (typeof window === "undefined") return null;
+  if (!isClient) return null;
   try {
     const raw = sessionStorage.getItem(personaProfileKey(persona.id));
     const draft = JSON.parse(raw ?? "null") as Record<string, unknown> | null;
@@ -922,6 +958,7 @@ function goToAgentsLibrary(pathname: string | null, push: (href: string) => void
 const EMPTY_PERSONA_OWNER_MAP: Record<string, string> = {}
 
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
+  const isClient            = useIsClient()
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
@@ -956,7 +993,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   )
 
   const personas = useMemo(
-    () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
+    () => rawPersonas.filter(p => !isDraftPersona(p) && isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
     [rawPersonas, personaOwnerMap, viewerUserId, currentUserRole],
   )
 
@@ -1115,7 +1152,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
             ) ?? []
 
-            const avatarUrl  = personaAvatarUrl(persona)
+            const avatarUrl  = personaAvatarUrl(persona, isClient)
             const avatarIcon = avatarUrl
               ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
               : <UserAiIcon size={20} />
@@ -1212,6 +1249,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
 // sourceShareId: shared agents (accepted via Super Link) vs owned agents.
 
 function PersonasSectionIndividual() {
+  const isClient            = useIsClient()
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
@@ -1346,7 +1384,7 @@ function PersonasSectionIndividual() {
       c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
     ) ?? []
 
-    const avatarUrl  = personaAvatarUrl(persona)
+    const avatarUrl  = personaAvatarUrl(persona, isClient)
     const avatarIcon = avatarUrl
       ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
       : <UserAiIcon size={20} />
@@ -2229,14 +2267,19 @@ interface LeftSidebarProps {
   activeChatId?: string;
   onSelectChat?: (id: string) => void;
   onNewChat?: () => void;
+  /** Initial collapsed state, from the `sidebar_collapsed` cookie read on the
+   *  server (see src/app/(app)/layout.tsx). Only read on mount. */
+  defaultCollapsed?: boolean;
 }
 
 function LeftSidebarImpl({
   activeChatId,
   onSelectChat,
   onNewChat,
+  defaultCollapsed = false,
 }: LeftSidebarProps) {
   const { push } = useGuardedRouter();
+  const { push: rawPush } = useRouter();
   const { guardedNavigate } = useNavGuard();
   const pathname = usePathname();
   const chatSearchParams = useSearchParams();
@@ -2250,6 +2293,11 @@ function LeftSidebarImpl({
 
   // -- Account menu: Report a bug modal ---------------------------------------
   const [reportBugOpen, setReportBugOpen] = useState(false);
+  // The flat sidebar's profile row carries both the account menu and the
+  // notification bell — both controlled here so opening one closes the other
+  // (the bell sits inside the account trigger, so outside-click alone can't).
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   // All 5 Agent Configure tabs (Instructions/Profile/Knowledge/Connectors/
@@ -2290,7 +2338,10 @@ function LeftSidebarImpl({
     : 'chats'
   ) as 'chats' | 'agents' | 'admin' | 'new-chat' | 'projects';
 
-  const collapsedRef = useRef<boolean>(readCollapsed());
+  // First mount hydrates from the server's cookie read; a remount later in the
+  // session starts from the latest toggle (see sessionCollapsed).
+  const collapsedRef = useRef<boolean>(sessionCollapsed ?? defaultCollapsed);
+  useEffect(() => { migrateCollapsedCookie() }, []);
 
   // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
@@ -2335,9 +2386,7 @@ function LeftSidebarImpl({
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsedRef.current));
-    }
+    writeCollapsed(collapsedRef.current);
   };
 
   const handleNewChat = () => {
@@ -2347,20 +2396,26 @@ function LeftSidebarImpl({
     // The new flat sidebar's "New" row calls this unconditionally from every
     // page, so that branch just made "New" a no-op on /agents and any
     // /agents/[id]/chat page — removed; "New" now always opens a blank chat.
-    toast.info("Opening new chat");
-    if (onNewChat) {
-      onNewChat();
-    } else if (pathname === CHAT_ROUTE) {
-      // Already mounted on the chat page (viewing an existing chat) — URL
-      // navigation alone isn't reliably
-      // picked up by the page's own reactive id-change detection, so the
-      // page resets itself directly off this event instead. Still push the
-      // URL too, so it correctly reflects the reset (history/bookmarking).
-      emitSidebarNewChat();
-      push(CHAT_ROUTE);
-    } else {
-      push(CHAT_ROUTE);
-    }
+    // The whole action (reset event + navigation) runs inside one guard check:
+    // the event resets the page immediately, so it must not fire while the
+    // unsaved-changes dialog is still holding the navigation back. rawPush,
+    // not the guarded push, since this wrapper already is the guard.
+    guardedNavigate(() => {
+      toast.info("Opening new chat", { id: 'nav' });
+      if (onNewChat) {
+        onNewChat();
+      } else if (pathname === CHAT_ROUTE) {
+        // Already mounted on the chat page (viewing an existing chat) — URL
+        // navigation alone isn't reliably picked up by the page's own
+        // reactive id-change detection, so the page resets itself directly
+        // off this event instead. Still push the URL too, so it correctly
+        // reflects the reset (history/bookmarking).
+        emitSidebarNewChat();
+        rawPush(CHAT_ROUTE);
+      } else {
+        rawPush(CHAT_ROUTE);
+      }
+    });
   };
 
   const handleSelectChat = (id: string) => {
@@ -2390,8 +2445,10 @@ function LeftSidebarImpl({
 
   // Fall back to roleFit + billing snapshot to detect team accounts when orgId
   // hasn't resolved yet (e.g. an admin whose profile lacks org_id, or org API failed).
+  const isClient = useIsClient()
   const billingSnap = (() => {
-    try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
+    if (!isClient) return null
+    try { const r = window.sessionStorage.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
   const isTeamUser = Boolean(
     orgId ||
@@ -2450,6 +2507,10 @@ function LeftSidebarImpl({
   const accountCredits = orgId
     ? (orgHasPlan ? org?.creditPool?.remaining : undefined)
     : (planWarning ? undefined : (user?.creditsRemaining ?? undefined));
+  // Total for the same pool, so the menu can show how much of it is left.
+  const accountCreditsTotal = orgId
+    ? (orgHasPlan ? org?.creditPool?.total : undefined)
+    : (planWarning ? undefined : (user?.creditsTotal ?? undefined));
 
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
@@ -2461,6 +2522,20 @@ function LeftSidebarImpl({
   // unchanged (see docs/features/sidebar-current-state-audit.md and the
   // migration plan for why).
   const useFlatSidebar = !isAdminPage;
+
+  // "N new notifications" toast → Open: only the flat sidebar has the bell, so
+  // only it claims the event (marks it handled); otherwise the provider falls
+  // back to navigating straight to the newest item.
+  useEffect(() => {
+    if (!useFlatSidebar) return;
+    const onOpen = (e: Event) => {
+      if (e instanceof CustomEvent && e.detail && typeof e.detail === "object") (e.detail as { handled?: boolean }).handled = true;
+      setAccountMenuOpen(false);
+      setNotificationsOpen(true);
+    };
+    window.addEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+  }, [useFlatSidebar]);
 
   if (useFlatSidebar) {
     return (
@@ -2526,6 +2601,9 @@ function LeftSidebarImpl({
                 planWarning={planWarning}
                 planType={planTypeLabel}
                 credits={accountCredits}
+                creditsTotal={accountCreditsTotal}
+                showUpgradePlan={planTypeLabel !== 'Pro'}
+                email={user?.email ?? undefined}
                 planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
@@ -2538,6 +2616,11 @@ function LeftSidebarImpl({
                   </Tooltip>
                 ) : undefined}
                 placement="top-start"
+                open={accountMenuOpen}
+                onOpenChange={(next) => {
+                  setAccountMenuOpen(next);
+                  if (next) setNotificationsOpen(false);
+                }}
                 renderTrigger={({ onOpenSettingsClick }) => (
                   <FlatSidebarProfileRow
                     name={displayName || "Account"}
@@ -2546,6 +2629,17 @@ function LeftSidebarImpl({
                     planLabel={!orgId && user?.planType ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1) : undefined}
                     onOpenSettingsClick={onOpenSettingsClick}
                     collapsed={collapsed}
+                    trailing={
+                      SHOW_NOTIFICATION_BELL ? (
+                        <NotificationBell
+                          open={notificationsOpen}
+                          onOpenChange={(next) => {
+                            setNotificationsOpen(next);
+                            if (next) setAccountMenuOpen(false);
+                          }}
+                        />
+                      ) : undefined
+                    }
                   />
                 )}
                 onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
@@ -2639,6 +2733,9 @@ function LeftSidebarImpl({
             planWarning={planWarning}
             planType={planTypeLabel}
             credits={accountCredits}
+                creditsTotal={accountCreditsTotal}
+                showUpgradePlan={planTypeLabel !== 'Pro'}
+                email={user?.email ?? undefined}
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
