@@ -51,7 +51,7 @@ export function DeleteChatDialog({
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--modal-bg)",
             borderRadius: "16px",
             padding: "24px",
             width: "min(420px, 90vw)",

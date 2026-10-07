@@ -157,7 +157,7 @@ export function ChatHistoryItem({
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius: "12px",
             padding: "4px",
             boxShadow:

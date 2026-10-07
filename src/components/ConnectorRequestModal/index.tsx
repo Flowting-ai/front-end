@@ -124,7 +124,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
           padding:         '20px 18px',
           borderRadius:    18,
           boxSizing:       'border-box' as const,
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--modal-bg)',
           boxShadow:       SHADOW_MODAL,
           ...style,
         }}

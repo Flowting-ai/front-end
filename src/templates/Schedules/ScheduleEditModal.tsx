@@ -285,7 +285,7 @@ export function ScheduleEditModal({
             transition={springs.fast}
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--modal-bg)',
               borderRadius:    16,
               maxWidth:        640,
               width:           '100%',

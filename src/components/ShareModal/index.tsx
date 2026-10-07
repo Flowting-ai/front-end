@@ -405,7 +405,7 @@ export function ShareModal({
           padding:         '16px 14px',
           borderRadius:    18,
           boxSizing:       'border-box' as const,
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--modal-bg)',
           boxShadow:       SHADOW_MODAL,
           opacity:         disabled ? 0.5 : 1,
           pointerEvents:   disabled ? 'none' : undefined,

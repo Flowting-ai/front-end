@@ -247,7 +247,7 @@ export function ModelSelector({
               width: "480px",
               maxWidth: "calc(100vw - 32px)",
               maxHeight: "calc(100vh - 64px)",
-              backgroundColor: "var(--neutral-white)",
+              backgroundColor: "var(--modal-bg)",
               borderRadius: "16px",
               boxShadow: "var(--shadow-xl)",
               display: "flex",

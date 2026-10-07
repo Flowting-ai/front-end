@@ -70,6 +70,9 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
 import type { Chat } from "@/types/chat";
 
+// Notifications bell in the account-menu row is switched off; flip to true to restore it.
+const SHOW_NOTIFICATION_BELL = false;
+
 // -- Collapse state persistence ------------------------------------------------
 
 // The initial state comes from the `sidebar_collapsed` cookie, read on the
@@ -466,7 +469,7 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius: "12px",
             padding: "4px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
@@ -887,7 +890,7 @@ function PersonaChatItem({
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius:    "12px",
             padding:         "4px",
             boxShadow:       "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
@@ -2627,13 +2630,15 @@ function LeftSidebarImpl({
                     onOpenSettingsClick={onOpenSettingsClick}
                     collapsed={collapsed}
                     trailing={
-                      <NotificationBell
-                        open={notificationsOpen}
-                        onOpenChange={(next) => {
-                          setNotificationsOpen(next);
-                          if (next) setAccountMenuOpen(false);
-                        }}
-                      />
+                      SHOW_NOTIFICATION_BELL ? (
+                        <NotificationBell
+                          open={notificationsOpen}
+                          onOpenChange={(next) => {
+                            setNotificationsOpen(next);
+                            if (next) setAccountMenuOpen(false);
+                          }}
+                        />
+                      ) : undefined
                     }
                   />
                 )}

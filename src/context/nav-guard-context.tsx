@@ -213,7 +213,7 @@ export function NavGuardModal() {
         aria-label={message.title}
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--modal-bg)',
           borderRadius: 16,
           padding: 24,
           width: 400,

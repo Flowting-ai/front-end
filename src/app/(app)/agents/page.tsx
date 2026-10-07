@@ -2220,7 +2220,7 @@ function PersonasPageInner() {
                   onClick={(e) => e.stopPropagation()}
                   style={{
                     pointerEvents:   'auto',
-                    backgroundColor: 'var(--neutral-white)',
+                    backgroundColor: 'var(--modal-bg)',
                     borderRadius:    16,
                     boxShadow:       '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)',
                     width:           480,

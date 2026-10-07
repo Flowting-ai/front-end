@@ -357,7 +357,7 @@ export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitCha
               display:         'flex',
               flexDirection:   'column',
               borderRadius:    16,
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--modal-bg)',
               boxShadow:       'var(--shadow-popover)',
               overflow:        'hidden',
               minHeight:       0,

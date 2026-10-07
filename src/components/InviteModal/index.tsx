@@ -394,7 +394,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           padding:         '16px 14px',
           borderRadius:    18,
           boxSizing:       'border-box' as const,
-          backgroundColor: 'var(--neutral-50)',
+          backgroundColor: 'var(--modal-bg)',
           boxShadow:       SHADOW_MODAL,
           opacity:         disabled ? 0.5 : 1,
           pointerEvents:   disabled ? 'none' : undefined,

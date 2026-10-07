@@ -124,7 +124,7 @@ export function SaveVersionModal({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--modal-bg)',
           borderRadius:    18,
           boxShadow:
             '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
