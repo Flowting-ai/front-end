@@ -1846,7 +1846,7 @@ export function Pinboard(
               height:          expandedHeight,
               maxHeight:       '98vh',
               zIndex:          21,
-              background:      'var(--neutral-50)',
+              background:      'var(--modal-bg)',
               borderRadius:    28,
               overflow:        'hidden',
               transformOrigin: '50% 50%',

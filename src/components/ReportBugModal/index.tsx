@@ -130,7 +130,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
         aria-label="Report a bug"
         tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--modal-bg)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

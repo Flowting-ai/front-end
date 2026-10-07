@@ -307,6 +307,8 @@
   --icon-button-outline-border-disabled: rgba(255, 255, 255, 0.32);
   --button-default-hover-glow: linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%);
   --shadow-button-default-inner: inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5);
+  --popover-bg: var(--color-surface-default);  /* dark surface, same as before */
+  --modal-bg: var(--color-surface-default);  /* dark surface, same as before */
   --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shadow-floating-menu-outer: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shortcut-pill-bg: #383838;

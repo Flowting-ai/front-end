@@ -433,7 +433,7 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius: "12px",
             padding: "4px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
@@ -854,7 +854,7 @@ function PersonaChatItem({
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius:    "12px",
             padding:         "4px",
             boxShadow:       "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",

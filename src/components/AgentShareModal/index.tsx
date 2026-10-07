@@ -156,7 +156,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 101,
           width: 680, maxWidth: 'calc(100vw - 48px)', maxHeight: 'calc(100vh - 96px)', minHeight: 380,
-          overflow: 'hidden', borderRadius: 16, backgroundColor: 'var(--neutral-white)',
+          overflow: 'hidden', borderRadius: 16, backgroundColor: 'var(--modal-bg)',
           boxShadow: '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
           padding: 32, display: 'flex', flexDirection: 'column', gap: 24,
         }}

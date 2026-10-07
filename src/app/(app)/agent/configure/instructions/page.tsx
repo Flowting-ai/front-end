@@ -1816,7 +1816,7 @@ function PersonaConfigureInstructionsContent() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+            style={{ backgroundColor: 'var(--modal-bg)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
           >
             <span style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' }}>
               Warning

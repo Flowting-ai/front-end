@@ -246,7 +246,8 @@
   /* ── Popover ────────────────────────────────────────────────────────────────
      Floating surface used for dropdown menus, command palettes, context menus.
      ─────────────────────────────────────────────────────────────────────────── */
-  --popover-bg: var(--color-surface-default);  /* #ffffff */
+  --popover-bg: #ffffff;  /* pure white in light mode; dark theme maps it to the dark surface (theme.css) */
+  --modal-bg: #ffffff;  /* modal / dialog panel surface: pure white in light mode */
 
   /* Large diffuse lift + tight drop shadow + 1px border ring */
   --shadow-popover:

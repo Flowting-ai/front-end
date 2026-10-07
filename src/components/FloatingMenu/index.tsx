@@ -121,7 +121,7 @@ export function FloatingMenu(
             style={{
               position:        'absolute',
               inset:           0,
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--popover-bg)',
               pointerEvents:   'none',
             }}
           />

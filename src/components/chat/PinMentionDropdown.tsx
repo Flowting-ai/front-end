@@ -156,7 +156,7 @@ export function PinMentionDropdown({
             right: 0,
             zIndex: 60,
             maxHeight: computedMaxH,
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius: "12px",
             boxShadow:
               "0 8px 24px color-mix(in srgb, var(--static-black) 8%, transparent), 0 0 0 1px var(--neutral-100)",
