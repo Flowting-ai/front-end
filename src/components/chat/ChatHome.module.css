@@ -4,18 +4,22 @@
   padding: clamp(96px, 30vh, 320px) clamp(20px, 5vw, 64px) 64px;
 }
 
+/* The greeting gets a wider lane than the composer so the longer greetings sit on one line instead of
+   wrapping; the composer stays 640px, centred beneath it (same split as the project chat landing). */
 .content {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
-  max-width: 640px;
+  max-width: 768px;
   margin-inline: auto;
 }
 
 .composer {
   width: 100%;
+  max-width: 640px;
   min-width: 0;
+  margin-inline: auto;
 }
 
 /* Sits directly under the (fully rounded) chat input: flat on top, rounded on the bottom, and 90% of

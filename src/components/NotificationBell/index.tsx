@@ -18,9 +18,11 @@ import type { AppNotification } from '@/lib/notifications/types'
 // it never covers the sidebar itself. Controlled so the sidebar can keep it
 // and the account menu from being open at the same time.
 //
-// Badge: a number for unread items that arrived since the panel was last
-// opened (opening clears it — "seen" ≠ "read"); once seen, an amber dot stays
-// while an agent or request still needs attention.
+// Badge: the number of unread notifications — the same figure as the panel's
+// "Unread · N" — so it stays until they're opened or marked read, and open
+// problems (a broken agent, a pending request) keep it lit until handled.
+// Separately, the bell rings + the badge pops only when something NEW arrives
+// (the unseen count rises), never just for what's already there.
 //
 // It lives inside the profile row, which is itself the AccountMenu trigger.
 // React events from the portaled panel still bubble through the React tree
@@ -83,7 +85,7 @@ export function NotificationBell({ open, onOpenChange }: NotificationBellProps) 
 
   if (!feed) return null
   const {
-    notifications, unreadCount, unseenCount, attentionCount, isUnread, loading,
+    notifications, unreadCount, isUnread, loading,
     markRead, markUnread, markAllRead, dismiss, refresh,
   } = feed
 
@@ -127,9 +129,8 @@ export function NotificationBell({ open, onOpenChange }: NotificationBellProps) 
     })
   }
 
-  const label = unseenCount > 0
-    ? `Notifications, ${unseenCount} new`
-    : attentionCount > 0 ? `Notifications, ${attentionCount} need attention` : 'Notifications'
+  const badgeText = unreadCount > 9 ? '9+' : String(unreadCount)
+  const label = unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
 
   return (
     <span
@@ -175,12 +176,11 @@ export function NotificationBell({ open, onOpenChange }: NotificationBellProps) 
         />
       </Dropdown.Float>
 
-      {/* Outside the IconButton — its squircle clip would cut these off.
-          The count badge springs in, its digit rolls on change, and it pops
-          again with each ring; the amber "needs attention" dot fades in once
-          the count is cleared. */}
+      {/* Outside the IconButton — its squircle clip would cut it off.
+          One number: everything unread (the panel's "Unread · N"). It springs
+          in, its digit rolls on change, and it pops with each ring. */}
       <AnimatePresence initial={false}>
-        {unseenCount > 0 ? (
+        {unreadCount > 0 && (
           // Outer: enter/exit. Inner: the visual, popped imperatively on each
           // ring so the two never fight over the same transform.
           <m.span
@@ -205,32 +205,19 @@ export function NotificationBell({ open, onOpenChange }: NotificationBellProps) 
             >
               <AnimatePresence initial={false} mode="popLayout">
                 <m.span
-                  key={unseenCount > 9 ? '9+' : unseenCount}
+                  key={badgeText}
                   initial={{ y: -8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: 8, opacity: 0 }}
                   transition={BADGE_SPRING}
                   style={{ display: 'inline-block' }}
                 >
-                  {unseenCount > 9 ? '9+' : unseenCount}
+                  {badgeText}
                 </m.span>
               </AnimatePresence>
             </span>
           </m.span>
-        ) : attentionCount > 0 ? (
-          <m.span
-            key="attention"
-            aria-hidden
-            initial={{ opacity: 0, scale: 0.4 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.4 }}
-            transition={BADGE_SPRING}
-            style={{
-              position: 'absolute', top: 0, right: 0, width: 7, height: 7, borderRadius: 9999,
-              backgroundColor: 'var(--yellow-500)', boxShadow: '0 0 0 2px var(--neutral-50)', pointerEvents: 'none',
-            }}
-          />
-        ) : null}
+        )}
       </AnimatePresence>
     </span>
   )

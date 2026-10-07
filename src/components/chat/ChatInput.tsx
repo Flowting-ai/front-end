@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import {
   PlusSignIcon,
   ArrowUpTwoIcon,
@@ -10,6 +10,7 @@ import {
   StopCircleIcon,
 } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
 import { orbitEasing } from "@/lib/orbit-easing";
 import { ModelIcon } from "@/components/ModelIcon";
 import { Button } from "@/components/Button";
@@ -146,6 +147,25 @@ export interface ChatInputProps
     /** The agent already attached to the chat, shown as selected in the list. */
     selectedAgentId?: string | null;
   };
+  /**
+   * Lets the user queue their next message while a reply streams: Enter, and
+   * a Queue button shown beside Stop once there's something to send, hand it
+   * to `onSend` (the host does the queuing), and files can be added. Without
+   * it the box can be typed in while streaming but holds the send back.
+   */
+  allowQueue?: boolean;
+  /**
+   * A send right now would be queued rather than go out at once (e.g. a
+   * message is already waiting) — the send button is labelled to match.
+   */
+  sendQueues?: boolean;
+  /**
+   * ArrowUp in an empty box: bring the queued message back into the box to
+   * edit. Returns true when there was one.
+   */
+  onRecallQueued?: () => boolean;
+  /** Each new value focuses the box with the caret at the end — e.g. once a queued message is back in it. */
+  focusRequest?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -181,6 +201,10 @@ export function ChatInput(
     onFilePaste,
     hasAttachments = false,
     agentMention,
+    allowQueue = false,
+    sendQueues = false,
+    onRecallQueued,
+    focusRequest,
     className,
     style: callerStyle,
     onMouseEnter: externalMouseEnter,
@@ -198,7 +222,9 @@ export function ChatInput(
     const [isRecording,   setIsRecording]   = useState(false);
     const [analyser,      setAnalyser]      = useState<AnalyserNode | null>(null);
     const [isMicHovered,  setIsMicHovered]  = useState(false);
+    const [isQueueHovered, setIsQueueHovered] = useState(false);
     const [addMenuOpen,   setAddMenuOpen]   = useState(false);
+    const reduceMotion = useReducedMotion();
     const [modelMenuOpen, setModelMenuOpen] = useState(false);
     const mounted = useMounted();
     const [isPinDragOver, setIsPinDragOver] = useState(false);
@@ -263,6 +289,16 @@ export function ChatInput(
       if (window.matchMedia?.("(pointer: coarse)").matches) return;
       textareaRef.current?.focus();
     }, [isStreaming]);
+
+    // Focus on request, caret after the text — runs after the commit that
+    // put the text in, so the caret lands at its real end.
+    useEffect(() => {
+      if (!focusRequest) return;
+      const el = textareaRef.current;
+      if (!el || el.disabled) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }, [focusRequest]);
 
     const isDraggingRef        = useRef(false);
     const dragStartXRef        = useRef(0);
@@ -483,8 +519,9 @@ export function ChatInput(
     };
 
     const handleSend = () => {
-      // Typing ahead is allowed while a reply streams; sending waits for it.
-      if ((!value && !hasAttachments) || disabled || isStreaming) return;
+      // Typing ahead is allowed while a reply streams; sending waits for it,
+      // unless the host queues it (allowQueue).
+      if ((!value && !hasAttachments) || disabled || (isStreaming && !allowQueue)) return;
       focusedSendAtRef.current = document.activeElement === textareaRef.current ? performance.now() : null;
       const text = value;
       if (!isControlled) setInternalValue("");
@@ -493,10 +530,18 @@ export function ChatInput(
       onSend?.(text);
     };
 
+    // The Queue button leaves once the box empties, so the keyboard focus it
+    // held goes back to the box — the next thing to do is usually type again.
+    const handleQueueClick = () => {
+      handleSend();
+      if (!window.matchMedia?.("(pointer: coarse)").matches) textareaRef.current?.focus();
+    };
+
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       // Attachments can't be added or removed while a reply streams (the
-      // attachment list and drag-and-drop are locked), so images wait too.
-      if (!onFilePaste || isStreaming) return;
+      // attachment list and drag-and-drop are locked), so images wait too —
+      // unless the next message can be queued, files and all.
+      if (!onFilePaste || (isStreaming && !allowQueue)) return;
       const items = Array.from(e.clipboardData.items);
       const files = items
         .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
@@ -539,10 +584,21 @@ export function ChatInput(
         }
       }
 
+      // ArrowUp in an empty box brings a queued message back to edit, like
+      // recalling the last command in a terminal.
+      if (
+        e.key === "ArrowUp" && !value && onRecallQueued &&
+        !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing
+      ) {
+        if (onRecallQueued()) e.preventDefault();
+        return;
+      }
+
       if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         // Enter still means "send" while a reply streams: swallow it rather
-        // than insert a newline, and keep the draft to send once it's done.
-        if (isStreaming) {
+        // than insert a newline, and keep the draft to send once it's done —
+        // or, with allowQueue, send it to be queued.
+        if (isStreaming && !allowQueue) {
           e.preventDefault();
           return;
         }
@@ -613,7 +669,13 @@ export function ChatInput(
     // Only `disabled` locks the textarea, so it keeps focus and can be typed
     // in while a reply streams; the add menu and model selector stay locked
     // for the stream, as they were when the host disabled the whole input.
+    // A message can be queued with files, so then only the model stays locked.
     const controlsDisabled = disabled || isStreaming;
+    const addDisabled = disabled || (isStreaming && !allowQueue);
+
+    // While a reply streams, a message ready to queue gets its own Queue
+    // button; Stop stays beside it (quieter), never replaced by it.
+    const showQueueButton = allowQueue && isStreaming && !isRecording && (!!value || hasAttachments);
 
     // Button is disabled only when the disabled prop is set AND there's no
     // in-progress action to cancel, AND browser doesn't support speech with
@@ -743,7 +805,9 @@ export function ChatInput(
               >
                 <AnimatePresence mode="popLayout" initial={false}>
                   <m.span
-                    key={isRecording ? "listening" : "default"}
+                    // Keyed by the text so a new placeholder (e.g. "Queue a
+                    // follow-up…" while a reply streams) swaps in animated.
+                    key={isRecording ? "listening" : `default:${placeholder}`}
                     initial={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
                     animate={{ scale: 1, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
                     exit={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
@@ -825,7 +889,7 @@ export function ChatInput(
                         size={szBtn}
                         icon={<PlusSignIcon size={20} />}
                         aria-label="Add attachment"
-                        disabled={controlsDisabled}
+                        disabled={addDisabled}
                       />
                     }
                   >
@@ -841,7 +905,7 @@ export function ChatInput(
                     icon={<PlusSignIcon size={20} />}
                     aria-label="Add attachment"
                     onClick={onAdd}
-                    disabled={controlsDisabled}
+                    disabled={addDisabled}
                   />
                 )}
               </div>}
@@ -977,7 +1041,7 @@ export function ChatInput(
               style={{ display: "inline-flex", position: "relative" }}
             >
               <IconButton
-                variant="default"
+                variant={showQueueButton ? "ghost" : "default"}
                 size="md"
                 aria-label={
                   isStreaming
@@ -985,7 +1049,7 @@ export function ChatInput(
                     : isRecording
                       ? "Stop recording"
                       : value
-                        ? "Send message"
+                        ? sendQueues ? "Queue message" : "Send message"
                         : "Start voice input"
                 }
                 icon={
@@ -1045,6 +1109,41 @@ export function ChatInput(
                 disabled={isActionDisabled}
               />
             </span>
+
+            {/* Queue: slides in beside Stop once there's something to send.
+                Its width grows from zero (the gap folded in) so Stop and the
+                model selector glide aside instead of jumping. */}
+            <AnimatePresence initial={false}>
+              {showQueueButton && (
+                <m.span
+                  key="queue"
+                  initial={reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, width: 0, marginLeft: -8, scale: 0.6, overflow: "hidden" }}
+                  animate={reduceMotion
+                    ? { opacity: 1 }
+                    : { opacity: 1, width: 36, marginLeft: 0, scale: 1, transitionEnd: { overflow: "visible" } }}
+                  exit={reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, width: 0, marginLeft: -8, scale: 0.6, overflow: "hidden" }}
+                  transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 500, damping: 36 }}
+                  onMouseEnter={() => setIsQueueHovered(true)}
+                  onMouseLeave={() => setIsQueueHovered(false)}
+                  style={{ display: "inline-flex", flexShrink: 0 }}
+                >
+                  <Tooltip content="Sends when this reply finishes" side="top">
+                    <IconButton
+                      variant="default"
+                      size="md"
+                      aria-label="Queue message"
+                      icon={<ArrowUpTwoIcon size={20} animated triggered={isQueueHovered} />}
+                      onClick={handleQueueClick}
+                      disabled={disabled}
+                    />
+                  </Tooltip>
+                </m.span>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         </div>

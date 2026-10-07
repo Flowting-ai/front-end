@@ -23,6 +23,8 @@ export const timeGreetings: TimeGreetingSlot[] = [
       "The world's asleep. You're not. Let's make something.",
       "Burning the midnight oil, {username}? I never sleep.",
       "It's quiet out there. The best ideas are born now.",
+      "Nobody's watching. Go big.",
+      "Insomnia, meet ambition.",
     ],
   },
   {
@@ -32,7 +34,10 @@ export const timeGreetings: TimeGreetingSlot[] = [
     messages: [
       "Rise and grind, {username}. I've been waiting.",
       "Fresh morning, fresh ideas - let's go.",
-      "The day is a blank canvas, {username}. Let's paint.",
+      "The day is a blank canvas. Let's paint.",
+      "Early bird gets the breakthrough.",
+      "Let's think before the inbox wakes up.",
+      "Coffee's brewing. So are ideas.",
     ],
   },
   {
@@ -40,8 +45,10 @@ export const timeGreetings: TimeGreetingSlot[] = [
     startHour: 9,
     endHour: 12,
     messages: [
-      "Peak brain hours, {username}. Let's not waste them.",
+      "Peak brain hours. Let's not waste them.",
       "The morning is still young and so is this conversation.",
+      "Big ideas before lunch. Deal?",
+      "Your brain's warmed up. Let's sprint.",
     ],
   },
   {
@@ -50,7 +57,10 @@ export const timeGreetings: TimeGreetingSlot[] = [
     endHour: 15,
     messages: [
       "Post-lunch slump? I'll be your second wind.",
-      "Half the day's still yours, {username}. Use it well.",
+      "Half the day's still yours. Use it well.",
+      "Where were we, {username}?",
+      "Fueled up? Let's turn lunch into launch.",
+      "Second half. New playbook.",
     ],
   },
   {
@@ -60,6 +70,8 @@ export const timeGreetings: TimeGreetingSlot[] = [
     messages: [
       "The golden hour of productivity - don't blink.",
       "Almost evening, {username}. Finish strong.",
+      "One more great idea before sunset.",
+      "Wrap the day with a win.",
     ],
   },
   {
@@ -68,7 +80,9 @@ export const timeGreetings: TimeGreetingSlot[] = [
     endHour: 21,
     messages: [
       "Day mode off. Think mode on.",
-      "The evening belongs to the curious, {username}.",
+      "The evening belongs to the curious.",
+      "Side-project o'clock.",
+      "Meetings are over. The thinking isn't.",
     ],
   },
   {
@@ -76,8 +90,9 @@ export const timeGreetings: TimeGreetingSlot[] = [
     startHour: 21,
     endHour: 24,
     messages: [
-      "The night shift starts now, {username}.",
       "Late-night thoughts hit different. Let's explore them.",
+      "Lights low. Ideas loud.",
+      "Tomorrow starts tonight.",
     ],
   },
 ];
@@ -86,17 +101,26 @@ export const dayGreetings: DayGreetingSlot[] = [
   {
     label: "Monday",
     days: [1],
-    messages: ["New week, {username}. Let's set the tone."],
+    messages: [
+      "New week, {username}. Let's set the tone.",
+      "Fresh week. Clean slate. Big swings.",
+    ],
   },
   {
     label: "Friday",
     days: [5],
-    messages: ["It's Friday. Let's finish the week with something great."],
+    messages: [
+      "It's Friday. Let's finish the week with something great.",
+      "Friday energy. Let's ship something.",
+    ],
   },
   {
     label: "Weekend",
     days: [0, 6],
-    messages: ["No meetings, no deadlines - just us and your ideas."],
+    messages: [
+      "No meetings, no deadlines - just us and your ideas.",
+      "No standups. Just standout ideas.",
+    ],
   },
 ];
 
@@ -178,11 +202,60 @@ export const subheadings: SubheadingCategory[] = [
   },
 ];
 
+/** On a day with its own greetings, the chance one of those is shown instead of the time-of-day one. */
+export const DAY_GREETING_CHANCE = 0.4;
+
+/** Used only if no time slot covers the hour (the slots above cover all 24). */
+export const FALLBACK_GREETING = "What would you like to explore today, {username}?";
+
+/**
+ * Fills the {username} placeholder in a greeting template. With no name the placeholder and its
+ * leading comma are dropped ("Where were we, {username}?" → "Where were we?"), never a stand-in word.
+ */
+export function fillGreeting(message: string, username: string): string {
+  const name = username.trim();
+  return name
+    ? message.replace(/\{username\}/g, name)
+    : message.replace(/,?\s*\{username\}/g, "");
+}
+
+/**
+ * Splits a greeting into at most two halves of whole sentences (a spaced " - " also ends a clause), so a
+ * greeting that has to wrap breaks between sentences, never mid-sentence: "The world's asleep. You're
+ * not." / "Let's make something." The split is the one that balances the halves' lengths best (ties go
+ * to the longer first line). Each half is a list of its sentences; a one-sentence greeting is one half.
+ */
+export function splitGreeting(text: string): string[][] {
+  const sentences = text.trim().split(/(?<=[.?!]|\s-)\s+/);
+  if (sentences.length < 2) return [sentences];
+
+  let split = 1;
+  let bestDiff = Infinity;
+  for (let k = 1; k < sentences.length; k++) {
+    const left = sentences.slice(0, k).join(" ").length;
+    const right = sentences.slice(k).join(" ").length;
+    const diff = Math.abs(left - right);
+    if (diff < bestDiff || (diff === bestDiff && left > right)) {
+      split = k;
+      bestDiff = diff;
+    }
+  }
+  return [sentences.slice(0, split), sentences.slice(split)];
+}
+
 function pickRandom(arr: string[]): string {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export function getGreeting(username: string, now: Date = new Date()): string {
+  return fillGreeting(pickGreeting(now), username);
+}
+
+/**
+ * Picks a greeting template for this moment, with {username} still unfilled. Lets the landing page
+ * pick once and fill in the name whenever it arrives, instead of re-picking (and re-animating).
+ */
+export function pickGreeting(now: Date = new Date()): string {
   const hour = now.getHours();
   const day = now.getDay();
 
@@ -195,7 +268,7 @@ export function getGreeting(username: string, now: Date = new Date()): string {
 
   if (daySlot && timeSlot) {
     message =
-      Math.random() < 0.4
+      Math.random() < DAY_GREETING_CHANCE
         ? pickRandom(daySlot.messages)
         : pickRandom(timeSlot.messages);
   } else if (daySlot) {
@@ -203,10 +276,10 @@ export function getGreeting(username: string, now: Date = new Date()): string {
   } else if (timeSlot) {
     message = pickRandom(timeSlot.messages);
   } else {
-    message = "What would you like to explore today, {username}?";
+    message = FALLBACK_GREETING;
   }
 
-  return message.replace(/\{username\}/g, username);
+  return message;
 }
 
 export function getSubheading(): string {

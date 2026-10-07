@@ -23,7 +23,7 @@ import { toConnector } from "@/lib/connector"
 import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/types/chat"
 import { toPlan } from "@/lib/plan"
-import { registerStream, completeStream } from "@/lib/stream-registry"
+import { registerStream, completeStream, type StreamOutcome } from "@/lib/stream-registry"
 import {
   createReasoningAccumulator,
   eventRoundIndex,
@@ -129,6 +129,9 @@ export function useStreamingChat({
   const userMessageIdRef = useRef<string | null>(null)
   // Resolved chat ID (may start as null/temp and update once backend confirms)
   const resolvedChatIdRef = useRef<string | null>(null)
+  // Stops the current call's stream, and only that one — registered with the
+  // stream registry so the stream can be stopped from wherever its chat is shown.
+  const activeStopRef = useRef<(() => void) | null>(null)
 
   // ── Flush helpers ───────────────────────────────────────────────────────────
 
@@ -183,7 +186,7 @@ export function useStreamingChat({
     xhrRef.current?.abort()
     stopFlushInterval()
     flushPending()
-    completeStream(resolvedChatIdRef.current)
+    completeStream(resolvedChatIdRef.current, "aborted")
     setStreamState?.("aborted")
 
     const msgId = loadingMessageIdRef.current
@@ -224,6 +227,9 @@ export function useStreamingChat({
    * The function is NOT memoised - re-creating it every render ensures it
    * always closes over the freshest callbacks without ref gymnastics.
    * It is only ever called from event handlers, so identity changes are safe.
+   *
+   * Resolves with how the turn ended — the message queue holds a queued
+   * message back after a reply that failed or was stopped.
    */
   const fetchAiResponse = async (
     input: string,
@@ -231,13 +237,19 @@ export function useStreamingChat({
     loadingMessageId: string,
     modelId?: string | number | null,
     options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
-  ): Promise<void> => {
+  ): Promise<StreamOutcome> => {
     stopRequestedRef.current = false
     xhrRef.current = null
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
-    registerStream(chatId)
+    // The refs above belong to whichever call ran last, so stopping through
+    // the registry is a no-op once a newer call has taken over this hook.
+    const stopThisCall = () => {
+      if (activeStopRef.current === stopThisCall) handleStopGeneration()
+    }
+    activeStopRef.current = stopThisCall
+    registerStream(chatId, stopThisCall)
 
     // Returns true if this stream's chat is still the one the user is viewing.
     // Used to suppress setStreamState calls for background (unfocused) streams.
@@ -252,6 +264,8 @@ export function useStreamingChat({
     let assistantContent = ""
     const reasoning = createReasoningAccumulator()
     let streamFinished = false
+    // The turn ended with an error (shown as the reply or as a notice below it).
+    let turnFailed = false
     let terminalErrorSeen = false
     let titleWasSet = false    // guards: prevent `done` from overwriting a title already set by the `title` SSE event
     let receivedRenderableOutput = false
@@ -296,6 +310,7 @@ export function useStreamingChat({
         error,
         hasOtherOutput: receivedRenderableOutput,
       })
+      if (outcome.isError || outcome.errorNotice) turnFailed = true
       const sections = reasoning.sections()
       const timeline = reasoning.timeline()
       const duration = stopReasoningClock()
@@ -1496,9 +1511,11 @@ export function useStreamingChat({
             }
             const headerChatId =
               xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
+            // Adopted like the stream's own chat-id events, so the new chat's
+            // stream is registered too — the message queue must not treat a
+            // chat whose first reply is still running as idle.
             if (headerChatId && (!chatId || chatId.startsWith("temp-"))) {
-              resolvedChatIdRef.current = headerChatId
-              onChatCreated?.(headerChatId)
+              adoptChatId(headerChatId)
             }
           }
 
@@ -1563,18 +1580,20 @@ export function useStreamingChat({
       // the complete response. A user Stop already finalised the message.
       if (!streamFinished && !stopRequestedRef.current) finishTurn("ended")
 
-      completeStream(resolvedChatIdRef.current)
+      const outcome: StreamOutcome = stopRequestedRef.current ? "aborted" : turnFailed ? "error" : "done"
+      completeStream(resolvedChatIdRef.current, outcome)
       setStreamState?.("done")
       onStreamDone?.()
+      return outcome
     } catch (error) {
       stopFlushInterval()
       flushPending()
-      completeStream(resolvedChatIdRef.current)
+      completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
 
       // User-initiated stop - not an error
       if (stopRequestedRef.current) {
         setStreamState?.("aborted")
-        return
+        return "aborted"
       }
 
       // A FriendlyStreamError was already logged where it was raised (status, endpoint,
@@ -1588,7 +1607,7 @@ export function useStreamingChat({
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("auth:session-expired"))
         }
-        return
+        return "error"
       }
 
       const rawMsg =
@@ -1609,7 +1628,7 @@ export function useStreamingChat({
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("auth:session-expired"))
         }
-        return
+        return "error"
       }
 
       setStreamState?.("error")
@@ -1623,6 +1642,7 @@ export function useStreamingChat({
         // translate genuinely-raw messages here.
         finishTurn("error", error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg))
       }
+      return "error"
     }
   }
 
@@ -1632,7 +1652,7 @@ export function useStreamingChat({
     if (resolvedChatIdRef.current === chatId) return
     if (resolvedChatIdRef.current && !resolvedChatIdRef.current.startsWith("temp-")) return
     resolvedChatIdRef.current = chatId
-    registerStream(chatId)
+    registerStream(chatId, activeStopRef.current ?? undefined)
     onChatCreated?.(chatId)
   }
 

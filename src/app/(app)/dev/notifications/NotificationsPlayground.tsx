@@ -225,7 +225,7 @@ function PlaygroundContent() {
           <Badge label="Dev only" color="Purple" />
         </div>
         <p style={captionText}>
-          Live feed right now: {feed.notifications.length} rows · {feed.unreadCount} unread · {feed.unseenCount} unseen (badge) · {feed.attentionCount} need attention
+          Live feed right now: {feed.notifications.length} rows · {feed.unreadCount} unread (badge) · {feed.unseenCount} new since last open (rings) · {feed.attentionCount} need attention
           {feed.loading ? ' · loading…' : ''}. Using schedule “{ctx.scheduleName}”{schedules.length ? '' : ' (fixture — you have no schedules, so its link won’t open anything)'}
           {' '}and agent “{ctx.agent?.name ?? 'none — create one to test the fix flow'}”.
         </p>
@@ -259,7 +259,7 @@ function PlaygroundContent() {
             ))}
           </div>
           <p style={captionText}>
-            “Send a live arrival” adds a run that finished just now: expect the bell to swing, a red count badge, and a toast with <em>View</em>.
+            “Send a live arrival” adds a run that finished just now: expect the bell to ring, the red badge to pop and count up, and a toast with <em>View</em>.
             Send two quickly to see them bundle into one row.
           </p>
         </Card>
@@ -338,7 +338,7 @@ function PlaygroundContent() {
             <li>The bell sits right of the settings icon; collapsed sidebar → above the avatar. Hovering swings it.</li>
             <li>Clicking the bell never opens the account menu, and opening one closes the other.</li>
             <li>The panel opens to the right of the sidebar, bottom-aligned with the bell; Esc closes it; ↑/↓ move between rows.</li>
-            <li>Opening the panel clears the red number; an amber dot stays while an agent/request needs attention.</li>
+            <li>The red badge shows the unread count (same as “Unread · N”); it drops as rows are opened or marked read, and goes away at zero.</li>
             <li>Schedule row → <Link href={SCHEDULES_ROUTE}>/schedules</Link> with that schedule open (back, then click the same row again — it reopens).</li>
             <li>Agent row / “Change model” → /agents opens the Change model modal; saving clears the row within a second.</li>
             <li>Connector / credits / access requests → /connectors, Plans & billing, Members.</li>

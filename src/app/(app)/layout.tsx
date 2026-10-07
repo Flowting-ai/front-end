@@ -8,6 +8,7 @@ import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { LazyPresetModelSelectorDialog } from "@/components/chat/LazyPresetModelSelectorDialog";
+import { MessageQueueRunner } from "@/components/chat/MessageQueueRunner";
 import { ProjectsProvider } from "@/context/projects-context";
 import { ProjectPanelProvider } from "@/context/project-panel-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
@@ -50,6 +51,8 @@ export default async function AppGroupLayout({
                       </AppLayout>
                     </ProjectPanelProvider>
                     <LazyPresetModelSelectorDialog />
+                    {/* Sends queued chat messages for chats that aren't on screen. */}
+                    <MessageQueueRunner />
                     <PlanUpgradeToast />
                     <ConnectorAuthResultToast />
                   </SearchProvider>
