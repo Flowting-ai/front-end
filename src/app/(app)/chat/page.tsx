@@ -611,8 +611,12 @@ function ChatPageInner() {
     // being created keeps streaming in the discarded instance and reports its
     // chat id here a few seconds later. The chat is real, so the sidebar still
     // gets it, but it must not steer the live URL/state — otherwise the user
-    // who just clicked "New chat" is yanked back into the old chat.
-    if (!mountedRef.current) {
+    // who just clicked "New chat" is yanked back into the old chat. Same when
+    // they opened a different existing chat from the sidebar meanwhile (this
+    // component stays mounted for that, so the live URL already names another
+    // chat).
+    const liveId = new URLSearchParams(window.location.search).get("id");
+    if (!mountedRef.current || (liveId && liveId !== chatId)) {
       const stub = {
         id: chatId,
         can_edit: true,
