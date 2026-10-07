@@ -125,6 +125,11 @@ function ChatPageInner() {
   const fromSchedule = searchParams.get("fromSchedule");
   const scheduleKeyRef = useRef<string | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false };
+  }, []);
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
@@ -602,6 +607,24 @@ function ChatPageInner() {
 
   const handleChatCreated = (chatId: string) => {
     newlyCreatedChatIdRef.current = chatId;
+    // "New chat" remounts this component, but a first message that was still
+    // being created keeps streaming in the discarded instance and reports its
+    // chat id here a few seconds later. The chat is real, so the sidebar still
+    // gets it, but it must not steer the live URL/state — otherwise the user
+    // who just clicked "New chat" is yanked back into the old chat.
+    if (!mountedRef.current) {
+      const stub = {
+        id: chatId,
+        can_edit: true,
+        title: "New chat",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        starred: false,
+      };
+      addOptimistic(stub);
+      emitChatCreated(stub);
+      return;
+    }
     if (selectedProjectId) {
       const projectId = selectedProjectId;
       void addChatToProject(projectId, chatId)
