@@ -36,7 +36,8 @@ const ICON_ACTIVE: Record<ThemeMode, { rotate: number; scale: number }> = {
 
 export function ThemeModeSwitcher({ size = 'sm' }: { size?: keyof typeof SIZES } = {}) {
   const { padding: TRACK_PADDING, width: BUTTON_WIDTH, height: BUTTON_HEIGHT, icon: ICON_SIZE, track: TRACK_RADIUS, inner: INNER_RADIUS } = SIZES[size]
-  const { enabled, mode, setMode } = useTheme()
+  const { enabled, mode, setMode, resolved } = useTheme()
+  const isDark = resolved === 'dark'
   const reduceMotion = useReducedMotion()
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -91,9 +92,11 @@ export function ThemeModeSwitcher({ size = 'sm' }: { size?: keyof typeof SIZES }
           left:            TRACK_PADDING,
           width:           BUTTON_WIDTH,
           borderRadius:    INNER_RADIUS,
-          // White in both themes (the shared segmented-control thumb is cream in light, grey in dark).
-          backgroundColor: '#ffffff',
-          boxShadow:       '0px 1px 2px 0px rgba(0, 0, 0, 0.25), 0px 0px 0px 1px rgba(0, 0, 0, 0.08)',
+          // White in light mode (the shared segmented-control thumb is cream there); the usual raised grey in dark.
+          backgroundColor: isDark ? 'var(--kaya-seg-thumb-bg)' : '#ffffff',
+          boxShadow:       isDark
+            ? '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-200)'
+            : '0px 1px 2px 0px rgba(0, 0, 0, 0.25), 0px 0px 0px 1px rgba(0, 0, 0, 0.08)',
         }}
       />
 
@@ -122,8 +125,8 @@ export function ThemeModeSwitcher({ size = 'sm' }: { size?: keyof typeof SIZES }
               borderRadius:   INNER_RADIUS,
               background:     'transparent',
               cursor:         'pointer',
-              // The active icon sits on the white thumb, so it stays dark in both themes.
-              color:          active ? '#1c1c1c' : 'var(--neutral-500)',
+              // The active icon follows the thumb: dark on the white thumb (light), the normal text colour on the grey one (dark).
+              color:          active ? (isDark ? 'var(--neutral-900)' : '#1c1c1c') : 'var(--neutral-500)',
               transition:     reduceMotion ? 'none' : 'color 180ms ease',
             }}
           >

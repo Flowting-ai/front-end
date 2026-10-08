@@ -62,9 +62,10 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inU
       onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onOpen() } }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
+      // Keyboard focus only: a mouse click also focuses the card, and it should not leave a ring or the hover lift behind.
+      onFocus={event => setFocused(event.currentTarget.matches(':focus-visible'))}
       onBlur={() => setFocused(false)}
-      className="kaya-field"
+      className="compact-agent-card"
       style={{
         position:        'relative',
         display:         'flex',

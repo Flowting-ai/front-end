@@ -270,7 +270,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   ? typeof icon.type === 'string'
                     ? icon
                     : React.cloneElement(icon, { triggered: isHovered })
-                  : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+                  : <FolderOneIcon className="kds-folder-icon" size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
               </div>
             )}
             {isEditing ? (

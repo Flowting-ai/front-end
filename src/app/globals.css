@@ -931,6 +931,11 @@
 }
 .kaya-field:focus-within { outline-color: var(--focus-ring); outline-offset: 3px; }
 
+/* Compact agent cards (Agents panel): the focus ring is for keyboard focus only, never after a click. */
+.compact-agent-card { outline: 2px solid transparent; outline-offset: 3px; }
+.compact-agent-card:focus { outline: none; }
+.compact-agent-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
 /* /agents/new purpose box: a placeholder dark enough to read in light and dark mode. */
 .agent-purpose-input::placeholder { color: var(--neutral-500); opacity: 1; }
 
@@ -966,4 +971,15 @@
    settings content area and to light mode only (dark keeps its own surfaces). */
 :root:not([data-theme="dark"]) .settings-content {
   --neutral-white: #ffffff;
+}
+
+/* The icon library draws the open/closed folder with a fixed cream fill and a brown stroke, which shows as a white
+   folder on the dark sidebar. In dark, outline it in the row's own icon colour instead (animation is unchanged). */
+:root[data-theme="dark"] .kds-folder-icon path {
+  fill: none;
+  stroke: currentColor;
+}
+/* The front flap is the second path: a dark grey fill so it hides the back panel's lines behind it. */
+:root[data-theme="dark"] .kds-folder-icon path:last-child {
+  fill: #2B2B2B;
 }
