@@ -64,10 +64,11 @@ export function AppLayout({
   const { user } = useAuth()
   const userKey = String(user?.auth0Id ?? user?.id ?? '')
 
-  // Warm what the new-chat screen needs (starter suggestions + the Connect-an-app list) shortly after
-  // sign-in, off the critical path, so opening a new chat later never waits on the network.
+  // Warm what the new-chat screen needs (starter suggestions + the Connect-an-app list) only on the
+  // screens that show it; every other page skips ~7 requests it would never use.
+  const wantsChatWarmup = pathname === '/chat' || pathname.startsWith('/project/')
   useEffect(() => {
-    if (!userKey) return
+    if (!userKey || !wantsChatWarmup) return
     const run = () => { warmRecommendations(userKey); warmConnectApps() }
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 3000 })
@@ -75,7 +76,7 @@ export function AppLayout({
     }
     const t = setTimeout(run, 1500)
     return () => clearTimeout(t)
-  }, [userKey])
+  }, [userKey, wantsChatWarmup])
 
   const isAnyProjectPage = pathname.startsWith(PROJECT_BASE_ROUTE)
   // Suppress FloatingPanel on project listing / detail pages, but NOT on

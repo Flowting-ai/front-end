@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
   listChats,
@@ -81,9 +82,16 @@ export function useChatHistory(): UseChatHistoryResult {
     }
   };
 
+  // Settings pages never show the chat list, so keep it off their first-paint connections
+  // (88 KB, the slowest shell call); it loads as soon as the user leaves /settings.
+  const onSettings = (usePathname() ?? "").startsWith("/settings");
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (onSettings || loadedRef.current) return;
+    loadedRef.current = true;
     loadChats(true);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadChats is recreated each render; run once.
+  }, [onSettings]);
 
   const handleCreate = async (model?: string): Promise<Chat | null> => {
     try {

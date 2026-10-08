@@ -293,7 +293,20 @@ function CategorySection({
   viewAll: () => void
 }) {
   const [rows, setRows] = useState<ConnectorCatalog[] | null>(null)
+  // Fetch a section only once it is near the viewport, not all of them on page load.
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [near, setNear] = useState(false)
   useEffect(() => {
+    const el = hostRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') { setNear(true); return }
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) { setNear(true); io.disconnect() }
+    }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!near) return
     let live = true
     void listConnectors({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE })
       .then(page => {
@@ -303,14 +316,14 @@ function CategorySection({
       })
       .catch(() => { if (live) setRows([]) })
     return () => { live = false }
-  }, [category, onRows])
+  }, [near, category, onRows])
 
   const shown = rows
     ?.filter(row => inCategory(row.categories, category) && !connectedSlugs.has(row.slug))
     .slice(0, DISCOVER_SECTION_SIZE)
   if (shown?.length === 0) return null
   return (
-    <div style={{ marginBottom: SPACE.section }}>
+    <div ref={hostRef} style={{ marginBottom: SPACE.section }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.md }}>
         <CatalogSectionLabel label={category} />
         <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>
