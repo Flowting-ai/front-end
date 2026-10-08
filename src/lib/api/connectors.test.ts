@@ -122,8 +122,8 @@ describe('ConnectorCatalog', () => {
     const [mine, theirs] = entry.connections
 
     // The catalog says what the tools are; the account says what it decided.
-    expect(mine.toolsFrom(entry.tools).map(t => t.permission)).toEqual(['ask', 'allow'])
-    expect(mine.permissionFor('gmail-send-email')).toBe('allow')
+    expect(mine.toolsFrom(entry.tools).map(t => t.permission)).toEqual(['ask', 'allowed'])
+    expect(mine.permissionFor('gmail-send-email')).toBe('allowed')
     expect(mine.permissionSummary(entry.tools)).toBe('custom')
 
     // A tool with no stored row is Ask, never inherited from another account.

@@ -47,15 +47,11 @@ const secondary: React.CSSProperties = { ...text, color: 'var(--color-text-muted
 const label: React.CSSProperties = { ...text, fontWeight: 500 }
 
 // Story's PermissionMode ('always'|'ask'|'blocked') vs. the backend's
-// ConnectorToolPermission ('allow'|'ask'|'block') — same 3 states,
-// different labels for always-allow and never.
+// ConnectorToolPermission ('allowed'|'ask'|'blocked') — same 3 states,
+// different label for "always allow".
 type PermissionMode = 'always' | 'ask' | 'blocked'
-const toBackendPermission = (mode: PermissionMode): ConnectorToolPermission => (
-  mode === 'always' ? 'allow' : mode === 'blocked' ? 'block' : mode
-)
-const fromBackendPermission = (p: ConnectorToolPermission): PermissionMode => (
-  p === 'allow' ? 'always' : p === 'block' ? 'blocked' : p
-)
+const toBackendPermission = (mode: PermissionMode): ConnectorToolPermission => (mode === 'always' ? 'allowed' : mode)
+const fromBackendPermission = (p: ConnectorToolPermission): PermissionMode => (p === 'allowed' ? 'always' : p)
 
 const PERMISSION_MODES: PermissionMode[] = ['blocked', 'ask', 'always']
 const PERMISSION_LABELS: Record<PermissionMode, string> = { always: 'Always allow', ask: 'Ask before use', blocked: 'Blocked' }

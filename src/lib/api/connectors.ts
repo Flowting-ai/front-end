@@ -96,7 +96,7 @@ export class AccountTool {
   get group(): 'read-only' | 'write' { return this.tool.group }
 
   get permissionMode(): Exclude<AccountPermissionSummary, 'custom'> {
-    return this.permission === 'allow' ? 'always' : this.permission === 'block' ? 'blocked' : this.permission
+    return this.permission === 'allowed' ? 'always' : this.permission
   }
 
   withPermission(permission: ConnectorToolPermission): AccountTool {

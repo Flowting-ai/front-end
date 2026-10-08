@@ -6,7 +6,7 @@ import { z } from 'zod'
 // names, only the defaults the backend itself declares.
 
 export const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
-export const toolPermissionSchema = z.enum(['allow', 'block', 'ask'])
+export const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
 
 // The catalog describes each tool once. Decisions live on the account, in
 // ConnectionResponse.permissions, joined back by key.
