@@ -129,7 +129,7 @@ export function PinCommentField({
         animate={shakeControls}
         className={cn(className)}
         style={{
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--field-surface)',
           borderRadius:    '6px',
           padding:         '6px',
           width:           fluid ? '100%' : '292px',

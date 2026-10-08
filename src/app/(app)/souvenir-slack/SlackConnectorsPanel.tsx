@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import { useEffect, useState } from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
@@ -153,15 +154,14 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
           </p>
         </div>
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button
+          <Tooltip content="Add connector"><button
             className={styles.iconButton}
             type="button"
             aria-label="Add connector"
-            title="Add connector"
             onClick={() => setMode(mode === 'closed' ? 'menu' : 'closed')}
           >
             <PlusSignIcon size={15} />
-          </button>
+          </button></Tooltip>
           {mode === 'menu' && (
             <div className={styles.menu} role="menu">
               <Button variant="ghost" size="sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setMode('existing')}>
@@ -227,7 +227,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
                       Permissions
                     </Button>
                   ) : (
-                    <span className={styles.muted} title="Only the person who connected it can change permissions">Managed by {entry.ownerName}</span>
+                    <Tooltip content="Only the person who connected it can change permissions" maxWidth={280}><span className={styles.muted}>Managed by {entry.ownerName}</span></Tooltip>
                   )}
                   {!entry.inherited && <Button variant="ghost" size="sm" onClick={() => void remove(entry)}>Remove</Button>}
                 </span>

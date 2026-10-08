@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 // ── Style constants (mirrors org/plans page tokens) ──────────────────────────
 
 const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
-const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)'
 const SHADOW_PILL  = '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_PILL_ACTIVE = '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)'
 
@@ -44,7 +44,7 @@ function InputField({
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
         {label}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--field-surface)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         <input
           type={type}
           value={value}
@@ -231,7 +231,7 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Tell us about your team and what you're trying to solve — we'll tailor the demo to it…"
                 rows={4}
-                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--neutral-white)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--field-surface)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
               />
             </div>
           </div>

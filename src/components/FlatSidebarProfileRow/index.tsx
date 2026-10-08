@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { m, useReducedMotion } from 'framer-motion'
 import { SettingsOneIcon } from '@strange-huge/icons'
 
 // ── "Sidebar / Profile Row" (Figma 109:4650) ─────────────────────────────────
@@ -17,14 +18,24 @@ export interface FlatSidebarProfileRowProps {
   planLabel?: string
   onOpenSettingsClick: () => void
   collapsed?: boolean
+  /**
+   * Own control rendered after the settings icon (expanded) or stacked above
+   * the avatar (collapsed rail) — the notification bell. It must stop its own
+   * click/key events from reaching this row (NotificationBell does), since
+   * the row itself is the AccountMenu trigger.
+   */
+  trailing?: React.ReactNode
 }
 
-export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, onOpenSettingsClick, collapsed = false }: FlatSidebarProfileRowProps) {
+export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, onOpenSettingsClick, collapsed = false, trailing }: FlatSidebarProfileRowProps) {
   const [isHovered, setIsHovered] = useState(false)
   const isActive = isHovered
+  const reduceMotion = useReducedMotion()
 
   if (collapsed) {
     return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%' }}>
+      {trailing}
       <div
         role="button"
         tabIndex={0}
@@ -42,6 +53,7 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
           )}
         </div>
       </div>
+      </div>
     )
   }
 
@@ -56,7 +68,10 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
       data-sidebar-active={isActive ? '' : undefined}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 50,
-        padding: '0 12px', borderRadius: 10, cursor: 'pointer', boxSizing: 'border-box',
+        // The trailing bell is a 24 px button around a 16 px glyph — 8 px
+        // right padding puts its glyph on the same 12 px inset the settings
+        // icon sits on without it.
+        padding: trailing ? '0 8px 0 12px' : '0 12px', borderRadius: 10, cursor: 'pointer', boxSizing: 'border-box',
         backgroundColor: isActive ? 'var(--sidebar-menu-item-hover-bg)' : 'transparent',
         boxShadow: isActive ? 'var(--shadow-sidebar-item-hover)' : undefined,
         transition: 'background-color 150ms, box-shadow 150ms',
@@ -101,9 +116,16 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
             {planLabel}
           </span>
         )}
-        <span style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}>
-          <SettingsOneIcon size={16} triggered={isActive} />
-        </span>
+        {/* The icon itself does not animate, so the gear turns while the row is hovered. */}
+        <m.span
+          aria-hidden
+          animate={isActive && !reduceMotion ? { rotate: 90, scale: 1.1 } : { rotate: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 240, damping: 16 }}
+          style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}
+        >
+          <SettingsOneIcon size={16} />
+        </m.span>
+        {trailing}
       </div>
     </div>
   )

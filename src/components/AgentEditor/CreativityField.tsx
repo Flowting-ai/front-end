@@ -24,7 +24,10 @@ export function CreativityField({ value, onChange, disabled = false }: Creativit
           display: 'flex', flexDirection: 'column', gap: 12,
           // Top padding reserves room for the value tooltip above the thumb.
           padding: '28px 16px 16px',
-          borderRadius: 18, border: '1px solid var(--neutral-100)', backgroundColor: 'var(--neutral-white)',
+          // Same surface and ring as every other field (white in light, a lifted grey in dark), so the card
+          // reads against the page in both themes.
+          borderRadius: 18, backgroundColor: 'var(--field-surface)',
+          boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
         }}
       >
         <Slider
@@ -36,6 +39,7 @@ export function CreativityField({ value, onChange, disabled = false }: Creativit
           showValue
           valueFormat={v => `${v.toFixed(2)} · ${temperatureLabel(v)}`}
           fillColor="var(--focus-ring)"
+          trackColor="var(--field-track)"
           disabled={disabled}
           aria-label="Creativity"
         />

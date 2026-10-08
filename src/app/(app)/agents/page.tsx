@@ -40,6 +40,8 @@ import {
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, copyPersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo } from '@/lib/chat-personas'
 import { normalizeModels } from '@/lib/ai-models'
+import { buildModelBlockedMap, modelUnavailableReason as resolveModelUnavailableReason, patchableVersionId, type ModelUnavailableReason } from '@/lib/agent-model-health'
+import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
 import { AGENTS_SEE_ALL_EVENT, emitSidebarNewChat } from '@/hooks/use-sidebar-events'
@@ -66,6 +68,7 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
+import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -377,7 +380,7 @@ function StatTile({
 }) {
   return (
     <div style={{
-      background:    'var(--neutral-white)',
+      background:    'var(--card-bg)',
       borderRadius:  8,
       padding:       12,
       boxShadow:     SHADOW_TILE,
@@ -429,6 +432,7 @@ function SectionCard({
       border:        '1px solid var(--neutral-200)',
       borderRadius:  16,
       boxShadow:     SHADOW_CARD,
+      backgroundColor: 'var(--card-bg)',
       display:       'flex',
       flexDirection: 'column',
       gap:           12,
@@ -555,6 +559,8 @@ function PersonasPageInner() {
     const params = new URLSearchParams(searchParams.toString())
     params.set('agent', id)
     replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+    const name = personas.find(p => p.id === id)?.name
+    toastAgentDetailsOpened(name)
   }
 
   function closeDetails() {
@@ -562,6 +568,7 @@ function PersonasPageInner() {
     params.delete('agent')
     const query = params.toString()
     replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+    toastAgentDetailsClosed()
   }
 
   // The sidebar's "See all agents" row emits this while this page is already
@@ -594,6 +601,9 @@ function PersonasPageInner() {
   // in Settings, or retired by the provider, still resolves to a real name here
   // instead of falling through to the raw model id.
   const [modelsForNameLookup, setModelsForNameLookup] = useState<AIModel[]>([])
+  // Flips once the catalog request above settles (even empty/failed) — the
+  // ?fixModel= deep link waits on it so it never decides on a half-loaded page.
+  const [modelCatalogSettled, setModelCatalogSettled] = useState(false)
   const filterSharesLoadedRef = useRef(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
@@ -746,6 +756,7 @@ function PersonasPageInner() {
     fetchAllModels()
       .then(list => setModelsForNameLookup(normalizeModels(list)))
       .catch(() => {})
+      .finally(() => setModelCatalogSettled(true))
   }, [activeTab])
 
   // Map share persona_id → persona info.
@@ -842,26 +853,21 @@ function PersonasPageInner() {
   // Map from stable model ID → whether the user has disabled it in Settings.
   // Absence from the map (rather than false) means it's gone from the catalog
   // entirely — deprecated/retired by the provider.
-  const modelIdToBlocked = useMemo(() => {
-    const map = new Map<string, boolean>()
-    for (const m of modelsForNameLookup) {
-      const key = String(m.modelId ?? m.id ?? '')
-      if (key) map.set(key, !!m.blocked)
-    }
-    return map
-  }, [modelsForNameLookup])
+  const modelIdToBlocked = useMemo(() => buildModelBlockedMap(modelsForNameLookup), [modelsForNameLookup])
+
+  // Dev builds only: re-render when the /dev/notifications playground
+  // simulates a model outage, so the cards below pick it up. Always 0 in prod.
+  const devNotificationsVersion = useDevNotificationsVersion()
 
   // Why a persona's configured model can't be used, or null when it's fine.
   // 'blocked' — still in the catalog but turned off for this account.
   // 'retired' — absent from the catalog entirely (deprecated by the provider).
   // The two get different copy, so they can't collapse into one boolean here.
   // Requires the full catalog to have loaded at least once — otherwise every
-  // persona would flash as unavailable during the initial fetch.
-  function modelUnavailableReason(modelId: string | null): 'retired' | 'blocked' | null {
-    if (!modelId || !modelsForNameLookup.length) return null
-    const blocked = modelIdToBlocked.get(modelId)
-    if (blocked === undefined) return 'retired'
-    return blocked ? 'blocked' : null
+  // persona would flash as unavailable during the initial fetch. Shared with
+  // the sidebar notification bell via lib/agent-model-health.
+  function modelUnavailableReason(modelId: string | null): ModelUnavailableReason | null {
+    return resolveModelUnavailableReason(modelId, modelIdToBlocked)
   }
 
   // Draft/unpublished cards already have their own "finish setup" treatment,
@@ -870,12 +876,8 @@ function PersonasPageInner() {
     return persona.status === 'draft' || !persona.hasSystemInstructions || !!unpublishedMap[persona.id]
   }
 
-  // The version a model reassignment would patch. activeVersionId is the
-  // common case (published agent); workingVersionId covers a paused agent
-  // that was never published. Without either there is nothing to write to.
-  function patchableVersionId(persona: Persona): string | null {
-    return persona.activeVersionId ?? persona.workingVersionId ?? null
-  }
+  // patchableVersionId (the version a model reassignment would write to) now
+  // lives in lib/agent-model-health alongside the rest of this logic.
 
   // Unique model display names present in the current persona list.
   const uniqueModelNames = useMemo(() => {
@@ -934,7 +936,31 @@ function PersonasPageInner() {
     }
     return rows
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap])
+  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap, devNotificationsVersion])
+
+  // ?fixModel=<id> — where the sidebar bell's "<agent> needs attention" rows
+  // land. Once the agents and the model catalog have both loaded, open the
+  // single-agent Change model modal; if the agent was fixed in the meantime,
+  // show its details instead. The param is dropped either way so a reload or
+  // Back doesn't reopen the modal.
+  const fixModelId = searchParams.get('fixModel')
+  useEffect(() => {
+    if (!fixModelId || isLoading || !modelCatalogSettled) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('fixModel')
+    const persona = personas.find(p => p.id === fixModelId)
+    if (!persona) {
+      toast.info('That agent is no longer in your library.')
+    } else if (modelUnavailableReason(persona.modelId) && patchableVersionId(persona)) {
+      setChangeModelTarget(persona)
+    } else {
+      toast.success(`${persona.name} is already on an available model.`)
+      params.set('agent', persona.id)
+    }
+    const query = params.toString()
+    replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixModelId, isLoading, modelCatalogSettled, personas])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
@@ -1655,8 +1681,8 @@ function PersonasPageInner() {
             // a single icon button) rather than arbitrary round numbers —
             // the previous columns were tighter than their own content,
             // which overflowed into neighboring cells instead of eliding.
-            const MY_LINKS_COLUMNS = 'minmax(220px, 1.6fr) 116px minmax(150px, 1fr) minmax(150px, 1fr) 112px 64px'
-            const SHARED_LINKS_COLUMNS = 'minmax(190px, 1.3fr) minmax(150px, 1fr) 116px minmax(150px, 1fr) 112px 196px'
+            const MY_LINKS_COLUMNS = 'minmax(0, 1.6fr) 116px minmax(0, 1fr) minmax(0, 1fr) 112px 64px'
+            const SHARED_LINKS_COLUMNS = 'minmax(0, 1.3fr) minmax(0, 1fr) 116px minmax(0, 1fr) 112px 196px'
 
             // Date-range label for the stat box footer — dropped during the
             // /org/plans revamp when the page-header DateRangePill was
@@ -1726,7 +1752,7 @@ function PersonasPageInner() {
                       </div>
 
                       {sharesLoading ? (
-                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                           <Skeleton width={110} height={14} radius={4} />
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             <Skeleton width={24} height={24} radius="50%" />
@@ -1735,7 +1761,7 @@ function PersonasPageInner() {
                           <Skeleton width={160} height={14} radius={4} />
                         </div>
                       ) : topShare && (
-                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                             Most active agent
                           </p>
@@ -1810,7 +1836,7 @@ function PersonasPageInner() {
                     isEmpty ? (
                       <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
                     ) : (
-                      <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16}>
+                      <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16} background='var(--card-bg)'>
                         <SettingsTableToolbar title={sharesLoading ? <Skeleton width={130} height={16} radius={4} /> : `My Superlinks · ${totalLinks}`}>
                           <IconButton
                             variant="ghost"
@@ -1853,7 +1879,7 @@ function PersonasPageInner() {
                             </Dropdown>
                           </Dropdown.Float>
                         </SettingsTableToolbar>
-                        <SettingsTableViewport minWidth={900} ariaLabel="My Super Links">
+                        <SettingsTableViewport ariaLabel="My Super Links">
                           <SettingsTableHeader>
                             <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
                             <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
@@ -1969,9 +1995,9 @@ function PersonasPageInner() {
                       </SettingsTable>
                     )
                   ) : (
-                    <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16}>
+                    <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16} background='var(--card-bg)'>
                       <SettingsTableToolbar title={receivedLoading ? <Skeleton width={150} height={16} radius={4} /> : `Shared Superlinks · ${receivedShares.length}`} />
-                      <SettingsTableViewport minWidth={1000} ariaLabel="Shared with me">
+                      <SettingsTableViewport ariaLabel="Shared with me">
                         <SettingsTableHeader>
                           <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
                           <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>
@@ -2195,7 +2221,7 @@ function PersonasPageInner() {
                   onClick={(e) => e.stopPropagation()}
                   style={{
                     pointerEvents:   'auto',
-                    backgroundColor: 'var(--neutral-white)',
+                    backgroundColor: 'var(--modal-bg)',
                     borderRadius:    16,
                     boxShadow:       '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)',
                     width:           480,

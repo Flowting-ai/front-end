@@ -63,16 +63,19 @@ function FloatingPanelImpl() {
   // (project chat, /chats, persona chat, etc.), so the trigger would be a
   // dead button there.
   const isChatPage = pathname === CHAT_ROUTE
-  // Context describes whatever chat is open, so it also belongs on project chats
-  // (which share this toolbar), unlike Agents above.
-  const isContextPage = isChatPage || /^\/project\/[^/]+\/chat\//.test(pathname)
+  const isProjectChatPage = /^\/project\/[^/]+\/chat\//.test(pathname)
+  // Agents works on the regular chat page and on project chats: both listen for
+  // AGENT_SELECT_EVENT, so the trigger is live there.
+  const isAgentsPage = isChatPage || isProjectChatPage
+  // Context describes whatever chat is open, so it belongs on the same pages.
+  const isContextPage = isChatPage || isProjectChatPage
 
   // If the panel is open and the user navigates off /chat, force it closed —
   // otherwise the side panel context (global, outside this page) would keep
   // showing "Agents" content on a page whose floating menu no longer offers it.
   useEffect(() => {
-    if ((!isChatPage && agentsOpen) || (!isContextPage && contextOpen)) setSidePanel(null)
-  }, [isChatPage, isContextPage, agentsOpen, contextOpen, setSidePanel])
+    if ((!isAgentsPage && agentsOpen) || (!isContextPage && contextOpen)) setSidePanel(null)
+  }, [isAgentsPage, isContextPage, agentsOpen, contextOpen, setSidePanel])
 
   // The effect above only fires while this component stays mounted. AppLayout
   // unmounts FloatingPanel entirely on some routes (e.g. /projects), which
@@ -113,7 +116,7 @@ function FloatingPanelImpl() {
     // aligned with each other.
     setSidePanel({
       title:   AGENTS_PANEL_TITLE,
-      content: <AgentsPanelContent />,
+      content: <AgentsPanelContent inProject={isProjectChatPage} />,
       onClose: () => setSidePanel(null),
       sidePadding: 8,
     })
@@ -181,7 +184,7 @@ function FloatingPanelImpl() {
 
       {/* Floating toolbar - pinned just below the top bar (Share button). Hidden entirely (not
           just disabled) on an archived chat — see isArchivedChat above. */}
-      {!isArchivedChat && (PINS_ENABLED || HIGHLIGHTS_ENABLED || isChatPage || isContextPage) && (
+      {!isArchivedChat && (PINS_ENABLED || HIGHLIGHTS_ENABLED || isAgentsPage || isContextPage) && (
         <div
           style={{
             position:  'absolute',
@@ -201,7 +204,7 @@ function FloatingPanelImpl() {
                 onClick={handleToggleContext}
               />
             )}
-            {isChatPage && (
+            {isAgentsPage && (
               <FloatingMenuItem
                 icon={<UserAiIcon size={20} />}
                 label="Agents"

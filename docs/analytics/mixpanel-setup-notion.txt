@@ -71,8 +71,8 @@ Must include
 Answers
 chat_message_sent
 Message sent
-agent used?, in a project?, model, model picked by hand or algorithm
-Baseline activity; trust in auto-routing (cost story)
+agent used?, in a project?, model, model picked by hand or algorithm, sent from the queue? (queued)
+Baseline activity; trust in auto-routing (cost story); how often people queue a follow-up while a reply runs
  response_block_rendered
 Table/chart/steps renders post-stream
 block type, persisted yes/no

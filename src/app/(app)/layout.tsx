@@ -8,6 +8,7 @@ import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { LazyPresetModelSelectorDialog } from "@/components/chat/LazyPresetModelSelectorDialog";
+import { MessageQueueRunner } from "@/components/chat/MessageQueueRunner";
 import { ProjectsProvider } from "@/context/projects-context";
 import { ProjectPanelProvider } from "@/context/project-panel-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
@@ -16,6 +17,7 @@ import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResul
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
+import { NotificationsProvider } from "@/context/notifications-context";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
 
@@ -35,6 +37,7 @@ export default async function AppGroupLayout({
       <NavGuardModal />
       <OrgProvider>
       <OrgStamps />
+      <NotificationsProvider>
       <ProjectsProvider>
         <ChatHistoryProvider>
           <PinboardProvider>
@@ -48,6 +51,8 @@ export default async function AppGroupLayout({
                       </AppLayout>
                     </ProjectPanelProvider>
                     <LazyPresetModelSelectorDialog />
+                    {/* Sends queued chat messages for chats that aren't on screen. */}
+                    <MessageQueueRunner />
                     <PlanUpgradeToast />
                     <ConnectorAuthResultToast />
                   </SearchProvider>
@@ -57,6 +62,7 @@ export default async function AppGroupLayout({
           </PinboardProvider>
         </ChatHistoryProvider>
       </ProjectsProvider>
+      </NotificationsProvider>
       </OrgProvider>
       </NavGuardProvider>
     </OnboardingGuard>

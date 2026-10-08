@@ -6,6 +6,8 @@ interface SettingsTableProps {
   children: React.ReactNode
   columns?: string
   columnGap?: string | number
+  /** Surface colour of the table card. Defaults to the cream settings surface. */
+  background?: string
 }
 
 interface SettingsTableGridProps {
@@ -28,7 +30,7 @@ const SettingsTableLayoutContext = React.createContext<{
   columnGap?: string | number
 }>({})
 
-export function SettingsTable({ children, columns, columnGap }: SettingsTableProps) {
+export function SettingsTable({ children, columns, columnGap, background = 'var(--neutral-50)' }: SettingsTableProps) {
   return (
     <SettingsTableLayoutContext.Provider value={{ columns, columnGap }}>
       <section
@@ -36,7 +38,7 @@ export function SettingsTable({ children, columns, columnGap }: SettingsTablePro
           border:        '1px solid var(--neutral-200)',
           borderRadius:  16,
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-          background:    'var(--neutral-50)',
+          background,
           overflow:      'hidden',
           display:       'flex',
           flexDirection: 'column',

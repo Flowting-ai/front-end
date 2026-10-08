@@ -18,6 +18,7 @@ function useReducedMotion() {
 }
 import { cn } from '@/lib/utils'
 import { ChipButton } from '@/components/ChipButton'
+import { Tooltip } from '@/components/Tooltip'
 
 // Re-export for back-compat - original public path was `@/components/Chip`.
 // New canonical path is `@/components/ChipButton`.
@@ -58,6 +59,10 @@ const COLOR_CONFIG: Record<ChipColor, ChipColorTokens> = (
 export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
   /** Label text shown in the centre of the chip */
   label?: string
+  /** Medium only. Hides the visible text (icon-only chip); `label` stays as the accessible name. */
+  hideLabel?: boolean
+  /** Medium only. Hover/focus tooltip describing the chip (e.g. what it is and what it will do). */
+  tooltip?: React.ReactNode
   /**
    * Custom left icon - Medium only.
    * Shown at rest when no `personaImage` is provided. Defaults to `<LogoIcon />`.
@@ -70,6 +75,11 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    * Ignored for Small chips.
    */
   personaImage?: string
+  /**
+   * A ready-made avatar node (e.g. the agent's animated avatar) - Medium only.
+   * Takes precedence over `personaImage`; rendered in the same 24×24 slot.
+   */
+  personaAvatar?: React.ReactNode
   /**
    * Called when the × (remove) button is clicked.
    * Medium: fires on hover; Small: fires on direct click of the always-visible × button.
@@ -98,14 +108,14 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    */
   leftIcon?: React.ReactNode
   /**
-   * Override the icon shown in the right ChipButton - **Small only.**
+   * Override the icon shown in the right ChipButton (Small: 14×14; Medium: 20×20 when `onExpand` is set).
    * Defaults to `<ArrowDownOneIcon size={14} />` (chevron-down). Only renders
    * when `onExpand` is provided. Render at 14×14 with `color="var(--chip-text)"`.
    */
   rightIcon?: React.ReactNode
   /** Aria-label for the left ChipButton - **Small only.** Defaults to `"Remove"`. */
   leftLabel?: string
-  /** Aria-label for the right ChipButton - **Small only.** Defaults to `"Open menu"`. */
+  /** Aria-label for the right ChipButton. Defaults to `"Open menu"` (Small) / `"Open picker"` (Medium). */
   rightLabel?: string
   /**
    * Color variant - **Small chips only.**
@@ -134,15 +144,18 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
 export function Chip(
   {
     label = 'Souvenir',
+    hideLabel = false,
+    tooltip,
     icon,
     personaImage,
+    personaAvatar,
     onRemove,
     onChange,
     onExpand,
     leftIcon,
     rightIcon,
     leftLabel  = 'Remove',
-    rightLabel = 'Open menu',
+    rightLabel,
     color     = 'Blue',
     size      = 'Medium',
     disabled  = false,
@@ -243,7 +256,7 @@ export function Chip(
             <ChipButton
               size="16px"
               icon={rightIcon ?? <ArrowDownOneIcon size={14} color={cfg.text} />}
-              aria-label={rightLabel}
+              aria-label={rightLabel ?? 'Open menu'}
               onClick={handleExpand}
               disabled={disabled}
             />
@@ -270,7 +283,7 @@ export function Chip(
     // chip into its remove state. The wrapper dims to opacity 0.7 and the
     // cursor switches to `not-allowed`.
     const effectiveActive = disabled ? false : isActive
-    return (
+    const mediumChip = (
       <div
         ref={ref}
         role="group"
@@ -360,7 +373,7 @@ export function Chip(
               pointerEvents:   effectiveActive ? 'none' : undefined,
             }}
           >
-            {personaImage && !imageError
+            {personaAvatar ? personaAvatar : personaImage && !imageError
               ? <Image src={personaImage} alt="" width={24} height={24} unoptimized style={{ borderRadius: '6px', display: 'block' }} onError={() => setImageError(true)} />
               : personaImage
                 ? <UserAiIcon size={20} color="var(--chip-text)" animated />
@@ -396,18 +409,20 @@ export function Chip(
 
         {/* ── Label ── label padding is constant `0 2px` so the text never
             shifts horizontally between rest/hover. ── */}
-        <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-body)',
-            lineHeight: 1,
-            color:      'var(--chip-text)',
-            whiteSpace: 'nowrap',
-          }}>
-            {label}
-          </span>
-        </div>
+        {!hideLabel && (
+          <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-medium)',
+              fontSize:   'var(--font-size-body)',
+              lineHeight: 1,
+              color:      'var(--chip-text)',
+              whiteSpace: 'nowrap',
+            }}>
+              {label}
+            </span>
+          </div>
+        )}
 
         {/* ── Right slot - fixed 28×28 wrapper. Two modes (mutually exclusive):
               • `onChange` → existing "spinning swap" pattern: at rest a
@@ -432,8 +447,8 @@ export function Chip(
             }}
           >
             <ChipButton
-              icon={<ArrowDownOneIcon size={20} color="var(--chip-text)" />}
-              aria-label="Open picker"
+              icon={rightIcon ?? <ArrowDownOneIcon size={20} color="var(--chip-text)" />}
+              aria-label={rightLabel ?? 'Open picker'}
               // Stop bubbling: when the chip is wrapped in `Dropdown.Float`
               // (the auto-chip pattern in ChatInput), the wrapping span
               // toggles the picker on click. The chevron's own onExpand
@@ -487,6 +502,9 @@ export function Chip(
 
       </div>
     )
+    return tooltip ? (
+      <Tooltip content={tooltip} side="top" maxWidth={260}>{mediumChip}</Tooltip>
+    ) : mediumChip
 }
 
 Chip.displayName = 'Chip'

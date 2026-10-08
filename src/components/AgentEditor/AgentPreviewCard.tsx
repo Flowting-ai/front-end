@@ -23,6 +23,7 @@ export function AgentPreviewCard({ name, handle, description, avatarUrl, avatarC
       <p style={LABEL_STYLE}>Live preview</p>
       <PersonaCard
         style={{ width: '100%' }}
+        hideMenu
         name={name.trim() || 'Agent name'}
         handle={handle}
         description={description.trim() || 'Your agent’s description shows here.'}

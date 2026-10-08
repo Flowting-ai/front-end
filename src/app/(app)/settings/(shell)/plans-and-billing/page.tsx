@@ -547,7 +547,6 @@ function OrgBillingView() {
   const projectedInvoice = effectivePlan?.projectedInvoiceUsd ?? 0
   const poolCapUsd = effectivePlan?.poolCapUsd ?? null
   const overageUsd = effectivePlan?.overageUsd ?? 0
-  const baseFeeUsd = Math.max(projectedInvoice - overageUsd, 0)
   const hasUnlimitedEnterpriseCap = poolCapUsd == null || poolCapUsd >= ENTERPRISE_INTERMAX
   const overageCapUsd = hasUnlimitedEnterpriseCap ? null : poolCapUsd
   const overageUsedPct = overageCapUsd != null
@@ -586,7 +585,6 @@ function OrgBillingView() {
   const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
-  const isAutomaticBilling = billing?.billingModel === 'automatic_postpaid'
   // Invoice history shows only real, issued invoices now — the upcoming
   // invoice (never downloadable; Invoice.projected() gives it no viewUrl) is
   // surfaced separately as the card's subtitle instead of a row in the same
@@ -756,7 +754,7 @@ function OrgBillingView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ flex: '1 0 0', minWidth: 0 }}>
                         <p style={statCardBigLineStyle}>
-                          {baseFeeUsd === 0 ? 'Enterprise · pay for usage' : `Enterprise · $${Math.round(baseFeeUsd)}/mo`}
+                          Enterprise · pay for usage
                         </p>
                         <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
                           Next billing date: {nextBilling}
@@ -918,7 +916,7 @@ function OrgBillingView() {
         {isAdmin && (
           <SectionCard
             title="Payment"
-            subtitle={isEnterprise ? (isAutomaticBilling ? 'Usage is billed after each monthly cycle.' : `Automatic usage billing starts ${fmtDate(billing?.autobillingStart ?? null)}.`) : 'Manage your billing details.'}
+            subtitle={isEnterprise ? 'Usage is billed after each monthly cycle.' : 'Manage your billing details.'}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
@@ -1534,7 +1532,7 @@ function InputField({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
       <p id={labelId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--field-surface)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
         {prefix && <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', padding: '0 2px' }}>{prefix}</span>}
         <input
           aria-labelledby={labelId}

@@ -73,7 +73,7 @@ const PINK_BORDER = '#FF6B97'
 const PINK_TOOLTIP_TO = '#D81857'
 const GREY_SURFACE = '#1C1C1C' // the dark card surface (same as --neutral-white) that tabs and agent cards sit on
 const TAB_TRACK = '#262626' // tab bar track: lifted well above the page so the tab strip reads as a control
-const FIELD_BG = '#262626'  // text fields: brighter than the card they sit on, with a visible ring
+const FIELD_BG = '#2E2E2E'  // every input surface (--field-surface): clearly brighter than the #1C1C1C page and cards, with a visible ring
 const AGENT_CARD = GREY_SURFACE
 
 // Content on that lighter grey needs its muted tones lifted or it becomes hard to read
@@ -342,15 +342,16 @@ const overrides = [
   ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
   // Text fields: a brighter fill than cards plus a clearly visible ring, so inputs stand out.
+  ['--field-surface', FIELD_BG],
   ['--text-field-bg', FIELD_BG],
-  ['--text-field-ring', 'rgba(255, 255, 255, 0.14)'],
-  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.24)'],
+  ['--text-field-ring', 'rgba(255, 255, 255, 0.22)'],
+  ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.34)'],
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
   // Light mode keeps the chat input pure white; in dark it follows the card surface as before.
-  ['--chat-input-bg', 'var(--neutral-white)'],
-  ['--input-group-bg-focus', 'var(--neutral-white)'],
+  ['--chat-input-bg', '#262626'],
+  ['--input-group-bg-focus', FIELD_BG],
   ['--shadow-message-bubble-user', '0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-message-bubble-user-inner', 'inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1)'],
   // Chat input: a soft LIGHT glow + hairline ring instead of a dark drop shadow (a black shadow is
@@ -464,6 +465,38 @@ const hoverSelectors = INTERACTIVE
   .map((s) => `:root[data-theme="dark"] ${s}`)
   .join(',\n')
 
+// ── 5. Project overrides (appended last so they win over anything derived above) ──────────
+// Dark values chosen for the current design: light chips, pink widget gradient, white cards/menus,
+// and light-tinted card shadows. Keep new hand-picked dark tokens HERE, never in theme.css directly.
+lines.push('')
+lines.push('  /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */')
+const PROJECT_OVERRIDES = [
+  // Chips (web search, agent chips, ...): light pink chips on the dark UI.
+  ['--chip-bg', '#FFD9E5'],
+  ['--chip-text', '#4A0B20'],
+  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45)'],
+  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18)'],
+  ['--chip-button-bg-hover', 'rgba(249, 32, 100, 0.14)'],
+  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22)'],
+  // Floating surfaces keep the dark surface.
+  ['--popover-bg', 'var(--color-surface-default)'],
+  ['--modal-bg', 'var(--color-surface-default)'],
+  ['--card-bg', 'var(--color-surface-default)'],
+  ['--toast-bg', DARK_SURFACE_HEX],
+  ['--surface-cream', DARK_SURFACE_HEX],
+  // Chat widgets: black to signature pink, white accents.
+  ['--widget-bg-from', '#0A0A0A'],
+  ['--widget-bg-to', PINK_FROM],
+  ['--widget-accent', WHITE],
+  ['--widget-on-accent', DARK_SURFACE_HEX],
+  // Light-tinted shadows on dark.
+  ['--shadow-avatar-ring', '0px 2px 6px 0px rgba(255, 255, 255, 0.16)'],
+  ['--shadow-card-deep', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12)'],
+  ['--shadow-agent-card', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100)'],
+  ['--shadow-agent-card-hover', '0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400)'],
+]
+for (const [name, value] of PROJECT_OVERRIDES) lines.push(`  ${name}: ${value};`)
+
 // ── 6. Raised surface scope ──────────────────────────────────────────────────
 // Custom properties that use var() are resolved where they are DECLARED and then
 // inherited as finished values, so lifting --neutral-500 on a card would not reach
@@ -518,7 +551,7 @@ const css = `/* ── Theme: dark ───────────────
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 252, 252, 251;
+  --surface-rgb: 249, 248, 245;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
   --icon-button-secondary-bg: #FFFFFF;

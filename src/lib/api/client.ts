@@ -172,7 +172,30 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
  * wrappers (apiFetchJson). Raw-response callers (streaming) handle status
  * themselves.
  */
-export async function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+export function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  if (!isDedupable(options)) return apiFetchOnce(path, options);
+  // Identical GETs issued while one is already in flight (several components
+  // mounting at once, React StrictMode's double effects) share one request.
+  let pending = inFlightGets.get(path);
+  if (!pending) {
+    const request = apiFetchOnce(path, options);
+    pending = request;
+    inFlightGets.set(path, request);
+    const clear = () => { if (inFlightGets.get(path) === request) inFlightGets.delete(path); };
+    request.then(clear, clear);
+  }
+  return pending.then((res) => res.clone());
+}
+
+const inFlightGets = new Map<string, Promise<Response>>();
+
+function isDedupable(options: ApiFetchOptions): boolean {
+  if (options.method && options.method.toUpperCase() !== "GET") return false;
+  // Per-call headers or an abort signal can change the response, so those stay separate.
+  return !(options.body || options.signal || options.headers);
+}
+
+async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Response> {
   await ensureFreshToken();
 
   const response = await doFetch(path, options);

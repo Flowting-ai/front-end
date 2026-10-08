@@ -12,7 +12,7 @@ const C = {
   muted:  'var(--neutral-600)',
   border: 'var(--neutral-200)',
   hair:   'var(--neutral-100)',
-  white:  'var(--neutral-white)',
+  white:  'var(--card-bg)',
 } as const
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
@@ -92,7 +92,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       width: '100%', display: 'flex', flexDirection: 'column',
-      border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: SECTION_SHADOW,
+      border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: SECTION_SHADOW, backgroundColor: 'var(--surface-cream)',
       overflow: 'hidden', paddingTop: 12, paddingBottom: 12,
     }}>
       {children}
@@ -167,7 +167,7 @@ export default function UsagePage() {
             </p>
           </div>
           <div style={{ padding: '12px 24px 16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 8, backgroundColor: 'var(--neutral-white)', boxShadow: CARD_RING }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>My usage</p>

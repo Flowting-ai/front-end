@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   enhancePrompt:         vi.fn(),
   personaStarter:        vi.fn(),
   createPersonaRepo:     vi.fn(),
+  findAgentNameConflict: vi.fn().mockResolvedValue(null),
   publishPersonaVersion: vi.fn(),
   updateVersion:         vi.fn(),
   urlToImageFile:        vi.fn(),

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
@@ -8,6 +8,12 @@ import { Badge } from "@/components/Badge"
 import { parseScheduleXml, scheduleMonthCells, type ParsedSchedule } from "./XmlSchedule.parse"
 import { ChatWidgetShell } from "./ChatWidgetShell"
 import styles from "./ChatWidget.module.css"
+
+function todayIso() {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
 
 function formatDate(date: string, options: Intl.DateTimeFormatOptions) {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" })
@@ -32,6 +38,9 @@ function ScheduleContent({ schedule }: { schedule: ParsedSchedule }) {
   const datedDays = new Map(schedule.days.filter(group => group.date).map(group => [group.date!, group]))
   const undated = schedule.days.filter(group => !group.date)
   const selectedGroup = datedDays.get(selected)
+  // Resolved after mount so the server and first client render agree.
+  const [today, setToday] = useState("")
+  useEffect(() => setToday(todayIso()), [])
 
   function changeMonth(offset: number) {
     const date = new Date(`${month.slice(0, 7)}-01T12:00:00Z`)
@@ -43,11 +52,12 @@ function ScheduleContent({ schedule }: { schedule: ParsedSchedule }) {
 
   return <ChatWidgetShell title={schedule.title || "Schedule"} eyebrow="Calendar" icon={<CalendarDays size={18} />} actions={<Badge color="Neutral" label={`${eventCount} ${eventCount === 1 ? "event" : "events"}`} />}>
     {firstDate && <div className={styles.toolbar}>
-      <div role="group" aria-label="Calendar view" style={{ display: "flex", gap: 6 }}>
+      <div role="group" aria-label="Calendar view" className={styles.segmented}>
         <Button type="button" variant={view === "month" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "month"} onClick={() => setView("month")}>Month</Button>
         <Button type="button" variant={view === "agenda" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "agenda"} onClick={() => setView("agenda")}>Agenda</Button>
       </div>
-      {view === "month" && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {view === "month" && <div className={styles.monthNav}>
+        {today && <Button type="button" variant="ghost" size="sm" onClick={() => { setSelected(today); setMonth(today) }}>Today</Button>}
         <IconButton type="button" variant="ghost" size="sm" aria-label="Previous month" onClick={() => changeMonth(-1)} icon={<ChevronLeft size={16} />} />
         <span aria-live="polite" className={styles.title}>{formatDate(month, { month: "long", year: "numeric" })}</span>
         <IconButton type="button" variant="ghost" size="sm" aria-label="Next month" onClick={() => changeMonth(1)} icon={<ChevronRight size={16} />} />
@@ -59,7 +69,7 @@ function ScheduleContent({ schedule }: { schedule: ParsedSchedule }) {
         <div className={styles.dates} role="group" aria-label="Choose a date">
           {scheduleMonthCells(month).map(date => {
             const count = datedDays.get(date)?.events.length || 0
-            return <button type="button" key={date} className={`${styles.date} ${date.slice(0, 7) !== month.slice(0, 7) ? styles.muted : ""}`} aria-pressed={selected === date}
+            return <button type="button" key={date} className={`${styles.date} ${date.slice(0, 7) !== month.slice(0, 7) ? styles.muted : ""} ${date === today ? styles.today : ""}`} aria-pressed={selected === date}
               aria-label={`${formatDate(date, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}, ${count} ${count === 1 ? "event" : "events"}`} onClick={() => { setSelected(date); setMonth(date) }}>
               <span>{Number(date.slice(8))}</span>{count > 0 && <span className={styles.dot} aria-hidden="true" />}
             </button>

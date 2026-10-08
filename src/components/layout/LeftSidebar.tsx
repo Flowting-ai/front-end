@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
 import { useIsClient } from "@/hooks/use-is-client";
 import { m } from "framer-motion";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { BubbleChatAddIcon, CalendarThreeIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, FolderThreeIcon, LinkSixIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, QuillWriteOneIcon, QuillWriteTwoIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
@@ -60,13 +60,18 @@ import {
   CHAT_ROUTE,
   CHATS_ROUTE,
   SETTINGS_ROUTE,
-  SETTINGS_ACCOUNT_ROUTE,
+  SETTINGS_USAGE_ROUTE,
   SETTINGS_HELP_ROUTE,
   ORG_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
 import { ReportBugModal } from "@/components/ReportBugModal";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
 import type { Chat } from "@/types/chat";
+
+// Notifications bell in the account-menu row is switched off; flip to true to restore it.
+const SHOW_NOTIFICATION_BELL = false;
 
 // -- Collapse state persistence ------------------------------------------------
 
@@ -464,7 +469,7 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius: "12px",
             padding: "4px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
@@ -885,7 +890,7 @@ function PersonaChatItem({
             }
           }}
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--popover-bg)",
             borderRadius:    "12px",
             padding:         "4px",
             boxShadow:       "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
@@ -2206,7 +2211,7 @@ interface FlatDestinationsProps {
 function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: FlatDestinationsProps) {
   const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { orgId } = useOrg()
+  const { orgId, currentUserRole } = useOrg()
   const [slackConnected, setSlackConnected] = useState(false)
 
   useEffect(() => {
@@ -2235,13 +2240,16 @@ function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: Fla
       />
       {/* "Souvenir in Slack" — own dedicated top-level page (moved from
           /org/souvenir-slack to /souvenir-slack). */}
-      <FlatSidebarSlackConnector
-        collapsed={collapsed}
-        connected={slackConnected}
-        selected={pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)}
-        onAdd={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
-        onClick={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
-      />
+      {/* Admin-only, matching the route guard in app/(app)/souvenir-slack/layout.tsx. */}
+      {currentUserRole === 'admin' && (
+        <FlatSidebarSlackConnector
+          collapsed={collapsed}
+          connected={slackConnected}
+          selected={pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)}
+          onAdd={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+          onClick={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+        />
+      )}
     </>
   )
 }
@@ -2274,6 +2282,7 @@ function LeftSidebarImpl({
   defaultCollapsed = false,
 }: LeftSidebarProps) {
   const { push } = useGuardedRouter();
+  const { push: rawPush } = useRouter();
   const { guardedNavigate } = useNavGuard();
   const pathname = usePathname();
   const chatSearchParams = useSearchParams();
@@ -2287,6 +2296,11 @@ function LeftSidebarImpl({
 
   // -- Account menu: Report a bug modal ---------------------------------------
   const [reportBugOpen, setReportBugOpen] = useState(false);
+  // The flat sidebar's profile row carries both the account menu and the
+  // notification bell — both controlled here so opening one closes the other
+  // (the bell sits inside the account trigger, so outside-click alone can't).
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   // All 5 Agent Configure tabs (Instructions/Profile/Knowledge/Connectors/
@@ -2385,20 +2399,26 @@ function LeftSidebarImpl({
     // The new flat sidebar's "New" row calls this unconditionally from every
     // page, so that branch just made "New" a no-op on /agents and any
     // /agents/[id]/chat page — removed; "New" now always opens a blank chat.
-    toast.info("Opening new chat");
-    if (onNewChat) {
-      onNewChat();
-    } else if (pathname === CHAT_ROUTE) {
-      // Already mounted on the chat page (viewing an existing chat) — URL
-      // navigation alone isn't reliably
-      // picked up by the page's own reactive id-change detection, so the
-      // page resets itself directly off this event instead. Still push the
-      // URL too, so it correctly reflects the reset (history/bookmarking).
-      emitSidebarNewChat();
-      push(CHAT_ROUTE);
-    } else {
-      push(CHAT_ROUTE);
-    }
+    // The whole action (reset event + navigation) runs inside one guard check:
+    // the event resets the page immediately, so it must not fire while the
+    // unsaved-changes dialog is still holding the navigation back. rawPush,
+    // not the guarded push, since this wrapper already is the guard.
+    guardedNavigate(() => {
+      toast.info("Opening new chat", { id: 'nav' });
+      if (onNewChat) {
+        onNewChat();
+      } else if (pathname === CHAT_ROUTE) {
+        // Already mounted on the chat page (viewing an existing chat) — URL
+        // navigation alone isn't reliably picked up by the page's own
+        // reactive id-change detection, so the page resets itself directly
+        // off this event instead. Still push the URL too, so it correctly
+        // reflects the reset (history/bookmarking).
+        emitSidebarNewChat();
+        rawPush(CHAT_ROUTE);
+      } else {
+        rawPush(CHAT_ROUTE);
+      }
+    });
   };
 
   const handleSelectChat = (id: string) => {
@@ -2506,6 +2526,20 @@ function LeftSidebarImpl({
   // migration plan for why).
   const useFlatSidebar = !isAdminPage;
 
+  // "N new notifications" toast → Open: only the flat sidebar has the bell, so
+  // only it claims the event (marks it handled); otherwise the provider falls
+  // back to navigating straight to the newest item.
+  useEffect(() => {
+    if (!useFlatSidebar) return;
+    const onOpen = (e: Event) => {
+      if (e instanceof CustomEvent && e.detail && typeof e.detail === "object") (e.detail as { handled?: boolean }).handled = true;
+      setAccountMenuOpen(false);
+      setNotificationsOpen(true);
+    };
+    window.addEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(NOTIFICATIONS_OPEN_EVENT, onOpen);
+  }, [useFlatSidebar]);
+
   if (useFlatSidebar) {
     return (
       <>
@@ -2571,7 +2605,8 @@ function LeftSidebarImpl({
                 planType={planTypeLabel}
                 credits={accountCredits}
                 creditsTotal={accountCreditsTotal}
-                showUpgradePlan={planTypeLabel !== 'Pro'}
+                showUpgradePlan={!orgId || orgRole === 'admin'}
+                viewPlanOnly={planTypeLabel === 'Pro'}
                 email={user?.email ?? undefined}
                 planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
@@ -2585,6 +2620,11 @@ function LeftSidebarImpl({
                   </Tooltip>
                 ) : undefined}
                 placement="top-start"
+                open={accountMenuOpen}
+                onOpenChange={(next) => {
+                  setAccountMenuOpen(next);
+                  if (next) setNotificationsOpen(false);
+                }}
                 renderTrigger={({ onOpenSettingsClick }) => (
                   <FlatSidebarProfileRow
                     name={displayName || "Account"}
@@ -2593,9 +2633,20 @@ function LeftSidebarImpl({
                     planLabel={!orgId && user?.planType ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1) : undefined}
                     onOpenSettingsClick={onOpenSettingsClick}
                     collapsed={collapsed}
+                    trailing={
+                      SHOW_NOTIFICATION_BELL ? (
+                        <NotificationBell
+                          open={notificationsOpen}
+                          onOpenChange={(next) => {
+                            setNotificationsOpen(next);
+                            if (next) setAccountMenuOpen(false);
+                          }}
+                        />
+                      ) : undefined
+                    }
                   />
                 )}
-                onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+                onUsage={() => push(SETTINGS_USAGE_ROUTE)}
                 onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
                 onSettings={() => push(SETTINGS_ROUTE)}
                 onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
@@ -2687,7 +2738,8 @@ function LeftSidebarImpl({
             planType={planTypeLabel}
             credits={accountCredits}
                 creditsTotal={accountCreditsTotal}
-                showUpgradePlan={planTypeLabel !== 'Pro'}
+                showUpgradePlan={!orgId || orgRole === 'admin'}
+                viewPlanOnly={planTypeLabel === 'Pro'}
                 email={user?.email ?? undefined}
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
@@ -2701,7 +2753,7 @@ function LeftSidebarImpl({
               </Tooltip>
             ) : undefined}
             placement="top-start"
-            onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+            onUsage={() => push(SETTINGS_USAGE_ROUTE)}
             onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
             onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}

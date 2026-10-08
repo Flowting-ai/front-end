@@ -522,7 +522,7 @@ export function GlobalSearchModal({
               width:           560,
               maxWidth:        'calc(100vw - 32px)',
               borderRadius:    16,
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--modal-bg)',
               boxShadow:       SHADOW_MODAL,
               overflow:        'hidden',
             }}

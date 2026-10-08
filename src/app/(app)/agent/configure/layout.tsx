@@ -1305,7 +1305,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent)' }}
+            style={{ backgroundColor: 'var(--modal-bg)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px color-mix(in srgb, var(--static-black) 15%, transparent)' }}
           >
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
               Save a version before leaving?

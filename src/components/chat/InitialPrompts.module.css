@@ -1,0 +1,25 @@
+/* The Souvenir mark's arrival on the new-chat landing: it fades in and settles to full size while its orbit
+   ring makes one slow turn around the sphere (the sphere is a circle, so turning the whole mark reads as the
+   ring orbiting), easing gently in and coming softly to rest. Plays once per landing, never loops.
+   --souvenir-orbit-duration lets the /dev/greetings preview tune the pace. */
+.orbit {
+  animation:
+    souvenir-orbit-turn var(--souvenir-orbit-duration, 2.8s) cubic-bezier(0.45, 0, 0.2, 1) both,
+    souvenir-orbit-arrive 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes souvenir-orbit-turn {
+  from { rotate: -360deg; }
+  to   { rotate: 0deg; }
+}
+
+@keyframes souvenir-orbit-arrive {
+  from { opacity: 0; scale: 0.82; }
+  to   { opacity: 1; scale: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit {
+    animation: none;
+  }
+}

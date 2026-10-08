@@ -158,7 +158,7 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
               overflowY:       'auto',
               borderRadius:    18,
               boxSizing:       'border-box',
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--modal-bg)',
               boxShadow:       SHADOW_MODAL,
             }}
           >

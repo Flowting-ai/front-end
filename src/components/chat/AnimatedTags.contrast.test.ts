@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { blendOver, contrastRatio, ensureContrast } from "./AnimatedTags.contrast"
 
-const SURFACE = "#FCFCFB"
+const SURFACE = "#F9F8F5"
 const tagBackground = (color: string) => blendOver(color, 0x15 / 255, SURFACE)
 
 describe("ensureContrast", () => {

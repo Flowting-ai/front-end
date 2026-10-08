@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry"
+import { getStreamCompletion, consumeInterruptedStreamMarker, waitForChatStreams } from "@/lib/stream-registry"
 import { stopActiveActivities } from "@/lib/activity"
 import type { UIMessage } from "@/types/chat"
 
@@ -136,7 +136,8 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
 
     // If a background stream is still running for this chat (the user navigated
     // away while it was generating), wait for it to finish before reloading
-    // from the API so the complete response is always shown.
+    // from the API so the complete response is always shown — and for the
+    // user's queued message, if one goes out right after it.
     const pendingStream = getStreamCompletion(chatId)
     if (pendingStream) {
       let cancelled = false
@@ -145,9 +146,8 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       setMessages([])
       cursorRef.current = undefined
 
-      // Cap the wait at 90 s so a hung stream never blocks the UI indefinitely.
-      const streamTimeout = new Promise<void>((resolve) => setTimeout(resolve, 90_000))
-      void Promise.race([pendingStream, streamTimeout]).then(async () => {
+      // Cap each wait at 90 s so a hung stream never blocks the UI indefinitely.
+      void waitForChatStreams(chatId, 90_000).then(async () => {
         if (cancelled) return
         try {
           if (options?.loadMessages) {

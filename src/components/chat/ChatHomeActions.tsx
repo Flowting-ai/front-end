@@ -1,11 +1,13 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
-import Link from 'next/link'
 import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { useProjects } from '@/context/projects-context'
-import { PROJECTS_NEW_ROUTE } from '@/lib/routes'
+import { useOrg } from '@/context/org-context'
+import { EditProjectModal } from '@/components/EditProjectModal'
+import { PROJECT_VISIBILITY_OPTIONS } from '@/lib/api/projects'
 import { ConnectAppMenu } from './ConnectAppMenu'
 import styles from './ChatHome.module.css'
 
@@ -15,8 +17,10 @@ export function ChatHomeActions({
   projectId: string | null
   onProjectChange: (id: string | null) => void
 }) {
-  const { projects, loading } = useProjects()
+  const { projects, loading, createProject } = useProjects()
+  const { orgId } = useOrg()
   const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const selected = projects.find(project => project.id === projectId)
   const editable = projects.filter(project => project.canEdit)
 
@@ -32,11 +36,11 @@ export function ChatHomeActions({
         onOpenChange={setOpen}
         placement="bottom-start"
         trigger={
-          <button type="button" className={styles.contextAction} title={selected?.name} aria-label={selected ? `Project: ${selected.name}` : 'Work in a project'}>
+          <Tooltip content={selected?.name} disabled={!selected?.name} maxWidth={280}><button type="button" className={styles.contextAction} aria-label={selected ? `Project: ${selected.name}` : 'Work in a project'}>
             <FolderOneIcon size={16} />
             <span className={styles.actionLabel}>{selected?.name ?? 'Work in a project'}</span>
             <ArrowDownOneIcon size={12} />
-          </button>
+          </button></Tooltip>
         }
       >
         <Dropdown size="sm" style={{ width: 'min(300px, calc(100vw - 48px))' }} maxHeight="min(320px, calc(100dvh - 120px))">
@@ -57,13 +61,28 @@ export function ChatHomeActions({
             )) : <Dropdown.Item label="No editable projects yet" disabled fluid />}
           </Dropdown.Section>
           <Dropdown.Section divider fluid>
-            <Link href={PROJECTS_NEW_ROUTE} className={styles.createProject} onClick={() => setOpen(false)}>
+            <button type="button" className={styles.createProject} onClick={() => { setOpen(false); setCreating(true) }}>
               <PlusSignIcon size={16} /> Create project
-            </Link>
+            </button>
           </Dropdown.Section>
         </Dropdown>
       </Dropdown.Float>
       <ConnectAppMenu />
+
+      {/* New project without leaving the chat; the new project is selected for this chat. */}
+      <EditProjectModal
+        open={creating}
+        mode="create"
+        name=""
+        description=""
+        visibility="personal"
+        visibilityOptions={orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        onSave={async (name, description, tags, visibility) => {
+          const project = await createProject(name, description, undefined, visibility, tags)
+          onProjectChange(project.id)
+        }}
+        onClose={() => setCreating(false)}
+      />
     </div>
   )
 }

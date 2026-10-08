@@ -18,6 +18,12 @@ import { listShares } from '@/lib/api/persona-shares'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { AGENTS_ROUTE, AGENTS_NEW_ROUTE } from '@/lib/routes'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import { buildModelBlockedMap, modelUnavailableReason } from '@/lib/agent-model-health'
+import { agentFixModelHref } from '@/lib/notifications/build'
+import { useDevNotificationsVersion } from '@/lib/notifications/dev'
+import { useActiveChatAgentId } from '@/lib/active-chat-agent-store'
+import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
 
@@ -56,7 +62,7 @@ function PersonaCardSkeleton() {
       aria-hidden
       style={{
         width: '100%', boxSizing: 'border-box', padding: 8, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 10,
-        backgroundColor: 'var(--neutral-white)',
+        backgroundColor: 'var(--card-bg)',
         boxShadow: '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
       }}
     >
@@ -83,6 +89,20 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const { personas, loading } = useSelectableChatPersonas(true)
   const { setPanel } = useProjectPanel()
   const router = useRouter()
+  // The agent whose chip is attached to the chat, if any: its card shows a tick and every other card
+  // offers "Replace agent" instead of "Use agent".
+  const activeAgentId = useActiveChatAgentId()
+
+  // Every way the details view opens or closes (card click, Back, the panel's own close) toasts the
+  // same "Editing …" / "Closed agent details" the /agents page shows.
+  const openAgentDetails = (id: string) => {
+    setDetailsId(id)
+    toastAgentDetailsOpened(personas.find(p => p.id === id)?.name)
+  }
+  const closeAgentDetails = () => {
+    setDetailsId(null)
+    toastAgentDetailsClosed()
+  }
 
   function closeSearch() {
     setIsSearchOpen(false)
@@ -109,6 +129,21 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   }, [])
 
   const isSuperlink = (p: SelectedPersonaInfo) => activeSuperlinkRepoIds.has(p.id)
+
+  // Full model catalog (blocked models included) so an agent whose model was
+  // retired or turned off fades out here exactly as its card does on /agents.
+  // Empty until loaded, which modelUnavailableReason treats as "all fine".
+  const [modelBlockedMap, setModelBlockedMap] = useState<Map<string, boolean>>(() => new Map())
+  useEffect(() => {
+    let cancelled = false
+    fetchModelsWithCache()
+      .then(models => { if (!cancelled) setModelBlockedMap(buildModelBlockedMap(models)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  // Dev builds only: re-render when the notifications playground simulates
+  // a model outage. Always 0 in production.
+  useDevNotificationsVersion()
 
   const byFilter = useMemo(() => {
     if (filter === 'team') return personas.filter(p => p.visibility === 'team')
@@ -154,7 +189,9 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const handleSelect = (persona: SelectedPersonaInfo) => {
     emitAgentSelect(persona)
     setPanel(null)
-    toast.success(inProject ? `Using “${persona.name}” in this project chat` : `Using “${persona.name}” in this chat`)
+    toast.success(activeAgentId && activeAgentId !== persona.id
+      ? `Replaced the agent with “${persona.name}”`
+      : inProject ? `Using “${persona.name}” in this project chat` : `Using “${persona.name}” in this chat`)
   }
 
   const handleManageAgents = () => {
@@ -165,6 +202,13 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   const handleCreateNew = () => {
     setPanel(null)
     router.push(AGENTS_NEW_ROUTE)
+  }
+
+  // Same destination as the sidebar bell's "needs attention" row: /agents
+  // opens the Change model modal for this agent.
+  const handleFixModel = (persona: SelectedPersonaInfo) => {
+    setPanel(null)
+    router.push(agentFixModelHref(persona.id))
   }
 
   const listView = (
@@ -303,8 +347,12 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                     agent={p}
                     superlink={isSuperlink(p)}
                     useLabel={inProject ? 'Use agent in project' : 'Use agent'}
-                    onOpen={() => setDetailsId(p.id)}
+                    inUse={activeAgentId === p.id}
+                    replaces={!!activeAgentId && activeAgentId !== p.id}
+                    onOpen={() => openAgentDetails(p.id)}
                     onUse={() => handleSelect(p)}
+                    modelUnavailable={modelUnavailableReason(p.modelId, modelBlockedMap)}
+                    onFixModel={() => handleFixModel(p)}
                   />
                 ))}
               </TemplateCardList>
@@ -478,7 +526,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingBottom: 12 }}>
               <Tooltip content="Back to agents">
-                <IconButton variant="ghost" size="sm" icon={<ArrowLeftOneIcon size={20} />} aria-label="Back to agents" onClick={() => setDetailsId(null)} />
+                <IconButton variant="ghost" size="sm" icon={<ArrowLeftOneIcon size={20} />} aria-label="Back to agents" onClick={closeAgentDetails} />
               </Tooltip>
               <p style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-700)' }}>
                 {detailsAgent?.name ?? 'Agent details'}
@@ -489,7 +537,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
                 key={detailsId}
                 repoId={detailsId}
                 canEdit={detailsAgent ? detailsAgent.ownedByViewer : false}
-                onClose={() => setDetailsId(null)}
+                onClose={closeAgentDetails}
               />
             </div>
           </m.div>

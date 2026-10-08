@@ -1228,11 +1228,10 @@ export function ChatMessage({
                     }}
                   >
                     {/* View - opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
-                    <a
+                    <Tooltip content="View"><a aria-label="View"
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="View"
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -1264,13 +1263,12 @@ export function ChatMessage({
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </a>
+                    </a></Tooltip>
 
                     {/* Download - proxied through /api/download so browser always saves */}
-                    <a
+                    <Tooltip content="Download"><a aria-label="Download"
                       href={downloadHref}
                       download={file.filename}
-                      title="Download"
                       onClick={() => trackFeature("document_download", { file_ext: file.filename?.split(".").pop()?.toLowerCase() })}
                       style={{
                         display: "flex",
@@ -1303,7 +1301,7 @@ export function ChatMessage({
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </a>
+                    </a></Tooltip>
                   </div>
                 </m.div>
               )

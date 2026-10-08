@@ -24,7 +24,7 @@ const TAG_PALETTES = [
 function tagPalette(color: string | undefined, i: number, isLight: boolean) {
   const pal = TAG_PALETTES[i % TAG_PALETTES.length];
   if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return pal;
-  const text = isLight ? ensureContrast(color, blendOver(color, 0x15 / 255, "#FCFCFB")) : color;
+  const text = isLight ? ensureContrast(color, blendOver(color, 0x15 / 255, "#F9F8F5")) : color;
   return { bg: `${color}15`, text, border: `${color}28` };
 }
 

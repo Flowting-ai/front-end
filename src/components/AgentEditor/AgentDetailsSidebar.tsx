@@ -24,7 +24,8 @@ import {
 import { recordFromRepo } from '@/lib/agent-record'
 import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
-import { FineTuneModal } from './FineTuneModal'
+import { useRouter } from 'next/navigation'
+import { AGENT_EDIT_ROUTE } from '@/lib/routes'
 import { AvatarField } from './AvatarField'
 import { AgentAvatar } from './AgentAvatar'
 import { ModelField } from './ModelField'
@@ -107,7 +108,7 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
 
   const [models, setModels] = useState<AIModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(true)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const router = useRouter()
   const [problem, setProblem] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -137,11 +138,11 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
    * field still being typed is put back into the draft afterwards, so saving the name never
    * swallows (or saves) half of a description.
    */
-  async function saveFields(patch: Partial<AgentDraft>, saved: string) {
-    if (!draft || !baseline || saving) return
+  async function saveFields(patch: Partial<AgentDraft>, saved: string): Promise<boolean> {
+    if (!draft || !baseline || saving) return false
     const next = { ...baseline, ...patch }
     const [first] = draftProblems(next)
-    if (first) { setProblem(PROBLEM_MESSAGE[first]); return }
+    if (first) { setProblem(PROBLEM_MESSAGE[first]); return false }
     setProblem(null)
     const pending: Partial<AgentDraft> = {}
     if (!('name' in patch) && draft.name !== baseline.name) pending.name = draft.name
@@ -150,7 +151,9 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
     if (await save(next, { quiet: true })) {
       if (Object.keys(pending).length > 0) edit(pending)
       toast.success(saved)
+      return true
     }
+    return false
   }
 
   function change(patch: Partial<AgentDraft>) {
@@ -163,12 +166,22 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   const unsavedCount = (nameDirty ? 1 : 0) + (descriptionDirty ? 1 : 0)
 
   /** Saves every unsaved field in one go. */
-  function saveChanges() {
-    if (!draft || unsavedCount === 0) return
+  function saveChanges(): Promise<boolean> {
+    if (!draft || unsavedCount === 0) return Promise.resolve(true)
     const patch: Partial<AgentDraft> = {}
     if (nameDirty) patch.name = draft.name
     if (descriptionDirty) patch.description = draft.description
-    void saveFields(patch, unsavedCount > 1 ? `${unsavedCount} changes saved` : nameDirty ? 'Name updated' : 'Description updated')
+    return saveFields(patch, unsavedCount > 1 ? `${unsavedCount} changes saved` : nameDirty ? 'Name updated' : 'Description updated')
+  }
+
+  /**
+   * Fine-tune lives on the agent's edit page (instructions, creativity and the rest), which reads and
+   * writes the same record. Anything typed here but not yet saved is saved first, so the page opens on
+   * what the panel shows and nothing typed is lost; if that save fails (or the name is blank) we stay.
+   */
+  async function openEditPage() {
+    if (unsavedCount > 0 && !(await saveChanges())) return
+    router.push(AGENT_EDIT_ROUTE(repoId))
   }
 
   const storedAvatar = useStoredAvatarChoice(repoId)
@@ -242,9 +255,9 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
                   </div>
                 </div>
 
-                <SaveChanges count={unsavedCount} loading={saving} onClick={saveChanges} />
+                <SaveChanges count={unsavedCount} loading={saving} onClick={() => { void saveChanges() }} />
 
-                <Button variant="outline" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={() => setAdvancedOpen(true)}>
+                <Button variant="default" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={openEditPage}>
                   Fine-tune
                 </Button>
                 {/* Save failures stay visible; success is shown by the button and a toast. */}
@@ -278,18 +291,6 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
         )}
       </div>
 
-      {canEdit && draft && (
-        <FineTuneModal
-          open={advancedOpen}
-          onClose={() => setAdvancedOpen(false)}
-          values={{ instructions: draft.instructions, temperature: draft.temperature }}
-          saveLabel="Save"
-          onSave={async values => {
-            const ok = await save({ ...draft, ...values })
-            if (!ok) throw new Error('Saving failed')
-          }}
-        />
-      )}
     </>
   )
 }

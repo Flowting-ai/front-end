@@ -141,7 +141,7 @@ export function TextField({
           width: "100%",
           padding: "7px 10px",
           borderRadius: 10,
-          backgroundColor: "var(--neutral-white)",
+          backgroundColor: "var(--field-surface)",
           boxSizing: "border-box",
           boxShadow: error
             ? "0px 0px 0px 1px var(--red-600,#c62b29)"
@@ -278,7 +278,7 @@ export function LeaveGuardModal({
         aria-label="Unsaved changes"
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "var(--neutral-white)",
+          backgroundColor: "var(--modal-bg)",
           borderRadius: 16,
           padding: 24,
           width: 380,

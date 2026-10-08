@@ -8,6 +8,7 @@ import React, { act, useEffect } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStreamingChat } from '@/hooks/use-streaming-chat'
+import { isStreamActive, stopStream, subscribeStreams, type StreamEvent } from '@/lib/stream-registry'
 import type { UIMessage } from '@/types/chat'
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -126,5 +127,66 @@ describe('useStreamingChat turn outcome', () => {
     window.removeEventListener('auth:session-expired', expired)
     expect(expired).toHaveBeenCalledOnce()
     expect(reply).toMatchObject({ isLoading: false, isThinkingInProgress: false, isError: true })
+  })
+})
+
+// The message queue holds a queued message back after a reply that didn't
+// finish, so every way a turn ends reports how — to the caller and to the
+// stream registry.
+describe('useStreamingChat turn result', () => {
+  let ended: StreamEvent[]
+  let unsubscribe: () => void
+  beforeEach(() => {
+    ended = []
+    unsubscribe = subscribeStreams((event) => { if (event.type === 'end') ended.push(event) })
+  })
+  afterEach(() => unsubscribe())
+
+  async function turnResult(status: number, events: object[]) {
+    const done = hook.fetchAiResponse('hi', 'chat-1', 'loading-1')
+    await vi.waitFor(() => expect(FakeXHR.last).not.toBeNull())
+    FakeXHR.last!.respond(status, events)
+    const outcome = await done
+    FakeXHR.last = null
+    return outcome
+  }
+
+  it('reports a finished reply as done', async () => {
+    const outcome = await turnResult(200, [
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'All of it' },
+      { type: 'RUN_FINISHED', ...RUN },
+    ])
+    expect(outcome).toBe('done')
+    expect(ended).toEqual([{ type: 'end', chatId: 'chat-1', outcome: 'done' }])
+  })
+
+  it('reports a run error as an error, even with text already shown', async () => {
+    const outcome = await turnResult(200, [
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Half an answer' },
+      { type: 'RUN_ERROR', message: 'stream error' },
+    ])
+    expect(outcome).toBe('error')
+    expect(ended).toEqual([{ type: 'end', chatId: 'chat-1', outcome: 'error' }])
+  })
+
+  it('reports a failed request as an error', async () => {
+    expect(await turnResult(401, [])).toBe('error')
+    expect(ended.map((e) => e.type === 'end' && e.outcome)).toEqual(['error'])
+  })
+
+  it('reports a stopped reply as aborted, and can be stopped through the registry', async () => {
+    const done = hook.fetchAiResponse('hi', 'chat-1', 'loading-1')
+    await vi.waitFor(() => expect(FakeXHR.last).not.toBeNull())
+    const xhr = FakeXHR.last!
+    xhr.abort = () => xhr.onabort?.()
+    expect(isStreamActive('chat-1')).toBe(true)
+
+    act(() => { stopStream('chat-1') })
+    expect(await done).toBe('aborted')
+    FakeXHR.last = null
+    expect(isStreamActive('chat-1')).toBe(false)
+    expect(ended).toEqual([{ type: 'end', chatId: 'chat-1', outcome: 'aborted' }])
   })
 })

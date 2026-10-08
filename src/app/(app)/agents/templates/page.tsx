@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, PlusSignIcon } from '@strange-huge/icons'
@@ -225,15 +226,14 @@ function RecommendedGrid({
             <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, width: CARD_WIDTH }}>
               <TemplateCard name={item.name} onClick={() => onPick(item.name)} disabled={disabled} />
               {item.because.length > 0 && (
-                <span
-                  title={`Works with ${item.because.join(', ')}`}
+                <Tooltip content={`Works with ${item.because.join(', ')}`} maxWidth={280}><span
                   style={{
                     fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
                     color: 'var(--neutral-500)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}
                 >
                   Works with {item.because.join(', ')}
-                </span>
+                </span></Tooltip>
               )}
             </div>
           ))}

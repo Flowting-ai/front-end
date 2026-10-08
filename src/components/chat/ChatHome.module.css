@@ -4,18 +4,22 @@
   padding: clamp(96px, 30vh, 320px) clamp(20px, 5vw, 64px) 64px;
 }
 
+/* The greeting gets a wider lane than the composer so the longer greetings sit on one line instead of
+   wrapping; the composer stays 640px, centred beneath it (same split as the project chat landing). */
 .content {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
-  max-width: 640px;
+  max-width: 768px;
   margin-inline: auto;
 }
 
 .composer {
   width: 100%;
+  max-width: 640px;
   min-width: 0;
+  margin-inline: auto;
 }
 
 /* Sits directly under the (fully rounded) chat input: flat on top, rounded on the bottom, and 90% of
@@ -46,10 +50,16 @@
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--neutral-600);
+  color: var(--neutral-900);
   font: 400 12px/20px var(--font-body);
   text-decoration: none;
   cursor: pointer;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contextAction,
+  .createProject { transition: none; }
 }
 
 .contextAction svg,
@@ -129,4 +139,21 @@
   .contextAction {
     max-width: 100%;
   }
+}
+
+/* Dark mode: a neutral tab between the page (#161616) and the chat input above it (#262626) (the neutral-100
+   it uses in light mode is almost the page colour there). */
+:global(:root[data-theme="dark"]) .contextBar {
+  background: #202020;
+  border-color: rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+:global(:root[data-theme="dark"]) .contextBar .contextAction {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="dark"]) .contextBar .contextAction:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }

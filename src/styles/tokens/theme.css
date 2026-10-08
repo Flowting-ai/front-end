@@ -19,7 +19,7 @@
 
   /* RGB triplet of the surface colour, for translucent veils: rgba(var(--surface-rgb), A).
      Light = white (so every veil is exactly the rgba(255,255,255,A) it replaced). */
-  --surface-rgb: 252, 252, 251;
+  --surface-rgb: 249, 248, 245;
 
   /* Secondary icon button surface (was hard-coded var(--neutral-white) in the component). */
   --icon-button-secondary-bg: #FFFFFF;
@@ -345,13 +345,14 @@
   --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12);
   --shadow-tab-item-selected: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10);
-  --text-field-bg: #262626;
-  --text-field-ring: rgba(255, 255, 255, 0.14);
-  --text-field-ring-hover: rgba(255, 255, 255, 0.24);
+  --field-surface: #2E2E2E;
+  --text-field-bg: #2E2E2E;
+  --text-field-ring: rgba(255, 255, 255, 0.22);
+  --text-field-ring-hover: rgba(255, 255, 255, 0.34);
   --message-bubble-user-bg: #2A2A2A;
   --message-bubble-user-text: var(--neutral-900);
-  --chat-input-bg: var(--neutral-white);
-  --input-group-bg-focus: var(--neutral-white);
+  --chat-input-bg: #262626;
+  --input-group-bg-focus: #2E2E2E;
   --shadow-message-bubble-user: 0px 1px 2px 0px rgba(255, 255, 255, 0.12), 0px 3px 8px 0px rgba(255, 255, 255, 0.09), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --shadow-message-bubble-user-inner: inset 0px -2px 1.5px 0px rgba(255, 255, 255, 0.1);
   --shadow-chat-input: 0px 0px 0px 1px rgba(255, 255, 255, 0.10), 0px 0px 22px -2px rgba(255, 255, 255, 0.07);
@@ -412,6 +413,27 @@
   --legacy-d5c9c0: #383838;
 
   /* ── Pinned light values (none: secondary buttons and tabs are dark surfaces in dark) ── */
+
+  /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */
+  --chip-bg: #FFD9E5;
+  --chip-text: #4A0B20;
+  --chip-shadow: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45);
+  --chip-inner-shadow: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18);
+  --chip-button-bg-hover: rgba(249, 32, 100, 0.14);
+  --chip-button-inner-shadow: inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22);
+  --popover-bg: var(--color-surface-default);
+  --modal-bg: var(--color-surface-default);
+  --card-bg: var(--color-surface-default);
+  --toast-bg: #1C1C1C;
+  --surface-cream: #1C1C1C;
+  --widget-bg-from: #0A0A0A;
+  --widget-bg-to: #F92064;
+  --widget-accent: #FFFFFF;
+  --widget-on-accent: #1C1C1C;
+  --shadow-avatar-ring: 0px 2px 6px 0px rgba(255, 255, 255, 0.16);
+  --shadow-card-deep: 0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12);
+  --shadow-agent-card: 0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100);
+  --shadow-agent-card-hover: 0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400);
 }
 
 /* ── White text on hover (dark only) ───────────────────────────────────────────
@@ -492,6 +514,7 @@
   --shadow-button-default-inner-disabled: inset 0px 1.455px 0.364px 0px var(--neutral-600), inset 0px -2.182px 0.364px 0px var(--neutral-800), inset 0px -2.545px 6.9px -2.182px var(--neutral-500);
   --sidebar-menu-item-muted: var(--color-text-muted);
   --tab-item-text-disabled: var(--neutral-500);
+  --shadow-agent-card-hover: 0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400);
   --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --dropdown-menu-item-muted: var(--sidebar-menu-item-muted);
   --model-select-item-icon: var(--neutral-500);
@@ -502,6 +525,10 @@
   --text-field-icon: var(--color-text-muted);
   --shadow-text-field-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-200);
   --toast-border: var(--neutral-200);
+  --toast-success-border: var(--neutral-200);
+  --toast-error-border: var(--neutral-200);
+  --toast-warning-border: var(--neutral-200);
+  --toast-info-border: var(--neutral-200);
 }
 
 /* ── Logos ─────────────────────────────────────────────────────────────────────

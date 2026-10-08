@@ -77,7 +77,7 @@ export function AddSouvenirToSlackModal({ isOpen, onClose }: { isOpen: boolean; 
           width: 412,
           maxWidth: "100%",
           borderRadius: 18,
-          backgroundColor: "var(--neutral-white)",
+          backgroundColor: "var(--modal-bg)",
           padding: 16,
           boxSizing: "border-box",
           boxShadow: "0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)",

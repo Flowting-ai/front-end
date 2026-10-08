@@ -21,6 +21,7 @@ const NOISE =
   "<feColorMatrix type='saturate' values='0'/></filter>" +
   "<rect width='100%' height='100%' filter='url(%23n)'/></svg>\")"
 
+
 /** The banner's background for an agent's colour: a light glow top-left and a dark pool bottom-right over a deep base, with film grain on top. Spread into a style object. */
 export function agentHeroStyle(color: string): React.CSSProperties {
   return {
@@ -47,6 +48,8 @@ export interface AgentHeroProps {
   radius?:    number
   /** Round all four corners (a free-standing tile) instead of just the top two. */
   rounded?:   boolean
+  /** Shape of the avatar orb: the default circle, or a rounded square. */
+  orbShape?:  'circle' | 'rounded'
   /** Plays the avatar's hover animation. */
   hovered?:   boolean
   bounceKey?: number
@@ -66,6 +69,7 @@ export function AgentHero({
   avatarSize = 64,
   radius = 20,
   rounded = false,
+  orbShape = 'circle',
   hovered = false,
   bounceKey = 0,
   inert = false,
@@ -111,6 +115,7 @@ export function AgentHero({
       <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 2, opacity: inert ? 0.85 : 1 }}>
         <AgentOrb
           size={avatarSize}
+          shape={orbShape}
           theme={avatar.theme}
           colors={avatar.colors}
           seed={agentId}

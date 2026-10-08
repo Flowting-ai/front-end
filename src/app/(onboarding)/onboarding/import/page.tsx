@@ -347,7 +347,7 @@ export default function OnboardingImportPage() {
 
         <div
           style={{
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "var(--field-surface)",
             border: "1px solid var(--neutral-200)",
             borderRadius: "18px",
             padding: "12px",

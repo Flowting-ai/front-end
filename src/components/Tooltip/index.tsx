@@ -65,6 +65,8 @@ export interface TooltipProps {
    * pass a value that makes sense within the local stacking context instead.
    */
   zIndex?: number
+  /** Ref forwarded to the trigger element (lets wrappers like Dropdown clone-inject refs/handlers). */
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 // Absolute ceiling for the auto-widen behavior below — no tooltip should ever
@@ -85,6 +87,7 @@ function getSlideOffset(side: TooltipSide): { x: number; y: number } {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Tooltip({
+  ref: triggerRef,
   content,
   children,
   side = 'top',
@@ -98,7 +101,8 @@ export function Tooltip({
   maxHeight,
   portal = true,
   zIndex = 9999,
-}: TooltipProps) {
+  ...triggerProps
+}: TooltipProps & Omit<React.HTMLAttributes<HTMLElement>, "content">) {
   const isControlled = openProp !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const [mounted,       setMounted]     = useState(false)
@@ -229,7 +233,7 @@ export function Tooltip({
   return (
     <TooltipPrimitive.Provider delayDuration={delayDuration}>
       <TooltipPrimitive.Root open={effectiveOpen} onOpenChange={disabled || isControlled ? undefined : setInternalOpen}>
-        <TooltipPrimitive.Trigger asChild>
+        <TooltipPrimitive.Trigger asChild ref={triggerRef} {...triggerProps}>
           {children}
         </TooltipPrimitive.Trigger>
 

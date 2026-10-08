@@ -150,6 +150,13 @@ export function usePinMentions(
 
   const clearMentions = useCallback(() => setMentionedPins([]), []);
 
+  // Puts mentions back ahead of the current ones (e.g. a queued message's
+  // pins returning to the composer), skipping any already there.
+  const restoreMentions = useCallback((restored: MentionedPin[]) => {
+    if (restored.length === 0) return;
+    setMentionedPins((prev) => [...restored, ...prev.filter((m) => !restored.some((r) => r.id === m.id))]);
+  }, []);
+
   return {
     mentionedPins,
     filteredPins,
@@ -163,5 +170,6 @@ export function usePinMentions(
     handleRemoveMention,
     handlePinNavigate,
     clearMentions,
+    restoreMentions,
   };
 }

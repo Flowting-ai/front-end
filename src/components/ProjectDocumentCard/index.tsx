@@ -15,6 +15,7 @@
  * Figma: KDS 4174-23401 (Document cards, project variant)
  */
 
+import { Tooltip } from '@/components/Tooltip'
 import * as React from 'react'
 import { m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
@@ -118,7 +119,7 @@ export function ProjectDocumentCard(
             gap:             '6px',
             padding:         '10px 12px',
             borderRadius:    '14px',
-            background:      uploading ? 'var(--neutral-50)' : 'var(--neutral-white)',
+            background:      uploading ? 'var(--neutral-50)' : 'var(--card-bg)',
             boxShadow:       CARD_SHADOW,
             boxSizing:       'border-box',
             width:           '100%',
@@ -128,11 +129,10 @@ export function ProjectDocumentCard(
           {/* Filename + action row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {url ? (
-              <a
+              <Tooltip content={`Open ${name}`} maxWidth={280}><a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={`Open ${name}`}
                 style={{
                   flex:         '1 0 0',
                   minWidth:     0,
@@ -153,7 +153,7 @@ export function ProjectDocumentCard(
                 onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none' }}
               >
                 {name}
-              </a>
+              </a></Tooltip>
             ) : (
               <p
                 style={{

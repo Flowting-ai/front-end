@@ -20,7 +20,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -36,10 +36,11 @@
 }
 
 .heading {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   padding: 0 12px;
-  color: var(--neutral-600);
-  font: 500 12px/16px var(--font-body);
+  color: var(--neutral-700);
+  font: 400 12px/16px var(--font-body);
+  letter-spacing: 0.02em;
 }
 
 .row {
@@ -195,4 +196,28 @@
 .tileDetail {
   color: var(--color-text-muted);
   font: 400 14px/20px var(--font-body);
+}
+
+/* App logos (cards that run against connected apps): the stack fans out and each tile hops in turn when
+   the row is hovered or focused. */
+.row:hover .stackItem,
+.row:focus-visible .stackItem {
+  animation: stack-hop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.row:hover .stackItem:nth-child(2),
+.row:focus-visible .stackItem:nth-child(2) { animation-delay: 60ms; }
+
+.row:hover .stackItem:nth-child(3),
+.row:focus-visible .stackItem:nth-child(3) { animation-delay: 120ms; }
+
+@keyframes stack-hop {
+  0%   { transform: translateY(0) rotate(0); }
+  45%  { transform: translateY(-3px) rotate(-6deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row:hover .stackItem,
+  .row:focus-visible .stackItem { animation: none; }
 }

@@ -224,7 +224,7 @@ function Switch(
           initial={false}
           style={{
             x: motionX,
-            backgroundColor: 'var(--switch-thumb-bg)',
+            backgroundColor: isOn ? 'var(--switch-thumb-bg)' : 'var(--switch-thumb-bg-off, var(--switch-thumb-bg))',
             boxShadow: isOn ? 'var(--shadow-switch-thumb-on)' : 'var(--shadow-switch-thumb-off)',
           }}
           animate={{

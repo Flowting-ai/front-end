@@ -10,9 +10,7 @@ import type { AvatarMood, GazeChannel } from './gaze'
 // the sphere silhouettes (the clip follows the animated shapes every frame).
 //
 // Motion:
-// - Idle   — head bobs ±0.9px on a ~1.8 rad/s sine, phase-offset per card.
-// - Hover  — head sinks 17px into the body over 0.4s (ease-in-out), then
-//            springs back over 0.7s with an easeOutBack overshoot (c1 1.9).
+// - Idle / hover — the head stays merged with the body (no bob or dip).
 // - Click  — head hops 20px on a sine arc (~0.6s); on landing the body
 //            squashes (rx ×1.16, ry ×0.84, top edge grounded) and a ring
 //            (r 6→36, opacity 0.8→0) emits from the body's top. 0.75s total.
@@ -65,26 +63,6 @@ export interface AvatarThemeConfig {
 const set = (el: Element | null | undefined, attrs: Record<string, number | string>) => {
   if (!el) return
   for (const k in attrs) el.setAttribute(k, String(attrs[k]))
-}
-
-// Globe — 4 rotating meridians (rx = r·|cos a|) + an equator (ry = r·0.22) per
-// sphere. Slow at idle, ~6× faster on hover.
-const GLOBE_LINES = [0, 1].flatMap(s => [
-  ...[0, 1, 2, 3].map(m => ({ s, m, equator: false })),
-  { s, m: 0, equator: true },
-])
-const globeInterior: AvatarInterior = {
-  count:  GLOBE_LINES.length,
-  render: i => <ellipse key={i} cx={32} fill="none" stroke="#fff" strokeWidth={0.6} opacity={0.3} />,
-  update: (parts, f) => {
-    if (!f.reduceMotion) f.state.ph += f.dt * (f.hover ? 0.5 : 0.08)
-    GLOBE_LINES.forEach((line, i) => {
-      const [y, r] = line.s ? f.body : f.head
-      if (line.equator) { set(parts[i], { cy: y, rx: r, ry: r * 0.22 }); return }
-      const a = ((f.state.ph + line.m / 4) % 1) * Math.PI
-      set(parts[i], { cy: y, rx: Math.abs(r * Math.cos(a)), ry: r })
-    })
-  },
 }
 
 // Clouds — 3 puff clusters drifting left→right and wrapping; faster on hover.
@@ -153,7 +131,7 @@ const heartsInterior: AvatarInterior = {
 export type AvatarTheme = 'guide' | 'weather' | 'scout' | 'marketing'
 
 export const AVATAR_THEMES: Record<AvatarTheme, AvatarThemeConfig> = {
-  guide:     { colors: ['#4a4a4a', '#030303'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'],    interior: globeInterior },
+  guide:     { colors: ['#e3e5e8', '#8e949d'], status: ['Checking Tokyo…', 'Checking Lisbon…', 'Packing list ready'] },
   weather:   { colors: ['#8cc8ff', '#0a4fb0'], status: ['Fetching radar…', 'Reading alerts…', 'Forecast ready'],        interior: cloudsInterior },
   scout:     { colors: ['#b4cef0', '#2f5f9e'], status: ['Scanning arXiv…', 'Verifying sources…', '3 new papers'],       interior: signalsInterior },
   marketing: { colors: ['#ffa3bd', '#b3124f'], status: ['Drafting hooks…', 'Checking engagement…', 'Campaign ready'],   interior: heartsInterior },
@@ -185,7 +163,7 @@ export function getAvatarColors(theme: AvatarTheme | null, seed: string): [strin
 /** A pickable avatar: one of the themed ones, or a plain sphere in a fixed colourway. */
 export type AvatarChoice = AvatarTheme | 'ember' | 'mint' | 'dusk' | BaseColor
 
-/** Ten more plain spheres — the same orb, just in other base colours ([highlight, shadow]). */
+/** Eleven more plain spheres — the same orb, just in other base colours ([highlight, shadow]). */
 export const BASE_COLORS = {
   coral:  { label: 'Coral',  colors: ['#ffb4a2', '#c2412d'] },
   amber:  { label: 'Amber',  colors: ['#ffd27a', '#b7791f'] },
@@ -197,6 +175,7 @@ export const BASE_COLORS = {
   rose:   { label: 'Rose',   colors: ['#f5b8d4', '#a82f6b'] },
   slate:  { label: 'Slate',  colors: ['#c4ccd6', '#3e4a5a'] },
   sand:   { label: 'Sand',   colors: ['#e8d6b8', '#8a6a3a'] },
+  white:  { label: 'White',  colors: ['#ffffff', '#b9bec7'] },
 } as const satisfies Record<string, { label: string; colors: [string, string] }>
 export type BaseColor = keyof typeof BASE_COLORS
 
@@ -248,11 +227,6 @@ function hashSeed(seed: string): number {
   return h
 }
 
-// ── Easing ────────────────────────────────────────────────────────────────────
-
-const easeOutBack = (x: number) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
-const easeInOut   = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2)
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface AnimatedPersonaAvatarProps {
@@ -280,9 +254,9 @@ export interface AnimatedPersonaAvatarProps {
   gaze?:   GazeChannel
 }
 
-// Mickey-style eyes — tall white ovals side by side, no pupils.
+// Eyes — two vertical pills side by side.
 // Eyes, in viewBox units: centred ±EYE_X off the head's middle, a touch above its centre.
-const EYE_X = 3.5   // eye half-width 2.5 + 1 = a 2-unit gap between the eyes
+const EYE_X = 3.5   // eye half-width 1.8 + 1.7 = a 3.4-unit gap between the eyes
 const EYE_LIFT = 1
 /** How far the eyes travel across the face toward what they look at, horizontally / vertically. */
 const LOOK_X = 2
@@ -298,7 +272,7 @@ export function AnimatedPersonaAvatar({
   inert     = false,
   colors: colorsProp,
   eyes      = false,
-  backdrop  = 'var(--neutral-50)',
+  backdrop  = 'var(--avatar-backdrop, var(--neutral-50))',
   mood: moodProp,
   gaze,
 }: AnimatedPersonaAvatarProps) {
@@ -315,7 +289,7 @@ export function AnimatedPersonaAvatar({
   const rootRef  = useRef<HTMLDivElement>(null)
   const headRef  = useRef<SVGCircleElement>(null)
   const bodyRef  = useRef<SVGEllipseElement>(null)
-  const clipHRef = useRef<SVGCircleElement>(null)
+  const visorRef = useRef<SVGGElement>(null)
   const clipBRef = useRef<SVGEllipseElement>(null)
   const ringRef  = useRef<SVGCircleElement>(null)
   const flashRef = useRef<SVGRectElement>(null)
@@ -363,15 +337,11 @@ export function AnimatedPersonaAvatar({
 
     const draw = (now: number, dt: number) => {
       const s = st.current
-      const hr = 13, by = 61, br = 25
-      let hy = 21 + (reduceMotion ? 0 : Math.sin(now * 1.8 + phase) * 0.9)
+      const hr = 15, by = 67, br = 25
+      // The head rests joined to the body (no idle bob or hover dip to pull them apart);
+      // only the click hop lifts it off.
+      let hy = 28
       let sq = 0, rk = -1
-
-      if (s.hover && !reduceMotion) {
-        const t = now - s.ht
-        if (t < 0.4)      hy += easeInOut(t / 0.4) * 17
-        else if (t < 1.1) hy += 17 * (1 - easeOutBack((t - 0.4) / 0.7))
-      }
 
       const c = now - s.ct
       if (c < 0.75 && !reduceMotion) {
@@ -382,7 +352,6 @@ export function AnimatedPersonaAvatar({
       }
 
       set(headRef.current,  { cy: hy, r: hr })
-      set(clipHRef.current, { cy: hy, r: hr })
 
       const rx = br * (1 + sq), ry = br * (1 - sq), cy = by + br * sq
       set(bodyRef.current,  { cy, rx, ry })
@@ -401,7 +370,11 @@ export function AnimatedPersonaAvatar({
         set(flashRef.current, { opacity: interior.flash?.(frame) ?? 0 })
       }
 
-      if (eyes) drawEyes(now, dt, hy)
+      if (eyes) {
+        // The visor rides the head (it jumps on click).
+        set(visorRef.current, { transform: `translate(32,${(hy - EYE_LIFT).toFixed(2)})` })
+        drawEyes(now, dt, hy)
+      }
     }
 
     // ── Eyes ──────────────────────────────────────────────────────────────────
@@ -533,6 +506,7 @@ export function AnimatedPersonaAvatar({
   const gradId = `pa-g-${uid}`
   const gooId  = `pa-goo-${uid}`
   const clipId = `pa-cp-${uid}`
+  const visorId = `pa-vz-${uid}`
 
   return (
     <div
@@ -555,21 +529,28 @@ export function AnimatedPersonaAvatar({
             <stop offset=".14" stopColor={c0} />
             <stop offset="1"   stopColor={c1} />
           </radialGradient>
-          <filter id={gooId} x="-20%" y="-20%" width="140%" height="140%">
+          <filter id={gooId} x="-20%" y="-20%" width="140%" height="150%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b" />
-            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -10" />
+            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -10" result="goo" />
+            {/* A soft shadow under the merged head + body, lifting them off the background. */}
+            <feDropShadow in="goo" dx="0" dy="1.6" stdDeviation="1.6" style={{ floodColor: 'var(--avatar-shadow, rgba(20,20,30,0.28))' }} />
           </filter>
+          {/* Face screen colours come from theme tokens (globals.css): a black screen in both modes. */}
+          <radialGradient id={visorId} cx=".4" cy=".3" r=".9">
+            <stop offset="0" style={{ stopColor: 'var(--avatar-visor-a, #262b38)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--avatar-visor-b, #07080c)' }} />
+          </radialGradient>
+          {/* Interiors live in the body only — heads are solid, never see-through. */}
           <clipPath id={clipId}>
-            <circle  ref={clipHRef} cx={32} cy={21} r={13} />
-            <ellipse ref={clipBRef} cx={32} cy={61} rx={25} ry={25} />
+            <ellipse ref={clipBRef} cx={32} cy={67} rx={25} ry={25} />
           </clipPath>
         </defs>
 
         <circle ref={ringRef} cx={32} fill="none" stroke={c1} strokeWidth={1.2} opacity={0} />
 
         <g filter={`url(#${gooId})`}>
-          <ellipse ref={bodyRef} cx={32} cy={61} rx={25} ry={25} fill={`url(#${gradId})`} />
-          <circle  ref={headRef} cx={32} cy={21} r={13} fill={`url(#${gradId})`} />
+          <ellipse ref={bodyRef} cx={32} cy={67} rx={25} ry={25} fill={`url(#${gradId})`} />
+          <circle  ref={headRef} cx={32} cy={28} r={15} fill={`url(#${gradId})`} />
         </g>
 
         {interior && (
@@ -578,12 +559,26 @@ export function AnimatedPersonaAvatar({
           </g>
         )}
 
+        {/* EVE-style face: a round screen across the head, the eyes on it. */}
+        {eyes && (
+          <g ref={visorRef} transform={`translate(32,${28 - EYE_LIFT})`}>
+            <path d="M-12.2 0A12.2 10.2 0 0 1 12.2 0A12.2 12.2 0 0 1 -12.2 0Z" fill={`url(#${visorId})`} />
+            <path d="M-12.2 0A12.2 10.2 0 0 1 12.2 0A12.2 12.2 0 0 1 -12.2 0Z" fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={0.5} />
+            {/* Gloss: a soft sheen across the top of the glass. */}
+            <ellipse cx={-2.5} cy={-7.2} rx={5} ry={1.2} fill="#fff" opacity={0.18} />
+          </g>
+        )}
+
         {eyes && [-1, 1].map((side, i) => (
-          <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${21 - EYE_LIFT})`}>
+          <g key={side} ref={el => { eyeRefs.current[i] = el }} transform={`translate(${32 + side * EYE_X},${28 - EYE_LIFT})`}>
             <g>
-              <ellipse rx={2.5} ry={4} fill="#fff" />
+              {/* Retro-TV eye: a vertical pill with faint scanlines (chord-width so they stay inside the round ends). */}
+              <rect x={-1.8} y={-3.6} width={3.6} height={7.2} rx={1.8} style={{ fill: 'var(--avatar-eye, #9fd8ff)' }} />
+              {[[-3, 1.34], [-1.8, 1.8], [-0.6, 1.8], [0.6, 1.8], [1.8, 1.8], [3, 1.34]].map(([y, hw]) => (
+                <line key={y} x1={-hw} x2={hw} y1={y} y2={y} style={{ stroke: 'var(--avatar-eye-line, #07080c)' }} strokeOpacity={0.3} strokeWidth={0.4} />
+              ))}
             </g>
-            <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" opacity={0} />
+            <path d="M-2.6 1.1Q0-2.4 2.6 1.1" fill="none" style={{ stroke: 'var(--avatar-eye, #9fd8ff)' }} strokeWidth={1.4} strokeLinecap="round" opacity={0} />
           </g>
         ))}
 

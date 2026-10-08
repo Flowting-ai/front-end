@@ -255,7 +255,14 @@ const guide: Builder = ctx => {
   )
   const trail = (key: string) => <path key={key} d="" fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={1.5} strokeLinecap="round" strokeDasharray="0.1 4" />
 
+  // A big globe wireframe behind the orb (the avatar itself stays a plain black agent).
+  const gR = 1.45 * R
   const back: React.ReactNode[] = [
+    <g key="globe" fill="none" stroke="#fff" strokeOpacity={0.13} strokeWidth={1}>
+      <circle r={gR} />
+      {[-0.55, 0, 0.55].map(k => <ellipse key={k} cy={k * gR} rx={gR * Math.sqrt(1 - k * k)} ry={gR * 0.18 * Math.sqrt(1 - k * k)} />)}
+      {[0, 1, 2, 3].map(m => <ellipse key={`m${m}`} data-meridian={m} rx={gR} ry={gR} />)}
+    </g>,
     ...stars.map((s, i) => <circle key={`s${i}`} cx={s.x} cy={s.y} r={s.r} fill="#fff" opacity={s.o} />),
     <path key="arcBack" d={arc(Math.PI, Math.PI * 2)} fill="none" stroke="#fff" strokeOpacity={0.14} strokeDasharray="2 5" />,
     ...pins.map((p, i) => (
@@ -275,7 +282,7 @@ const guide: Builder = ctx => {
     plane('planeFront'),
   ]
 
-  const STARS = 0, ARC_B = stars.length, PINS = ARC_B + 1, TRAIL_B = PINS + pins.length, PLANE_B = TRAIL_B + 1
+  const GLOBE = 0, STARS = 1, ARC_B = STARS + stars.length, PINS = ARC_B + 1, TRAIL_B = PINS + pins.length, PLANE_B = TRAIL_B + 1
   const ARC_F = PLANE_B + 1, TRAIL_F = ARC_F + 1, PLANE_F = TRAIL_F + 1
 
   return {
@@ -283,6 +290,13 @@ const guide: Builder = ctx => {
     front,
     update: (parts, f) => {
       const sx = -f.par.x * 4, sy = -f.par.y * 2
+      // Globe: meridians turn (rx = r·|cos a|) — slow at idle, quicker on hover.
+      const globe = parts[GLOBE]
+      set(globe, { transform: `translate(${f2(cx - f.par.x * 3)},${f2(cy - f.par.y * 2)})` })
+      globe?.querySelectorAll('[data-meridian]').forEach((el, m) => {
+        const a = ((f.t * 0.05 + m / 4) % 1) * Math.PI
+        set(el, { rx: f2(Math.abs(gR * Math.cos(a))) })
+      })
       stars.forEach((s, i) => {
         const tw = 0.5 + 0.5 * Math.sin(f.now * s.hz * 6.28 + s.ph)
         set(parts[STARS + i], { opacity: (s.o * (0.4 + 0.6 * tw)).toFixed(3), transform: `translate(${f2(-f.par.x * 2)},${f2(-f.par.y)})` })

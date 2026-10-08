@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from '@/components/Tooltip'
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { m } from "framer-motion";
@@ -242,12 +243,11 @@ export function AttachmentManager({
 
             return isImage ? (
               // ── Image thumbnail ────────────────────────────────────────────
-              <div
+              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
                 key={attachment.id}
                 onMouseEnter={() => setHoveredId(attachment.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => !attachment.uploading && handlePreview(attachment)}
-                title={attachment.error ?? attachment.file.name}
                 style={{
                   position:     "relative",
                   width:        "46px",
@@ -352,15 +352,14 @@ export function AttachmentManager({
                     <CancelOneIcon size={9} />
                   </button>
                 )}
-              </div>
+              </div></Tooltip>
             ) : (
               // ── Document chip ──────────────────────────────────────────────
-              <div
+              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
                 key={attachment.id}
                 onMouseEnter={() => setHoveredId(attachment.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => !attachment.uploading && handlePreview(attachment)}
-                title={attachment.error ?? attachment.file.name}
                 style={{
                   position:        "relative",
                   display:         "flex",
@@ -509,7 +508,7 @@ export function AttachmentManager({
                     <CancelOneIcon size={9} />
                   </button>
                 )}
-              </div>
+              </div></Tooltip>
             );
           })}
         </div>

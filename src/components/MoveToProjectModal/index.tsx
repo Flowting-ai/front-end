@@ -252,7 +252,7 @@ export function MoveToProjectModal({
               display:         'flex',
               flexDirection:   'column',
               borderRadius:    16,
-              backgroundColor: 'var(--neutral-white)',
+              backgroundColor: 'var(--modal-bg)',
               boxShadow:       SHADOW_MODAL,
               overflow:        'hidden',
             }}

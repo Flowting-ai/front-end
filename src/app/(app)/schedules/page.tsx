@@ -30,7 +30,7 @@ import {
 import type { ScheduleRunRecord } from '@/templates/Schedules'
 import { getAllScheduleLinks, getChatForSchedule, linkScheduleToChat, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
-import { CHAT_ROUTE } from '@/lib/routes'
+import { CHAT_ROUTE, SCHEDULES_ROUTE } from '@/lib/routes'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function SchedulesPageInner() {
-  const { push } = useRouter()
+  const { push, replace } = useRouter()
   const searchParams = useSearchParams()
   const requestedScheduleId = searchParams.get('selected')
   const idPrefix = useId()
@@ -291,7 +291,11 @@ function SchedulesPageInner() {
   const handleBack = useCallback(() => {
     setSelectedId(null)
     setSelectedDetail(null)
-  }, [])
+    // Drop a deep-linked ?selected= (notification bell, Slack link) so the
+    // URL matches the list view — otherwise opening the same link again is a
+    // same-URL navigation and wouldn't reopen the schedule.
+    if (requestedScheduleId) replace(SCHEDULES_ROUTE, { scroll: false })
+  }, [requestedScheduleId, replace])
 
   // ── Create / edit (local — no create/update endpoints available yet) ───────
 

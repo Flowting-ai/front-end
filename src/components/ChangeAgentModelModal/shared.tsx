@@ -22,8 +22,9 @@ export const SHADOW_MODAL = '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1
  * 'blocked'  — still in the catalog, but turned off for this account.
  * 'retired'  — gone from the catalog entirely (deprecated by the provider).
  * The two need different copy: only one of them is something the user did.
+ * Defined with the detection logic in lib/agent-model-health.
  */
-export type ModelUnavailableReason = 'retired' | 'blocked'
+export type { ModelUnavailableReason } from '@/lib/agent-model-health'
 
 // ── useModelCatalog ───────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export function ModalShell({ open, onClose, ariaLabel, width = 420, children }: 
                 maxWidth:        '100%',
                 maxHeight:       'calc(100vh - 32px)',
                 borderRadius:    16,
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'var(--modal-bg)',
                 boxShadow:       SHADOW_MODAL,
                 overflow:        'hidden',
                 display:         'flex',

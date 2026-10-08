@@ -42,7 +42,7 @@ const GMAIL_LIST = {
       version: 1,
       owner_id: 'auth0|me',
       owned: true,
-      permissions: [{ key: 'gmail-send-email', permission: 'allow' }],
+      permissions: [{ key: 'gmail-send-email', permission: 'allowed' }],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
     },

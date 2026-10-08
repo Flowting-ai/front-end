@@ -247,7 +247,7 @@ export function ModelSelector({
               width: "480px",
               maxWidth: "calc(100vw - 32px)",
               maxHeight: "calc(100vh - 64px)",
-              backgroundColor: "var(--neutral-white)",
+              backgroundColor: "var(--modal-bg)",
               borderRadius: "16px",
               boxShadow: "var(--shadow-xl)",
               display: "flex",
@@ -307,7 +307,7 @@ export function ModelSelector({
                   padding: "8px 12px",
                   borderRadius: "8px",
                   border: "1px solid var(--neutral-200)",
-                  backgroundColor: "var(--neutral-50)",
+                  backgroundColor: "var(--field-surface)",
                 }}
               >
                 <Search size={16} style={{ color: "var(--neutral-400)" }} />

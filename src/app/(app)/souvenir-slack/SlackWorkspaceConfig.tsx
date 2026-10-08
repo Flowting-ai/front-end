@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import Image from 'next/image'
@@ -394,15 +395,14 @@ export function SlackWorkspaceConfig({ orgId, teamName }: { orgId: string; teamN
         </div>
         <div className={styles.workspaceLabel}>
           <span className={styles.railLabel}>{teamName ?? 'Workspace'}</span>
-          <button
+          <Tooltip content="Add channel"><button
             className={styles.iconButton}
             type="button"
             aria-label="Add channel"
-            title="Add channel"
             onClick={() => setScope({ kind: 'new' })}
           >
             <PlusSignIcon size={14} />
-          </button>
+          </button></Tooltip>
         </div>
         {filtered.map(channel => (
           <button

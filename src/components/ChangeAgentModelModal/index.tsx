@@ -7,7 +7,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { pickReplacementModel } from '@/lib/ai-models'
-import { updateVersion } from '@/lib/api/personas'
+import { bustPersonasCache, updateVersion } from '@/lib/api/personas'
 import {
   ModalHeader,
   ModalShell,
@@ -90,6 +90,9 @@ export function ChangeAgentModelModal({
     setSaving(true)
     try {
       await updateVersion({ repoId: personaId, versionId, modelId })
+      // Other surfaces (the sidebar bell's "needs attention" row, the agents
+      // panel) read the cached persona list — refresh it so they clear now.
+      bustPersonasCache()
       toast.success(`${agentName} is now using ${model.modelName}`)
       onSaved({ modelId, modelName: model.modelName })
       onClose()

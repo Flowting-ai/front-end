@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
@@ -156,7 +157,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 101,
           width: 680, maxWidth: 'calc(100vw - 48px)', maxHeight: 'calc(100vh - 96px)', minHeight: 380,
-          overflow: 'hidden', borderRadius: 16, backgroundColor: 'var(--neutral-white)',
+          overflow: 'hidden', borderRadius: 16, backgroundColor: 'var(--modal-bg)',
           boxShadow: '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
           padding: 32, display: 'flex', flexDirection: 'column', gap: 24,
         }}
@@ -187,9 +188,9 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
               {link ? (
                 <>
                   <div style={{ ...BOX_STYLE, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px 6px 12px' }}>
-                    <span title={linkUrl} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-800)' }}>
+                    <Tooltip content={linkUrl} maxWidth={280}><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-800)' }}>
                       {linkUrl.replace(/^https?:\/\//, '')}
-                    </span>
+                    </span></Tooltip>
                     <Button variant="secondary" size="sm" leftIcon={<CopyOneIcon />} onClick={copyLink}>Copy</Button>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

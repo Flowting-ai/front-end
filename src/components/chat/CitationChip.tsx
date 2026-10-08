@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from '@/components/Tooltip'
 import { m } from "framer-motion";
 import { SourceCitation, SourceList as SourceListUI } from "@/components/SourceCitation";
 import type { SourceItem } from "@/components/SourceCitation";
@@ -20,10 +21,9 @@ function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
   if (!citation) {
     return (
-      <span
+      <Tooltip content="Source unavailable"><span
         role="note"
         aria-label={`Source ${n} unavailable`}
-        title="Source unavailable"
         data-missing-citation="true"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -34,7 +34,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
         }}
       >
         ?
-      </span>
+      </span></Tooltip>
     )
   }
   return (

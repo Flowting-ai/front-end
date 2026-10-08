@@ -251,8 +251,7 @@ function displayUrl(url: string | undefined): string | undefined {
 function AddressBar({ url }: { url: string | undefined }) {
   const shown = displayUrl(url)
   return (
-    <div
-      title={url}
+    <Tooltip content={url} disabled={!url} maxWidth={280}><div
       style={{
         flex:            '1 1 auto',
         minWidth:        0,
@@ -272,7 +271,7 @@ function AddressBar({ url }: { url: string | undefined }) {
       <span style={{ ...BODY, color: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {shown ?? 'No page open'}
       </span>
-    </div>
+    </div></Tooltip>
   )
 }
 

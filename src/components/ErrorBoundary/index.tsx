@@ -2,11 +2,14 @@
 
 import React from 'react'
 import { usePathname } from 'next/navigation'
+import { useSidebarEvents } from '@/hooks/use-sidebar-events'
 import { Button } from '@/components/Button'
 import { AlertCircleIcon } from '@strange-huge/icons'
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
+  /** Bumping this clears a caught error without remounting a healthy subtree. */
+  resetToken?: number
 }
 
 interface ErrorBoundaryState {
@@ -25,6 +28,12 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
 
   static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true }
+  }
+
+  componentDidUpdate(prev: ErrorBoundaryProps) {
+    if (this.state.hasError && prev.resetToken !== this.props.resetToken) {
+      this.setState({ hasError: false })
+    }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
@@ -77,10 +86,16 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
  * wiping the in-flight response (see chat/page.tsx's handleChatCreated).
  * usePathname() alone doesn't need a Suspense boundary, unlike
  * useSearchParams(), so this stays simple.
+ *
+ * The one same-pathname exception is the sidebar's "New chat": a chat that
+ * crashed on /chat?id=X would otherwise leave the fallback up after New chat
+ * (/chat is the same pathname), so that event clears a caught error.
  */
 export function ErrorBoundary({ children }: ErrorBoundaryProps) {
   const pathname = usePathname()
-  return <ErrorBoundaryInner key={pathname}>{children}</ErrorBoundaryInner>
+  const [resetToken, setResetToken] = React.useState(0)
+  useSidebarEvents({ onNewChat: () => setResetToken((n) => n + 1) })
+  return <ErrorBoundaryInner key={pathname} resetToken={resetToken}>{children}</ErrorBoundaryInner>
 }
 
 export default ErrorBoundary

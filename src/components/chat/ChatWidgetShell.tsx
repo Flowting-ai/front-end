@@ -15,7 +15,7 @@ export function ChatWidgetShell({ title, eyebrow, icon, actions, children }: {
       <div className={styles.header}>
         <span className={styles.icon} aria-hidden="true">{icon}</span>
         <div className={styles.heading}>
-          {eyebrow && <div className={styles.caption}>{eyebrow}</div>}
+          {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}
           <h3 className={styles.title}>{title}</h3>
         </div>
         {actions}

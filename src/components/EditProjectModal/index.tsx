@@ -24,7 +24,7 @@ const INPUT_BASE: React.CSSProperties = {
   fontSize:     '14px',
   lineHeight:   '22px',
   color:        'var(--legacy-1a1714)',
-  background:   'var(--neutral-white)',
+  background:   'var(--field-surface)',
   border:       '1px solid var(--neutral-200)',
   borderRadius: '10px',
   boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.12)',
@@ -72,6 +72,8 @@ function accessChangeNote(from: ProjectVisibility, to: ProjectVisibility): { tex
 
 export interface EditProjectModalProps {
   open:        boolean
+  /** `create` re-titles the dialog ("New project"), always passes the chosen visibility to `onSave`, and reads "Create project". Defaults to `edit`. */
+  mode?:       'edit' | 'create'
   name:        string
   description: string
   tags?:       ProjectTag[]
@@ -86,8 +88,9 @@ export interface EditProjectModalProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function EditProjectModal({
-  open, name, description, tags = EMPTY_PROJECT_TAGS, visibility, visibilityOptions, onSave, onClose,
+  open, mode = 'edit', name, description, tags = EMPTY_PROJECT_TAGS, visibility, visibilityOptions, onSave, onClose,
 }: EditProjectModalProps) {
+  const creating = mode === 'create'
   const [draftName, setDraftName]   = useState(name)
   const [draftDesc, setDraftDesc]   = useState(description)
   const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
@@ -139,12 +142,12 @@ export function EditProjectModal({
         draftName.trim(),
         draftDesc.trim(),
         draftTags,
-        draftVisibility === visibility ? undefined : draftVisibility,
+        !creating && draftVisibility === visibility ? undefined : draftVisibility,
       )
-      toast.success('Project updated')
+      toast.success(creating ? 'Project created' : 'Project updated')
       onClose()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update project')
+      toast.error(err instanceof Error ? err.message : creating ? 'Failed to create project' : 'Failed to update project')
     } finally {
       setSubmitting(false)
     }
@@ -229,7 +232,7 @@ export function EditProjectModal({
                   margin:     0,
                 }}
               >
-                Edit
+                {creating ? 'New project' : 'Edit'}
               </p>
               <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
             </div>
@@ -423,7 +426,7 @@ export function EditProjectModal({
             >
               <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
               <Button variant="default" onClick={() => void handleSave()} loading={submitting} disabled={!draftName.trim() || submitting}>
-                Save changes
+                {creating ? 'Create project' : 'Save changes'}
               </Button>
             </div>
           </m.div>

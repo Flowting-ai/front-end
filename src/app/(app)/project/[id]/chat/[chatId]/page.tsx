@@ -24,12 +24,15 @@ import { useHighlight }                                    from '@/context/highl
 import { usePinMentions } from '@/hooks/use-pin-mentions'
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags"
 import { getVersion } from '@/lib/api/personas'
-import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { usePendingPersonaHandoff } from '@/hooks/use-pending-persona-handoff'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
+import { ChipTooltip } from '@/components/Chip/ChipTooltip'
+import { AgentChip } from '@/components/chat/AgentChip'
+import { AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
+import { useOpenAgentsPanel } from '@/hooks/use-open-agents-panel'
 import { Button }                                          from '@/components/Button'
 import {
   FolderOneIcon,
@@ -89,6 +92,11 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
   const { push }      = useRouter()
+  const mountedRef    = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
   const { recommendations, loading: recommendationsLoading } = useRecommendationsState()
 
   const {
@@ -241,8 +249,16 @@ function ProjectChatPageInner() {
   // (same bug, same fix, as chat/page.tsx's identical pending-persona key).
   const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(null)
   usePendingPersonaHandoff('project-chat-pending-persona', isNewChat, setSelectedPersona)
-  const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
-  const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen)
+  // Same Agents side panel /chat uses; choosing an agent there announces it with AGENT_SELECT_EVENT.
+  const openAgentsPanel = useOpenAgentsPanel({ inProject: true })
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const persona = (e as CustomEvent<SelectedPersonaInfo>).detail
+      if (persona) setSelectedPersona(persona)
+    }
+    window.addEventListener(AGENT_SELECT_EVENT, handler)
+    return () => window.removeEventListener(AGENT_SELECT_EVENT, handler)
+  }, [])
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
 
@@ -396,6 +412,7 @@ function ProjectChatPageInner() {
           trigger={
             <Chip
               label={activeStyle.label}
+              tooltip={<ChipTooltip title="Writing style" detail={{ label: 'Active', value: activeStyle.label }} lines={['Shapes the tone of replies.']} hints={['▾: change style', '×: remove']} />}
               icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
               onRemove={() => setSelectedStyleId(null)}
               onExpand={() => setStyleChipOpen(v => !v)}
@@ -422,6 +439,7 @@ function ProjectChatPageInner() {
         <Chip
           key={folder.id}
           label={folder.name}
+          tooltip={<ChipTooltip title="Folder" detail={{ label: 'Active', value: folder.name }} lines={['Its pins are used as context.']} hints={['×: remove']} />}
           icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
           onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
         />
@@ -430,41 +448,14 @@ function ProjectChatPageInner() {
         <MentionChip key={mp.id} label={mp.label} onRemove={() => handleRemoveMention(mp.id)} />
       ))}
       {webSearchEnabled && (
-        <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
+        <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" hideLabel tooltip={<ChipTooltip title="Web search" lines={['Searches the web for up-to-date answers.']} hints={['×: turn off']} />} onRemove={() => setWebSearchEnabled(false)} />
       )}
       {selectedPersona && (
-        <Dropdown.Float
-          open={personaChipOpen}
-          onOpenChange={setPersonaChipOpen}
-          placement="top-start"
-          trigger={
-            <Chip
-              label={selectedPersona.name}
-              personaImage={selectedPersona.imageUrl ?? undefined}
-              onRemove={() => setSelectedPersona(null)}
-              onExpand={() => setPersonaChipOpen(v => !v)}
-            />
-          }
-        >
-          <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
-            <Dropdown.Section fluid>
-              {loadingChipPersonas
-                ? <Dropdown.Item label="Loading…" fluid disabled />
-                : chipPersonas.length > 0
-                  ? chipPersonas.map(p => (
-                      <Dropdown.Item
-                        key={p.id}
-                        label={p.name}
-                        fluid
-                        selected={selectedPersona.id === p.id}
-                        onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
-                      />
-                    ))
-                  : <Dropdown.Item label="No agents yet" fluid disabled />
-              }
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
+        <AgentChip
+          agent={selectedPersona}
+          onRemove={() => setSelectedPersona(null)}
+          onOpenPanel={openAgentsPanel}
+        />
       )}
     </>
   )
@@ -708,6 +699,14 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={activeChatId}
               onChatCreated={(newChatId) => {
+                // The user may have navigated away (e.g. sidebar "New chat")
+                // while this first message was still being created. The chat is
+                // real, so keep it in the project list, but don't rewrite the
+                // live URL — that would pull them back into this chat.
+                if (!mountedRef.current) {
+                  addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
+                  return
+                }
                 // Clear initialPrompt so ChatInterface's addMenuFiles absorb effect
                 // is no longer blocked for subsequent file uploads in this session.
                 setInitialPrompt(null)

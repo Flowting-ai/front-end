@@ -56,7 +56,7 @@ export function ModelSwitchDialog({
               zIndex: 61,
               width: "400px",
               maxWidth: "calc(100vw - 32px)",
-              backgroundColor: "var(--neutral-white)",
+              backgroundColor: "var(--modal-bg)",
               borderRadius: "16px",
               boxShadow: "var(--shadow-xl)",
               padding: "24px",

@@ -69,9 +69,9 @@ export function ModelField({ modelId, models, loading, onChange, disabled = fals
         // The provider logo (Claude, OpenAI, Gemini…), sized up so it reads at a glance; the Button
         // clips its icon slot, so the slot size is raised to match.
         iconSize={20}
-        // The button stays white in dark mode, so the logo keeps its full colour there (see .kds-light-surface).
+        // The button is dark in dark mode, so the logo uses the themed white mark there (ModelIcon swaps by theme).
         leftIcon={
-          <span className="kds-light-surface" style={{ display: 'inline-flex' }}>
+          <span style={{ display: 'inline-flex' }}>
             {selected
               ? <ModelIcon model={modelIconSource(selected)} size={20} />
               : <AtomOneIcon size={20} color="var(--neutral-900)" />}

@@ -18,7 +18,7 @@ const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 22, fontWeight: 400, lineHeight: 1.2 }
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
 const label: React.CSSProperties = { display: 'block', marginBottom: SPACE.sm, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--text-field-label)' }
-const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
+const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring-hover)'
 
 type AuthType = CustomApiAuth['type']
 
@@ -61,7 +61,7 @@ function AuthDropdown({ value, onChange }: { value: AuthType; onChange: (value: 
       offset={4}
       trigger={
         <button type="button" id="custom-api-auth"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: 'var(--neutral-white)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none' }}>
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, width: '100%', padding: '8px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: 'var(--field-surface)', boxShadow: SHADOW_TRIGGER, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', outline: 'none' }}>
           <span>{current?.label}</span>
           <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
         </button>

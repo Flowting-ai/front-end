@@ -285,7 +285,7 @@ export default function ConnectorsTab({
       </div>
 
       {/* Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'var(--neutral-white)', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'var(--field-surface)', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)' }}>
         <SearchIcon />
         <input
           type="text"

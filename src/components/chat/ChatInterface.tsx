@@ -16,6 +16,28 @@ import {
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { QueuedMessagesTray, type QueuedRowExit } from "./QueuedMessagesTray";
+import { useChatQueue, useChatStreamActive } from "@/hooks/use-message-queue";
+import {
+  combineQueuedMessages,
+  getChatQueue,
+  holdQueue,
+  joinMessageText,
+  mergeAttachments,
+  newChatQueueKey,
+  queueMessage,
+  refreshQueuedContext,
+  rekeyQueue,
+  restoreQueuedMessage,
+  setQueueForeground,
+  takeAllQueuedMessages,
+  takeNextQueuedMessage,
+  takeQueuedMessage,
+  type QueuedMessage,
+  type QueuedMessagePart,
+  type QueuedTurnContext,
+} from "@/lib/message-queue";
+import { stopStream, type StreamOutcome } from "@/lib/stream-registry";
 import { registerChatScroller } from "@/lib/chat-scroller";
 import {
   createStickToBottom,
@@ -23,7 +45,7 @@ import {
   shouldAdjustScrollOnItemResize,
   USER_SCROLL_WINDOW_MS,
 } from "@/lib/stick-to-bottom";
-import { buildTurnOptions, getFolderPinIds, type TurnInput } from "@/lib/turn-options";
+import { buildTurnOptions, getFolderPinIds, type TurnInput, type TurnSettings } from "@/lib/turn-options";
 import { getRegenerateTarget, resolveEditReplaceId } from "@/lib/replace-message-id";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
@@ -60,6 +82,15 @@ const REVEAL_SETTLE_MAX_MS = 30_000;
 // After a reply finishes, keep following content growth this long (lazy code
 // highlighting, chart mounts) before growth counts as the user's own doing.
 const FOLLOW_GRACE_MS = 1_500;
+// A queued message goes out this long after the reply before it has finished,
+// so the finished reply registers before the next turn starts below it.
+const QUEUE_SEND_DELAY_MS = 450;
+
+// Touch screens: focusing the box on its own would pop the keyboard up.
+const prefersNoAutoFocus = () =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+
+const NO_QUEUED_MESSAGES: readonly QueuedMessage[] = [];
 
 interface ChatInterfaceProps {
   chatId: string | undefined;
@@ -269,6 +300,7 @@ export function ChatInterface({
     handleRemoveMention,
     handlePinNavigate,
     clearMentions,
+    restoreMentions,
   } = usePinMentions(setInputValue);
 
   // Whether the view follows new content at the bottom ("stuck") — see
@@ -281,8 +313,8 @@ export function ChatInterface({
   // the first visible frame is already at settled positions (no jitter).
   const [isSettling, setIsSettling] = useState(false);
 
-  // Reset composed-but-unsent input whenever the user switches to a different chat.
-  // Safe on new-chat creation: handleSend already clears inputValue before onChatCreated fires.
+  // Reset composed-but-unsent input whenever the user switches to a different
+  // chat (the second effect below; a new chat getting its id is not a switch).
   const prevChatIdRef = useRef<string | null | undefined>(chatId)
   useEffect(() => {
     const prev = prevChatIdRef.current
@@ -296,7 +328,16 @@ export function ChatInterface({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
   }, [chatId])
 
+  // The id of the chat this view just created (see handleChatCreated). When it
+  // arrives as `chatId`, it's the same conversation getting its id, not a
+  // switch — what the user typed (or queued) during its first reply stays.
+  const createdChatIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (chatId && chatId === createdChatIdRef.current) {
+      createdChatIdRef.current = null;
+      return;
+    }
     setInputValue("");
     setAttachments([]);
     clearMentions();
@@ -319,7 +360,7 @@ export function ChatInterface({
   // Tracks which attachment IDs already have an active simulation interval
   // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
 
-  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT, FILE_CONSTRAINTS } = useFileUpload();
 
   const { selectedModel: contextModel } = useModelSelectorContext();
   const enableReasoning = reasoningEffort === undefined ? undefined : reasoningEffort !== null;
@@ -499,10 +540,27 @@ export function ChatInterface({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, msgVirtualizer, stickToBottom])
 
+  // ── Message queue (see message-queue.ts) ─────────────────────────────────
+  // This view's key for its chat's queued message: the chat id, or — until a
+  // new chat's first reply brings one — a stand-in that then moves to it.
+  const [newChatKey] = useState(newChatQueueKey);
+  const queueKey = chatId ?? newChatKey;
+  const chatQueue = useChatQueue(queueKey);
+  const queuedMessages = chatQueue?.messages ?? NO_QUEUED_MESSAGES;
+  // Tells the queue which chat is on screen here: that chat's queued message
+  // is sent by this view, any other by MessageQueueRunner in the background.
+  const [queueViewToken] = useState(() => Symbol("chat-view"));
+  useEffect(() => {
+    setQueueForeground(queueViewToken, queueKey);
+  }, [queueViewToken, queueKey]);
+  useEffect(() => () => setQueueForeground(queueViewToken, null), [queueViewToken]);
+
   // Wrap onChatCreated to mark the new ID as optimistic BEFORE the parent
   // updates the URL/chatId prop - prevents useChatState from wiping messages.
   const handleChatCreated = (newChatId: string) => {
     markChatAsOptimistic(newChatId);
+    createdChatIdRef.current = newChatId;
+    rekeyQueue(newChatKey, newChatId);
     onChatCreated?.(newChatId);
   };
 
@@ -519,12 +577,34 @@ export function ChatInterface({
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
+  // This chat's reply is running — here, or still from before the user
+  // switched away and back (or as a queued message sent in the background).
+  const chatStreamActive = useChatStreamActive(chatId);
+  const replyInFlight = isStreaming || chatStreamActive;
 
   // Synchronous reentrancy guard for handleSend/handleRegenerate. `isStreaming` is
   // state-derived and lands a render behind the click, so a double-click (or an
   // Enter-then-click race) within the same tick can slip two fetchAiResponse calls
   // through before the button disables — this ref closes that gap.
   const isSendingRef = useRef(false);
+  // isSendingRef for rendering. The streaming hook runs one stream at a time,
+  // including one still finishing for a chat the user has since left — a
+  // message sent meanwhile is queued until it's free.
+  const [hookBusy, setHookBusy] = useState(false);
+  const beginTurn = () => {
+    isSendingRef.current = true;
+    setHookBusy(true);
+  };
+  const endTurn = () => {
+    isSendingRef.current = false;
+    setHookBusy(false);
+  };
+  // A reply that failed or was stopped holds back the message queued after
+  // it. Streams with a chat id report this through the stream registry; this
+  // also covers a new chat's first reply that failed before it got one.
+  const settleTurn = (key: string, outcome: StreamOutcome) => {
+    if (outcome !== "done") holdQueue(key, outcome);
+  };
   // Set by the host's "send anyway" so the next handleSend skips onBeforeSend.
   const skipBeforeSendRef = useRef(false);
 
@@ -562,7 +642,7 @@ export function ChatInterface({
 
   // Every turn (send, initial send, edit, regenerate) is sent with the
   // composer's current settings, read at send time — see buildTurnOptions.
-  const turnOptions = (turn: TurnInput) => buildTurnOptions({
+  const turnSettings: TurnSettings = {
     webSearch:              webSearchEnabled,
     reasoningEffort,
     algorithm,
@@ -574,7 +654,20 @@ export function ChatInterface({
     chatOwnershipConfirmed,
     pinsEnabled:            PINS_ENABLED,
     folderPinIds:           getFolderPinIds(pins, selectedFolders),
-  }, turn);
+  };
+  const turnOptions = (turn: TurnInput) => buildTurnOptions(turnSettings, turn);
+
+  // What a queued message needs to go out without this view (in the
+  // background): the same settings, kept current while the chat is shown.
+  const queueContext = (): QueuedTurnContext => ({
+    settings: turnSettings,
+    modelId:  selectedModelId,
+    endpoint,
+    onStopBackend,
+  });
+  useEffect(() => {
+    refreshQueuedContext(queueKey, queueContext());
+  });
 
   // Mirrors the real XHR upload progress onto the optimistic user message's attachment chips.
   const trackUploadProgress = (userMsgId: string) => (pct: number) => {
@@ -626,12 +719,16 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
+      const key = queueKey;
+      beginTurn();
       fetchAiResponse(content, null, loadingId, selectedModelId, turnOptions({
         files,
         userMessageId: userMsgId,
         mentionedPinIds: initialMentionedPinObjects.map(p => p.id),
         onUploadProgress: trackUploadProgress(userMsgId),
-      }));
+      }))
+        .then((outcome) => settleTurn(key, outcome), () => settleTurn(key, "error"))
+        .finally(endTurn);
     }
     }
   })
@@ -810,12 +907,12 @@ export function ChatInterface({
     msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
   }, [messages.length, msgVirtualizer, stickToBottom]);
 
-  // File drop (drag-and-drop into the chat area)
+  // File drop (drag-and-drop into the chat area). Open while a reply streams
+  // too: the next message can be queued, files and all.
   const { isDragging } = useFileDrop({
     onFiles: (files) => {
       setAttachments((prev) => processFiles(files, prev));
     },
-    disabled: isStreaming,
   });
 
   // Absorb add-menu files into local attachments so AttachmentManager shows them.
@@ -857,34 +954,55 @@ export function ChatInterface({
       return;
     }
 
-    // The composer stays editable while a reply streams, but sending waits
-    // for it (ChatInput already holds Enter back; this is the backstop).
-    if (isStreaming) return;
+    // A reply is still running (or messages are already waiting): this one is
+    // queued to follow, in order. The isSendingRef check also catches a
+    // second send in the same tick, before `isStreaming` lands.
+    if (replyInFlight || isSendingRef.current || getChatQueue(queueKey)) {
+      queueFromComposer(text);
+      return;
+    }
 
-    // Reentrancy guard: see isSendingRef declaration above.
-    if (isSendingRef.current) return;
-    isSendingRef.current = true;
-
-    const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.
     const capturedMentionedPins = PINS_ENABLED ? mentionedPins : [];
-    const userMsgId = addOptimisticUserMessage(
-      content,
-      allFiles.length > 0 ? allFiles : undefined,
-      capturedMentionedPins.length > 0 ? capturedMentionedPins : undefined,
-    );
-    const loadingId = addLoadingAssistantMessage();
-    setRevealingKey(loadingId);
-    stickAndFollow();
+    const capturedAttachments = attachments;
+    editedQueueSlotRef.current = null;
     setInputValue("");
     setAttachments([]);
     clearMentions();
     onClearAddMenuFiles?.();
 
+    await sendTurn({
+      content: text.trim(),
+      attachments: capturedAttachments,
+      mentionedPins: capturedMentionedPins,
+      fromQueue: false,
+    });
+  };
+
+  // Sends one turn — the composer's message or a queued one going out.
+  const sendTurn = async ({ content, attachments: turnAttachments, mentionedPins: turnPins, fromQueue }: {
+    content: string;
+    attachments: PendingAttachment[];
+    mentionedPins: Array<{ id: string; label: string }>;
+    fromQueue: boolean;
+  }) => {
+    const key = queueKey;
+    const files = turnAttachments.map((a) => a.file);
+    const pinsForTurn = PINS_ENABLED ? turnPins : [];
+    beginTurn();
+    const userMsgId = addOptimisticUserMessage(
+      content,
+      files.length > 0 ? files : undefined,
+      pinsForTurn.length > 0 ? pinsForTurn : undefined,
+    );
+    const loadingId = addLoadingAssistantMessage();
+    setRevealingKey(loadingId);
+    stickAndFollow();
+
     const options = turnOptions({
-      files: allFiles,
+      files,
       userMessageId: userMsgId,
-      mentionedPinIds: capturedMentionedPins.map(m => m.id),
+      mentionedPinIds: pinsForTurn.map(m => m.id),
       onUploadProgress: trackUploadProgress(userMsgId),
     });
 
@@ -895,19 +1013,165 @@ export function ChatInterface({
       model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       web_search: webSearchEnabled,
       reasoning: enableReasoning,
-      attachment_count: allFiles.length,
+      attachment_count: files.length,
       pin_count: options.pinIds?.length ?? 0,
+      queued: fromQueue,
     });
 
     try {
-      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, options);
+      settleTurn(key, await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, options));
     } catch {
       rollbackLast(2);
       toast.error("Failed to send message. Please try again.");
+      holdQueue(key, "error");
     } finally {
-      isSendingRef.current = false;
+      endTurn();
     }
   };
+
+  // ── Queue actions ────────────────────────────────────────────────────────
+
+  // Screen-reader-only status for queue changes (the tray itself is silent).
+  const [queueAnnouncement, setQueueAnnouncement] = useState("");
+  // How the next row to leave the tray goes — see QueuedRowExit.
+  const [queuedRowExit, setQueuedRowExit] = useState<QueuedRowExit>("dismissed");
+  // Bumped to focus the composer with the caret at the end (see ChatInput).
+  const [composerFocusRequest, setComposerFocusRequest] = useState(0);
+  // Where a message taken out to edit stood, so re-queuing it puts it back
+  // in its place rather than at the end. Cleared by a direct send or a switch.
+  const editedQueueSlotRef = useRef<{ key: string; index: number } | null>(null);
+  useEffect(() => {
+    editedQueueSlotRef.current = null;
+  }, [queueKey]);
+
+  // The composer's message joins the end of the queue (or an edited one
+  // goes back to its place) as a message of its own.
+  const queueFromComposer = (text: string) => {
+    const slot = editedQueueSlotRef.current?.key === queueKey ? editedQueueSlotRef.current.index : undefined;
+    editedQueueSlotRef.current = null;
+    queueMessage(
+      queueKey,
+      { content: text, attachments, mentionedPins: PINS_ENABLED ? mentionedPins : [] },
+      queueContext(),
+      slot,
+    );
+    setInputValue("");
+    setAttachments([]);
+    clearMentions();
+    onClearAddMenuFiles?.();
+    const count = getChatQueue(queueKey)?.messages.length ?? 1;
+    setQueueAnnouncement(count > 1
+      ? `Message queued. ${count} messages will be sent in order as each reply finishes.`
+      : "Message queued. It will be sent when the current reply finishes.");
+  };
+
+  // Queued messages back into the composer, ahead of anything typed since.
+  // Updaters, not this render's values: on a chat switch the composer is
+  // emptied in the same commit, and the old chat's draft must not carry over.
+  const putBackInComposer = (part: QueuedMessagePart, focus: boolean) => {
+    const max = FILE_CONSTRAINTS.maxFiles;
+    setQueuedRowExit("dismissed");
+    setInputValue((draft) => joinMessageText(part.content, draft));
+    setAttachments((current) => mergeAttachments(part.attachments, current, max).attachments.slice(0, max));
+    if (mergeAttachments(part.attachments, attachments, max).overflow) {
+      toast.error("File limit reached", {
+        description: `A message can carry up to ${max} files, so the newest ones were left out.`,
+      });
+    }
+    restoreMentions(PINS_ENABLED ? part.mentionedPins : []);
+    if (focus) setComposerFocusRequest((n) => n + 1);
+  };
+
+  // Edit: take one queued message back into the composer to change it.
+  const handleEditQueued = (id: string): boolean => {
+    setQueuedRowExit("dismissed");
+    const taken = takeQueuedMessage(queueKey, id);
+    if (!taken) return false;
+    const slot = editedQueueSlotRef.current;
+    editedQueueSlotRef.current = {
+      key: queueKey,
+      index: slot?.key === queueKey ? Math.min(slot.index, taken.index) : taken.index,
+    };
+    putBackInComposer(taken.message, true);
+    setQueueAnnouncement("Queued message moved back to the message box.");
+    return true;
+  };
+
+  // ArrowUp in an empty box: the most recently queued message, like
+  // recalling the last command in a terminal.
+  const handleRecallQueued = (): boolean => {
+    const last = queuedMessages[queuedMessages.length - 1];
+    return last ? handleEditQueued(last.id) : false;
+  };
+
+  const handleRemoveQueued = (id: string) => {
+    const key = queueKey;
+    setQueuedRowExit("dismissed");
+    const taken = takeQueuedMessage(key, id);
+    if (!taken) return;
+    // The Remove button leaves with its row; keep keyboard focus nearby.
+    if (!prefersNoAutoFocus()) setComposerFocusRequest((n) => n + 1);
+    setQueueAnnouncement("Queued message removed.");
+    toast("Queued message removed", {
+      id: `queued-removed-${taken.message.id}`,
+      action: { label: "Undo", onClick: () => restoreQueuedMessage(key, taken.message, taken.index) },
+    });
+  };
+
+  // Stop: this view's own reply, or this chat's reply still running from
+  // before the user switched away and back (or a queued message sent in the
+  // background meanwhile).
+  const handleStop = () => {
+    if (isStreaming) handleStopGeneration();
+    else if (chatId) stopStream(chatId);
+  };
+
+  // The reply the queue was waiting on failed or was stopped: the queued
+  // messages go back into the composer, in order, instead of out — nothing
+  // is sent unasked.
+  const queueHeldBy = chatQueue?.heldBy;
+  useEffect(() => {
+    if (!queueHeldBy || replyInFlight) return;
+    const held = takeAllQueuedMessages(queueKey);
+    if (!held || held.messages.length === 0) return;
+    editedQueueSlotRef.current = null;
+    putBackInComposer(combineQueuedMessages(held.messages), !prefersNoAutoFocus());
+    const plural = held.messages.length > 1;
+    if (queueHeldBy === "error") {
+      toast(plural ? "Your queued messages weren't sent" : "Your queued message wasn't sent", {
+        description: `The reply before ${plural ? "them" : "it"} didn't finish, so ${plural ? "they're" : "it's"} back in the message box.`,
+      });
+    }
+    setQueueAnnouncement(`${queueHeldBy === "error" ? "The reply didn't finish." : "The reply was stopped."} ${
+      plural ? "Your queued messages are" : "Your queued message is"} back in the message box.`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a hold lands or the reply ends
+  }, [queueHeldBy, replyInFlight, queueKey]);
+
+  // Hidden tab: the reply's text reveal doesn't run there, so a queued
+  // message doesn't wait for it.
+  const [pageHidden, setPageHidden] = useState(false);
+  useEffect(() => {
+    const update = () => setPageHidden(document.visibilityState === "hidden");
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+
+  // Why a queued message can't go out yet beyond waiting its turn.
+  const queuePausedReason = creditStatus.blocked
+    ? "paused, out of credits"
+    : plan?.poolStatus === "locked"
+      ? "paused, workspace locked"
+      : personaConfigLoading
+        ? "waiting for the agent to load"
+        : null;
+
+  // The send itself, read from a ref so the timer below always uses the
+  // composer's latest settings.
+  const sendTurnRef = useRef(sendTurn);
+  useEffect(() => {
+    sendTurnRef.current = sendTurn;
+  });
 
   // Regenerate the last reply (also the error state's Retry). Replaces the
   // turn in the backend's history, like an edit, and re-sends with the
@@ -926,7 +1190,7 @@ export function ChatInterface({
     const target = getRegenerateTarget(messages);
     if (!target) return;
 
-    isSendingRef.current = true;
+    beginTurn();
 
     setMessages((prev) => {
       const userIdx = prev.findLastIndex((m) => m.role === "user");
@@ -952,9 +1216,7 @@ export function ChatInterface({
         mentionedPinIds: target.userMessage.mentionedPins?.map((p) => p.id),
         replaceMessageId: target.replaceMessageId,
       }),
-    ).finally(() => {
-      isSendingRef.current = false;
-    });
+    ).finally(endTurn);
   };
   const handleRegenerate = useCallback(() => _handleRegenerateImpl.current(), []);
 
@@ -1010,10 +1272,11 @@ export function ChatInterface({
     setRevealingKey(loadingId)
     stickAndFollow()
 
+    beginTurn()
     fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, turnOptions({
       mentionedPinIds,
       replaceMessageId,
-    }))
+    })).finally(endTurn)
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stable wrapper; impl updates via ref
   const handleEditMessage = useCallback(
@@ -1060,6 +1323,50 @@ export function ChatInterface({
     timer = setTimeout(check, REVEAL_SETTLE_FALLBACK_MS);
     return () => clearTimeout(timer);
   }, [revealingKey, isStreaming, msgVirtualizer]);
+
+  // The next queued message goes out once the reply before it has finished —
+  // streamed and revealed (unless the tab is hidden) — and the thread is
+  // settled. A short beat first lets the finished reply register. Each one
+  // then waits for its own reply, so they go out in order, one per turn.
+  const queueReady =
+    queuedMessages.length > 0 && !queueHeldBy &&
+    !replyInFlight && !hookBusy &&
+    (!isRevealing || pageHidden) &&
+    !isLoadingMessages && !isSettling &&
+    !queuePausedReason && !readOnly && !archived;
+  useEffect(() => {
+    if (!queueReady) return;
+    let cancelled = false;
+    const send = () => {
+      // A send that started this very tick has the floor (see isSendingRef).
+      if (cancelled || isSendingRef.current) return;
+      setQueuedRowExit("sent");
+      const message = takeNextQueuedMessage(queueKey);
+      if (message) void sendTurnRef.current({ ...message, fromQueue: true });
+    };
+    // Hidden tab: no beat (nobody is watching) and no timer — background
+    // tabs throttle timers, up to a minute apart.
+    if (pageHidden) {
+      queueMicrotask(send);
+      return () => { cancelled = true; };
+    }
+    const timer = setTimeout(send, QUEUE_SEND_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [queueReady, queueKey, pageHidden]);
+
+  // What the queue is waiting for, after "Queued ·" in the tray.
+  const queueWaitingOnReply = replyInFlight || isRevealing;
+  const queueStatus = queuePausedReason
+    ?? (queueWaitingOnReply
+      ? queuedMessages.length > 1 ? "sent in order as each reply finishes" : "sends when this reply finishes"
+      : hookBusy
+        ? "waiting for your reply in another chat"
+        : "sending next…");
+  // While a send would be queued rather than go straight out.
+  const sendQueues = replyInFlight || hookBusy || queuedMessages.length > 0;
 
   // Attachment via hidden file input (triggered by onAdd on the ChatInput)
   const handleAdd = () => {
@@ -1148,6 +1455,24 @@ export function ChatInterface({
           }}
         >
           {isStreaming || isRevealing ? "Assistant is responding." : "Assistant response complete."}
+        </div>
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {queueAnnouncement}
         </div>
         <div
           ref={messagesContainerRef}
@@ -1364,6 +1689,20 @@ export function ChatInterface({
           }}
         >
           <ExhaustionBanner>
+          {/* Queued messages, just above the box and tucked under its top
+              edge (the box sits above it, zIndex 1). Keyed by chat so a
+              chat switch swaps the tray at once rather than animating. */}
+          {!archived && !readOnly && (
+            <QueuedMessagesTray
+              key={queueKey}
+              messages={queueHeldBy ? NO_QUEUED_MESSAGES : queuedMessages}
+              status={queueStatus}
+              waiting={!queuePausedReason && (queueWaitingOnReply || hookBusy)}
+              rowExit={queuedRowExit}
+              onEdit={handleEditQueued}
+              onRemove={handleRemoveQueued}
+            />
+          )}
           {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
           <div
             ref={inputWrapperRef}
@@ -1416,7 +1755,7 @@ export function ChatInterface({
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSend}
-            onStop={handleStopGeneration}
+            onStop={handleStop}
             onAdd={handleAdd}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             hasAttachments={attachments.length > 0}
@@ -1443,20 +1782,22 @@ export function ChatInterface({
                   <AttachmentManager
                     attachments={attachments}
                     onAttachmentsChange={setAttachments}
-                    disabled={isStreaming}
                   />
                 </div>
               ) : (
                 <AttachmentManager
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
-                  disabled={isStreaming}
                 />
               )
             }
-            isStreaming={isStreaming}
+            isStreaming={replyInFlight}
             // Not disabled while streaming: the box keeps focus and can be
-            // typed in; ChatInput holds sending back until the reply is done.
+            // typed in, and a send is queued to follow the reply.
+            allowQueue
+            sendQueues={sendQueues}
+            onRecallQueued={queuedMessages.length > 0 && !queueHeldBy ? handleRecallQueued : undefined}
+            focusRequest={composerFocusRequest}
             disabled={readOnly || archived || plan?.poolStatus === 'locked' || creditStatus.blocked || personaConfigLoading}
             placeholder={
               readOnly
@@ -1467,7 +1808,11 @@ export function ChatInterface({
                   ? 'Credits exhausted. Buy a top-up to continue.'
                   : personaConfigLoading
                     ? 'Loading agent…'
-                    : 'How can I help you today?'
+                    : queuedMessages.length > 0
+                      ? 'Queue another message…'
+                      : sendQueues
+                        ? 'Queue a follow-up…'
+                        : 'How can I help you today?'
             }
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}

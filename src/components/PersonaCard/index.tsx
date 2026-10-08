@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { m, AnimatePresence } from 'framer-motion'
@@ -37,9 +38,9 @@ import { AgentCardButton } from './AgentCardButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
-const SHADOW_CARD          = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_CARD          = 'var(--shadow-agent-card)'
 // Hover lifts the 1px ring a few steps — the reference card's border-color brighten.
-const SHADOW_CARD_HOVER    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
+const SHADOW_CARD_HOVER    = 'var(--shadow-agent-card-hover)'
 const SHADOW_CARD_TEMPLATE ='0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
 
 // Fixed height for default/draft cards so every card in a grid lines up
@@ -873,19 +874,18 @@ function PersonaCardInner({
               }
               // With a Details action, the title is the card's keyboard entry point (Tab → Enter).
               return onMenuDetails ? (
-                <button type="button" className="agent-card__title" title={name} aria-label={`${name} — details`} onClick={onMenuDetails} style={titleStyle}>
+                <Tooltip content={name} maxWidth={280}><button type="button" className="agent-card__title" aria-label={`${name} — details`} onClick={onMenuDetails} style={titleStyle}>
                   {name}
-                </button>
+                </button></Tooltip>
               ) : (
-                <span title={name} style={titleStyle}>{name}</span>
+                <Tooltip content={name} maxWidth={280}><span style={titleStyle}>{name}</span></Tooltip>
               )
             })()}
 
             {(createdBy || authorHandle) && (
-              <m.span
+              <Tooltip content={createdBy ? `Created by ${createdBy}` : `@${authorHandle}`} maxWidth={280}><m.span
                 key={leaveCount}
                 {...(leaveCount > 0 ? RISE : null)}
-                title={createdBy ? `Created by ${createdBy}` : `@${authorHandle}`}
                 style={{
                   maxWidth:     '100%',
                   fontFamily:   'var(--font-body)',
@@ -898,13 +898,12 @@ function PersonaCardInner({
                 }}
               >
                 by {createdBy ?? `@${authorHandle}`}
-              </m.span>
+              </m.span></Tooltip>
             )}
 
             {/* Description */}
             {(description || (!isTemplate && !isCommunity)) && (
-              <p
-                title={description}
+              <Tooltip content={description} disabled={!description} maxWidth={280}><p
                 className={animateHover ? 'persona-card-desc-reading' : undefined}
                 style={{
                   margin:           '8px 0 0',
@@ -921,7 +920,7 @@ function PersonaCardInner({
                 }}
               >
                 {description}
-              </p>
+              </p></Tooltip>
             )}
           </div>
 

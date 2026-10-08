@@ -9,7 +9,7 @@ import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { toast } from 'sonner'
 
 const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
-const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)'
 const SHADOW_PILL  = '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_PILL_ACTIVE = '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)'
 
@@ -130,7 +130,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
         aria-label="Report a bug"
         tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--neutral-50)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--modal-bg)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -159,7 +159,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rb-email" style={labelStyle}>Work email</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--field-surface)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rb-email" type="email" name="email" placeholder="you@company.com" defaultValue={user?.email ?? ''} required style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -169,7 +169,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                   <label htmlFor="rb-name" style={labelStyle}>Full name</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--neutral-white)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--field-surface)', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
                     <input id="rb-name" type="text" name="name" placeholder="Jane Smith" defaultValue={displayName} style={inputStyle} />
                   </div>
                   <span style={fieldErrorStyle}>
@@ -189,7 +189,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
                   required
                   value={message}
                   onChange={e => setMessage(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--neutral-white)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'var(--field-surface)', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
                 />
                 <span style={fieldErrorStyle}>
                   <ValidationError field="message" errors={state.errors} />

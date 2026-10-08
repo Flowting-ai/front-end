@@ -552,7 +552,7 @@ function PersonaPublishedContent() {
                       </span>
                       <div
                         style={{
-                          backgroundColor: 'var(--neutral-white)',
+                          backgroundColor: 'var(--field-surface)',
                           border: '1px solid var(--neutral-200)',
                           borderRadius: 8,
                           padding: '4px 8px',

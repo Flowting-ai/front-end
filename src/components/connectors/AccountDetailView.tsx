@@ -169,7 +169,11 @@ export function PermissionsTab({
     getConnector(catalog.slug)
       .then(detail => {
         if (cancelled || abortedRef.current) return
-        const joined = account.toolsFrom(detail.tools)
+        // The list endpoint ships accounts without their saved permissions,
+        // so join against the account as the detail response carries it.
+        const saved = detail.connections.find(row => row.id === account.id)
+        if (!saved) return
+        const joined = saved.toolsFrom(detail.tools)
         baselineRef.current = joined
         setTools(joined)
       })

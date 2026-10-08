@@ -246,7 +246,22 @@
   /* ── Popover ────────────────────────────────────────────────────────────────
      Floating surface used for dropdown menus, command palettes, context menus.
      ─────────────────────────────────────────────────────────────────────────── */
-  --popover-bg: var(--color-surface-default);  /* #ffffff */
+  --popover-bg: #ffffff;  /* pure white in light mode; dark theme maps it to the dark surface (theme.css) */
+  --modal-bg: #ffffff;  /* modal / dialog panel surface: pure white in light mode */
+  --card-bg: #ffffff;  /* card surface (e.g. connector cards): pure white in light mode */
+  --surface-cream: #F9F8F5;  /* a fixed cream surface that does not follow the white-content scopes (e.g. settings pages) */
+  --widget-bg-from: #ffffff;  /* chat widgets: white fading to a light blue */
+  --widget-bg-to:   #E8F2FC;
+  --widget-accent:  var(--blue-500);  /* icon tiles, selected dates, accent bars */
+  --widget-on-accent: #ffffff;  /* text/dots drawn on top of the accent (e.g. the selected date) */
+
+  /* Soft shadow under the coloured ring around an agent avatar (edit panel). */
+  --shadow-avatar-ring: 0px 2px 6px 0px rgba(82, 75, 71, 0.28);
+
+  /* Agent cards: a slightly heavier lift than the generic card shadow. */
+  --shadow-card-deep:        0px 4px 10px -2px rgba(82, 75, 71, 0.2), 0px 1px 3px 0px rgba(82, 75, 71, 0.16);  /* project / schedule cards */
+  --shadow-agent-card:       0px 4px 10px -2px rgba(82, 75, 71, 0.2), 0px 1px 3px 0px rgba(82, 75, 71, 0.16), 0px 0px 0px 1px var(--neutral-100);
+  --shadow-agent-card-hover: 0px 6px 14px -3px rgba(82, 75, 71, 0.24), 0px 1px 3px 0px rgba(82, 75, 71, 0.16), 0px 0px 0px 1px var(--neutral-400);
 
   /* Large diffuse lift + tight drop shadow + 1px border ring */
   --shadow-popover:
@@ -411,7 +426,7 @@
      Hover glow:  --neutral-100-60 at 3px
      Focus glow:  --neutral-100-60 at 6px
      ─────────────────────────────────────────────────────────────────────────── */
-  --chat-input-bg:               #FFFFFF;  /* stays pure white on the #FCFCFB page; dark overrides it (theme.css) */
+  --chat-input-bg:               #FFFFFF;  /* stays pure white on the #F9F8F5 page; dark overrides it (theme.css) */
   --chat-input-placeholder:      var(--color-text-placeholder);
   --chat-input-text:             var(--color-text-primary);
   --chat-input-scrollbar-thumb:  var(--color-scrollbar-thumb);
@@ -471,6 +486,7 @@
   --text-field-placeholder:    var(--color-text-placeholder);  /* neutral-600 */
   --text-field-icon:           var(--color-text-muted);        /* neutral-500 */
   --text-field-bg:             #FFFFFF;   /* #ffffff */
+  --field-surface:             #FFFFFF;   /* every input / textarea / select surface: pure white in light mode, even on the cream page */
   --text-field-ring:           var(--neutral-100);             /* 1px ring at rest / filled */
   --text-field-ring-hover:     var(--neutral-200);             /* 1px ring on hover */
 
@@ -503,7 +519,7 @@
      Action bar fades in on hover: timestamp + Retry + Edit + Copy (ghost-2 IconButtons).
      Figma: 2514:21470 (User Bubble)
      ─────────────────────────────────────────────────────────────────────────── */
-  --message-bubble-user-bg:          var(--neutral-white);
+  --message-bubble-user-bg:          #ffffff;
   --message-bubble-user-text:        var(--neutral-950);
   --message-bubble-action-timestamp: var(--neutral-600);
   --message-bubble-action-icon:      var(--neutral-600);
@@ -599,26 +615,26 @@
    Semantic tokens consumed by the KDS Toast wrapper and the CSS rules below.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --toast-bg:                 var(--neutral-white);
+  --toast-bg:                 #ffffff;
   --toast-text:               var(--neutral-900);
   --toast-border:             var(--neutral-200);
   --toast-description:        var(--neutral-600);
 
-  --toast-success-bg:         var(--green-50);
+  --toast-success-bg:         #ffffff;
   --toast-success-text:       var(--green-800);
-  --toast-success-border:     var(--green-300);
+  --toast-success-border:     var(--neutral-200);
 
-  --toast-error-bg:           var(--red-50);
+  --toast-error-bg:           #ffffff;
   --toast-error-text:         var(--red-700);
-  --toast-error-border:       var(--red-300);
+  --toast-error-border:       var(--neutral-200);
 
-  --toast-warning-bg:         var(--yellow-50);
+  --toast-warning-bg:         #ffffff;
   --toast-warning-text:       var(--yellow-800);
-  --toast-warning-border:     var(--yellow-300);
+  --toast-warning-border:     var(--neutral-200);
 
-  --toast-info-bg:            var(--blue-50);
+  --toast-info-bg:            #ffffff;
   --toast-info-text:          var(--blue-800);
-  --toast-info-border:        var(--blue-300);
+  --toast-info-border:        var(--neutral-200);
 
   --toast-action-bg:          var(--neutral-900);
   --toast-action-text:        #F7F2ED;

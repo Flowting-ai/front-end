@@ -105,10 +105,27 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       return
     }
     let mounted = true
-    setOrgIdResolved(false)
+    // The list call sits at the head of the org/members/plan chain on every full page load.
+    // Start from the id we resolved last time and let the list call correct it in the background.
+    const cacheKey = `souvenir:org-id:${user.id}`
+    let cachedOrgId: string | null = null
+    try { cachedOrgId = localStorage.getItem(cacheKey) } catch { /* storage unavailable */ }
+    if (cachedOrgId) {
+      setResolvedOrgId(cachedOrgId)
+      setOrgIdResolved(true)
+    } else {
+      setOrgIdResolved(false)
+    }
     listOrganizations()
-      .then(orgs => { if (mounted) setResolvedOrgId(orgs[0]?.id ?? null) })
-      .catch(() => { if (mounted) setResolvedOrgId(null) })
+      .then(orgs => {
+        const id = orgs[0]?.id ?? null
+        try {
+          if (id) localStorage.setItem(cacheKey, id)
+          else localStorage.removeItem(cacheKey)
+        } catch { /* storage unavailable */ }
+        if (mounted) setResolvedOrgId(id)
+      })
+      .catch(() => { if (mounted && !cachedOrgId) setResolvedOrgId(null) })
       .finally(() => { if (mounted) setOrgIdResolved(true) })
     return () => { mounted = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- user object is intentionally excluded;

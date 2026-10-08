@@ -20,6 +20,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       >
         {/* Inner rounded card - mirrors the main app's center container */}
         <div
+          className="settings-content"
           style={{
             flex:            '1 0 0',
             minHeight:       0,
