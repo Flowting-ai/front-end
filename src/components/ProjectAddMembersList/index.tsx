@@ -24,7 +24,7 @@ const ROW_CARD_STYLE: React.CSSProperties = {
   gap:             12,
   borderRadius:    16,
   padding:         12,
-  backgroundColor: 'var(--neutral-white)',
+  backgroundColor: 'var(--card-bg)',
   boxShadow:       '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
 }
 

@@ -38,9 +38,9 @@ import { AgentCardButton } from './AgentCardButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
-const SHADOW_CARD          = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_CARD          = 'var(--shadow-agent-card)'
 // Hover lifts the 1px ring a few steps — the reference card's border-color brighten.
-const SHADOW_CARD_HOVER    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
+const SHADOW_CARD_HOVER    = 'var(--shadow-agent-card-hover)'
 const SHADOW_CARD_TEMPLATE ='0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
 
 // Fixed height for default/draft cards so every card in a grid lines up

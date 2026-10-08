@@ -29,7 +29,7 @@ export function ProjectInstructionsPanel({ value, editable, onOpenEditor, ref }:
           gap:           '12px',
           padding:       '12px 12px 16px',
           borderRadius:  '16px',
-          background:    'var(--neutral-50)',
+          background:    'var(--card-bg)',
           border:        '1px dashed var(--neutral-300)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',

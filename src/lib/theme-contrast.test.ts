@@ -225,8 +225,8 @@ describe("secondary buttons, icon buttons and the selected tab are raised dark s
     }
   });
 
-  it("the user's message bubble is cream in light but a raised dark-grey card in dark; the chat input stays dark", () => {
-    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase().replace("VAR(--NEUTRAL-WHITE)", "#F9F8F5")).toBe("#F9F8F5");
+  it("the user's message bubble is white in light but a raised dark-grey card in dark; the chat input stays dark", () => {
+    expect(resolveVar(LIGHT, "--message-bubble-user-bg")?.toUpperCase()).toBe("#FFFFFF");
     const bubble = color(DARK, "--message-bubble-user-bg");
     expect(resolveVar(DARK, "--message-bubble-user-bg")?.toUpperCase()).toBe("#2A2A2A");
     // Dark (not a white block), yet clearly raised above both the page and the chat input surface.

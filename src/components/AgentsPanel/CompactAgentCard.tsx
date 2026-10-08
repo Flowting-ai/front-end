@@ -75,10 +75,10 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inU
         padding:         8,
         borderRadius:    RADIUS,
         cursor:          'pointer',
-        backgroundColor: 'var(--agent-card-bg)',
+        backgroundColor: 'var(--card-bg)',
         boxShadow:       active
-          ? '0px 6px 14px -4px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-400)'
-          : '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
+          ? 'var(--shadow-agent-card-hover)'
+          : 'var(--shadow-agent-card)',
         transform:       active ? 'translateY(-1px)' : 'none',
         transition:      'box-shadow 200ms, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
@@ -93,9 +93,10 @@ export function CompactAgentCard({ agent, superlink, useLabel = 'Use agent', inU
           agentId={agent.id}
           height={TILE}
           width={TILE}
-          avatarSize={38}
+          avatarSize={TILE}
           radius={TILE_RADIUS}
           rounded
+          orbShape="rounded"
           hovered={active && !dimmed}
           bounceKey={bounceKey}
           inert={dimmed}

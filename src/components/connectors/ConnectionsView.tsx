@@ -57,7 +57,7 @@ const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as c
 
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 32, fontWeight: 400, lineHeight: 1.2 }
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
-const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
+const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--card-bg)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
 // The page itself is the one scroll region — fills the real height its
 // AppLayout ancestor already gives it (a bounded flex column, see

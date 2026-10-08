@@ -50,10 +50,16 @@
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--neutral-600);
+  color: var(--neutral-900);
   font: 400 12px/20px var(--font-body);
   text-decoration: none;
   cursor: pointer;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contextAction,
+  .createProject { transition: none; }
 }
 
 .contextAction svg,
@@ -144,7 +150,7 @@
 }
 
 :global(:root[data-theme="dark"]) .contextBar .contextAction {
-  color: #b5b5b5;
+  color: #ffffff;
 }
 
 :global(:root[data-theme="dark"]) .contextBar .contextAction:hover {

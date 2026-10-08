@@ -62,7 +62,7 @@ function PersonaCardSkeleton() {
       aria-hidden
       style={{
         width: '100%', boxSizing: 'border-box', padding: 8, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 10,
-        backgroundColor: 'var(--neutral-white)',
+        backgroundColor: 'var(--card-bg)',
         boxShadow: '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
       }}
     >

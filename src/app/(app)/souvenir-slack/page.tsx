@@ -11,6 +11,7 @@ import { SlackConnectModal } from '@/components/SlackConnectModal'
 import { getOrgSlackStatus, getSlackInstallUrl, removeOrgSlackInstallation } from '@/lib/api/slack'
 import type { SlackStatus } from '@/lib/api/slack'
 import { SlackWorkspaceConfig } from './SlackWorkspaceConfig'
+import { SlackAdminOnly, SlackNotConnected } from './SlackEmptyState'
 import styles from './slack-config.module.css'
 
 export default function SouvenirSlackPage() {
@@ -112,32 +113,9 @@ export default function SouvenirSlackPage() {
       {!orgReady || statusLoading ? (
         <div className="kaya-skeleton" style={{ width: '100%', height: 320, borderRadius: 16 }} />
       ) : !isAdmin ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyStateTitle}>
-            Only workspace owners and admins can manage Slack.
-          </p>
-        </div>
+        <SlackAdminOnly />
       ) : !connected ? (
-        <div className={styles.emptyState}>
-          <span className={styles.emptyStateMark}>
-            <Image src="/icons/slack.svg" alt="" width={24} height={24} />
-          </span>
-          <p className={styles.emptyStateTitle}>
-            Slack is not connected yet
-          </p>
-          <p className={styles.emptyStateCopy}>
-            Connect your workspace to choose what Souvenir can access and how it behaves in each channel.
-          </p>
-          <Button
-            variant="default"
-            size="sm"
-            style={{ marginTop: 4 }}
-            onClick={() => setModalOpen(true)}
-            leftIcon={<Image src="/icons/slack.svg" alt="" width={14} height={14} />}
-          >
-            Connect Slack workspace
-          </Button>
-        </div>
+        <SlackNotConnected onConnect={() => setModalOpen(true)} />
       ) : (
         orgId && (
           <div className={styles.connectedSurface}>

@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { m, useReducedMotion } from 'framer-motion'
+import { SettingsOneIcon } from '@strange-huge/icons'
 
 // ── "Sidebar / Profile Row" (Figma 109:4650) ─────────────────────────────────
 // "50px, avatar centred by counter-axis alignment rather than vertical
@@ -28,6 +30,7 @@ export interface FlatSidebarProfileRowProps {
 export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, onOpenSettingsClick, collapsed = false, trailing }: FlatSidebarProfileRowProps) {
   const [isHovered, setIsHovered] = useState(false)
   const isActive = isHovered
+  const reduceMotion = useReducedMotion()
 
   if (collapsed) {
     return (
@@ -113,6 +116,15 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
             {planLabel}
           </span>
         )}
+        {/* The icon itself does not animate, so the gear turns while the row is hovered. */}
+        <m.span
+          aria-hidden
+          animate={isActive && !reduceMotion ? { rotate: 90, scale: 1.1 } : { rotate: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 240, damping: 16 }}
+          style={{ display: 'inline-flex', color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))' }}
+        >
+          <SettingsOneIcon size={16} />
+        </m.span>
         {trailing}
       </div>
     </div>

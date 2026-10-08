@@ -257,7 +257,7 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
 
                 <SaveChanges count={unsavedCount} loading={saving} onClick={() => { void saveChanges() }} />
 
-                <Button variant="outline" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={openEditPage}>
+                <Button variant="default" size="sm" fluid leftIcon={<SettingsOneIcon size={16} />} disabled={saving} onClick={openEditPage}>
                   Fine-tune
                 </Button>
                 {/* Save failures stay visible; success is shown by the button and a toast. */}

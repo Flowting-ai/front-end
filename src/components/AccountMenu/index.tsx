@@ -3,7 +3,7 @@
 import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
 import {
-  UserIcon,
+  AnalyticsOneIcon,
   ArrowUpRightOneIcon,
   SettingsOneIcon,
   InformationCircleIcon,
@@ -65,22 +65,24 @@ export interface AccountMenuProps {
    * Set false to render a static, non-interactive identity display — the
    * trigger's visual only, with no click behavior, no dropdown, and no
    * settings-icon affordance. For a context that already exposes Profile/
-   * Upgrade Plan/Settings/Organization/Help as its own persistent nav (e.g.
+   * Usage/Upgrade Plan/Settings/Workspace/Help as its own persistent nav (e.g.
    * the Settings sidebar footer), where this dropdown would just repeat
    * those same destinations, plus offer "Settings" while already there.
    * @default true
    */
   interactive?: boolean
-  /** Show the "Upgrade Plan" item. @default true (gate to individuals in the Sidebar). */
+  /** Show the plan item ("Upgrade Plan" / "View plan" / "Choose a plan"). @default true. Hide it for anyone who cannot open the plan page (workspace members). */
   showUpgradePlan?: boolean
+  /** The top plan has nothing to upgrade to: the plan item reads "View plan" instead of "Upgrade Plan". @default false */
+  viewPlanOnly?: boolean
   /** Force-show the "Organization" item (owner/admin). Otherwise it shows whenever `onOrganization` is provided. @default false */
   showOrganization?: boolean
-  onProfile?:      () => void
+  /** Opens the personal Usage page. */
+  onUsage?:        () => void
   onUpgradePlan?:  () => void
-  /** Clicking the plan | credits tag in the menu (goes to the plan page). The tag is plain text without it. */
-  onPlanStatusClick?: () => void
+  /** Settings home; it opens on Account, so there is no separate Profile item. */
   onSettings?:     () => void
-  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and Help. */
+  /** When provided (or `showOrganization`), a "Workspace settings" item is shown under Settings. Admins only. */
   onOrganization?:     () => void
   onHelp?:             () => void
   onReportBug?:        () => void
@@ -207,14 +209,12 @@ const PlanCard = ({
   planType,
   credits,
   creditsTotal,
-  onClick,
 }: {
   planWarning?: boolean
   planType?: string
   /** Remaining credits. Only used as a fallback when the total is unknown. */
   credits?: number
   creditsTotal?: number
-  onClick?: () => void
 }) => {
   const { enabled: themingEnabled } = useTheme()
   // The plan's total credits; falls back to the balance when no total is known.
@@ -251,18 +251,7 @@ const PlanCard = ({
           <PlanChip label={planLabel} tone={planTone(planLabel, !!planWarning)} />
           <ThemeModeSwitcher />
         </div>
-        {creditsBlock && (onClick ? (
-          <button
-            type="button"
-            onClick={onClick}
-            aria-label="View plan"
-            style={{ display: 'flex', width: '100%', margin: 0, padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
-          >
-            {creditsBlock}
-          </button>
-        ) : (
-          <div style={{ display: 'flex' }}>{creditsBlock}</div>
-        ))}
+        {creditsBlock && <div style={{ display: 'flex' }}>{creditsBlock}</div>}
       </div>
     </div>
   )
@@ -289,10 +278,10 @@ export function AccountMenu({
   renderTrigger,
   interactive = true,
   showUpgradePlan = true,
+  viewPlanOnly = false,
   showOrganization = false,
-  onProfile,
+  onUsage,
   onUpgradePlan,
-  onPlanStatusClick,
   onSettings,
   onOrganization,
   onHelp,
@@ -358,19 +347,18 @@ export function AccountMenu({
               planType={planType}
               credits={credits}
               creditsTotal={creditsTotal}
-              onClick={onPlanStatusClick ? () => { onPlanStatusClick(); close() } : undefined}
             />
 
             <Dropdown.Item
-              icon={<UserIcon />}
-              label="Profile"
+              icon={<AnalyticsOneIcon />}
+              label="Usage"
               fluid
-              onClick={() => { onProfile?.(); close() }}
+              onClick={() => { onUsage?.(); close() }}
             />
             {showUpgradePlan && (
               <Dropdown.Item
                 icon={<ArrowUpRightOneIcon />}
-                label={planWarning ? 'Choose a plan' : 'Upgrade Plan'}
+                label={planWarning ? 'Choose a plan' : viewPlanOnly ? 'View plan' : 'Upgrade Plan'}
                 fluid
                 onClick={() => { onUpgradePlan?.(); close() }}
               />
@@ -388,14 +376,17 @@ export function AccountMenu({
             {(showOrganization || onOrganization) && (
               <Dropdown.Item
                 icon={<CourtHouseIcon />}
-                label="Organization"
+                label="Workspace settings"
                 fluid
                 onClick={() => { onOrganization?.(); close() }}
               />
             )}
+
+            <Divider decorative />
+
             <Dropdown.Item
               icon={<InformationCircleIcon />}
-              label="Help"
+              label="Help & Legal"
               fluid
               onClick={() => { onHelp?.(); close() }}
             />

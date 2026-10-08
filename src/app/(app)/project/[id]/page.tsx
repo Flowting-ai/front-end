@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserAiIcon, UserIcon, InformationCircleIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Chip } from '@/components/Chip'
+import { ChipTooltip } from '@/components/Chip/ChipTooltip'
 import { AgentChip } from '@/components/chat/AgentChip'
 import { publishActiveChatAgent } from '@/lib/active-chat-agent-store'
 import { useProjects } from '@/context/projects-context'
@@ -831,6 +832,7 @@ export default function ProjectPage() {
                       trigger={
                         <Chip
                           label={activeStyle.label}
+                          tooltip={<ChipTooltip title="Writing style" detail={{ label: 'Active', value: activeStyle.label }} lines={['Shapes the tone of replies.']} hints={['▾: change style', '×: remove']} />}
                           icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
                           onRemove={() => setSelectedStyleId(null)}
                           onExpand={() => setStyleChipOpen(v => !v)}
@@ -857,6 +859,7 @@ export default function ProjectPage() {
                     <Chip
                       key={folder.id}
                       label={folder.name}
+                      tooltip={<ChipTooltip title="Folder" detail={{ label: 'Active', value: folder.name }} lines={['Its pins are used as context.']} hints={['×: remove']} />}
                       icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
                       onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
                     />
@@ -866,6 +869,8 @@ export default function ProjectPage() {
                       size="Medium"
                       icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
                       label="Web search"
+                      hideLabel
+                      tooltip={<ChipTooltip title="Web search" lines={['Searches the web for up-to-date answers.']} hints={['×: turn off']} />}
                       onRemove={() => setWebSearchEnabled(false)}
                     />
                   )}

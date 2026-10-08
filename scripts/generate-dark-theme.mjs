@@ -465,6 +465,38 @@ const hoverSelectors = INTERACTIVE
   .map((s) => `:root[data-theme="dark"] ${s}`)
   .join(',\n')
 
+// ── 5. Project overrides (appended last so they win over anything derived above) ──────────
+// Dark values chosen for the current design: light chips, pink widget gradient, white cards/menus,
+// and light-tinted card shadows. Keep new hand-picked dark tokens HERE, never in theme.css directly.
+lines.push('')
+lines.push('  /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */')
+const PROJECT_OVERRIDES = [
+  // Chips (web search, agent chips, ...): light pink chips on the dark UI.
+  ['--chip-bg', '#FFD9E5'],
+  ['--chip-text', '#4A0B20'],
+  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45)'],
+  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18)'],
+  ['--chip-button-bg-hover', 'rgba(249, 32, 100, 0.14)'],
+  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22)'],
+  // Floating surfaces keep the dark surface.
+  ['--popover-bg', 'var(--color-surface-default)'],
+  ['--modal-bg', 'var(--color-surface-default)'],
+  ['--card-bg', 'var(--color-surface-default)'],
+  ['--toast-bg', DARK_SURFACE_HEX],
+  ['--surface-cream', DARK_SURFACE_HEX],
+  // Chat widgets: black to signature pink, white accents.
+  ['--widget-bg-from', '#0A0A0A'],
+  ['--widget-bg-to', PINK_FROM],
+  ['--widget-accent', WHITE],
+  ['--widget-on-accent', DARK_SURFACE_HEX],
+  // Light-tinted shadows on dark.
+  ['--shadow-avatar-ring', '0px 2px 6px 0px rgba(255, 255, 255, 0.16)'],
+  ['--shadow-card-deep', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12)'],
+  ['--shadow-agent-card', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100)'],
+  ['--shadow-agent-card-hover', '0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400)'],
+]
+for (const [name, value] of PROJECT_OVERRIDES) lines.push(`  ${name}: ${value};`)
+
 // ── 6. Raised surface scope ──────────────────────────────────────────────────
 // Custom properties that use var() are resolved where they are DECLARED and then
 // inherited as finished values, so lifting --neutral-500 on a card would not reach

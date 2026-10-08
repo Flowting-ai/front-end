@@ -1,7 +1,7 @@
 'use client'
 
 import { Tooltip } from '@/components/Tooltip'
-import React from 'react'
+import React, { useState } from 'react'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import type { CardApp, StarterCard } from '@/lib/api/recommendations'
 import { RECOMMENDATION_ICONS } from '@/lib/recommendation-icons'
@@ -24,10 +24,30 @@ export function AppStack({ apps, size = 20 }: { apps: CardApp[]; size?: number }
   )
 }
 
-function Lead({ card, size }: { card: StarterCard; size: number }) {
+function Lead({ card, size, active = false }: { card: StarterCard; size: number; active?: boolean }) {
   if (card.apps.length > 0) return <AppStack apps={card.apps} size={size} />
   const { Icon, color } = RECOMMENDATION_ICONS[card.icon]
-  return <Icon size={size} color={color} />
+  // `triggered` plays the icon's own animation while its row is hovered or focused.
+  return <Icon size={size} color={color} triggered={active} />
+}
+
+/** One idea row: tracks hover/focus so its icon animates with the whole row, not just the icon. */
+function StarterRow({ card, onSelect }: { card: StarterCard; onSelect: (card: StarterCard) => void }) {
+  const [active, setActive] = useState(false)
+  return (
+    <Tooltip content={card.detail} disabled={!(card.detail)} maxWidth={280} side="right"><button
+      type="button"
+      className={styles.row}
+      onClick={() => onSelect(card)}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocus={() => setActive(true)}
+      onBlur={() => setActive(false)}
+    >
+      <span className={styles.lead}><Lead card={card} size={20} active={active} /></span>
+      <span className={styles.rowLabel}>{card.label}</span>
+    </button></Tooltip>
+  )
 }
 
 /** One row per card — the chat home's suggestions under the composer. */
@@ -38,10 +58,7 @@ export function StarterList({ cards, onSelect }: { cards: StarterCard[]; onSelec
       <ul className={`${styles.list} ${styles.listSnug}`}>
         {cards.map(card => (
           <li key={card.label}>
-            <Tooltip content={card.detail} disabled={!(card.detail)} maxWidth={280}><button type="button" className={styles.row} onClick={() => onSelect(card)}>
-              <span className={styles.lead}><Lead card={card} size={20} /></span>
-              <span className={styles.rowLabel}>{card.label}</span>
-            </button></Tooltip>
+            <StarterRow card={card} onSelect={onSelect} />
           </li>
         ))}
       </ul>

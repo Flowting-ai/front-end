@@ -14,7 +14,7 @@ import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 // inside a halo of its own colour (40%). Used wherever the editor shows the avatar, so it
 // matches the agent cards. Plays its hover animation when the pointer is over it.
 
-const HALO = 6
+const HALO = 2
 
 export function AgentAvatar({
   name,
@@ -54,6 +54,7 @@ export function AgentAvatar({
           inset:           -HALO,
           borderRadius:    '50%',
           backgroundColor: `color-mix(in srgb, ${config.colors[0]} 40%, transparent)`,
+          boxShadow:       'var(--shadow-avatar-ring)',
           transform:       hovered ? 'scale(1.08)' : 'scale(1)',
           transition:      'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
@@ -62,6 +63,7 @@ export function AgentAvatar({
       <div style={{ position: 'relative' }}>
         <AgentOrb
           size={size}
+          ringWidth={1}
           theme={config.theme}
           colors={config.colors}
           seed={seed || repoId || name || 'agent'}
