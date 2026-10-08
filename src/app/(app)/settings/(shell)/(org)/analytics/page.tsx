@@ -481,16 +481,10 @@ export default function OrgUsageAnalyticsPage() {
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0
-  // org.monthlyPrice only ever matches the fixed Teams $50–$2000 ladder
-  // (TeamsTier.fromCredits in org-context.tsx) — an Enterprise/Pro org's
-  // custom-contracted credit total never lands on one of those six exact
-  // numbers, so it silently fell back to $0 here regardless of what the org
-  // actually pays. Same base-fee derivation plans-and-billing/page.tsx uses
-  // for its own "Pro Plan · $X/mo" (projected invoice minus metered overage).
+  // Enterprise has no monthly price or credit pool: usage is billed after
+  // each cycle. org.monthlyPrice only describes the Teams ladder.
   const isEnterprise  = plan?.planType === 'enterprise'
-  const monthlyPrice  = isEnterprise
-    ? Math.max((plan?.projectedInvoiceUsd ?? 0) - (plan?.overageUsd ?? 0), 0)
-    : org.monthlyPrice
+  const monthlyPrice  = org.monthlyPrice
 
   // Feature-usage series — derived from real `used` credits + selected range.
   const featureSeries = React.useMemo(
@@ -661,7 +655,7 @@ export default function OrgUsageAnalyticsPage() {
                 </Tooltip>
               </div>
               <p style={statCardBigLineStyle}>
-                ${Math.round(monthlyPrice)}/mo · {totalCredits.toLocaleString()} credits
+                {isEnterprise ? 'Pay for usage' : `$${Math.round(monthlyPrice)}/mo · ${totalCredits.toLocaleString()} credits`}
               </p>
               {/* The bar fills to % USED (standard "progress toward your limit"
                   reading) — leading with "remaining" here read as contradicting

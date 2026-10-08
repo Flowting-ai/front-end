@@ -100,9 +100,7 @@ const planResponseSchema = z.object({
   pool_status:      z.enum(['healthy', 'warning_95', 'paused']),
   pool_cap:         z.number().nullable().default(null),
   members:          z.array(memberResponseSchema).default([]),
-  included_usage_usd:           z.number().default(0),
   provider_usage_usd:           z.number().default(0),
-  included_usage_remaining_usd: z.number().default(0),
   overage_usd:                  z.number().default(0),
   projected_invoice_usd:        z.number().default(0),
   input_tokens:     z.number().int().default(0),
@@ -185,9 +183,9 @@ function normalizeMember(m: MemberResponse): OrgMember {
 }
 
 function normalizePlan(p: PlanResponse): OrgPlan {
-  // Postpaid plans (enterprise) track budget via included_usage_usd / provider_usage_usd
-  // / included_usage_remaining_usd. The prepaid fields (plan_credits, total_credits,
-  // used, remaining) are always 0 for postpaid — read the right set per billing model.
+  // Postpaid plans (enterprise) have no credit pool: usage is billed after the
+  // cycle, so only `used` (provider_usage_usd) carries a value. The prepaid
+  // fields (plan_credits, total_credits, used, remaining) are always 0 for postpaid.
   const isPostpaid = p.billing_model === 'postpaid'
   return {
     organizationId: p.organization_id,
@@ -202,18 +200,14 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     billingModel:   isPostpaid ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),
-    totalCredits:   toDisplayCredits(isPostpaid ? p.included_usage_usd        : p.total_credits),
-    used:           toDisplayCredits(isPostpaid ? p.provider_usage_usd         : p.used),
-    remaining:      toDisplayCredits(isPostpaid ? p.included_usage_remaining_usd : p.remaining),
-    percentUsed:    isPostpaid
-      ? (p.included_usage_usd > 0 ? Math.round((p.provider_usage_usd / p.included_usage_usd) * 100) : 0)
-      : p.percent_used,
+    totalCredits:   toDisplayCredits(p.total_credits),
+    used:           toDisplayCredits(isPostpaid ? p.provider_usage_usd : p.used),
+    remaining:      toDisplayCredits(p.remaining),
+    percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
     poolCapUsd:     p.pool_cap,
     members:        p.members.map(normalizeMember),
-    includedUsageUsd: p.included_usage_usd,
     providerUsageUsd: p.provider_usage_usd,
-    includedUsageRemainingUsd: p.included_usage_remaining_usd,
     overageUsd: p.overage_usd,
     projectedInvoiceUsd: p.projected_invoice_usd,
     inputTokens: p.input_tokens,

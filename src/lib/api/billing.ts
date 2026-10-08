@@ -317,16 +317,11 @@ export class Billing {
   readonly invoices: Invoice[];
   readonly upcomingInvoice: UpcomingInvoice | null;
   readonly credits: CreditSummary;
-  readonly billingModel: string | null;
   readonly markupMultiplier: number;
-  readonly autobillingStart: string | null;
   readonly paymentSetupComplete: boolean;
   readonly paymentDueAt: string | null;
   readonly collectionEnabled: boolean;
-  readonly baseFeeUsd: number;
-  readonly includedUsageUsd: number;
   readonly providerUsageUsd: number;
-  readonly includedUsageRemainingUsd: number;
   readonly overageUsd: number;
   readonly projectedInvoiceUsd: number;
   readonly inputTokens: number;
@@ -348,16 +343,11 @@ export class Billing {
       ? new UpcomingInvoice(wire.upcoming_invoice)
       : null;
     this.credits = new CreditSummary(wire.credits);
-    this.billingModel = wire.billing_model;
     this.markupMultiplier = wire.markup_multiplier;
-    this.autobillingStart = wire.autobilling_start;
     this.paymentSetupComplete = wire.payment_setup_complete;
     this.paymentDueAt = wire.payment_due_at;
     this.collectionEnabled = wire.collection_enabled;
-    this.baseFeeUsd = wire.base_fee_usd;
-    this.includedUsageUsd = wire.included_usage_usd;
     this.providerUsageUsd = wire.provider_usage_usd;
-    this.includedUsageRemainingUsd = wire.included_usage_remaining_usd;
     this.overageUsd = wire.overage_usd;
     this.projectedInvoiceUsd = wire.projected_invoice_usd;
     this.inputTokens = wire.input_tokens;
