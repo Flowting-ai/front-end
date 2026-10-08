@@ -139,7 +139,7 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
 
   return (
     <div style={{ margin: "16px 0" }}>
-      <div style={{ border: "1px solid var(--neutral-100)", borderRadius: 12, overflow: "hidden", fontSize: 14 }}>
+      <div style={{ border: "1px solid var(--neutral-100)", borderRadius: 12, overflow: "hidden", fontSize: 14, background: "var(--card-bg)" }}>
         {headers.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: gridCols, background: "var(--neutral-800-05)", borderBottom: "1px solid var(--neutral-100)" }}>
             {headers.map((h, ci) => (
@@ -154,7 +154,7 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
             <m.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {rows.map((_, ri) => (
                 <m.div key={ri} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: ri * 0.045, duration: 0.18 }}
-                  style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--neutral-white)" }}>
+                  style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--card-bg)" }}>
                   {Array.from({ length: colCount }).map((_, ci) => (
                     <div key={ci} style={{ padding: "10px 14px", borderLeft: ci > 0 ? "1px solid var(--neutral-800-05)" : "none" }}>
                       <m.div
@@ -172,7 +172,7 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
         <AnimatePresence initial={false}>
           {rows.slice(0, revealedRows).map((row, ri) => (
             <m.div key={ri} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18, ease: "easeOut" }}
-              style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--neutral-white)" }}>
+              style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--card-bg)" }}>
               {Array.from({ length: colCount }).map((_, ci) => (
                 <div key={ci} style={{ padding: "10px 14px", color: ci === 0 ? "var(--neutral-900)" : "var(--neutral-700)", fontWeight: ci === 0 ? 500 : 400, borderLeft: ci > 0 ? "1px solid var(--neutral-800-05)" : "none", fontSize: 14, lineHeight: "20px", wordBreak: "break-word" }}>
                   {row[ci] ?? ""}

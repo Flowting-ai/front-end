@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, use, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { toast } from 'sonner'
 import { THEMING_ENABLED } from '@/lib/feature-flags'
 import {
   DEFAULT_THEME_MODE,
@@ -30,6 +31,12 @@ const INERT: ThemeContextValue = {
 }
 
 const ThemeContext = createContext<ThemeContextValue>(INERT)
+
+const THEME_TOAST: Record<ThemeMode, string> = {
+  light:  'Light',
+  dark:   'Dark',
+  system: 'System',
+}
 
 // ── External stores (so no setState-in-effect, and SSR-safe) ──────────────────
 
@@ -68,6 +75,11 @@ function ThemeProviderImpl({ children }: { children: React.ReactNode }) {
   }, [resolved])
 
   const setMode = useCallback((next: ThemeMode) => {
+    // Every control that changes the theme goes through here, so they all confirm the same way.
+    // A fixed id replaces the previous toast instead of stacking when the user flips through options.
+    if (next !== readStoredMode(window.localStorage)) {
+      toast(`Theme set to ${THEME_TOAST[next]} mode`, { id: 'theme-mode' })
+    }
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next)
     } catch {

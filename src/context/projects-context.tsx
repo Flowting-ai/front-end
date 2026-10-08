@@ -512,7 +512,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     ))
   }, [])
 
-  const loadProjectChats = useCallback(async (projectId: string) => {
+  const fetchProjectChatsInto = useCallback(async (projectId: string) => {
     try {
       const apiChats = await fetchProjectChats(projectId, currentUserId)
       const mapped   = apiChats.map(c => apiChatToProjectChat(c, projectId))
@@ -534,6 +534,17 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to load project chats', { description: err instanceof Error ? err.message : undefined })
     }
   }, [currentUserId])
+
+  const chatLoadsRef = useRef(new Map<string, Promise<void>>())
+  const loadProjectChats = useCallback((projectId: string): Promise<void> => {
+    // The sidebar lists, the projects page and the project page all ask for the same
+    // project at once; share one request per project.
+    const pending = chatLoadsRef.current.get(projectId)
+    if (pending) return pending
+    const request = fetchProjectChatsInto(projectId).finally(() => { chatLoadsRef.current.delete(projectId) })
+    chatLoadsRef.current.set(projectId, request)
+    return request
+  }, [fetchProjectChatsInto])
 
   // â”€â”€ Lookups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

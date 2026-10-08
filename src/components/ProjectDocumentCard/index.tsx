@@ -119,7 +119,7 @@ export function ProjectDocumentCard(
             gap:             '6px',
             padding:         '10px 12px',
             borderRadius:    '14px',
-            background:      uploading ? 'var(--neutral-50)' : 'var(--neutral-white)',
+            background:      uploading ? 'var(--neutral-50)' : 'var(--card-bg)',
             boxShadow:       CARD_SHADOW,
             boxSizing:       'border-box',
             width:           '100%',

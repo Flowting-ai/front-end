@@ -124,7 +124,7 @@ export function ConnectorCatalogCard({
         alignItems: 'center',
         gap: isCompact ? 8 : 12,
         padding: isCompact ? '10px 12px' : '12px 14px',
-        background: 'var(--neutral-white)',
+        background: 'var(--card-bg)',
         borderRadius: isCompact ? 16 : 14,
         boxShadow: 'var(--shadow-surface-card, 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200))',
         color: 'var(--color-text-default)',

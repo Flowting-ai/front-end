@@ -2,7 +2,7 @@
 
 import type { AIModel } from "@/types/ai-model";
 import { MODELS_ALL_ENDPOINT } from "@/lib/config";
-import { ensureFreshToken } from "@/lib/jwt-utils";
+import { apiFetch } from "@/lib/api/client";
 
 type BackendModel = {
   model_id?: string;
@@ -263,13 +263,8 @@ export async function fetchModelsWithCache(
 
   _modelsFetchPromise = (async () => {
     try {
-      const token = await ensureFreshToken();
-      const authHeaders: Record<string, string> = {};
-      if (token) authHeaders.Authorization = `Bearer ${token}`;
-      const response = await fetch(MODELS_ALL_ENDPOINT, {
-        credentials: "include",
-        headers: authHeaders,
-      });
+      // apiFetch (not raw fetch) so this shares one in-flight request with fetchAllModels().
+      const response = await apiFetch(MODELS_ALL_ENDPOINT);
       if (!response.ok) return _modelsCache ?? [];
       const data = await response.json();
       // Previously filtered out models the user had blocked in /settings/ai.

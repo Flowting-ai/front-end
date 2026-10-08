@@ -18,6 +18,7 @@ function useReducedMotion() {
 }
 import { cn } from '@/lib/utils'
 import { ChipButton } from '@/components/ChipButton'
+import { Tooltip } from '@/components/Tooltip'
 
 // Re-export for back-compat - original public path was `@/components/Chip`.
 // New canonical path is `@/components/ChipButton`.
@@ -58,6 +59,10 @@ const COLOR_CONFIG: Record<ChipColor, ChipColorTokens> = (
 export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
   /** Label text shown in the centre of the chip */
   label?: string
+  /** Medium only. Hides the visible text (icon-only chip); `label` stays as the accessible name. */
+  hideLabel?: boolean
+  /** Medium only. Hover/focus tooltip describing the chip (e.g. what it is and what it will do). */
+  tooltip?: React.ReactNode
   /**
    * Custom left icon - Medium only.
    * Shown at rest when no `personaImage` is provided. Defaults to `<LogoIcon />`.
@@ -139,6 +144,8 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
 export function Chip(
   {
     label = 'Souvenir',
+    hideLabel = false,
+    tooltip,
     icon,
     personaImage,
     personaAvatar,
@@ -276,7 +283,7 @@ export function Chip(
     // chip into its remove state. The wrapper dims to opacity 0.7 and the
     // cursor switches to `not-allowed`.
     const effectiveActive = disabled ? false : isActive
-    return (
+    const mediumChip = (
       <div
         ref={ref}
         role="group"
@@ -402,18 +409,20 @@ export function Chip(
 
         {/* ── Label ── label padding is constant `0 2px` so the text never
             shifts horizontally between rest/hover. ── */}
-        <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-body)',
-            lineHeight: 1,
-            color:      'var(--chip-text)',
-            whiteSpace: 'nowrap',
-          }}>
-            {label}
-          </span>
-        </div>
+        {!hideLabel && (
+          <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-medium)',
+              fontSize:   'var(--font-size-body)',
+              lineHeight: 1,
+              color:      'var(--chip-text)',
+              whiteSpace: 'nowrap',
+            }}>
+              {label}
+            </span>
+          </div>
+        )}
 
         {/* ── Right slot - fixed 28×28 wrapper. Two modes (mutually exclusive):
               • `onChange` → existing "spinning swap" pattern: at rest a
@@ -493,6 +502,9 @@ export function Chip(
 
       </div>
     )
+    return tooltip ? (
+      <Tooltip content={tooltip} side="top" maxWidth={260}>{mediumChip}</Tooltip>
+    ) : mediumChip
 }
 
 Chip.displayName = 'Chip'

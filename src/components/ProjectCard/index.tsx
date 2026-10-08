@@ -54,13 +54,13 @@ function ProjectCardInner(
     const backgroundColor = (() => {
       if (focused || active) return 'color-mix(in srgb, var(--blue-500) 7%, transparent)'
       if (hovered || menuOpen) return 'var(--neutral-50)'
-      return 'var(--neutral-white)'
+      return 'var(--card-bg)'
     })()
 
     const boxShadow = (() => {
-      if (active) return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-500)'
-      if (focused) return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-300)'
-      return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+      if (active) return 'var(--shadow-card-deep), 0px 0px 0px 2px var(--blue-500)'
+      if (focused) return 'var(--shadow-card-deep), 0px 0px 0px 2px var(--blue-300)'
+      return 'var(--shadow-card-deep), 0px 0px 0px 1px var(--neutral-100)'
     })()
 
     return (

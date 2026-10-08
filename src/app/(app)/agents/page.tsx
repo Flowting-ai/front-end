@@ -380,7 +380,7 @@ function StatTile({
 }) {
   return (
     <div style={{
-      background:    'var(--neutral-white)',
+      background:    'var(--card-bg)',
       borderRadius:  8,
       padding:       12,
       boxShadow:     SHADOW_TILE,
@@ -432,6 +432,7 @@ function SectionCard({
       border:        '1px solid var(--neutral-200)',
       borderRadius:  16,
       boxShadow:     SHADOW_CARD,
+      backgroundColor: 'var(--card-bg)',
       display:       'flex',
       flexDirection: 'column',
       gap:           12,
@@ -1680,8 +1681,8 @@ function PersonasPageInner() {
             // a single icon button) rather than arbitrary round numbers —
             // the previous columns were tighter than their own content,
             // which overflowed into neighboring cells instead of eliding.
-            const MY_LINKS_COLUMNS = 'minmax(220px, 1.6fr) 116px minmax(150px, 1fr) minmax(150px, 1fr) 112px 64px'
-            const SHARED_LINKS_COLUMNS = 'minmax(190px, 1.3fr) minmax(150px, 1fr) 116px minmax(150px, 1fr) 112px 196px'
+            const MY_LINKS_COLUMNS = 'minmax(0, 1.6fr) 116px minmax(0, 1fr) minmax(0, 1fr) 112px 64px'
+            const SHARED_LINKS_COLUMNS = 'minmax(0, 1.3fr) minmax(0, 1fr) 116px minmax(0, 1fr) 112px 196px'
 
             // Date-range label for the stat box footer — dropped during the
             // /org/plans revamp when the page-header DateRangePill was
@@ -1751,7 +1752,7 @@ function PersonasPageInner() {
                       </div>
 
                       {sharesLoading ? (
-                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                           <Skeleton width={110} height={14} radius={4} />
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             <Skeleton width={24} height={24} radius="50%" />
@@ -1760,7 +1761,7 @@ function PersonasPageInner() {
                           <Skeleton width={160} height={14} radius={4} />
                         </div>
                       ) : topShare && (
-                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                             Most active agent
                           </p>
@@ -1835,7 +1836,7 @@ function PersonasPageInner() {
                     isEmpty ? (
                       <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
                     ) : (
-                      <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16}>
+                      <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16} background='var(--card-bg)'>
                         <SettingsTableToolbar title={sharesLoading ? <Skeleton width={130} height={16} radius={4} /> : `My Superlinks · ${totalLinks}`}>
                           <IconButton
                             variant="ghost"
@@ -1878,7 +1879,7 @@ function PersonasPageInner() {
                             </Dropdown>
                           </Dropdown.Float>
                         </SettingsTableToolbar>
-                        <SettingsTableViewport minWidth={900} ariaLabel="My Super Links">
+                        <SettingsTableViewport ariaLabel="My Super Links">
                           <SettingsTableHeader>
                             <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
                             <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
@@ -1994,9 +1995,9 @@ function PersonasPageInner() {
                       </SettingsTable>
                     )
                   ) : (
-                    <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16}>
+                    <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16} background='var(--card-bg)'>
                       <SettingsTableToolbar title={receivedLoading ? <Skeleton width={150} height={16} radius={4} /> : `Shared Superlinks · ${receivedShares.length}`} />
-                      <SettingsTableViewport minWidth={1000} ariaLabel="Shared with me">
+                      <SettingsTableViewport ariaLabel="Shared with me">
                         <SettingsTableHeader>
                           <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
                           <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>

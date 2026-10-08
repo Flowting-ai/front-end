@@ -21,9 +21,11 @@ const OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string; icon: typeof Sun
   { value: 'system', label: 'System', icon: ComputerIcon },
 ]
 // Matches the plan chip beside it: 20px tall (2px padding + 16px buttons), 6px corners, 64px wide.
-const TRACK_PADDING = 2
-const BUTTON_WIDTH = 20
-const BUTTON_HEIGHT = 16
+// `sm` is the compact account-menu control; `lg` is the larger one used in the settings header.
+const SIZES = {
+  sm: { padding: 2, width: 20, height: 16, icon: 12, track: 6, inner: 4 },
+  lg: { padding: 3, width: 28, height: 24, icon: 16, track: 9, inner: 6 },
+} as const
 
 // What each icon does when its option is selected.
 const ICON_ACTIVE: Record<ThemeMode, { rotate: number; scale: number }> = {
@@ -32,8 +34,10 @@ const ICON_ACTIVE: Record<ThemeMode, { rotate: number; scale: number }> = {
   system: { rotate: 0,   scale: 1.1 },
 }
 
-export function ThemeModeSwitcher() {
-  const { enabled, mode, setMode } = useTheme()
+export function ThemeModeSwitcher({ size = 'sm' }: { size?: keyof typeof SIZES } = {}) {
+  const { padding: TRACK_PADDING, width: BUTTON_WIDTH, height: BUTTON_HEIGHT, icon: ICON_SIZE, track: TRACK_RADIUS, inner: INNER_RADIUS } = SIZES[size]
+  const { enabled, mode, setMode, resolved } = useTheme()
+  const isDark = resolved === 'dark'
   const reduceMotion = useReducedMotion()
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -70,7 +74,7 @@ export function ThemeModeSwitcher() {
         flex:            'none',
         boxSizing:       'border-box',
         padding:         TRACK_PADDING,
-        borderRadius:    6,
+        borderRadius:    TRACK_RADIUS,
         backgroundColor: 'var(--neutral-100)',
         boxShadow:       'inset 0px 0px 0px 1px var(--neutral-200)',
       }}
@@ -87,17 +91,19 @@ export function ThemeModeSwitcher() {
           bottom:          TRACK_PADDING,
           left:            TRACK_PADDING,
           width:           BUTTON_WIDTH,
-          borderRadius:    4,
-          backgroundColor: 'var(--kaya-seg-thumb-bg)',
-          boxShadow:       '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-200)',
+          borderRadius:    INNER_RADIUS,
+          // White in light mode (the shared segmented-control thumb is cream there); the usual raised grey in dark.
+          backgroundColor: isDark ? 'var(--kaya-seg-thumb-bg)' : '#ffffff',
+          boxShadow:       isDark
+            ? '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-200)'
+            : '0px 1px 2px 0px rgba(0, 0, 0, 0.25), 0px 0px 0px 1px rgba(0, 0, 0, 0.08)',
         }}
       />
 
       {OPTIONS.map((option, index) => {
         const active = index === activeIndex
         return (
-          <Tooltip content={option.label}><button
-            key={option.value}
+          <Tooltip key={option.value} content={option.label}><button
             ref={node => { buttonRefs.current[index] = node }}
             type="button"
             role="radio"
@@ -116,10 +122,11 @@ export function ThemeModeSwitcher() {
               height:         BUTTON_HEIGHT,
               padding:        0,
               border:         'none',
-              borderRadius:   4,
+              borderRadius:   INNER_RADIUS,
               background:     'transparent',
               cursor:         'pointer',
-              color:          active ? 'var(--neutral-900)' : 'var(--neutral-500)',
+              // The active icon follows the thumb: dark on the white thumb (light), the normal text colour on the grey one (dark).
+              color:          active ? (isDark ? 'var(--neutral-900)' : '#1c1c1c') : 'var(--neutral-500)',
               transition:     reduceMotion ? 'none' : 'color 180ms ease',
             }}
           >
@@ -130,7 +137,7 @@ export function ThemeModeSwitcher() {
               transition={transition}
               style={{ display: 'inline-flex', lineHeight: 0 }}
             >
-              <HugeiconsIcon icon={option.icon} size={12} color="currentColor" strokeWidth={1.6} />
+              <HugeiconsIcon icon={option.icon} size={ICON_SIZE} color="currentColor" strokeWidth={1.6} />
             </m.span>
           </button></Tooltip>
         )

@@ -73,7 +73,9 @@ export function ChatAddMenu({
   const { push } = useRouter()
   // On /chat the agent list is the Agents side panel (same one the floating toolbar opens); elsewhere
   // nothing listens for it, so the inline submenu stays.
-  const onChatPage = usePathname() === CHAT_ROUTE
+  const pathname = usePathname()
+  const inProjectChat = /^\/project\/[^/]+\/chat\//.test(pathname)
+  const onChatPage = pathname === CHAT_ROUTE || inProjectChat
   const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
   const { close: closeHighlight } = useHighlight()
   const { close: closePinboard } = usePinboard()
@@ -81,7 +83,7 @@ export function ChatAddMenu({
     if (sidePanel?.title === 'Agents') return
     closePinboard()
     closeHighlight()
-    setSidePanel({ title: 'Agents', content: <AgentsPanelContent />, onClose: () => setSidePanel(null), sidePadding: 8 })
+    setSidePanel({ title: 'Agents', content: <AgentsPanelContent inProject={inProjectChat} />, onClose: () => setSidePanel(null), sidePadding: 8 })
   }
 
   return (

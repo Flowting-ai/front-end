@@ -16,6 +16,7 @@ import { Divider } from '@/components/Divider'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
+import { ThemeModeSwitcher } from '@/components/ThemeModeSwitcher'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
@@ -241,13 +242,13 @@ export function SettingsSidebar() {
     </Tooltip>
   ) : undefined
 
-  // PERSONAL section's inline role chip (node 23:29814) — same role signal as
+  // WORKSPACE section's inline role chip (node 23:29814) — same role signal as
   // roleBadge above but with the label shown, matching the Figma "Admin" chip.
   // Figma's chip uses the blue/editor colour tokens under an "Admin" label —
   // likely a copy-paste mismatch in the design (this codebase's RoleBadge
   // consistently uses tan for admin, blue for editor elsewhere) — rendering
   // the real per-viewer role+colour here rather than hardcoding the mismatch.
-  const personalSectionChip = orgId && displayRole ? (
+  const workspaceSectionChip = orgId && displayRole ? (
     <RoleBadge role={displayRole as WorkspaceRole} showLabel mode="solar" />
   ) : undefined
 
@@ -294,6 +295,8 @@ export function SettingsSidebar() {
         }}>
           Settings
         </p>
+        {/* Screen mode: the same Light / Dark / System control as the account menu, at the row's end. */}
+        <ThemeModeSwitcher size="lg" />
       </div>
 
       {/* ── Scrollable nav ── */}
@@ -328,7 +331,6 @@ export function SettingsSidebar() {
             }}>
               PERSONAL
             </p>
-            {personalSectionChip}
           </div>
           <m.div
             animate="open"
@@ -357,7 +359,7 @@ export function SettingsSidebar() {
         {orgId && orgRole === 'admin' && (
           <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
@@ -369,6 +371,7 @@ export function SettingsSidebar() {
               }}>
                 WORKSPACE
               </p>
+              {workspaceSectionChip}
             </div>
             <m.div
               animate="open"

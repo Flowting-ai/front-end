@@ -44,7 +44,7 @@ export function SettingsPageShell({
           flex: '1 0 0',
           minWidth: 0,
           maxWidth: fluid ? undefined : maxWidth + 48,
-          padding: fluid ? '0 0 0 24px' : '0 24px',
+          padding: '0 24px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',

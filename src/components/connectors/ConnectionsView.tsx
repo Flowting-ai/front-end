@@ -57,7 +57,7 @@ const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as c
 
 const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 32, fontWeight: 400, lineHeight: 1.2 }
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
-const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
+const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--card-bg)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
 // The page itself is the one scroll region — fills the real height its
 // AppLayout ancestor already gives it (a bounded flex column, see
@@ -293,7 +293,20 @@ function CategorySection({
   viewAll: () => void
 }) {
   const [rows, setRows] = useState<ConnectorCatalog[] | null>(null)
+  // Fetch a section only once it is near the viewport, not all of them on page load.
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [near, setNear] = useState(false)
   useEffect(() => {
+    const el = hostRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') { setNear(true); return }
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) { setNear(true); io.disconnect() }
+    }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!near) return
     let live = true
     void listConnectors({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE })
       .then(page => {
@@ -303,14 +316,14 @@ function CategorySection({
       })
       .catch(() => { if (live) setRows([]) })
     return () => { live = false }
-  }, [category, onRows])
+  }, [near, category, onRows])
 
   const shown = rows
     ?.filter(row => inCategory(row.categories, category) && !connectedSlugs.has(row.slug))
     .slice(0, DISCOVER_SECTION_SIZE)
   if (shown?.length === 0) return null
   return (
-    <div style={{ marginBottom: SPACE.section }}>
+    <div ref={hostRef} style={{ marginBottom: SPACE.section }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.md }}>
         <CatalogSectionLabel label={category} />
         <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>

@@ -132,7 +132,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           gap:           '12px',
           padding:       '12px 12px 16px',
           borderRadius:  '16px',
-          background:    dragging ? 'var(--neutral-100)' : 'var(--neutral-50)',
+          background:    dragging ? 'var(--neutral-100)' : 'var(--card-bg)',
           border:        dragging
             ? '1.5px dashed var(--neutral-400)'
             : '1px solid var(--neutral-100)',
@@ -217,7 +217,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
             style={{
               height:       '4px',
               borderRadius: '2px',
-              background:   'var(--neutral-white)',
+              background:   'var(--neutral-100)',
               overflow:     'hidden',
             }}
           >

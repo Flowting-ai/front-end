@@ -3,6 +3,7 @@
 import React from 'react'
 import { ArrowRightOneIcon } from '@strange-huge/icons'
 import { Chip } from '@/components/Chip'
+import { ChipTooltip } from '@/components/Chip/ChipTooltip'
 import { AgentChipAvatar } from '@/components/PersonaCard/AgentChipAvatar'
 
 /**
@@ -23,6 +24,7 @@ export function AgentChip({
     <Chip
       className="agent-chip"
       label={agent.name}
+      tooltip={<ChipTooltip title="Agent" detail={{ label: 'Active', value: agent.name }} lines={['Replies use this agent.']} hints={['›: open agents panel', '×: remove']} />}
       personaAvatar={<AgentChipAvatar agentId={agent.id} name={agent.name} size={24} />}
       onRemove={onRemove}
       onExpand={onOpenPanel}

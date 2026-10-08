@@ -182,7 +182,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
       {chatId && canManage && !chatShareOpen && !!orgId && (
         <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             aria-label="Share chat"
             leftIcon={<ShareOneIcon animated />}

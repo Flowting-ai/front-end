@@ -31,6 +31,7 @@ import { PINS_ENABLED } from "@/lib/feature-flags";
 import { usePendingPersonaHandoff } from "@/hooks/use-pending-persona-handoff";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
+import { ChipTooltip } from '@/components/Chip/ChipTooltip'
 import { AgentChip } from "@/components/chat/AgentChip";
 import { useOpenAgentsPanel } from "@/hooks/use-open-agents-panel";
 import { publishActiveChatAgent } from "@/lib/active-chat-agent-store";
@@ -284,6 +285,7 @@ function ChatPageInner() {
       trigger={
         <Chip
           label={activeStyle.label}
+          tooltip={<ChipTooltip title="Writing style" detail={{ label: 'Active', value: activeStyle.label }} lines={['Shapes the tone of replies.']} hints={['▾: change style', '×: remove']} />}
           icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
           onRemove={() => setSelectedStyleId(null)}
           onExpand={() => setStyleChipOpen(v => !v)}
@@ -313,6 +315,8 @@ function ChatPageInner() {
       size="Medium"
       icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
       label="Web search"
+      hideLabel
+      tooltip={<ChipTooltip title="Web search" lines={['Searches the web for up-to-date answers.']} hints={['×: turn off']} />}
       onRemove={() => setWebSearchEnabled(false)}
     />
   ) : null;
@@ -331,6 +335,7 @@ function ChatPageInner() {
         trigger={
           <Chip
             label={folder.name}
+            tooltip={<ChipTooltip title="Folder" detail={{ label: 'Active', value: folder.name }} lines={['Its pins are used as context.']} hints={['×: remove']} />}
             icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
             onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
             onExpand={() => setOpenFolderChipId(isOpen ? null : folder.id)}

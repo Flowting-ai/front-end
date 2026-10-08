@@ -60,7 +60,7 @@ import {
   CHAT_ROUTE,
   CHATS_ROUTE,
   SETTINGS_ROUTE,
-  SETTINGS_ACCOUNT_ROUTE,
+  SETTINGS_USAGE_ROUTE,
   SETTINGS_HELP_ROUTE,
   ORG_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
@@ -2211,7 +2211,7 @@ interface FlatDestinationsProps {
 function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: FlatDestinationsProps) {
   const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { orgId } = useOrg()
+  const { orgId, currentUserRole } = useOrg()
   const [slackConnected, setSlackConnected] = useState(false)
 
   useEffect(() => {
@@ -2240,13 +2240,16 @@ function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: Fla
       />
       {/* "Souvenir in Slack" — own dedicated top-level page (moved from
           /org/souvenir-slack to /souvenir-slack). */}
-      <FlatSidebarSlackConnector
-        collapsed={collapsed}
-        connected={slackConnected}
-        selected={pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)}
-        onAdd={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
-        onClick={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
-      />
+      {/* Admin-only, matching the route guard in app/(app)/souvenir-slack/layout.tsx. */}
+      {currentUserRole === 'admin' && (
+        <FlatSidebarSlackConnector
+          collapsed={collapsed}
+          connected={slackConnected}
+          selected={pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)}
+          onAdd={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+          onClick={() => push(ORG_SOUVENIR_SLACK_ROUTE)}
+        />
+      )}
     </>
   )
 }
@@ -2602,7 +2605,8 @@ function LeftSidebarImpl({
                 planType={planTypeLabel}
                 credits={accountCredits}
                 creditsTotal={accountCreditsTotal}
-                showUpgradePlan={planTypeLabel !== 'Pro'}
+                showUpgradePlan={!orgId || orgRole === 'admin'}
+                viewPlanOnly={planTypeLabel === 'Pro'}
                 email={user?.email ?? undefined}
                 planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
@@ -2642,7 +2646,7 @@ function LeftSidebarImpl({
                     }
                   />
                 )}
-                onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+                onUsage={() => push(SETTINGS_USAGE_ROUTE)}
                 onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
                 onSettings={() => push(SETTINGS_ROUTE)}
                 onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}
@@ -2734,7 +2738,8 @@ function LeftSidebarImpl({
             planType={planTypeLabel}
             credits={accountCredits}
                 creditsTotal={accountCreditsTotal}
-                showUpgradePlan={planTypeLabel !== 'Pro'}
+                showUpgradePlan={!orgId || orgRole === 'admin'}
+                viewPlanOnly={planTypeLabel === 'Pro'}
                 email={user?.email ?? undefined}
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
@@ -2748,7 +2753,7 @@ function LeftSidebarImpl({
               </Tooltip>
             ) : undefined}
             placement="top-start"
-            onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+            onUsage={() => push(SETTINGS_USAGE_ROUTE)}
             onUpgradePlan={() => push(ORG_PLANS_ROUTE)}
             onSettings={() => push(SETTINGS_ROUTE)}
             onOrganization={(orgId && orgRole === 'admin') ? () => push(ORG_GENERAL_ROUTE) : undefined}

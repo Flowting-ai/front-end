@@ -159,13 +159,22 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [userKey])
 
   // ── Loaders ────────────────────────────────────────────────────────────────
+  // Role flags arrive after the first render. Read them through refs so poll/loadAgents keep a
+  // stable identity — otherwise the poll effect restarts and refetches schedules a second time.
+  const isAdminRef = useRef(isAdmin)
+  const canSeeRequestsRef = useRef(canSeeRequests)
+  useEffect(() => {
+    isAdminRef.current = isAdmin
+    canSeeRequestsRef.current = canSeeRequests
+  }, [isAdmin, canSeeRequests])
+
   const loadAgents = useCallback(async (pollId: number) => {
-    const snapshot = await loadAgentModelSnapshot(isAdmin)
+    const snapshot = await loadAgentModelSnapshot(isAdminRef.current)
     if (pollId !== pollIdRef.current) return
     // null = couldn't read this cycle: keep the last good snapshot.
     if (snapshot) setAgentSnapshot(snapshot)
     setAgentsAttempted(true)
-  }, [isAdmin])
+  }, [])
 
   const poll = useCallback(async () => {
     if (!userKey) return
@@ -177,11 +186,24 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         setScheduleRows(prev => rows ?? prev ?? [])
       }),
       loadAgents(pollId),
-      (canSeeRequests ? fetchTeamRequests() : Promise.resolve<TeamRequest[]>([]))
+      (canSeeRequestsRef.current ? fetchTeamRequests() : Promise.resolve<TeamRequest[]>([]))
         .then(list => { if (pollId === pollIdRef.current) setRequests(list) })
         .catch(() => {}),
     ])
-  }, [userKey, loadAgents, canSeeRequests])
+  }, [userKey, loadAgents])
+
+  // Only the role-dependent sources need a refresh once the roles resolve.
+  const rolesRef = useRef({ isAdmin, canSeeRequests })
+  useEffect(() => {
+    const prev = rolesRef.current
+    rolesRef.current = { isAdmin, canSeeRequests }
+    if (!userKey || (prev.isAdmin === isAdmin && prev.canSeeRequests === canSeeRequests)) return
+    const pollId = pollIdRef.current
+    void loadAgents(pollId)
+    if (canSeeRequests) {
+      fetchTeamRequests().then(list => { if (pollId === pollIdRef.current) setRequests(list) }).catch(() => {})
+    }
+  }, [userKey, isAdmin, canSeeRequests, loadAgents])
 
   // ── Polling while visible ──────────────────────────────────────────────────
   useEffect(() => {

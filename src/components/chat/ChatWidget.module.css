@@ -1,9 +1,11 @@
+/* Shared surface for the inline assistant widgets (email, board, calendar).
+   Tokens flip with the theme, so the same rules cover light and dark. */
 .shell {
   min-width: 0;
   margin: 16px 0;
-  border: 1px solid var(--neutral-100);
-  border-radius: 16px;
-  background: var(--neutral-white);
+  border: 1px solid var(--neutral-200);
+  border-radius: 18px;
+  background: linear-gradient(to bottom right, var(--widget-bg-from) 0%, var(--widget-bg-from) 60%, var(--widget-bg-to) 100%);
   box-shadow: var(--shadow-surface-card);
   overflow: hidden;
   font-family: var(--font-body);
@@ -12,31 +14,73 @@
   color: var(--neutral-900);
 }
 .header, .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.header { padding: 16px 18px; border-bottom: 1px solid var(--neutral-100); }
+.header { padding: 14px 18px; border-bottom: 1px solid color-mix(in srgb, var(--neutral-300) 45%, transparent); }
 .heading { flex: 1; min-width: 120px; }
+.eyebrow { color: var(--neutral-500); font-size: 11px; font-weight: 600; line-height: 14px; letter-spacing: 0.07em; text-transform: uppercase; }
 .title { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .caption { color: var(--neutral-600); font-size: var(--font-size-caption); line-height: var(--line-height-caption); }
-.icon, .avatar { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid var(--neutral-100); border-radius: 10px; background: var(--neutral-50); color: var(--neutral-700); }
-.content { padding: 18px; }
-.sender { display: flex; gap: 12px; padding: 18px; }
-.avatar { font-weight: var(--font-weight-semibold); }
-.recipients { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; overflow-wrap: anywhere; }
-.body { padding: 0 18px 18px; overflow-wrap: anywhere; }
-.attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--neutral-100); background: var(--neutral-50); }
-.attachment { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 8px 10px; border: 1px solid var(--neutral-100); border-radius: 8px; background: var(--neutral-white); overflow-wrap: anywhere; }
+.icon { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 12px; background: color-mix(in srgb, var(--widget-accent) 14%, var(--card-bg)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--widget-accent) 22%, transparent); color: var(--widget-accent); }
+.avatar { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, color-mix(in srgb, var(--widget-accent) 30%, var(--card-bg)), color-mix(in srgb, var(--widget-accent) 12%, var(--card-bg))); box-shadow: 0 0 0 1px color-mix(in srgb, var(--widget-accent) 25%, transparent); color: var(--neutral-800); font-size: 13px; font-weight: var(--font-weight-semibold); }
+.content { padding: 14px 18px 18px; }
+
+/* ── Email ─────────────────────────────────────────────────────────────── */
+.sender { display: flex; gap: 12px; padding: 16px 18px 12px; }
+.recipients { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; overflow-wrap: anywhere; }
+.recipient { display: inline-flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--neutral-200) 55%, transparent); color: var(--neutral-700); font-size: var(--font-size-caption); line-height: 18px; }
+.recipientLabel { color: var(--neutral-500); font-weight: 600; }
+.body { padding: 0 18px 16px; overflow-wrap: anywhere; }
+.bodyClipped { max-height: 260px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 calc(100% - 52px), transparent); mask-image: linear-gradient(#000 calc(100% - 52px), transparent); }
+.bodyToggle { display: flex; justify-content: center; margin-top: 4px; }
+.attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px 14px; border-top: 1px solid color-mix(in srgb, var(--neutral-300) 45%, transparent); background: color-mix(in srgb, var(--neutral-100) 55%, transparent); }
+.attachments > .caption { display: flex; width: 100%; align-items: center; gap: 6px; font-weight: 600; }
+.attachment { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 6px 10px 6px 6px; border-radius: 10px; background: var(--card-bg); box-shadow: 0 0 0 1px var(--neutral-200); overflow-wrap: anywhere; transition: box-shadow 140ms ease; }
+.attachment:hover { box-shadow: 0 0 0 1px var(--neutral-300), 0 2px 6px -2px rgba(82, 75, 71, 0.18); }
+.attachmentIcon { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 7px; background: color-mix(in srgb, var(--widget-accent) 12%, var(--card-bg)); color: var(--widget-accent); }
+
+/* ── Board ─────────────────────────────────────────────────────────────── */
+.board { display: flex; gap: 12px; padding: 14px 18px 18px; overflow-x: auto; scroll-snap-type: x proximity; }
+.column { flex: 0 0 clamp(212px, 72vw, 248px); min-width: 0; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--neutral-100) 65%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--neutral-300) 40%, transparent); scroll-snap-align: start; }
+.columnHead { display: flex; align-items: center; gap: 8px; margin: 2px 4px 10px; }
+.columnDot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--widget-accent)); }
+.columnName { flex: 1; min-width: 0; margin: 0; overflow: hidden; font-size: 13px; font-weight: var(--font-weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
+.columnCount { flex: none; min-width: 20px; padding: 0 7px; border-radius: 999px; background: var(--card-bg); box-shadow: 0 0 0 1px var(--neutral-200); color: var(--neutral-600); font-size: 11px; font-weight: 600; line-height: 20px; text-align: center; }
+.cards { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.card { padding: 10px 12px; border-radius: 11px; background: var(--card-bg); box-shadow: 0 0 0 1px var(--neutral-200), 0 1px 2px rgba(82, 75, 71, 0.08); overflow-wrap: anywhere; transition: transform 140ms ease, box-shadow 140ms ease; }
+.card:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--neutral-300), 0 5px 12px -4px rgba(82, 75, 71, 0.2); }
+.cardTitle { font-size: 13.5px; font-weight: var(--font-weight-medium); line-height: 19px; }
+.cardTag { display: inline-block; margin-top: 8px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--dot, var(--widget-accent)) 14%, var(--card-bg)); color: var(--neutral-700); font-size: 11px; font-weight: 600; line-height: 18px; }
+.emptyColumn { margin: 0; padding: 14px 8px; border: 1px dashed var(--neutral-300); border-radius: 10px; color: var(--neutral-500); font-size: var(--font-size-caption); text-align: center; }
+
+/* ── Calendar ──────────────────────────────────────────────────────────── */
 .toolbar { padding: 12px 18px; justify-content: space-between; }
-.calendar { padding: 0 12px 12px; }
-.weekdays, .dates { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.weekdays { padding: 8px 0; text-align: center; }
-.date { appearance: none; min-width: 0; min-height: 58px; padding: 8px 4px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--neutral-800); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: color-mix(in srgb, var(--neutral-200) 55%, transparent); }
+.monthNav { display: flex; align-items: center; gap: 6px; }
+.calendar { padding: 0 14px 14px; }
+.weekdays, .dates { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.weekdays { padding: 6px 0; text-align: center; color: var(--neutral-500); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.date { appearance: none; position: relative; min-width: 0; min-height: 52px; padding: 8px 4px; border: 0; border-radius: 12px; background: transparent; color: var(--neutral-800); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; transition: background-color 120ms ease, color 120ms ease; }
 .date:hover { background: var(--button-ghost-bg-hover); }
-.date[aria-pressed="true"] { background: var(--neutral-100); border-color: var(--neutral-300); color: var(--neutral-950); }
+.date[aria-pressed="true"] { background: var(--widget-accent); color: var(--widget-on-accent); box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--widget-accent) 70%, transparent); }
+.date[aria-pressed="true"] .dot { background: var(--widget-on-accent); }
+.today:not([aria-pressed="true"]) { box-shadow: inset 0 0 0 1.5px var(--widget-accent); font-weight: 600; }
 .date:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 .muted { color: var(--neutral-400); }
-.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brown-700); }
-.agenda { padding: 16px 18px; border-top: 1px solid var(--neutral-100); }
-.events { list-style: none; margin: 10px 0 0; padding: 0; }
-.event { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--neutral-100); }
-.event:last-child { border-bottom: 0; }
-.time { flex: 0 0 88px; color: var(--neutral-600); font-size: var(--font-size-caption); font-variant-numeric: tabular-nums; }
-@media (max-width: 480px) { .header, .sender, .content, .agenda { padding: 14px; } .body { padding: 0 14px 14px; } .date { min-height: 48px; } .time { flex-basis: 70px; } }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--widget-accent); }
+.agenda { padding: 14px 18px 4px; border-top: 1px solid color-mix(in srgb, var(--neutral-300) 45%, transparent); }
+.agenda:last-child { padding-bottom: 16px; }
+.events { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.event { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--card-bg); box-shadow: 0 0 0 1px var(--neutral-200); overflow: hidden; }
+.event::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--widget-accent); }
+.time { flex: 0 0 76px; padding-top: 1px; color: var(--neutral-600); font-size: var(--font-size-caption); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+@media (max-width: 480px) {
+  .header, .sender, .content, .agenda { padding-inline: 14px; }
+  .body { padding: 0 14px 14px; }
+  .board { padding-inline: 14px; }
+  .date { min-height: 46px; }
+  .time { flex-basis: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .attachment, .date { transition: none; }
+  .card:hover { transform: none; }
+}

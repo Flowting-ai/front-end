@@ -146,11 +146,11 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
                   aria-label={`Open ${label}`}
                   style={{ ...RESET_BUTTON_STYLE, color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0, cursor: 'pointer' }}
                 >
-                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon className="kds-folder-icon" size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
                 </button>
               ) : (
                 <div style={{ color: 'var(--sidebar-icon, var(--sidebar-menu-item-text))', flexShrink: 0, lineHeight: 0 }}>
-                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+                  {icon ? React.cloneElement(icon, { triggered: isHovered }) : <FolderOneIcon className="kds-folder-icon" size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
                 </div>
               )
             )}

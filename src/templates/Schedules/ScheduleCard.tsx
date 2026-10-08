@@ -76,11 +76,11 @@ export function ScheduleCard({
     ? 'color-mix(in srgb, var(--blue-500) 7%, transparent)'
     : hovered
       ? 'var(--neutral-50)'
-      : 'var(--neutral-white)'
+      : 'var(--card-bg)'
 
   const boxShadow = focused
-    ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-300)'
-    : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+    ? 'var(--shadow-card-deep), 0px 0px 0px 2px var(--blue-300)'
+    : 'var(--shadow-card-deep), 0px 0px 0px 1px var(--neutral-100)'
 
   return (
     <button
