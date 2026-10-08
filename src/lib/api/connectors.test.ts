@@ -34,7 +34,7 @@ const GMAIL_LIST = {
     {
       id: '2b0b8f8e-0000-4000-8000-000000000002',
       nickname: 'Personal Gmail',
-      scope: 'personal',
+      shared: false,
       connector_slug: 'gmail',
       account_identifier: 'me@example.com',
       connected: true,
@@ -42,8 +42,7 @@ const GMAIL_LIST = {
       version: 1,
       owner_id: 'auth0|me',
       owned: true,
-      in_use: true,
-      permissions: [{ key: 'gmail-send-email', permission: 'allowed' }],
+      permissions: [{ key: 'gmail-send-email', permission: 'allow' }],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
     },
@@ -51,7 +50,7 @@ const GMAIL_LIST = {
       // Someone else's account, shared with this workspace: usable, not editable.
       id: '2b0b8f8e-0000-4000-8000-000000000001',
       nickname: 'Marketing Gmail',
-      scope: 'shared',
+      shared: true,
       connector_slug: 'gmail',
       account_identifier: 'marketing@example.com',
       connected: true,
@@ -59,7 +58,6 @@ const GMAIL_LIST = {
       version: 1,
       owner_id: 'auth0|editor',
       owned: false,
-      in_use: true,
       permissions: [],
       created_at: '2026-06-18T00:00:00Z',
       updated_at: '2026-06-18T00:00:00Z',
@@ -124,8 +122,8 @@ describe('ConnectorCatalog', () => {
     const [mine, theirs] = entry.connections
 
     // The catalog says what the tools are; the account says what it decided.
-    expect(mine.toolsFrom(entry.tools).map(t => t.permission)).toEqual(['ask', 'allowed'])
-    expect(mine.permissionFor('gmail-send-email')).toBe('allowed')
+    expect(mine.toolsFrom(entry.tools).map(t => t.permission)).toEqual(['ask', 'allow'])
+    expect(mine.permissionFor('gmail-send-email')).toBe('allow')
     expect(mine.permissionSummary(entry.tools)).toBe('custom')
 
     // A tool with no stored row is Ask, never inherited from another account.
@@ -139,39 +137,33 @@ describe('ConnectorCatalog', () => {
     expect(mine.ownerId).toBe('auth0|me')
     // Shared with you: still usable, still not yours to change.
     expect(theirs.canManage).toBe(false)
-    expect(theirs.isShared).toBe(true)
+    expect(theirs.shared).toBe(true)
     expect(theirs.ownerId).toBe('auth0|editor')
   })
 
-  it('separates the accounts the viewer owns from the one in use', () => {
+  it('separates the accounts the viewer owns from ones shared with them', () => {
     const entry = ConnectorCatalog.parse(GMAIL_LIST)
-    // A shared account is usable but never one of yours, so it can neither be
-    // written to nor stand as the account this app runs through for you.
     expect(entry.ownedConnections.map(row => row.nickname)).toEqual(['Personal Gmail'])
-    expect(entry.connectionInUse?.nickname).toBe('Personal Gmail')
 
     const sharedOnly = ConnectorCatalog.parse({
       ...GMAIL_LIST,
       connections: GMAIL_LIST.connections.filter(row => !row.owned),
     })
     expect(sharedOnly.ownedConnections).toEqual([])
-    expect(sharedOnly.connectionInUse).toBeNull()
   })
 
-  it('holds several owned accounts with one of them in use', () => {
+  it('holds several owned accounts', () => {
     const [mine, theirs] = GMAIL_LIST.connections
     const entry = ConnectorCatalog.parse({
       ...GMAIL_LIST,
       connections: [
-        { ...mine, in_use: false, nickname: 'Old Gmail' },
+        { ...mine, nickname: 'Old Gmail' },
         { ...mine, id: '2b0b8f8e-0000-4000-8000-000000000003', nickname: 'Work Gmail' },
         theirs,
       ],
     })
 
     expect(entry.ownedConnections.map(row => row.nickname)).toEqual(['Old Gmail', 'Work Gmail'])
-    // The parked account is listed and switchable, never the one resolved.
-    expect(entry.connectionInUse?.nickname).toBe('Work Gmail')
   })
 
   it('parses a bare connector with no connections', () => {
@@ -221,7 +213,7 @@ describe('listConnectors', () => {
     })
     const page = await listConnectors({ linked: true })
     expect(page.connectors[0]).toBeInstanceOf(ConnectorCatalog)
-    expect(page.connectors[0].connections.map(row => row.scope)).toEqual(['personal', 'shared'])
+    expect(page.connectors[0].connections.map(row => row.shared)).toEqual([false, true])
     expect(page.nextCursor).toBe('gmail')
     expect(page.hasMore).toBe(true)
     expect(apiFetchJson).toHaveBeenCalledWith(expect.stringContaining('linked=true'))
@@ -262,12 +254,11 @@ describe('listConnectors', () => {
       connections: [{
         id: '2b0b8f8e-0000-4000-8000-000000000077',
         nickname: 'Slack',
-        scope: 'personal',
+        shared: false,
         connector_slug: 'slackcliapi',
         connected: true,
         owner_id: 'auth0|me',
         owned: true,
-        in_use: true,
         created_at: '2026-06-18T00:00:00Z',
         updated_at: '2026-06-18T00:00:00Z',
       }],
@@ -296,7 +287,6 @@ describe('pollConnectorUntilActive', () => {
     ...MINE,
     id: '2b0b8f8e-0000-4000-8000-000000000009',
     nickname: 'Second Gmail',
-    in_use: false,
   }
   const fast = { initialIntervalMs: 1, maxIntervalMs: 1, timeoutMs: 60 }
 

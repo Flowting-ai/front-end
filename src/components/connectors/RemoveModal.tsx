@@ -45,7 +45,7 @@ export function RemoveModal({
           <strong style={{ color: 'var(--neutral-800)', fontWeight: 500 }}>{account.nickname}</strong>
           {account.email ? ` · ${account.email}` : ''}
         </p>
-        {account.isShared && (
+        {account.shared && (
           <div style={{ ...panel, padding: SPACE.lg, marginTop: SPACE.xl }}>
             <strong style={{ fontWeight: 500 }}>This account is shared</strong>
             <p style={{ ...muted, marginTop: SPACE.xs }}>Everyone in your workspace loses it, along with any agents or automations running on it. We can&apos;t show exactly which ones yet.</p>

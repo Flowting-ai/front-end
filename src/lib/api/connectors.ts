@@ -19,7 +19,6 @@ import {
   connectorListResponseSchema,
   linkResponseSchema,
   type ApiKeyField,
-  type ConnectorAccountScope,
   type ConnectorAccountStatus,
   type ConnectorCatalogEntryWire,
   type ConnectorCatalogMetadata,
@@ -32,7 +31,6 @@ import {
 
 export type {
   ApiKeyField,
-  ConnectorAccountScope,
   ConnectorAccountStatus,
   ConnectorCatalogMetadata,
   ConnectorToolPermission,
@@ -98,7 +96,7 @@ export class AccountTool {
   get group(): 'read-only' | 'write' { return this.tool.group }
 
   get permissionMode(): Exclude<AccountPermissionSummary, 'custom'> {
-    return this.permission === 'allowed' ? 'always' : this.permission
+    return this.permission === 'allow' ? 'always' : this.permission === 'block' ? 'blocked' : this.permission
   }
 
   withPermission(permission: ConnectorToolPermission): AccountTool {
@@ -109,7 +107,7 @@ export class AccountTool {
 export class ConnectorConnection {
   readonly id: string
   readonly nickname: string
-  readonly scope: ConnectorAccountScope
+  readonly shared: boolean
   readonly connectorSlug: string
   readonly accountIdentifier: string | null
   readonly connected: boolean
@@ -117,7 +115,6 @@ export class ConnectorConnection {
   readonly version: number
   readonly ownerId: string
   readonly owned: boolean
-  readonly inUse: boolean
   readonly permissions: ToolPermissionEntryWire[]
   readonly createdAt: string
   readonly updatedAt: string
@@ -125,7 +122,7 @@ export class ConnectorConnection {
   constructor(wire: ConnectionResponseWire) {
     this.id = wire.id
     this.nickname = wire.nickname
-    this.scope = wire.scope
+    this.shared = wire.shared
     this.connectorSlug = wire.connector_slug
     this.accountIdentifier = wire.account_identifier
     this.connected = wire.connected
@@ -133,7 +130,6 @@ export class ConnectorConnection {
     this.version = wire.version
     this.ownerId = wire.owner_id
     this.owned = wire.owned
-    this.inUse = wire.in_use
     this.permissions = wire.permissions
     this.createdAt = wire.created_at
     this.updatedAt = wire.updated_at
@@ -148,15 +144,7 @@ export class ConnectorConnection {
   }
 
   get visibility(): AccountVisibility {
-    return this.scope === 'shared' ? 'shared' : 'private'
-  }
-
-  get isShared(): boolean {
-    return this.scope === 'shared'
-  }
-
-  get isPrivate(): boolean {
-    return this.scope === 'personal'
+    return this.shared ? 'shared' : 'private'
   }
 
   get email(): string {
@@ -265,17 +253,12 @@ export class ConnectorCatalog {
     return this.connections.filter(row => row.owned)
   }
 
-  /** The one of them this app runs through, or null when they own none. */
-  get connectionInUse(): ConnectorConnection | null {
-    return this.ownedConnections.find(row => row.inUse) ?? null
-  }
-
   get privateConnections(): ConnectorConnection[] {
-    return this.connections.filter(row => row.isPrivate)
+    return this.connections.filter(row => !row.shared)
   }
 
   get sharedConnections(): ConnectorConnection[] {
-    return this.connections.filter(row => row.isShared)
+    return this.connections.filter(row => row.shared)
   }
 
   get connectedPrivate(): ConnectorConnection[] {
@@ -318,15 +301,9 @@ function linkFromWire(wire: LinkResponseWire): LinkResponse {
 /** Owner-only. Every field is optional; absent means unchanged. */
 export interface UpdateAccountRequest {
   accountLabel?:      string
-  accountIdentifier?: string
   /** Open it to everyone sharing an organization with you, or close it again. */
   shared?:            boolean
-  /** Switch this app onto this account. True only — you move the flag by
-      raising another account, never by lowering this one. */
-  inUse?:             true
   permissions?:       { key: string; permission: ConnectorToolPermission }[]
-  credentials?:       Record<string, string>
-  status?:            ConnectorAccountStatus
   /** Stale PATCH 409s when the row has moved on. */
   expectedVersion?:   number
 }

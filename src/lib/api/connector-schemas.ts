@@ -5,9 +5,8 @@ import { z } from 'zod'
 // https://devapi.getsouvenir.com/openapi.json). Snake_case, exact field
 // names, only the defaults the backend itself declares.
 
-export const accountScopeSchema = z.enum(['personal', 'shared'])
 export const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
-export const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
+export const toolPermissionSchema = z.enum(['allow', 'block', 'ask'])
 
 // The catalog describes each tool once. Decisions live on the account, in
 // ConnectionResponse.permissions, joined back by key.
@@ -26,7 +25,7 @@ export const toolPermissionEntrySchema = z.object({
 export const connectionResponseSchema = z.object({
   id:                  z.string(),
   nickname:            z.string(),
-  scope:               accountScopeSchema,
+  shared:              z.boolean(),
   connector_slug:      z.string(),
   account_identifier:  z.string().nullable().default(null),
   connected:           z.boolean(),
@@ -36,10 +35,6 @@ export const connectionResponseSchema = z.object({
   // usable, but only the owner can change or unlink it.
   owner_id:            z.string(),
   owned:               z.boolean(),
-  // The one account of this connector its owner runs. A person can hold
-  // several; the parked ones are listed and switched to, never resolved into
-  // a turn on their own.
-  in_use:              z.boolean(),
   // Sparse — a tool with no entry is 'ask'.
   permissions:         z.array(toolPermissionEntrySchema).default([]),
   created_at:          z.string(),
@@ -100,5 +95,4 @@ export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>
 export type ConnectorCatalogEntryWire = z.infer<typeof connectorCatalogEntrySchema>
 export type LinkResponseWire = z.infer<typeof linkResponseSchema>
 export type ConnectorToolPermission = z.infer<typeof toolPermissionSchema>
-export type ConnectorAccountScope = z.infer<typeof accountScopeSchema>
 export type ConnectorAccountStatus = z.infer<typeof accountStatusSchema>

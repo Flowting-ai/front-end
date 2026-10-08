@@ -31,8 +31,8 @@ function XIcon() {
   )
 }
 
-// Workspace connectors are org-owned shared accounts (scope: 'shared').
-// Personal connectors are the viewer's own linked account (scope: 'personal').
+// Workspace connectors are org-owned shared accounts (shared: true).
+// Personal connectors are the viewer's own linked account (shared: false).
 // Both live on ConnectorCatalog.connections.
 
 function logoFor(entry: ConnectorCatalog): string | undefined {

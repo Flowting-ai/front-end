@@ -1,7 +1,7 @@
 'use client'
 
 // Account detail — S20/S21/S22 in one dialog over the connector page: the
-// name renames in place, the rail holds sharing, in-use and removal, and the
+// name renames in place, the rail holds sharing and removal, and the
 // permissions list fills the rest. See docs v1.5/connectors-v1.5-migration-plan.md
 // §4 (edge cases to preserve).
 //
@@ -25,7 +25,6 @@ import {
   PenOneIcon,
   SearchOneIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Dropdown } from '@/components/Dropdown'
 import { IconButton } from '@/components/IconButton'
@@ -48,11 +47,15 @@ const secondary: React.CSSProperties = { ...text, color: 'var(--color-text-muted
 const label: React.CSSProperties = { ...text, fontWeight: 500 }
 
 // Story's PermissionMode ('always'|'ask'|'blocked') vs. the backend's
-// ConnectorToolPermission ('allowed'|'ask'|'blocked') — same 3 states,
-// different label for "always allow".
+// ConnectorToolPermission ('allow'|'ask'|'block') — same 3 states,
+// different labels for always-allow and never.
 type PermissionMode = 'always' | 'ask' | 'blocked'
-const toBackendPermission = (mode: PermissionMode): ConnectorToolPermission => (mode === 'always' ? 'allowed' : mode)
-const fromBackendPermission = (p: ConnectorToolPermission): PermissionMode => (p === 'allowed' ? 'always' : p)
+const toBackendPermission = (mode: PermissionMode): ConnectorToolPermission => (
+  mode === 'always' ? 'allow' : mode === 'blocked' ? 'block' : mode
+)
+const fromBackendPermission = (p: ConnectorToolPermission): PermissionMode => (
+  p === 'allow' ? 'always' : p === 'block' ? 'blocked' : p
+)
 
 const PERMISSION_MODES: PermissionMode[] = ['blocked', 'ask', 'always']
 const PERMISSION_LABELS: Record<PermissionMode, string> = { always: 'Always allow', ask: 'Ask before use', blocked: 'Blocked' }
@@ -417,17 +420,14 @@ function RailSection({ title, children }: { title: string; children: React.React
 function AccountRail({
   account, catalog, onChanged, onRemove,
 }: { account: ConnectorConnection; catalog: ConnectorCatalog; onChanged: () => void; onRemove: () => void }) {
-  const [shared, setShared] = useState(account.isShared)
-  const [syncedShared, setSyncedShared] = useState(account.isShared)
-  if (account.isShared !== syncedShared) {
-    setSyncedShared(account.isShared)
-    setShared(account.isShared)
+  const [shared, setShared] = useState(account.shared)
+  const [syncedShared, setSyncedShared] = useState(account.shared)
+  if (account.shared !== syncedShared) {
+    setSyncedShared(account.shared)
+    setShared(account.shared)
   }
   const [sharing, setSharing] = useState(false)
-  const [switching, setSwitching] = useState(false)
   const owned = account.owned
-  const inUseElsewhere = catalog.connectionInUse
-  const canSwitch = owned && !account.inUse && !account.needsReconnect
 
   async function changeSharing(next: boolean) {
     setShared(next)
@@ -437,23 +437,10 @@ function AccountRail({
       toast.success(next ? 'Shared with your workspace' : 'Only you can use this account now')
       onChanged()
     } catch (err) {
-      setShared(account.isShared)
+      setShared(account.shared)
       toast.error(err instanceof Error ? err.message : 'Failed to change access')
     } finally {
       setSharing(false)
-    }
-  }
-
-  async function switchToThis() {
-    setSwitching(true)
-    try {
-      await updateAccount(account.id, { inUse: true, expectedVersion: account.version })
-      toast.success(`${catalog.name} now runs through ${account.nickname}`)
-      onChanged()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to switch account')
-    } finally {
-      setSwitching(false)
     }
   }
 
@@ -477,28 +464,6 @@ function AccountRail({
           </span>
           <Switch checked={shared} disabled={!owned || sharing} onCheckedChange={next => void changeSharing(next)} aria-label="Share with workspace" />
         </label>
-      </RailSection>
-
-      <RailSection title="In use">
-        {account.inUse ? (
-          <p style={secondary}>
-            Every chat, automation and trigger that reaches {catalog.name} runs through this account.
-          </p>
-        ) : (
-          <>
-            <p style={secondary}>
-              {catalog.name} runs through {inUseElsewhere?.nickname ?? 'another account'}.
-              {account.needsReconnect ? ' Reconnect this one before switching to it.' : ' This one stays connected until you switch.'}
-            </p>
-            {owned && (
-              <div>
-                <Button size="sm" variant="outline" disabled={!canSwitch || switching} loading={switching} onClick={() => void switchToThis()}>
-                  Use this account
-                </Button>
-              </div>
-            )}
-          </>
-        )}
       </RailSection>
 
       {owned && (
