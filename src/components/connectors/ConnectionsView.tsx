@@ -209,9 +209,9 @@ function catalogCardState(summary: ConnectorCatalog): ConnectorCatalogCardState 
   return 'available'
 }
 
-function CatalogSectionLabel({ label, sub }: { label: string; sub?: string }) {
+function CatalogSectionLabel({ label, sub, flush }: { label: string; sub?: string; flush?: boolean }) {
   return (
-    <div style={{ margin: `0 0 ${SPACE.lg}px` }}>
+    <div style={{ margin: flush ? 0 : `0 0 ${SPACE.lg}px` }}>
       <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, letterSpacing: 0.2, textTransform: 'uppercase', color: 'var(--neutral-500)' }}>
         {label}
       </p>
@@ -324,8 +324,8 @@ function CategorySection({
   if (shown?.length === 0) return null
   return (
     <div ref={hostRef} style={{ marginBottom: SPACE.section }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.md }}>
-        <CatalogSectionLabel label={category} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, marginBottom: SPACE.sm }}>
+        <CatalogSectionLabel label={category} flush />
         <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>
       </div>
       <div style={CATALOG_GRID}>
@@ -715,8 +715,8 @@ function CatalogLoading() {
       />
       {[0, 1, 2].map(section => (
         <div key={section} aria-hidden style={{ marginBottom: SPACE.section, opacity: 1 - section * 0.2 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE.md }}>
-            <div className="kaya-skeleton" style={{ width: 110, height: 12, borderRadius: 4, marginTop: 2 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, marginBottom: SPACE.sm }}>
+            <div className="kaya-skeleton" style={{ width: 110, height: 12, borderRadius: 4 }} />
             <div className="kaya-skeleton" style={{ width: 76, height: 32, borderRadius: 8 }} />
           </div>
           <div style={CATALOG_GRID}>
