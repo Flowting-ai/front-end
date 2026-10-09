@@ -197,9 +197,22 @@ export function ConnectorCatalogCard({
         }}
       >
         {isLoading ? (
+          // Each bar sits in a box of the real line-height (name 22, category 16,
+          // description 16), so the loading card is as tall as a loaded one.
           <>
-            <span className="kaya-skeleton" style={{ display: 'block', width: 120, height: 14, borderRadius: 4, background: SKELETON_BG }} />
-            <span className="kaya-skeleton" style={{ display: 'block', width: 80, height: 10, borderRadius: 4, background: SKELETON_BG }} />
+            <span style={{ display: 'flex', alignItems: 'center', height: 'var(--line-height-body)' }}>
+              <span className="kaya-skeleton" style={{ display: 'block', width: 120, height: 14, borderRadius: 4, background: SKELETON_BG }} />
+            </span>
+            {!isCompact && (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', height: 'var(--line-height-caption)' }}>
+                  <span className="kaya-skeleton" style={{ display: 'block', width: 80, height: 10, borderRadius: 4, background: SKELETON_BG }} />
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', height: 'var(--line-height-caption)' }}>
+                  <span className="kaya-skeleton" style={{ display: 'block', width: 170, height: 10, borderRadius: 4, background: SKELETON_BG }} />
+                </span>
+              </>
+            )}
           </>
         ) : (
           <>

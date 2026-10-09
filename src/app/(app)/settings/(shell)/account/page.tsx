@@ -299,7 +299,7 @@ function SettingsCard({
   return (
     <div
       style={{
-        border:        `1px solid ${danger ? 'var(--red-400)' : 'var(--neutral-200)'}`,
+        border:        `1px solid ${danger ? 'var(--red-400)' : 'var(--border-default)'}`,
         borderRadius:  16,
         boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
         display:       'flex',

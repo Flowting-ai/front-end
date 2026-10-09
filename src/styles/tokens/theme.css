@@ -424,6 +424,7 @@
   --popover-bg: var(--color-surface-default);
   --modal-bg: var(--color-surface-default);
   --card-bg: var(--color-surface-default);
+  --border-default: var(--neutral-200);
   --toast-bg: #1C1C1C;
   --surface-cream: #1C1C1C;
   --widget-bg-from: #0A0A0A;

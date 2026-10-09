@@ -429,7 +429,7 @@ function SectionCard({
 }) {
   return (
     <div style={{
-      border:        '1px solid var(--neutral-200)',
+      border:        '1px solid var(--border-default)',
       borderRadius:  16,
       boxShadow:     SHADOW_CARD,
       backgroundColor: 'var(--card-bg)',
@@ -1186,7 +1186,7 @@ function PersonasPageInner() {
       <div
         style={{
           background: 'var(--color-surface-container)',
-          border: '1px solid var(--neutral-200)',
+          border: '1px solid var(--border-default)',
           borderRadius: 22,
           flex: '1 1 0',
           minHeight: 0,
@@ -1490,7 +1490,7 @@ function PersonasPageInner() {
                         type="button"
                         onClick={() => setFilters(EMPTY_FILTERS)}
                         style={{
-                          background: 'none', border: '1px solid var(--neutral-200)',
+                          background: 'none', border: '1px solid var(--border-default)',
                           borderRadius: 8, cursor: 'pointer', padding: '6px 14px',
                           fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
                           color: 'var(--neutral-600)',
@@ -1723,7 +1723,7 @@ function PersonasPageInner() {
                         whole box match the chart card's height — the agent
                         tile grows (flex: 1) to absorb the difference instead
                         of the StatTiles themselves being distorted taller. */}
-                    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 9, flexShrink: 0 }}>
                         <StatTile
                           label="Credits this month"

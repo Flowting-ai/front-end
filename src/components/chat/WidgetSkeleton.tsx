@@ -64,7 +64,7 @@ function ChartShape() {
   return (
     <div className={styles.card} style={{ padding: "16px 18px 14px" }}>
       <Skeleton width="38%" height={12} style={{ marginBottom: 14 }} />
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 160, borderBottom: "1px solid var(--neutral-200)" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 160, borderBottom: "1px solid var(--border-default)" }}>
         {heights.map((height, i) => (
           <div key={i} style={{ flex: 1, height: "100%", display: "flex", alignItems: "flex-end" }}>
             <Skeleton height={height} radius="4px 4px 0 0" />

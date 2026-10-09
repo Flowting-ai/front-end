@@ -64,13 +64,13 @@ function StepRow({ step }: { step: AgentStep }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
         <span style={{
           fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
+          fontSize:   '14px',
           color:      step.status === 'failed'
             ? 'var(--color-tag-Red-text)'
             : step.status === 'skipped'
               ? 'var(--neutral-400)'
               : 'var(--neutral-700)',
-          lineHeight: 'var(--line-height-caption)',
+          lineHeight: '22px',
           textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
         }}>
           {step.label}
@@ -129,7 +129,7 @@ export function LoopHistoryCard({
 
   return (
     <div style={{
-      backgroundColor: 'var(--neutral-white)',
+      backgroundColor: 'var(--card-bg)',
       borderRadius:    12,
       padding:         '14px 16px',
       boxShadow:       CARD_SHADOW,
@@ -165,10 +165,10 @@ export function LoopHistoryCard({
 
         <span style={{
           fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
+          fontSize:   '14px',
           fontWeight: 'var(--font-weight-medium)',
           color:      (status && TITLE_COLOR[status]) ?? 'var(--neutral-500)',
-          lineHeight: 'var(--line-height-caption)',
+          lineHeight: '22px',
         }}>
           {title}
         </span>
@@ -178,9 +178,9 @@ export function LoopHistoryCard({
           {steps.length > 0 && (
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
+              fontSize:   '14px',
               color:      'var(--color-tag-Green-text)',
-              lineHeight: 'var(--line-height-caption)',
+              lineHeight: '22px',
             }}>
               {completedCount} done
             </span>
@@ -188,9 +188,9 @@ export function LoopHistoryCard({
           {skippedCount > 0 && (
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
+              fontSize:   '14px',
               color:      'var(--neutral-400)',
-              lineHeight: 'var(--line-height-caption)',
+              lineHeight: '22px',
             }}>
               · {skippedCount} skipped
             </span>
@@ -198,9 +198,9 @@ export function LoopHistoryCard({
           {failedCount > 0 && (
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
+              fontSize:   '14px',
               color:      'var(--color-tag-Red-text)',
-              lineHeight: 'var(--line-height-caption)',
+              lineHeight: '22px',
             }}>
               · {failedCount} failed
             </span>
@@ -212,9 +212,9 @@ export function LoopHistoryCard({
         {timeLabel && (
           <span style={{
             fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
+            fontSize:   '14px',
             color:      'var(--neutral-300)',
-            lineHeight: 'var(--line-height-caption)',
+            lineHeight: '22px',
             flexShrink: 0,
           }}>
             {timeLabel}
@@ -260,8 +260,8 @@ export function LoopHistoryCard({
                   style={{
                     marginBottom:      4,
                     overflowWrap:      'anywhere',
-                    '--prose-size-body': 'var(--font-size-caption)',
-                    '--prose-line-body': 'var(--line-height-caption)',
+                    '--prose-size-body': '12px',
+                    '--prose-line-body': '18px',
                     '--prose-text':      status === 'failed' ? 'var(--neutral-700)' : 'var(--neutral-500)',
                     '--prose-measure':   'none',
                   } as React.CSSProperties}
@@ -282,9 +282,9 @@ export function LoopHistoryCard({
                       padding:     0,
                       cursor:      'pointer',
                       fontFamily:  'var(--font-body)',
-                      fontSize:    'var(--font-size-caption)',
+                      fontSize:    '14px',
                       fontWeight:  'var(--font-weight-medium)',
-                      lineHeight:  'var(--line-height-caption)',
+                      lineHeight:  '22px',
                       color:       'var(--neutral-400)',
                     }}
                   >
@@ -299,7 +299,7 @@ export function LoopHistoryCard({
                       borderRadius:    8,
                       backgroundColor: 'var(--neutral-50)',
                       fontFamily:      'var(--font-mono, ui-monospace, monospace)',
-                      fontSize:        11,
+                      fontSize:        13,
                       lineHeight:      1.5,
                       color:           'var(--neutral-600)',
                       whiteSpace:      'pre-wrap',

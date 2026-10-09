@@ -66,7 +66,7 @@ export function PermissionPromptCard({
       gap:             12,
       padding:         '16px',
       borderRadius:    16,
-      border:          '1px solid var(--neutral-200)',
+      border:          '1px solid var(--border-default)',
       backgroundColor: 'var(--color-surface-glass)',
       boxShadow:       'var(--shadow-card-default)',
       maxWidth:        480,

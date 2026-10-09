@@ -119,7 +119,7 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
             </div>
 
             {/* Form container */}
-            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
               {/* Row 1: Work email + Full name */}
               <div style={{ display: 'flex', gap: 12 }}>

@@ -111,7 +111,7 @@ export default function SouvenirSlackPage() {
       fluid
     >
       {!orgReady || statusLoading ? (
-        <div className="kaya-skeleton" style={{ width: '100%', height: 320, borderRadius: 16 }} />
+        <div className="kaya-skeleton" style={{ width: '100%', height: 556, borderRadius: 16 }} />
       ) : !isAdmin ? (
         <SlackAdminOnly />
       ) : !connected ? (

@@ -79,8 +79,8 @@ export function ScheduleCard({
       : 'var(--card-bg)'
 
   const boxShadow = focused
-    ? 'var(--shadow-card-deep), 0px 0px 0px 2px var(--blue-300)'
-    : 'var(--shadow-card-deep), 0px 0px 0px 1px var(--neutral-100)'
+    ? '0px 1px 3px 0px rgba(82, 75, 71, 0.08), 0px 0px 0px 2px var(--blue-300)'
+    : '0px 1px 3px 0px rgba(82, 75, 71, 0.08), 0px 0px 0px 1px var(--border-default)'
 
   return (
     <button
@@ -93,7 +93,7 @@ export function ScheduleCard({
       style={{
         display:         'flex',
         flexDirection:   'column',
-        height:          '220px',
+        height:          '240px',
         overflow:        'hidden',
         padding:         '20px',
         boxSizing:       'border-box',
@@ -115,7 +115,7 @@ export function ScheduleCard({
             <span style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   400,
-              fontSize:     '11px',
+              fontSize:     '12px',
               lineHeight:   '16px',
               color:        'var(--neutral-500)',
               overflow:     'hidden',
@@ -157,12 +157,12 @@ export function ScheduleCard({
 
       {/* Description — 3 lines max, same clamp/height cap as ProjectCard's */}
       <p style={{
-        maxHeight:       '51px',
+        maxHeight:       '54px',
         flexShrink:      0,
         fontFamily:      'var(--font-body)',
         fontWeight:      'var(--font-weight-regular)',
-        fontSize:        '12px',
-        lineHeight:      '17px',
+        fontSize:        '13px',
+        lineHeight:      '18px',
         color:           'var(--neutral-500)',
         overflow:        'hidden',
         textOverflow:    'ellipsis',
@@ -182,14 +182,14 @@ export function ScheduleCard({
       <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)', flexShrink: 0 }} />
 
       {/* Footer — frequency, icon + text (same meta-row style as ProjectCard's member/chat counts) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: '10px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, flexShrink: 0, marginTop: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--neutral-400)', minWidth: 0 }}>
           <CalendarThreeIcon size={14} />
           <span style={{
             fontFamily:   'var(--font-body)',
             fontWeight:   400,
-            fontSize:     '12px',
-            lineHeight:   '16px',
+            fontSize:     '13px',
+            lineHeight:   '18px',
             color:        'var(--neutral-500)',
             overflow:     'hidden',
             textOverflow: 'ellipsis',
@@ -199,25 +199,19 @@ export function ScheduleCard({
           </span>
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, marginTop: 4 }}>
         {/* Run stats — omitted entirely until the schedule has actually fired
             at least once, rather than showing a misleading "0 runs". */}
         {!!runCount && (
-          <>
-            <span style={{ width: 1, height: 12, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
-            <span style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   400,
-              fontSize:     '12px',
-              lineHeight:   '16px',
-              color:        'var(--neutral-500)',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}>
-              {runCount} {runCount === 1 ? 'run' : 'runs'}
-              {successRate != null && ` · ${Math.round(successRate * 100)}% success`}
-            </span>
-          </>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <Badge color="Neutral" label={`${runCount} ${runCount === 1 ? 'run' : 'runs'}`} />
+            {successRate != null && (
+              <Badge
+                color={successRate >= 0.8 ? 'Green' : successRate >= 0.5 ? 'Yellow' : 'Red'}
+                label={`${Math.round(successRate * 100)}% success`}
+              />
+            )}
+          </div>
         )}
 
         {connectors.length > 0 && (
@@ -228,12 +222,13 @@ export function ScheduleCard({
               <ConnectorGlyph key={connector.slug} slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
             ))}
             {connectors.length > MAX_CARD_CONNECTORS && (
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: '18px', color: 'var(--neutral-500)' }}>
                 +{connectors.length - MAX_CARD_CONNECTORS}
               </span>
             )}
           </div></Tooltip>
         )}
+        </div>
       </div>
     </button>
   )

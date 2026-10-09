@@ -1993,7 +1993,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       pointerEvents: "none",
                     }} />
                     <div style={{ display: "flex", flex: 1, gap: 12, alignItems: "center", minWidth: 0 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 4, border: "1px dashed var(--neutral-200)", flexShrink: 0 }} />
+                      <div style={{ width: 44, height: 44, borderRadius: 4, border: "1px dashed var(--border-default)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                         <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
                           Empty Slot {i + 1}

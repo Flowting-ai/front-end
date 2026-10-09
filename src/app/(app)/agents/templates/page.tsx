@@ -200,8 +200,14 @@ function RecommendedGrid({
 }) {
   if (!recommendation) {
     return (
-      <div role="status" aria-live="polite" style={GRID_STYLE}>
-        {[0, 1, 2].map(i => <div key={i} className="kaya-skeleton" style={{ height: CARD_HEIGHT, borderRadius: 15 }} />)}
+      // Same shape as the loaded state: the 22px hint line over the card grid.
+      <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>
+          <div className="kaya-skeleton" style={{ width: 'min(100%, 620px)', height: 14, borderRadius: 4 }} />
+        </div>
+        <div style={GRID_STYLE}>
+          {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="kaya-skeleton" style={{ width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 15 }} />)}
+        </div>
       </div>
     )
   }

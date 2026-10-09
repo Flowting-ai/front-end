@@ -329,7 +329,7 @@ function ConfirmModal({
           maxWidth:        'calc(100vw - 32px)',
           borderRadius:    20,
           backgroundColor: 'var(--modal-bg)',
-          border:          '1px solid var(--neutral-200)',
+          border:          '1px solid var(--border-default)',
           boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
         }}
@@ -611,7 +611,7 @@ function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () =
           maxHeight:       'calc(100vh - 64px)',
           borderRadius:    20,
           backgroundColor: 'var(--legacy-f9f5f1)',
-          border:          '1px solid var(--neutral-200)',
+          border:          '1px solid var(--border-default)',
           boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
@@ -787,7 +787,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
           maxHeight:       'calc(100vh - 64px)',
           borderRadius:    20,
           backgroundColor: 'var(--modal-bg)',
-          border:          '1px solid var(--neutral-200)',
+          border:          '1px solid var(--border-default)',
           boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
           overflow:        'hidden',
           display:         'flex',
@@ -898,7 +898,7 @@ function MembersPageSkeleton() {
         </div>
 
         {/* Stats row */}
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, padding: 12, display: 'flex', gap: 9 }}>
+        <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, padding: 12, display: 'flex', gap: 9 }}>
           {[0, 1, 2].map(i => (
             <div key={i} style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
               <SkeletonBlock width={90} height={13} radius={4} />
@@ -909,7 +909,7 @@ function MembersPageSkeleton() {
         </div>
 
         {/* Members table skeleton */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
+        <div style={{ borderRadius: 16, border: '1px solid var(--border-default)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
           {/* Toolbar — title left, search icon button + "Invite members" button right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={120} height={16} radius={4} />
@@ -1224,7 +1224,7 @@ export default function OrgMembersPage() {
 
         {/* Stats row */}
         <div style={{
-          border:       '1px solid var(--neutral-200)',
+          border:       '1px solid var(--border-default)',
           borderRadius: 16,
           boxShadow:    SHADOW_CARD,
           padding:      12,

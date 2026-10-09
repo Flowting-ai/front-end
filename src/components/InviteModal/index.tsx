@@ -425,7 +425,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           flexDirection: 'column',
           gap:           16,
           padding:       14,
-          border:        '1px solid var(--neutral-200)',
+          border:        '1px solid var(--border-default)',
           borderRadius:  14,
         }}>
 

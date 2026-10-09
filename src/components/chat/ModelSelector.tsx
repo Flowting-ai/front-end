@@ -262,7 +262,7 @@ export function ModelSelector({
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "16px 20px",
-                borderBottom: "1px solid var(--neutral-200)",
+                borderBottom: "1px solid var(--border-default)",
               }}
             >
               <h2
@@ -306,7 +306,7 @@ export function ModelSelector({
                   gap: "8px",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--neutral-200)",
+                  border: "1px solid var(--border-default)",
                   backgroundColor: "var(--field-surface)",
                 }}
               >

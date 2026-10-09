@@ -70,7 +70,7 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
         position: "relative",
         borderRadius: "10px",
         overflow: "hidden",
-        border: "1px solid var(--neutral-200)",
+        border: "1px solid var(--border-default)",
         maxWidth: "320px",
       }}
     >

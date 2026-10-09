@@ -264,7 +264,7 @@ export function AppLayout({
               gap:             "2px",
               padding:         usesTightCard ? "3px" : "12px",
               borderRadius:    "22px",
-              border:          "1px solid var(--neutral-200)",
+              border:          "1px solid var(--border-default)",
               backgroundColor: "var(--color-surface-container)",
               overflow:        "hidden",
               isolation:       "isolate",

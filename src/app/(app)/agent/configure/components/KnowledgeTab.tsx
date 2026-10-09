@@ -221,7 +221,7 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                 top: 36,
                 right: 0,
                 backgroundColor: "var(--neutral-white)",
-                border: "1px solid var(--neutral-200)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 8,
                 boxShadow: "0px 4px 12px color-mix(in srgb, var(--static-black) 10%, transparent)",
                 zIndex: 5,

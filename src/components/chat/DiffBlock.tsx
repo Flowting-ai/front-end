@@ -41,7 +41,7 @@ export function DiffBlock({ code }: { code: string }) {
         position:     "relative",
         margin:       "12px 0",
         borderRadius: 8,
-        border:       "1px solid var(--neutral-200)",
+        border:       "1px solid var(--border-default)",
         background:   "var(--neutral-white)",
         overflow:     "hidden",
       }}
@@ -58,7 +58,7 @@ export function DiffBlock({ code }: { code: string }) {
           alignItems:      "center",
           padding:         6,
           borderRadius:    6,
-          border:          "1px solid var(--neutral-200)",
+          border:          "1px solid var(--border-default)",
           backgroundColor: "var(--neutral-white)",
           color:           "var(--neutral-500)",
           cursor:          "pointer",

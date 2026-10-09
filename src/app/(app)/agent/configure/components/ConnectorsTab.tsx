@@ -321,7 +321,7 @@ export default function ConnectorsTab({
           </p>
           <button
             onClick={() => void load()}
-            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--neutral-white)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)' }}
+            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-default)', backgroundColor: 'var(--neutral-white)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)' }}
           >
             Retry
           </button>

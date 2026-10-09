@@ -114,7 +114,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
 function SecurityCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      border:       '1px solid var(--neutral-200)',
+      border:       '1px solid var(--border-default)',
       borderRadius: 16,
       boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
       overflow:     'hidden',

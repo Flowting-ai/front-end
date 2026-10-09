@@ -109,7 +109,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         width:           14,
         height:          14,
         borderRadius:    '50%',
-        backgroundColor: 'var(--neutral-white)',
+        backgroundColor: 'var(--card-bg)',
         transition:      'left 0.15s ease',
       }} />
     </button>
@@ -140,61 +140,115 @@ export function ScheduleDetailView({
 
   const history = schedule.runHistory ?? []
 
-  return (
-    <div style={{
-      display:       'flex',
-      flexDirection: 'column',
-      gap:           24,
-      padding:       '32px 0',
-      width:         '100%',
-    }}>
+  const nextOrLast = schedule.nextRun && isActive
+    ? { label: 'Next run', value: schedule.nextRun }
+    : schedule.lastRun
+      ? { label: 'Last run', value: schedule.lastRun }
+      : { label: isActive ? 'Next run' : 'Last run', value: '—' }
 
-      {/* ── Top bar ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <IconButton
-          variant="ghost"
-          aria-label="Back"
-          icon={<ArrowLeftOneIcon />}
-          onClick={onBack}
-        />
-        <span style={{
-          flex:         '1 0 0',
-          minWidth:     0,
-          fontFamily:   'var(--font-body)',
-          fontSize:     'var(--font-size-body-lg)',
-          fontWeight:   'var(--font-weight-semibold)',
-          lineHeight:   'var(--line-height-body-lg)',
-          color:        'var(--neutral-900)',
-          overflow:     'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace:   'nowrap',
-        }}>
-          {schedule.name}
+  const cardStyle: React.CSSProperties = {
+    borderRadius:    12,
+    border:          '1px solid var(--border-default)',
+    backgroundColor: 'var(--card-bg)',
+    overflow:        'hidden',
+  }
+  const sectionTitle: React.CSSProperties = {
+    margin:     0,
+    fontFamily: 'var(--font-body)',
+    fontSize:   'var(--font-size-body-lg)',
+    fontWeight: 'var(--font-weight-semibold)',
+    lineHeight: 'var(--line-height-body-lg)',
+    color:      'var(--neutral-900)',
+  }
+  const labelStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-body)',
+    fontSize:   '12px',
+    lineHeight: '16px',
+    color:      'var(--neutral-500)',
+  }
+  const valueStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-body)',
+    fontSize:   'var(--font-size-body)',
+    lineHeight: 'var(--line-height-body)',
+    color:      'var(--neutral-800)',
+  }
+
+  const stats = [nextOrLast]
+
+  type DetailRow = { key: string; label: string; node: React.ReactNode }
+  const rows: DetailRow[] = []
+  if (!readOnly) {
+    rows.push({
+      key: 'status', label: 'Status',
+      node: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={valueStyle}>{isActive ? 'Active' : 'Paused'}</span>
+          <Toggle checked={isActive} onChange={handleToggle} />
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      ),
+    })
+  }
+  rows.push({ key: 'frequency', label: 'Frequency', node: <span style={{ ...valueStyle, textAlign: 'right' }}>{schedule.frequency}</span> })
+  if (schedule.ownerName) {
+    rows.push({ key: 'owner', label: 'Owner', node: <span style={valueStyle}>{schedule.ownerName}</span> })
+  }
+  if (schedule.connectors?.length) {
+    rows.push({
+      key: 'connectors', label: 'Connectors',
+      node: (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {schedule.connectors.map(connector => (
+            <span key={connector.slug} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ConnectorGlyph slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
+              <span style={valueStyle}>{connector.name}</span>
+            </span>
+          ))}
+        </div>
+      ),
+    })
+  }
+  if (schedule.createdAt) {
+    rows.push({ key: 'created', label: 'Created', node: <span style={valueStyle}>{schedule.createdAt}</span> })
+  }
+  if (schedule.chatId && onOpenChat) {
+    const chatId = schedule.chatId
+    rows.push({
+      key: 'chat', label: 'Linked chat',
+      node: (
+        <button
+          type="button"
+          onClick={() => onOpenChat(chatId)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+            ...valueStyle, textDecoration: 'underline',
+          }}
+        >
+          Open chat
+          <ArrowRightOneIcon size={12} />
+        </button>
+      ),
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 0 32px', width: '100%' }}>
+
+      {/* ── Back + actions ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Button variant="ghost" size="sm" leftIcon={<ArrowLeftOneIcon />} onClick={onBack}>
+          Schedules
+        </Button>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {readOnly ? (
-            <Button
-              variant="default"
-              size="sm"
-              leftIcon={<CopyOneIcon />}
-              loading={copying}
-              disabled={copying}
-              onClick={onCopy}
-            >
+            <Button variant="default" size="sm" leftIcon={<CopyOneIcon />} loading={copying} disabled={copying} onClick={onCopy}>
               Copy
             </Button>
           ) : (
             <>
               <IconButton variant="ghost" aria-label="Edit schedule"   icon={<PenOneIcon />}    onClick={onEdit}   />
               <IconButton variant="ghost" aria-label="Delete schedule" icon={<DeleteTwoIcon />} onClick={onDelete} />
-              <Button
-                variant="default"
-                size="sm"
-                rightIcon={<ArrowRightOneIcon />}
-                loading={runningNow}
-                disabled={runningNow}
-                onClick={onRunNow}
-              >
+              <Button variant="default" size="sm" rightIcon={<ArrowRightOneIcon />} loading={runningNow} disabled={runningNow} onClick={onRunNow}>
                 Run now
               </Button>
             </>
@@ -202,67 +256,33 @@ export function ScheduleDetailView({
         </div>
       </div>
 
-      {/* ── Status strip ── */}
-      <div style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             12,
-        padding:         '12px 16px',
-        borderRadius:    12,
-        border:          '1px solid var(--neutral-200)',
-        backgroundColor: 'var(--neutral-white)',
-        flexWrap:        'wrap',
-      }}>
-        {!readOnly && <Toggle checked={isActive} onChange={handleToggle} />}
-
-        <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
-
-        {schedule.isRunning && <Badge color="Blue" label="Running now" />}
-
-        <span style={{ width: 1, height: 14, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
-
-        {schedule.nextRun && isActive ? (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}>
-            Next run: <strong style={{ color: 'var(--neutral-700)', fontWeight: 'var(--font-weight-medium)' }}>{schedule.nextRun}</strong>
-          </span>
-        ) : schedule.lastRun && (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}>
-            Last run: <strong style={{ color: 'var(--neutral-700)', fontWeight: 'var(--font-weight-medium)' }}>{schedule.lastRun}</strong>
-          </span>
-        )}
-
-        {!!schedule.runCount && (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}>
-            {schedule.runCount} {schedule.runCount === 1 ? 'run' : 'runs'}
-            {schedule.successRate != null && ` · ${Math.round(schedule.successRate * 100)}% success`}
-          </span>
-        )}
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ lineHeight: 0 }}>
-            <CalendarThreeIcon size={12} color="var(--neutral-400)" />
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}>
+      {/* ── Title block ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h1 style={{
+          margin:       0,
+          fontFamily:   'var(--font-title)',
+          fontSize:     '28px',
+          fontWeight:   'var(--font-weight-medium)',
+          lineHeight:   '36px',
+          color:        'var(--neutral-900)',
+          overflowWrap: 'anywhere',
+        }}>
+          {schedule.name}
+        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
+          {schedule.isRunning && <Badge color="Blue" label="Running now" />}
+          {!!schedule.runCount && (
+            <Badge color="Neutral" label={`${schedule.runCount} ${schedule.runCount === 1 ? 'run' : 'runs'}`} />
+          )}
+          {schedule.successRate != null && (
+            <Badge
+              color={schedule.successRate >= 0.8 ? 'Green' : schedule.successRate >= 0.5 ? 'Yellow' : 'Red'}
+              label={`${Math.round(schedule.successRate * 100)}% success`}
+            />
+          )}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...valueStyle, color: 'var(--neutral-600)' }}>
+            <CalendarThreeIcon size={14} color="var(--neutral-500)" />
             {schedule.frequency}
           </span>
         </div>
@@ -270,9 +290,7 @@ export function ScheduleDetailView({
 
       {/* ── Drift warning — the deployed timer disagrees with what's stored,
           e.g. an edit that silently failed to redeploy (services/automations/
-          schedule.py's `drift` flag). Surfaced explicitly rather than left
-          invisible, since otherwise a schedule can silently run on its old
-          cadence after being "changed". ── */}
+          schedule.py's `drift` flag). ── */}
       {schedule.drift && (
         <div style={{
           display:         'flex',
@@ -283,235 +301,122 @@ export function ScheduleDetailView({
           backgroundColor: 'var(--yellow-50)',
           boxShadow:       '0px 0px 0px 1px var(--yellow-200, #fef08a)',
         }}>
-          <AlertTwoIcon size={16} color="var(--yellow-600)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-700)' }}>
+          <AlertTwoIcon size={16} color="var(--yellow-600)" style={{ flexShrink: 0, marginTop: 2 }} />
+          <p style={{ margin: 0, ...valueStyle, fontSize: '13px', lineHeight: '20px', color: 'var(--neutral-700)' }}>
             This schedule's last change may not have fully synced — the timer that's actually running could still be on the old cadence. Try editing and saving it again.
           </p>
         </div>
       )}
 
-      {/* ── Instructions card ── */}
-      <div style={{
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             0,
-        borderRadius:    12,
-        border:          '1px solid var(--neutral-200)',
-        overflow:        'hidden',
-        backgroundColor: 'var(--neutral-white)',
-      }}>
-        <div style={{
-          padding:      '12px 16px',
-          borderBottom: '1px solid var(--neutral-200)',
-        }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-700)',
-          }}>
-            What it does
-          </span>
-        </div>
-
-        <div style={{ padding: '16px' }}>
-          {/* Through MarkdownRenderer (same one every chat message uses)
-              instead of a raw <p> — this text is AI-generated (the
-              automation's own summary), so a URL in it should be an actual
-              clickable link, not inert text. --prose-* overrides keep it at
-              this card's normal body size/color rather than MarkdownRenderer's
-              default full chat-prose size. */}
-          <div style={{
-            '--prose-size-body': 'var(--font-size-body)',
-            '--prose-line-body': 'var(--line-height-body)',
-            '--prose-text':      'var(--neutral-700)',
-            '--prose-measure':   'none',
-          } as React.CSSProperties}>
-            <MarkdownRenderer content={schedule.instructions} />
+      {/* ── Stat tiles ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        {stats.map(stat => (
+          <div key={stat.label} style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={labelStyle}>{stat.label}</span>
+            <span style={{ ...valueStyle, fontSize: 'var(--font-size-body-lg)', fontWeight: 'var(--font-weight-medium)', color: 'var(--neutral-900)' }}>
+              {stat.value}
+            </span>
           </div>
-        </div>
-
-        <div style={{
-          padding:       '12px 16px',
-          borderTop:     '1px solid var(--neutral-100)',
-          display:       'flex',
-          flexDirection: 'column',
-          gap:           6,
-        }}>
-          {schedule.ownerName && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                color:      'var(--neutral-400)',
-              }}>
-                Owner
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                lineHeight: 'var(--line-height-body)',
-                color:      'var(--neutral-700)',
-              }}>
-                {schedule.ownerName}
-              </span>
-            </div>
-          )}
-          {!!schedule.connectors?.length && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                color:      'var(--neutral-400)',
-              }}>
-                Connectors
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
-                {schedule.connectors.map(connector => (
-                  <span key={connector.slug} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <ConnectorGlyph slug={connector.slug} name={connector.name} logoUrl={connector.logoUrl} size={16} />
-                    <span style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize:   'var(--font-size-body)',
-                      lineHeight: 'var(--line-height-body)',
-                      color:      'var(--neutral-700)',
-                    }}>
-                      {connector.name}
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {schedule.createdAt && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                color:      'var(--neutral-400)',
-              }}>
-                Created
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                lineHeight: 'var(--line-height-body)',
-                color:      'var(--neutral-700)',
-              }}>
-                {schedule.createdAt}
-              </span>
-            </div>
-          )}
-          {schedule.chatId && onOpenChat && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                color:      'var(--neutral-400)',
-              }}>
-                Linked chat
-              </span>
-              <button
-                type="button"
-                onClick={() => onOpenChat(schedule.chatId!)}
-                style={{
-                  display:         'inline-flex',
-                  alignItems:      'center',
-                  gap:             4,
-                  border:          'none',
-                  background:      'transparent',
-                  padding:         0,
-                  cursor:          'pointer',
-                  fontFamily:      'var(--font-body)',
-                  fontSize:        'var(--font-size-body)',
-                  lineHeight:      'var(--line-height-body)',
-                  color:           'var(--neutral-700)',
-                  textDecoration:  'underline',
-                }}
-              >
-                Open chat
-                <ArrowRightOneIcon size={12} />
-              </button>
-            </div>
-          )}
-        </div>
+        ))}
       </div>
 
-      {/* ── Run history — the owner's alone; its answers can hold their data ── */}
-      {!readOnly && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-700)',
-          }}>
-            Run history
-          </span>
-          {history.length > 0 && (
-            <Badge color="Neutral" label={String(history.length)} />
+      {/* ── Two columns: what it does + history | details ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 24, alignItems: 'start' }}>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h2 style={sectionTitle}>What it does</h2>
+            <div style={{ ...cardStyle, padding: 16 }}>
+              {/* MarkdownRenderer so URLs in the AI-written summary are real
+                  links; --prose-* keep it at this card's body size/colour. */}
+              <div style={{
+                '--prose-size-body': 'var(--font-size-body)',
+                '--prose-line-body': 'var(--line-height-body)',
+                '--prose-text':      'var(--neutral-700)',
+                '--prose-measure':   'none',
+              } as React.CSSProperties}>
+                <MarkdownRenderer content={schedule.instructions} />
+              </div>
+            </div>
+          </section>
+
+          {/* Run history — the owner's alone; its answers can hold their data */}
+          {!readOnly && (
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h2 style={sectionTitle}>Run history</h2>
+                {history.length > 0 && <Badge color="Neutral" label={String(history.length)} />}
+              </div>
+
+              {history.length === 0 ? (
+                <div style={{ ...cardStyle, padding: '32px 24px', textAlign: 'center', ...valueStyle, color: 'var(--neutral-500)' }}>
+                  No runs yet
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {history.map(run => (
+                    <div key={run.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <LoopHistoryCard
+                        steps={run.steps}
+                        completedAt={run.completedAt}
+                        runLabel={run.label}
+                        title={run.title}
+                        status={run.status}
+                        summary={run.summary}
+                        detail={run.detail}
+                      />
+                      {run.onViewThread && (
+                        <button
+                          type="button"
+                          onClick={run.onViewThread}
+                          style={{
+                            display:    'inline-flex',
+                            alignItems: 'center',
+                            gap:        3,
+                            alignSelf:  'flex-end',
+                            background: 'none',
+                            border:     'none',
+                            padding:    '2px 4px',
+                            cursor:     'pointer',
+                            fontFamily: 'var(--font-body)',
+                            fontSize:   '13px',
+                            fontWeight: 'var(--font-weight-medium)',
+                            lineHeight: '20px',
+                            color:      'var(--neutral-500)',
+                          }}
+                        >
+                          View full thread
+                          <ArrowRightOneIcon size={12} color="var(--neutral-500)" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
         </div>
 
-        {history.length === 0 ? (
-          <div style={{
-            padding:         '32px 24px',
-            textAlign:       'center',
-            fontFamily:      'var(--font-body)',
-            fontSize:        'var(--font-size-body)',
-            lineHeight:      'var(--line-height-body)',
-            color:           'var(--neutral-300)',
-            borderRadius:    12,
-            border:          '1px solid var(--neutral-200)',
-            backgroundColor: 'var(--neutral-white)',
-          }}>
-            No runs yet
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {history.map(run => (
-              <div key={run.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <LoopHistoryCard
-                  steps={run.steps}
-                  completedAt={run.completedAt}
-                  runLabel={run.label}
-                  title={run.title}
-                  status={run.status}
-                  summary={run.summary}
-                  detail={run.detail}
-                />
-                {run.onViewThread && (
-                  <button
-                    type="button"
-                    onClick={run.onViewThread}
-                    style={{
-                      display:         'inline-flex',
-                      alignItems:      'center',
-                      gap:             3,
-                      alignSelf:       'flex-end',
-                      background:      'none',
-                      border:          'none',
-                      padding:         '2px 4px',
-                      cursor:          'pointer',
-                      fontFamily:      'var(--font-body)',
-                      fontSize:        'var(--font-size-caption)',
-                      fontWeight:      'var(--font-weight-medium)',
-                      lineHeight:      'var(--line-height-caption)',
-                      color:           'var(--neutral-400)',
-                    }}
-                  >
-                    View full thread
-                    <ArrowRightOneIcon size={12} color="var(--neutral-400)" />
-                  </button>
-                )}
+        {/* Details */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+          <h2 style={sectionTitle}>Details</h2>
+          <div style={{ ...cardStyle, padding: '4px 16px', display: 'flex', flexDirection: 'column' }}>
+            {rows.map((row, i) => (
+              <div key={row.key} style={{
+                display:        'flex',
+                justifyContent: 'space-between',
+                alignItems:     'center',
+                gap:            16,
+                padding:        '12px 0',
+                borderTop:      i === 0 ? 'none' : '1px solid var(--neutral-100)',
+              }}>
+                <span style={labelStyle}>{row.label}</span>
+                {row.node}
               </div>
             ))}
           </div>
-        )}
-      </div>}
-
+        </aside>
+      </div>
     </div>
   )
 }

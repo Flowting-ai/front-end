@@ -312,7 +312,7 @@ export function EnhancePromptField(
       borderWidth:     1.5,
     } : {
       backgroundColor: 'var(--field-surface)',
-      borderColor:     'var(--neutral-200)',
+      borderColor:     'var(--border-default)',
       borderWidth:     1,
     }
 

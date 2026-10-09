@@ -10,7 +10,7 @@ import { useAuth } from '@/context/auth-context'
 const C = {
   ink:    'var(--neutral-900)',
   muted:  'var(--neutral-600)',
-  border: 'var(--neutral-200)',
+  border: 'var(--border-default)',
   hair:   'var(--neutral-100)',
   white:  'var(--card-bg)',
 } as const
@@ -113,10 +113,53 @@ export default function UsagePage() {
   }, [])
 
   if (!usage) {
+    // Mirrors the loaded page: heading block, "Personal summary" card (239px) and
+    // "This period's usage" card (360px) with its three category rows.
+    const bone = (w: number | string, h: number, r = 6, extra: React.CSSProperties = {}) => (
+      <div className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
+    )
+    const card = (h: number, children: React.ReactNode) => (
+      <div style={{ height: h, boxSizing: 'border-box', borderRadius: 16, border: '1px solid var(--border-default)', boxShadow: SECTION_SHADOW, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+    )
+    const cardHead = (w: number) => (
+      <div style={{ height: 72, boxSizing: 'border-box', padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', flexShrink: 0 }}>
+        <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(w, 16)}</div>
+      </div>
+    )
     return (
-      <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', padding: '64px 24px 48px' }}>
-        <div style={{ width: '100%', maxWidth: 860 }} aria-busy>
-          <div style={{ height: 120, borderRadius: 16, backgroundColor: C.hair }} />
+      <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
+        <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }} aria-busy>
+          <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+            <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{bone(90, 24)}</div>
+            <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(380, 14, 4)}</div>
+          </div>
+
+          {card(239, <>
+            {cardHead(130)}
+            <div style={{ padding: '12px 24px 16px' }}>
+              <div style={{ height: 128, boxSizing: 'border-box', padding: 12, borderRadius: 8, boxShadow: CARD_RING, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 22 }}>{bone(80, 14, 4)}{bone(140, 14, 4)}</div>
+                <div style={{ height: 34, display: 'flex', alignItems: 'center' }}>{bone(190, 24)}</div>
+                {bone('100%', 4, 2)}
+                <div style={{ display: 'flex', gap: 6 }}>{bone(54, 20)}{bone(90, 20)}{bone(76, 20)}</div>
+              </div>
+            </div>
+          </>)}
+
+          {card(360, <>
+            {cardHead(150)}
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ height: 73, boxSizing: 'border-box', padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>{bone(90 + i * 10, 14, 4)}{bone(170, 12, 4)}</div>
+                  {bone(70, 14, 4)}
+                </div>
+                {bone('100%', 4, 2)}
+              </div>
+            ))}
+          </>)}
         </div>
       </div>
     )

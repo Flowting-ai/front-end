@@ -19,7 +19,7 @@ export function AgentPageShell({
       className="kaya-scrollbar"
       style={{
         background:     'var(--color-surface-container)',
-        border:         '1px solid var(--neutral-200)',
+        border:         '1px solid var(--border-default)',
         borderRadius:   22,
         flex:           '1 0 0',
         display:        'flex',

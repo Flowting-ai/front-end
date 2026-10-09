@@ -1759,7 +1759,7 @@ function PersonaConfigureInstructionsContent() {
                     {exampleConversations.map((conv) => (
                       <div
                         key={conv.id}
-                        style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', position: 'relative' }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', position: 'relative' }}
                       >
                         <button
                           onClick={() => handleRemoveConversation(conv.id)}

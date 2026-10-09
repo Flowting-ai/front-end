@@ -387,7 +387,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 backgroundColor: 'var(--neutral-white)',
-                border: '1px solid var(--neutral-200)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 10,
                 padding: '8px 7px',
                 height: 46,
@@ -474,7 +474,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 <div
                   style={{
                     backgroundColor: 'var(--field-surface)',
-                    border: '1px solid var(--neutral-200)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 8,
                     padding: 7,
                     display: 'flex',
@@ -568,7 +568,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 display: 'flex',
                 alignItems: 'center',
                 backgroundColor: 'var(--field-surface)',
-                border: '1px solid var(--neutral-200)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 10,
                 padding: '8px 12px',
                 height: 46,
@@ -600,7 +600,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           <div
             style={{
               backgroundColor: 'var(--field-surface)',
-              border: '1px solid var(--neutral-200)',
+              border: '1px solid var(--border-default)',
               borderRadius: 10,
               padding: '8px 12px',
               height: 46,

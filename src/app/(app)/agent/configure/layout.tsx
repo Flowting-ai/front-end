@@ -396,7 +396,7 @@ function PersonaPanelIsland() {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
             >
-              <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isActive ? '#6e98cb' : 'var(--neutral-100)', boxShadow: isActive ? '0 0 0 1px rgba(110,152,203,0.5)' : '0 0 0 1px var(--neutral-200)', marginTop: 1, transition: 'background-color 150ms' }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isActive ? '#6e98cb' : 'var(--neutral-100)', boxShadow: isActive ? '0 0 0 1px rgba(110,152,203,0.5)' : '0 0 0 1px var(--border-default)', marginTop: 1, transition: 'background-color 150ms' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 11, lineHeight: '11px', display: 'block', textAlign: 'center', color: isActive ? 'white' : 'var(--neutral-500)', userSelect: 'none' }}>
                   {i + 1}
                 </span>
@@ -1068,7 +1068,7 @@ function TestChatExpandedOverlay() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 8, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
-        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
       >
         <TestChatPanelContent expanded />
       </m.div>
@@ -1093,7 +1093,7 @@ function AiSuggestExpandedOverlay() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 8, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
-        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+        style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px color-mix(in srgb, var(--static-black) 18%, transparent), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
       >
         <AiSuggestPanelContent expanded />
       </m.div>
@@ -1219,7 +1219,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
       }}
     >
       {/* Left configure panel (page content) with FloatingMenu + footer */}
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface-container)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface-container)', border: '1px solid var(--border-default)', borderRadius: 22, overflow: 'hidden' }}>
         {/* Scrollable content area */}
         <div style={{ flex: '1 0 0', minHeight: 0, position: 'relative' }}>
           {children}
@@ -1232,7 +1232,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
            position + zIndex so it reliably paints above in-page floating decorations
            (e.g. the Instructions tab's always-on slider value badge) that live earlier
            in the DOM but would otherwise compete at the same stacking level. */}
-        <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', borderTop: '1px solid var(--neutral-200)', paddingLeft: 12, paddingRight: 12 }}>
+        <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', borderTop: '1px solid var(--border-default)', paddingLeft: 12, paddingRight: 12 }}>
           <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center' }}>
             <PersonaHelpButton />
           </div>
@@ -1254,7 +1254,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             animate={{ width: 448, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
           >
             <TestChatPanelContent expanded={false} />
           </m.div>
@@ -1277,7 +1277,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             animate={{ width: 400, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
           >
             <AiSuggestPanelContent expanded={false} />
           </m.div>

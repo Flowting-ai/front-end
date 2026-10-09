@@ -487,9 +487,9 @@ function ChatsPageInner() {
         {chatsTab === 'shared' && !selectionMode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {sharedLoading && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+                  <Skeleton key={i} height={68} radius={12} style={{ opacity: 1 - i * 0.15 }} />
                 ))}
               </div>
             )}
@@ -537,9 +537,9 @@ function ChatsPageInner() {
         {chatsTab === 'archived' && !selectionMode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }} role="list" aria-label="Archived chats">
             {isLoading && chats.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+                  <Skeleton key={i} height={68} radius={12} style={{ opacity: 1 - i * 0.15 }} />
                 ))}
               </div>
             )}
@@ -569,9 +569,9 @@ function ChatsPageInner() {
 
         {/* ── Loading skeleton ─────────────────────────────────────────────── */}
         {isLoading && chats.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {[...Array(7)].map((_, i) => (
+              <Skeleton key={i} height={68} radius={12} style={{ opacity: 1 - i * 0.15 }} />
             ))}
           </div>
         )}

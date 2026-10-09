@@ -580,7 +580,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
               overflowX: "auto",
               margin: "12px 0",
               borderRadius: "8px",
-              border: "1px solid var(--neutral-200)",
+              border: "1px solid var(--border-default)",
             }}
           >
             <table
@@ -603,7 +603,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
                         fontWeight: 600,
                         fontSize: "13px",
                         color: "var(--neutral-700)",
-                        borderBottom: "1px solid var(--neutral-200)",
+                        borderBottom: "1px solid var(--border-default)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -686,7 +686,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
             key={k}
             style={{
               border: "none",
-              borderTop: "1px solid var(--neutral-200)",
+              borderTop: "1px solid var(--border-default)",
               margin: "16px 0",
             }}
           />
@@ -699,7 +699,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
             style={{
               margin: `0 0 ${blockGap}`,
               paddingLeft: "12px",
-              borderLeft: "2.5px solid var(--neutral-200)",
+              borderLeft: "2.5px solid var(--border-default)",
               color: "var(--neutral-600)",
               fontStyle: "italic",
               ...textStyle,

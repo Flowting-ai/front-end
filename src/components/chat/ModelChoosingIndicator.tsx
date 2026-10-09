@@ -30,7 +30,7 @@ export function ModelChoosingIndicator({
             padding: "6px 12px",
             borderRadius: "8px",
             backgroundColor: "var(--neutral-50)",
-            border: "1px solid var(--neutral-200)",
+            border: "1px solid var(--border-default)",
             marginBottom: "8px",
           }}
         >

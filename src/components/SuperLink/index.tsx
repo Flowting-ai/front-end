@@ -225,7 +225,7 @@ export function SuperLink(
                   alignItems:      'center',
                   justifyContent:  'space-between',
                   backgroundColor: 'var(--field-surface)',
-                  border:          '1px solid var(--neutral-200)',
+                  border:          '1px solid var(--border-default)',
                   borderRadius:    10,
                   height:          46,
                   padding:         '8px 7px',
@@ -379,7 +379,7 @@ export function SuperLink(
                 style={{
                   width:           96,
                   padding:         7,
-                  border:          '1px solid var(--neutral-200)',
+                  border:          '1px solid var(--border-default)',
                   borderRadius:    8,
                   fontFamily:      'var(--font-body)',
                   fontSize:        12,

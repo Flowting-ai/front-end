@@ -155,7 +155,7 @@ function SkeletonCard() {
       gap:             10,
       padding:         '12px 12px 16px',
       borderRadius:    16,
-      border:          '1px solid var(--neutral-200)',
+      border:          '1px solid var(--border-default)',
       backgroundColor: 'var(--neutral-white)',
       boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
     }}>
@@ -213,7 +213,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
         gap:             8,
         padding:         '12px 12px 16px',
         borderRadius:    16,
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         backgroundColor: 'var(--neutral-white)',
         boxShadow:       model.blocked
           ? '0px 2px 2.8px 0px rgba(82,75,71,0.06)'
@@ -500,7 +500,7 @@ export function AiModelsView() {
 
         {/* ── Search + filter ── */}
         <div style={{
-          border:        '1px solid var(--neutral-200)',
+          border:        '1px solid var(--border-default)',
           borderRadius:  16,
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:      'hidden',
@@ -552,7 +552,7 @@ export function AiModelsView() {
 
         {/* ── Models card ── */}
         <div style={{
-          border:        '1px solid var(--neutral-200)',
+          border:        '1px solid var(--border-default)',
           borderRadius:  16,
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:      'hidden',
@@ -624,7 +624,7 @@ export function AiModelsView() {
 
         {/* ── Info card ── */}
         <div style={{
-          border:          '1px solid var(--neutral-200)',
+          border:          '1px solid var(--border-default)',
           borderRadius:    16,
           boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:        'hidden',

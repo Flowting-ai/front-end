@@ -193,7 +193,7 @@ function AutomationRow({
                 <Button variant="outline" size="sm" loading={busy === 'run'} disabled={busy !== null} onClick={runNow}>
                   Run now
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => push(`${SCHEDULES_ROUTE}?selected=${automation.id}`)}>
+                <Button variant="ghost" size="sm" onClick={() => push(`${SCHEDULES_ROUTE}/${automation.id}`)}>
                   Open in Schedules
                 </Button>
                 <Button variant="danger" size="sm" disabled={busy !== null} onClick={onDelete}>

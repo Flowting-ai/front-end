@@ -240,7 +240,7 @@ const pinComponents: Components = {
         style={{
           margin: "2px 0",
           paddingLeft: 8,
-          borderLeft: "2px solid var(--neutral-200)",
+          borderLeft: "2px solid var(--border-default)",
           color: "var(--neutral-500)",
           fontStyle: "italic",
           fontSize: 12,
@@ -275,7 +275,7 @@ const pinComponents: Components = {
         style={{
           margin: "4px 0",
           border: "none",
-          borderTop: "1px solid var(--neutral-200)",
+          borderTop: "1px solid var(--border-default)",
         }}
       />
     );
@@ -288,7 +288,7 @@ const pinComponents: Components = {
           overflowX: "auto",
           margin: "4px 0",
           borderRadius: 4,
-          border: "1px solid var(--neutral-200)",
+          border: "1px solid var(--border-default)",
         }}
       >
         <table
@@ -315,7 +315,7 @@ const pinComponents: Components = {
           fontWeight: 600,
           fontSize: 12,
           color: "var(--neutral-700)",
-          borderBottom: "1px solid var(--neutral-200)",
+          borderBottom: "1px solid var(--border-default)",
           background: "var(--neutral-50)",
           whiteSpace: "nowrap",
         }}

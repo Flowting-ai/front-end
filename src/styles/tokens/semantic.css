@@ -249,6 +249,7 @@
   --popover-bg: #ffffff;  /* pure white in light mode; dark theme maps it to the dark surface (theme.css) */
   --modal-bg: #ffffff;  /* modal / dialog panel surface: pure white in light mode */
   --card-bg: #ffffff;  /* card surface (e.g. connector cards): pure white in light mode */
+  --border-default: #D3CEC8;  /* hairline border on cards/inputs/panels: one step darker than --neutral-200 in light mode */
   --surface-cream: #F9F8F5;  /* a fixed cream surface that does not follow the white-content scopes (e.g. settings pages) */
   --widget-bg-from: #ffffff;  /* chat widgets: white fading to a light blue */
   --widget-bg-to:   #E8F2FC;

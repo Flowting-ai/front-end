@@ -131,7 +131,7 @@ function SuperLinkSection({
           alignItems: 'center',
           justifyContent: 'space-between',
           backgroundColor: 'var(--neutral-white)',
-          border: '1px solid var(--neutral-200)',
+          border: '1px solid var(--border-default)',
           borderRadius: 10,
           padding: '8px 7px',
           height: 46,
@@ -342,7 +342,7 @@ function PersonaPublishedContent() {
       <div
         style={{
           backgroundColor: 'var(--color-surface-container)',
-          border: '1px solid var(--neutral-200)',
+          border: '1px solid var(--border-default)',
           borderRadius: 22,
           display: 'flex',
           flexDirection: 'column',
@@ -498,7 +498,7 @@ function PersonaPublishedContent() {
                   gap:             14,
                   alignItems:      'center',
                   backgroundColor: 'rgba(var(--surface-rgb), 0.5)',
-                  border:          '1px solid var(--neutral-200)',
+                  border:          '1px solid var(--border-default)',
                   borderRadius:    20,
                   padding:         '24px 28px',
                 }}
@@ -553,7 +553,7 @@ function PersonaPublishedContent() {
                       <div
                         style={{
                           backgroundColor: 'var(--field-surface)',
-                          border: '1px solid var(--neutral-200)',
+                          border: '1px solid var(--border-default)',
                           borderRadius: 8,
                           padding: '4px 8px',
                           display: 'flex',

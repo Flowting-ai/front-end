@@ -39,7 +39,7 @@ function PromptCard({ children }: { children: React.ReactNode }) {
         gap:             12,
         padding:         '14px 16px',
         borderRadius:    12,
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         backgroundColor: 'var(--neutral-50)',
         maxWidth:        420,
         marginTop:       10,

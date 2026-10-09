@@ -188,7 +188,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
                 style={{
                   display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left',
                   padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                  border: aloneAction === opt.value ? '1.5px solid var(--neutral-900)' : '1px solid var(--neutral-200)',
+                  border: aloneAction === opt.value ? '1.5px solid var(--neutral-900)' : '1px solid var(--border-default)',
                   backgroundColor: aloneAction === opt.value ? 'var(--neutral-50)' : 'var(--neutral-white)',
                 }}
               >

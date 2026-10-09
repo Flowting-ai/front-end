@@ -273,7 +273,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
     <div style={{
       position:        'relative',
       borderRadius:    14,
-      border:          '1px solid var(--neutral-200)',
+      border:          '1px solid var(--border-default)',
       backgroundColor: 'var(--neutral-50)',
       overflow:        'hidden',
       margin:          '4px 0',
@@ -303,7 +303,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
             gap:         4,
             padding:     '3px 8px',
             borderRadius: 8,
-            border:      '1px solid var(--neutral-200)',
+            border:      '1px solid var(--border-default)',
             background:  'var(--neutral-white)',
             cursor:      'pointer',
             fontFamily:  'var(--font-body)',

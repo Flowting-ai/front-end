@@ -24,7 +24,7 @@ export function MentionChip({ label, onRemove }: MentionChipProps) {
         gap:             '4px',
         borderRadius:    '999px',
         backgroundColor: 'var(--neutral-100)',
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         padding:         '2px 8px 2px 10px',
         fontSize:        '12px',
         fontWeight:      500,

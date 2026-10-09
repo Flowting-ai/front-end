@@ -35,7 +35,7 @@ export function SettingsTable({ children, columns, columnGap, background = 'var(
     <SettingsTableLayoutContext.Provider value={{ columns, columnGap }}>
       <section
         style={{
-          border:        '1px solid var(--neutral-200)',
+          border:        '1px solid var(--border-default)',
           borderRadius:  16,
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           background,

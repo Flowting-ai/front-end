@@ -112,7 +112,7 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
           // No manageable list — per spec, Workspace access is automatic
           // for everyone currently in the org, not a curated list. Revoke
           // access by removing someone from the workspace itself, not here.
-          <div style={{ padding: '16px', borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: 'var(--neutral-50)' }}>
+          <div style={{ padding: '16px', borderRadius: 16, border: '1px solid var(--border-default)', backgroundColor: 'var(--neutral-50)' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
               Workspace projects aren&apos;t shared with individual people — every
               current and future workspace member has access automatically.

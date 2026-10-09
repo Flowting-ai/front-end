@@ -361,7 +361,7 @@ export function BrowserScreen({ session, expanded, onExpandedChange }: BrowserSc
   const transition = reduceMotion ? { duration: 0 } : { type: 'spring' as const, stiffness: 320, damping: 34, mass: 0.9 }
   const phase = expanded ? 'full' : returning ? 'returning' : 'docked'
 
-  const THUMB_LOOK: React.CSSProperties = { borderRadius: 12, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--neutral-200)' }
+  const THUMB_LOOK: React.CSSProperties = { borderRadius: 12, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--border-default)' }
   const cardPlacement: React.CSSProperties =
     phase === 'full'      ? { position: 'fixed', zIndex: Z_BACKDROP + 1, ...fullFrame(windowSize), borderRadius: 16, backgroundColor: 'var(--neutral-white)', boxShadow: '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)' }
     : phase === 'returning' ? { position: 'fixed', zIndex: Z_BACKDROP + 1, ...returnRect, ...THUMB_LOOK }

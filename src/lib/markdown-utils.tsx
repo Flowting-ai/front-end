@@ -269,7 +269,7 @@ const BASE_COMPONENTS: Components = {
     return (
       <div
         className="kaya-scrollbar"
-        style={{ overflowX: "auto", margin: "16px 0", borderRadius: "8px", border: "1px solid var(--neutral-200)" }}
+        style={{ overflowX: "auto", margin: "16px 0", borderRadius: "8px", border: "1px solid var(--border-default)" }}
       >
         <table
           style={{
@@ -307,7 +307,7 @@ const BASE_COMPONENTS: Components = {
           fontWeight: 600,
           fontSize: "13px",
           color: "var(--neutral-700)",
-          borderBottom: "1px solid var(--neutral-200)",
+          borderBottom: "1px solid var(--border-default)",
           whiteSpace: "nowrap",
           verticalAlign: "top",
         }}
@@ -341,7 +341,7 @@ const BASE_COMPONENTS: Components = {
           margin: "0",
           marginBottom: "var(--prose-block-gap)",
           paddingLeft: "var(--space-3)",
-          borderLeft: "2.5px solid var(--neutral-200)",
+          borderLeft: "2.5px solid var(--border-default)",
           color: "var(--prose-quote-text)",
           fontStyle: "italic",
           lineHeight: "var(--prose-line-body)",
@@ -434,7 +434,7 @@ const BASE_COMPONENTS: Components = {
   },
   hr() {
     return (
-      <hr style={{ border: "none", borderTop: "1px solid var(--neutral-200)", margin: "16px 0" }} />
+      <hr style={{ border: "none", borderTop: "1px solid var(--border-default)", margin: "16px 0" }} />
     );
   },
   p({ children, ...props }) {

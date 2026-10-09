@@ -188,7 +188,7 @@ export function PanelSection({
     onToggle()
   }
   return (
-    <section style={{ borderTop: first ? undefined : '1px solid var(--neutral-200)' }}>
+    <section style={{ borderTop: first ? undefined : '1px solid var(--border-default)' }}>
       {/* The toggle covers the whole header; the visible pieces sit over it, inert, so only
           `action` is a separate target. */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '0 10px 0 14px' }}>
@@ -204,7 +204,7 @@ export function PanelSection({
         </button>
         <h3 aria-hidden style={{ ...TEXT, color: 'var(--neutral-600)', pointerEvents: 'none', position: 'relative' }}>{title}</h3>
         {count !== undefined && count > 0 && (
-          <span aria-hidden style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', minWidth: 18, height: 18, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-200)', color: 'var(--neutral-600)' }}>
+          <span aria-hidden style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', minWidth: 18, height: 18, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--border-default)', color: 'var(--neutral-600)' }}>
             {count}
           </span>
         )}
@@ -853,7 +853,7 @@ export function OverviewView({ messages, timing }: { messages: UIMessage[]; timi
 function Favicon({ domain }: { domain: string }) {
   const [failed, setFailed] = useState(false)
   if (!domain || failed) {
-    return <span style={{ ...CAPTION, width: 16, height: 16, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-200)', color: 'var(--neutral-600)', fontSize: 10 }}>{(domain[0] ?? '?').toUpperCase()}</span>
+    return <span style={{ ...CAPTION, width: 16, height: 16, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--border-default)', color: 'var(--neutral-600)', fontSize: 10 }}>{(domain[0] ?? '?').toUpperCase()}</span>
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- external favicon, same source as ActivityRow

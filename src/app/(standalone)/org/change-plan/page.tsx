@@ -188,7 +188,7 @@ function ChangePlanSkeleton() {
           {/* Workspace card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'var(--neutral-white)', border: '2px solid var(--neutral-200)', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '2px solid var(--border-default)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 28,
               boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
@@ -213,7 +213,7 @@ function ChangePlanSkeleton() {
           {/* Enterprise card */}
           <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 24, padding: 32,
+              backgroundColor: 'var(--neutral-white)', border: '1px solid var(--border-default)', borderRadius: 24, padding: 32,
               display: 'flex', flexDirection: 'column', gap: 28,
               boxShadow: '0px 1px 1px color-mix(in srgb, var(--static-black) 5%, transparent)', height: '100%',
             }}>
@@ -703,7 +703,7 @@ function OrgChangePlanPageInner() {
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 backgroundColor: 'var(--neutral-white)',
-                border: '1px solid var(--neutral-200)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 24,
                 padding: 32,
                 display: 'flex', flexDirection: 'column', gap: 28,

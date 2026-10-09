@@ -84,7 +84,7 @@
 .list,
 .empty {
   overflow: hidden;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   background: var(--neutral-white);
 }

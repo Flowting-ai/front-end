@@ -27,7 +27,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             display:         'flex',
             flexDirection:   'column',
             borderRadius:    22,
-            border:          '1px solid var(--neutral-200)',
+            border:          '1px solid var(--border-default)',
             backgroundColor: 'var(--color-surface-container)',
             overflow:        'hidden',
           }}

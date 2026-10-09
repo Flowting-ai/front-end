@@ -77,7 +77,7 @@ function CopyIcon() {
 function Card({ children, danger }: { children: React.ReactNode; danger?: boolean }) {
   return (
     <div style={{
-      border:       `1px solid ${danger ? 'var(--red-400)' : 'var(--neutral-200)'}`,
+      border:       `1px solid ${danger ? 'var(--red-400)' : 'var(--border-default)'}`,
       borderRadius: 16,
       boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
       overflow:     'hidden',
@@ -309,7 +309,7 @@ function SkeletonBlock({
 function SkeletonCard({ children, danger }: { children: React.ReactNode; danger?: boolean }) {
   return (
     <div style={{
-      border:       `1px solid ${danger ? 'var(--red-400, #f87171)' : 'var(--neutral-200)'}`,
+      border:       `1px solid ${danger ? 'var(--red-400, #f87171)' : 'var(--border-default)'}`,
       borderRadius: 16,
       boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
       overflow:     'hidden',
@@ -817,7 +817,7 @@ export default function OrgGeneralPage() {
           {/* Content — its own bordered box, separate from the header above
               and the Save button below. */}
           <div style={{ padding: '16px 24px' }}>
-            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
 
               {/* Avatar row */}
               <div style={{
@@ -1015,7 +1015,7 @@ export default function OrgGeneralPage() {
           {/* Content — its own bordered box, separate from the header above
               and the Save/Clear buttons below. */}
           <div style={{ padding: '16px 24px', opacity: settingsLoading ? 0.6 : 1 }}>
-            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ border: '1px solid var(--border-default)', borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <textarea
                 value={aiInstructions}
                 onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
@@ -1127,7 +1127,7 @@ export default function OrgGeneralPage() {
                     gap:             8,
                     padding:         '10px 8px 10px 14px',
                     borderRadius:    10,
-                    border:          '1px solid var(--neutral-200)',
+                    border:          '1px solid var(--border-default)',
                     backgroundColor: 'var(--neutral-white)',
                   }}>
                     <span style={{

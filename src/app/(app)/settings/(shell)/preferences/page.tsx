@@ -188,7 +188,7 @@ export default function PreferencesPage() {
 
         {/* ── Screen mode card ── */}
         <div style={{
-          border:       '1px solid var(--neutral-200)',
+          border:       '1px solid var(--border-default)',
           borderRadius: 16,
           boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:     'hidden',
@@ -269,7 +269,7 @@ export default function PreferencesPage() {
 
         {/* ── AI tone card ── */}
         <div style={{
-          border:       '1px solid var(--neutral-200)',
+          border:       '1px solid var(--border-default)',
           borderRadius: 16,
           boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:     'hidden',
@@ -401,7 +401,7 @@ export default function PreferencesPage() {
 
         {/* ── Souvenir's memory card ── */}
         <div style={{
-          border:       '1px solid var(--neutral-200)',
+          border:       '1px solid var(--border-default)',
           borderRadius: 16,
           boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           overflow:     'hidden',

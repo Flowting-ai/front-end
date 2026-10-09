@@ -98,7 +98,7 @@ function ConnectPromptCard({ url, appLabel }: ConnectLeak) {
         gap:             12,
         padding:         '14px 16px',
         borderRadius:    10,
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         backgroundColor: 'var(--neutral-50)',
         margin:          '4px 0',
       }}
@@ -165,7 +165,7 @@ function ConnectorResultCard({ data }: { data: ConnectorResultJson }) {
         gap:             10,
         padding:         '10px 14px',
         borderRadius:    10,
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         backgroundColor: 'var(--neutral-50)',
         margin:          '4px 0',
       }}
@@ -243,7 +243,7 @@ export function StreamingContentRenderer({ content, isStreaming }: StreamingCont
         gap:             8,
         padding:         '10px 14px',
         borderRadius:    10,
-        border:          '1px dashed var(--neutral-200)',
+        border:          '1px dashed var(--border-default)',
         backgroundColor: 'var(--neutral-50)',
         margin:          '4px 0',
         fontFamily:      'var(--font-body)',

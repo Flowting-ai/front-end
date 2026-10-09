@@ -81,7 +81,7 @@ export function ProjectTrashList({ currentUserId, onRestored }: ProjectTrashList
               key={i}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                border: '1px solid var(--neutral-200)', borderRadius: 10, opacity: 1 - i * 0.25,
+                border: '1px solid var(--border-default)', borderRadius: 10, opacity: 1 - i * 0.25,
               }}
             >
               <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -130,7 +130,7 @@ export function ProjectTrashList({ currentUserId, onRestored }: ProjectTrashList
               key={p.id}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                border: '1px solid var(--neutral-200)', borderRadius: 10,
+                border: '1px solid var(--border-default)', borderRadius: 10,
               }}
             >
               <div style={{ flex: '1 0 0', minWidth: 0 }}>

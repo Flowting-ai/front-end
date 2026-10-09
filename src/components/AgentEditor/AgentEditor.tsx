@@ -39,7 +39,7 @@ export interface AgentEditorProps {
 }
 
 /** Hairline between sections / blocks. */
-const DIVIDER_STYLE: React.CSSProperties = { width: '100%', height: 1, margin: 0, border: 'none', backgroundColor: 'var(--neutral-200)', flexShrink: 0 }
+const DIVIDER_STYLE: React.CSSProperties = { width: '100%', height: 1, margin: 0, border: 'none', backgroundColor: 'var(--border-default)', flexShrink: 0 }
 
 /** The page buttons above are sticky; the preview sticks just beneath them. */
 const STICKY_TOP = 72

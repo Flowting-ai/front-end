@@ -39,7 +39,7 @@ function TagChip({ label, selected, onToggle }: { label: string; selected: boole
         alignItems:      'center',
         padding:         '6px 14px',
         borderRadius:    100,
-        border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-200)',
+        border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--border-default)',
         backgroundColor: selected
           ? 'var(--blue-50, #eff6ff)'
           : hovered

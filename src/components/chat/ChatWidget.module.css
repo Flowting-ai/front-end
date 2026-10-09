@@ -3,7 +3,7 @@
 .shell {
   min-width: 0;
   margin: 16px 0;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 18px;
   background: linear-gradient(to bottom right, var(--widget-bg-from) 0%, var(--widget-bg-from) 60%, var(--widget-bg-to) 100%);
   box-shadow: var(--shadow-surface-card);

@@ -12,7 +12,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 14px 12px;
-  border-right: 1px solid var(--neutral-200);
+  border-right: 1px solid var(--border-default);
   background: var(--neutral-100);
 }
 
@@ -60,7 +60,7 @@
   width: 100%;
   height: 34px;
   padding: 0 10px 0 31px;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 9px;
   outline: none;
   background: var(--neutral-50);
@@ -92,7 +92,7 @@
   flex: 0 0 28px;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   background: var(--neutral-white);
   color: var(--neutral-700);
@@ -144,17 +144,17 @@
   height: 36px;
   flex: 0 0 36px;
   place-items: center;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   background: var(--neutral-50);
   color: var(--neutral-700);
   font: 600 16px/1 var(--font-body);
 }
 .channelMeta { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.metaPill { max-width: 210px; overflow: hidden; padding: 4px 8px; border: 1px solid var(--neutral-200); border-radius: 999px; background: var(--neutral-white); color: var(--neutral-600); font: 500 11px/16px var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.metaPill { max-width: 210px; overflow: hidden; padding: 4px 8px; border: 1px solid var(--border-default); border-radius: 999px; background: var(--neutral-white); color: var(--neutral-600); font: 500 11px/16px var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
 
 .channelGroups { display: flex; flex-direction: column; gap: 14px; }
-.channelGroup { overflow: hidden; border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--neutral-white); box-shadow: 0 1px 2px rgba(82, 75, 71, .03); }
+.channelGroup { overflow: hidden; border: 1px solid var(--border-default); border-radius: 14px; background: var(--neutral-white); box-shadow: 0 1px 2px rgba(82, 75, 71, .03); }
 .groupHeader { padding: 17px 20px 16px; background: var(--neutral-100); }
 .groupKicker { margin: 0 0 3px; color: var(--neutral-500); font: 650 10px/15px var(--font-body); letter-spacing: .06em; text-transform: uppercase; }
 .groupTitle { margin: 0; color: var(--neutral-900); font: 600 15px/21px var(--font-body); }
@@ -173,7 +173,7 @@
   width: 100%;
   min-height: 38px;
   padding: 0 11px;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 9px;
   outline: none;
   background: var(--neutral-white);
@@ -195,7 +195,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 6px 10px;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 9px;
   outline: none;
   background: var(--neutral-white);
@@ -213,13 +213,13 @@
 .modelSelectChevron { flex: 0 0 auto; color: var(--neutral-500); transition: transform 120ms ease; }
 .modelSelectTrigger[aria-expanded='true'] .modelSelectChevron { transform: rotate(180deg); }
 
-.skillList { display: flex; flex-direction: column; margin-top: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; overflow: hidden; background: var(--neutral-white); }
+.skillList { display: flex; flex-direction: column; margin-top: 14px; border: 1px solid var(--border-default); border-radius: 11px; overflow: hidden; background: var(--neutral-white); }
 .skillRow { display: flex; min-width: 0; min-height: 58px; align-items: center; justify-content: space-between; gap: 20px; padding: 10px 12px 10px 14px; border-top: 1px solid var(--neutral-150, var(--neutral-100)); }
 .skillRow:first-child { border-top: 0; }
 .skillCopy { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .skillName { color: var(--neutral-900); font: 550 13px/19px var(--font-body); }
 .skillDescription { color: var(--neutral-500); font: 400 12px/18px var(--font-body); }
-.skillEmpty { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--neutral-200); border-radius: 11px; background: var(--neutral-100); }
+.skillEmpty { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--border-default); border-radius: 11px; background: var(--neutral-100); }
 .skillEmptyTitle { margin: 0; color: var(--neutral-800); font: 550 13px/19px var(--font-body); }
 .skillEmptyDescription { margin: 2px 0 0; color: var(--neutral-500); font: 400 12px/18px var(--font-body); }
 
@@ -232,7 +232,7 @@
   gap: 14px;
   min-height: 54px;
   padding: 10px 12px;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 11px;
   background: var(--neutral-white);
 }
@@ -242,7 +242,7 @@
 .listSecondary { overflow: hidden; margin-top: 1px; color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .rowActions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; }
 
-.automation { border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-white); }
+.automation { border: 1px solid var(--border-default); border-radius: 11px; background: var(--neutral-white); }
 .automation > .listRow { border: 0; background: transparent; }
 .automationToggle { display: flex; min-width: 0; flex: 1; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .automationChevron { flex: 0 0 auto; color: var(--neutral-500); transition: transform 150ms ease; }
@@ -257,10 +257,10 @@
 .automationActions { display: flex; flex-wrap: wrap; gap: 7px; }
 
 .empty { margin: 12px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
-.inlinePanel { margin-top: 14px; padding: 14px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--neutral-100); }
+.inlinePanel { margin-top: 14px; padding: 14px; border: 1px solid var(--border-default); border-radius: 11px; background: var(--neutral-100); }
 .inlinePanelHeader { margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; }
 .inlinePanelHelp { margin: 3px 0 10px; color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; line-height: 18px; }
-.menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; min-width: 240px; padding: 6px; border: 1px solid var(--neutral-200); border-radius: 11px; background: var(--popover-bg); box-shadow: 0 12px 32px rgba(82, 75, 71, .14); }
+.menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; min-width: 240px; padding: 6px; border: 1px solid var(--border-default); border-radius: 11px; background: var(--popover-bg); box-shadow: 0 12px 32px rgba(82, 75, 71, .14); }
 .muted { color: var(--neutral-500); font-family: var(--font-body); font-size: 12px; }
 .inherited { padding: 2px 7px; border-radius: 999px; background: var(--neutral-100); color: var(--neutral-600); font-size: 11px; white-space: nowrap; }
 
@@ -281,7 +281,7 @@
 
 .connectedSurface {
   overflow: hidden;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 16px;
   background: var(--neutral-white);
   box-shadow: 0 1px 2px rgba(82, 75, 71, 0.04);
@@ -294,13 +294,13 @@
   gap: 12px;
   min-height: 48px;
   padding: 8px 10px 8px 14px;
-  border-bottom: 1px solid var(--neutral-200);
+  border-bottom: 1px solid var(--border-default);
   background: var(--neutral-white);
 }
 
 .connectionStatus { display: inline-flex; min-width: 0; align-items: center; gap: 9px; }
 .connectionActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.permissionNotice { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--neutral-200); color: var(--neutral-600); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
+.permissionNotice { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--border-default); color: var(--neutral-600); font-family: var(--font-body); font-size: 13px; line-height: 20px; }
 .connectionMark { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 8px; background: var(--neutral-50); }
 .connectionTitle { overflow: hidden; margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .connectionMeta { margin: 1px 0 0; color: var(--neutral-500); font-family: var(--font-body); font-size: 11px; }
@@ -312,19 +312,19 @@
   align-items: center;
   gap: 28px;
   padding: 56px 32px 48px;
-  border: 1px solid var(--neutral-200);
+  border: 1px solid var(--border-default);
   border-radius: 20px;
   background: var(--card-bg, var(--neutral-white));
   text-align: center;
 }
 .emptyPair { display: flex; align-items: center; }
-.emptyTile { display: grid; width: 60px; height: 60px; place-items: center; border: 1px solid var(--neutral-200); border-radius: 18px; background: var(--neutral-50); box-shadow: 0 2px 6px -2px rgba(82, 75, 71, 0.18); }
+.emptyTile { display: grid; width: 60px; height: 60px; place-items: center; border: 1px solid var(--border-default); border-radius: 18px; background: var(--neutral-50); box-shadow: 0 2px 6px -2px rgba(82, 75, 71, 0.18); }
 .emptyLink { width: 44px; height: 0; border-top: 2px dashed var(--neutral-300); }
 .emptyHeading { display: flex; max-width: 460px; flex-direction: column; gap: 8px; }
 .emptyHeroTitle { margin: 0; color: var(--neutral-900); font-family: var(--font-title); font-size: 26px; font-weight: 400; line-height: 34px; }
 .emptyHeroCopy { margin: 0; color: var(--neutral-600); font-family: var(--font-body); font-size: 14px; line-height: 22px; }
 .emptyBenefits { display: grid; width: 100%; max-width: 760px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.emptyBenefit { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--neutral-50); text-align: left; }
+.emptyBenefit { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--neutral-50); text-align: left; }
 .emptyBenefitIcon { display: grid; width: 32px; height: 32px; place-items: center; margin-bottom: 4px; border-radius: 9px; background: var(--card-bg, var(--neutral-white)); box-shadow: 0 0 0 1px var(--neutral-200); color: var(--neutral-700); }
 .emptyBenefitTitle { margin: 0; color: var(--neutral-900); font-family: var(--font-body); font-size: 13px; font-weight: 600; line-height: 18px; }
 .emptyBenefitCopy { margin: 0; color: var(--neutral-600); font-family: var(--font-body); font-size: 12.5px; line-height: 19px; }
@@ -335,7 +335,7 @@
   .emptyBenefits { grid-template-columns: minmax(0, 1fr); }
   .emptyHero { padding: 40px 20px 36px; }
   .workspace { grid-template-columns: minmax(0, 1fr); }
-  .rail { border-right: 0; border-bottom: 1px solid var(--neutral-200); }
+  .rail { border-right: 0; border-bottom: 1px solid var(--border-default); }
   .content { padding: 24px 20px 30px; }
 }
 

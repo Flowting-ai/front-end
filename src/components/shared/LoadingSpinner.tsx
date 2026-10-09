@@ -16,7 +16,7 @@ export function LoadingSpinner({ size = 24 }: { size?: number }) {
           width: size,
           height: size,
           borderRadius: "50%",
-          border: `2px solid var(--neutral-200)`,
+          border: `2px solid var(--border-default)`,
           borderTopColor: "var(--neutral-600)",
           animation: "kaya-spin 0.7s linear infinite",
         }}

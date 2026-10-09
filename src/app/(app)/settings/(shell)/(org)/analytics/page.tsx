@@ -151,7 +151,7 @@ function PageCard({
     <section
       style={{
         width:           '100%',
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         borderRadius:    16,
         boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
         overflow:        'hidden',
@@ -372,7 +372,7 @@ function AnalyticsPageSkeleton() {
         </div>
 
         {/* Stats row — Monthly Limits + Active members */}
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
+        <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
           <div style={{ display: 'flex', gap: 9 }}>
             <div style={{ flex: '1 0 0', backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <SkeletonBlock width={110} height={16} radius={4} />
@@ -393,7 +393,7 @@ function AnalyticsPageSkeleton() {
         </div>
 
         {/* Feature chart card */}
-        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: '12px 0' }}>
+        <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: '12px 0' }}>
           {/* Card title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={180} height={16} radius={4} />
@@ -426,7 +426,7 @@ function AnalyticsPageSkeleton() {
         </div>
 
         {/* Top users list */}
-        <section style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
+        <section style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={200} height={16} radius={4} />
             <div style={{ flex: '1 0 0' }} />

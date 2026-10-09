@@ -44,7 +44,7 @@ function Skeleton() {
         margin:       "12px 0",
         padding:      "10px 16px",
         borderRadius: 8,
-        border:       "1px dashed var(--neutral-200)",
+        border:       "1px dashed var(--border-default)",
         background:   "var(--neutral-50)",
         color:        "var(--neutral-600)",
         fontSize:     13,
@@ -107,7 +107,7 @@ export function MermaidDiagram({ code }: { code: string }) {
 
   if (failed) {
     return (
-      <div style={{ margin: "12px 0", borderRadius: 8, border: "1px solid var(--neutral-200)", background: "var(--neutral-50)" }}>
+      <div style={{ margin: "12px 0", borderRadius: 8, border: "1px solid var(--border-default)", background: "var(--neutral-50)" }}>
         <pre
           className="kaya-scrollbar"
           style={{
@@ -125,7 +125,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           style={{
             margin:     0,
             padding:    "6px 16px",
-            borderTop:  "1px solid var(--neutral-200)",
+            borderTop:  "1px solid var(--border-default)",
             fontFamily: "var(--font-body)",
             fontSize:   "var(--font-size-caption)",
             color:      "var(--neutral-600)",

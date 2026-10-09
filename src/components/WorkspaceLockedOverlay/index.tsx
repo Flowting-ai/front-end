@@ -35,7 +35,7 @@ export function WorkspaceLockedOverlay({ isAdmin, onAdminAction }: WorkspaceLock
           padding:         '32px 40px',
           borderRadius:    20,
           backgroundColor: 'var(--modal-bg)',
-          border:          '1px solid var(--neutral-200)',
+          border:          '1px solid var(--border-default)',
           boxShadow:       '0px 4px 20px color-mix(in srgb, var(--static-black) 8%, transparent)',
           maxWidth:        360,
           textAlign:       'center' as const,

@@ -51,7 +51,7 @@ const INNER: React.CSSProperties = {
 }
 
 const CARD: React.CSSProperties = {
-  border:        '1px solid var(--neutral-200)',
+  border:        '1px solid var(--border-default)',
   borderRadius:  16,
   boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
   display:       'flex',
@@ -221,6 +221,60 @@ export function AccountSkeleton() {
   )
 }
 
+// Fixed-height section so each card is exactly as tall as the loaded one
+// (measured: heights include the 1px divider under all but the last section).
+function Sect({ h, last, children, gap = 0 }: { h: number; last?: boolean; children: React.ReactNode; gap?: number }) {
+  return (
+    <div style={{
+      height:        h,
+      boxSizing:     'border-box',
+      padding:       '0 24px',
+      display:       'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      gap,
+      borderBottom:  last ? undefined : '1px solid var(--neutral-100)',
+      flexShrink:    0,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+/** A text line: box of the real line-height with a bar of the glyph height centred in it. */
+function TextLine({ lh, h, w }: { lh: number; h: number; w: number | string }) {
+  return (
+    <div style={{ height: lh, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+      <Bone w={w} h={h} />
+    </div>
+  )
+}
+
+/** Card header: 22px title + 22px description (85px). */
+function CardHeader({ titleW, descW }: { titleW: number; descW: number | string }) {
+  return (
+    <Sect h={85}>
+      <TextLine lh={22} h={16} w={titleW} />
+      <TextLine lh={22} h={12} w={descW} />
+    </Sect>
+  )
+}
+
+/** Setting row: title (22) + hint (16) on the left, a control on the right (75px). */
+function ControlRow({ labelW, hintW, controlW, last, h = 75 }: { labelW: number; hintW: number; controlW: number; last?: boolean; h?: number }) {
+  return (
+    <Sect h={h} last={last}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <TextLine lh={22} h={14} w={labelW} />
+          <TextLine lh={16} h={11} w={hintW} />
+        </div>
+        <Bone w={controlW} h={38} r={8} />
+      </div>
+    </Sect>
+  )
+}
+
 export function FilesSkeleton() {
   return (
     <div className="kaya-scrollbar" style={OUTER} aria-busy="true">
@@ -229,91 +283,71 @@ export function FilesSkeleton() {
 
         {/* Storage used */}
         <div style={CARD}>
-          <Section divider>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Sect h={87}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 28 }}>
               <Bone w={120} h={16} />
-              <Bone w={80} h={22} r={6} />
+              <Bone w={72} h={22} r={6} />
             </div>
-            <Bone w="60%" h={12} />
-          </Section>
-          <Section divider>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Bone w={80} h={12} />
-              <Bone w={60} h={12} />
+            <TextLine lh={22} h={12} w="55%" />
+          </Sect>
+          <Sect h={103}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 22 }}>
+              <Bone w={100} h={16} />
+              <Bone w={90} h={13} />
             </div>
-            <Bone w="100%" h={4} r={2} />
-            <Bone w="70%" h={11} />
-          </Section>
-          <Section>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Bone w="45%" h={13} />
-                <Bone w={50} h={13} />
+            <Bone w="100%" h={4} r={2} style={{ margin: '10px 0 12px' }} />
+            <TextLine lh={22} h={12} w="48%" />
+          </Sect>
+          <div style={{ height: 140, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            {[47, 47, 46].map((h, i) => (
+              <div key={i} style={{
+                height: h, boxSizing: 'border-box', padding: '0 24px', display: 'flex',
+                alignItems: 'center', justifyContent: 'space-between',
+                borderBottom: i < 2 ? '1px solid var(--neutral-100)' : undefined,
+              }}>
+                <Bone w="30%" h={13} />
+                <Bone w={44} h={13} />
               </div>
             ))}
-          </Section>
+          </div>
         </div>
 
         {/* File processing */}
         <div style={CARD}>
-          <Section divider>
-            <Bone w={140} h={16} />
-            <Bone w="55%" h={12} />
-          </Section>
-          <Section divider>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Bone w={100} h={13} />
-              <Bone w={200} h={36} r={8} />
+          <CardHeader titleW={130} descW="48%" />
+          <ControlRow labelW={90} hintW={280} controlW={85} />
+          <ControlRow labelW={90} hintW={330} controlW={94} />
+          <Sect h={96} last>
+            <TextLine lh={22} h={14} w={120} />
+            <TextLine lh={16} h={11} w={330} />
+            <div style={{ display: 'flex', gap: 8, height: 20, alignItems: 'center', marginTop: 4 }}>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <Bone key={i} w={34 + (i % 3) * 6} h={20} r={6} />)}
             </div>
-          </Section>
-          <Section divider>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Bone w={100} h={13} />
-              <Bone w={200} h={36} r={8} />
-            </div>
-          </Section>
-          <Section>
-            <Bone w={130} h={13} />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <Bone key={i} w={48} h={22} r={6} />)}
-            </div>
-          </Section>
+          </Sect>
         </div>
 
         {/* Limits by plan */}
         <div style={CARD}>
-          <Section divider>
-            <Bone w={140} h={16} />
-            <Bone w="55%" h={12} />
-          </Section>
-          <Section>
-            <div style={{ border: '1px solid var(--neutral-100)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <CardHeader titleW={120} descW="45%" />
+          <div style={{ height: 213, boxSizing: 'border-box', padding: 12, flexShrink: 0 }}>
+            <div style={{
+              height: 201, boxSizing: 'border-box', border: '1px solid var(--neutral-100)', borderRadius: 8,
+              padding: '0 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-around',
+            }}>
               {[0, 1, 2, 3].map(row => (
                 <div key={row} style={{ display: 'flex', gap: 24 }}>
                   {[80, 100, 110, 90].map((w, col) => <Bone key={col} w={w} h={12} />)}
                 </div>
               ))}
             </div>
-          </Section>
+          </div>
         </div>
 
         {/* Data management */}
         <div style={CARD}>
-          <Section divider>
-            <Bone w={155} h={16} />
-            <Bone w="60%" h={12} />
-          </Section>
-          {[0, 1].map(i => (
-            <Section key={i} divider={i === 0}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <Bone w={120} h={14} />
-                  <Bone w={220} h={12} />
-                </div>
-                <Bone w={120} h={34} r={8} />
-              </div>
-            </Section>
-          ))}
+          <CardHeader titleW={140} descW="52%" />
+          <ControlRow labelW={110} hintW={260} controlW={120} />
+          <ControlRow labelW={110} hintW={240} controlW={120} last h={62} />
         </div>
       </div>
     </div>

@@ -240,7 +240,7 @@ export function SystemInstructionsModal({
                     lineHeight:   '22px',
                     color:        'var(--legacy-1a1714)',
                     background:   'var(--field-surface)',
-                    border:       '1px solid var(--neutral-200)',
+                    border:       '1px solid var(--border-default)',
                     borderRadius: '12px',
                     boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.08)',
                     outline:      'none',
@@ -260,7 +260,7 @@ export function SystemInstructionsModal({
                   onBlur={(e) => {
                     Object.assign(e.currentTarget.style, {
                       boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.08)',
-                      borderColor: 'var(--neutral-200)',
+                      borderColor: 'var(--border-default)',
                     })
                   }}
                 />

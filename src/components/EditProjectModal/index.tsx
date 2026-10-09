@@ -25,7 +25,7 @@ const INPUT_BASE: React.CSSProperties = {
   lineHeight:   '22px',
   color:        'var(--legacy-1a1714)',
   background:   'var(--field-surface)',
-  border:       '1px solid var(--neutral-200)',
+  border:       '1px solid var(--border-default)',
   borderRadius: '10px',
   boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.12)',
   outline:      'none',
@@ -162,7 +162,7 @@ export function EditProjectModal({
   function blurInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
     Object.assign(e.currentTarget.style, {
       boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.12)',
-      borderColor: 'var(--neutral-200)',
+      borderColor: 'var(--border-default)',
     })
   }
 
@@ -293,7 +293,7 @@ export function EditProjectModal({
                             width:           '100%',
                             padding:         '8px 12px',
                             borderRadius:    '10px',
-                            border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--neutral-200)',
+                            border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--border-default)',
                             background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
                             cursor:          'pointer',
                             textAlign:       'left',

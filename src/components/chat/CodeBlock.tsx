@@ -157,7 +157,7 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
         position: "relative",
         borderRadius: "16px",
         backgroundColor: "var(--neutral-50)",
-        border: "1px solid var(--neutral-200)",
+        border: "1px solid var(--border-default)",
         overflow: "hidden",
         margin: "12px 0",
       }}
@@ -170,7 +170,7 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
           alignItems: "center",
           justifyContent: "space-between",
           padding: "8px 16px",
-          borderBottom: "1px solid var(--neutral-200)",
+          borderBottom: "1px solid var(--border-default)",
         }}
       >
         {language && (
@@ -199,7 +199,7 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
               gap: "4px",
               padding: "4px 10px",
               borderRadius: "999px",
-              border: "1px solid var(--neutral-200)",
+              border: "1px solid var(--border-default)",
               backgroundColor: "var(--neutral-white)",
               fontFamily: "var(--font-body)",
               fontSize: "12px",

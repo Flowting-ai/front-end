@@ -38,7 +38,7 @@ export function TemplateCardSkeleton({ count = 3, layout = 'tile', bare = false 
             width:         isRow ? '100%' : undefined,
             minWidth:      0,
             background:    bare ? 'transparent' : 'var(--neutral-white)',
-            border:        bare ? '1px solid transparent' : '1px solid var(--neutral-200)',
+            border:        bare ? '1px solid transparent' : '1px solid var(--border-default)',
             borderRadius:  '12px',
             padding:       isRow ? '12px' : '14px 12px',
             display:       'flex',

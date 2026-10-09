@@ -31,7 +31,7 @@ function ConnectorChip({
         padding:         '4px 8px 4px 5px',
         borderRadius:    8,
         border:          '1px solid',
-        borderColor:     enabled ? 'var(--neutral-400)' : 'var(--neutral-200)',
+        borderColor:     enabled ? 'var(--neutral-400)' : 'var(--border-default)',
         backgroundColor: enabled ? 'var(--neutral-100)' : 'transparent',
         cursor:          saving ? 'not-allowed' : 'pointer',
         opacity:         saving ? 0.55 : 1,

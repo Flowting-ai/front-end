@@ -198,7 +198,7 @@ function SectionCard({
 }) {
   return (
     <div style={{
-      border:        '1px solid var(--neutral-200)',
+      border:        '1px solid var(--border-default)',
       borderRadius:  16,
       boxShadow:     SHADOW_CARD,
       display:       'flex',
@@ -276,7 +276,7 @@ function SkeletonSectionCard({
   children:       React.ReactNode
 }) {
   return (
-    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
       <div style={{ borderBottom: headerDivider ? '1px solid var(--neutral-100)' : undefined, padding: headerDivider ? '0 24px 24px' : '0 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <SkeletonBlock width={80} height={16} radius={4} />
@@ -335,7 +335,7 @@ function SkeletonPaymentCard() {
 
 function SkeletonInvoiceCard() {
   return (
-    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
       <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: '1 0 0' }}><SkeletonBlock width={120} height={16} radius={4} /></div>
         <SkeletonBlock width={100} height={32} radius={8} />
@@ -734,7 +734,7 @@ function OrgBillingView() {
                 on its own. */}
             <div style={{
               width:           '100%',
-              border:          '1px solid var(--neutral-200)',
+              border:          '1px solid var(--border-default)',
               borderRadius:    16,
               boxShadow:       SHADOW_CARD,
               overflow:        'hidden',
@@ -805,7 +805,7 @@ function OrgBillingView() {
              Active members pairing on /settings/analytics. */
           <div style={{
             width:           '100%',
-            border:          '1px solid var(--neutral-200)',
+            border:          '1px solid var(--border-default)',
             borderRadius:    16,
             boxShadow:       SHADOW_CARD,
             overflow:        'hidden',
@@ -1642,7 +1642,7 @@ function SpendCapModal({
       }
       footerNote="New work pauses when the budget is reached. Work already running can finish and is billed."
     >
-      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: '1 0 0', minWidth: 0 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>

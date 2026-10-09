@@ -387,7 +387,7 @@ export function ScheduleEditModal({
                 gap:           16,
                 padding:       16,
                 borderRadius:  12,
-                border:        '1px solid var(--neutral-200)',
+                border:        '1px solid var(--border-default)',
               }}>
                 {/* Frequency, Day (weekly only), Time, Timezone — one row
                     each, label to the left and its field pinned to the right

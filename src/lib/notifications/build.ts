@@ -24,7 +24,7 @@ export const MAX_NOTIFICATIONS = 50
 // ── Hrefs ─────────────────────────────────────────────────────────────────────
 
 export function scheduleHref(automationId: string): string {
-  return `${SCHEDULES_ROUTE}?selected=${encodeURIComponent(automationId)}`
+  return `${SCHEDULES_ROUTE}/${encodeURIComponent(automationId)}`
 }
 
 /** Lands on My Agents and opens the single-agent Change model modal. */

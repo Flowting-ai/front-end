@@ -66,7 +66,7 @@ function ConnectorLogoBox({ connector: _connector, title, url }: { connector?: s
     justifyContent:  'center',
     overflow:        'hidden',
     backgroundColor: 'var(--neutral-100)',
-    border:          '1px solid var(--neutral-200)',
+    border:          '1px solid var(--border-default)',
   }
 
   if (faviconSrc) {
@@ -213,7 +213,7 @@ function SourceCardContent({ index, source, onOpen }: SourceCardContentProps) {
                 overflow:          'hidden',
                 fontStyle:         'italic',
                 paddingLeft:       '10px',
-                borderLeft:        '2px solid var(--neutral-200)',
+                borderLeft:        '2px solid var(--border-default)',
               }}
             >
               {quote}
@@ -415,7 +415,7 @@ function SourceCard({ source }: { source: SourceItem; index: number }) {
         height:          30,
         borderRadius:    6,
         backgroundColor: 'var(--neutral-100)',
-        border:          '1px solid var(--neutral-200)',
+        border:          '1px solid var(--border-default)',
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
@@ -528,7 +528,7 @@ export const SourceList = React.forwardRef<HTMLDivElement, SourceListProps>(
         className={className}
         style={{
           paddingTop: '10px',
-          borderTop:  '1px solid var(--neutral-200)',
+          borderTop:  '1px solid var(--border-default)',
           marginTop:  '12px',
         }}
       >
