@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
@@ -33,12 +34,22 @@ import {
   RedoIcon,
   TickTwoIcon,
   ImageDownloadTwoIcon,
+  ArrowExpandOneIcon,
+  CancelOneIcon,
 } from "@strange-huge/icons";
 
 // ── Generated Image Card with download button ──────────────────────────────────
 
 function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string }; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   function handleDownload() {
     const filename = img.s3Key
@@ -58,6 +69,19 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
     a.remove();
   }
 
+  const overlayButtonStyle: React.CSSProperties = {
+    background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
+    backdropFilter: "blur(4px)",
+    borderRadius: "8px",
+    color: "var(--static-white)",
+    border: "none",
+    padding: "6px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
   return (
     <m.div
       key={img.url}
@@ -75,6 +99,7 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
       }}
     >
       <Image
+        onClick={() => setExpanded(true)}
         src={img.url}
         alt="Generated image"
         width={0}
@@ -87,6 +112,7 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
           height: "auto",
           maxHeight: "300px",
           objectFit: "cover",
+          cursor: "zoom-in",
         }}
       />
       <AnimatePresence>
@@ -102,28 +128,59 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
               right: "8px",
             }}
           >
-            <Tooltip content="Download image">
-              <IconButton
-                onClick={handleDownload}
-                aria-label="Download image"
-                icon={<ImageDownloadTwoIcon size={16} animated />}
-                style={{
-                  background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
-                  backdropFilter: "blur(4px)",
-                  borderRadius: "8px",
-                  color: "var(--static-white)",
-                  border: "none",
-                  padding: "6px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              />
-            </Tooltip>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <Tooltip content="Expand image">
+                <IconButton
+                  onClick={() => setExpanded(true)}
+                  aria-label="Expand image"
+                  icon={<ArrowExpandOneIcon size={16} />}
+                  style={overlayButtonStyle}
+                />
+              </Tooltip>
+              <Tooltip content="Download image">
+                <IconButton
+                  onClick={handleDownload}
+                  aria-label="Download image"
+                  icon={<ImageDownloadTwoIcon size={16} animated />}
+                  style={overlayButtonStyle}
+                />
+              </Tooltip>
+            </div>
           </m.div>
         )}
       </AnimatePresence>
+      {expanded && typeof document !== "undefined" && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded image"
+          onClick={() => setExpanded(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "32px",
+            background: "color-mix(in srgb, var(--static-black) 80%, transparent)",
+            cursor: "zoom-out",
+          }}
+        >
+          <div style={{ position: "absolute", top: "16px", right: "16px", display: "flex", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+            <IconButton onClick={handleDownload} aria-label="Download image" icon={<ImageDownloadTwoIcon size={18} />} style={overlayButtonStyle} />
+            <IconButton onClick={() => setExpanded(false)} aria-label="Close" icon={<CancelOneIcon size={18} />} style={overlayButtonStyle} />
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL, same as the card */}
+          <img
+            src={img.url}
+            alt="Generated image"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: "8px", cursor: "default" }}
+          />
+        </div>,
+        document.body,
+      )}
     </m.div>
   );
 }
