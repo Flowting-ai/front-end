@@ -1,0 +1,28 @@
+# Package, install and example ledger
+
+Checked October 9, 2026. npm versions were read with `npm view`; repository status and licenses were read with GitHub API or the linked license file. Commands are **research instructions**, not a recommendation to install them together in `ds-dev`. React/Next compatibility is based on published peer requirements and the inspected `ds-dev` versions (React 19.2.4, Next 16.2.4); runtime behavior needs the browser gate.
+
+| Candidate | Version and install method | Compatibility / license | Maintenance evidence and working example |
+|---|---|---|---|
+| assistant-ui | `npm i @assistant-ui/react@0.15.26 @assistant-ui/react-generative-ui@0.1.0` | React 18/19; MIT | Active repository; [generative tool example](https://github.com/assistant-ui/assistant-ui/blob/main/packages/react-generative-ui/README.md). |
+| AI Elements | `npx ai-elements@1.9.0 add reasoning` or fetch selected registry item | React 19/Tailwind 4; Apache-2.0 | Maintained repository; [message and conversation example](https://github.com/vercel/ai-elements). Requires adaptation to current chat stack. |
+| Ant Design Agentic UI | `npm i @ant-design/agentic-ui@2.32.48 antd` | React accepted; MIT; Ant Design 5.29–6 peer | Active repository; [Bubble and ThoughtChainList](https://github.com/antdigital-ai/agentic-ui). |
+| Fluid Functionalism | Install a selected source item from its [registry/site](https://www.fluidfunctionalism.com/) after pinning commit | MIT; shadcn style | [Source](https://github.com/mickadesign/fluid-functionalism) updated October 7; ThinkingSteps demo on site. |
+| OpenUI | `npm i @openuidev/react-lang@0.3.2`; optional `@openuidev/react-ui@0.17.0` | React 19; MIT; Zod 3.25/4 | Active; [custom-library quickstart](https://github.com/thesysdev/openui/blob/main/packages/react-lang/README.md). Executable local spike. |
+| json-render | `npm i @json-render/core@0.21.0 @json-render/react@0.21.0 zod` | React 19.2.3+; Apache-2.0 | Active; [catalog/renderer quickstart](https://github.com/vercel-labs/json-render). Executable local spike. |
+| A2UI | `npm i @a2ui/react@0.13.0 @a2ui/web_core@0.13.0` | React 18/19; Apache-2.0; Zod 3.25 peer | Active; [v0.9 processor/surface example](https://github.com/a2ui-project/a2ui/blob/main/renderers/react/README.md). Browser-host validation outstanding. |
+| Tambo | `npm i @tambo-ai/react@1.4.0` | React 18/19; MIT | Active [source](https://github.com/tambo-ai/tambo); hosted service announces October 31 sunset. Test self-host path before adoption. |
+| AG-UI | `npm i @ag-ui/client@1.0.2` | Framework-neutral; MIT | Active; [protocol quickstart](https://github.com/ag-ui-protocol/ag-ui). Runtime comparison only. |
+| CopilotKit | `npm i @copilotkit/react-core@1.78.0` plus chosen UI/runtime packages | React 18/19; MIT | Active; [three-lane playground](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/generative-ui-playground/README.md). |
+| MCP Apps | `npm i @modelcontextprotocol/ext-apps@2.0.3` with MCP SDK peers | React 17–19; mixed MIT/Apache-2.0 transition | [Official examples](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples). External host path. |
+| MCP-UI | `npm i @mcp-ui/client@7.1.1` | React 18/19; Apache-2.0 | [Client renderer example](https://github.com/MCP-UI-Org/mcp-ui). External host path. |
+| OpenAI Apps SDK examples | Clone [source](https://github.com/openai/openai-apps-sdk-examples); no single component npm package | MIT; ChatGPT-hosted examples | Widget examples include list, map, shopping and host bridge. Reference only. |
+| Slack Block Kit | `npm i @slack/types@3.2.0` for types; use Slack SDK to send | MIT; host JSON rather than React | Active [typed block definitions](https://github.com/slackapi/node-slack-sdk/blob/main/packages/types/src/block-kit/blocks.ts) and [Builder](https://app.slack.com/block-kit-builder). |
+| Adaptive Cards | `npm i adaptivecards-designer@2.4.4` for visual designer | MIT; separate host renderers | Active [repository](https://github.com/microsoft/AdaptiveCards); [designer guide](https://github.com/MicrosoftDocs/AdaptiveCards/blob/main/AdaptiveCards/resources/tools.md). Old `adaptivecards-react@1.1.1` only peers React 17. |
+| Shopify Polaris React | `@shopify/polaris@13.9.5` (do not install for Souvenir) | Restricted custom license; React 18 peer; archived | [Archive and license](https://github.com/Shopify/polaris-react-archive). Patterns only. |
+| Shopify Sidekick | No generic React package; use [app-action docs](https://shopify.dev/docs/apps/build/sidekick/build-app-actions) | Shopify platform integration | [Intent catalog](https://github.com/Shopify/app-intent-types) provides concrete scoped-action examples. |
+| IBM Carbon | `npm i @carbon/react@1.118.0` | React 16–19; Apache-2.0 | Active [repo and Storybook links](https://github.com/carbon-design-system/carbon). Reference only. |
+| Vercel Geist | Official [design docs](https://vercel.com/geist/introduction); no verified public `@vercel/geistcn` package | No copy license established for official components | Visual reference. [Community Geist UI](https://github.com/geist-org/geist-ui) is separate and archived. |
+| shadcn registry | `npx shadcn@4.21.4 build` against Souvenir-authored `registry.json` | CLI MIT; registry format; template license not established | [Template and example](https://github.com/shadcn-ui/registry-template); use schema/CLI without copying template source. |
+
+**May Day and `ds-dev` are internal source checkouts, not npm imports for this ledger.** Their pinned commits and paths are in [INVENTORY.md](INVENTORY.md). The conflicting May Day remote names need resolution before creating a distributable registry.

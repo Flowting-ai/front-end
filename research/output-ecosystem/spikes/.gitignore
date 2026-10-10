@@ -1,0 +1,5 @@
+node_modules/
+runtime-warnings.log
+dist/
+test-results/
+playwright-report/

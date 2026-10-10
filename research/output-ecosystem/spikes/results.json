@@ -1,0 +1,168 @@
+{
+  "fixtureVersion": "synthetic-1",
+  "packageVersions": "see package-lock.json",
+  "cases": [
+    {
+      "id": "diagnosis",
+      "results": {
+        "existing-parser": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 408,
+          "elapsedMs": 3.81
+        },
+        "json-render": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 512,
+          "elapsedMs": 3.35
+        },
+        "openui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 607,
+          "elapsedMs": 4.28
+        },
+        "assistant-ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 512,
+          "elapsedMs": 0.74
+        },
+        "a2ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 663,
+          "runtimeClean": false,
+          "note": "JSDOM emitted CSSStyleSheet and Lit context errors; text presence is not a browser pass.",
+          "elapsedMs": 39.65
+        },
+        "openuiStreaming": {
+          "errors": 0,
+          "unresolved": 0
+        },
+        "semanticGuard": {
+          "sourceAccepted": true,
+          "alteredClaimRejected": true,
+          "alteredActionRejected": true,
+          "note": "Framework schemas accept changed strings; this Souvenir source guard compares facts and authority against the frozen input."
+        }
+      }
+    },
+    {
+      "id": "comparison",
+      "results": {
+        "existing-parser": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 375,
+          "elapsedMs": 0.41
+        },
+        "json-render": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 452,
+          "elapsedMs": 0.89
+        },
+        "openui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 547,
+          "elapsedMs": 0.75
+        },
+        "assistant-ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 452,
+          "elapsedMs": 0.41
+        },
+        "a2ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 629,
+          "runtimeClean": false,
+          "note": "JSDOM emitted CSSStyleSheet and Lit context errors; text presence is not a browser pass.",
+          "elapsedMs": 3.09
+        },
+        "openuiStreaming": {
+          "errors": 0,
+          "unresolved": 0
+        },
+        "semanticGuard": {
+          "sourceAccepted": true,
+          "alteredClaimRejected": true,
+          "alteredActionRejected": true,
+          "note": "Framework schemas accept changed strings; this Souvenir source guard compares facts and authority against the frozen input."
+        }
+      }
+    },
+    {
+      "id": "approval",
+      "results": {
+        "existing-parser": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 362,
+          "elapsedMs": 0.15
+        },
+        "json-render": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 469,
+          "elapsedMs": 1.01
+        },
+        "openui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 564,
+          "elapsedMs": 0.7
+        },
+        "assistant-ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 469,
+          "elapsedMs": 0.42
+        },
+        "a2ui": {
+          "valid": true,
+          "missing": [],
+          "extraAction": false,
+          "bytes": 616,
+          "runtimeClean": false,
+          "note": "JSDOM emitted CSSStyleSheet and Lit context errors; text presence is not a browser pass.",
+          "elapsedMs": 2.66
+        },
+        "openuiStreaming": {
+          "errors": 0,
+          "unresolved": 0
+        },
+        "semanticGuard": {
+          "sourceAccepted": true,
+          "alteredClaimRejected": true,
+          "alteredActionRejected": true,
+          "note": "Framework schemas accept changed strings; this Souvenir source guard compares facts and authority against the frozen input."
+        }
+      }
+    }
+  ],
+  "malformed": {
+    "existingParserPreservesLead": true,
+    "jsonRenderRejectsMissingClaim": true,
+    "openUIReportsUnknownComponent": true,
+    "assistantUnknownHtml": ""
+  }
+}
