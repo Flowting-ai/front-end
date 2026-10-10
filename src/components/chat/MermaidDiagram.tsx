@@ -15,7 +15,6 @@
  */
 
 import React, { useEffect, useRef, useState } from "react"
-import { renderMermaidSVG } from "beautiful-mermaid"
 import { m, useReducedMotion } from "framer-motion"
 import { Check, Copy, GitBranch, Maximize2, Minimize2 } from "lucide-react"
 import { ChatChartShell } from "@/components/chat/ChatChartShell"
@@ -31,6 +30,23 @@ const THEME = {
   surface:     "var(--neutral-800-05)",
   transparent: true,
   font:        "Geist",
+}
+
+// beautiful-mermaid bundles a graph-layout engine (~1.4 MB raw / ~420 KB gzip), and most chats
+// never contain a diagram — so it is loaded the first time a diagram renders, not with the chat
+// page. The promise is cached; a failed load (e.g. offline) clears the cache so the next
+// diagram can retry.
+type MermaidModule = typeof import("beautiful-mermaid")
+let mermaidModule: Promise<MermaidModule> | null = null
+
+function loadMermaid(): Promise<MermaidModule> {
+  if (!mermaidModule) {
+    mermaidModule = import("beautiful-mermaid").catch((error: unknown) => {
+      mermaidModule = null
+      throw error
+    })
+  }
+  return mermaidModule
 }
 
 function Skeleton() {
@@ -78,16 +94,29 @@ export function MermaidDiagram({ code }: { code: string }) {
   const reduceMotion = Boolean(useReducedMotion())
 
   useEffect(() => {
+    let cancelled = false
     let failTimer: ReturnType<typeof setTimeout> | undefined
+    const markFailedSoon = () => {
+      failTimer = setTimeout(() => setFailed(true), 1000)
+    }
     const renderTimer = setTimeout(() => {
-      try {
-        setSvg(renderMermaidSVG(code, THEME))
-        setFailed(false)
-      } catch {
-        failTimer = setTimeout(() => setFailed(true), 1000)
-      }
+      loadMermaid().then(
+        ({ renderMermaidSVG }) => {
+          if (cancelled) return
+          try {
+            setSvg(renderMermaidSVG(code, THEME))
+            setFailed(false)
+          } catch {
+            markFailedSoon()
+          }
+        },
+        () => {
+          if (!cancelled) markFailedSoon()
+        },
+      )
     }, 250)
     return () => {
+      cancelled = true
       clearTimeout(renderTimer)
       if (failTimer) clearTimeout(failTimer)
     }

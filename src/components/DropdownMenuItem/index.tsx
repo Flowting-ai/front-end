@@ -4,15 +4,10 @@ import React, { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, m } from 'framer-motion'
-// LlmIcon pulls in @strange-huge/icons/llm (~10MB/6.5MB-gzip of every LLM
-// provider's logo/animation data) but only ever renders when a caller passes
-// the optional `llm` prop (see the `llm && !isDanger` guard further down) —
-// most DropdownMenuItem call sites across the app never do, yet
-// DropdownMenuItem is a foundational primitive used almost everywhere (via
-// Dropdown), so a static import here made every page with any dropdown pay
-// for it. Deferred so the chunk only loads when a caller actually passes `llm`.
-// ThemedLlmIcon wraps LlmIcon (colour in light, white in dark) and imports it statically, so
-// loading it lazily here keeps exactly the same chunk boundary as before.
+// ThemedLlmIcon only renders when a caller passes the optional `llm` prop (see the
+// `llm && !isDanger` guard further down) — most DropdownMenuItem call sites never do, yet
+// DropdownMenuItem is a foundational primitive used almost everywhere (via Dropdown).
+// Deferred so the logo code only loads when a caller actually passes `llm`.
 const ThemedLlmIcon = dynamic(
   () => import('@/components/ThemedLlmIcon').then((m) => ({ default: m.ThemedLlmIcon })),
   { ssr: false, loading: () => null },

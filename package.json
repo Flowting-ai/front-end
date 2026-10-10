@@ -13,6 +13,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "generate:llm-icons": "node scripts/generate-llm-icons.mjs",
+    "perf:bundle": "node scripts/perf-bundle.mjs",
+    "perf:bundle:check": "node scripts/perf-bundle.mjs --check",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {

@@ -1,0 +1,10 @@
+{
+  "_comment": "Initial-JavaScript budget checked by `npm run perf:bundle:check` after `next build`. Limits sit about 20% above the measured size after the bundle fixes (see docs/perf/README.md). Raise a limit only with a reason in the pull request.",
+  "maxInitialChunkKB": 350,
+  "allowedLargeChunkNames": [],
+  "pages": {
+    "/reasoning-verify": { "maxGzipKB": 600, "maxRawKB": 2000 },
+    "/onboarding/plans": { "maxGzipKB": 480, "maxRawKB": 1550 },
+    "/_not-found": { "maxGzipKB": 400, "maxRawKB": 1300 }
+  }
+}

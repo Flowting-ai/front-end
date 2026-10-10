@@ -1,0 +1,441 @@
+{
+  "buildId": "y-Y4aPgHHX3b0QtpLoJj1",
+  "generatedAt": "2026-10-10T18:49:33.061Z",
+  "totals": {
+    "chunks": 142,
+    "raw": 8325786,
+    "gzip": 2550412
+  },
+  "topChunks": [
+    {
+      "file": "91dbc596.13ffdc0b0b574f4c.js",
+      "raw": 1449397,
+      "gzip": 432994
+    },
+    {
+      "file": "05f6971a.9ab1a03aafe3f4f3.js",
+      "raw": 1032101,
+      "gzip": 274038
+    },
+    {
+      "file": "c857e369.b37a883e390ba9a8.js",
+      "raw": 412973,
+      "gzip": 120058
+    },
+    {
+      "file": "164f4fb6.4a9b8d5aefa70046.js",
+      "raw": 330640,
+      "gzip": 105457
+    },
+    {
+      "file": "8578-e07c1fd18aaa6e78.js",
+      "raw": 328747,
+      "gzip": 100482
+    },
+    {
+      "file": "8755-7c02ed4c3db10e7f.js",
+      "raw": 293776,
+      "gzip": 91059
+    },
+    {
+      "file": "d3ac728e-2810f3f3de7c1837.js",
+      "raw": 261809,
+      "gzip": 76295
+    },
+    {
+      "file": "9826-f8bf567496551dd6.js",
+      "raw": 221962,
+      "gzip": 60726
+    },
+    {
+      "file": "4bd1b696-427c9ac60bb407ee.js",
+      "raw": 199870,
+      "gzip": 62882
+    },
+    {
+      "file": "ad2866b8.9ecf9523770f589c.js",
+      "raw": 198046,
+      "gzip": 45529
+    },
+    {
+      "file": "framework-711ef29bc66f648c.js",
+      "raw": 189700,
+      "gzip": 59902
+    },
+    {
+      "file": "ca4238ca.4f5604336a09e08f.js",
+      "raw": 144645,
+      "gzip": 43690
+    }
+  ],
+  "prerenderedPages": [
+    {
+      "page": "/reasoning-verify",
+      "scripts": 28,
+      "raw": 1657548,
+      "gzip": 511374,
+      "largest": [
+        {
+          "file": "d3ac728e-2810f3f3de7c1837.js",
+          "raw": 261809,
+          "gzip": 76295
+        },
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/plans",
+      "scripts": 28,
+      "raw": 1300562,
+      "gzip": 405682,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/org/change-plan",
+      "scripts": 28,
+      "raw": 1293300,
+      "gzip": 403814,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/hello",
+      "scripts": 26,
+      "raw": 1259723,
+      "gzip": 394600,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/profile",
+      "scripts": 26,
+      "raw": 1242010,
+      "gzip": 387505,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/setup",
+      "scripts": 22,
+      "raw": 1205776,
+      "gzip": 372894,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/invite",
+      "scripts": 23,
+      "raw": 1205147,
+      "gzip": 373325,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/connectors",
+      "scripts": 21,
+      "raw": 1195674,
+      "gzip": 369211,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/workspace",
+      "scripts": 22,
+      "raw": 1191226,
+      "gzip": 367642,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/join",
+      "scripts": 22,
+      "raw": 1188525,
+      "gzip": 366873,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/account-type",
+      "scripts": 21,
+      "raw": 1187137,
+      "gzip": 366495,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/pricing/confirmation",
+      "scripts": 22,
+      "raw": 1187065,
+      "gzip": 366348,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/import",
+      "scripts": 21,
+      "raw": 1182869,
+      "gzip": 364696,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding/tone",
+      "scripts": 21,
+      "raw": 1177983,
+      "gzip": 363209,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/_not-found",
+      "scripts": 15,
+      "raw": 1074739,
+      "gzip": 325472,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "2070-d28b0ae0d86c7f6f.js",
+          "raw": 132276,
+          "gzip": 44567
+        }
+      ]
+    },
+    {
+      "page": "/onboarding",
+      "scripts": 5,
+      "raw": 541785,
+      "gzip": 166949,
+      "largest": [
+        {
+          "file": "9826-f8bf567496551dd6.js",
+          "raw": 221962,
+          "gzip": 60726
+        },
+        {
+          "file": "4bd1b696-427c9ac60bb407ee.js",
+          "raw": 199870,
+          "gzip": 62882
+        },
+        {
+          "file": "polyfills-42372ed130431b0a.js",
+          "raw": 112594,
+          "gzip": 39627
+        }
+      ]
+    }
+  ]
+}
