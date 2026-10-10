@@ -4,6 +4,8 @@ Research branch: `research/output-reuse-atlas`, based on `ds-dev` at `c6fbe81693
 
 ## Read in order
 
+**Build brief:** [Souvenir Output Experience PRD](PRD.md) is the current product specification. It incorporates the later clarification: a complete representational experience, including thinking/research states, response writing, interactive analysis, and editable/exportable documents. The research below supports that build.
+
 1. [Souvenir inventory](INVENTORY.md) — what the production frontend and May Day already have.
 2. [Reuse atlas](ATLAS.md) — ranked upstream projects, exact pinned spike packages, licenses, maintenance, and adoption boundaries.
    [Package ledger](INSTALLS.md) — exact versions, install methods, compatibility and working examples.
