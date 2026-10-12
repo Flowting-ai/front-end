@@ -3,7 +3,7 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { m } from 'framer-motion'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'

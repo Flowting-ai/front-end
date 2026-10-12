@@ -6,8 +6,7 @@ import { createPortal } from 'react-dom'
 import { m, AnimatePresence } from 'framer-motion'
 import { FolderOneIcon, CancelOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
-import { Button }     from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 

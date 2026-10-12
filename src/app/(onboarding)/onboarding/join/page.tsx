@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useWorkspaceOnboarding } from "@/context/workspace-onboarding-context";
 import { getTeamInviteOnboarding, acceptTeamInvite } from "@/lib/api/teams";

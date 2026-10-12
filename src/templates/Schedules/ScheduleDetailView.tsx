@@ -10,8 +10,7 @@ import {
   AlertTwoIcon,
   CopyOneIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { MarkdownRenderer } from '@/lib/markdown-utils'

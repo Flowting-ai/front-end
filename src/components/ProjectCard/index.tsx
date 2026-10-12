@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { MoreVerticalIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { Badge, type BadgeColor } from '@/components/Badge'

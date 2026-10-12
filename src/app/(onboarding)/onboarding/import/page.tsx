@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding, deriveRoleFit, effectiveUserRole } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { apiFetch } from "@/lib/api/client";
 import { toast } from "sonner";

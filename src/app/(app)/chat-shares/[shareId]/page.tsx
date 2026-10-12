@@ -10,7 +10,7 @@ import {
   type SharedChatMessage,
 } from '@/lib/api/chat-shares'
 import { useChatHistoryContext } from '@/context/chat-history-context'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { ContentRenderer } from '@/lib/content-renderer'
 import { deriveCitationsFromSources } from '@/lib/citations'

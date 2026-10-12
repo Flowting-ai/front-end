@@ -6,7 +6,7 @@ import { ErrorBoundary } from './index'
 import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/chat' }))
-vi.mock('@/components/Button', () => ({ Button: ({ children }: { children: React.ReactNode }) => <button>{children}</button> }))
+vi.mock('@/components/ui/button', () => ({ Button: ({ children }: { children: React.ReactNode }) => <button>{children}</button> }))
 vi.mock('@strange-huge/icons', () => ({ AlertCircleIcon: () => null }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ChartCard } from '@/components/ChartCard'
 import { DateRangePill } from '@/components/DateRangePill'
 import { Eyebrow } from '@/components/Eyebrow'

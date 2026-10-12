@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useForm, ValidationError } from '@formspree/react'
 import { toast } from 'sonner'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 
 const TEAM_SIZE_OPTIONS = [

@@ -2,10 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
-import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModalHeader, ModalShell } from '@/components/ChangeAgentModelModal/shared'

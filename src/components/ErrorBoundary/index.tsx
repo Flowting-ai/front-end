@@ -3,7 +3,7 @@
 import React from 'react'
 import { usePathname } from 'next/navigation'
 import { useSidebarEvents } from '@/hooks/use-sidebar-events'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { AlertCircleIcon } from '@strange-huge/icons'
 
 interface ErrorBoundaryProps {

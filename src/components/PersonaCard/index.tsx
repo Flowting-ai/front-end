@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { m } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import { CopyOneIcon, BookmarkTwoIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import {

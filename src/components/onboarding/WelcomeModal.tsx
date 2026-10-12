@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { m, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api/client";
 import { toast } from "sonner";

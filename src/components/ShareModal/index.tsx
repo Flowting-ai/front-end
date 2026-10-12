@@ -12,7 +12,7 @@ import {
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { ViewIcon } from '@/components/ViewIcon'
-import { Button }          from '@/components/Button'
+import { Button }          from '@/components/ui/button'
 import { Badge }           from '@/components/Badge'
 import { Dropdown }        from '@/components/Dropdown'
 import { Divider }         from '@/components/Divider'

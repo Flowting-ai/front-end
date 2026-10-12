@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 import {
   PenOneIcon,
   CopyOneIcon,

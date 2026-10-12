@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react'
 import { PlusSignIcon, ArrowUpRightOneIcon, RedoIcon, DeleteTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown } from '@/components/Dropdown'

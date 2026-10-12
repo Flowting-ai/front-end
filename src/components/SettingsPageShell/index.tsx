@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 
 interface SettingsPageShellProps {

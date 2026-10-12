@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useTeamInviteOnboarding } from "@/context/team-invite-onboarding-context";
 import { ApiError } from "@/lib/api/client";

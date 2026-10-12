@@ -24,7 +24,7 @@ import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation } from "@/types/chat";
 import { respondToChatPrompt } from "@/lib/api/chat";
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
 import { formatDate } from "@/lib/utils/format-utils";

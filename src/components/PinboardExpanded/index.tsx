@@ -20,8 +20,7 @@ import {
   PenOneIcon,
 } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { Pin, type PinProps } from '@/components/Pin'
 import { Tooltip } from '@/components/Tooltip'

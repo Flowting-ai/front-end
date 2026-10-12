@@ -9,10 +9,9 @@ import {
   MicTwoIcon,
   StopCircleIcon,
 } from "@strange-huge/icons";
-import { IconButton } from "@/components/IconButton";
+import { IconButton, Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { ModelIcon } from "@/components/ModelIcon";
-import { Button } from "@/components/Button";
 import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
@@ -958,7 +957,7 @@ export function ChatInput(
                   })
                 }
               >
-                <Button
+                <Button className="kaya-model-btn"
                   variant="ghost"
                   size={szBtn}
                   leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
@@ -975,7 +974,7 @@ export function ChatInput(
                 placement={modelMenuPlacement}
                 autoFlipVertical
                 trigger={
-                  <Button
+                  <Button className="kaya-model-btn"
                     variant="ghost"
                     size={szBtn}
                     leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}
@@ -998,7 +997,7 @@ export function ChatInput(
                   : modelMenu}
               </Dropdown.Float>
             ) : (
-              <Button
+              <Button className="kaya-model-btn"
                 variant="ghost"
                 size={szBtn}
                 leftIcon={<ModelIcon model={modelIcon ?? modelName} size={16} />}

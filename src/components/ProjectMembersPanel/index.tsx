@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { PlusSignIcon, ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from 'sonner'
 import {

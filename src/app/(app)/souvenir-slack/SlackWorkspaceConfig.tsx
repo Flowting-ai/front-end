@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import Image from 'next/image'
 import { PlusSignIcon, SearchOneIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/Switch'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
 import {

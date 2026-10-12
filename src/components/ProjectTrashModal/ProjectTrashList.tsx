@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { DeleteTwoIcon, InformationCircleIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { fetchDeletedProjects, restoreProjectApi, type ApiProjectSummary } from '@/lib/api/projects'
 

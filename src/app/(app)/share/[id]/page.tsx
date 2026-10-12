@@ -9,7 +9,7 @@ import {
   type PersonaSharePreview,
 } from '@/lib/api/persona-shares'
 import { ApiError } from '@/lib/api/client'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { AGENTS_ROUTE, ROOT_ROUTE } from '@/lib/routes'
 

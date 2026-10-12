@@ -5,8 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { AlertCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 
 // Shared by every project-delete entry point (the All Projects grid/list and
 // the single project page's own "Delete" menu item) so a destructive action

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { springs } from '@/lib/springs'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

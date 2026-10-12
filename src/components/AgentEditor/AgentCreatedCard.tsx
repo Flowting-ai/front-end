@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { AgentHero } from '@/components/PersonaCard/AgentHero'
 import { AgentCardButton } from '@/components/PersonaCard/AgentCardButton'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'

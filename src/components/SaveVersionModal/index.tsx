@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 
 // ── Available change tags ────────────────────────────────────────────────────
 

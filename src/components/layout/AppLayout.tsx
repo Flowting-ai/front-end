@@ -11,7 +11,7 @@ import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";

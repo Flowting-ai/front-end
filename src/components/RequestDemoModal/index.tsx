@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { z } from 'zod'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
 // ── Style constants (mirrors org/plans page tokens) ──────────────────────────

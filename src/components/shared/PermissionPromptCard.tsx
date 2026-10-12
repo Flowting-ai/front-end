@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useState } from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { toConnector } from '@/lib/connector'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 

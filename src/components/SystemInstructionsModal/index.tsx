@@ -6,8 +6,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { PenOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

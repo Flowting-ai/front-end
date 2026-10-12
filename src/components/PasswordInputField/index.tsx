@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import { Field } from '@base-ui/react/field'
 import { AnimatePresence, animate, m } from 'framer-motion'
 import { ViewIcon } from '@/components/ViewIcon'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

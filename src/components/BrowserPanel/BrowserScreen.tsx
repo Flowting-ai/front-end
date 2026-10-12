@@ -9,8 +9,7 @@ import {
   ArrowShrinkTwoIcon,
   ViewIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'

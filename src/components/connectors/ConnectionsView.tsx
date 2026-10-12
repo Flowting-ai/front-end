@@ -13,11 +13,10 @@ import {
   SearchOneIcon,
   TickTwoIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/ui/button'
 import { ConnectorCatalogCard, type ConnectorCatalogCardState } from '@/components/ConnectorCatalogCard'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Dropdown } from '@/components/Dropdown'
-import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'

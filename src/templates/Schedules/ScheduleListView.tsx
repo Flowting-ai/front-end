@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react'
 import { PlusSignIcon, SearchOneIcon, CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'

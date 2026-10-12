@@ -9,7 +9,7 @@ import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
 import { toast } from "sonner";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
 

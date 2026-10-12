@@ -6,7 +6,7 @@ import { SearchOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
 import type { BadgeColor } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
 import {

@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api/client'
 import { linkSlackIdentity, disconnectSlackIdentity } from '@/lib/api/slack'
 import { useAuth } from '@/context/auth-context'

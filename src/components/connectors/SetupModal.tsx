@@ -15,7 +15,7 @@
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { VisibilityRow } from '@/components/VisibilityRow'
 import {

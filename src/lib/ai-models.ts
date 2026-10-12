@@ -197,18 +197,46 @@ export function isAutoRoutingModelName(modelName: string): boolean {
   return AUTO_ROUTING_NAMES.has(modelName.trim().toLowerCase());
 }
 
-// Legacy Souvenir-tier names ("Advanced"/"Standard"/"Basic") that can still
-// appear in the catalog alongside the real provider models — these are
-// Claude under the hood, but their own companyName/modelName don't reliably
-// resolve to "Claude" via toLlmIconId, so it's forced explicitly here rather
-// than showing no logo for them.
-const CLAUDE_TIER_NAMES = new Set(["advanced", "standard", "basic"]);
-
-/** Resolves what to hand ModelIcon's `model` prop for a catalog model row. */
+/** Resolves what to hand ModelIcon's `model` prop for a catalog model row.
+ *  The catalog's provider is the truth (e.g. Advanced/Standard/Basic are OpenAI). */
 export function modelIconSource<T extends Pick<AIModel, "modelName" | "companyName">>(model: T): string | null {
-  if (CLAUDE_TIER_NAMES.has(model.modelName.trim().toLowerCase())) return "Claude";
   return model.companyName || model.modelName;
 }
+
+// Catalog-backed logo lookup by model name/id. A chat message only carries a
+// model name (and, when streamed, the backend's own `company`, which can
+// disagree with the catalog — e.g. a tier alias served by another provider), so
+// resolving through the catalog keeps a message's logo identical to the
+// selector's, live and after reload. Auto-routing aliases map to null so they
+// (and only they) get the Souvenir mark.
+const _catalogIcons = new Map<string, string | null>();
+const _catalogListeners = new Set<() => void>();
+let _catalogVersion = 0;
+
+function indexCatalogIcons(models: AIModel[]): void {
+  _catalogIcons.clear();
+  for (const m of models) {
+    const icon = isAutoRoutingModelName(m.modelName) ? null : modelIconSource(m);
+    for (const key of [m.modelName, m.modelId, m.id]) {
+      if (key) _catalogIcons.set(String(key).trim().toLowerCase(), icon);
+    }
+  }
+  _catalogVersion++;
+  _catalogListeners.forEach((fn) => fn());
+}
+
+/** `undefined` = name not in the catalog (or catalog not loaded yet). */
+export function catalogIconSource(name: string | null | undefined): string | null | undefined {
+  if (!name) return undefined;
+  return _catalogIcons.get(name.trim().toLowerCase());
+}
+
+export function subscribeCatalogIcons(fn: () => void): () => void {
+  _catalogListeners.add(fn);
+  return () => { _catalogListeners.delete(fn); };
+}
+
+export const getCatalogIconsVersion = (): number => _catalogVersion;
 
 // Size/class keywords used only to break ties between same-company candidates
 // — e.g. prefer another Sonnet-class model over an Opus/Haiku one so a
@@ -274,6 +302,7 @@ export async function fetchModelsWithCache(
       // itself is left intact on each AIModel for the surfaces that still use
       // it to show an accurate "this assigned model is disabled" warning.)
       const models = normalizeModels(data);
+      indexCatalogIcons(models);
       _modelsCache = models;
       _modelsCacheTime = Date.now();
       return models;

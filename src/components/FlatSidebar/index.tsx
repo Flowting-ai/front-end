@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { SearchOneIcon, SidebarLeftIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
 import { SouvenirLogo } from '@/components/SouvenirLogo'

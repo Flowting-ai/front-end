@@ -6,7 +6,7 @@ import { useOnboarding } from "@/context/onboarding-context";
 import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import StickyNote02Icon from "@hugeicons/core-free-icons/StickyNote02Icon";
 import OfficeChairIcon from "@hugeicons/core-free-icons/OfficeChairIcon";

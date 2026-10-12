@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import type { AvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { AgentAvatar } from './AgentAvatar'
 import { AvatarCarousel } from './AvatarCarousel'

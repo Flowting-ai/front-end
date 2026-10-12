@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useForm, ValidationError } from '@formspree/react'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/auth-context'
 import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { toast } from 'sonner'

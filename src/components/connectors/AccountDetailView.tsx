@@ -27,7 +27,7 @@ import {
 } from '@strange-huge/icons'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Dropdown } from '@/components/Dropdown'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Switch } from '@/components/Switch'
 import { Tooltip } from '@/components/Tooltip'

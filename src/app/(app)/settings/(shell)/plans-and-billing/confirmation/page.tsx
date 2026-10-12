@@ -6,7 +6,7 @@ import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { fetchBilling } from '@/lib/api/stripe'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ORG_PLANS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'

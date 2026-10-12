@@ -5,7 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/components/ui/button";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput, type ChatInputProps } from "./ChatInput";
 import { PinMentionDropdown } from "./PinMentionDropdown";

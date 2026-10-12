@@ -9,7 +9,7 @@
 
 import React from 'react'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const

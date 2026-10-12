@@ -5,7 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, m } from 'framer-motion'
 import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { ThemedLlmIcon } from '@/components/ThemedLlmIcon'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Tooltip, type TooltipSide } from '@/components/Tooltip'
 import { cn } from '@/lib/utils'
 

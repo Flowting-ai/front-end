@@ -3,7 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useCreditStatus } from '@/hooks/use-credit-status'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { TokenCircleIcon } from '@strange-huge/icons'
 import { ORG_PLANS_ROUTE } from '@/lib/routes'

@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Button, type ButtonProps } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, type ButtonProps, IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 
 // The button on every agent card: a white pill with dark text in both light and dark mode, like the

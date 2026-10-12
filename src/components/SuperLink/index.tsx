@@ -5,7 +5,7 @@ import { m, AnimatePresence } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import { LinkSixIcon } from '@strange-huge/icons'
 import { Switch } from '@/components/Switch'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/Slider'
 import { cn } from '@/lib/utils'
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { UserIcon, BubbleChatAddIcon, MoreVerticalIcon, PenOneIcon, UnlinkOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { VISIBILITY_LABEL, VISIBILITY_COLOR } from '@/components/ProjectCard'

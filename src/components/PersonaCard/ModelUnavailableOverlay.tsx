@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { CARD_RADIUS } from './card-metrics'
 
 export interface ModelUnavailableOverlayProps {

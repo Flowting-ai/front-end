@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 // ModelIcon only renders here when a persona/model tag is actually shown (see the
 // `personaModel || persona?.modelId` guard below) — most pages never hit that branch,
 // so it is deferred rather than loaded with every page's TopBar.

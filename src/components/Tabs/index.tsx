@@ -7,7 +7,7 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 
 // ── Contexts — set by TabsList, consumed by TabsTrigger ───────────────────────
 

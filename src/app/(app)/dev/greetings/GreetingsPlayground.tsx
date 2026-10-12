@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useMounted } from '@/hooks/use-mounted'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Slider } from '@/components/Slider'
 import { Switch } from '@/components/Switch'

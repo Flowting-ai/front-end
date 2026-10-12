@@ -3,7 +3,7 @@
 import React from 'react'
 import { m } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import {
   AVATAR_CHOICES,
   AnimatedPersonaAvatar,

@@ -3,7 +3,7 @@
 import { Tooltip } from '@/components/Tooltip'
 import React from 'react'
 import { AlertTwoIcon, CancelCircleIcon, CheckmarkCircleTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import styles from './AccountRow.module.css'
 

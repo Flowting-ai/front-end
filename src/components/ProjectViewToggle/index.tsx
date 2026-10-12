@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { VIEW_LABELS, VIEW_DESCRIPTION, type ViewMode } from '@/lib/project-filters'
 

@@ -66,7 +66,12 @@ const PRIMARY_TO = '#222222'
 const PRIMARY_DISABLED_TO = '#383838'
 const PRIMARY_BORDER = '#5C5C5C'
 const TOOLTIP_TO = '#2A2A2A'
-// Dark-mode brand pink for the default Button + Tooltip (light mode stays black).
+// Dark-mode primary button: a light (off-white) fill with dark text. The PINK_* names are kept for the
+// tooltip/widget, which still use the brand pink.
+const LIGHT_BTN_FROM = '#EDEDED' // hover shade
+const LIGHT_BTN_TO = '#FFFFFF' // resting fill: white
+const LIGHT_BTN_BORDER = '#FFFFFF'
+const LIGHT_BTN_TEXT = '#1C1C1C'
 const PINK_FROM = '#F92064'
 const PINK_TO = '#C4124C'
 const PINK_BORDER = '#FF6B97'
@@ -273,21 +278,23 @@ lines.push('  /* ── Role overrides ─────────────�
 const overrides = [
   // Primary button / icon button / tooltip / toast action: a dark ELEVATED brown with
   // white text and a visible border — never a light fill.
-  ['--color-interactive-primary-surface-from', PINK_FROM],
-  ['--color-interactive-primary-surface-to', PINK_TO],
+  ['--color-interactive-primary-surface-from', LIGHT_BTN_FROM],
+  ['--color-interactive-primary-surface-to', LIGHT_BTN_TO],
   ['--color-interactive-primary-surface-disabled-from', PRIMARY_FROM],
   ['--color-interactive-primary-surface-disabled-to', PRIMARY_DISABLED_TO],
-  ['--color-interactive-primary-border', PINK_BORDER],
+  ['--color-interactive-primary-border', LIGHT_BTN_BORDER],
   ['--color-interactive-primary-border-disabled', '#5C5C5C'],
-  ['--color-interactive-primary-text', WHITE],
+  ['--color-interactive-primary-text', LIGHT_BTN_TEXT],
+  // Focus ring: white instead of the brand pink.
+  ['--color-focus-ring', '#FFFFFF'],
   ['--color-interactive-primary-text-disabled', '#BDBDBD'],
   // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#C4C4C4).
   ['--color-interactive-subtle-text-disabled', '#A3A3A3'],
   ['--button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
   ['--icon-button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
-  ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%)'],
+  ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,255,255) 0%, rgb(235,235,235) 50%, rgb(255,255,255) 100%)'],
   // Default-button 3D edge: light pink instead of the (dark-mirrored) white neutral-950.
-  ['--shadow-button-default-inner', 'inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5)'],
+  ['--shadow-button-default-inner', 'inset 0px 1px 0.364px 0px rgba(255, 255, 255, 0.4), inset 0px -2.182px 0.364px 0px #FFFFFF'],
   // Dropdown / popover / floating-menu 1px ring: light silver, with a deep drop shadow.
   ['--shadow-popover', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
   ['--shadow-floating-menu-outer', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
@@ -472,21 +479,23 @@ lines.push('')
 lines.push('  /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */')
 const PROJECT_OVERRIDES = [
   // Chips (web search, agent chips, ...): light pink chips on the dark UI.
-  ['--chip-bg', '#FFD9E5'],
-  ['--chip-text', '#4A0B20'],
-  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45)'],
-  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18)'],
-  ['--chip-button-bg-hover', 'rgba(249, 32, 100, 0.14)'],
-  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22)'],
+  ['--chip-bg', '#F5F2EF'],
+  ['--chip-text', '#1C1C1C'],
+  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(255, 255, 255, 0.45)'],
+  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.12)'],
+  ['--chip-button-bg-hover', 'rgba(0, 0, 0, 0.08)'],
+  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(0, 0, 0, 0.14)'],
   // Floating surfaces keep the dark surface.
   ['--popover-bg', 'var(--color-surface-default)'],
   ['--modal-bg', 'var(--color-surface-default)'],
   ['--card-bg', 'var(--color-surface-default)'],
+  // Layout / card hairline border (AppLayout content card, agent cards): the original dark-grey value.
+  ['--border-default', 'var(--neutral-200)'],
   ['--toast-bg', DARK_SURFACE_HEX],
   ['--surface-cream', DARK_SURFACE_HEX],
   // Chat widgets: black to signature pink, white accents.
   ['--widget-bg-from', '#0A0A0A'],
-  ['--widget-bg-to', PINK_FROM],
+  ['--widget-bg-to', '#4A4A4A'],
   ['--widget-accent', WHITE],
   ['--widget-on-accent', DARK_SURFACE_HEX],
   // Light-tinted shadows on dark.

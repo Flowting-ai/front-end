@@ -67,7 +67,7 @@ export function ModelLogo({
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
   return (
     <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none", lineHeight: 0 }}>
-      <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={size} />
+      <ModelIcon model={modelMeta?.modelName ?? modelName ?? modelMeta?.company} size={size} />
     </span>
   );
 }
@@ -116,7 +116,7 @@ export function AnimatedLogo({
             animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={16} />
+            <ModelIcon model={modelMeta?.modelName ?? modelName ?? modelMeta?.company} size={16} />
           </m.div>
         )}
       </AnimatePresence>

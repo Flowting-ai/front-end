@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { PlusSignIcon, AlertTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { type Persona } from '@/lib/api/personas'
 import { can, type AgentViewer } from '@/lib/agent-permissions'
 import { useQueryClient } from '@tanstack/react-query'

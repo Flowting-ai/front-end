@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { PlusSignIcon, PenOneIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

@@ -14,8 +14,7 @@ import {
   FolderOneIcon,
   UnfoldLessIcon,
 } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { PinboardHeader } from '@/components/PinboardHeader'
 import { Pin, type PinProps } from '@/components/Pin'
 import { Tooltip } from '@/components/Tooltip'

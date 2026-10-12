@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { MoreVerticalIcon, PenOneIcon, ShareOneIcon, CopyOneIcon, StopCircleIcon, ArrowRightTwoIcon, InformationCircleIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 
 export interface AgentCardMenuProps {

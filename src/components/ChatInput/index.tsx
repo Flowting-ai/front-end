@@ -15,8 +15,7 @@ import {
   QuillWriteTwoIcon,
   UserAddOneIcon,
 } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
 import { ModelIcon } from '@/components/ModelIcon'
@@ -1256,7 +1255,7 @@ export function ChatInput({
                   description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
                 })}
               >
-                <Button
+                <Button className="kaya-model-btn"
                   variant="ghost"
                   size="md"
                   rightIcon={<ArrowDownOneIcon size={16} />}
@@ -1272,7 +1271,7 @@ export function ChatInput({
                 placement="bottom-end"
                 autoFlipVertical
                 trigger={
-                  <Button
+                  <Button className="kaya-model-btn"
                     variant="ghost"
                     size="md"
                     rightIcon={<ArrowDownOneIcon size={16} />}
@@ -1293,7 +1292,7 @@ export function ChatInput({
                   : modelMenu}
               </Dropdown.Float>
             ) : (
-              <Button
+              <Button className="kaya-model-btn"
                 variant="ghost"
                 size="md"
                 rightIcon={<ArrowDownOneIcon size={16} />}

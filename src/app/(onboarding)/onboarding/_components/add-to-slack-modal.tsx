@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { CancelOneIcon } from "@strange-huge/icons";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { getSlackInstallUrl } from "@/lib/api/slack";
 
 // ── A1 screen 5 / A2 screen 3 — "Into the app" + "Add Souvenir to Slack" modal ──

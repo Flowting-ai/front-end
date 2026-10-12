@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ArrowDownOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { ModelIcon } from '@/components/ModelIcon'
 import { Switch } from '@/components/Switch'

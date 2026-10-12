@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Spinner } from '@/components/Spinner'
 import { toast } from 'sonner'

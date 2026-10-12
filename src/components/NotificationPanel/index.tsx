@@ -16,8 +16,7 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import Tabs from '@/components/Tabs'
 import { BellRingIcon } from '@/components/BellRingIcon'

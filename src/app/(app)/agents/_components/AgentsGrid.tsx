@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { type Persona } from '@/lib/api/personas'
 import { can, agentRole, type AgentViewer } from '@/lib/agent-permissions'
 import { patchableVersionId, type ModelUnavailableReason } from '@/lib/agent-model-health'

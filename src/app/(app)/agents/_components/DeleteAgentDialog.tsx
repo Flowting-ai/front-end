@@ -5,8 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { type Persona } from '@/lib/api/personas'
 
 export function DeleteAgentDialog({

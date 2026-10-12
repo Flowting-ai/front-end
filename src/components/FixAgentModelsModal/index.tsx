@@ -6,8 +6,7 @@ import { toast } from 'sonner'
 import { AlertTwoIcon, ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, StarIcon } from '@strange-huge/icons'
 import { stableKey } from '@/hooks/use-model-selection'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import {
   ModalHeader,
   ModalShell,

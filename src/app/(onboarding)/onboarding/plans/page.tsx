@@ -9,7 +9,7 @@ import { useAuth } from '@/context/auth-context'
 import { createCheckout } from '@/lib/api/stripe'
 import { TeamsTier, type CheckoutPlan } from '@/lib/api/billing'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { InformationCircleIcon } from '@strange-huge/icons'
 import { ONBOARDING_TONE_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE, ONBOARDING_PLANS_ROUTE } from '@/lib/routes'
 

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { CalendarFoldIcon, MessagePreviewOneIcon, SettingsOneIcon, UserIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { SouvenirLogo } from '@/components/SouvenirLogo'
 import styles from './slack-config.module.css'
 

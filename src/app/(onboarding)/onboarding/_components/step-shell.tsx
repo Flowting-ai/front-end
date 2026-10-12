@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 
 // ── Shared shell for the v1.5 workspace-onboarding steps ─────────────────────
 // Figma: Onboarding v1, nodes 27:1196 / 55:2726 ("Setup your workspace"),

@@ -8,7 +8,7 @@ import { PinIcon, MoreHorizontalIcon, PenOneIcon, FolderOneIcon, FolderLibraryIc
 import { PINS_ENABLED } from '@/lib/feature-flags'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { cn } from '@/lib/utils'

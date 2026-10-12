@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { SearchOneIcon, CancelOneIcon, FilterMailIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { EMPTY_FILTERS, type AgentFilters, type SortKey } from '../_hooks/use-agent-filters'
 

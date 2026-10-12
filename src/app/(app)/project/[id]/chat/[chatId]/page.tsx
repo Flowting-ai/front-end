@@ -33,7 +33,7 @@ import { ChipTooltip } from '@/components/Chip/ChipTooltip'
 import { AgentChip } from '@/components/chat/AgentChip'
 import { AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
 import { useOpenAgentsPanel } from '@/hooks/use-open-agents-panel'
-import { Button }                                          from '@/components/Button'
+import { Button }                                          from '@/components/ui/button'
 import {
   FolderOneIcon,
   GlobalSearchIcon,

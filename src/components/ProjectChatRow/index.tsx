@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { MoreVerticalIcon, PinIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'

@@ -3,9 +3,8 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
 import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import type { ProjectVisibility } from '@/lib/api/projects'
 

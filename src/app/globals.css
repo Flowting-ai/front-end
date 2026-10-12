@@ -18,6 +18,12 @@
   --sidebar-icon-muted: var(--sidebar-selected-text);
 }
 
+/* Base font: Geist (--font-body) everywhere. Without this, anything that does not set its own
+   font-family (raw buttons, menus, labels) falls back to Tailwind's system-ui stack and looks like a different font. */
+body {
+  font-family: var(--font-body);
+}
+
 /* Search fields: pink ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
    InputField draws, so a field that already has it is unchanged. !important beats InputField's inline
    outline, and this works for search boxes built from a raw <input> too.
@@ -915,4 +921,24 @@
 /* The front flap is the second path: a dark grey fill so it hides the back panel's lines behind it. */
 :root[data-theme="dark"] .kds-folder-icon path:last-child {
   fill: #2B2B2B;
+}
+
+/* Every enabled button shows the pointer cursor. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+/* Dark mode: the page layout border (AppLayout content card, agent cards, panels) is a darkish grey.
+   Kept here as a literal, outside the generated theme.css, so regenerating the theme can never
+   drop it and leave the light-mode tan (#D3CEC8) showing. */
+:root[data-theme="dark"] {
+  --border-default: #383838;
+}
+
+
+/* Chat input model selector: a ghost button whose fill matches the chat input surface in dark mode
+   (the default ghost fill, --field-surface, is a lighter grey than --chat-input-bg). */
+:root[data-theme="dark"] .kaya-model-btn {
+  --field-surface: var(--chat-input-bg);
 }

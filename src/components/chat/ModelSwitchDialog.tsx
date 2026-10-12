@@ -2,7 +2,7 @@
 
 import { AnimatePresence, m } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import type { AIModel } from "@/types/ai-model";
 import { ModelIcon } from "@/components/ModelIcon";
 

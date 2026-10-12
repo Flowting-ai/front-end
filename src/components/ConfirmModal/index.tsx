@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMounted } from '@/hooks/use-mounted'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
 // Mirrors the hand-rolled `showCancelDialog` pattern in

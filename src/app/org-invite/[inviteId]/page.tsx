@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE } from "@/lib/routes";
 import { SouvenirLogo } from "@/components/SouvenirLogo";
 

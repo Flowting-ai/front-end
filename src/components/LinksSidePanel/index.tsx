@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Eyebrow } from '@/components/Eyebrow'
 import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'

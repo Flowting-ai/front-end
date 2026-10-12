@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { createOrganization } from '@/lib/api/organization'

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 
 interface DeleteChatDialogProps {
   open: boolean;
