@@ -10,8 +10,17 @@ import type { MockLibraryApi } from '@/lib/library/mock/api.mock'
 
 const STORAGE_KEY = 'library:dev-sample-data'
 
-/** Shown only in development on the mock: a dev control, never part of the product. */
-export const SAMPLE_DATA_TOGGLE_ENABLED = process.env.NODE_ENV === 'development' && LIBRARY_MOCK
+// Which deployment this is. Vercel exposes NEXT_PUBLIC_VERCEL_ENV ("production" | "preview" | "development");
+// elsewhere fall back to NODE_ENV, as lib/config.ts does.
+const isProductionDeploy = (process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV) === 'production'
+
+/**
+ * A dev control, never part of the product: shown on the mock in local development and on staging
+ * (Vercel preview deploys), never on a production deploy. A staging server that is not on Vercel can opt
+ * in with NEXT_PUBLIC_LIBRARY_DEV_TOOLS=true.
+ */
+export const SAMPLE_DATA_TOGGLE_ENABLED =
+  LIBRARY_MOCK && (!isProductionDeploy || process.env.NEXT_PUBLIC_LIBRARY_DEV_TOOLS === 'true')
 
 function readStored(): boolean {
   try {
@@ -27,7 +36,7 @@ async function apply(on: boolean) {
 }
 
 /**
- * Development only: turns the mock's sample files on or off, to see Library full or empty. The choice is
+ * Dev and staging only: turns the mock's sample files on or off, to see Library full or empty. The choice is
  * remembered in this browser and applied again after a reload.
  */
 export function SampleDataToggle() {
@@ -58,7 +67,7 @@ export function SampleDataToggle() {
   }
 
   return (
-    <Tooltip content="Development only: show or hide the mock's sample files">
+    <Tooltip content="Dev and staging only: show or hide the sample files">
       <label
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: 36, padding: '0 10px', borderRadius: 10,
