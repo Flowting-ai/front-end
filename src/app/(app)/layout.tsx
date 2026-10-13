@@ -17,6 +17,7 @@ import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResul
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
+import { LazyLibraryUploadHost } from "@/components/Library/upload/LazyLibraryUploadHost";
 import { NotificationsProvider } from "@/context/notifications-context";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
@@ -37,6 +38,8 @@ export default async function AppGroupLayout({
       <NavGuardModal />
       <OrgProvider>
       <OrgStamps />
+      {/* Library uploads: lifecycle only, renders nothing; loads only when the feature is on. */}
+      <LazyLibraryUploadHost />
       <NotificationsProvider>
       <ProjectsProvider>
         <ChatHistoryProvider>

@@ -1,0 +1,259 @@
+/* Category colours come from the shared --chart-* tokens (semantic.css / theme.css). */
+.root {
+  --usage-slack: var(--chart-slack);
+  --usage-automation: var(--chart-automation);
+  --usage-chat: var(--chart-chat);
+}
+
+.card {
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--surface-cream);
+  box-shadow: 0px 2px 2.8px 0px rgba(82, 75, 71, 0.12);
+  overflow: hidden;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+.cardTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.cardMeta {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-600);
+  white-space: nowrap;
+}
+
+/* Donut on the left, the breakdown on the right; they stack on narrow screens. */
+.split {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  gap: 32px;
+  padding: 24px;
+}
+
+@media (max-width: 720px) {
+  .split {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+.donutWrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+}
+
+.donutValue {
+  font-family: var(--font-title);
+  font-size: 28px;
+  line-height: 34px;
+  color: var(--neutral-900);
+}
+
+.donutLabel {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-600);
+}
+
+.segment {
+  transition: opacity 150ms ease;
+  cursor: default;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendRow {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto 52px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin: 0 -12px;
+  border-radius: 12px;
+  transition: background 120ms ease, opacity 150ms ease;
+}
+
+.legendRow + .legendRow {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.legendRow[data-active='true'] {
+  background: var(--card-bg);
+}
+
+.legendRow[data-dim='true'] {
+  opacity: 0.45;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.legendName {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.legendHint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-600);
+}
+
+.legendValue {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.legendShare {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-600);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Balance: one meter (used against the total) and three figures under it. */
+.balance {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.meterLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-600);
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  overflow: hidden;
+}
+
+.meterFill {
+  height: 100%;
+  min-width: 6px;
+  border-radius: 999px;
+  background: var(--neutral-900);
+  transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0px 2px 2.8px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--neutral-100);
+}
+
+.statLabel {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-600);
+}
+
+.statValue {
+  font-family: var(--font-title);
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--neutral-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--neutral-100);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-600);
+}
+
+.empty {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}

@@ -1,0 +1,264 @@
+/* General settings, in the same card language as Account: a header with the workspace's identity and its
+   actions, then the fields in a grid, then the AI instructions editor. */
+.card {
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  box-shadow: 0px 2px 2.8px 0px rgba(82, 75, 71, 0.12);
+  overflow: hidden;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+.cardTitle {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.cardHint {
+  margin: 2px 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-600);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+/* Workspaces get a rounded square, people get circles. */
+.logo {
+  position: relative;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neutral-100);
+  box-shadow: 0px 1.091px 1.09px 0px rgba(59, 54, 50, 0.05), 0px 1.455px 1px 0px rgba(38, 33, 30, 0.15), 0px 0px 0px 1px var(--neutral-100);
+  font-family: var(--font-title);
+  font-size: 28px;
+  color: var(--neutral-500);
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logo:not(:disabled) {
+  cursor: pointer;
+}
+
+.logoOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(38, 33, 30, 0.55);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+.logo:not(:disabled):hover .logoOverlay,
+.logo:not(:disabled):focus-visible .logoOverlay {
+  opacity: 1;
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--neutral-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.url {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  padding: 20px 24px 24px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .identity {
+    flex-wrap: wrap;
+  }
+}
+
+.copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--neutral-500);
+  cursor: pointer;
+}
+
+.copy:hover {
+  color: var(--neutral-900);
+}
+
+/* AI instructions editor. */
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px 24px;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  outline: none;
+  background: var(--field-surface);
+  box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--neutral-100);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+  transition: box-shadow 120ms ease;
+}
+
+.textarea:focus {
+  box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 2px var(--checkbox-bg-on);
+}
+
+.textarea::placeholder {
+  color: var(--neutral-400);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+.suggestion {
+  padding: 4px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--card-bg);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.suggestion:hover:not(:disabled) {
+  background: var(--neutral-50);
+}
+
+.suggestion:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.editorMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+.counter {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--neutral-100);
+}

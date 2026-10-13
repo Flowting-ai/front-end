@@ -36,6 +36,11 @@ export interface UsageBarChartProps extends Omit<React.HTMLAttributes<HTMLDivEle
   height?:  number
   /** Corner radius per bar, as Recharts' `[topLeft, topRight, bottomRight, bottomLeft]`. @default [3, 3, 0, 0] */
   barRadius?: [number, number, number, number]
+  /**
+   * Stacked (`per-link`) only: draw a line of this colour between segments (pass the surface colour)
+   * and round only the top of each stack, so segments read as one clean bar.
+   */
+  segmentGap?: string
   /** Background highlight behind the hovered day's bars. @default true */
   showHoverCursor?: boolean
 }
@@ -127,7 +132,7 @@ function ChartTooltip({ active, payload, label, series, mode }: TooltipContentPr
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function UsageBarChart({ days, series, mode, selectedId, height = 180, barRadius = [3, 3, 0, 0], showHoverCursor = true, className, style, ref, ...props }: UsageBarChartProps & { ref?: React.Ref<HTMLDivElement> }) {
+export function UsageBarChart({ days, series, mode, selectedId, height = 180, barRadius = [3, 3, 0, 0], segmentGap, showHoverCursor = true, className, style, ref, ...props }: UsageBarChartProps & { ref?: React.Ref<HTMLDivElement> }) {
     const reduceMotion = useReducedMotion() ?? false
 
     const data = React.useMemo(() => (
@@ -156,7 +161,7 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, ba
         {...props}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 0 }} barCategoryGap="22%">
+          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 0 }} barCategoryGap="22%" maxBarSize={segmentGap ? 56 : undefined}>
             <CartesianGrid strokeDasharray="2 4" stroke="var(--neutral-200)" vertical={false} />
             <XAxis
               dataKey="day"
@@ -188,7 +193,8 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, ba
             ) : (
               series.map((s, idx) => {
                 const dim = selectedId && selectedId !== s.id
-                const fillOpacity = dim ? 0.25 : 0.9
+                const fillOpacity = dim ? 0.25 : segmentGap ? 1 : 0.9
+                const gapped = mode === 'per-link' && !!segmentGap && !s.borderColor
                 // Only stacked bars have touching-segment seams to worry
                 // about — `grouped` bars sit side by side with nothing
                 // touching, so a plain full-perimeter stroke is already
@@ -201,10 +207,10 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, ba
                     stackId={mode === 'per-link' ? 'a' : undefined}
                     fill={s.color}
                     fillOpacity={fillOpacity}
-                    stroke={stacked ? undefined : s.borderColor}
-                    strokeWidth={stacked ? 0 : (s.borderColor ? 1 : 0)}
+                    stroke={gapped ? segmentGap : stacked ? undefined : s.borderColor}
+                    strokeWidth={gapped ? 1.5 : stacked ? 0 : (s.borderColor ? 1 : 0)}
                     shape={stacked ? makeStackedBarShape(s.borderColor!, idx === series.length - 1, idx === 0, fillOpacity) : undefined}
-                    radius={barRadius}
+                    radius={gapped && idx !== series.length - 1 ? 0 : barRadius}
                     isAnimationActive={!reduceMotion}
                     animationDuration={360}
                   />

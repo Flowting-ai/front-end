@@ -60,6 +60,7 @@ import {
   AGENTS_ROUTE,
   AGENTS_TEMPLATES_ROUTE,
   SCHEDULES_ROUTE,
+  LIBRARY_ROUTE,
   CHAT_ROUTE,
   CHATS_ROUTE,
   SETTINGS_ROUTE,
@@ -68,6 +69,7 @@ import {
   ORG_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
+import { LIBRARY_ENABLED } from "@/lib/feature-flags";
 import { ReportBugModal } from "@/components/ReportBugModal";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
@@ -2233,6 +2235,13 @@ function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: Fla
         collapsed={collapsed} variant="default" icon={<CalendarThreeIcon size={20} animated />} label="Schedules"
         selected={pathname.startsWith(SCHEDULES_ROUTE)} href={SCHEDULES_ROUTE} onClick={() => push(SCHEDULES_ROUTE)}
       />
+      {/* Library: files uploaded to or made by Souvenir. Off until NEXT_PUBLIC_ENABLE_LIBRARY=true. */}
+      {LIBRARY_ENABLED && (
+        <FlatSidebarRow
+          collapsed={collapsed} variant="default" icon={<FolderLibraryIcon size={20} />} label="Library"
+          selected={pathname.startsWith(LIBRARY_ROUTE)} href={LIBRARY_ROUTE} onClick={() => push(LIBRARY_ROUTE)}
+        />
+      )}
       <FlatSidebarRow
         collapsed={collapsed} variant="default" icon={<LinkSixIcon size={20} animated />} label="Connectors"
         selected={pathname.startsWith(ORG_CONNECTORS_ROUTE)}

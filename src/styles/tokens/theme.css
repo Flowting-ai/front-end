@@ -58,6 +58,9 @@
 }
 
 :root[data-theme="dark"] {
+  --chart-slack: #4A8BDE;
+  --chart-automation: #B5901F;
+  --chart-chat: #CF2F2A;
   color-scheme: dark;
 
   /* ── Neutral ramp — designed, not mirrored (see generator header) ───────── */
@@ -263,8 +266,8 @@
   --shadow-sidebar-item-shortcut: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-sidebar-item-avatar: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-tooltip: 0px 1px 4px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 0.5px rgba(255, 255, 255, 0.12);
-  --shadow-tab-item-selected: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-100);
-  --shadow-tab-item-selected-inner: inset 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
+  --shadow-tab-item-selected: 0px 3px 6px -1px rgba(0, 0, 0, 0.7), 0px 1px 2px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 1px var(--neutral-100);
+  --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.2), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.08);
   --shadow-dropdown-item-danger-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--red-600-51);
   --shadow-dropdown-item-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-item-inner: inset 0px 1px 0px 0px var(--neutral-50-61), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.1);
@@ -344,8 +347,8 @@
   --shadow-button-secondary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
   --shadow-button-secondary-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08);
   --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12);
-  --shadow-tab-item-selected: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
-  --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10);
+  --shadow-tab-item-selected: 0px 3px 6px -1px rgba(0, 0, 0, 0.7), 0px 1px 2px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
+  --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.2), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.08);
   --field-surface: #2E2E2E;
   --text-field-bg: #2E2E2E;
   --text-field-ring: rgba(255, 255, 255, 0.22);
@@ -368,6 +371,7 @@
   --tab-item-text-hover: #FFFFFF;
   --message-bubble-action-icon: #D4D4D4;
   --tab-bg: #262626;
+  --shadow-tab-inner: inset 0px 2px 4px 0px rgba(255, 255, 255, 0.08), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.07), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.05);
   --agent-card-bg: #1C1C1C;
   --agent-card-gradient: linear-gradient(to bottom right, #262626 0%, #161616 50%, #202020 100%);
   --shadow-undo-toast: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 0px 0px 1px var(--neutral-200);

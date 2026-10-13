@@ -75,7 +75,7 @@ function ProgressBar({ used, total }: { used: number; total: number }) {
           height:          '100%',
           width:           `${pct}%`,
           borderRadius:    'inherit',
-          backgroundColor: 'var(--blue-600)',
+          backgroundColor: 'var(--neutral-900)',
         }}
       />
     </div>

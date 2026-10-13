@@ -12,6 +12,7 @@ import homeStyles from "@/components/chat/ChatHome.module.css";
 import { useProjects } from "@/context/projects-context";
 import { addChatToProject } from "@/lib/api/projects";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
+import { takeLibraryChat } from "@/lib/library/chat-handoff";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
 const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDialog").then(m => ({ default: m.ModelSwitchDialog })), { ssr: false, loading: () => null });
@@ -221,6 +222,29 @@ function ChatPageInner() {
   const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { processFiles, FILE_ACCEPT } = useFileUpload();
+
+  // "Ask about this file" in Library: the file (and any typed question) waits in memory. A question starts
+  // the chat right away with the file attached; with none the file just lands in the composer.
+  const libraryFileId = searchParams.get("libraryFileId");
+  const libraryHandoffTaken = useRef(false);
+  useEffect(() => {
+    if (!libraryFileId || chatIdFromUrl || libraryHandoffTaken.current) return;
+    libraryHandoffTaken.current = true;
+    const handoff = takeLibraryChat();
+    replace(CHAT_ROUTE);
+    if (!handoff?.file) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hand-off from Library, applied on arrival */
+    if (handoff.text) {
+      setAddMenuFiles([handoff.file]);
+      setInitialPrompt(handoff.text);
+      setHasMessages(true);
+    } else {
+      const file = handoff.file;
+      setNewChatAttachments((prev) => processFiles([file], prev));
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryFileId]);
 
   const {
     mentionedPins: newChatMentionedPins,

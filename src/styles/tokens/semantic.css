@@ -225,12 +225,14 @@
 
   /* Outer shadow + 1px ring on selected */
   --shadow-tab-item-selected:
-    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 3px 6px -1px rgba(82, 75, 71, 0.26),
+    0px 1px 2px 0px rgba(82, 75, 71, 0.22),
     0px 0px 0px 1px var(--neutral-100);
 
   /* Inner bottom shadow on selected */
   --shadow-tab-item-selected-inner:
-    inset 0px -1px 0px 0px var(--neutral-900-10);
+    inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+    inset 0px -1px 0px 0px rgba(82, 75, 71, 0.13);
 
   /* ── Tabs (pill container) ───────────────────────────────────────────────────
      Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
@@ -239,9 +241,9 @@
 
   /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */
   --shadow-tab-inner:
-    inset 0px -1px 0px 0px var(--neutral-white-90),
-    inset 0px  1px 0px 0px var(--neutral-100),
-    inset 0px  0px 4px 0px var(--neutral-200-50);
+    inset 0px 2px 3px 0px rgba(82, 75, 71, 0.12),
+    inset 0px 0px 0px 1px rgba(82, 75, 71, 0.05),
+    inset 0px -1px 0px 0px rgba(255, 255, 255, 0.9);
 
   /* ── Popover ────────────────────────────────────────────────────────────────
      Floating surface used for dropdown menus, command palettes, context menus.
@@ -254,6 +256,11 @@
   --widget-bg-from: #ffffff;  /* chat widgets: white fading to a light blue */
   --widget-bg-to:   #E8F2FC;
   --widget-accent:  var(--blue-500);  /* icon tiles, selected dates, accent bars */
+  /* Usage chart categories (Slack / Automations / Chat). Fixed order, checked for colour-blind and
+     normal-vision separation as a set; dark mode has its own selected steps in theme.css. */
+  --chart-slack:       #4A83BF;
+  --chart-automation:  #C9A227;
+  --chart-chat:        #EE3030;
   --widget-on-accent: #ffffff;  /* text/dots drawn on top of the accent (e.g. the selected date) */
 
   /* Soft shadow under the coloured ring around an agent avatar (edit panel). */

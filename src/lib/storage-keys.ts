@@ -28,6 +28,10 @@ export const PERSONA_WIZARD_REPO_KEY = "persona_wizard_repo";
 export const PERSONA_WIZARD_STARTER_KEY = "persona_wizard_starter";
 export const PENDING_PERSONA_KEY = "new-chat-pending-persona";
 
+// ── Library ──────────────────────────────────────────────────────────────────
+// When the person last dismissed the "an Admin changed Library settings" notice (an ISO time).
+export const LIBRARY_SETTINGS_SEEN_KEY = "library:v1:settings-seen";
+
 export const personaInitialVersionKey = (repoId: string) => `persona_initial_version_${repoId}`;
 export const personaConfigureSavedKey = (repoId: string) => `persona_configure_saved_${repoId}`;
 export const personaWizardPurposeKey = (repoId: string) => `persona_wizard_purpose_${repoId}`;

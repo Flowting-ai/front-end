@@ -14,6 +14,16 @@ import { useNavGuard } from '@/context/nav-guard-context'
 import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg } from '@/lib/api/organization'
 import { LeaveWorkspaceModal } from '@/components/LeaveWorkspaceModal'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { InputField } from '@/components/InputField'
+import { Tooltip } from '@/components/Tooltip'
+import styles from './general.module.css'
+
+// One-click starters for the AI instructions box; each adds a line.
+const INSTRUCTION_STARTERS = [
+  'Always cite sources',
+  'Keep answers under 200 words',
+  'Use bullet points for lists',
+]
 
 // Hidden for now: flip to true to show the Danger Zone card again.
 const SHOW_DANGER_ZONE = false
@@ -139,43 +149,6 @@ function CardHeader({
 
 // ── Field row ─────────────────────────────────────────────────────────────────
 
-function FieldRow({
-  label,
-  helper,
-  children,
-}: {
-  label:    string
-  helper?:  string
-  children: React.ReactNode
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 500,
-        fontSize:   14,
-        lineHeight: '22px',
-        color:      'var(--neutral-900)',
-        margin:     0,
-      }}>
-        {label}
-      </p>
-      {children}
-      {helper && (
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 400,
-          fontSize: 12,
-          lineHeight: '16px',
-          color:      'var(--neutral-400)',
-          margin:     0,
-        }}>
-          {helper}
-        </p>
-      )}
-    </div>
-  )
-}
 
 // ── Visibility select ─────────────────────────────────────────────────────────
 
@@ -802,272 +775,154 @@ export default function OrgGeneralPage() {
             color:      'var(--neutral-500)',
             margin:     0,
           }}>
-            Manage your workspace identity, AI instructions, and default settings.
+            Your workspace&apos;s name, logo and link, and the instructions every AI answer follows.
           </p>
         </div>
 
-        {/* ── Workspace Identity card ── */}
-        <Card>
-          <CardHeader
-            title="Workspace Identity"
-            subtitle="Set your workspace name, logo, and URL."
-          />
+        {/* ── Workspace: identity header, then the fields ── */}
+        <section className={styles.card} aria-label="Workspace">
+          <div className={styles.identity}>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) void handlePickLogo(f); e.target.value = '' }}
+            />
+            <button
+              type="button"
+              className={styles.logo}
+              disabled={!isEditingIdentity || avatarUploading}
+              onClick={() => logoInputRef.current?.click()}
+              aria-label="Change workspace logo"
+            >
+              {logoPreview ?? logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoPreview ?? logoUrl ?? ''} alt="" />
+              ) : (
+                <span>{(workspaceName.trim()[0] ?? 'W').toUpperCase()}</span>
+              )}
+              <span className={styles.logoOverlay} aria-hidden="true">Change</span>
+            </button>
 
-          {/* Content — its own bordered box, separate from the header above
-              and the Save button below. */}
-          <div style={{ padding: '16px 24px' }}>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
-
-              {/* Avatar row */}
-              <div style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          12,
-                padding:      '12px 24px',
-                borderBottom: '1px solid var(--neutral-100)',
-              }}>
-                <div style={{
-                  width:           65,
-                  height:          65,
-                  borderRadius:    '50%',
-                  backgroundColor: 'var(--neutral-200)',
-                  flexShrink:      0,
-                  overflow:        'hidden',
-                  display:         'flex',
-                  alignItems:      'center',
-                  justifyContent:  'center',
-                }}>
-                  {logoPreview ?? logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logoPreview ?? logoUrl ?? ''} alt="Workspace logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="32" height="32" rx="16" fill="var(--neutral-300)" />
-                      <path d="M16 8a5 5 0 1 1 0 10A5 5 0 0 1 16 8zM8 26c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  )}
+            <div className={styles.who}>
+              <p className={styles.name}>{workspaceName || 'Your workspace'}</p>
+              <p className={styles.url}>{slugValue ? `souvenir.ai/workspace/${slugValue}` : 'No URL set'}</p>
+              {isEditingIdentity && (
+                <div className={styles.logoActions}>
+                  <Button variant="outline" size="sm" loading={avatarUploading} disabled={avatarUploading} onClick={() => logoInputRef.current?.click()}>
+                    {(logoPreview ?? logoUrl) ? 'Change logo' : 'Upload logo'}
+                  </Button>
+                  <span>PNG, JPG or GIF, 512×512px recommended</span>
                 </div>
-                <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                  <p style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize:   14,
-                    lineHeight: '22px',
-                    color:      'var(--neutral-900)',
-                    margin:     0,
-                  }}>
-                    Workspace logo
-                  </p>
-                  <p style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 400,
-                    fontSize: 12,
-                    lineHeight: '16px',
-                    color:      'var(--neutral-400)',
-                    margin:     0,
-                  }}>
-                    PNG, JPG or GIF. Recommended 512×512px.
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={avatarUploading}
-                  disabled={avatarUploading || !isEditingIdentity}
-                  onClick={() => logoInputRef.current?.click()}
-                >
-                  {(logoPreview ?? logoUrl) ? 'Change Logo' : 'Upload Logo'}
-                </Button>
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) void handlePickLogo(f); e.target.value = '' }}
-                />
-              </div>
+              )}
+            </div>
 
-              {/* Workspace name */}
-              <div style={{
-                padding:      '12px 24px',
-                borderBottom: '1px solid var(--neutral-100)',
-                opacity:      identityLoading ? 0.6 : 1,
-              }}>
-                <FieldRow label="Workspace name">
-                  <TextInput
-                    value={workspaceName}
-                    onChange={setWorkspaceName}
-                    readOnly={!isEditingIdentity}
-                    style={{ width: 521 }}
-                  />
-                </FieldRow>
-              </div>
-
-              {/* Slug + ID side by side */}
-              <div style={{
-                padding:      '12px 24px',
-                display:      'flex',
-                gap:          16,
-                opacity:      identityLoading ? 0.6 : 1,
-              }}>
-                <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                  <FieldRow
-                    label="Workspace URL slug"
-                    helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
+            <div className={styles.actions}>
+              {isEditingIdentity ? (
+                <>
+                  <Button variant="ghost" size="sm" className="bg-transparent" disabled={identitySaving} onClick={handleCancelIdentityEdit}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => void handleSaveIdentity()}
+                    disabled={!isIdentityDirty || identitySaving}
+                    loading={identitySaving}
                   >
-                    <TextInput
-                      value={slugValue}
-                      onChange={setSlugValue}
-                      readOnly={!isEditingIdentity}
-                    />
-                  </FieldRow>
-                </div>
-                <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                  <FieldRow label="Workspace ID" helper="Read-only identifier">
-                    <div style={{ position: 'relative' }}>
-                      <TextInput
-                        value={orgIdValue}
-                        readOnly
-                        style={{ width: '100%', paddingRight: 32 }}
-                      />
-                      <button
-                        onClick={copyOrgId}
-                        style={{
-                          position:        'absolute',
-                          right:           8,
-                          top:             '50%',
-                          transform:       'translateY(-50%)',
-                          background:      'none',
-                          border:          'none',
-                          cursor:          'pointer',
-                          padding:         0,
-                          display:         'flex',
-                          alignItems:      'center',
-                          justifyContent:  'center',
-                        }}
-                      >
-                        <CopyIcon />
-                      </button>
-                    </div>
-                  </FieldRow>
-                </div>
-              </div>
-
+                    Save changes
+                  </Button>
+                </>
+              ) : (
+                <Button variant="secondary" size="sm" disabled={identityLoading} onClick={handleEditIdentity}>
+                  Edit workspace
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Edit / Save changes / Cancel — outside the bordered content box. */}
-          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            {isEditingIdentity ? (
-              <>
-                <Button variant="ghost" size="sm" disabled={identitySaving} onClick={handleCancelIdentityEdit}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => void handleSaveIdentity()}
-                  disabled={!isIdentityDirty || identitySaving}
-                  loading={identitySaving}
-                >
-                  Save changes
-                </Button>
-              </>
-            ) : (
-              <Button variant="default" size="sm" disabled={identityLoading} onClick={handleEditIdentity}>
-                Edit
-              </Button>
-            )}
-          </div>
-        </Card>
-
-        {/* ── Organization-level AI instructions card ── */}
-        <Card>
-          <CardHeader
-            title="Organization-level AI instructions"
-            subtitle="These instructions apply to all AI interactions across your workspace. Members can add personal instructions that stack on top of these."
-            badge={
-              <div style={{
-                display:         'inline-flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                padding:         '2px 6px',
-                borderRadius:    6,
-                backgroundColor: 'var(--yellow-100)',
-                boxShadow:       '0px 1px 1.5px 0px rgba(17,25,1,0.1), 0px 0px 0px 1px rgba(143,116,39,0.5)',
-                flexShrink:      0,
-              }}>
-                <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 12,
-                  lineHeight: '16px',
-                  color:      'var(--yellow-700)',
-                  whiteSpace: 'nowrap',
-                }}>
-                  Overrides personal
-                </span>
-              </div>
-            }
-          />
-
-          {/* Content — its own bordered box, separate from the header above
-              and the Save/Clear buttons below. */}
-          <div style={{ padding: '16px 24px', opacity: settingsLoading ? 0.6 : 1 }}>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <textarea
-                value={aiInstructions}
-                onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
-                placeholder={`e.g. "Always cite sources", "Keep responses under 200 words", "Use bullet points for lists"`}
-                style={{
-                  width:           '100%',
-                  height:          96,
-                  resize:          'none',
-                  backgroundColor: 'var(--field-surface)',
-                  borderRadius:    10,
-                  boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                  border:          'none',
-                  padding:         '7px 10px',
-                  fontFamily:      'var(--font-body)',
-                  fontWeight:      400,
-                  fontSize:        14,
-                  lineHeight:      '22px',
-                  color:           'var(--neutral-600)',
-                  boxSizing:       'border-box',
-                  outline:         'none',
-                }}
+          <div className={styles.fields}>
+            <div className={styles.wide}>
+              <InputField
+                fluid
+                label="Workspace name"
+                value={workspaceName}
+                onChange={setWorkspaceName}
+                placeholder="Your workspace name"
+                subtitle="Shown to everyone in the workspace and on invites"
+                disabled={!isEditingIdentity}
               />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: 12,
-                  lineHeight: '16px',
-                  color:      'var(--neutral-400)',
-                  margin:     0,
-                }}>
-                  Changes take up to 1 hour to propagate across active sessions.
-                </p>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize:   14,
-                  lineHeight: '22px',
-                  color:      'var(--neutral-500)',
-                  margin:     0,
-                  flexShrink: 0,
-                }}>
-                  {aiInstructions.length}/3000
-                </p>
-              </div>
+            </div>
+            <InputField
+              fluid
+              label="Workspace URL slug"
+              value={slugValue}
+              onChange={setSlugValue}
+              placeholder="your-workspace"
+              subtitle={slugValue ? `souvenir.ai/workspace/${slugValue}` : 'Used in your workspace link'}
+              disabled={!isEditingIdentity}
+            />
+            <InputField
+              fluid
+              label="Workspace ID"
+              value={orgIdValue}
+              disabled
+              subtitle="Read-only. Support may ask for it."
+              rightIcon={
+                <Tooltip content="Copy ID">
+                  <button type="button" className={styles.copy} aria-label="Copy workspace ID" onClick={copyOrgId}>
+                    <CopyIcon />
+                  </button>
+                </Tooltip>
+              }
+            />
+          </div>
+        </section>
+
+        {/* ── Organization-level AI instructions ── */}
+        <section className={styles.card} aria-labelledby="org-instructions-title">
+          <div className={styles.cardHead}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 id="org-instructions-title" className={styles.cardTitle}>Organization-level AI instructions</h2>
+              <p className={styles.cardHint}>Applied to every AI answer in this workspace. Members can add personal instructions on top.</p>
+            </div>
+            <Badge label="Overrides personal" color="Yellow" />
+          </div>
+
+          <div className={styles.editor} style={{ opacity: settingsLoading ? 0.6 : 1 }}>
+            <textarea
+              className={styles.textarea}
+              aria-labelledby="org-instructions-title"
+              value={aiInstructions}
+              onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
+              placeholder="Tell Souvenir how everyone's answers should read, e.g. which sources to trust, the tone to use, or what to always include."
+            />
+            <div className={styles.suggestions}>
+              <span>Add a starter:</span>
+              {INSTRUCTION_STARTERS.map(starter => (
+                <button
+                  key={starter}
+                  type="button"
+                  className={styles.suggestion}
+                  disabled={aiInstructions.includes(starter) || aiInstructions.length + starter.length + 1 > 3000}
+                  onClick={() => setAiInstructions(current => (current.trim() ? `${current.trimEnd()}\n${starter}` : starter))}
+                >
+                  + {starter}
+                </button>
+              ))}
+            </div>
+            <div className={styles.editorMeta}>
+              <span>Changes reach active sessions within an hour.</span>
+              <span className={styles.counter}>{aiInstructions.length.toLocaleString()} / 3,000</span>
             </div>
           </div>
 
-          {/* Clear / Save — outside the bordered content box. */}
-          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div className={styles.footer}>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
+              className="bg-transparent"
               onClick={handleClearInstructions}
               loading={clearingInstructions}
               disabled={!aiInstructions || settingsSaving || clearingInstructions || settingsLoading}
@@ -1084,7 +939,7 @@ export default function OrgGeneralPage() {
               Save instructions
             </Button>
           </div>
-        </Card>
+        </section>
 
         {/* ── Allowed email domains card (temporarily disabled) ── */}
         {false && (

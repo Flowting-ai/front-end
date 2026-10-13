@@ -22,6 +22,8 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
       return "settings_help";
     case "files":
       return "settings_files";
+    case "library":
+      return "settings_library";
     case "preferences":
       return "settings_preferences";
     case "notifications":
@@ -31,6 +33,7 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
     // Moved from /org/* (Souvenir V1.5) — same concept, new path. Keeping the
     // established "org_manage" name per this file's own convention (redesigns
     // keep the name, re-point the mapping) rather than minting new ones.
+    case "workspace-library":
     case "general":
     case "members":
     case "teams":
@@ -80,6 +83,9 @@ export function routeToScreen(pathname: string): ScreenName | null {
       if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat
       if (segments[2] === "edit") return "agent_configure"; // /agents/[personaId]/edit
       return "agent_library"; // /agents, /agents/templates, /agents/published
+    case "library":
+      // /library, /library/trash and /library/files/[id]: the file page is its own concept.
+      return segments[1] === "files" ? "library_file" : "library";
     case "projects":
       return "projects";
     case "project":

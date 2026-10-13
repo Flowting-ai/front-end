@@ -16,7 +16,28 @@ type ApiFetchOptions = RequestInit & {
   skipJson?: boolean;
 };
 
+/** Optional detail an API failure can carry. New fields only: every existing `new ApiError(status, code, message, raw)` call keeps working. */
+export interface ApiErrorExtra {
+  /** FastAPI 422 validation errors: field path (without the "body"/"query" prefix) to message. */
+  fieldErrors?: Record<string, string>;
+  /** The server's request id (x-request-id header or body), for support. */
+  requestId?: string;
+  /** Whether repeating the same request could succeed (network blips, 408, 429, 5xx). Defaults from the status. */
+  retryable?: boolean;
+  /** Seconds from a Retry-After header (429, 503). */
+  retryAfterSeconds?: number;
+}
+
+export function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
 export class ApiError extends Error {
+  public readonly fieldErrors?: Record<string, string>;
+  public readonly requestId?: string;
+  public readonly retryable: boolean;
+  public readonly retryAfterSeconds?: number;
+
   constructor(
     public readonly status: number,
     public readonly code: string,
@@ -24,10 +45,25 @@ export class ApiError extends Error {
     /** The original backend message before friendlyApiError mapping. Useful
      *  for surfacing verbatim 5xx detail (e.g. Composio upstream errors). */
     public readonly rawMessage?: string,
+    extra: ApiErrorExtra = {},
   ) {
     super(message);
     this.name = "ApiError";
+    this.fieldErrors = extra.fieldErrors;
+    this.requestId = extra.requestId;
+    this.retryable = extra.retryable ?? isRetryableStatus(status);
+    this.retryAfterSeconds = extra.retryAfterSeconds;
   }
+}
+
+/** FastAPI validation `detail[]` to { "field.path": "message" }, dropping the request-part prefix. First message per field wins. */
+export function fieldErrorsFromDetail(detail: Array<{ loc: (string | number)[]; msg: string }>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const item of detail) {
+    const path = item.loc.filter((part, index) => !(index === 0 && (part === "body" || part === "query" || part === "path"))).join(".");
+    if (path && !(path in out)) out[path] = item.msg;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,6 +284,53 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
 // ---------------------------------------------------------------------------
 
 /**
+ * Turns a non-2xx response into a typed ApiError, reading the backend's `code`/`message`/FastAPI
+ * `detail`, the request id and Retry-After. Shared by every JSON helper so the error model is one.
+ */
+export async function buildApiError(response: Response): Promise<ApiError> {
+  let code = "api_error";
+  let message = `Request failed with status ${response.status}`;
+  const extra: ApiErrorExtra = {};
+  const headerRequestId = response.headers.get("x-request-id");
+  if (headerRequestId) extra.requestId = headerRequestId;
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) extra.retryAfterSeconds = retryAfter;
+  try {
+    const body = (await response.clone().json()) as {
+      error?: string;
+      code?: string;
+      message?: string;
+      requestId?: string;
+      // FastAPI validation error format
+      detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
+    };
+    code = body.code ?? code;
+    if (!extra.requestId && typeof body.requestId === "string") extra.requestId = body.requestId;
+    if (body.message ?? body.error) {
+      message = body.message ?? body.error ?? message;
+    } else if (Array.isArray(body.detail) && body.detail.length > 0) {
+      // Surface FastAPI pydantic validation errors
+      message = body.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
+      extra.fieldErrors = fieldErrorsFromDetail(body.detail);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[apiFetchJson] 422 validation detail:', body.detail);
+      }
+    } else if (typeof body.detail === 'string') {
+      message = body.detail;
+    }
+  } catch {
+    // non-JSON error body - keep defaults
+  }
+  return new ApiError(
+    response.status,
+    code,
+    friendlyApiError(message, response.status),
+    message,  // raw backend message preserved for callers that want verbatim
+    extra,
+  );
+}
+
+/**
  * apiFetch + automatic JSON parsing + typed ApiError on failure.
  *
  * Use this for all non-streaming calls. Streaming callers use apiFetch
@@ -259,39 +342,13 @@ export async function apiFetchJson<T>(
 ): Promise<T> {
   const response = await apiFetch(path, options);
 
-  if (!response.ok) {
-    let code = "api_error";
-    let message = `Request failed with status ${response.status}`;
-    try {
-      const body = (await response.clone().json()) as {
-        error?: string;
-        code?: string;
-        message?: string;
-        // FastAPI validation error format
-        detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
-      };
-      code = body.code ?? code;
-      if (body.message ?? body.error) {
-        message = body.message ?? body.error ?? message;
-      } else if (Array.isArray(body.detail) && body.detail.length > 0) {
-        // Surface FastAPI pydantic validation errors
-        message = body.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[apiFetchJson] 422 validation detail:', body.detail);
-        }
-      } else if (typeof body.detail === 'string') {
-        message = body.detail;
-      }
-    } catch {
-      // non-JSON error body - keep defaults
-    }
-    throw new ApiError(
-      response.status,
-      code,
-      friendlyApiError(message, response.status),
-      message,  // raw backend message preserved for callers that want verbatim
-    );
-  }
+  if (!response.ok) throw await buildApiError(response);
 
   return response.json() as Promise<T>;
+}
+
+/** apiFetch for calls whose success response has no body (204, or a body the caller ignores). Throws a typed ApiError on non-2xx. */
+export async function apiFetchVoid(path: string, options: ApiFetchOptions = {}): Promise<void> {
+  const response = await apiFetch(path, options);
+  if (!response.ok) throw await buildApiError(response);
 }

@@ -10,8 +10,6 @@ import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { IconButton } from '@/components/ui/button'
 import { AccountMenu } from '@/components/AccountMenu'
-import { ReportBugModal } from '@/components/ReportBugModal'
-import { RequestFeatureModal } from '@/components/RequestFeatureModal'
 import { Divider } from '@/components/Divider'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole } from '@/components/RoleBadge'
@@ -22,7 +20,8 @@ import { useOrg } from '@/context/org-context'
 import type { CreditsDisplay } from '@/lib/api/plan'
 import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
-import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE } from '@/lib/routes'
+import { LIBRARY_ENABLED } from '@/lib/feature-flags'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -103,6 +102,8 @@ const PERSONAL_ITEMS = [
   // Usage page (node 17-22980) existed — now points at its own route.
   // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+  // Library: auto-save, AI use of files, storage. Off until NEXT_PUBLIC_ENABLE_LIBRARY=true.
+  ...(LIBRARY_ENABLED ? [{ id: 'library', label: 'Library', href: SETTINGS_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
@@ -114,6 +115,8 @@ const WORKSPACE_ITEMS = [
   // closest existing route to a workspace-level usage view. The old group's
   // separate "Activity Log" (ORG_ACTIVITY_ROUTE) has no slot in the new design.
   { id: 'usage',   label: 'Usage',           href: ORG_ANALYTICS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+  // Workspace Library settings (Admin): auto-save default, AI use, file limits.
+  ...(LIBRARY_ENABLED ? [{ id: 'library', label: 'Library', href: ORG_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
 ]
 
 // HELP & SUPPORT: node 18:27804. New group — Help & Legal moves out of
@@ -134,8 +137,6 @@ export function SettingsSidebar() {
   const { user, logout, isAuthenticated } = useAuth()
   const { guardedNavigate } = useNavGuard()
   const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
-  const [reportBugOpen,  setReportBugOpen]  = useState(false)
-  const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
 
   // No-op for a click on the already-active nav item — avoids re-triggering
   // the guard (or a pointless re-navigation) for a same-page click.
@@ -425,8 +426,8 @@ export function SettingsSidebar() {
                 variant="default"
                 icon={<SidebarAssetIcon src="/icons/settings-sidebar/report-bug.svg" />}
                 label="Report a bug"
-                selected={false}
-                onClick={() => setReportBugOpen(true)}
+                selected={pathname === SETTINGS_REPORT_BUG_ROUTE}
+                onClick={() => safeNavigate(SETTINGS_REPORT_BUG_ROUTE)}
               />
             </m.div>
             <m.div variants={sectionItemVariants}>
@@ -435,8 +436,8 @@ export function SettingsSidebar() {
                 variant="default"
                 icon={<SidebarAssetIcon src="/icons/settings-sidebar/feature-request.svg" />}
                 label="Feature request"
-                selected={false}
-                onClick={() => setRequestFeatureOpen(true)}
+                selected={pathname === SETTINGS_FEATURE_REQUEST_ROUTE}
+                onClick={() => safeNavigate(SETTINGS_FEATURE_REQUEST_ROUTE)}
               />
             </m.div>
             <Divider decorative style={{ margin: '4px 0' }} />
@@ -501,8 +502,6 @@ export function SettingsSidebar() {
     {/* Unsaved-changes confirmation is now the shared NavGuardModal (mounted
         once app-wide in (app)/layout.tsx) — see useGuardedRouter() above. */}
 
-    {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
-    {requestFeatureOpen && <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />}
     </>
   )
 }

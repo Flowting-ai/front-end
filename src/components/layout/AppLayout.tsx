@@ -126,13 +126,15 @@ export function AppLayout({
   // their scrollbar sits close to the rounded border instead of 12px inset.
   const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
   const isChatSharesPage = pathname.startsWith('/chat-shares')
+  // A file page fills the card edge to edge and owns its scrolling, like /agents.
+  const isLibraryFilePage = pathname.startsWith('/library/files/')
   // Every route below already owns a full-height inner scroll container that
   // does the real scrolling (projects list/new, project detail, the team
   // settings shell, chat shares) — same reasoning as isConnectorsOrSlackPage/
   // isChatPage: this shared main must not ALSO reserve a scrollbar-gutter, and
   // the card padding should match the tight 3px these already use, or the
   // page's own scrollbar sits inset by an extra, pointless gap.
-  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage
+  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage || isLibraryFilePage
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
   // No ErrorBoundary wrap here: `children` is the settings shell (its own

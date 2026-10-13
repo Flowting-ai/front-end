@@ -1,0 +1,175 @@
+/* Settings pages, laid out like the prototype: a section heading, then a bordered card of rows. */
+.card {
+  margin-top: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--card-bg);
+  box-shadow: 0px 2px 2.8px 0px rgba(82, 75, 71, 0.12);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+}
+
+.row + .row {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.hint {
+  display: block;
+  margin: 2px 0 0;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--neutral-500);
+}
+
+/* Why a control is off: amber, with an info icon, so it never relies on colour alone. */
+.why {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-tag-Yellow-text);
+}
+
+.value {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+  white-space: nowrap;
+}
+
+.quiet {
+  margin: 16px 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--neutral-600);
+}
+
+.storageTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.bar {
+  height: 8px;
+  margin: 12px 0 20px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  min-width: 6px;
+  border-radius: 999px;
+  background: var(--neutral-900);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border: 1px solid var(--neutral-300);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-600);
+  white-space: nowrap;
+}
+
+.pickerGrid {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+/* One read-only tile per file type group. */
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+.tileText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.tileText b {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.tileText small {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+/* A static Phase 2 page: one centred line in a dashed box (prototype .phase-page). */
+.phasePage {
+  margin-top: 24px;
+  border: 1px dashed var(--neutral-300);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}
+

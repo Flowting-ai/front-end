@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, TokenCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
+import { UsageMeter } from '@/components/UsageMeter'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
@@ -365,7 +366,7 @@ function EnterprisePlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <>
       <SkeletonShimmerStyle />
-      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SkeletonPageHeader />
 
         {/* Plan / Credits Remaining — matches the Teams-branch skeleton below */}
@@ -394,7 +395,7 @@ function TeamsPlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <>
       <SkeletonShimmerStyle />
-      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SkeletonPageHeader />
         <SkeletonTwoCardRow />
         {isAdmin && <SkeletonPaymentCard />}
@@ -410,7 +411,7 @@ function PersonalPlansSkeleton() {
   return (
     <>
       <SkeletonShimmerStyle />
-      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SkeletonPageHeader />
         <SkeletonTwoCardRow />
 
@@ -696,7 +697,7 @@ function OrgBillingView() {
         padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ paddingLeft: 4 }}>
@@ -875,19 +876,22 @@ function OrgBillingView() {
               </div>
 
               <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-              <SectionCard title="Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={8}>
-                <div>
+              <SectionCard title="Credits remaining" titleColor="var(--neutral-700)" headerDivider={false} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={12}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <p style={{ ...statCardBigLineStyle, whiteSpace: 'nowrap' }}>
-                      {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
+                      {Math.max(0, totalCredits - usedCredits).toLocaleString()}
                     </p>
                     <p style={statCardCaptionStyle}>
-                      credits consumed
+                      of {totalCredits.toLocaleString()} left
                     </p>
                   </div>
-                  <p style={{ ...statCardCaptionStyle, margin: '6px 0 0' }}>
-                    Resets {nextBilling}
-                  </p>
+                  <UsageMeter
+                    value={totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0}
+                    label="Credits used this cycle"
+                    caption={`${usedCredits.toLocaleString()} used · resets ${nextBilling}`}
+                    trailing={`${totalCredits > 0 ? Math.round((usedCredits / totalCredits) * 100) : 0}%`}
+                  />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                   <Button variant="secondary" onClick={() => router.push(ORG_ANALYTICS_ROUTE)}>View usage</Button>
@@ -1188,7 +1192,7 @@ function PersonalBillingView() {
 
   return (
     <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
-      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         <div style={{ paddingLeft: 4 }}>
           <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
@@ -1256,19 +1260,22 @@ function PersonalBillingView() {
           </div>
 
           <div style={{ flex: '1 0 0', minWidth: 280 }}>
-            <SectionCard title="Credits Remaining" titleColor="var(--neutral-700)" headerDivider={false} bodyAlign="space-between" bodyGap={8}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+            <SectionCard title="Credits remaining" titleColor="var(--neutral-700)" headerDivider={false} bodyAlign="space-between" bodyGap={12}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap' }}>
-                    {fmtNum(creditsUsed)}/{fmtNum(creditsTotal)}
+                    {fmtNum(Math.max(0, creditsTotal - creditsUsed))}
                   </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                    credits consumed
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                    of {fmtNum(creditsTotal)} left
                   </p>
                 </div>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
-                  {cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`}
-                </p>
+                <UsageMeter
+                  value={creditsTotal > 0 ? (creditsUsed / creditsTotal) * 100 : 0}
+                  label="Credits used this month"
+                  caption={`${fmtNum(creditsUsed)} used · ${cancelAtPeriodEnd ? 'no further resets' : `resets ${resetDate}`}`}
+                  trailing={`${creditsTotal > 0 ? Math.round((creditsUsed / creditsTotal) * 100) : 0}%`}
+                />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                 <Button variant="secondary" onClick={() => router.push(SETTINGS_USAGE_ROUTE)}>View usage</Button>

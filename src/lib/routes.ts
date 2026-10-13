@@ -15,6 +15,12 @@ export const AGENTS_BASICS_NAME_ROUTE = "/agents/basics/name";
 export const AGENTS_BASICS_PURPOSE_ROUTE = "/agents/basics/purpose";
 export const AGENTS_BASICS_TONE_ROUTE = "/agents/basics/tone";
 export const SCHEDULES_ROUTE = "/schedules";
+export const LIBRARY_ROUTE = "/library";
+export const LIBRARY_TRASH_ROUTE = "/library/trash";
+export const LIBRARY_FILE_ROUTE = (fileId: string) => `/library/files/${encodeURIComponent(fileId)}`;
+export const SETTINGS_LIBRARY_ROUTE = "/settings/library";
+export const ORG_LIBRARY_ROUTE = "/settings/workspace-library";
+// Static Phase 2 pages next to workspace Library settings (siblings, so the sidebar highlights one item at a time).
 export const TEMPLATE_BASE_ROUTE = "/template";
 export const WELCOME_ROUTE = "/welcome";
 export const PROJECTS_ROUTE = "/projects";
@@ -45,6 +51,8 @@ export const ORG_CONNECTORS_ROUTE = "/connectors";
 export const SETTINGS_ROUTE = "/settings";
 export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
 export const SETTINGS_HELP_ROUTE = "/settings/help";
+export const SETTINGS_REPORT_BUG_ROUTE = "/settings/report-bug";
+export const SETTINGS_FEATURE_REQUEST_ROUTE = "/settings/feature-request";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
 // Retired — plans/payment/invoices for every account type now live on
 // ORG_PLANS_ROUTE (/settings/plans-and-billing). This route is now just a

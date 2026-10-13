@@ -24,6 +24,9 @@ export type ScreenName =
   | "settings_billing"
   | "settings_help"
   | "settings_files"
+  | "settings_library"
+  | "library"
+  | "library_file"
   | "settings_preferences"
   | "settings_notifications"
   | "settings_security"
@@ -58,7 +61,8 @@ export type FeatureName =
   | "document_download"
   | "settings_help_opened"
   | "regenerate"
-  | "output_viewed";
+  | "output_viewed"
+  | "library";
 
 // ── Layer 3: browser-originating decision events ─────────────────────────────────
 // Only the events that actually originate in the browser live here. Run lifecycle,

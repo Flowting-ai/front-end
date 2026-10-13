@@ -37,14 +37,30 @@ try {
   // origin rather than weakening connect-src when deployment config is bad.
 }
 
+// Library files live in object storage. The browser uploads parts to it and previews/plays files from
+// short-lived presigned URLs, so its origin must be allowed to connect (part PUTs, pdf.js fetches) and
+// to serve media (audio). Unset until the Library backend is deployed: nothing changes without it.
+const rawLibraryStorage = process.env.NEXT_PUBLIC_LIBRARY_STORAGE_ORIGIN;
+let libraryStorageOrigin = "";
+if (rawLibraryStorage) {
+  try {
+    libraryStorageOrigin = new URL(rawLibraryStorage).origin;
+  } catch {
+    // An invalid value is ignored rather than weakening the policy.
+  }
+}
+
 const connectSrcParts = [
   "'self'",
+  // The mock Library API hands out blob: download URLs; "Ask about this file" fetches them to attach the file.
+  ...(isDev ? ["blob:"] : []),
   backendOrigin,
   backendWsOrigin,
   ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"]),
   "https://*.mixpanel.com",
   "https://formspree.io",
   mapStyleOrigin,
+  ...(libraryStorageOrigin ? [libraryStorageOrigin] : []),
 ];
 
 if (isDev) {
@@ -152,7 +168,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // The driven browser plays as a MediaSource, which is a blob: URL.
-              "media-src 'self' blob:",
+              `media-src 'self' blob:${libraryStorageOrigin ? ` ${libraryStorageOrigin}` : ""}`,
               `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.googletagmanager.com`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",

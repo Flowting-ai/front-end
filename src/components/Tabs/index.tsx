@@ -371,7 +371,7 @@ export function TabsList({
             aria-hidden
             style={{
               ...pillBase,
-              boxShadow:  '0px 1px 1.5px 0px var(--neutral-700-12), 1px 0px 0px 1px var(--neutral-100)',
+              boxShadow:  'var(--shadow-tab-item-selected)',
               width:       0,
               visibility: pill ? 'visible' : 'hidden',
             }}

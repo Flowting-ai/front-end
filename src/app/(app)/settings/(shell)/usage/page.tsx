@@ -1,42 +1,37 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowRightOneIcon } from '@strange-huge/icons'
 import { Usage } from '@/lib/api/billing'
 import { useAuth } from '@/context/auth-context'
+import { Badge } from '@/components/Badge'
+import { Button } from '@/components/ui/button'
+import { ORG_PLANS_ROUTE } from '@/lib/routes'
+import styles from './usage.module.css'
 
 // Settings → PERSONAL → Usage. Everyone sees their own Slack / Automations / Chat
 // spend plus remaining credits on GET /stripe/usage.
+//
+// Layout: one card answers "where did my credits go?" (a donut of the three
+// sources with a breakdown beside it), a second answers "how much is left?"
+// (one meter against the total, then the figures). The donut and the list share
+// a hover state, so pointing at either highlights the same source.
 
-const C = {
-  ink:    'var(--neutral-900)',
-  muted:  'var(--neutral-600)',
-  border: 'var(--border-default)',
-  hair:   'var(--neutral-100)',
-  white:  'var(--card-bg)',
-} as const
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
-const CARD_RING = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SECTION_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
+const LOW_BALANCE_SHARE = 0.15
 
 // Chat includes subtask spend (agents a chat turn hands work to). Order is
 // Slack > Automations > Chat throughout this page.
 const CATEGORIES = [
-  { key: 'slack', label: 'Slack', chipColor: 'blue',   subtitle: 'Messages and actions in Slack' },
-  { key: 'automation', label: 'Automations', chipColor: 'yellow', subtitle: 'Scheduled and automated runs' },
-  { key: 'chat',  label: 'Chat',  chipColor: 'red',    subtitle: 'Direct conversations' },
+  { key: 'slack',      label: 'Slack',       color: 'var(--usage-slack)',      subtitle: 'Messages and actions in Slack' },
+  { key: 'automation', label: 'Automations', color: 'var(--usage-automation)', subtitle: 'Scheduled and automated runs' },
+  { key: 'chat',       label: 'Chat',        color: 'var(--usage-chat)',       subtitle: 'Direct conversations' },
 ] as const
 
-const CHIP_TOKENS: Record<string, { bg: string; text: string; ring: string }> = {
-  yellow: { bg: 'var(--yellow-100)', text: 'var(--yellow-700,#6d5921)', ring: 'color-mix(in srgb, var(--yellow-600) 50%, transparent)' },
-  blue:   { bg: 'var(--blue-100,#cadcf1)',   text: 'var(--blue-700,#135487)',   ring: 'var(--blue-600-50)' },
-  red:    { bg: 'var(--red-100,#ffbfb6)',    text: 'var(--red-700,#7a201c)',    ring: 'var(--red-600-51)' },
-}
-const BAR_TOKENS: Record<string, string> = {
-  yellow: 'var(--yellow-300,#c7b387)',
-  blue:   'var(--accent,#0485f7)',
-  red:    'var(--red-400,#ee3030)',
-}
+type CategoryKey = typeof CATEGORIES[number]['key']
 
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US')
@@ -51,138 +46,172 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
-function Chip({ label, color }: { label: string; color: string }) {
-  const t = CHIP_TOKENS[color]
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', padding: '2px 6px', borderRadius: 6,
-      backgroundColor: t.bg, boxShadow: `0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px ${t.ring}`,
-      fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: t.text, whiteSpace: 'nowrap',
-    }}>
-      {label}
-    </span>
-  )
+function pct(part: number, whole: number): string {
+  if (whole <= 0) return '0%'
+  const value = (part / whole) * 100
+  if (value > 0 && value < 1) return '<1%'
+  return `${Math.round(value)}%`
 }
 
-function StackedProgressBar({ segments }: { segments: { color: string; value: number }[] }) {
-  const total = segments.reduce((sum, s) => sum + s.value, 0)
+// ── Donut ────────────────────────────────────────────────────────────────────
+// Thin ring, a 2px surface gap between segments, and the total in the middle.
+// Hovering a segment swaps the centre to that source, which doubles as the tooltip.
+
+const SIZE = 200
+const STROKE = 18
+const RADIUS = (SIZE - STROKE) / 2
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+const GAP = 2
+const MIN_ARC = 3
+
+function Donut({ segments, total, active, onActive }: {
+  segments: { key: CategoryKey; label: string; color: string; value: number }[]
+  total: number
+  active: CategoryKey | null
+  onActive: (key: CategoryKey | null) => void
+}) {
+  const shown = segments.filter((s) => s.value > 0)
+  const gaps = shown.length > 1 ? shown.length * GAP : 0
+  const step = shown.length > 1 ? GAP : 0
+  const lengths = shown.map((s) => Math.max(MIN_ARC, (s.value / total) * (CIRCUMFERENCE - gaps)))
+  const arcs = shown.map((s, index) => ({
+    ...s,
+    length: lengths[index],
+    offset: lengths.slice(0, index).reduce((sum, length) => sum + length + step, 0),
+  }))
+  const current = active ? segments.find((s) => s.key === active) : null
+
   return (
-    <div style={{ display: 'flex', height: 4, width: '100%', borderRadius: 2, overflow: 'hidden', backgroundColor: C.hair }}>
-      {total > 0 && segments.map((s, i) => (
-        s.value > 0 ? (
-          <div key={i} style={{ height: '100%', width: `${(s.value / total) * 100}%`, backgroundColor: BAR_TOKENS[s.color] }} />
-        ) : null
-      ))}
+    <div className={styles.donutWrap}>
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label={`${fmtNum(total)} credits used: ${segments.map((s) => `${s.label} ${fmtNum(s.value)}`).join(', ')}`}>
+        <g transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}>
+          <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke="var(--neutral-100)" strokeWidth={STROKE} />
+          {arcs.map((arc) => (
+            <circle
+              key={arc.key}
+              className={styles.segment}
+              cx={SIZE / 2}
+              cy={SIZE / 2}
+              r={RADIUS}
+              fill="none"
+              stroke={arc.color}
+              // A wider invisible hit area would need a second ring; the 18px stroke is already a comfortable target.
+              strokeWidth={active === arc.key ? STROKE + 4 : STROKE}
+              strokeDasharray={`${arc.length} ${CIRCUMFERENCE - arc.length}`}
+              strokeDashoffset={-arc.offset}
+              opacity={active && active !== arc.key ? 0.35 : 1}
+              onMouseEnter={() => onActive(arc.key)}
+              onMouseLeave={() => onActive(null)}
+            />
+          ))}
+        </g>
+      </svg>
+      <div className={styles.donutCenter} aria-hidden="true">
+        <span className={styles.donutValue}>{fmtNum(current ? current.value : total)}</span>
+        <span className={styles.donutLabel}>{current ? `${current.label} · ${pct(current.value, total)}` : 'credits used'}</span>
+      </div>
     </div>
   )
 }
 
-// Fill = this category's credits against the plan's total credits. A non-zero
-// category always gets a minimum sliver so small spend on a large plan still shows.
-function ProgressBar({ used, total, color }: { used: number; total: number; color: string }) {
-  const pct = total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0
-  return (
-    <div style={{ height: 4, width: '100%', borderRadius: 2, backgroundColor: C.border, overflow: 'hidden', position: 'relative' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 4, width: `${pct}%`, minWidth: pct > 0 ? 4 : 0, borderRadius: 2, backgroundColor: BAR_TOKENS[color] }} />
-    </div>
-  )
-}
+// ── Page ─────────────────────────────────────────────────────────────────────
 
-function SectionCard({ children }: { children: React.ReactNode }) {
+function Card({ title, meta, children }: { title: string; meta?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{
-      width: '100%', display: 'flex', flexDirection: 'column',
-      border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: SECTION_SHADOW, backgroundColor: 'var(--surface-cream)',
-      overflow: 'hidden', paddingTop: 12, paddingBottom: 12,
-    }}>
+    <section className={styles.card}>
+      <div className={styles.cardHead}>
+        <h2 className={styles.cardTitle}>{title}</h2>
+        {meta}
+      </div>
       {children}
+    </section>
+  )
+}
+
+function Skeleton() {
+  const bone = (w: number | string, h: number, r: number | string = 6, extra: React.CSSProperties = {}) => (
+    <div className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
+  )
+  const card = (children: React.ReactNode) => (
+    <div style={{ borderRadius: 16, border: '1px solid var(--border-default)', boxShadow: SECTION_SHADOW, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>{bone(150, 18)}{bone(110, 14)}</div>
+      {children}
+    </div>
+  )
+  return (
+    <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }} aria-busy>
+        <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+          <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{bone(90, 24)}</div>
+          <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(380, 14, 4)}</div>
+        </div>
+        {card(
+          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 32, alignItems: 'center', padding: 24 }}>
+            {bone(200, 200, '50%')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {bone(12, 12, 4)}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>{bone(90 + i * 12, 14, 4)}{bone(170, 12, 4)}</div>
+                  {bone(60, 14, 4)}
+                </div>
+              ))}
+            </div>
+          </div>,
+        )}
+        {card(
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {bone('100%', 8, 999)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{bone('100%', 64, 12)}{bone('100%', 64, 12)}{bone('100%', 64, 12)}</div>
+          </div>,
+        )}
+      </div>
     </div>
   )
 }
 
 export default function UsagePage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [usage, setUsage] = useState<Usage | null>(null)
+  const [active, setActive] = useState<CategoryKey | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     Usage.fetch()
       .then(next => { if (!cancelled) setUsage(next) })
-      .catch(console.error)
+      .catch((error: unknown) => {
+        console.error(error)
+        if (!cancelled) setFailed(true)
+      })
     return () => { cancelled = true }
-  }, [])
+  }, [attempt])
 
-  if (!usage) {
-    // Mirrors the loaded page: heading block, "Personal summary" card (239px) and
-    // "This period's usage" card (360px) with its three category rows.
-    const bone = (w: number | string, h: number, r = 6, extra: React.CSSProperties = {}) => (
-      <div className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
-    )
-    const card = (h: number, children: React.ReactNode) => (
-      <div style={{ height: h, boxSizing: 'border-box', borderRadius: 16, border: '1px solid var(--border-default)', boxShadow: SECTION_SHADOW, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {children}
-      </div>
-    )
-    const cardHead = (w: number) => (
-      <div style={{ height: 72, boxSizing: 'border-box', padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', flexShrink: 0 }}>
-        <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(w, 16)}</div>
-      </div>
-    )
+  if (!usage && failed) {
     return (
-      <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
-        <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }} aria-busy>
-          <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-            <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{bone(90, 24)}</div>
-            <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(380, 14, 4)}</div>
-          </div>
-
-          {card(239, <>
-            {cardHead(130)}
-            <div style={{ padding: '12px 24px 16px' }}>
-              <div style={{ height: 128, boxSizing: 'border-box', padding: 12, borderRadius: 8, boxShadow: CARD_RING, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 22 }}>{bone(80, 14, 4)}{bone(140, 14, 4)}</div>
-                <div style={{ height: 34, display: 'flex', alignItems: 'center' }}>{bone(190, 24)}</div>
-                {bone('100%', 4, 2)}
-                <div style={{ display: 'flex', gap: 6 }}>{bone(54, 20)}{bone(90, 20)}{bone(76, 20)}</div>
-              </div>
-            </div>
-          </>)}
-
-          {card(360, <>
-            {cardHead(150)}
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ height: 73, boxSizing: 'border-box', padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>{bone(90 + i * 10, 14, 4)}{bone(170, 12, 4)}</div>
-                  {bone(70, 14, 4)}
-                </div>
-                {bone('100%', 4, 2)}
-              </div>
-            ))}
-          </>)}
-        </div>
+      <div style={{ flex: "1 0 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 48, textAlign: "center" }}>
+        <p style={{ margin: 0, fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: "24px", color: "var(--neutral-900)" }}>Couldn&apos;t load your usage</p>
+        <p style={{ margin: 0, fontFamily: BODY, fontSize: 14, lineHeight: "22px", color: "var(--neutral-600)" }}>Check your connection and try again.</p>
+        <Button variant="secondary" size="sm" onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>Try again</Button>
       </div>
     )
   }
+  if (!usage) return <Skeleton />
 
-  const categoryCredits = CATEGORIES.map(c => ({
+  const categories = CATEGORIES.map(c => ({
     ...c,
-    credits: c.key === 'chat' ? usage.byCategory.chatCredits
+    value: c.key === 'chat' ? usage.byCategory.chatCredits
       : c.key === 'slack' ? usage.byCategory.slackCredits
       : usage.byCategory.automationCredits,
   }))
-  // Unlimited (Enterprise) plans have no real total to measure against, so their
-  // bars fall back to each category's share of the period's spend.
-  const barTotalCredits = usage.isUnlimited
-    ? categoryCredits.reduce((sum, c) => sum + c.credits, 0)
-    : usage.totalCredits
-  // "This period's usage" said that repeatedly with no date to anchor it to
-  // for anyone not on a trial — `nextBillingDate` (from the user's own
-  // profile, already loaded by AuthProvider, same field plans-and-billing's
-  // Personal view uses for "Resets"/"Next billing date") fills that in
-  // whenever there's a real subscription cycle to report.
+  const spent = categories.reduce((sum, c) => sum + c.value, 0)
+
+  // `nextBillingDate` comes from the user's own profile (already loaded by
+  // AuthProvider), the same field plans-and-billing uses for "Resets".
   const trialEndDate = fmtDate(usage.trialExpiresAt)
-  const isTrial       = trialEndDate !== '—'
+  const isTrial = trialEndDate !== '—'
   const billingResetDate = fmtDate(user?.nextBillingDate)
   const periodLabel = isTrial
     ? `Trial ends ${trialEndDate}`
@@ -190,83 +219,118 @@ export default function UsagePage() {
       ? `Resets ${billingResetDate}`
       : null
 
+  const total = usage.totalCredits
+  const top = spent > 0 ? categories.reduce((best, c) => (c.value > best.value ? c : best)) : null
+  const usedShare = total > 0 ? Math.min(1, usage.usedCredits / total) : 0
+  const lowBalance = !usage.isUnlimited && total > 0 && usage.remainingCredits / total < LOW_BALANCE_SHARE
+
   return (
-    <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
+    <div className={`kaya-scrollbar ${styles.root}`} style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-          <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: C.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <h1 style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
             Usage
           </h1>
-          <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
+          <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
             Your spend this period, split by Slack, Automations, and Chat.
           </p>
         </div>
 
-        <SectionCard>
-          <div style={{ padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
-            <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0 }}>
-              Personal summary
-            </p>
-          </div>
-          <div style={{ padding: '12px 24px 16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 8, backgroundColor: 'var(--neutral-white)', boxShadow: CARD_RING }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>My usage</p>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-                    {usage.isUnlimited ? 'Unlimited credits' : `${fmtNum(usage.remainingCredits)} credits remaining`}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                  <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: C.ink, margin: 0 }}>{fmtNum(usage.ownSpendCredits)}</p>
-                  <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>credits consumed</p>
-                </div>
-              </div>
-              <StackedProgressBar segments={categoryCredits.map(c => ({ color: c.chipColor, value: c.credits }))} />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {categoryCredits.map(c => (
-                  <Chip key={c.key} label={`${c.label} ${fmtNum(c.credits)}`} color={c.chipColor} />
+        <Card title="Where your credits went" meta={periodLabel && <p className={styles.cardMeta}>{periodLabel}</p>}>
+          <div className={styles.split}>
+            <Donut segments={categories} total={spent} active={active} onActive={setActive} />
+            {spent === 0 ? (
+              <p className={styles.empty}>No credits used yet this period. Chats, Slack messages and automations will show up here as you use them.</p>
+            ) : (
+              <ul className={styles.legend} aria-label="Credits by source">
+                {categories.map(c => (
+                  <li
+                    key={c.key}
+                    className={styles.legendRow}
+                    data-active={active === c.key}
+                    data-dim={active !== null && active !== c.key}
+                    onMouseEnter={() => setActive(c.key)}
+                    onMouseLeave={() => setActive(null)}
+                  >
+                    <span className={styles.swatch} style={{ background: c.color }} aria-hidden="true" />
+                    <div style={{ minWidth: 0 }}>
+                      <p className={styles.legendName}>{c.label}</p>
+                      <p className={styles.legendHint}>{c.subtitle}</p>
+                    </div>
+                    <span className={styles.legendValue}>{fmtNum(c.value)} credits</span>
+                    <span className={styles.legendShare}>{pct(c.value, spent)}</span>
+                  </li>
                 ))}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard>
-          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
-            <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0, flex: '1 0 0', minWidth: 0 }}>This period&apos;s usage</p>
-            {periodLabel && (
-              <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>{periodLabel}</p>
+              </ul>
             )}
           </div>
+        </Card>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 24px 24px' }}>
-            {categoryCredits.map(c => (
-              <div key={c.key} style={{ display: 'flex', flexDirection: 'column', gap: 9, width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 24, width: '100%' }}>
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.label}
-                    </p>
-                    <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
-                      {c.subtitle}
-                    </p>
-                  </div>
-                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0, whiteSpace: 'nowrap' }}>
-                    {fmtNum(c.credits)} credits
-                  </p>
+        <Card
+          title="Credit balance"
+          meta={lowBalance ? <Badge label="Running low" color="Yellow" /> : usage.isUnlimited ? <Badge label="Unlimited" color="Green" /> : null}
+        >
+          {usage.isUnlimited ? (
+            <div className={styles.balance}>
+              <div className={styles.stats} style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Used this period</span>
+                  <span className={styles.statValue}>{fmtNum(usage.ownSpendCredits)}</span>
                 </div>
-                <ProgressBar used={c.credits} total={barTotalCredits} color={c.chipColor} />
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Remaining</span>
+                  <span className={styles.statValue}>Unlimited</span>
+                </div>
               </div>
-            ))}
-
-            <div style={{ display: 'flex', gap: 16, fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted }}>
-              <p style={{ margin: 0 }}>{fmtNum(usage.ownSpendCredits)} credits consumed</p>
-              <p style={{ margin: 0 }}>{categoryCredits.filter(c => c.credits > 0).length} sources</p>
             </div>
+          ) : (
+            <div className={styles.balance}>
+              <div>
+                <div className={styles.meterLabels}>
+                  <span>{fmtNum(usage.usedCredits)} of {fmtNum(total)} credits used</span>
+                  <span>{pct(usage.usedCredits, total)}</span>
+                </div>
+                <div
+                  className={styles.meter}
+                  role="progressbar"
+                  aria-label="Credits used"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(usedShare * 100)}
+                  style={{ marginTop: 8 }}
+                >
+                  <div className={styles.meterFill} style={{ width: `${usedShare * 100}%` }} />
+                </div>
+              </div>
+              <div className={styles.stats}>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Remaining</span>
+                  <span className={styles.statValue}>{fmtNum(usage.remainingCredits)}</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Most used</span>
+                  <span className={styles.statValue}>{top ? `${top.label} · ${pct(top.value, spent)}` : "—"}</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Total this period</span>
+                  <span className={styles.statValue}>{fmtNum(total)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className={styles.footer}>
+            <span>{lowBalance ? 'Top up or change plan to keep working without interruption.' : 'Credits reset at the start of each billing period.'}</span>
+            <Button
+              variant={lowBalance ? 'default' : 'secondary'}
+              size="sm"
+              rightIcon={<ArrowRightOneIcon size={16} />}
+              onClick={() => router.push(ORG_PLANS_ROUTE)}
+            >
+              {lowBalance ? 'Top up credits' : 'View plans & billing'}
+            </Button>
           </div>
-        </SectionCard>
+        </Card>
 
       </div>
     </div>

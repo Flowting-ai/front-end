@@ -353,7 +353,9 @@ function ConfirmModal({
 
 // ── Members table ─────────────────────────────────────────────────────────────
 
-const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) minmax(320px, 1.5fr) 150px'
+// Member takes the room and truncates; role and actions are fixed and right-aligned, so the table
+// never needs to scroll sideways at the settings page width.
+const WORKSPACE_MEMBER_COLUMNS = 'minmax(0, 1fr) 150px 130px'
 
 function MembersTable({
   members,
@@ -475,12 +477,12 @@ function MembersTable({
         </div>
       </SettingsTableToolbar>
 
-      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Workspace members" style={{ minWidth: 900 }}>
+      <div>
+        <div role="table" aria-label="Workspace members">
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Role</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Actions</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Role</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
           {loading ? (
@@ -515,14 +517,15 @@ function MembersTable({
               >
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <Avatar name={member.name || member.email} size="md" style={{ fontSize: 16 }} />
+                    <Avatar name={member.name || member.email} seed={member.id} size="md" />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {member.name || member.email}
                         </span>
+                        {isSelf && <Badge color="Blue" label="You" />}
                         {member.inviteStatus === 'invite_sent' && (
-                          <Badge color="Neutral" label="Invite sent" />
+                          <Badge color="Yellow" label="Invite sent" />
                         )}
                       </div>
                       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -532,7 +535,7 @@ function MembersTable({
                   </div>
                 </SettingsTableCell>
 
-                <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
+                <SettingsTableCell style={{ alignSelf: 'center' }}>
                   {canManageRole ? (
                     <RoleDropdown member={member} onManageRole={onManageRole} lockSelfDemotion={lockSelfDemotion} />
                   ) : (
@@ -540,7 +543,7 @@ function MembersTable({
                   )}
                 </SettingsTableCell>
 
-                <SettingsTableCell align="center" style={{ alignSelf: 'center' }}>
+                <SettingsTableCell align="end" style={{ alignSelf: 'center' }}>
                   {canRemove && (
                     <RemoveButton
                       memberName={member.name || member.email}
@@ -885,7 +888,7 @@ function MembersPageSkeleton() {
   return (
     <>
       <style>{`@keyframes membersSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ width: '100%', maxWidth: 1008, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header — h1/subtitle left, "Roles & Permissions" button right */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -918,24 +921,24 @@ function MembersPageSkeleton() {
           </div>
           {/* Column headers — Member / Role / Actions (WORKSPACE_MEMBER_COLUMNS) */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px' }}>
-            <div style={{ flex: '1.25 0 0', minWidth: 260 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
-            <div style={{ flex: '1.5 0 0', minWidth: 320, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={40} height={13} radius={4} /></div>
-            <div style={{ width: 150, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+            <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={40} height={13} radius={4} /></div>
+            <div style={{ width: 130, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
           </div>
           {/* Member rows */}
           {[0, 1, 2, 3].map((i, idx) => (
             <React.Fragment key={i}>
               {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
               <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
-                <div style={{ flex: '1.25 0 0', minWidth: 260, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <SkeletonBlock width={32} height={32} radius={16} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <SkeletonBlock width={120} height={13} radius={4} />
                     <SkeletonBlock width={160} height={11} radius={4} />
                   </div>
                 </div>
-                <div style={{ flex: '1.5 0 0', minWidth: 320, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
-                <div style={{ width: 150, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
+                <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
+                <div style={{ width: 130, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
               </div>
             </React.Fragment>
           ))}
@@ -1197,7 +1200,7 @@ export default function OrgMembersPage() {
     >
       {/* Horizontal padding lives here, not on the scrolling element above —
           keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: 1008, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>

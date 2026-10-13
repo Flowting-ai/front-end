@@ -62,7 +62,7 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
       <Button
         variant="default"
         size="sm"
-        leftIcon={<PlusSignIcon />}
+        leftIcon={<PlusSignIcon size={16} />}
         onClick={onCreateNew}
       >
         Create schedule
@@ -158,7 +158,7 @@ export function ScheduleListView({
             <Button
               variant="default"
               size="sm"
-              leftIcon={<PlusSignIcon />}
+              leftIcon={<PlusSignIcon size={16} />}
               onClick={onCreateNew}
             >
               New schedule

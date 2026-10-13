@@ -41,8 +41,9 @@ Layer 2 — Session replay
 Turn on with all text inputs and message content masked (verify the default). Target 100% of sessions for users in their first two weeks, sampled after.
 Layer 4 — feature_used
 One event name, one required property: which feature. The controlled list:
-model_selector_manual · compare_models · search · share_button · pin_drag · highlight_filter · pin_folder_organize · agent_template_browsed · agent_edited · agent_tested · agent_enhance_instructions · project_instructions_added · project_agent_attached · context_panel_opened · effort_level_changed · permission_level_changed · schedule_created · voice_input · flashcards · document_download · settings_help_opened · regenerate · output_viewed
+model_selector_manual · compare_models · search · share_button · pin_drag · highlight_filter · pin_folder_organize · agent_template_browsed · agent_edited · agent_tested · agent_enhance_instructions · project_instructions_added · project_agent_attached · context_panel_opened · effort_level_changed · permission_level_changed · schedule_created · voice_input · flashcards · document_download · settings_help_opened · regenerate · output_viewed · library
 regenerate: regenerate + stop-run + reject-automation + re-prompt-within-2-minutes together form the override rate — the earliest warning that answer quality is slipping, months before retention moves.
+library: Library (files uploaded or generated, browse, share, trash, reuse). One feature name; the specific action rides in an `action` property from a closed enum (open_tab, open_file, search, filter, sort, share, revoke, trash, restore, delete_forever, empty_trash, rename, download, ask_about, pick_from_library, request_access, upload_started, upload_completed, upload_failed, preview_rendered, autosave_changed, citation_opened, import_started) plus enum-only properties (tab, format, source, scope, size_bucket, duration_bucket, reason). Never a file name, title, search text, or URL.
 output_viewed: clicks on the "View" button of a run's external output — the first proof a human actually consumed what the agent made, not just that it was delivered.
 Rule: tracking a new feature = adding one name to this list (in the doc first), not designing a new event.
 Layer 3 in detail: decision events, surface by surface
@@ -232,5 +233,11 @@ welcome
 slack_setup
 /share, /chat-shares
 share_view
+/library, /library/trash
+library
+/library/files/:id
+library_file
+/settings/library
+settings_library
 /pinboard (panel)
 pinboard

@@ -9,7 +9,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { Button as LegacyButton, type ButtonProps as LegacyButtonProps } from '@/components/Button'
 import { IconButton as LegacyIconButton, type IconButtonProps as LegacyIconButtonProps } from '@/components/IconButton'
 
-// Flat (2D) shadcn-style PRIMARY button: rounded-lg, solid fill with the secondary button's shadow, no gradient. Pure CSS.
+// Flat (2D) shadcn-style PRIMARY button: radius per size (md 10px, sm 8px, xs 6px) like the secondary button, solid fill with the secondary button's shadow, no gradient. Pure CSS.
 // Only the primary ("default" variant: black in light mode, light in dark mode) uses it. Every other
 // variant (ghost, outline, secondary, danger) still renders the legacy `@/components/Button` /
 // `@/components/IconButton`, so existing call sites keep one import path and behave as before.
@@ -18,7 +18,7 @@ import { IconButton as LegacyIconButton, type IconButtonProps as LegacyIconButto
 
 const BASE =
   'group/button relative inline-flex shrink-0 items-center justify-center whitespace-nowrap select-none ' +
-  'rounded-lg border border-transparent font-[family-name:var(--font-body)] font-[var(--font-weight-medium)] ' +
+  'border border-transparent font-[family-name:var(--font-body)] font-[var(--font-weight-medium)] ' +
   'text-[length:var(--font-size-body)] leading-[var(--line-height-body)] ' +
   'transition-[background-color,border-color,transform,opacity] duration-150 ' +
   'cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--focus-ring)] ' +
@@ -66,15 +66,15 @@ export const buttonVariants = cva(BASE, {
         'data-[active=true]:bg-[var(--button-danger-bg-hover)]',
       ),
       // New (not in the legacy Button): text-only action.
-      link: 'text-[var(--button-ghost-text)] underline-offset-4 hover:underline rounded-none',
+      link: 'text-[var(--button-ghost-text)] underline-offset-4 hover:underline !rounded-none',
     },
     size: {
       // Minimum heights match the legacy Button (md = 36px, sm = 32px = padding + 22px line height).
-      md: 'min-h-9 gap-0.5 px-2.5',
-      sm: 'min-h-8 gap-0.5 px-2',
+      md: 'min-h-9 gap-0.5 rounded-[10px] px-2.5',
+      sm: 'min-h-8 gap-0.5 rounded-[8px] px-2',
       // New sizes.
-      xs: 'min-h-6 gap-0.5 px-1.5 text-xs',
-      lg: 'min-h-10 gap-1 px-3',
+      xs: 'min-h-6 gap-0.5 rounded-[6px] px-1.5 text-xs',
+      lg: 'min-h-10 gap-1 rounded-[10px] px-3',
     },
   },
   defaultVariants: { variant: 'default', size: 'md' },
@@ -221,9 +221,9 @@ const iconButtonVariants = cva(BASE + ' p-0', {
       ),
     },
     size: {
-      md: 'size-9',
-      sm: 'size-8',
-      xs: 'size-6 rounded-md',
+      md: 'size-9 rounded-[10px]',
+      sm: 'size-8 rounded-[8px]',
+      xs: 'size-6 rounded-[6px]',
     },
   },
   defaultVariants: { variant: 'default', size: 'md' },

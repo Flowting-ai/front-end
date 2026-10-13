@@ -12,6 +12,7 @@ import { updateUser, updateOnboarding, roleDisplayLabel, toneDisplayLabel } from
 import { useNavGuard } from '@/context/nav-guard-context'
 import { toast } from 'sonner'
 import { AccountSkeleton } from '../SettingsSkeleton'
+import styles from './account.module.css'
 import { fetchModelsWithCache, sortModels, pickDefaultModel, modelIconSource, isAutoRoutingModelName } from '@/lib/ai-models'
 import { ModelIcon } from '@/components/ModelIcon'
 import { useTheme } from '@/context/theme-context'
@@ -19,6 +20,9 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import Sun01Icon from '@hugeicons/core-free-icons/Sun01Icon'
 import Moon01Icon from '@hugeicons/core-free-icons/Moon01Icon'
 import ComputerIcon from '@hugeicons/core-free-icons/ComputerIcon'
+import FlashIcon from '@hugeicons/core-free-icons/FlashIcon'
+import BalanceScaleIcon from '@hugeicons/core-free-icons/BalanceScaleIcon'
+import SmileIcon from '@hugeicons/core-free-icons/SmileIcon'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Settings v1.5 — Account page ─────────────────────────────────────────────
@@ -53,6 +57,19 @@ const TONE_DESCRIPTIONS: Record<typeof TONE_OPTIONS[number], string> = {
   Direct:   'Skip the preamble. Just the answer.',
   Balanced: 'Friendly but efficient. The default.',
   Warm:     'Conversational, with context and reasoning.',
+}
+
+// A one-line sample of how an answer reads in each tone, so the choice is concrete.
+const TONE_SAMPLES: Record<typeof TONE_OPTIONS[number], string> = {
+  Direct:   'Revenue is up 12%. Repeat orders drove it.',
+  Balanced: 'Revenue is up 12% this month, mostly from repeat orders.',
+  Warm:     'Good news: revenue climbed 12% this month, thanks to customers coming back.',
+}
+
+const TONE_ICONS: Record<typeof TONE_OPTIONS[number], React.ReactElement> = {
+  Direct:   <HugeiconsIcon icon={FlashIcon} size={16} color="currentColor" strokeWidth={1.5} />,
+  Balanced: <HugeiconsIcon icon={BalanceScaleIcon} size={16} color="currentColor" strokeWidth={1.5} />,
+  Warm:     <HugeiconsIcon icon={SmileIcon} size={16} color="currentColor" strokeWidth={1.5} />,
 }
 
 // Hidden for now: flip to true to show the Default Model row / Danger Zone card again.
@@ -402,7 +419,6 @@ function AccountPageContent({
   const [lastName,    setLastName]    = useState(baseLastName)
   const [avatar,      setAvatar]      = useState<string | null>(baseAvatar)
   const [isSaving,    setIsSaving]    = useState(false)
-  const [avatarHover, setAvatarHover] = useState(false)
   const [isEditing,   setIsEditing]   = useState(false)
 
   // With theming OFF this stays a local, non-functional selector (default System), exactly like
@@ -620,6 +636,8 @@ function AccountPageContent({
     // TODO: open confirmation dialog before proceeding
   }
 
+  const fullName = `${firstName} ${lastName}`.trim() || 'Your name'
+
   return (
     <div
       className="kaya-scrollbar"
@@ -634,275 +652,186 @@ function AccountPageContent({
         padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* ── Page header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-          <h1 style={{
-            fontFamily:   'var(--font-title)',
-            fontWeight:   400,
-            fontSize:     24,
-            lineHeight:   '32px',
-            color:        'var(--neutral-900)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
+          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
             Account
           </h1>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   14,
-            lineHeight: '22px',
-            color:      'var(--neutral-500)',
-            margin:     0,
-          }}>
-            Manage your personal profile, sign-in methods, and account settings.
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+            Your profile, and how Souvenir looks and writes to you.
           </p>
         </div>
 
-        {/* ── Main profile card ── */}
-        <SettingsCard>
-          {/* Profile picture */}
-          <CardSection divider padTop={12} padBottom={24}>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => { void handlePickAvatar(e) }}
-                style={{ display: 'none' }}
-              />
+        {/* ── Profile: who you are at a glance, then the editable details ── */}
+        <section className={styles.card} aria-label="Profile">
+          <div className={styles.profile}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => { void handlePickAvatar(e) }}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              className={styles.avatar}
+              disabled={!isEditing}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Change profile picture"
+            >
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element -- user-supplied data-URL avatar, not a static asset
+                <img alt="" src={avatar} />
+              ) : (
+                <span>{initials || '?'}</span>
+              )}
+              <span className={styles.avatarOverlay} aria-hidden="true">Change</span>
+            </button>
 
-              {/* Avatar — click to change, only once Edit Profile is on */}
-              <button
-                type="button"
-                disabled={!isEditing}
-                onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={() => setAvatarHover(true)}
-                onMouseLeave={() => setAvatarHover(false)}
-                aria-label="Change profile picture"
-                style={{
-                  width:        65,
-                  height:       65,
-                  borderRadius: 55,
-                  padding:      0,
-                  border:       'none',
-                  cursor:       isEditing ? 'pointer' : 'default',
-                  backgroundColor: 'var(--neutral-100)',
-                  boxShadow:    '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
-                  flexShrink:   0,
-                  overflow:     'hidden',
-                  position:     'relative',
-                  display:      'flex',
-                  alignItems:   'center',
-                  justifyContent:'center',
-                }}
-              >
-                {avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- user-supplied data-URL avatar, not a static asset
-                  <img
-                    alt="Profile"
-                    src={avatar}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : (
-                  <span style={{
-                    fontFamily: 'var(--font-title)',
-                    fontWeight: 400,
-                    fontSize:   24,
-                    color:      'var(--neutral-500)',
-                  }}>
-                    {initials}
-                  </span>
-                )}
-                {/* Hover overlay */}
-                <span
-                  aria-hidden
-                  style={{
-                    position:       'absolute',
-                    inset:          0,
-                    display:        'flex',
-                    alignItems:     'center',
-                    justifyContent: 'center',
-                    backgroundColor:'rgba(38,33,30,0.55)',
-                    color:          'var(--color-text-on-accent)',
-                    fontFamily:     'var(--font-body)',
-                    fontWeight:     500,
-                    fontSize:       11,
-                    lineHeight:     '14px',
-                    textAlign:      'center',
-                    opacity:        isEditing && avatarHover ? 1 : 0,
-                    transition:     'opacity 150ms',
-                    pointerEvents:  'none',
-                  }}
-                >
-                  Change
-                </span>
-              </button>
-
-              {/* Controls */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize:   16,
-                  lineHeight: '22px',
-                  color:      'var(--neutral-900)',
-                  margin:     0,
-                  overflow:   'hidden',
-                  textOverflow:'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  Profile Picture
-                </p>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    disabled={!isEditing}
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      display:        'flex',
-                      alignItems:     'center',
-                      justifyContent: 'center',
-                      padding:        '5px 8px',
-                      borderRadius:   8,
-                      border:         'none',
-                      cursor:         isEditing ? 'pointer' : 'not-allowed',
-                      opacity:        isEditing ? 1 : 0.5,
-                      backgroundColor:'transparent',
-                      boxShadow:      '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                      fontFamily:     'var(--font-body)',
-                      fontWeight:     500,
-                      fontSize:       14,
-                      lineHeight:     '22px',
-                      color:          'var(--neutral-700)',
-                    }}
-                  >
-                    Change Avatar
-                  </button>
+            <div className={styles.identity}>
+              <p className={styles.name}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</span>
+                {baseRole && <Badge label={baseRole} color="Neutral" />}
+              </p>
+              <p className={styles.email}>{user.email ?? ''}</p>
+              {isEditing && (
+                <div className={styles.avatarActions}>
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    {avatar ? 'Change photo' : 'Upload photo'}
+                  </Button>
                   {avatar && (
-                    <button
-                      type="button"
-                      disabled={!isEditing}
-                      onClick={handleRemoveAvatar}
-                      style={{
-                        display:        'flex',
-                        alignItems:     'center',
-                        justifyContent: 'center',
-                        padding:        '5px 8px',
-                        borderRadius:   8,
-                        border:         'none',
-                        cursor:         isEditing ? 'pointer' : 'not-allowed',
-                        opacity:        isEditing ? 1 : 0.5,
-                        backgroundColor:'transparent',
-                        fontFamily:     'var(--font-body)',
-                        fontWeight:     500,
-                        fontSize:       14,
-                        lineHeight:     '22px',
-                        color:          'var(--neutral-500)',
-                      }}
-                    >
+                    <Button variant="ghost" size="sm" className="bg-transparent" onClick={handleRemoveAvatar}>
                       Remove
-                    </button>
+                    </Button>
                   )}
                 </div>
-              </div>
+              )}
             </div>
-          </CardSection>
 
-          {/* First Name + Last Name — Figma mislabeled the first one "Full
-              Name" even though it's wired to the real first_name field (see
-              the baseline comment above) and its own placeholder already
-              said "Your first name". Label corrected to match. */}
-          <CardSection divider padTop={12} padBottom={24}>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-              <InputField
-                fluid
-                label="First Name"
-                value={firstName}
-                onChange={setFirstName}
-                placeholder="Your first name"
-                subtitle="Shown in team chats and persona attribution"
-                disabled={!isEditing}
-              />
-              <InputField
-                fluid
-                label="Last Name"
-                value={lastName}
-                onChange={setLastName}
-                placeholder="Your last name"
-                disabled={!isEditing}
-              />
-            </div>
-          </CardSection>
-
-          {/* Role + Email — both read-only in this design (Role editing moved
-              out; there is no dedicated "edit role" surface any more). */}
-          <CardSection padTop={12} padBottom={12}>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-              <InputField
-                fluid
-                label="Role"
-                value={baseRole}
-                disabled
-                subtitle="Set during onboarding"
-              />
-              <InputField
-                fluid
-                label="Email address"
-                value={user.email ?? ''}
-                disabled
-                subtitle="Used for billing and notifications"
-              />
-            </div>
-          </CardSection>
-
-          {/* Edit Profile / Save changes */}
-          <CardSection padTop={12} padBottom={12}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div className={styles.actions}>
               {isEditing ? (
                 <>
-                  <Button variant="ghost" size="sm" disabled={isSaving} onClick={handleCancelEdit}>
+                  <Button variant="ghost" size="sm" className="bg-transparent" disabled={isSaving} onClick={handleCancelEdit}>
                     Cancel
                   </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    disabled={!isDirty || isSaving}
-                    loading={isSaving}
-                    onClick={handleSave}
-                  >
+                  <Button variant="default" size="sm" disabled={!isDirty || isSaving} loading={isSaving} onClick={handleSave}>
                     Save changes
                   </Button>
                 </>
               ) : (
-                <Button variant="default" size="sm" onClick={handleEditProfile}>
-                  Edit Profile
+                <Button variant="secondary" size="sm" onClick={handleEditProfile}>
+                  Edit profile
                 </Button>
               )}
             </div>
-          </CardSection>
-        </SettingsCard>
+          </div>
 
-        {/* ── Personalisation card — node 18:27502. Style/Default Model commit
-            immediately on selection (no Save button in this card in Figma). ── */}
-        <SettingsCard>
-          <CardSection divider padTop={12} padBottom={12}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-              Personalisation
-            </p>
-          </CardSection>
-          <SettingsRow title="Screen mode" subtitle="Light, dark, or match your device" divider>
-            <PillSelect value={screenMode} options={SCREEN_MODE_OPTIONS} onChange={handleScreenModeChange} descriptions={SCREEN_MODE_DESCRIPTIONS} icons={SCREEN_MODE_ICONS} />
-          </SettingsRow>
-          <SettingsRow title="Style" subtitle="How the interface should feel" divider={SHOW_DEFAULT_MODEL_ROW}>
-            <PillSelect value={tone as typeof TONE_OPTIONS[number]} options={TONE_OPTIONS} onChange={(v) => void handleToneChange(v)} descriptions={TONE_DESCRIPTIONS} pending={tonePending} />
-          </SettingsRow>
-{SHOW_DEFAULT_MODEL_ROW && (
+          <div className={styles.fields}>
+            <InputField
+              fluid
+              label="First name"
+              value={firstName}
+              onChange={setFirstName}
+              placeholder="Your first name"
+              subtitle="Shown in team chats and persona attribution"
+              disabled={!isEditing}
+            />
+            <InputField
+              fluid
+              label="Last name"
+              value={lastName}
+              onChange={setLastName}
+              placeholder="Your last name"
+              disabled={!isEditing}
+            />
+            <InputField
+              fluid
+              label="Role"
+              value={baseRole}
+              disabled
+              subtitle="Set during onboarding"
+            />
+            <InputField
+              fluid
+              label="Email address"
+              value={user.email ?? ''}
+              disabled
+              subtitle="Used for billing and notifications"
+            />
+          </div>
+        </section>
+
+        {/* ── Appearance: the three modes as picture tiles instead of a dropdown ── */}
+        <section className={styles.card} aria-labelledby="appearance-title">
+          <div className={styles.cardHead}>
+            <h2 id="appearance-title" className={styles.cardTitle}>Appearance</h2>
+            <p className={styles.cardHint}>Light, dark, or match your device.</p>
+          </div>
+          <div className={styles.choices} role="radiogroup" aria-labelledby="appearance-title">
+            {SCREEN_MODE_OPTIONS.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={screenMode === mode}
+                className={styles.choice}
+                onClick={() => handleScreenModeChange(mode)}
+              >
+                <span className={styles.preview} aria-hidden="true">
+                  {mode !== 'Dark' && (
+                    <span className={`${styles.previewHalf} ${styles.light}`}>
+                      <i style={{ width: '70%' }} /><i style={{ width: '90%' }} /><i style={{ width: '50%' }} />
+                    </span>
+                  )}
+                  {mode !== 'Light' && (
+                    <span className={`${styles.previewHalf} ${styles.dark}`}>
+                      <i style={{ width: '70%' }} /><i style={{ width: '90%' }} /><i style={{ width: '50%' }} />
+                    </span>
+                  )}
+                </span>
+                <span className={styles.choiceHead}>
+                  <span style={{ display: 'inline-flex', color: 'var(--neutral-600)' }}>{SCREEN_MODE_ICONS[mode]}</span>
+                  <span className={styles.choiceTitle}>{mode}</span>
+                  <span className={styles.radio} aria-hidden="true" />
+                </span>
+                <span className={styles.choiceHint}>{SCREEN_MODE_DESCRIPTIONS[mode]}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Response style: each tone with a sample of how an answer reads ── */}
+        <section className={styles.card} aria-labelledby="style-title">
+          <div className={styles.cardHead}>
+            <h2 id="style-title" className={styles.cardTitle}>Response style</h2>
+            <p className={styles.cardHint}>How Souvenir writes its answers to you. Saves as soon as you pick one.</p>
+          </div>
+          <div className={styles.choices} role="radiogroup" aria-labelledby="style-title" aria-busy={tonePending}>
+            {TONE_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={tone === option}
+                className={styles.choice}
+                disabled={tonePending}
+                onClick={() => void handleToneChange(option)}
+              >
+                <span className={styles.bubblePreview} aria-hidden="true">
+                  <span className={styles.bubble}>{TONE_SAMPLES[option]}</span>
+                </span>
+                <span className={styles.choiceHead}>
+                  <span style={{ display: 'inline-flex', color: 'var(--neutral-600)' }}>{TONE_ICONS[option]}</span>
+                  <span className={styles.choiceTitle}>{option}</span>
+                  {tonePending && tone === option ? <Spinner size={14} /> : <span className={styles.radio} aria-hidden="true" />}
+                </span>
+                <span className={styles.choiceHint}>{TONE_DESCRIPTIONS[option]}</span>
+              </button>
+            ))}
+          </div>
+          {SHOW_DEFAULT_MODEL_ROW && (
           <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
             <PillSelect
               value={defaultModel}
@@ -917,7 +846,7 @@ function AccountPageContent({
             />
           </SettingsRow>
         )}
-        </SettingsCard>
+        </section>
 
         {/* ── Danger Zone card ── */}
 {SHOW_DANGER_ZONE && (
@@ -1030,7 +959,6 @@ function AccountPageContent({
           </CardSection>
         </SettingsCard>
         )}
-
       </div>
     </div>
   )
