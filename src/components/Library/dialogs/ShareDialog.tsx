@@ -18,14 +18,11 @@ import type { LibraryFile } from '@/lib/library/file'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import { PersonAvatar, WorkspaceAvatar } from '../PersonAvatar'
+import styles from './ShareDialog.module.css'
 
 const WAY_LABEL: Record<AccessEntry['via'], string> = { owner: 'Owner', direct: 'Shared directly', workspace: 'Whole workspace' }
 
-const sectionLabel: React.CSSProperties = { margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)' }
-const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }
-const nameStyle: React.CSSProperties = { fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
-const quiet: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }
-const body: React.CSSProperties = { margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
+const cx = (...names: (string | undefined | false)[]) => names.filter(Boolean).join(' ')
 
 /** Someone staged in the dialog, not shared with yet. */
 type Staged = { key: string; target: GrantTarget; label: string; toastLabel: string; person?: Person }
@@ -44,12 +41,13 @@ function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: Libra
         <DialogHeader>
           <DialogTitle>Remove {name}?</DialogTitle>
         </DialogHeader>
-        <DialogBody style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <DialogDescription style={body}>
+        <DialogBody className={styles.confirmBody}>
+          {/* The dialog primitives style themselves inline, so their overrides go through `style`. */}
+          <DialogDescription style={{ color: 'var(--neutral-900)' }}>
             {FILE_MESSAGES.revokeLine(workspace ? 'People with access only through the workspace' : name, workspace)}
           </DialogDescription>
-          {stillVia && <p style={{ ...quiet, margin: 0 }}>{FILE_MESSAGES.stillViaWorkspace(name)}</p>}
-          <p style={{ ...quiet, margin: 0 }}>{FILE_MESSAGES.revokeAnswersLine}</p>
+          {stillVia && <p className={styles.quiet}>{FILE_MESSAGES.stillViaWorkspace(name)}</p>}
+          <p className={styles.quiet}>{FILE_MESSAGES.revokeAnswersLine}</p>
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="secondary" disabled={revoke.isPending} onClick={onBack}>Cancel</Button>
@@ -70,9 +68,9 @@ function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: Libra
 /** A picked person or the workspace, as a removable chip inside the field. */
 function StagedChip({ item, onRemove }: { item: Staged; onRemove: () => void }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 28, padding: '0 4px 0 3px', borderRadius: 999, background: 'var(--neutral-100)', maxWidth: '100%' }}>
+    <span className={styles.chip}>
       {item.person ? <PersonAvatar person={item.person} size={22} /> : <WorkspaceAvatar size={22} />}
-      <span style={{ ...nameStyle, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+      <span className={cx(styles.name, styles.chipLabel, styles.truncate)}>{item.label}</span>
       <IconButton variant="ghost" size="xs" aria-label={FILE_MESSAGES.dontAdd(item.label)} icon={<CancelOneIcon size={10} />} onClick={onRemove} />
     </span>
   )
@@ -180,23 +178,20 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
         onEscapeKeyDown={(event) => { if (listOpen) { event.preventDefault(); setListOpen(false) } }}
       >
         <DialogHeader>
-          <DialogTitle style={{ display: 'flex', minWidth: 0, paddingRight: 28 }}>
-            <span style={{ flex: 'none' }}>Share&nbsp;</span>
-            <span title={name} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+          <DialogTitle className={styles.title}>
+            <span className={styles.titlePrefix}>Share&nbsp;</span>
+            <span title={name} className={cx(styles.titleName, styles.truncate)}>{name}</span>
           </DialogTitle>
         </DialogHeader>
-        <DialogBody style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ position: 'relative' }}>
+        <DialogBody className={styles.mainBody}>
+          <div className={styles.picker}>
             {/* The field: picked people as chips, then the text box. Clicking anywhere in it focuses the box. */}
             <div
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) { event.preventDefault(); focusField(); setListOpen(true) }
               }}
-              style={{
-                display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 40, boxSizing: 'border-box', padding: staged.length ? '5px 8px' : '0 12px',
-                borderRadius: 10, background: 'var(--text-field-bg)', cursor: 'text',
-                boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
-              }}
+              className={styles.field}
+              data-has-chips={staged.length > 0}
             >
               {staged.map((item) => <StagedChip key={item.key} item={item} onRemove={() => unstage(item.key)} />)}
               <input
@@ -219,10 +214,7 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
                   setActive(0)
                   setListOpen(true)
                 }}
-                style={{
-                  flex: '1 1 120px', minWidth: 120, height: 30, padding: 0, border: 'none', outline: 'none', background: 'transparent',
-                  fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
-                }}
+                className={styles.input}
               />
             </div>
             {showList && (
@@ -230,15 +222,12 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
                 id={listId}
                 role="listbox"
                 aria-label="People"
-                style={{
-                  position: 'absolute', zIndex: 2, top: 'calc(100% + 6px)', left: 0, right: 0, maxHeight: 260, overflow: 'auto', padding: 6, borderRadius: 12,
-                  background: 'var(--card-bg)', boxShadow: 'var(--shadow-card-default)',
-                }}
+                className={styles.listbox}
               >
                 {people.isPending ? (
                   <Skeleton height={36} radius={10} />
                 ) : options.length === 0 ? (
-                  <p style={{ ...quiet, margin: 0, padding: '10px 8px', fontSize: 13 }}>
+                  <p className={cx(styles.quiet, styles.noMatch)}>
                     {needle ? `No one called "${query.trim()}"` : 'Everyone already has access'}
                   </p>
                 ) : (
@@ -251,15 +240,12 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
                       onMouseDown={(event) => event.preventDefault()}
                       onMouseEnter={() => setActive(index)}
                       onClick={() => stage(option)}
-                      style={{
-                        ...rowStyle, minHeight: 40, padding: '0 8px', borderRadius: 8, cursor: 'pointer',
-                        background: index === activeIndex ? 'var(--neutral-100)' : 'transparent',
-                      }}
+                      className={cx(styles.row, styles.option)}
                     >
                       {option.person ? <PersonAvatar person={option.person} size={28} /> : <WorkspaceAvatar size={28} />}
-                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span style={nameStyle}>{option.label}</span>
-                        {!option.person && <span style={quiet}>{FILE_MESSAGES.everyoneInSouvenir}</span>}
+                      <span className={styles.stack}>
+                        <span className={styles.name}>{option.label}</span>
+                        {!option.person && <span className={styles.quiet}>{FILE_MESSAGES.everyoneInSouvenir}</span>}
                       </span>
                     </div>
                   ))
@@ -268,32 +254,32 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
             )}
           </div>
 
-          <p style={{ ...quiet, margin: 0 }}>{FILE_MESSAGES.shareQuiet}</p>
+          <p className={styles.quiet}>{FILE_MESSAGES.shareQuiet}</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 240 }}>
-            <p style={sectionLabel}>Who has access</p>
+          <div className={styles.accessSection}>
+            <p className={styles.sectionLabel}>Who has access</p>
             {access.isPending ? (
-              <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div aria-busy="true" className={styles.loadingList}>
                 <Skeleton height={36} radius={10} />
                 <Skeleton height={36} radius={10} />
               </div>
             ) : access.isError ? (
-              <p role="alert" style={{ ...quiet, margin: 0 }}>
-                Couldn&apos;t load who has access. <button type="button" onClick={() => void access.refetch()} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', color: 'inherit', font: 'inherit' }}>{MESSAGES.retry}</button>
+              <p role="alert" className={styles.quiet}>
+                Couldn&apos;t load who has access. <button type="button" onClick={() => void access.refetch()} className={styles.linkButton}>{MESSAGES.retry}</button>
               </p>
             ) : (
               <>
-                <ul className="kaya-scrollbar" style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+                <ul className={cx('kaya-scrollbar', styles.list)}>
                   {entries.map((entry) => (
-                    <li key={entry.grantId} style={{ ...rowStyle, padding: '0 8px' }}>
+                    <li key={entry.grantId} className={cx(styles.row, styles.entry)}>
                       {entry.person ? <PersonAvatar person={entry.person} size={28} /> : <WorkspaceAvatar size={28} />}
-                      <span style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                        <span style={{ ...nameStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entryLabel(entry)}</span>
+                      <span className={cx(styles.stack, styles.entryText)}>
+                        <span className={cx(styles.name, styles.truncate)}>{entryLabel(entry)}</span>
                         {entry.kind !== 'owner' && (
-                          <span style={quiet}>{entry.kind === 'workspace' ? FILE_MESSAGES.everyoneInSouvenir : WAY_LABEL[entry.via]}</span>
+                          <span className={styles.quiet}>{entry.kind === 'workspace' ? FILE_MESSAGES.everyoneInSouvenir : WAY_LABEL[entry.via]}</span>
                         )}
                       </span>
-                      <span style={{ ...quiet, flex: 'none' }}>{entry.kind === 'owner' ? WAY_LABEL.owner : 'Viewer'}</span>
+                      <span className={cx(styles.quiet, styles.role)}>{entry.kind === 'owner' ? WAY_LABEL.owner : 'Viewer'}</span>
                       {entry.kind !== 'owner' && access.data?.canManage ? (
                         <Tooltip content={FILE_MESSAGES.removeAccessTip}>
                           <IconButton
@@ -309,10 +295,10 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
                   ))}
                 </ul>
                 {entries.every((entry) => entry.kind === 'owner') && (
-                  <div style={{ flex: 1, minHeight: 140, marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 16, border: '1px dashed var(--neutral-200)', borderRadius: 12, textAlign: 'center' }}>
-                    <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, marginBottom: 4, borderRadius: 999, background: 'var(--neutral-100)', color: 'var(--neutral-600)' }}><UserAddOneIcon size={18} /></span>
-                    <span style={nameStyle}>Not shared yet</span>
-                    <span style={{ ...quiet, fontSize: 13, lineHeight: '18px' }}>Add people or the whole workspace above.</span>
+                  <div className={styles.empty}>
+                    <span aria-hidden="true" className={styles.emptyIcon}><UserAddOneIcon size={18} /></span>
+                    <span className={styles.name}>Not shared yet</span>
+                    <span className={cx(styles.quiet, styles.emptyHint)}>Add people or the whole workspace above.</span>
                   </div>
                 )}
               </>

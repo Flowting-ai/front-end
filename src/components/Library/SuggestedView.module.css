@@ -156,3 +156,11 @@
     transition: none;
   }
 }
+
+/* A Recent card thumbnail (FileThumb). */
+.thumb {
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+}

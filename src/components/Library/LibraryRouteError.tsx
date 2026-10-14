@@ -15,11 +15,14 @@ export function LibraryRouteError({
   onRetry,
   boundary = 'library-route',
   showBackLink = true,
+  title = 'Something went wrong',
 }: {
   error: Error & { digest?: string }
   onRetry: () => void
   boundary?: string
   showBackLink?: boolean
+  /** Names what failed, when the route knows ("Couldn't load Trash"). */
+  title?: string
 }) {
   useEffect(() => {
     captureError(error, { boundary })
@@ -30,7 +33,7 @@ export function LibraryRouteError({
       role="alert"
       style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32, textAlign: 'center', minHeight: 0 }}
     >
-      <h2 style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>Something went wrong</h2>
+      <h2 style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>{title}</h2>
       <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
         This page hit an unexpected error. Your files are not affected.
       </p>

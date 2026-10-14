@@ -6,7 +6,7 @@
 // Optimistic changes go through patchFileEverywhere (cache.ts); a failed change is rolled back and
 // the affected queries are re-read, so the screen always ends on what the server says.
 
-import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { mutationOptions, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { libraryApi, type GrantTarget } from "./api";
 import { patchFileEverywhere, removeFileFromLists, removeFromPages, type PagedRows } from "./cache";
@@ -55,10 +55,11 @@ function invalidate(queryClient: QueryClient, org: string, parts: Part[]): void 
 
 // ── Files ────────────────────────────────────────────────────────────────────
 
-export function useRenameFile() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
+// Options factories are exported for tests: they drive them with a real QueryClient and a
+// MutationObserver, so the optimistic patch and the rollback are checked without rendering.
+
+export function renameFileOptions(queryClient: QueryClient, orgKey: string) {
+  return mutationOptions({
     mutationKey: [...libraryKeys.all(orgKey), "rename"],
     mutationFn: async (vars: { id: string; title: string; previousTitle: string; previousAi: boolean }) =>
       libraryApi.renameFile(vars.id, vars.title),
@@ -79,6 +80,10 @@ export function useRenameFile() {
   });
 }
 
+export function useRenameFile() {
+  return useMutation(renameFileOptions(useQueryClient(), useLibraryViewer().orgKey));
+}
+
 /** Restore from the API, then re-read what changed. Shared by the Restore button and the Undo on the "Moved to Trash" toast. */
 async function restoreFileNow(queryClient: QueryClient, org: string, id: string): Promise<void> {
   await libraryApi.restoreFile(id);
@@ -89,10 +94,8 @@ async function restoreFileNow(queryClient: QueryClient, org: string, id: string)
 /** `title` is the display name the toasts use; without it the name is looked up in the cache. */
 type FileVars = { id: string; title?: string };
 
-export function useTrashFile() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
+export function trashFileOptions(queryClient: QueryClient, orgKey: string) {
+  return mutationOptions({
     mutationKey: [...libraryKeys.all(orgKey), "trash-file"],
     mutationFn: async (vars: FileVars) => libraryApi.trashFile(vars.id),
     onMutate: async (vars) => {
@@ -126,6 +129,10 @@ export function useTrashFile() {
       });
     },
   });
+}
+
+export function useTrashFile() {
+  return useMutation(trashFileOptions(useQueryClient(), useLibraryViewer().orgKey));
 }
 
 export function useRestoreFile() {
@@ -250,10 +257,8 @@ export function useAddGrant() {
  * each), then one "Shared with Maya, Sam" toast whose Undo removes them all. Not optimistic. If a grant
  * fails part way, what was added stays and the error is shown.
  */
-export function useShareFile() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
+export function shareFileOptions(queryClient: QueryClient, orgKey: string) {
+  return mutationOptions({
     mutationKey: [...libraryKeys.all(orgKey), "share-file"],
     mutationFn: async (vars: { id: string; targets: { target: GrantTarget; label: string }[] }) => {
       const api = libraryApi;
@@ -276,10 +281,12 @@ export function useShareFile() {
   });
 }
 
-export function useRevokeGrant() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
+export function useShareFile() {
+  return useMutation(shareFileOptions(useQueryClient(), useLibraryViewer().orgKey));
+}
+
+export function revokeGrantOptions(queryClient: QueryClient, orgKey: string) {
+  return mutationOptions({
     mutationKey: [...libraryKeys.all(orgKey), "revoke-grant"],
     /** `label` names who lost access in the toast: "Maya removed", "Workspace removed". */
     mutationFn: async (vars: { id: string; grantId: string; label?: string }) => libraryApi.revokeGrant(vars.id, vars.grantId),
@@ -303,6 +310,10 @@ export function useRevokeGrant() {
       toast(vars.label ? FILE_MESSAGES.removed(vars.label) : MESSAGES.accessRemoved);
     },
   });
+}
+
+export function useRevokeGrant() {
+  return useMutation(revokeGrantOptions(useQueryClient(), useLibraryViewer().orgKey));
 }
 
 // ── Download ─────────────────────────────────────────────────────────────────

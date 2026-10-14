@@ -193,3 +193,141 @@
     opacity: 1;
   }
 }
+
+/* ── Cells and text ───────────────────────────────────────────────────────── */
+
+/* Every row is ROW_HEIGHT (FileTable.tsx) tall; the virtualiser relies on it. */
+.fixedRow {
+  height: 50px;
+}
+
+.cell {
+  min-width: 0;
+}
+
+.text {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-700);
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.nameStack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.name {
+  color: var(--neutral-900);
+  font-weight: 400;
+}
+
+.name[data-unread='true'] {
+  font-weight: 500;
+}
+
+.snippet {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}
+
+.sortButton[data-active='true'] {
+  color: var(--neutral-900);
+}
+
+.headLabel {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}
+
+/* The header sticks to the top of the scroll area. */
+.stickyHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* ── Scroll area and virtual rows ─────────────────────────────────────────── */
+
+.scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin: 0 40px 20px;
+  transition: opacity 120ms;
+}
+
+/* A refetch is running behind the rows on screen. */
+.scroll[data-refreshing='true'] {
+  opacity: 0.6;
+}
+
+.body {
+  position: relative;
+}
+
+/* Positioned by the virtualiser; only the translateY offset is set inline. */
+.virtualRow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.loadingMore {
+  text-align: center;
+  padding: 12px;
+  margin: 0;
+  color: var(--neutral-500);
+}

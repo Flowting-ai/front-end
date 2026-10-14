@@ -12,8 +12,10 @@ import { MESSAGES } from '@/lib/library/messages'
 import { useLibraryPicker } from '@/lib/library/queries'
 import { FORMAT_GROUPS, type FormatGroup } from '@/lib/library/schemas'
 import type { LibraryFile } from '@/lib/library/file'
+import { nextRowIndex } from '@/lib/library/table-focus'
 import { FormatGlyph } from '../FormatGlyph'
 import { GeneratedMark } from '../FileMarks'
+import styles from './PickerDialog.module.css'
 
 type TypeChip = 'all' | FormatGroup | 'runs'
 
@@ -50,6 +52,19 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
     true,
   )
 
+  // One tab stop for the whole list; the arrows, Home and End move between files.
+  const [activeIndex, setActiveIndex] = useState(0)
+  const rovingIndex = Math.min(activeIndex, Math.max(list.files.length - 1, 0))
+  const onListKeyDown = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    const next = nextRowIndex(event.key, rovingIndex, list.files.length)
+    if (next === null) return
+    event.preventDefault()
+    setActiveIndex(next)
+    const option = event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')[next]
+    option?.focus()
+    option?.scrollIntoView({ block: 'nearest' })
+  }
+
   const isPicked = (id: string) => picked.some((file) => file.id === id)
   const toggle = (file: LibraryFile) => {
     if (excludeIds.includes(file.id)) return
@@ -63,9 +78,9 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>Files you can open. Nothing is attached until you confirm.</DialogDescription>
         </DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 24px 8px' }}>
-          <div role="search" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 10, background: 'var(--text-field-bg)', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)' }}>
-            <SearchOneIcon size={16} style={{ color: 'var(--neutral-500)', flexShrink: 0 }} />
+        <div className={styles.tools}>
+          <div role="search" className={styles.search}>
+            <SearchOneIcon size={16} className={styles.searchIcon} />
             <input
               type="search"
               value={query}
@@ -73,20 +88,17 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
               placeholder="Search library"
               aria-label="Search library"
               autoComplete="off"
-              style={{ flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}
+              className={styles.input}
             />
           </div>
-          <div role="group" aria-label="File type" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div role="group" aria-label="File type" className={styles.chips}>
             {CHIPS.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
                 aria-pressed={chip === entry.id}
                 onClick={() => setChip(entry.id)}
-                style={{
-                  padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border-default)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
-                  background: chip === entry.id ? 'var(--neutral-900)' : 'var(--color-surface-container)', color: chip === entry.id ? 'var(--card-bg)' : 'var(--neutral-700)',
-                }}
+                className={styles.chip}
               >
                 {entry.label}
               </button>
@@ -94,21 +106,21 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           </div>
         </div>
 
-        <div className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: '0 16px' }} aria-busy={list.isRefreshing}>
+        <div className={`kaya-scrollbar ${styles.results}`} aria-busy={list.isRefreshing}>
           {list.status === 'loading' ? (
-            <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 8px' }}>
+            <div aria-busy="true" className={styles.loading}>
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} height={48} radius={10} />)}
             </div>
           ) : list.status === 'error' ? (
-            <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 32, textAlign: 'center' }}>
-              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)' }}>{debounced ? MESSAGES.searchUnavailable : MESSAGES.listError}</p>
+            <div role="alert" className={styles.error}>
+              <p className={styles.message}>{debounced ? MESSAGES.searchUnavailable : MESSAGES.listError}</p>
               <Button variant="secondary" onClick={list.refetch}>{MESSAGES.retry}</Button>
             </div>
           ) : list.files.length === 0 ? (
-            <p role="status" style={{ margin: 0, padding: 32, textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)' }}>{debounced || chip !== 'all' ? MESSAGES.noFilesText : MESSAGES.suggestedEmptyText}</p>
+            <p role="status" className={styles.empty}>{debounced || chip !== 'all' ? MESSAGES.noFilesText : MESSAGES.suggestedEmptyText}</p>
           ) : (
-            <ul role="listbox" aria-multiselectable={!single} aria-label="Files" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {list.files.map((file) => {
+            <ul role="listbox" aria-multiselectable={!single} aria-label="Files" className={styles.list} onKeyDown={onListKeyDown}>
+              {list.files.map((file, index) => {
                 const already = excludeIds.includes(file.id)
                 const selected = already || isPicked(file.id)
                 const name = file.name
@@ -118,21 +130,20 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
                     role="option"
                     aria-selected={selected}
                     aria-disabled={already || undefined}
-                    tabIndex={already ? -1 : 0}
+                    // Already-attached files stay focusable (so the arrows can pass them) but cannot be picked.
+                    tabIndex={index === rovingIndex ? 0 : -1}
+                    onFocus={() => setActiveIndex(index)}
                     onClick={() => toggle(file)}
                     onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); toggle(file) } }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '4px 10px', borderRadius: 10, cursor: already ? 'not-allowed' : 'pointer',
-                      background: selected ? 'var(--neutral-100)' : 'transparent', opacity: already ? 0.6 : 1,
-                    }}
+                    className={styles.option}
                   >
                     <FormatGlyph format={file.format} />
-                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>{name}</span>
+                    <span className={styles.text}>
+                      <span className={styles.nameLine}>
+                        <span className={styles.name}>{name}</span>
                         {file.source === 'generated' && <GeneratedMark />}
                       </span>
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{already ? 'Already attached' : formatDateTime(file.createdAt)}</span>
+                      <span className={styles.meta}>{already ? 'Already attached' : formatDateTime(file.createdAt)}</span>
                     </span>
                     {selected && <CheckmarkCircleTwoIcon size={18} />}
                   </li>
@@ -141,15 +152,15 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
             </ul>
           )}
           {list.hasNextPage && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
+            <div className={styles.loadMore}>
               <Button variant="secondary" size="sm" loading={list.isFetchingNextPage} onClick={list.fetchNextPage}>Load more</Button>
             </div>
           )}
         </div>
 
         <DialogFooter style={{ justifyContent: 'space-between', paddingTop: 12 }}>
-          <span aria-live="polite" style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)' }}>{picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
-          <span style={{ display: 'flex', gap: 8 }}>
+          <span aria-live="polite" className={styles.count}>{picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
+          <span className={styles.actions}>
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button
               type="button"

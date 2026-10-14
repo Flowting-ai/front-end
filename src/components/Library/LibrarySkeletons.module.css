@@ -1,0 +1,160 @@
+/* Layout for the Library loading states. Sizes of individual bones stay on the Skeleton props. */
+
+.route {
+  flex: 1 0 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.avatars {
+  display: inline-flex;
+}
+
+/* Overlapping avatars, each ringed in the card colour. */
+.avatar {
+  box-shadow: 0 0 0 2px var(--card-bg);
+}
+
+.avatar + .avatar {
+  margin-left: -6px;
+}
+
+.nameCell {
+  gap: 10px;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 40px 13px;
+  flex-shrink: 0;
+}
+
+.headerBar {
+  gap: 16px;
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.gap12 {
+  gap: 12px;
+}
+
+.gap4 {
+  gap: 4px;
+}
+
+.grow {
+  flex: 1;
+}
+
+.tabs {
+  margin-top: 24px;
+}
+
+.table {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 40px 20px;
+}
+
+.sectionHead {
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.sectionTitle {
+  margin-left: 8px;
+}
+
+.tile {
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.stack6,
+.stack10,
+.stack12 {
+  display: flex;
+  flex-direction: column;
+}
+
+.stack6 {
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stack10 {
+  gap: 10px;
+}
+
+.stack12 {
+  gap: 12px;
+}
+
+.suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 15px 40px 120px;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.cardGrid {
+  padding: 3px;
+}
+
+.card {
+  padding: 14px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.cardIcon {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner {
+  margin-top: 12px;
+}
+
+.clip {
+  overflow: hidden;
+}
+
+.meta {
+  margin-top: 10px;
+  margin-bottom: 32px;
+}
+
+.below {
+  margin-top: 12px;
+}
+
+.infoRow {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.person {
+  gap: 10px;
+  margin-top: 12px;
+}
+

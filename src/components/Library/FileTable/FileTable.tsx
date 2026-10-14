@@ -1,20 +1,22 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { ArrowDownTwoIcon, ArrowUpDownIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { formatDateTime, formatLabel } from '@/lib/library/format'
 import type { SortDir, SortKey } from '@/lib/library/query-params'
 import type { LibraryFile } from '@/lib/library/file'
+import { nextRowIndex, withFocusedRow } from '@/lib/library/table-focus'
 import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import { AccessAvatars } from '../PersonAvatar'
-import { FormatGlyph } from '../FormatGlyph'
+import { FileThumb } from '../FileThumb'
 import { GeneratedMark, UnreadDot } from '../FileMarks'
 import { preloadFilePage } from '../viewers/preload'
 import { RowMenu, type RowAction } from './RowMenu'
 import styles from './FileTable.module.css'
 
+// Keep in step with .fixedRow in FileTable.module.css.
 export const ROW_HEIGHT = 50
 const OVERSCAN = 8
 const LOAD_MORE_THRESHOLD = 5
@@ -38,18 +40,14 @@ const cx = (...names: (string | undefined | false)[]) => names.filter(Boolean).j
 // Scroll position per view, kept in memory so coming back from a file lands where the person was.
 const scrollMemory = new Map<string, number>()
 
-const cellText: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)' }
-
 function SortHeading({ label, sortKey, active, dir, onSort }: { label: string; sortKey: SortKey; active: boolean; dir: SortDir; onSort: (key: SortKey) => void }) {
   return (
     <button
       type="button"
       onClick={() => onSort(sortKey)}
       aria-label={`Sort by ${label}`}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
-        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: active ? 'var(--neutral-900)' : 'var(--neutral-600)',
-      }}
+      className={styles.sortButton}
+      data-active={active}
     >
       {label}
       {/* Sortable headings always show an arrow; the active one shows the direction. */}
@@ -59,7 +57,7 @@ function SortHeading({ label, sortKey, active, dir, onSort }: { label: string; s
 }
 
 function HeadLabel({ children }: { children: React.ReactNode }) {
-  return <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>{children}</span>
+  return <span className={styles.headLabel}>{children}</span>
 }
 
 export interface FileRowProps {
@@ -68,16 +66,19 @@ export interface FileRowProps {
   viewerId: string | undefined
   rowIndex: number
   onAction: (action: RowAction, file: LibraryFile) => void
-  style?: React.CSSProperties
+  className?: string
+  /** The virtualiser's offset for this row, in px. A number (not a style object) so a memoised row
+   *  only re-renders when its file or position changes, not on every scroll tick. */
+  offset?: number
 }
 
-export function FileRow({ file, kind, viewerId, rowIndex, onAction, style }: FileRowProps) {
+export function FileRow({ file, kind, viewerId, rowIndex, onAction, className, offset }: FileRowProps) {
   const name = file.name
   const caps = file.caps
   const hide = HIDE_CLASS[kind]
   return (
-    <div role="row" aria-rowindex={rowIndex} className={cx(styles.row, COLUMN_CLASS[kind])} style={{ height: ROW_HEIGHT, ...style }}>
-      <div role="cell" style={{ minWidth: 0 }}>
+    <div role="row" aria-rowindex={rowIndex} className={cx(styles.row, styles.fixedRow, COLUMN_CLASS[kind], className)} style={offset === undefined ? undefined : { transform: `translateY(${offset}px)` }}>
+      <div role="cell" className={styles.cell}>
         <Link
           href={LIBRARY_FILE_ROUTE(file.id)}
           className={styles.rowLink}
@@ -86,39 +87,37 @@ export function FileRow({ file, kind, viewerId, rowIndex, onAction, style }: Fil
           onPointerEnter={() => preloadFilePage(file.format)}
           onFocus={() => preloadFilePage(file.format)}
         >
-          {file.thumbnailUrl ? (
-            // Small private rendition in a fixed box; the type icon stands in when there is none.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={file.thumbnailUrl} alt="" width={32} height={32} loading="lazy" decoding="async" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-          ) : (
-            <FormatGlyph format={file.format} />
-          )}
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span className={styles.truncate} style={{ ...cellText, fontWeight: file.unread ? 500 : 400, color: 'var(--neutral-900)' }}>{name}</span>
+          <FileThumb file={file} width={32} height={32} className={styles.thumb} />
+          <span className={styles.nameStack}>
+            <span className={styles.nameLine}>
+              <span className={cx(styles.truncate, styles.text, styles.name)} data-unread={file.unread}>{name}</span>
               {file.source === 'generated' && <GeneratedMark file={file} />}
               {file.unread && <UnreadDot />}
             </span>
-            {file.snippet && <span className={styles.truncate} style={{ ...cellText, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{file.snippet}</span>}
+            {file.snippet && <span className={cx(styles.truncate, styles.text, styles.snippet)}>{file.snippet}</span>}
           </span>
         </Link>
       </div>
-      <div role="cell" className={cx(styles.above, hide.access)} style={{ minWidth: 0 }}>
+      <div role="cell" className={cx(styles.above, styles.cell, hide.access)}>
         <AccessAvatars file={file} viewerId={viewerId} />
       </div>
       {kind === 'all' && (
-        <div role="cell" className={cx(styles.truncate, hide.source)} style={cellText}>{file.source === 'generated' ? 'Generated' : 'Uploaded'}</div>
+        <div role="cell" className={cx(styles.truncate, styles.text, hide.source)}>{file.source === 'generated' ? 'Generated' : 'Uploaded'}</div>
       )}
-      <div role="cell" className={styles.truncate} style={cellText}>
+      <div role="cell" className={cx(styles.truncate, styles.text)}>
         {kind === 'shared' && file.sharedAt ? formatDateTime(file.sharedAt) : formatDateTime(file.createdAt)}
       </div>
-      <div role="cell" className={cx(styles.truncate, hide.type)} style={cellText}>{formatLabel(file.format)}</div>
-      <div role="cell" className={styles.above} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div role="cell" className={cx(styles.truncate, styles.text, hide.type)}>{formatLabel(file.format)}</div>
+      <div role="cell" className={cx(styles.above, styles.actionsCell)}>
         {(caps.open) && <RowMenu file={file} onAction={onAction} />}
       </div>
     </div>
   )
 }
+
+// FileTable itself is skipped by React Compiler (useVirtualizer returns unmemoisable functions), so
+// rows are memoised by hand. Files are immutable objects, so a changed file is a new reference.
+const MemoFileRow = React.memo(FileRow)
 
 export interface FileTableProps {
   files: LibraryFile[]
@@ -147,6 +146,12 @@ export function FileTable({
   files, kind, viewerId, viewKey, sort, onSort, onAction, hasNextPage, isFetchingNextPage, fetchNextPage, isRefreshing = false, label = 'Files',
 }: FileTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  // The row holding keyboard focus stays rendered while it is scrolled out of view (table-focus.ts).
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  // A row an arrow key moved to: setting focusedIndex renders it, then the effect below focuses it.
+  const pendingFocus = useRef<number | null>(null)
+  const rangeExtractor = useCallback((range: Range) => withFocusedRow(defaultRangeExtractor(range), focusedIndex), [focusedIndex])
   const virtualizer = useVirtualizer({
     count: files.length,
     getScrollElement: () => scrollRef.current,
@@ -154,6 +159,7 @@ export function FileTable({
     overscan: OVERSCAN,
     getItemKey: (index) => files[index]?.id ?? index,
     initialOffset: scrollMemory.get(viewKey) ?? 0,
+    rangeExtractor,
   })
   const items = virtualizer.getVirtualItems()
   const lastIndex = items.length > 0 ? items[items.length - 1].index : -1
@@ -162,6 +168,38 @@ export function FileTable({
   useEffect(() => {
     if (lastIndex >= files.length - LOAD_MORE_THRESHOLD && hasNextPage && !isFetchingNextPage) fetchNextPage()
   }, [lastIndex, files.length, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  useEffect(() => {
+    const target = pendingFocus.current
+    if (target === null || target !== focusedIndex) return
+    pendingFocus.current = null
+    bodyRef.current?.querySelector<HTMLElement>(`[aria-rowindex="${target + 2}"] a`)?.focus({ preventScroll: true })
+  }, [focusedIndex])
+
+  // Rows are indexed from their aria-rowindex (the header is row 1).
+  const rowIndexOf = (target: EventTarget) => {
+    const row = (target as HTMLElement).closest?.('[role="row"]')
+    const value = Number(row?.getAttribute('aria-rowindex'))
+    return Number.isFinite(value) && value >= 2 ? value - 2 : null
+  }
+
+  const onBodyFocus = (event: React.FocusEvent) => setFocusedIndex(rowIndexOf(event.target))
+  const onBodyBlur = (event: React.FocusEvent) => {
+    if (!bodyRef.current?.contains(event.relatedTarget as Node | null)) setFocusedIndex(null)
+  }
+
+  // Arrow Up/Down, Home and End move between rows from a row's link (not from inside its menu).
+  const onBodyKeyDown = (event: React.KeyboardEvent) => {
+    if (!(event.target as HTMLElement).classList.contains(styles.rowLink)) return
+    const current = rowIndexOf(event.target)
+    if (current === null) return
+    const next = nextRowIndex(event.key, current, files.length)
+    if (next === null || next === current) return
+    event.preventDefault()
+    pendingFocus.current = next
+    setFocusedIndex(next)
+    virtualizer.scrollToIndex(next, { align: 'auto' })
+  }
 
   // Remember where this view was scrolled to.
   useEffect(() => {
@@ -178,12 +216,12 @@ export function FileTable({
   return (
     <div
       ref={scrollRef}
-      className={cx('kaya-scrollbar', styles.container)}
-      style={{ flex: '1 1 0', minHeight: 0, overflowX: 'hidden', overflowY: 'auto', margin: '0 40px 20px', opacity: isRefreshing ? 0.6 : 1, transition: 'opacity 120ms' }}
+      className={cx('kaya-scrollbar', styles.container, styles.scroll)}
+      data-refreshing={isRefreshing}
     >
       <div role="table" aria-label={label} aria-rowcount={hasNextPage ? -1 : files.length + 1} aria-busy={isRefreshing}>
         {/* The header sticks to the top of the scroll area; it lives on this wrapper because a sticky element only sticks inside a tall parent. */}
-        <div role="rowgroup" style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+        <div role="rowgroup" className={styles.stickyHead}>
           <div role="row" aria-rowindex={1} className={cx(styles.head, COLUMN_CLASS[kind])}>
             <div role="columnheader" aria-sort={ariaSort('name')}>
               <SortHeading label="Name" sortKey="name" active={sort.key === 'name'} dir={sort.dir} onSort={onSort} />
@@ -194,29 +232,38 @@ export function FileTable({
               <SortHeading label={kind === 'shared' ? 'Date shared' : 'Created'} sortKey={dateKey} active={sort.key === dateKey} dir={sort.dir} onSort={onSort} />
             </div>
             <div role="columnheader" className={hide.type}><HeadLabel>Type</HeadLabel></div>
-            <div role="columnheader"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Actions</span></div>
+            <div role="columnheader"><span className={styles.srOnly}>Actions</span></div>
           </div>
         </div>
-        <div role="rowgroup" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        <div
+          ref={bodyRef}
+          role="rowgroup"
+          className={styles.body}
+          style={{ height: virtualizer.getTotalSize() }}
+          onFocus={onBodyFocus}
+          onBlur={onBodyBlur}
+          onKeyDown={onBodyKeyDown}
+        >
           {items.map((item) => {
             const file = files[item.index]
             if (!file) return null
             return (
-              <FileRow
+              <MemoFileRow
                 key={file.id}
                 file={file}
                 kind={kind}
                 viewerId={viewerId}
                 rowIndex={item.index + 2}
                 onAction={onAction}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${item.start}px)` }}
+                className={styles.virtualRow}
+                offset={item.start}
               />
             )
           })}
         </div>
       </div>
       {isFetchingNextPage && (
-        <p role="status" style={{ ...cellText, textAlign: 'center', padding: 12, margin: 0, color: 'var(--neutral-500)' }}>Loading more files</p>
+        <p role="status" className={cx(styles.text, styles.loadingMore)}>Loading more files</p>
       )}
     </div>
   )

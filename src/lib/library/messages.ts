@@ -27,6 +27,7 @@ export const MESSAGES = {
   listError: "Couldn't load your files.",
   retry: "Try again",
   trashEmptyTitle: "Trash is empty",
+  trashCrashTitle: "Couldn't load Trash",
   trashEmptyText: "Items moved to Trash will be deleted forever after 30 days.",
   onlyOwner: "Only the owner can change this",
   lockedTitle: "You don't have access to this file",

@@ -101,7 +101,6 @@ const PERSONAL_ITEMS = [
   // Usage page (node 17-22980) existed — now points at its own route.
   // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
-  // Library: auto-save, AI use of files, storage. Off until NEXT_PUBLIC_ENABLE_LIBRARY=true.
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.

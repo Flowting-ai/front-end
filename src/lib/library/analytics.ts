@@ -25,9 +25,8 @@ export type LibraryAction =
   | "upload_completed"
   | "upload_failed"
   | "preview_rendered"
-  | "autosave_changed"
   | "citation_opened"
-  | "import_started";
+  | "web_vital";
 
 export type LibraryEventProps = {
   tab?: "suggested" | "all" | "shared" | "trash";
@@ -40,7 +39,27 @@ export type LibraryEventProps = {
   /** A small count (filters in use, results bucket), never an exact size. */
   count?: number;
   value?: string;
+  /** web_vital only: which Core Web Vital, its rating, and which Library page it was measured on. */
+  metric?: LibraryVital;
+  rating?: "good" | "needs-improvement" | "poor";
+  page?: LibraryPage;
 };
+
+export type LibraryVital = "LCP" | "CLS" | "INP";
+export type LibraryPage = "list" | "trash" | "file";
+
+/** Which Library page a path is, for web_vital events; null outside Library. */
+export function libraryPageOf(pathname: string): LibraryPage | null {
+  if (pathname === "/library") return "list";
+  if (pathname === "/library/trash") return "trash";
+  if (pathname.startsWith("/library/files/")) return "file";
+  return null;
+}
+
+const VITALS: readonly string[] = ["LCP", "CLS", "INP"];
+export function isLibraryVital(name: string): name is LibraryVital {
+  return VITALS.includes(name);
+}
 
 export function trackLibrary(action: LibraryAction, props: LibraryEventProps = {}): void {
   trackFeature("library", { action, ...props });

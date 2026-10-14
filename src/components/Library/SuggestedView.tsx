@@ -13,6 +13,7 @@ import { useSuggested } from '@/lib/library/queries'
 import { CHAT_ROUTE, LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
 import { FormatGlyph } from './FormatGlyph'
+import { FileThumb } from './FileThumb'
 import { UnreadDot } from './FileMarks'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { RowMenu, type RowAction } from './FileTable/RowMenu'
@@ -68,12 +69,7 @@ function RecentCard({ file, onAction, first }: { file: LibraryFile; first: boole
           </span>
         </span>
         <span style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {file.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={file.thumbnailUrl} alt="" width={96} height={64} loading="lazy" decoding="async" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 10 }} />
-          ) : (
-            <FormatGlyph format={file.format} size="lg" />
-          )}
+          <FileThumb file={file} width={96} height={64} className={styles.thumb} glyphSize="lg" />
         </span>
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{activityLine(file)}</span>
       </Link>

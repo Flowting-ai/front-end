@@ -9,6 +9,7 @@ import { ApiError, apiFetchJson, apiFetchVoid } from "@/lib/api/client";
 import { listMembers as listOrgMembers } from "@/lib/api/organization";
 import { API_BASE_URL } from "@/lib/config";
 import { captureError } from "./observability";
+import { renameSchema } from "./forms";
 import type { ListParams } from "./query-params";
 import {
   accessListSchema,
@@ -101,8 +102,9 @@ export const libraryApi = {
   markOpened: (id: string) => apiFetchVoid(`${fileUrl(id)}/opened`, { method: "POST" }),
 
   // Changes
+  // The body goes through the rename form's schema, so the form and the request share one contract.
   renameFile: async (id: string, title: string) =>
-    parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody({ title }) }), "renameFile"),
+    parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchema.parse({ title })) }), "renameFile"),
   trashFile: async (id: string) =>
     parse(z.object({ daysLeft: z.number().int().nonnegative() }), await apiFetchJson<unknown>(fileUrl(id), { method: "DELETE" }), "trashFile"),
   restoreFile: (id: string) => apiFetchVoid(`${trashUrl(id)}/restore`, { method: "POST" }),

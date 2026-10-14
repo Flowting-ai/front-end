@@ -18,13 +18,13 @@ import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
 import { FormatGlyph } from './FormatGlyph'
-import { ROW_HEIGHT } from './FileTable/FileTable'
 import tableStyles from './FileTable/FileTable.module.css'
 import { TrashTableSkeleton } from './LibrarySkeletons'
 import { LibraryShell } from './LibraryShell'
+import styles from './TrashScreen.module.css'
 
-const cell: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', minWidth: 0 }
-const head: React.CSSProperties = { fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }
+const cx = (...names: (string | undefined | false)[]) => names.filter(Boolean).join(' ')
+const cell = cx(tableStyles.truncate, tableStyles.text)
 
 function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFile; onRestore: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false)
@@ -56,7 +56,7 @@ function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFile; onRest
         />
       }
     >
-      <Dropdown maxHeight={false} style={{ minWidth: 168 }}>
+      <Dropdown maxHeight={false} className={styles.menu}>
         <Dropdown.Section fluid>
           <Dropdown.Item label="Restore" icon={<UndoTwoIcon />} fluid onClick={() => { setOpen(false); onRestore() }} />
         </Dropdown.Section>
@@ -84,20 +84,15 @@ export function TrashScreen() {
 
   return (
     <LibraryShell>
-      <header style={{ display: 'flex', flexDirection: 'column', padding: '28px 40px 16px', flexShrink: 0 }}>
-        <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 36, padding: '0 8px' }}>
-          <Link href={LIBRARY_ROUTE} style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '36px', color: 'var(--neutral-600)', textDecoration: 'none' }}>Library</Link>
-          <ArrowRightOneIcon size={20} aria-hidden="true" style={{ color: 'var(--neutral-400)' }} />
-          <h1 aria-current="page" style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '36px', color: 'var(--neutral-900)' }}>Trash</h1>
+      <header className={styles.header}>
+        <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
+          <Link href={LIBRARY_ROUTE} className={styles.crumb}>Library</Link>
+          <ArrowRightOneIcon size={20} aria-hidden="true" className={styles.separator} />
+          <h1 aria-current="page" className={styles.title}>Trash</h1>
         </nav>
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, rowGap: 8, marginTop: 12, padding: '8px 8px 8px 16px', borderRadius: 12,
-            background: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)',
-          }}
-        >
-          <span style={{ flex: '1 1 260px', minWidth: 0 }}>{MESSAGES.trashBanner(TRASH_DAYS)}</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+        <div className={styles.banner}>
+          <span className={styles.bannerText}>{MESSAGES.trashBanner(TRASH_DAYS)}</span>
+          <span className={styles.bannerActions}>
             {hasFiles && <span>Frees up {formatBytes(trash.freesBytes)}</span>}
             <Button variant="outline" size="sm" disabled={!hasFiles} onClick={() => setEmptying(true)}>Empty Trash</Button>
           </span>
@@ -113,37 +108,37 @@ export function TrashScreen() {
       ) : trash.files.length === 0 ? (
         <EmptyState icon={<DeleteTwoIcon size={20} />} title={MESSAGES.trashEmptyTitle} />
       ) : (
-        <div className={`kaya-scrollbar ${tableStyles.container}`} style={{ flex: '1 1 0', minHeight: 0, overflowX: 'hidden', overflowY: 'auto', margin: '0 40px 20px' }}>
+        <div className={cx('kaya-scrollbar', tableStyles.container, tableStyles.scroll)}>
           <div role="table" aria-label="Trash">
             {/* The header sticks while rows scroll under it (see the file table). In a narrow window Size, then Deleted, hide. */}
-            <div role="rowgroup" style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+            <div role="rowgroup" className={tableStyles.stickyHead}>
               <div role="row" className={`${tableStyles.head} ${tableStyles.colsTrash}`}>
-                <div role="columnheader" style={head}>Name</div>
-                <div role="columnheader" style={head}>Days left</div>
-                <div role="columnheader" className={tableStyles.cSize} style={head}>Size</div>
-                <div role="columnheader" className={tableStyles.cDeleted} style={head}>Deleted</div>
-                <div role="columnheader"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Actions</span></div>
+                <div role="columnheader" className={tableStyles.headLabel}>Name</div>
+                <div role="columnheader" className={tableStyles.headLabel}>Days left</div>
+                <div role="columnheader" className={cx(tableStyles.headLabel, tableStyles.cSize)}>Size</div>
+                <div role="columnheader" className={cx(tableStyles.headLabel, tableStyles.cDeleted)}>Deleted</div>
+                <div role="columnheader"><span className={tableStyles.srOnly}>Actions</span></div>
               </div>
             </div>
             <div role="rowgroup">
               {trash.files.map((file) => (
-                <div key={file.id} role="row" className={`${tableStyles.row} ${tableStyles.colsTrash}`} style={{ height: ROW_HEIGHT }}>
-                  <div role="cell" style={{ minWidth: 0 }}>
+                <div key={file.id} role="row" className={cx(tableStyles.row, tableStyles.fixedRow, tableStyles.colsTrash)}>
+                  <div role="cell" className={tableStyles.cell}>
                     {/* The owner can still open a file in Trash (its page shows Restore). */}
                     <Link href={LIBRARY_FILE_ROUTE(file.id)} title={file.name} className={tableStyles.rowLink}>
                       <FormatGlyph format={file.format} />
-                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span className={tableStyles.truncate} style={{ ...cell, color: 'var(--neutral-900)' }}>{file.name}</span>
+                      <span className={tableStyles.nameStack}>
+                        <span className={cx(cell, tableStyles.name)}>{file.name}</span>
                         {file.trashedBy && (
                           <span className={`${tableStyles.truncate} ${tableStyles.nameSub}`}>{MESSAGES.deletedBy(personName(file.trashedBy, viewerId))}</span>
                         )}
                       </span>
                     </Link>
                   </div>
-                  <div role="cell" className={tableStyles.truncate} style={cell}>{daysLeftLabel(file.daysLeft)}</div>
-                  <div role="cell" className={`${tableStyles.truncate} ${tableStyles.cSize}`} style={cell}>{formatBytes(file.sizeBytes)}</div>
-                  <div role="cell" className={`${tableStyles.truncate} ${tableStyles.cDeleted}`} style={cell}>{file.trashedAt ? formatDateTime(file.trashedAt) : ''}</div>
-                  <div role="cell" className={tableStyles.above} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div role="cell" className={cell}>{daysLeftLabel(file.daysLeft)}</div>
+                  <div role="cell" className={cx(cell, tableStyles.cSize)}>{formatBytes(file.sizeBytes)}</div>
+                  <div role="cell" className={cx(cell, tableStyles.cDeleted)}>{file.trashedAt ? formatDateTime(file.trashedAt) : ''}</div>
+                  <div role="cell" className={cx(tableStyles.above, tableStyles.actionsCell)}>
                     <TrashRowMenu
                       file={file}
                       onRestore={() => restore.mutate({ id: file.id }, { onSuccess: () => trackLibrary('restore', { format: file.format }) })}
@@ -155,7 +150,7 @@ export function TrashScreen() {
             </div>
           </div>
           {trash.hasNextPage && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
+            <div className={styles.loadMore}>
               <Button variant="secondary" loading={trash.isFetchingNextPage} onClick={trash.fetchNextPage}>Load more</Button>
             </div>
           )}
