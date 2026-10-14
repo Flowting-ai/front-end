@@ -7,17 +7,16 @@
 // dependency is injected, so the whole flow runs in tests with fake timers and a fake transport.
 
 import { ApiError } from "@/lib/api/client";
-import { FILE_CONSTRAINTS } from "@/hooks/use-file-upload";
-import { getLibraryApi, type LibraryApi } from "../api";
+import { libraryApi, type LibraryApi } from "../api";
 import { captureError } from "../observability";
 import { UPLOAD_FAILURE_REASONS, type Limits, type UploadFailureReason, type UploadInit } from "../schemas";
-import { guessFormat, validateFile } from "./validate";
+import { formatOf, validateFile } from "./validate";
 import { newUploadItem } from "./machine";
 import { uploadStore, type UploadStore } from "./store";
-import { PartTransportError, defaultTransport, type PartTransport } from "./transport";
+import { PartTransportError, xhrTransport, type PartTransport } from "./transport";
 
 export type UploadDeps = {
-  getApi: () => Promise<LibraryApi>;
+  api: LibraryApi;
   transport: PartTransport;
   store: UploadStore;
   getLimits: () => Promise<Limits>;
@@ -71,12 +70,6 @@ const POLL_MEDIUM_MS = 5000;
 const POLL_SLOW_MS = 10_000;
 const POLL_BATCH = 50;
 
-export const DEFAULT_LIMITS: Limits = {
-  maxFileBytes: FILE_CONSTRAINTS.maxSizeBytes,
-  allowedFormats: ["pdf", "document", "sheet", "slides", "text", "web", "email", "image", "audio"],
-  maxFilesPerMessage: FILE_CONSTRAINTS.maxFiles,
-};
-
 /** Exponential backoff with jitter, capped, so many parts failing at once do not retry in lockstep. */
 export function backoffDelay(attempt: number, random: number): number {
   const base = Math.min(8000, 500 * 2 ** attempt);
@@ -100,10 +93,10 @@ function isAbort(error: unknown): boolean {
 export function createUploadController(partial: Partial<UploadDeps> = {}): UploadController {
   let idSeq = 0;
   const deps: UploadDeps = {
-    getApi: getLibraryApi,
-    transport: defaultTransport(),
+    api: libraryApi,
+    transport: xhrTransport,
     store: uploadStore,
-    getLimits: async () => (await getLibraryApi()).getLimits().catch(() => DEFAULT_LIMITS),
+    getLimits: () => libraryApi.getLimits(),
     now: () => Date.now(),
     random: () => Math.random(),
     setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
@@ -215,7 +208,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
     const runtime = runtimes.get(id);
     if (!runtime) return;
     try {
-      const api = await deps.getApi();
+      const api = deps.api;
       if (!runtime.init) {
         const limits = await deps.getLimits();
         const reason = validateFile(runtime.file, limits);
@@ -223,7 +216,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
           fail(id, reason);
           return;
         }
-        store.dispatch(id, { type: "validated" });
+        store.dispatch(id, { type: "validated", format: formatOf(runtime.file.name, limits.extensions) });
         runtime.init = await api.createUpload({
           name: runtime.file.name,
           sizeBytes: runtime.file.size,
@@ -292,7 +285,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       return;
     }
     try {
-      const api = await deps.getApi();
+      const api = deps.api;
       for (let offset = 0; offset < items.length; offset += POLL_BATCH) {
         const batch = items.slice(offset, offset + POLL_BATCH);
         const statuses = await api.getUploadStatuses(batch.map((item) => item.serverId as string));
@@ -349,7 +342,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
           name: file.name,
           sizeBytes: file.size,
           mimeType: file.type,
-          format: guessFormat(file.name),
+          format: null,
           startedAt: deps.now(),
         }),
       );
@@ -368,7 +361,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       store.dispatch(id, { type: "cancel" });
       store.remove(id);
       const serverId = runtime?.init?.id ?? item?.serverId;
-      if (serverId) void deps.getApi().then((api) => api.cancelUpload(serverId)).catch(() => undefined);
+      if (serverId) void deps.api.cancelUpload(serverId).catch(() => undefined);
     },
 
     retry(id) {

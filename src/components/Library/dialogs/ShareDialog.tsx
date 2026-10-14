@@ -10,11 +10,11 @@ import { Tooltip } from '@/components/Tooltip'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { personName } from '@/lib/library/access'
 import type { GrantTarget } from '@/lib/library/api'
-import { displayFileName } from '@/lib/library/format'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { useRevokeGrant, useShareFile } from '@/lib/library/mutations'
-import { useFileAccess, useLibraryFlags, useLibraryPeople } from '@/lib/library/queries'
-import type { AccessEntry, LibraryFileRow, Person } from '@/lib/library/schemas'
+import { useFileAccess, useLibraryPeople } from '@/lib/library/queries'
+import type { AccessEntry, Person } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import { PersonAvatar, WorkspaceAvatar } from '../PersonAvatar'
@@ -33,7 +33,7 @@ type Staged = { key: string; target: GrantTarget; label: string; toastLabel: str
 const WORKSPACE: Staged = { key: 'workspace', target: { kind: 'workspace' }, label: FILE_MESSAGES.wholeWorkspace, toastLabel: 'everyone' }
 
 /** The confirm before removing someone, in place of the Share dialog (Cancel goes back to it). */
-function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: LibraryFileRow; entry: AccessEntry; entries: AccessEntry[]; viewerId: string | undefined; onBack: () => void }) {
+function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: LibraryFile; entry: AccessEntry; entries: AccessEntry[]; viewerId: string | undefined; onBack: () => void }) {
   const revoke = useRevokeGrant()
   const workspace = entry.kind === 'workspace'
   const name = workspace ? 'the whole workspace' : entry.person ? personName(entry.person, viewerId) : 'Someone'
@@ -86,7 +86,7 @@ function StagedChip({ item, onRemove }: { item: Staged; onRemove: () => void }) 
  * Keyboard: the list opens on typing, a click or Arrow Down (not on the dialog's autofocus); arrows move,
  * Enter picks, Backspace in an empty field drops the last chip, and Enter with the list closed shares.
  */
-export function ShareDialog({ file, onClose }: { file: LibraryFileRow; onClose: () => void }) {
+export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () => void }) {
   const { viewerId } = useLibraryViewer()
   const inputId = useId()
   const listId = useId()
@@ -98,11 +98,9 @@ export function ShareDialog({ file, onClose }: { file: LibraryFileRow; onClose: 
   const [removing, setRemoving] = useState<AccessEntry | null>(null)
   const debounced = useDebouncedValue(query.trim(), 250)
   const access = useFileAccess(file.id)
-  const flags = useLibraryFlags()
   const people = useLibraryPeople(debounced, listOpen)
   const share = useShareFile()
-  const sharingOff = flags.data?.sharing === false
-  const name = displayFileName(file)
+  const name = file.name
 
   const entries = access.data?.entries ?? []
   const present = new Set(entries.map((entry) => entry.person?.id).filter((id): id is string => Boolean(id)))
@@ -142,7 +140,7 @@ export function ShareDialog({ file, onClose }: { file: LibraryFileRow; onClose: 
     )
   }
 
-  const showList = listOpen && !sharingOff
+  const showList = listOpen
   const activeIndex = Math.min(active, Math.max(options.length - 1, 0))
   const optionId = (index: number) => `${listId}-opt-${index}`
 
@@ -188,91 +186,87 @@ export function ShareDialog({ file, onClose }: { file: LibraryFileRow; onClose: 
           </DialogTitle>
         </DialogHeader>
         <DialogBody style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {sharingOff ? (
-            <p role="status" style={{ ...quiet, margin: 0 }}>{MESSAGES.sharingOff}</p>
-          ) : (
-            <div style={{ position: 'relative' }}>
-              {/* The field: picked people as chips, then the text box. Clicking anywhere in it focuses the box. */}
-              <div
-                onMouseDown={(event) => {
-                  if (event.target === event.currentTarget) { event.preventDefault(); focusField(); setListOpen(true) }
+          <div style={{ position: 'relative' }}>
+            {/* The field: picked people as chips, then the text box. Clicking anywhere in it focuses the box. */}
+            <div
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) { event.preventDefault(); focusField(); setListOpen(true) }
+              }}
+              style={{
+                display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 40, boxSizing: 'border-box', padding: staged.length ? '5px 8px' : '0 12px',
+                borderRadius: 10, background: 'var(--text-field-bg)', cursor: 'text',
+                boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
+              }}
+            >
+              {staged.map((item) => <StagedChip key={item.key} item={item} onRemove={() => unstage(item.key)} />)}
+              <input
+                id={inputId}
+                value={query}
+                role="combobox"
+                aria-expanded={showList}
+                aria-controls={listId}
+                aria-autocomplete="list"
+                aria-activedescendant={showList && options.length > 0 ? optionId(activeIndex) : undefined}
+                aria-label={FILE_MESSAGES.addPeoplePlaceholder}
+                placeholder={staged.length ? 'Add more' : FILE_MESSAGES.addPeoplePlaceholder}
+                autoComplete="off"
+                disabled={share.isPending}
+                onClick={() => setListOpen(true)}
+                onBlur={() => window.setTimeout(() => setListOpen(false), 150)}
+                onKeyDown={onKeyDown}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setActive(0)
+                  setListOpen(true)
                 }}
                 style={{
-                  display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 40, boxSizing: 'border-box', padding: staged.length ? '5px 8px' : '0 12px',
-                  borderRadius: 10, background: 'var(--text-field-bg)', cursor: 'text',
-                  boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
+                  flex: '1 1 120px', minWidth: 120, height: 30, padding: 0, border: 'none', outline: 'none', background: 'transparent',
+                  fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
+                }}
+              />
+            </div>
+            {showList && (
+              <div
+                id={listId}
+                role="listbox"
+                aria-label="People"
+                style={{
+                  position: 'absolute', zIndex: 2, top: 'calc(100% + 6px)', left: 0, right: 0, maxHeight: 260, overflow: 'auto', padding: 6, borderRadius: 12,
+                  background: 'var(--card-bg)', boxShadow: 'var(--shadow-card-default)',
                 }}
               >
-                {staged.map((item) => <StagedChip key={item.key} item={item} onRemove={() => unstage(item.key)} />)}
-                <input
-                  id={inputId}
-                  value={query}
-                  role="combobox"
-                  aria-expanded={showList}
-                  aria-controls={listId}
-                  aria-autocomplete="list"
-                  aria-activedescendant={showList && options.length > 0 ? optionId(activeIndex) : undefined}
-                  aria-label={FILE_MESSAGES.addPeoplePlaceholder}
-                  placeholder={staged.length ? 'Add more' : FILE_MESSAGES.addPeoplePlaceholder}
-                  autoComplete="off"
-                  disabled={share.isPending}
-                  onClick={() => setListOpen(true)}
-                  onBlur={() => window.setTimeout(() => setListOpen(false), 150)}
-                  onKeyDown={onKeyDown}
-                  onChange={(event) => {
-                    setQuery(event.target.value)
-                    setActive(0)
-                    setListOpen(true)
-                  }}
-                  style={{
-                    flex: '1 1 120px', minWidth: 120, height: 30, padding: 0, border: 'none', outline: 'none', background: 'transparent',
-                    fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
-                  }}
-                />
+                {people.isPending ? (
+                  <Skeleton height={36} radius={10} />
+                ) : options.length === 0 ? (
+                  <p style={{ ...quiet, margin: 0, padding: '10px 8px', fontSize: 13 }}>
+                    {needle ? `No one called "${query.trim()}"` : 'Everyone already has access'}
+                  </p>
+                ) : (
+                  options.map((option, index) => (
+                    <div
+                      key={option.key}
+                      id={optionId(index)}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setActive(index)}
+                      onClick={() => stage(option)}
+                      style={{
+                        ...rowStyle, minHeight: 40, padding: '0 8px', borderRadius: 8, cursor: 'pointer',
+                        background: index === activeIndex ? 'var(--neutral-100)' : 'transparent',
+                      }}
+                    >
+                      {option.person ? <PersonAvatar person={option.person} size={28} /> : <WorkspaceAvatar size={28} />}
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={nameStyle}>{option.label}</span>
+                        {!option.person && <span style={quiet}>{FILE_MESSAGES.everyoneInSouvenir}</span>}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
-              {showList && (
-                <div
-                  id={listId}
-                  role="listbox"
-                  aria-label="People"
-                  style={{
-                    position: 'absolute', zIndex: 2, top: 'calc(100% + 6px)', left: 0, right: 0, maxHeight: 260, overflow: 'auto', padding: 6, borderRadius: 12,
-                    background: 'var(--card-bg)', boxShadow: 'var(--shadow-card-default)',
-                  }}
-                >
-                  {people.isPending ? (
-                    <Skeleton height={36} radius={10} />
-                  ) : options.length === 0 ? (
-                    <p style={{ ...quiet, margin: 0, padding: '10px 8px', fontSize: 13 }}>
-                      {needle ? `No one called "${query.trim()}"` : 'Everyone already has access'}
-                    </p>
-                  ) : (
-                    options.map((option, index) => (
-                      <div
-                        key={option.key}
-                        id={optionId(index)}
-                        role="option"
-                        aria-selected={index === activeIndex}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onMouseEnter={() => setActive(index)}
-                        onClick={() => stage(option)}
-                        style={{
-                          ...rowStyle, minHeight: 40, padding: '0 8px', borderRadius: 8, cursor: 'pointer',
-                          background: index === activeIndex ? 'var(--neutral-100)' : 'transparent',
-                        }}
-                      >
-                        {option.person ? <PersonAvatar person={option.person} size={28} /> : <WorkspaceAvatar size={28} />}
-                        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <span style={nameStyle}>{option.label}</span>
-                          {!option.person && <span style={quiet}>{FILE_MESSAGES.everyoneInSouvenir}</span>}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
 
           <p style={{ ...quiet, margin: 0 }}>{FILE_MESSAGES.shareQuiet}</p>
 

@@ -24,7 +24,6 @@ export type ScreenName =
   | "settings_billing"
   | "settings_help"
   | "settings_files"
-  | "settings_library"
   | "library"
   | "library_file"
   | "settings_preferences"

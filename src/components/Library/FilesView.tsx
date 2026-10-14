@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { lengthBucket, resultBucket, trackLibrary } from '@/lib/library/analytics'
 import { MESSAGES } from '@/lib/library/messages'
 import { appliedFilterCount, chosenSort, effectiveListTab, isSearching, toLibraryHref, toggleSortPatch, type LibraryQuery } from '@/lib/library/query-params'
-import { useLibraryFiles, useLibraryFlags } from '@/lib/library/queries'
+import { useLibraryFiles } from '@/lib/library/queries'
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_ROUTE } from '@/lib/routes'
@@ -23,7 +23,6 @@ const visuallyHidden: React.CSSProperties = { position: 'absolute', width: 1, he
 export function FilesView({ query, setQuery, isPending }: { query: LibraryQuery; setQuery: SetLibraryQuery; isPending: boolean }) {
   const { viewerId, orgKey } = useLibraryViewer()
   const list = useLibraryFiles(query)
-  const flags = useLibraryFlags()
   const { dialog, closeDialog, handle } = useFileActions()
   const tab = effectiveListTab(query)
   const searching = isSearching(query)
@@ -88,7 +87,6 @@ export function FilesView({ query, setQuery, isPending }: { query: LibraryQuery;
         sort={chosenSort(query)}
         onSort={(key) => setQuery((current) => toggleSortPatch(current, key))}
         onAction={handle}
-        sharingEnabled={flags.data?.sharing !== false}
         hasNextPage={list.hasNextPage}
         isFetchingNextPage={list.isFetchingNextPage}
         fetchNextPage={list.fetchNextPage}

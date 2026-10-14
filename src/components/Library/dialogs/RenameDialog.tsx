@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { validateTitle } from '@/lib/library/forms'
 import { useRenameFile } from '@/lib/library/mutations'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { sanitizeDisplayText } from '@/lib/library/format'
 
 /** Rename: one field, validated with the shared schema, saved optimistically. Only the owner can open it. */
-export function RenameDialog({ file, onClose }: { file: LibraryFileRow; onClose: () => void }) {
+export function RenameDialog({ file, onClose }: { file: LibraryFile; onClose: () => void }) {
   const [title, setTitle] = useState(file.title)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)

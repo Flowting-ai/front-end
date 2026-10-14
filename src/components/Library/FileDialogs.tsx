@@ -5,10 +5,9 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { downloadFile } from '@/lib/library/mutations'
 import { libraryErrorMessage } from '@/lib/library/errors'
-import { displayFileName } from '@/lib/library/format'
 import { FILE_MESSAGES } from '@/lib/library/messages'
 import { captureError } from '@/lib/library/observability'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import type { RowAction } from './FileTable/RowMenu'
 
 // Each dialog is its own chunk, fetched the first time it opens (`{open && ...}` below), so none of
@@ -17,7 +16,7 @@ const ShareDialog = dynamic(() => import('./dialogs/ShareDialog').then((module) 
 const RenameDialog = dynamic(() => import('./dialogs/RenameDialog').then((module) => module.RenameDialog), { ssr: false, loading: () => null })
 const DeleteFileDialog = dynamic(() => import('./dialogs/DeleteFileDialog').then((module) => module.DeleteFileDialog), { ssr: false, loading: () => null })
 
-export type FileDialogState = { type: 'share' | 'rename' | 'delete'; file: LibraryFileRow } | null
+export type FileDialogState = { type: 'share' | 'rename' | 'delete'; file: LibraryFile } | null
 
 export function FileDialogs({ dialog, onClose, onDeleted }: { dialog: FileDialogState; onClose: () => void; onDeleted?: () => void }) {
   if (!dialog) return null
@@ -34,9 +33,9 @@ export function FileDialogs({ dialog, onClose, onDeleted }: { dialog: FileDialog
 /** Row and page actions: the dialog ones open a dialog, Download asks for a short-lived link. */
 export function useFileActions() {
   const [dialog, setDialog] = useState<FileDialogState>(null)
-  const handle = (action: RowAction, file: LibraryFileRow) => {
+  const handle = (action: RowAction, file: LibraryFile) => {
     if (action === 'download') {
-      toast(FILE_MESSAGES.downloading(displayFileName(file)))
+      toast(FILE_MESSAGES.downloading(file.name))
       downloadFile(file.id).catch((error: unknown) => {
         captureError(error, { boundary: 'download', fileId: file.id })
         toast.error(libraryErrorMessage(error, "Couldn't download this file."))

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { LazyPickerDialog } from '../picker/LazyPickerDialog'
 
 export interface UseAddFromLibraryOptions {
@@ -9,7 +9,7 @@ export interface UseAddFromLibraryOptions {
   excludeIds?: string[]
   /** "Add to chat" in the composer, "Attach" for a routine. */
   confirmLabel?: string
-  onAdd: (files: LibraryFileRow[]) => void
+  onAdd: (files: LibraryFile[]) => void
 }
 
 /**

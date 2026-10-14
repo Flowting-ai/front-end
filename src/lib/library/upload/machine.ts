@@ -35,7 +35,7 @@ export type UploadItem = {
 };
 
 export type UploadEvent =
-  | { type: "validated" }
+  | { type: "validated"; format: Format | null }
   | { type: "created"; serverId: string }
   | { type: "progress"; value: number }
   | { type: "paused" }
@@ -67,7 +67,7 @@ export function reduceUpload(item: UploadItem, event: UploadEvent): UploadItem {
 
   switch (event.type) {
     case "validated":
-      return item.status === "validating" ? { ...item, status: "uploading" } : item;
+      return item.status === "validating" ? { ...item, status: "uploading", format: event.format } : item;
     case "created":
       return item.status === "validating" || item.status === "uploading" ? { ...item, status: "uploading", serverId: event.serverId } : item;
     case "progress":

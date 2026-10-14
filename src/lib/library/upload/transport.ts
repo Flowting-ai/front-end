@@ -3,8 +3,6 @@
 // the storage origin), no proxy (large bodies would cost server bandwidth and hit function limits).
 // It needs the bucket's CORS to allow PUT from the app origin and to expose the ETag header.
 
-import { LIBRARY_MOCK } from "@/lib/feature-flags";
-
 export type PartRequest = {
   url: string;
   body: Blob;
@@ -67,35 +65,3 @@ export const xhrTransport: PartTransport = {
     });
   },
 };
-
-/** Simulates a part upload: progress in a few steps over a short time. For the mock API (urls start with mock://). */
-export const mockTransport: PartTransport = {
-  putPart({ body, signal, onProgress }) {
-    return new Promise<string>((resolve, reject) => {
-      if (signal.aborted) {
-        reject(new DOMException("Aborted", "AbortError"));
-        return;
-      }
-      const steps = 5;
-      let step = 0;
-      const timer = setInterval(() => {
-        step += 1;
-        onProgress(Math.round((body.size * step) / steps));
-        if (step >= steps) {
-          clearInterval(timer);
-          signal.removeEventListener("abort", onAbort);
-          resolve(`mock-etag-${body.size}`);
-        }
-      }, 120);
-      function onAbort() {
-        clearInterval(timer);
-        reject(new DOMException("Aborted", "AbortError"));
-      }
-      signal.addEventListener("abort", onAbort, { once: true });
-    });
-  },
-};
-
-export function defaultTransport(): PartTransport {
-  return LIBRARY_MOCK ? mockTransport : xhrTransport;
-}

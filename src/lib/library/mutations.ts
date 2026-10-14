@@ -1,23 +1,23 @@
 "use client";
 
 // Every Library write. The rules (docs v2/library/07-build-plan.md section 5.3):
-//   optimistic with rollback  rename, trash, restore, revoke, settings toggles
-//   never optimistic          share (the server resolves ways in), delete forever, Empty Trash,
-//                             member removal and the transfer question
+//   optimistic with rollback  rename, trash, restore, revoke
+//   never optimistic          share (the server resolves ways in), delete forever, Empty Trash
 // Optimistic changes go through patchFileEverywhere (cache.ts); a failed change is rolled back and
 // the affected queries are re-read, so the screen always ends on what the server says.
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { orgSettingsSavedMessage, prefsSavedMessage } from "./settings-saved";
-import { getLibraryApi, type GrantTarget } from "./api";
+import { libraryApi, type GrantTarget } from "./api";
 import { patchFileEverywhere, removeFileFromLists, removeFromPages, type PagedRows } from "./cache";
 import { libraryErrorMessage } from "./errors";
 import { libraryKeys } from "./keys";
 import { FILE_MESSAGES, MESSAGES } from "./messages";
 import { addedGrantIds, cachedFileName, countTrashRows } from "./file-toasts";
 import { captureError } from "./observability";
-import type { AccessList, LibraryFileDetail, OrgSettings, OrgSettingsPatch, Prefs, PrefsPatch } from "./schemas";
+import { TRASH_DAYS } from "./constants";
+import type { AccessList } from "./schemas";
+import type { LibraryFileDetail } from "./file";
 import { useLibraryViewer } from "./viewer";
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export function useRenameFile() {
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "rename"],
     mutationFn: async (vars: { id: string; title: string; previousTitle: string; previousAi: boolean }) =>
-      (await getLibraryApi()).renameFile(vars.id, vars.title),
+      libraryApi.renameFile(vars.id, vars.title),
     onMutate: async (vars) => {
       await cancelRowReads(queryClient, orgKey);
       patchFileEverywhere(queryClient, orgKey, vars.id, { title: vars.title.trim(), titleIsAiGenerated: false });
@@ -81,7 +81,7 @@ export function useRenameFile() {
 
 /** Restore from the API, then re-read what changed. Shared by the Restore button and the Undo on the "Moved to Trash" toast. */
 async function restoreFileNow(queryClient: QueryClient, org: string, id: string): Promise<void> {
-  await (await getLibraryApi()).restoreFile(id);
+  await libraryApi.restoreFile(id);
   invalidate(queryClient, org, ["lists", "suggested", "trash", "storage", "picker"]);
   void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(org, id) });
 }
@@ -94,14 +94,14 @@ export function useTrashFile() {
   const { orgKey } = useLibraryViewer();
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "trash-file"],
-    mutationFn: async (vars: FileVars) => (await getLibraryApi()).trashFile(vars.id),
+    mutationFn: async (vars: FileVars) => libraryApi.trashFile(vars.id),
     onMutate: async (vars) => {
       // Read the name before the row leaves the lists.
       const name = cachedFileName(queryClient, orgKey, vars.id, vars.title);
       await cancelRowReads(queryClient, orgKey);
       removeFileFromLists(queryClient, orgKey, vars.id);
       queryClient.setQueryData<LibraryFileDetail>(libraryKeys.detail(orgKey, vars.id), (detail) =>
-        detail ? { ...detail, life: "trashed", daysLeft: 30 } : detail,
+        detail?.with({ life: "trashed", daysLeft: TRASH_DAYS }),
       );
       return { name };
     },
@@ -155,7 +155,7 @@ export function useDeleteForever() {
   const { orgKey } = useLibraryViewer();
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "delete-forever"],
-    mutationFn: async (vars: FileVars) => (await getLibraryApi()).deleteForever(vars.id),
+    mutationFn: async (vars: FileVars) => libraryApi.deleteForever(vars.id),
     // Not optimistic: only the name is read up front, for the toast.
     onMutate: (vars) => ({ name: cachedFileName(queryClient, orgKey, vars.id, vars.title) }),
     onSuccess: (_result, vars, context) => {
@@ -177,7 +177,7 @@ export function useEmptyTrash() {
     // `count` is only for the toast; the server empties the whole Trash.
     mutationFn: async (vars?: { count?: number }) => {
       void vars;
-      return (await getLibraryApi()).emptyTrash();
+      return libraryApi.emptyTrash();
     },
     onMutate: (vars) => ({ count: vars?.count ?? countTrashRows(queryClient, orgKey) }),
     onSuccess: (_result, _vars, context) => {
@@ -193,7 +193,7 @@ export function useMarkOpened() {
   const queryClient = useQueryClient();
   const { orgKey } = useLibraryViewer();
   return useMutation({
-    mutationFn: async (vars: { id: string }) => (await getLibraryApi()).markOpened(vars.id),
+    mutationFn: async (vars: { id: string }) => libraryApi.markOpened(vars.id),
     onSuccess: (_result, vars) => {
       patchFileEverywhere(queryClient, orgKey, vars.id, { unread: false });
       void queryClient.invalidateQueries({ queryKey: libraryKeys.suggested(orgKey) });
@@ -217,7 +217,7 @@ function undoShareToast(queryClient: QueryClient, org: string, id: string, grant
     label: FILE_MESSAGES.undo,
     onClick: () => {
       (async () => {
-        const api = await getLibraryApi();
+        const api = libraryApi;
         let access: AccessList | undefined;
         for (const grantId of grantIds) access = await api.revokeGrant(id, grantId);
         if (access) writeAccess(queryClient, org, id, access);
@@ -235,7 +235,7 @@ export function useAddGrant() {
   const { orgKey } = useLibraryViewer();
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "add-grant"],
-    mutationFn: async (vars: { id: string; target: GrantTarget; label: string }) => (await getLibraryApi()).addGrant(vars.id, vars.target),
+    mutationFn: async (vars: { id: string; target: GrantTarget; label: string }) => libraryApi.addGrant(vars.id, vars.target),
     onMutate: (vars) => ({ before: queryClient.getQueryData<AccessList>(libraryKeys.access(orgKey, vars.id)) }),
     onSuccess: (access, vars, context) => {
       writeAccess(queryClient, orgKey, vars.id, access);
@@ -256,7 +256,7 @@ export function useShareFile() {
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "share-file"],
     mutationFn: async (vars: { id: string; targets: { target: GrantTarget; label: string }[] }) => {
-      const api = await getLibraryApi();
+      const api = libraryApi;
       let access: AccessList | undefined;
       for (const { target } of vars.targets) access = await api.addGrant(vars.id, target);
       return access;
@@ -282,7 +282,7 @@ export function useRevokeGrant() {
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "revoke-grant"],
     /** `label` names who lost access in the toast: "Maya removed", "Workspace removed". */
-    mutationFn: async (vars: { id: string; grantId: string; label?: string }) => (await getLibraryApi()).revokeGrant(vars.id, vars.grantId),
+    mutationFn: async (vars: { id: string; grantId: string; label?: string }) => libraryApi.revokeGrant(vars.id, vars.grantId),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: libraryKeys.access(orgKey, vars.id) });
       const previous = queryClient.getQueryData<AccessList>(libraryKeys.access(orgKey, vars.id));
@@ -305,84 +305,11 @@ export function useRevokeGrant() {
   });
 }
 
-export function useRequestAccess() {
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
-    mutationKey: [...libraryKeys.all(orgKey), "request-access"],
-    mutationFn: async (vars: { id: string }) => (await getLibraryApi()).requestAccess(vars.id),
-    onSuccess: () => {
-      toast(FILE_MESSAGES.requestSent);
-    },
-    onError: (error) => fail(error, "request-access", MESSAGES.genericFailure),
-  });
-}
-
-// ── Settings ─────────────────────────────────────────────────────────────────
-
-export function useUpdatePrefs() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
-    mutationKey: [...libraryKeys.all(orgKey), "update-prefs"],
-    mutationFn: async (patch: PrefsPatch) => (await getLibraryApi()).updatePrefs(patch),
-    onMutate: async (patch) => {
-      await queryClient.cancelQueries({ queryKey: libraryKeys.prefs(orgKey) });
-      const previous = queryClient.getQueryData<Prefs>(libraryKeys.prefs(orgKey));
-      if (previous) queryClient.setQueryData<Prefs>(libraryKeys.prefs(orgKey), { ...previous, ...patch });
-      return { previous };
-    },
-    onError: (error, _patch, context) => {
-      if (context?.previous) queryClient.setQueryData(libraryKeys.prefs(orgKey), context.previous);
-      fail(error, "update-prefs", MESSAGES.settingNotSaved);
-    },
-    onSuccess: (prefs, patch) => {
-      queryClient.setQueryData(libraryKeys.prefs(orgKey), prefs);
-      toast(prefsSavedMessage(patch));
-    },
-  });
-}
-
-export function useUpdateOrgSettings() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
-    mutationKey: [...libraryKeys.all(orgKey), "update-org-settings"],
-    mutationFn: async (vars: { patch: OrgSettingsPatch; version: number }) => (await getLibraryApi()).updateOrgSettings(vars.patch, vars.version),
-    onMutate: async (vars) => {
-      await queryClient.cancelQueries({ queryKey: libraryKeys.orgSettings(orgKey) });
-      const previous = queryClient.getQueryData<OrgSettings>(libraryKeys.orgSettings(orgKey));
-      if (previous) queryClient.setQueryData<OrgSettings>(libraryKeys.orgSettings(orgKey), { ...previous, ...vars.patch });
-      return { previous };
-    },
-    onError: (error, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(libraryKeys.orgSettings(orgKey), context.previous);
-      fail(error, "update-org-settings", MESSAGES.settingNotSaved);
-    },
-    onSuccess: (settings, vars) => {
-      queryClient.setQueryData(libraryKeys.orgSettings(orgKey), settings);
-      toast(orgSettingsSavedMessage(vars.patch));
-      // Defaults change what saving does for everyone: read the effective prefs again.
-      void queryClient.invalidateQueries({ queryKey: libraryKeys.prefs(orgKey) });
-    },
-  });
-}
-
-export function useAnswerMyRemoval() {
-  const queryClient = useQueryClient();
-  const { orgKey } = useLibraryViewer();
-  return useMutation({
-    mutationKey: [...libraryKeys.all(orgKey), "answer-removal"],
-    mutationFn: async (vars: { transfer: boolean }) => (await getLibraryApi()).answerMyRemoval(vars.transfer),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: libraryKeys.myRemoval(orgKey) }),
-    onError: (error) => fail(error, "answer-removal", MESSAGES.genericFailure),
-  });
-}
-
 // ── Download ─────────────────────────────────────────────────────────────────
 
 /** Asks for a short-lived URL at click time (never cached) and lets the browser download it. */
 export async function downloadFile(id: string): Promise<void> {
-  const url = await (await getLibraryApi()).getDownloadUrl(id);
+  const url = await libraryApi.getDownloadUrl(id);
   const link = document.createElement("a");
   link.href = url;
   link.rel = "noopener noreferrer";

@@ -1,68 +1,20 @@
 'use client'
 
-import React, { useState } from 'react'
-import { AlertCircleIcon, TickTwoIcon, DeleteTwoIcon, FolderLibraryIcon } from '@strange-huge/icons'
+import React from 'react'
+import { AlertCircleIcon, DeleteTwoIcon, FolderLibraryIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/Spinner'
 import { trackLibrary } from '@/lib/library/analytics'
 import { FILE_MESSAGES } from '@/lib/library/messages'
-import { useRequestAccess, useRestoreFile } from '@/lib/library/mutations'
-import { useLibraryViewer } from '@/lib/library/viewer'
+import { useRestoreFile } from '@/lib/library/mutations'
 import { LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
 import { LinkButton } from './LinkButton'
 import styles from './FileScreen.module.css'
 
-// A sent request is remembered per person and file, so the button still reads "Request sent" after a
-// reload. Storage may be blocked (private mode): then it is remembered for this visit only.
-const requestKey = (viewerId: string | undefined, fileId: string) => `library:access-requested:${viewerId ?? 'anon'}:${fileId}`
-
-function readRequested(key: string): boolean {
-  try {
-    return window.localStorage.getItem(key) === '1'
-  } catch {
-    return false
-  }
-}
-
-function writeRequested(key: string): void {
-  try {
-    window.localStorage.setItem(key, '1')
-  } catch {
-    // Blocked storage: the in-memory state still shows "Request sent".
-  }
-}
-
-/** The viewer has no access: nothing about the file (title, owner, size) is shown, only a way to ask. */
-export function LockedState({ fileId }: { fileId: string }) {
-  const { viewerId } = useLibraryViewer()
-  const key = requestKey(viewerId, fileId)
-  const request = useRequestAccess()
-  const [sentNow, setSentNow] = useState(false)
-  const sent = sentNow || (typeof window !== 'undefined' && readRequested(key))
-  return (
-    <EmptyState icon={<AlertCircleIcon size={20} />} title={FILE_MESSAGES.lockedTitle} text={FILE_MESSAGES.lockedText}>
-      <Button
-        disabled={sent}
-        loading={request.isPending}
-        leftIcon={sent ? <TickTwoIcon size={16} /> : undefined}
-        onClick={() =>
-          request.mutate(
-            { id: fileId },
-            {
-              onSuccess: () => {
-                writeRequested(key)
-                setSentNow(true)
-                trackLibrary('request_access')
-              },
-            },
-          )
-        }
-      >
-        {sent ? FILE_MESSAGES.requestSent : 'Request access'}
-      </Button>
-    </EmptyState>
-  )
+/** The viewer has no access: nothing about the file (title, owner, size) is shown. */
+export function LockedState() {
+  return <EmptyState icon={<AlertCircleIcon size={20} />} title={FILE_MESSAGES.lockedTitle} text={FILE_MESSAGES.lockedText} />
 }
 
 /** Deleted, never existed, or not visible to this person: one line, no title, no hint the file existed. */

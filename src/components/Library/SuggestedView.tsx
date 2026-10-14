@@ -4,12 +4,12 @@ import React from 'react'
 import Link from 'next/link'
 import { AlertCircleIcon, BubbleChatIcon, FolderLibraryIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
-import { activityLine, displayFileName } from '@/lib/library/format'
+import { activityLine } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { DEFAULT_QUERY, toLibraryHref } from '@/lib/library/query-params'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { isSuggestedEmpty, selectSuggested, tileLine } from '@/lib/library/suggested'
-import { useLibraryFlags, useSuggested } from '@/lib/library/queries'
+import { useSuggested } from '@/lib/library/queries'
 import { CHAT_ROUTE, LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
 import { FormatGlyph } from './FormatGlyph'
@@ -45,14 +45,14 @@ export function NoFilesYet() {
   )
 }
 
-type MenuProps ={ onAction: (action: RowAction, file: LibraryFileRow) => void; sharingEnabled: boolean }
+type MenuProps ={ onAction: (action: RowAction, file: LibraryFile) => void }
 
 /** Menu width for cards and tiles: fits the owner-only explanation without cutting it off. */
 const MENU_WIDTH = 240
 
 /** A Recent card: the name, a centred type glyph, and one quiet line saying what last happened. Hover shows a "more" menu. */
-function RecentCard({ file, onAction, sharingEnabled, first }: { file: LibraryFileRow; first: boolean } & MenuProps) {
-  const name = displayFileName(file)
+function RecentCard({ file, onAction, first }: { file: LibraryFile; first: boolean } & MenuProps) {
+  const name = file.name
   return (
     <div className={styles.card}>
       <Link href={LIBRARY_FILE_ROUTE(file.id)} title={name} className={`${styles.link} ${styles.cardLink}`}>
@@ -79,7 +79,7 @@ function RecentCard({ file, onAction, sharingEnabled, first }: { file: LibraryFi
       </Link>
       {file.unread && <span className={styles.cardDot}><UnreadDot /></span>}
       <span className={styles.more}>
-        <RowMenu file={file} onAction={onAction} sharingEnabled={sharingEnabled} menuWidth={MENU_WIDTH} placement={first ? "bottom-start" : "bottom-end"} />
+        <RowMenu file={file} onAction={onAction} menuWidth={MENU_WIDTH} placement={first ? "bottom-start" : "bottom-end"} />
       </span>
     </div>
   )
@@ -89,8 +89,8 @@ function RecentCard({ file, onAction, sharingEnabled, first }: { file: LibraryFi
  * A compact tile for Frequently used and Generated, as in the prototype: the type glyph, the name, and
  * one quiet line ("Opened 4 times", "Run of Weekly sales report"). No sparkle: the row says Generated.
  */
-function FileTile({ file, row, onAction, sharingEnabled }: { file: LibraryFileRow; row: 'frequent' | 'generated' } & MenuProps) {
-  const name = displayFileName(file)
+function FileTile({ file, row, onAction }: { file: LibraryFile; row: 'frequent' | 'generated' } & MenuProps) {
+  const name = file.name
   const meta = tileLine(row, file, activityLine(file))
   return (
     <div className={styles.tile}>
@@ -102,7 +102,7 @@ function FileTile({ file, row, onAction, sharingEnabled }: { file: LibraryFileRo
         </span>
       </Link>
       <span className={styles.more}>
-        <RowMenu file={file} onAction={onAction} sharingEnabled={sharingEnabled} menuWidth={MENU_WIDTH} />
+        <RowMenu file={file} onAction={onAction} menuWidth={MENU_WIDTH} />
       </span>
     </div>
   )
@@ -111,9 +111,8 @@ function FileTile({ file, row, onAction, sharingEnabled }: { file: LibraryFileRo
 /** Suggested: Recent (one row of cards), then Frequently used and Generated tiles. Empty rows are hidden. */
 export function SuggestedView() {
   const suggested = useSuggested()
-  const flags = useLibraryFlags()
   const { dialog, closeDialog, handle } = useFileActions()
-  const menu: MenuProps = { onAction: handle, sharingEnabled: flags.data?.sharing !== false }
+  const menu: MenuProps = { onAction: handle }
 
   if (suggested.isPending) return <SuggestedSkeleton />
   if (suggested.isError || !suggested.data) {

@@ -16,7 +16,8 @@ import { Button, IconButton } from '@/components/ui/button'
 import { formatLabel } from '@/lib/library/format'
 import { CHAT_MESSAGES } from '@/lib/library/messages'
 import { DEFAULT_QUERY, patchQuery, toLibraryHref } from '@/lib/library/query-params'
-import type { Format, LibraryFileRow } from '@/lib/library/schemas'
+import type { Format } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { attachmentRowText, runKindLabel, unavailableNote, type RoutineAttachment, type RunKind } from '@/lib/library/sources'
 import { LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { FormatGlyph } from '../FormatGlyph'
@@ -60,7 +61,7 @@ export interface RoutineAttachedFilesProps {
   files: RoutineAttachment[]
   /** Only the routine's owner adds or removes files. */
   canEdit: boolean
-  onAdd: (files: LibraryFileRow[]) => void
+  onAdd: (files: LibraryFile[]) => void
   onRemove: (fileId: string) => void
 }
 

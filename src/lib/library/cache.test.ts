@@ -12,33 +12,17 @@ import {
 } from "./cache";
 import { libraryKeys } from "./keys";
 import { DEFAULT_QUERY, toListParams } from "./query-params";
-import type { LibraryFileDetail, LibraryFileRow, Suggested } from "./schemas";
+import type { FileRowWire, Suggested } from "./schemas";
+import { testFile } from "./test-files";
+import { LibraryFileDetail, type LibraryFile } from "./file";
 
 const ORG = "org1";
 
-function row(id: string, overrides: Partial<LibraryFileRow> = {}): LibraryFileRow {
-  return {
-    id,
-    title: `File ${id}`,
-    extension: "pdf",
-    format: "pdf",
-    source: "uploaded",
-    owner: { id: "u1", name: "Avery" },
-    access: "owner",
-    adminCanManage: false,
-    accessSummary: { everyone: false, people: [{ id: "u1", name: "Avery" }] },
-    sizeBytes: 1,
-    createdAt: "2026-10-01T00:00:00.000Z",
-    lastActivityAt: "2026-10-01T00:00:00.000Z",
-    lastActivityKind: "created",
-    unread: false,
-    life: "active",
-    titleIsAiGenerated: false,
-    ...overrides,
-  };
+function row(id: string, overrides: Partial<FileRowWire> = {}): LibraryFile {
+  return testFile({ id, title: `File ${id}`, ...overrides });
 }
 
-function pages(...groups: LibraryFileRow[][]): PagedRows<{ items: LibraryFileRow[]; nextCursor: string | null }> {
+function pages(...groups: LibraryFile[][]): PagedRows<{ items: LibraryFile[]; nextCursor: string | null }> {
   return {
     pages: groups.map((items, index) => ({ items, nextCursor: index < groups.length - 1 ? String(index + 1) : null })),
     pageParams: groups.map((_, index) => (index === 0 ? null : String(index))),
@@ -97,11 +81,14 @@ describe("patchFileEverywhere / removeFileFromLists", () => {
     const client = new QueryClient();
     const listKey = libraryKeys.list(ORG, toListParams({ ...DEFAULT_QUERY, tab: "all" }));
     const pickerKey = libraryKeys.picker(ORG, { q: "", types: [], generatedOnly: false });
-    client.setQueryData<InfiniteData<{ items: LibraryFileRow[]; nextCursor: string | null }, unknown>>(listKey, pages([row("a"), row("b")]));
+    client.setQueryData<InfiniteData<{ items: LibraryFile[]; nextCursor: string | null }, unknown>>(listKey, pages([row("a"), row("b")]));
     client.setQueryData(pickerKey, pages([row("a")]));
     client.setQueryData(libraryKeys.suggested(ORG), { recent: [row("a")], frequent: [], generated: [] } satisfies Suggested);
     client.setQueryData(libraryKeys.trash(ORG), pages([row("t", { life: "trashed" })]));
-    client.setQueryData(libraryKeys.detail(ORG, "a"), { ...row("a"), phase: "ready" } as unknown as LibraryFileDetail);
+    client.setQueryData(libraryKeys.detail(ORG, "a"), new LibraryFileDetail({
+      ...row("a"), phase: "ready", scope: "private", provenance: { kind: "upload", label: "", via: "web", isTestRun: false },
+      mimeType: "application/pdf", updatedAt: "2026-10-01T00:00:00.000Z", ways: [], previewKind: "pdf",
+    }));
     // Another workspace's cache must never be touched.
     const otherKey = libraryKeys.list("org2", toListParams({ ...DEFAULT_QUERY, tab: "all" }));
     client.setQueryData(otherKey, pages([row("a")]));
@@ -114,7 +101,9 @@ describe("patchFileEverywhere / removeFileFromLists", () => {
     expect(client.getQueryData<PagedRows>(listKey)?.pages[0].items[0].title).toBe("Renamed");
     expect(client.getQueryData<PagedRows>(pickerKey)?.pages[0].items[0].title).toBe("Renamed");
     expect(client.getQueryData<Suggested>(libraryKeys.suggested(ORG))?.recent[0].title).toBe("Renamed");
-    expect(client.getQueryData<LibraryFileDetail>(libraryKeys.detail(ORG, "a"))?.title).toBe("Renamed");
+    const detail = client.getQueryData<LibraryFileDetail>(libraryKeys.detail(ORG, "a"));
+    expect(detail?.title).toBe("Renamed");
+    expect(detail).toBeInstanceOf(LibraryFileDetail);
     expect(client.getQueryData<PagedRows>(otherKey)?.pages[0].items[0].title).toBe("File a");
   });
 

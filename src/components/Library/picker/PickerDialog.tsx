@@ -7,10 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/Skeleton'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { trackLibrary } from '@/lib/library/analytics'
-import { displayFileName, formatDateTime, FORMAT_GROUP_LABELS, pluralize } from '@/lib/library/format'
+import { formatDateTime, FORMAT_GROUP_LABELS, pluralize } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { useLibraryPicker } from '@/lib/library/queries'
-import { FORMAT_GROUPS, type FormatGroup, type LibraryFileRow } from '@/lib/library/schemas'
+import { FORMAT_GROUPS, type FormatGroup } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { FormatGlyph } from '../FormatGlyph'
 import { GeneratedMark } from '../FileMarks'
 
@@ -25,7 +26,7 @@ const CHIPS: { id: TypeChip; label: string }[] = [
 export interface PickerDialogProps {
   onClose: () => void
   /** The chosen files, in the order they were picked. */
-  onConfirm: (files: LibraryFileRow[]) => void
+  onConfirm: (files: LibraryFile[]) => void
   /** Ids already attached, shown ticked and not pickable again. */
   excludeIds?: string[]
   confirmLabel?: string
@@ -42,7 +43,7 @@ export interface PickerDialogProps {
 export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel = 'Add to chat', single = false, title = 'Add from Library' }: PickerDialogProps) {
   const [query, setQuery] = useState('')
   const [chip, setChip] = useState<TypeChip>('all')
-  const [picked, setPicked] = useState<LibraryFileRow[]>([])
+  const [picked, setPicked] = useState<LibraryFile[]>([])
   const debounced = useDebouncedValue(query.trim(), 250)
   const list = useLibraryPicker(
     { q: debounced, types: chip === 'all' || chip === 'runs' ? [] : [chip], generatedOnly: chip === 'runs' },
@@ -50,7 +51,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
   )
 
   const isPicked = (id: string) => picked.some((file) => file.id === id)
-  const toggle = (file: LibraryFileRow) => {
+  const toggle = (file: LibraryFile) => {
     if (excludeIds.includes(file.id)) return
     setPicked((current) => (single ? (isPicked(file.id) ? [] : [file]) : isPicked(file.id) ? current.filter((entry) => entry.id !== file.id) : [...current, file]))
   }
@@ -110,7 +111,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
               {list.files.map((file) => {
                 const already = excludeIds.includes(file.id)
                 const selected = already || isPicked(file.id)
-                const name = displayFileName(file)
+                const name = file.name
                 return (
                   <li
                     key={file.id}

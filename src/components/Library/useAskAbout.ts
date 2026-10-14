@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { trackLibrary } from '@/lib/library/analytics'
 import { stashLibraryChat } from '@/lib/library/chat-handoff'
-import { displayFileName } from '@/lib/library/format'
-import { getLibraryApi } from '@/lib/library/api'
+import { libraryApi } from '@/lib/library/api'
 import { captureError } from '@/lib/library/observability'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { CHAT_ROUTE } from '@/lib/routes'
 
-type AskTarget = Pick<LibraryFileRow, 'id' | 'title' | 'extension' | 'format'>
 
 /**
  * "Ask about this file": fetches the file, then opens a new chat with it attached. Typed text is sent as
@@ -20,15 +18,15 @@ type AskTarget = Pick<LibraryFileRow, 'id' | 'title' | 'extension' | 'format'>
 export function useAskAbout() {
   const router = useRouter()
   return useCallback(
-    async (file: AskTarget, text = '') => {
+    async (file: LibraryFile, text = '') => {
       trackLibrary('ask_about', { format: file.format })
       let attached: File | null = null
       try {
-        const url = await (await getLibraryApi()).getDownloadUrl(file.id)
+        const url = await libraryApi.getDownloadUrl(file.id)
         const response = await fetch(url)
         if (!response.ok) throw new Error(`download failed (${response.status})`)
         const blob = await response.blob()
-        attached = new File([blob], displayFileName(file), { type: blob.type })
+        attached = new File([blob], file.name, { type: blob.type })
       } catch (error) {
         captureError(error, { boundary: 'ask-about', fileId: file.id })
         toast.error("Couldn't attach this file. Opening a new chat without it.")

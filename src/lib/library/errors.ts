@@ -29,12 +29,8 @@ export function libraryErrorMessage(error: unknown, fallback: string = MESSAGES.
   switch (error.code) {
     case "only_owner":
       return MESSAGES.onlyOwner;
-    case "sharing_off":
-      return MESSAGES.sharingOff;
     case "not_a_member":
       return MESSAGES.onlyMembers;
-    case "only_admin":
-      return MESSAGES.lastAdmin;
     case "already_has_access":
       // The server names the person ("Maya can already open this file.") from the workspace member list.
       return error.message || fallback;

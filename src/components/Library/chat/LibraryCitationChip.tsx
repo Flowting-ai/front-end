@@ -1,11 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { Tooltip } from '@/components/Tooltip'
 import { trackLibrary } from '@/lib/library/analytics'
-import { CHAT_MESSAGES, MESSAGES } from '@/lib/library/messages'
-import { useRequestAccess } from '@/lib/library/mutations'
+import { CHAT_MESSAGES } from '@/lib/library/messages'
 import type { CiteLocator } from '@/lib/library/schemas'
 import { citationHref, citationLabel, type FileRef } from '@/lib/library/sources'
 import { LockGlyph } from './LockGlyph'
@@ -21,25 +20,9 @@ export interface LibraryCitationChipProps {
   onOpen?: (fileId: string, locator?: CiteLocator | null) => void
 }
 
-/** Request access for a locked citation: one click, then "Request sent". */
-export function RequestAccessInline({ fileId }: { fileId: string }) {
-  const request = useRequestAccess()
-  const [sent, setSent] = useState(false)
-  return (
-    <button
-      type="button"
-      className={styles.requestInline}
-      disabled={sent || request.isPending}
-      onClick={() => request.mutate({ id: fileId }, { onSuccess: () => { setSent(true); trackLibrary('request_access') } })}
-    >
-      {sent ? MESSAGES.requestSent : MESSAGES.requestAccess}
-    </button>
-  )
-}
-
 /**
  * A Library citation after the sentence it supports. Open: the file name only (an audio citation adds
- * the time), linking to the passage. Locked: "Locked file" and Request access. Deleted: "File deleted",
+ * the time), linking to the passage. Locked: "Locked file". Deleted: "File deleted",
  * never the title.
  */
 export function LibraryCitationChip({ fileRef, locator, onOpenLocked, onOpen }: LibraryCitationChipProps) {
@@ -55,15 +38,12 @@ export function LibraryCitationChip({ fileRef, locator, onOpenLocked, onOpen }: 
   }
   if (fileRef.state === 'locked') {
     return (
-      <>
-        <Tooltip content={CHAT_MESSAGES.lockedFileTip}>
-          <button type="button" className={`${styles.cite} ${styles.locked}`} onClick={() => onOpenLocked?.(fileRef.id)}>
-            <LockGlyph />
-            <span>{label}</span>
-          </button>
-        </Tooltip>
-        <RequestAccessInline fileId={fileRef.id} />
-      </>
+      <Tooltip content={CHAT_MESSAGES.lockedFileTip}>
+        <button type="button" className={`${styles.cite} ${styles.locked}`} onClick={() => onOpenLocked?.(fileRef.id)}>
+          <LockGlyph />
+          <span>{label}</span>
+        </button>
+      </Tooltip>
     )
   }
   if (onOpen) {

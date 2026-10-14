@@ -1,9 +1,10 @@
-// Wire shapes for the Library API (docs v2/library/04-backend-requirements.md section 5) and the
-// UI types inferred from them. Every response is parsed with these schemas at the data-function
-// boundary (lib/library/api.real.ts), so a contract drift fails loudly in one place instead of as
-// an undefined deep inside a component. Field names are camelCase, like services/projects.
+// Wire shapes for the Library API (back-end services/library/schemas.py) and the UI types inferred
+// from them. Every response is parsed with these schemas at the data-function boundary
+// (lib/library/api.ts), so a contract drift fails loudly in one place instead of as an undefined deep
+// inside a component. Files come out as LibraryFile / LibraryFileDetail objects (file.ts).
 
 import { z } from "zod";
+import { LibraryFile, LibraryFileDetail } from "./file";
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────
 
@@ -24,10 +25,6 @@ export type Source = (typeof SOURCES)[number];
 export const SOURCE_FILTERS = ["uploaded", "generated", "shared"] as const;
 export const sourceFilterSchema = z.enum(SOURCE_FILTERS);
 export type SourceFilter = z.infer<typeof sourceFilterSchema>;
-
-export const AUTO_SAVE_MODES = ["always", "ask", "never"] as const;
-export const autoSaveSchema = z.enum(AUTO_SAVE_MODES);
-export type AutoSave = z.infer<typeof autoSaveSchema>;
 
 /** Why an upload was refused. The UI maps each to fixed copy (messages.ts); the message never names the file. */
 export const UPLOAD_FAILURE_REASONS = [
@@ -59,7 +56,7 @@ export type AccessSummary = z.infer<typeof accessSummarySchema>;
 
 // ── Files ─────────────────────────────────────────────────────────────────────
 
-export const fileRowSchema = z.object({
+export const fileRowWireSchema = z.object({
   id: z.string(),
   title: z.string(),
   /** Lower-case, no dot: "pdf", "xlsx". Empty when the file has none. */
@@ -97,7 +94,8 @@ export const fileRowSchema = z.object({
   /** True for a title Souvenir chose, until the owner renames it. */
   titleIsAiGenerated: z.boolean().default(false),
 });
-export type LibraryFileRow = z.infer<typeof fileRowSchema>;
+export type FileRowWire = z.infer<typeof fileRowWireSchema>;
+export const fileRowSchema = fileRowWireSchema.transform((wire) => new LibraryFile(wire));
 
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({ items: z.array(item), nextCursor: z.string().nullable() });
@@ -135,7 +133,7 @@ export type RunInput = z.infer<typeof runInputSchema>;
 
 export const PREVIEW_KINDS = ["pdf", "text", "sheet", "image", "audio", "none"] as const;
 
-export const fileDetailSchema = fileRowSchema.extend({
+export const fileDetailWireSchema = fileRowWireSchema.extend({
   phase: z.enum(["uploading", "processing", "ready"]),
   scope: z.enum(["private", "shared", "workspace"]),
   provenance: provenanceSchema,
@@ -147,7 +145,8 @@ export const fileDetailSchema = fileRowSchema.extend({
   /** Run outputs only: the files that run used ("Files this run used"). */
   runInputs: z.array(runInputSchema).optional(),
 });
-export type LibraryFileDetail = z.infer<typeof fileDetailSchema>;
+export type FileDetailWire = z.infer<typeof fileDetailWireSchema>;
+export const fileDetailSchema = fileDetailWireSchema.transform((wire) => new LibraryFileDetail(wire));
 
 // ── Preview payloads ──────────────────────────────────────────────────────────
 
@@ -237,69 +236,11 @@ export type Storage = z.infer<typeof storageSchema>;
 export const limitsSchema = z.object({
   maxFileBytes: z.number().positive(),
   allowedFormats: z.array(formatSchema),
+  /** Every extension Library holds and the format the server gives it: the one list the client checks against. */
+  extensions: z.record(z.string(), formatSchema),
   maxFilesPerMessage: z.number().int().positive(),
 });
 export type Limits = z.infer<typeof limitsSchema>;
-
-/** Per-workspace kill switches (04 section 9). A false value disables the feature without deleting any file. */
-export const flagsSchema = z.object({
-  library: z.boolean(),
-  autoSave: z.boolean(),
-  aiUse: z.boolean(),
-  sharing: z.boolean(),
-});
-export type Flags = z.infer<typeof flagsSchema>;
-
-// ── Settings ──────────────────────────────────────────────────────────────────
-
-export const prefsSchema = z.object({
-  /** The person's own choice. Null until they choose: the workspace default applies. */
-  autoSave: autoSaveSchema.nullable(),
-  /** "Let Souvenir use my Library" (the person's own switch). */
-  aiReferenceEnabled: z.boolean(),
-  /** What saving actually does for this person: Admin force-off, then their choice, then the workspace default. */
-  effectiveAutoSave: autoSaveSchema,
-  /** An Admin forced auto-save off for everyone: the personal control is disabled. */
-  forcedOff: z.boolean(),
-  /** False when an Admin turned automatic AI use of Library off for the workspace. */
-  aiReferenceAllowed: z.boolean(),
-  /** When an Admin last changed a Library setting, for the one-time "what changed" notice. */
-  settingsChangedAt: z.string().optional(),
-  /** What an Admin changed, one line each, newest last (the notice lists the unseen ones). */
-  settingsChanges: z.array(z.object({ key: z.string(), at: z.string(), text: z.string() })).optional(),
-});
-export type Prefs = z.infer<typeof prefsSchema>;
-/** The only fields a person can change. */
-export type PrefsPatch = Partial<Pick<Prefs, "autoSave" | "aiReferenceEnabled">>;
-
-export const orgSettingsSchema = z.object({
-  defaultAutoSave: autoSaveSchema,
-  forceAutoSaveOff: z.boolean(),
-  aiReferenceEnabled: z.boolean(),
-  maxFileBytes: z.number().positive(),
-  allowedFormats: z.array(formatSchema),
-  /** Bumped on every write; PATCH sends it as If-Match so two Admins never overwrite silently. */
-  version: z.number().int().nonnegative(),
-  updatedBy: personSchema.optional(),
-  updatedAt: z.string().optional(),
-});
-export type OrgSettings = z.infer<typeof orgSettingsSchema>;
-
-export type OrgSettingsPatch = Partial<
-  Pick<OrgSettings, "defaultAutoSave" | "forceAutoSaveOff" | "aiReferenceEnabled" | "maxFileBytes" | "allowedFormats">
->;
-
-export const memberSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().optional(),
-  avatarUrl: z.string().optional(),
-  role: z.enum(["admin", "member"]),
-  fileCount: z.number().int().nonnegative(),
-  /** Set while an Admin removed them and they have not answered the transfer question yet. */
-  removal: z.enum(["awaiting_answer"]).optional(),
-});
-export type Member = z.infer<typeof memberSchema>;
 
 // ── Uploads ───────────────────────────────────────────────────────────────────
 

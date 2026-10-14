@@ -1,13 +1,11 @@
 "use client";
 
 // Who is looking and in which workspace: the two facts every Library key and every "You" label
-// depends on. In the mock the viewer is the fixed sample person; otherwise it is the signed-in user.
+// depends on.
 
 import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
-import { LIBRARY_MOCK } from "@/lib/feature-flags";
 import { orgKeyOf } from "./keys";
-import { MOCK_VIEWER_ID } from "./constants";
 
 export type LibraryViewer = {
   /** Matches the ids the API returns for people; undefined until the user has loaded. */
@@ -29,7 +27,7 @@ export function useLibraryViewer(): LibraryViewer {
   const { orgId, currentUserRole, orgReady } = useOrg();
   const authId = user?.auth0Id ?? (user?.id !== undefined && user?.id !== null ? String(user.id) : undefined);
   return {
-    viewerId: LIBRARY_MOCK ? MOCK_VIEWER_ID : authId,
+    viewerId: authId,
     orgId: orgId ?? "",
     orgKey: orgKeyOf(orgId),
     isAdmin: currentUserRole === "admin",

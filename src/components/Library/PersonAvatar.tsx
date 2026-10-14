@@ -2,8 +2,9 @@
 
 import React from 'react'
 import { CourtHouseIcon } from '@strange-huge/icons'
-import type { LibraryFileRow, Person } from '@/lib/library/schemas'
-import { accessAvatars, accessTip, personName } from '@/lib/library/access'
+import type { Person } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
+import { personName } from '@/lib/library/access'
 import { sanitizeDisplayText } from '@/lib/library/format'
 import { Tooltip } from '@/components/Tooltip'
 
@@ -69,9 +70,9 @@ export function WorkspaceAvatar({ size = 24 }: { size?: number }) {
  * Who can open a file, for the Access column: the owner alone, two avatars, the owner and a "+N",
  * or only a building for the whole workspace. The tooltip says it in words, so it is not colour alone.
  */
-export function AccessAvatars({ file, viewerId }: { file: Pick<LibraryFileRow, 'owner' | 'accessSummary'>; viewerId: string | undefined }) {
-  const { shown, extra, everyone } = accessAvatars(file)
-  const tip = accessTip(file, viewerId)
+export function AccessAvatars({ file, viewerId }: { file: LibraryFile; viewerId: string | undefined }) {
+  const { shown, extra, everyone } = file.accessAvatars
+  const tip = file.accessTip(viewerId)
   return (
     <Tooltip content={tip}>
       <span role="img" aria-label={tip} style={{ display: 'inline-flex', alignItems: 'center' }}>

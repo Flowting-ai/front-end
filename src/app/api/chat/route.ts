@@ -27,7 +27,7 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  *   toneId             - optional style/tone ID (e.g. "professional", "teaching")
  *   systemPrompt       - optional persona system instruction (explicit override)
  *   temperature        - optional persona temperature override
- *   files              - zero or more File parts (uploaded attachments)
+ *   libraryFileIds     - optional JSON array of Library file ids attached to the message
  */
 export async function POST(request: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
   const systemPrompt       = formData.get("systemPrompt") as string | null
   const temperature        = formData.get("temperature") as string | null
   const toneId             = formData.get("toneId") as string | null
-  const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
+  const libraryFileIds     = formData.get("libraryFileIds") as string | null
 
-  if (!input.trim() && clientFiles.length === 0) {
+  if (!input.trim() && !libraryFileIds) {
     return new Response("Bad Request: input or files required", { status: 400 })
   }
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature) fd.append("temperature", temperature)
   if (toneId) fd.append("tone_id", toneId)
-  clientFiles.forEach((f) => fd.append("files", f))
+  if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   let backendResponse: Response

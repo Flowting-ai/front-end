@@ -1,10 +1,53 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMockLibraryApi } from "../mock/api.mock";
+import type { LibraryApi } from "../api";
+import { FORMATS, type UploadStatus } from "../schemas";
 import { backoffDelay, createUploadController, type UploadController } from "./controller";
 import { createUploadStore, type UploadStore } from "./store";
 import { PartTransportError, type PartRequest, type PartTransport } from "./transport";
 
 const MB = 1_000_000;
+const PART_BYTES = 8 * MB;
+
+/**
+ * The upload half of the Library API, in memory. A file's name picks its outcome: "slow" stays
+ * processing (flagged slow after 3 s), "password" fails, anything else is ready 1.5 s after completing.
+ */
+function fakeUploadApi() {
+  let seq = 0;
+  const uploads = new Map<string, { name: string; parts: number; completedAt?: number }>();
+  const statusOf = (id: string): UploadStatus => {
+    const record = uploads.get(id)!;
+    if (record.completedAt === undefined) return { id, phase: "uploading", slow: false };
+    const elapsed = Date.now() - record.completedAt;
+    if (record.name.includes("slow")) return { id, phase: "processing", slow: elapsed > 3000 };
+    if (elapsed < 1500) return { id, phase: "processing", slow: false };
+    if (record.name.includes("password")) return { id, phase: "failed", slow: false, failureReason: "password_protected" };
+    return { id, phase: "ready", slow: false, fileId: `file_${id}` };
+  };
+  return {
+    async getLimits() {
+      return { maxFileBytes: 30 * MB, allowedFormats: [...FORMATS], extensions: { pdf: "pdf", xlsx: "sheet" } as const, maxFilesPerMessage: 10 };
+    },
+    async createUpload(request: { name: string; sizeBytes: number }) {
+      const id = `up_${seq++}`;
+      const parts = Math.max(1, Math.ceil(request.sizeBytes / PART_BYTES));
+      uploads.set(id, { name: request.name, parts });
+      return { id, partSize: PART_BYTES, parts: Array.from({ length: parts }, (_, index) => ({ partNumber: index + 1, url: `mock://upload/${id}/${index + 1}` })) };
+    },
+    async completeUpload(id: string) {
+      uploads.get(id)!.completedAt = Date.now();
+    },
+    async presignUploadParts(id: string, partNumbers: number[]) {
+      return partNumbers.map((partNumber) => ({ partNumber, url: `mock://upload/${id}/${partNumber}` }));
+    },
+    async cancelUpload(id: string) {
+      uploads.delete(id);
+    },
+    async getUploadStatuses(ids: string[]) {
+      return ids.filter((id) => uploads.has(id)).map(statusOf);
+    },
+  };
+}
 
 function file(name: string, bytes: number): File {
   return new File([new Uint8Array(bytes)], name, { type: "application/octet-stream" });
@@ -13,7 +56,7 @@ function file(name: string, bytes: number): File {
 type Harness = {
   controller: UploadController;
   store: UploadStore;
-  api: ReturnType<typeof createMockLibraryApi>;
+  api: ReturnType<typeof fakeUploadApi>;
   calls: PartRequest[];
   online: { value: boolean };
   hidden: { value: boolean };
@@ -22,7 +65,7 @@ type Harness = {
 
 function harness(transportFor?: (calls: PartRequest[]) => PartTransport): Harness {
   const store = createUploadStore();
-  const api = createMockLibraryApi({ delayMs: 0, clock: () => Date.now() });
+  const api = fakeUploadApi();
   const calls: PartRequest[] = [];
   const transport: PartTransport = transportFor
     ? transportFor(calls)
@@ -37,7 +80,7 @@ function harness(transportFor?: (calls: PartRequest[]) => PartTransport): Harnes
   const hidden = { value: false };
   let seq = 0;
   const controller = createUploadController({
-    getApi: async () => api,
+    api: api as unknown as LibraryApi,
     transport,
     store,
     getLimits: async () => api.getLimits(),

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { LibraryFileRow } from "./schemas";
+import type { LibraryFile } from "./file";
 import { RECENT_LIMIT, TILE_LIMIT, isSuggestedEmpty, selectSuggested, tileLine } from "./suggested";
 
-function file(id: string): LibraryFileRow {
+function file(id: string): LibraryFile {
   return {
     id,
     title: id,

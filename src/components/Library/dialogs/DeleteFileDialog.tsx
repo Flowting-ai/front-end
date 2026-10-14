@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/Skeleton'
 import { personName } from '@/lib/library/access'
-import { displayFileName, sanitizeDisplayText } from '@/lib/library/format'
+import { sanitizeDisplayText } from '@/lib/library/format'
 import { FILE_MESSAGES } from '@/lib/library/messages'
 import { useTrashFile } from '@/lib/library/mutations'
 import { useFileUsage } from '@/lib/library/queries'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { useLibraryViewer } from '@/lib/library/viewer'
 
 const TRASH_DAYS = 30
@@ -39,11 +39,11 @@ function UsageRow({ icon, label, detail }: { icon: React.ReactNode; label: strin
  * Delete moves a file to Trash. Like the prototype: the title asks the question, three rows say where the
  * file is used and who it is shared with, one quiet line gives the recovery window.
  */
-export function DeleteFileDialog({ file, onClose, onDeleted }: { file: LibraryFileRow; onClose: () => void; onDeleted?: () => void }) {
+export function DeleteFileDialog({ file, onClose, onDeleted }: { file: LibraryFile; onClose: () => void; onDeleted?: () => void }) {
   const { viewerId } = useLibraryViewer()
   const usage = useFileUsage(file.id)
   const trash = useTrashFile()
-  const name = displayFileName(file)
+  const name = file.name
 
   const confirm = () => {
     trash.mutate(

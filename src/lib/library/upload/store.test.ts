@@ -21,9 +21,9 @@ describe("upload store", () => {
     store.add(make("c", "chat-2"));
     const first = store.forDraft("new");
     expect(store.forDraft("new")).toBe(first);
-    store.dispatch("c", { type: "validated" }); // another draft changes
+    store.dispatch("c", { type: "validated", format: "pdf" }); // another draft changes
     expect(store.forDraft("new")).toBe(first);
-    store.dispatch("a", { type: "validated" });
+    store.dispatch("a", { type: "validated", format: "pdf" });
     expect(store.forDraft("new")).not.toBe(first);
   });
 
@@ -35,9 +35,9 @@ describe("upload store", () => {
     expect(listener).toHaveBeenCalledTimes(1);
     store.dispatch("a", { type: "progress", value: 0.5 }); // not uploading yet: no change
     expect(listener).toHaveBeenCalledTimes(1);
-    store.dispatch("a", { type: "validated" });
+    store.dispatch("a", { type: "validated", format: "pdf" });
     expect(listener).toHaveBeenCalledTimes(2);
-    store.dispatch("missing", { type: "validated" });
+    store.dispatch("missing", { type: "validated", format: "pdf" });
     expect(listener).toHaveBeenCalledTimes(2);
     unsubscribe();
     store.remove("a");

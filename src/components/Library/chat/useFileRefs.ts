@@ -7,10 +7,10 @@
 
 import { useMemo } from 'react'
 import { useQueries } from '@tanstack/react-query'
-import { getLibraryApi } from '@/lib/library/api'
+import { libraryApi } from '@/lib/library/api'
 import { isGoneError, isLockedError, libraryRetry } from '@/lib/library/errors'
 import { libraryKeys } from '@/lib/library/keys'
-import type { LibraryFileDetail } from '@/lib/library/schemas'
+import type { LibraryFileDetail } from '@/lib/library/file'
 import type { FileRef } from '@/lib/library/sources'
 import { useLibraryViewer } from '@/lib/library/viewer'
 
@@ -35,7 +35,7 @@ export function useFileRefs(ids: string[]): { refs: Record<string, FileRef>; loa
     queries: unique.map((id) => ({
       queryKey: libraryKeys.detail(orgKey, id),
       enabled: ready,
-      queryFn: async ({ signal }: { signal: AbortSignal }) => (await getLibraryApi()).getFile(id, signal),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => libraryApi.getFile(id, signal),
       staleTime: 30_000,
       retry: (count: number, error: unknown) => !isLockedError(error) && !isGoneError(error) && libraryRetry(count, error),
     })),

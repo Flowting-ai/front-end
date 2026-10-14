@@ -6,10 +6,10 @@ import { BubbleChatIcon, CalendarFoldIcon, CancelOneIcon, DeleteTwoIcon, Downloa
 import { Button, IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import { Skeleton } from '@/components/Skeleton'
-import { ONLY_OWNER_TIP, accessLabel, capsOf, personName } from '@/lib/library/access'
-import { displayFileName, formatBytes, formatDateTime, formatLabel, sanitizeDisplayText } from '@/lib/library/format'
+import { ONLY_OWNER_TIP, personName } from '@/lib/library/access'
+import { formatBytes, formatDateTime, formatLabel, sanitizeDisplayText } from '@/lib/library/format'
 import { useFileAccess, useFileUsage } from '@/lib/library/queries'
-import type { LibraryFileDetail } from '@/lib/library/schemas'
+import type { LibraryFileDetail } from '@/lib/library/file'
 import { FILE_MESSAGES } from '@/lib/library/messages'
 import { CHAT_ROUTE, LIBRARY_FILE_ROUTE, SCHEDULES_ROUTE } from '@/lib/routes'
 import { AiGeneratedTag, GeneratedMark } from './FileMarks'
@@ -104,7 +104,7 @@ export interface FileInfoCardProps {
 export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose, onAsk, onDownload, onDelete }: FileInfoCardProps) {
   const usage = useFileUsage(file.id)
   const access = useFileAccess(file.id)
-  const caps = capsOf(file)
+  const caps = file.caps
   const trashed = file.life === 'trashed'
   const path = trashed ? PATH_LABEL.trash : file.access === 'owner' ? PATH_LABEL.all : PATH_LABEL.shared
   const chats = usage.data?.chats ?? []
@@ -137,7 +137,7 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
       <div className={`${styles.infoBody} kaya-scrollbar kaya-no-gutter`} data-info-scroll="">
       <div className={styles.block}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.35, color: 'var(--neutral-900)' }}>
-          <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{displayFileName(file)}</span>
+          <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{file.name}</span>
           <Tooltip content={caps.rename ? 'Rename' : ONLY_OWNER_TIP}>
             <span>
               <IconButton variant="ghost" size="xs" aria-label="Rename" disabled={!caps.rename} icon={<PenOneIcon size={14} />} onClick={onRename} />
@@ -203,7 +203,7 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
       <div className={styles.block}>
         <div className={styles.label}>
           Who has access
-          <span style={label}>You: {accessLabel(file)}</span>
+          <span style={label}>You: {file.accessLabel}</span>
         </div>
         {access.isPending ? (
           <Skeleton height={32} radius={10} />

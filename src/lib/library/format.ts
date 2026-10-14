@@ -1,7 +1,8 @@
 // Pure display helpers. Every function that depends on "now" or the time zone takes them as
 // arguments (with a sensible default) so tests can pin them.
 
-import type { Format, FormatGroup, LibraryFileRow } from "./schemas";
+import type { Format, FormatGroup } from "./schemas";
+import type { LibraryFile } from "./file";
 
 // ── Formats ───────────────────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export function agoShort(iso: string, now: number = Date.now(), timeZone?: strin
 }
 
 /** The latest thing that happened to a file, in generic words: Created 2d ago, Shared today. */
-export function activityLine(file: Pick<LibraryFileRow, "lastActivityAt" | "lastActivityKind">, now: number = Date.now(), timeZone?: string): string {
+export function activityLine(file: Pick<LibraryFile, "lastActivityAt" | "lastActivityKind">, now: number = Date.now(), timeZone?: string): string {
   const word = { created: "Created", opened: "Opened", modified: "Modified", shared: "Shared" }[file.lastActivityKind];
   return `${word} ${agoShort(file.lastActivityAt, now, timeZone)}`;
 }
@@ -145,17 +146,11 @@ export function truncateText(text: string, max: number): string {
   return `${text.slice(0, max - 1).trimEnd()}\u2026`;
 }
 
-/** The name shown for a file: title plus extension, sanitised. */
-export function displayFileName(file: Pick<LibraryFileRow, "title" | "extension">): string {
-  const title = sanitizeDisplayText(file.title) || "Untitled";
-  return file.extension ? `${title}.${file.extension}` : title;
-}
-
 export function pluralize(count: number, singular: string, plural: string = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /** Browser tab title for a file page: a sanitised, truncated name, never the raw one. */
-export function fileDocumentTitle(file: Pick<LibraryFileRow, "title" | "extension">): string {
-  return `${truncateText(displayFileName(file), 80)} | Library`;
+export function fileDocumentTitle(file: LibraryFile): string {
+  return `${truncateText(file.name, 80)} | Library`;
 }

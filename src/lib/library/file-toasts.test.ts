@@ -4,9 +4,10 @@ import { addedGrantIds, cachedFileName, countTrashRows, findRowIn } from "./file
 import { libraryKeys } from "./keys";
 import { FILE_MESSAGES } from "./messages";
 import type { AccessList } from "./schemas";
+import { testFile } from "./test-files";
 
 const ORG = "org1";
-const row = (id: string, title: string, extension = "pdf") => ({ id, title, extension });
+const row = (id: string, title: string, extension = "pdf") => testFile({ id, title, extension });
 
 describe("file toasts", () => {
   it("finds a row inside paged, suggested and detail data", () => {

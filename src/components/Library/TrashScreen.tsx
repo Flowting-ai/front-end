@@ -9,11 +9,11 @@ import { Dropdown } from '@/components/Dropdown'
 import { personName } from '@/lib/library/access'
 import { trackLibrary } from '@/lib/library/analytics'
 import { TRASH_DAYS } from '@/lib/library/constants'
-import { daysLeftLabel, displayFileName, formatBytes, formatDateTime } from '@/lib/library/format'
+import { daysLeftLabel, formatBytes, formatDateTime } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { useDeleteForever, useEmptyTrash, useRestoreFile } from '@/lib/library/mutations'
 import { useTrash } from '@/lib/library/queries'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
@@ -26,7 +26,7 @@ import { LibraryShell } from './LibraryShell'
 const cell: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', minWidth: 0 }
 const head: React.CSSProperties = { fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }
 
-function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFileRow; onRestore: () => void; onDelete: () => void }) {
+function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFile; onRestore: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false)
 
   // The menu is portaled, so close it on scroll instead of leaving it behind its row.
@@ -49,7 +49,7 @@ function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFileRow; onR
           data-open={open || undefined}
           variant="ghost"
           size="sm"
-          aria-label={`More actions for ${displayFileName(file)}`}
+          aria-label={`More actions for ${file.name}`}
           aria-haspopup="menu"
           aria-expanded={open}
           icon={<MoreHorizontalIcon size={18} />}
@@ -78,7 +78,7 @@ export function TrashScreen() {
   const restore = useRestoreFile()
   const deleteForever = useDeleteForever()
   const emptyTrash = useEmptyTrash()
-  const [pendingDelete, setPendingDelete] = useState<LibraryFileRow | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<LibraryFile | null>(null)
   const [emptying, setEmptying] = useState(false)
   const hasFiles = trash.status === 'ready' && trash.files.length > 0
 
@@ -130,10 +130,10 @@ export function TrashScreen() {
                 <div key={file.id} role="row" className={`${tableStyles.row} ${tableStyles.colsTrash}`} style={{ height: ROW_HEIGHT }}>
                   <div role="cell" style={{ minWidth: 0 }}>
                     {/* The owner can still open a file in Trash (its page shows Restore). */}
-                    <Link href={LIBRARY_FILE_ROUTE(file.id)} title={displayFileName(file)} className={tableStyles.rowLink}>
+                    <Link href={LIBRARY_FILE_ROUTE(file.id)} title={file.name} className={tableStyles.rowLink}>
                       <FormatGlyph format={file.format} />
                       <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span className={tableStyles.truncate} style={{ ...cell, color: 'var(--neutral-900)' }}>{displayFileName(file)}</span>
+                        <span className={tableStyles.truncate} style={{ ...cell, color: 'var(--neutral-900)' }}>{file.name}</span>
                         {file.trashedBy && (
                           <span className={`${tableStyles.truncate} ${tableStyles.nameSub}`}>{MESSAGES.deletedBy(personName(file.trashedBy, viewerId))}</span>
                         )}
@@ -164,7 +164,7 @@ export function TrashScreen() {
 
       {pendingDelete && (
         <ConfirmModal
-          title={MESSAGES.deleteForeverTitle(displayFileName(pendingDelete))}
+          title={MESSAGES.deleteForeverTitle(pendingDelete.name)}
           description={MESSAGES.freesUpLine(pendingDelete.sizeBytes > 0 ? formatBytes(pendingDelete.sizeBytes) : null)}
           confirmLabel="Delete forever"
           onConfirm={async () => {

@@ -19,7 +19,7 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  *   input     - required user message
  *   repoId    - required persona repo ID
  *   chatId    - existing chat ID (omit for new chats)
- *   files     - zero or more File parts (uploaded attachments)
+ *   libraryFileIds - optional JSON array of Library file ids attached to the message
  *   connectorSlugs - optional connector slugs (repeated field)
  */
 export async function POST(request: NextRequest) {
@@ -45,13 +45,13 @@ export async function POST(request: NextRequest) {
   const chatId         = (formData.get("chatId") as string | null) || null
   const input          = (formData.get("input") as string | null) ?? ""
   const modelId        = (formData.get("modelId") as string | null) || null
-  const clientFiles    = formData.getAll("files").filter((f): f is File => f instanceof File)
+  const libraryFileIds = formData.get("libraryFileIds") as string | null
   const connectorSlugs = formData.getAll("connectorSlugs").map(s => String(s)).filter(Boolean)
 
   if (!repoId) {
     return new Response("Bad Request: repoId required", { status: 400 })
   }
-  if (!input.trim() && clientFiles.length === 0) {
+  if (!input.trim() && !libraryFileIds) {
     return new Response("Bad Request: input or files required", { status: 400 })
   }
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   const fd = new FormData()
   fd.append("input", input)
-  clientFiles.forEach((f) => fd.append("files", f))
+  if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
   connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
   if (modelId) fd.append("model_id", modelId)
   const body: BodyInit = fd

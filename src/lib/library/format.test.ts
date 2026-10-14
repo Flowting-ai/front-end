@@ -1,20 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  activityLine,
-  agoShort,
-  daysLeftLabel,
-  displayFileName,
-  fileDocumentTitle,
-  formatBytes,
-  formatDateTime,
-  formatGroupOf,
-  formatsInGroup,
-  pluralize,
-  sanitizeDisplayText,
-  storageLabel,
-  storageShare,
-  truncateText,
-} from "./format";
+import { activityLine, agoShort, daysLeftLabel, fileDocumentTitle, formatBytes, formatDateTime, formatGroupOf, formatsInGroup, pluralize, sanitizeDisplayText, storageLabel, storageShare, truncateText } from "./format";
+import { testFile } from "./test-files";
 
 // 2026-10-13 15:00 UTC, pinned so nothing here depends on the machine's clock or time zone.
 const NOW = Date.UTC(2026, 9, 13, 15, 0, 0);
@@ -99,10 +85,10 @@ describe("untrusted text", () => {
   });
 
   it("builds display names and tab titles from sanitised, truncated text", () => {
-    expect(displayFileName({ title: "Return policy", extension: "pdf" })).toBe("Return policy.pdf");
-    expect(displayFileName({ title: "   ", extension: "" })).toBe("Untitled");
-    expect(fileDocumentTitle({ title: "x".repeat(200), extension: "pdf" }).length).toBeLessThanOrEqual(90);
-    expect(fileDocumentTitle({ title: "Brand", extension: "pdf" })).toBe("Brand.pdf | Library");
+    expect(testFile({ title: "Return policy", extension: "pdf" }).name).toBe("Return policy.pdf");
+    expect(testFile({ title: "   ", extension: "" }).name).toBe("Untitled");
+    expect(fileDocumentTitle(testFile({ title: "x".repeat(200), extension: "pdf" })).length).toBeLessThanOrEqual(90);
+    expect(fileDocumentTitle(testFile({ title: "Brand", extension: "pdf" }))).toBe("Brand.pdf | Library");
   });
 
   it("truncates with an ellipsis", () => {

@@ -5,12 +5,13 @@
 // The workspace id is part of every key (useLibraryViewer), so switching workspace shows a clean slate.
 
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { getLibraryApi } from "./api";
+import { libraryApi } from "./api";
 import { flattenPages } from "./cache";
 import { libraryRetry } from "./errors";
 import { libraryKeys, type PickerParams } from "./keys";
 import { MIN_SEARCH_LENGTH, isSearching, toListParams, type LibraryQuery, type ListParams } from "./query-params";
-import type { LibraryFileRow, PreviewRequest } from "./schemas";
+import type { PreviewRequest } from "./schemas";
+import type { LibraryFile } from "./file";
 import { useLibraryViewer } from "./viewer";
 
 const SECOND = 1000;
@@ -26,7 +27,7 @@ function listStatus(isPending: boolean, isError: boolean, hasData: boolean): Lis
 }
 
 export type FileList = {
-  files: LibraryFileRow[];
+  files: LibraryFile[];
   status: ListStatus;
   /** A refetch (new filter, refresh) is running while the previous rows are still shown. */
   isRefreshing: boolean;
@@ -44,7 +45,7 @@ export function useLibraryFiles(query: LibraryQuery): FileList {
   const enabled = ready && (query.tab !== "suggested" || isSearching(query));
   const result = useInfiniteQuery({
     queryKey: libraryKeys.list(orgKey, params),
-    queryFn: async ({ pageParam, signal }) => (await getLibraryApi()).listFiles(params, pageParam, signal),
+    queryFn: async ({ pageParam, signal }) => libraryApi.listFiles(params, pageParam, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
@@ -69,7 +70,7 @@ export function useSuggested() {
   return useQuery({
     queryKey: libraryKeys.suggested(orgKey),
     enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getSuggested(signal),
+    queryFn: async ({ signal }) => libraryApi.getSuggested(signal),
     staleTime: MINUTE,
     retry: libraryRetry,
   });
@@ -85,7 +86,7 @@ export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSett
     queryKey: libraryKeys.hasShared(orgKey),
     enabled: ready,
     queryFn: async ({ signal }) => {
-      const page = await (await getLibraryApi()).listFiles(
+      const page = await libraryApi.listFiles(
         { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc" },
         null,
         signal,
@@ -111,7 +112,7 @@ export function useLibraryPicker(params: PickerParams, enabled: boolean): FileLi
   };
   const result = useInfiniteQuery({
     queryKey: libraryKeys.picker(orgKey, params),
-    queryFn: async ({ pageParam, signal }) => (await getLibraryApi()).listFiles(listParams, pageParam, signal),
+    queryFn: async ({ pageParam, signal }) => libraryApi.listFiles(listParams, pageParam, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
@@ -134,7 +135,7 @@ export function useTrash() {
   const { orgKey, ready } = useLibraryViewer();
   const result = useInfiniteQuery({
     queryKey: libraryKeys.trash(orgKey),
-    queryFn: async ({ pageParam, signal }) => (await getLibraryApi()).listTrash(pageParam, signal),
+    queryFn: async ({ pageParam, signal }) => libraryApi.listTrash(pageParam, signal),
     initialPageParam: null as string | null,
     enabled: ready,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -157,7 +158,7 @@ export function useLibraryFile(id: string) {
   return useQuery({
     queryKey: libraryKeys.detail(orgKey, id),
     enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getFile(id, signal),
+    queryFn: async ({ signal }) => libraryApi.getFile(id, signal),
     staleTime: 30 * SECOND,
     retry: libraryRetry,
     refetchInterval: (query) => (query.state.data && query.state.data.phase !== "ready" ? 3 * SECOND : false),
@@ -172,7 +173,7 @@ export function useFilePreview(id: string, request: PreviewRequest, enabled: boo
   const { orgKey, ready } = useLibraryViewer();
   return useQuery({
     queryKey: libraryKeys.preview(orgKey, id, request),
-    queryFn: async ({ signal }) => (await getLibraryApi()).getPreview(id, request, signal),
+    queryFn: async ({ signal }) => libraryApi.getPreview(id, request, signal),
     enabled: enabled && ready,
     staleTime: 4 * MINUTE,
     gcTime: 4 * MINUTE,
@@ -185,7 +186,7 @@ export function useFileUsage(id: string, enabled = true) {
   const { orgKey, ready } = useLibraryViewer();
   return useQuery({
     queryKey: libraryKeys.usage(orgKey, id),
-    queryFn: async ({ signal }) => (await getLibraryApi()).getUsage(id, signal),
+    queryFn: async ({ signal }) => libraryApi.getUsage(id, signal),
     enabled: enabled && ready,
     staleTime: 30 * SECOND,
     retry: libraryRetry,
@@ -196,7 +197,7 @@ export function useFileAccess(id: string, enabled = true) {
   const { orgKey, ready } = useLibraryViewer();
   return useQuery({
     queryKey: libraryKeys.access(orgKey, id),
-    queryFn: async ({ signal }) => (await getLibraryApi()).getAccess(id, signal),
+    queryFn: async ({ signal }) => libraryApi.getAccess(id, signal),
     enabled: enabled && ready,
     staleTime: 30 * SECOND,
     retry: libraryRetry,
@@ -208,7 +209,7 @@ export function useStorage() {
   return useQuery({
     queryKey: libraryKeys.storage(orgKey),
     enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getStorage(signal),
+    queryFn: async ({ signal }) => libraryApi.getStorage(signal),
     staleTime: MINUTE,
     retry: libraryRetry,
   });
@@ -219,70 +220,9 @@ export function useLibraryLimits() {
   return useQuery({
     queryKey: libraryKeys.limits(orgKey),
     enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getLimits(signal),
+    queryFn: async ({ signal }) => libraryApi.getLimits(signal),
     staleTime: 10 * MINUTE,
     gcTime: 30 * MINUTE,
-    retry: libraryRetry,
-  });
-}
-
-export function useLibraryFlags() {
-  const { orgKey, ready } = useLibraryViewer();
-  return useQuery({
-    queryKey: libraryKeys.flags(orgKey),
-    enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getFlags(signal),
-    staleTime: 10 * MINUTE,
-    gcTime: 30 * MINUTE,
-    retry: libraryRetry,
-  });
-}
-
-export function useLibraryPrefs() {
-  const { orgKey, ready } = useLibraryViewer();
-  return useQuery({
-    queryKey: libraryKeys.prefs(orgKey),
-    enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getPrefs(signal),
-    staleTime: 5 * MINUTE,
-    gcTime: 30 * MINUTE,
-    retry: libraryRetry,
-  });
-}
-
-/** Admin settings. Refetched on window focus so a second Admin's change shows up ("Changed by ..."). */
-export function useOrgSettings(enabled = true) {
-  const { orgKey, ready } = useLibraryViewer();
-  return useQuery({
-    queryKey: libraryKeys.orgSettings(orgKey),
-    queryFn: async ({ signal }) => (await getLibraryApi()).getOrgSettings(signal),
-    enabled: enabled && ready,
-    staleTime: 15 * SECOND,
-    gcTime: 30 * MINUTE,
-    refetchOnWindowFocus: true,
-    retry: libraryRetry,
-  });
-}
-
-export function useLibraryMembers(enabled = true) {
-  const { orgKey, ready } = useLibraryViewer();
-  return useQuery({
-    queryKey: libraryKeys.members(orgKey),
-    queryFn: async ({ signal }) => (await getLibraryApi()).listMembers(signal),
-    enabled: enabled && ready,
-    staleTime: MINUTE,
-    retry: libraryRetry,
-  });
-}
-
-/** Whether the signed-in person has a removal waiting for their answer (the locked transfer question). */
-export function useMyRemoval() {
-  const { orgKey, ready } = useLibraryViewer();
-  return useQuery({
-    queryKey: libraryKeys.myRemoval(orgKey),
-    enabled: ready,
-    queryFn: async ({ signal }) => (await getLibraryApi()).getMyRemoval(signal),
-    staleTime: MINUTE,
     retry: libraryRetry,
   });
 }
@@ -292,7 +232,7 @@ export function useLibraryPeople(query: string, enabled: boolean) {
   const { orgKey, orgId, ready } = useLibraryViewer();
   return useQuery({
     queryKey: libraryKeys.people(orgKey, query),
-    queryFn: async ({ signal }) => (await getLibraryApi()).listPeople(orgId, query, signal),
+    queryFn: () => libraryApi.listPeople(orgId, query),
     enabled: enabled && ready,
     staleTime: MINUTE,
     placeholderData: keepPreviousData,

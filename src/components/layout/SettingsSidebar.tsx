@@ -20,8 +20,7 @@ import { useOrg } from '@/context/org-context'
 import type { CreditsDisplay } from '@/lib/api/plan'
 import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
-import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE } from '@/lib/routes'
-import { LIBRARY_ENABLED } from '@/lib/feature-flags'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -103,7 +102,6 @@ const PERSONAL_ITEMS = [
   // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
   // Library: auto-save, AI use of files, storage. Off until NEXT_PUBLIC_ENABLE_LIBRARY=true.
-  ...(LIBRARY_ENABLED ? [{ id: 'library', label: 'Library', href: SETTINGS_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
@@ -116,7 +114,6 @@ const WORKSPACE_ITEMS = [
   // separate "Activity Log" (ORG_ACTIVITY_ROUTE) has no slot in the new design.
   { id: 'usage',   label: 'Usage',           href: ORG_ANALYTICS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
   // Workspace Library settings (Admin): auto-save default, AI use, file limits.
-  ...(LIBRARY_ENABLED ? [{ id: 'library', label: 'Library', href: ORG_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
 ]
 
 // HELP & SUPPORT: node 18:27804. New group — Help & Legal moves out of

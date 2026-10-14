@@ -4,10 +4,9 @@ import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDownTwoIcon, ArrowUpDownIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
-import { capsOf } from '@/lib/library/access'
-import { displayFileName, formatDateTime, formatLabel } from '@/lib/library/format'
+import { formatDateTime, formatLabel } from '@/lib/library/format'
 import type { SortDir, SortKey } from '@/lib/library/query-params'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import { AccessAvatars } from '../PersonAvatar'
 import { FormatGlyph } from '../FormatGlyph'
@@ -64,18 +63,17 @@ function HeadLabel({ children }: { children: React.ReactNode }) {
 }
 
 export interface FileRowProps {
-  file: LibraryFileRow
+  file: LibraryFile
   kind: TableKind
   viewerId: string | undefined
   rowIndex: number
-  onAction: (action: RowAction, file: LibraryFileRow) => void
-  sharingEnabled: boolean
+  onAction: (action: RowAction, file: LibraryFile) => void
   style?: React.CSSProperties
 }
 
-export function FileRow({ file, kind, viewerId, rowIndex, onAction, sharingEnabled, style }: FileRowProps) {
-  const name = displayFileName(file)
-  const caps = capsOf(file)
+export function FileRow({ file, kind, viewerId, rowIndex, onAction, style }: FileRowProps) {
+  const name = file.name
+  const caps = file.caps
   const hide = HIDE_CLASS[kind]
   return (
     <div role="row" aria-rowindex={rowIndex} className={cx(styles.row, COLUMN_CLASS[kind])} style={{ height: ROW_HEIGHT, ...style }}>
@@ -116,14 +114,14 @@ export function FileRow({ file, kind, viewerId, rowIndex, onAction, sharingEnabl
       </div>
       <div role="cell" className={cx(styles.truncate, hide.type)} style={cellText}>{formatLabel(file.format)}</div>
       <div role="cell" className={styles.above} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {(caps.open) && <RowMenu file={file} onAction={onAction} sharingEnabled={sharingEnabled} />}
+        {(caps.open) && <RowMenu file={file} onAction={onAction} />}
       </div>
     </div>
   )
 }
 
 export interface FileTableProps {
-  files: LibraryFileRow[]
+  files: LibraryFile[]
   kind: TableKind
   viewerId: string | undefined
   /** Identifies this view, so its scroll position can be restored. */
@@ -131,8 +129,7 @@ export interface FileTableProps {
   /** The sort to mark on the headings; a null key marks none (Shared's untouched order). */
   sort: { key: SortKey | null; dir: SortDir }
   onSort: (key: SortKey) => void
-  onAction: (action: RowAction, file: LibraryFileRow) => void
-  sharingEnabled: boolean
+  onAction: (action: RowAction, file: LibraryFile) => void
   hasNextPage: boolean
   isFetchingNextPage: boolean
   fetchNextPage: () => void
@@ -147,7 +144,7 @@ export interface FileTableProps {
  * a list that is not all rendered. Only Name and the date column sort.
  */
 export function FileTable({
-  files, kind, viewerId, viewKey, sort, onSort, onAction, sharingEnabled, hasNextPage, isFetchingNextPage, fetchNextPage, isRefreshing = false, label = 'Files',
+  files, kind, viewerId, viewKey, sort, onSort, onAction, hasNextPage, isFetchingNextPage, fetchNextPage, isRefreshing = false, label = 'Files',
 }: FileTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -212,7 +209,6 @@ export function FileTable({
                 viewerId={viewerId}
                 rowIndex={item.index + 2}
                 onAction={onAction}
-                sharingEnabled={sharingEnabled}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${item.start}px)` }}
               />
             )

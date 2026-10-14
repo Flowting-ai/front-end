@@ -7,11 +7,9 @@ import { ArrowUpRightOneIcon, BubbleChatIcon, DeleteTwoIcon, DownloadOneIcon, Mo
 import { Dropdown } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
 import { IconButton } from '@/components/ui/button'
-import { ONLY_OWNER_TIP, capsOf } from '@/lib/library/access'
-import { displayFileName } from '@/lib/library/format'
-import { MESSAGES } from '@/lib/library/messages'
+import { ONLY_OWNER_TIP } from '@/lib/library/access'
 import { rememberLibraryReturn, watchLibraryFileLinks } from '@/lib/library/return-to'
-import type { LibraryFileRow } from '@/lib/library/schemas'
+import type { LibraryFile } from '@/lib/library/file'
 import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import styles from './FileTable.module.css'
 
@@ -19,10 +17,9 @@ export type RowAction = 'share' | 'rename' | 'download' | 'delete'
 
 export interface RowMenuProps {
   /** A list row, or the file page's detail (which also says whether the file is ready). */
-  file: LibraryFileRow & { phase?: 'uploading' | 'processing' | 'ready' }
-  onAction: (action: RowAction, file: LibraryFileRow) => void
+  file: LibraryFile & { phase?: 'uploading' | 'processing' | 'ready' }
+  onAction: (action: RowAction, file: LibraryFile) => void
   /** False when an Admin switched sharing off for the workspace. */
-  sharingEnabled?: boolean
   /** Always visible (the file page header), instead of appearing on row hover. */
   alwaysVisible?: boolean
   /** Adds "Open" at the top. Off on the file page, where the file is already open. */
@@ -48,14 +45,14 @@ function WithReason({ reason, children }: { reason?: string; children: React.Rea
  * Open, Ask about this, Share, Download | Rename | Delete. Controls a person may not use stay visible but
  * disabled, with the reason in a tooltip (never hidden, never an unexplained grey row).
  */
-export function RowMenu({ file, onAction, sharingEnabled = true, alwaysVisible = false, withOpen = true, triggerClassName, placement = "bottom-end", menuWidth, trigger: customTrigger }: RowMenuProps) {
+export function RowMenu({ file, onAction, alwaysVisible = false, withOpen = true, triggerClassName, placement = "bottom-end", menuWidth, trigger: customTrigger }: RowMenuProps) {
   const router = useRouter()
   const ask = useAskAbout()
   const [open, setOpen] = useState(false)
-  const caps = capsOf(file)
+  const caps = file.caps
   const active = file.life === 'active'
   const canAsk = active && (file.phase ?? 'ready') === 'ready'
-  const shareReason = !sharingEnabled ? MESSAGES.sharingOff : !caps.share ? ONLY_OWNER_TIP : undefined
+  const shareReason = !caps.share ? ONLY_OWNER_TIP : undefined
 
   // On a list, remember it when a file is opened from it, so Close on the file page comes back here.
   useEffect(() => {
@@ -87,7 +84,7 @@ export function RowMenu({ file, onAction, sharingEnabled = true, alwaysVisible =
           data-open={open || undefined}
           variant="ghost"
           size="sm"
-          aria-label={`More actions for ${displayFileName(file)}`}
+          aria-label={`More actions for ${file.name}`}
           aria-haspopup="menu"
           aria-expanded={open}
           icon={<MoreHorizontalIcon size={18} />}

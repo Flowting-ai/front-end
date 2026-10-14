@@ -17,7 +17,7 @@ import type { PinFolder } from '@/lib/api/pins'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
-import { LIBRARY_ENABLED, LIBRARY_MOCK, PINS_ENABLED } from '@/lib/feature-flags'
+import { PINS_ENABLED } from '@/lib/feature-flags'
 import { usePathname } from 'next/navigation'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useHighlight } from '@/context/highlight-context'
@@ -43,11 +43,7 @@ export interface ChatAddMenuProps {
   hideStyle?:        boolean
   hideWebSearch?:    boolean
   hidePinFolders?:   boolean
-  /**
-   * Library: opens the "Add from Library" picker. The item shows only when this is passed and both
-   * LIBRARY_ENABLED and LIBRARY_MOCK are on; ChatInput does not pass it yet (attaching by reference
-   * needs the chat send contract), so the live menu is unchanged.
-   */
+  /** Library: opens the "Add from Library" picker. The item shows when this is passed. */
   onAddFromLibraryClick?: () => void
 }
 
@@ -98,7 +94,7 @@ export function ChatAddMenu({
     <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
         <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
-        {LIBRARY_ENABLED && LIBRARY_MOCK && onAddFromLibraryClick && (
+        {onAddFromLibraryClick && (
           <Dropdown.Item label="Add from Library" icon={<FolderLibraryIcon />} fluid onClick={onAddFromLibraryClick} />
         )}
         {!hideWebSearch && (

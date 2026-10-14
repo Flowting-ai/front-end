@@ -11,12 +11,12 @@ function run(start: UploadItem, ...events: UploadEvent[]): UploadItem {
 
 describe("reduceUpload: the happy path", () => {
   it("goes validating, uploading, processing, ready", () => {
-    const done = run(item(), { type: "validated" }, { type: "created", serverId: "s1" }, { type: "progress", value: 0.5 }, { type: "uploaded" }, { type: "server", phase: "ready", slow: false, fileId: "f1" });
+    const done = run(item(), { type: "validated", format: "pdf" }, { type: "created", serverId: "s1" }, { type: "progress", value: 0.5 }, { type: "uploaded" }, { type: "server", phase: "ready", slow: false, fileId: "f1" });
     expect(done).toMatchObject({ status: "ready", progress: 1, serverId: "s1", fileId: "f1" });
   });
 
   it("only moves progress forward and never past 1", () => {
-    const base = run(item(), { type: "validated" });
+    const base = run(item(), { type: "validated", format: "pdf" });
     expect(run(base, { type: "progress", value: 0.6 }, { type: "progress", value: 0.4 }).progress).toBe(0.6);
     expect(run(base, { type: "progress", value: 7 }).progress).toBe(1);
   });
@@ -28,7 +28,7 @@ describe("reduceUpload: the happy path", () => {
 
 describe("reduceUpload: pausing", () => {
   it("pauses only while uploading and resumes back to uploading", () => {
-    const uploading = run(item(), { type: "validated" });
+    const uploading = run(item(), { type: "validated", format: "pdf" });
     const paused = reduceUpload(uploading, { type: "paused" });
     expect(paused.status).toBe("paused");
     expect(reduceUpload(paused, { type: "resumed" }).status).toBe("uploading");
@@ -37,7 +37,7 @@ describe("reduceUpload: pausing", () => {
 });
 
 describe("reduceUpload: processing and failure", () => {
-  const processing = run(item(), { type: "validated" }, { type: "uploaded" });
+  const processing = run(item(), { type: "validated", format: "pdf" }, { type: "uploaded" });
 
   it("tracks the slow flag while processing", () => {
     expect(reduceUpload(processing, { type: "server", phase: "processing", slow: true }).slow).toBe(true);
@@ -53,7 +53,7 @@ describe("reduceUpload: processing and failure", () => {
     expect(reduceUpload(ready, { type: "fail", reason: "network" })).toBe(ready);
     expect(reduceUpload(ready, { type: "cancel" })).toBe(ready);
     const cancelled = reduceUpload(item(), { type: "cancel" });
-    expect(reduceUpload(cancelled, { type: "validated" })).toBe(cancelled);
+    expect(reduceUpload(cancelled, { type: "validated", format: "pdf" })).toBe(cancelled);
   });
 
   it("keeps a failure until a retry, which starts over", () => {
@@ -64,7 +64,7 @@ describe("reduceUpload: processing and failure", () => {
   });
 
   it("can be cancelled from any in-flight state", () => {
-    for (const events of [[], [{ type: "validated" }], [{ type: "validated" }, { type: "uploaded" }]] as UploadEvent[][]) {
+    for (const events of [[], [{ type: "validated", format: "pdf" }], [{ type: "validated", format: "pdf" }, { type: "uploaded" }]] as UploadEvent[][]) {
       expect(run(item(), ...events, { type: "cancel" }).status).toBe("cancelled");
     }
   });

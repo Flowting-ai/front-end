@@ -23,12 +23,7 @@ export const libraryKeys = {
   picker: (org: string, params: PickerParams) => [...libraryKeys.all(org), "picker", params] as const,
   people: (org: string, query: string) => [...libraryKeys.all(org), "people", query] as const,
   uploads: (org: string) => [...libraryKeys.all(org), "uploads"] as const,
-  prefs: (org: string) => [...libraryKeys.all(org), "prefs"] as const,
-  orgSettings: (org: string) => [...libraryKeys.all(org), "org-settings"] as const,
-  members: (org: string) => [...libraryKeys.all(org), "members"] as const,
-  myRemoval: (org: string) => [...libraryKeys.all(org), "my-removal"] as const,
   limits: (org: string) => [...libraryKeys.all(org), "limits"] as const,
-  flags: (org: string) => [...libraryKeys.all(org), "flags"] as const,
 };
 
 /** A person with no workspace (an individual account) uses one fixed key. */

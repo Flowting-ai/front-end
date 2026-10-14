@@ -5,14 +5,15 @@
 
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { libraryKeys } from "./keys";
-import type { LibraryFileDetail, LibraryFileRow, Suggested } from "./schemas";
+import type { FileRowWire, Suggested } from "./schemas";
+import type { LibraryFile, LibraryFileDetail } from "./file";
 
-type RowsPage = { items: LibraryFileRow[] };
+type RowsPage = { items: LibraryFile[] };
 export type PagedRows<P extends RowsPage = RowsPage> = InfiniteData<P, unknown>;
 
-function mapRows(rows: LibraryFileRow[], id: string, fn: (row: LibraryFileRow) => LibraryFileRow | null): LibraryFileRow[] {
+function mapRows(rows: LibraryFile[], id: string, fn: (row: LibraryFile) => LibraryFile | null): LibraryFile[] {
   let changed = false;
-  const next: LibraryFileRow[] = [];
+  const next: LibraryFile[] = [];
   for (const row of rows) {
     if (row.id !== id) {
       next.push(row);
@@ -25,7 +26,7 @@ function mapRows(rows: LibraryFileRow[], id: string, fn: (row: LibraryFileRow) =
   return changed ? next : rows;
 }
 
-function mapPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string, fn: (row: LibraryFileRow) => LibraryFileRow | null): PagedRows<P> | undefined {
+function mapPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string, fn: (row: LibraryFile) => LibraryFile | null): PagedRows<P> | undefined {
   if (!data) return data;
   let changed = false;
   const pages = data.pages.map((page) => {
@@ -37,19 +38,19 @@ function mapPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string
   return changed ? { ...data, pages } : data;
 }
 
-export function patchInPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string, patch: Partial<LibraryFileRow>): PagedRows<P> | undefined {
-  return mapPages(data, id, (row) => ({ ...row, ...patch }));
+export function patchInPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string, patch: Partial<FileRowWire>): PagedRows<P> | undefined {
+  return mapPages(data, id, (row) => row.with(patch));
 }
 
 export function removeFromPages<P extends RowsPage>(data: PagedRows<P> | undefined, id: string): PagedRows<P> | undefined {
   return mapPages(data, id, () => null);
 }
 
-export function patchInSuggested(data: Suggested | undefined, id: string, patch: Partial<LibraryFileRow>): Suggested | undefined {
+export function patchInSuggested(data: Suggested | undefined, id: string, patch: Partial<FileRowWire>): Suggested | undefined {
   if (!data) return data;
-  const recent = mapRows(data.recent, id, (row) => ({ ...row, ...patch }));
-  const frequent = mapRows(data.frequent, id, (row) => ({ ...row, ...patch }));
-  const generated = mapRows(data.generated, id, (row) => ({ ...row, ...patch }));
+  const recent = mapRows(data.recent, id, (row) => row.with(patch));
+  const frequent = mapRows(data.frequent, id, (row) => row.with(patch));
+  const generated = mapRows(data.generated, id, (row) => row.with(patch));
   return recent === data.recent && frequent === data.frequent && generated === data.generated ? data : { recent, frequent, generated };
 }
 
@@ -63,8 +64,8 @@ export function removeFromSuggested(data: Suggested | undefined, id: string): Su
 
 /**
  * The one place that writes a file change into every cache that may hold it. */
-export function patchFileEverywhere(queryClient: QueryClient, org: string, id: string, patch: Partial<LibraryFileRow>): void {
-  queryClient.setQueryData<LibraryFileDetail>(libraryKeys.detail(org, id), (detail) => (detail ? { ...detail, ...patch } : detail));
+export function patchFileEverywhere(queryClient: QueryClient, org: string, id: string, patch: Partial<FileRowWire>): void {
+  queryClient.setQueryData<LibraryFileDetail>(libraryKeys.detail(org, id), (detail) => detail?.with(patch));
   queryClient.setQueriesData<PagedRows>({ queryKey: libraryKeys.lists(org) }, (data) => patchInPages(data, id, patch));
   queryClient.setQueriesData<PagedRows>({ queryKey: [...libraryKeys.all(org), "picker"] }, (data) => patchInPages(data, id, patch));
   queryClient.setQueriesData<PagedRows>({ queryKey: libraryKeys.trash(org) }, (data) => patchInPages(data, id, patch));
@@ -79,10 +80,10 @@ export function removeFileFromLists(queryClient: QueryClient, org: string, id: s
 }
 
 /** Flattens loaded pages into one array, de-duplicated by id (a refetch between page loads can repeat a row). */
-export function flattenPages<P extends RowsPage>(data: PagedRows<P> | undefined): LibraryFileRow[] {
+export function flattenPages<P extends RowsPage>(data: PagedRows<P> | undefined): LibraryFile[] {
   if (!data) return [];
   const seen = new Set<string>();
-  const rows: LibraryFileRow[] = [];
+  const rows: LibraryFile[] = [];
   for (const page of data.pages) {
     for (const row of page.items) {
       if (seen.has(row.id)) continue;

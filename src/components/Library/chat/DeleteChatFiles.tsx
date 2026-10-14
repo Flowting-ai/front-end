@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/Checkbox'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { getLibraryApi } from '@/lib/library/api'
+import { libraryApi } from '@/lib/library/api'
 import { libraryKeys } from '@/lib/library/keys'
 import { CHAT_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { deleteChatToast, savedFilesLine, type OpenFileRef } from '@/lib/library/sources'
@@ -50,9 +50,8 @@ export function useTrashChatFiles() {
   const { orgKey } = useLibraryViewer()
   return async (ids: string[]): Promise<void> => {
     if (ids.length === 0) return
-    const api = await getLibraryApi()
     try {
-      await Promise.all(ids.map((id) => api.trashFile(id)))
+      await Promise.all(ids.map((id) => libraryApi.trashFile(id)))
     } finally {
       void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) })
     }

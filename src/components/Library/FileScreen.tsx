@@ -11,14 +11,14 @@ import { FilePageSkeleton } from './LibrarySkeletons'
 import { Tooltip } from '@/components/Tooltip'
 import { ChatInput } from '@/components/ChatInput'
 import { useAskAbout } from './useAskAbout'
-import { ONLY_OWNER_TIP, capsOf } from '@/lib/library/access'
+import { ONLY_OWNER_TIP } from '@/lib/library/access'
 import { trackLibrary } from '@/lib/library/analytics'
 import { parseCite } from '@/lib/library/cite'
 import { isGoneError, isLockedError } from '@/lib/library/errors'
-import { displayFileName, fileDocumentTitle, formatLabel } from '@/lib/library/format'
+import { fileDocumentTitle, formatLabel } from '@/lib/library/format'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { useMarkOpened } from '@/lib/library/mutations'
-import { useLibraryFile, useLibraryFlags } from '@/lib/library/queries'
+import { useLibraryFile } from '@/lib/library/queries'
 import { libraryReturnUrl } from '@/lib/library/return-to'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { EmptyState } from './EmptyState'
@@ -46,7 +46,6 @@ export function FileScreen({ id }: { id: string }) {
   const backHref = libraryReturnUrl(params.get('from'))
   const { viewerId } = useLibraryViewer()
   const detail = useLibraryFile(id)
-  const flags = useLibraryFlags()
   const markOpened = useMarkOpened()
   const { dialog, closeDialog, handle } = useFileActions()
   const [infoOpen, setInfoOpen] = useState(true)
@@ -90,7 +89,7 @@ export function FileScreen({ id }: { id: string }) {
     return (
       <LibraryShell>
         {isLockedError(detail.error) ? (
-          <LockedState fileId={id} />
+          <LockedState />
         ) : isGoneError(detail.error) ? (
           <GoneState backHref={backHref} />
         ) : (
@@ -103,10 +102,9 @@ export function FileScreen({ id }: { id: string }) {
     )
   }
 
-  const caps = capsOf(file)
-  const name = displayFileName(file)
+  const caps = file.caps
+  const name = file.name
   const trashed = file.life === 'trashed'
-  const sharingEnabled = flags.data?.sharing !== false
   const download = () => handle('download', file)
   const askAbout = (text: string) => { void ask(file, text) }
   const canAsk = !trashed && file.phase === 'ready'
@@ -155,7 +153,6 @@ export function FileScreen({ id }: { id: string }) {
           <RowMenu
             file={file}
             onAction={handle}
-            sharingEnabled={sharingEnabled}
             withOpen={false}
             placement="bottom-start"
             // Styled like the chat name in the chat top bar, plus a down arrow: it opens the file's menu.
@@ -169,10 +166,10 @@ export function FileScreen({ id }: { id: string }) {
           <span className={styles.end}>
             <IconButton variant="secondary" aria-label="Download" title="Download" icon={<DownloadOneIcon size={18} />} onClick={download} />
             {!trashed && (
-              caps.share && sharingEnabled ? (
+              caps.share ? (
                 <Button variant="secondary" leftIcon={<ShareOneIcon size={16} />} onClick={() => handle('share', file)}>Share</Button>
               ) : (
-                <Tooltip content={!sharingEnabled ? MESSAGES.sharingOff : ONLY_OWNER_TIP}>
+                <Tooltip content={ONLY_OWNER_TIP}>
                   <span>
                     <Button variant="secondary" leftIcon={<ShareOneIcon size={16} />} disabled>Share</Button>
                   </span>

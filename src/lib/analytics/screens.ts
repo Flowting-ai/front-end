@@ -22,8 +22,6 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
       return "settings_help";
     case "files":
       return "settings_files";
-    case "library":
-      return "settings_library";
     case "preferences":
       return "settings_preferences";
     case "notifications":
@@ -33,7 +31,6 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
     // Moved from /org/* (Souvenir V1.5) — same concept, new path. Keeping the
     // established "org_manage" name per this file's own convention (redesigns
     // keep the name, re-point the mapping) rather than minting new ones.
-    case "workspace-library":
     case "general":
     case "members":
     case "teams":

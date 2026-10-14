@@ -3,15 +3,16 @@
 // hidden; Frequently used skips files already shown in Recent.
 
 import { MESSAGES } from "./messages";
-import type { LibraryFileRow, Suggested } from "./schemas";
+import type { Suggested } from "./schemas";
+import type { LibraryFile } from "./file";
 
 export const RECENT_LIMIT = 5;
 export const TILE_LIMIT = 3;
 
 export type SuggestedView = {
-  recent: LibraryFileRow[];
-  frequent: LibraryFileRow[];
-  generated: LibraryFileRow[];
+  recent: LibraryFile[];
+  frequent: LibraryFile[];
+  generated: LibraryFile[];
 };
 
 export function selectSuggested(data: Suggested): SuggestedView {
@@ -29,7 +30,7 @@ export function selectSuggested(data: Suggested): SuggestedView {
  * sales report" under Generated (empty for a file a chat made). Falls back to `fallback` when the
  * server did not send the count.
  */
-export function tileLine(row: "frequent" | "generated", file: LibraryFileRow, fallback: string): string {
+export function tileLine(row: "frequent" | "generated", file: LibraryFile, fallback: string): string {
   if (row === "frequent") return file.openCount !== undefined ? MESSAGES.openedTimes(file.openCount) : fallback;
   return file.generatedFrom?.kind === "routine" && file.generatedFrom.label ? MESSAGES.runOf(file.generatedFrom.label) : "";
 }
