@@ -31,10 +31,10 @@ export function OrgStamps() {
   // org_tier can transiently default to "teams" before the plan fetch settles — wait
   // for orgPlanSettled so we never mis-stamp an enterprise org as teams.
   useEffect(() => {
-    if (!orgId || !orgPlanSettled) return;
+    if (!orgId || !orgPlanSettled || !org) return;
     const tier: OrgTier = org.plan;
     registerStamps({ [STAMP.orgTier]: tier });
-  }, [orgId, orgPlanSettled, org.plan]);
+  }, [orgId, orgPlanSettled, org?.plan]);
 
   return null;
 }

@@ -44,23 +44,28 @@ org members carry `org_id`+`org_tier` (and blank `plan`). `surface:"web"` on eve
 ---
 
 ## 2. Layer 1 — screen views ✅
-`screen_viewed { screen }` fires automatically on every client-side navigation via
-`MixpanelProvider` + `routeToScreen()`. No per-page wiring needed.
+`screen_viewed { screen, tab? }` fires automatically on every client-side navigation via
+`MixpanelProvider` + `routeToScreenView()`. No per-page wiring needed. `tab` is set only for
+`org_manage`, the concept several pages share: the page segment (`general`, `members`,
+`plans-and-billing`, `analytics`, `activity`, `workspace-library`, `connectors`,
+`souvenir-slack`). `/template/[uuid]` is `template_view`. Compare is a modal (no route) and
+schedules stay `brain`.
 
 ## 3. Layer 4 + Layer 3 — event call sites wired this pass
 
-Every property below is IDs / enums / booleans only — **no free text** (message content,
+Property shapes are typed per event in `BrowserEventPropMap` (`lib/analytics/events.ts`); keep that map and this table in step. Every property below is IDs / enums / booleans only — **no free text** (message content,
 titles, names, filenames, prompt text are all excluded by design).
 
 | Event | Type | File | Trigger | Properties |
 |---|---|---|---|---|
-| `chat_message_sent` | L3 | `components/chat/ChatInterface.tsx` (`handleSend`) | message sent | `has_agent`, `model_pick`, `model_id?`, `web_search`, `reasoning`, `attachment_count`, `pin_count` |
+| `chat_message_sent` | L3 | `components/chat/ChatInterface.tsx` (`handleSend`) | message sent | `has_agent`, `model_pick`, `model_id?`, `web_search?`, `reasoning?`, `attachment_count`, `pin_count`, `queued?` (sent from the message queue) |
 | `regenerate` | L4 | `components/chat/ChatInterface.tsx` (`handleRegenerate`) | regenerate response | `model_pick`, `model_id?`, `reasoning` |
 | `model_selector_manual` | L4 | `components/chat/PresetModelSelectorDialog.tsx` | pick a model by hand | `model_id`, `model_type` |
 | `effort_level_changed` | L4 | `components/chat/ModelMenu.tsx` | pick a thinking effort | `effort` (`off`/`low`/`medium`/`high`) |
 | `voice_input` | L4 | `components/chat/ChatInput.tsx` (`startRecording`) | start mic dictation | — |
 | `search` | L4 | `context/search-context.tsx` (`openSearch` + ⌘K) | open global search | — |
-| `output_viewed` | L4 | `templates/Brain/ExternalOutputCard.tsx` | click "View" on a run output | `connector`, `verb` |
+| `search_result_opened` | L4 | `components/GlobalSearchModal/SearchData.tsx` (`handleSelect`) | open a global search result | `result_type` (chat, agent-chat, project, persona, pin, page), `had_query` |
+| `output_viewed` | L4 | — (its component, Brain `ExternalOutputCard`, was removed) | not wired | `connector`, `verb` |
 | `document_download` | L4 | `components/chat/ChatMessage.tsx` | download an attachment | `file_ext` |
 | `compare_models` | L4 | `context/compare-context.tsx` (`open`) | open compare panel | — |
 | `pin_created` | L3 | `components/chat/ChatMessage.tsx`; `components/compare/CompareModels.tsx` | pin a message | `source` (`chat`/`brain`) |
@@ -77,14 +82,54 @@ titles, names, filenames, prompt text are all excluded by design).
 | `project_created` | L3 | `context/projects-context.tsx` (`createProject`) | new project | `team_shared` |
 | `project_instructions_added` | L4 | `context/projects-context.tsx` (`updateProject`) | save project instructions | `has_instructions` |
 | `project_agent_attached` | L4 | `app/(app)/project/[id]/page.tsx` | attach an agent in a project | `persona_id` |
-| `team_member_invited` | L3 | `app/(app)/org/teams/[teamId]/page.tsx` (`handleInvite`) | send invites | `role`, `count` |
+| `project_deleted` | L3 | `lib/api/projects.ts` (`deleteProjectApi`) | project deleted (after server success) | — |
+| `project_left` | L3 | `lib/api/projects.ts` (`leaveProjectApi`) | leave a project | `as_owner`, `alone_action?` |
+| `project_member_added` | L3 | `lib/api/projects.ts` (`inviteProjectMember(s)`) | members added to a shared project | `count` |
+| `chat_moved_to_project` | L3 | `lib/api/projects.ts` (`addChatToProject`) | chat moved/added to a project | — |
+| `team_member_invited` | L3 | `lib/api/teams.ts` (`inviteMembers`) | invites sent (members page, onboarding) | `role`, `count`, `from_project` |
+| `org_invite_revoked` | L3 | `lib/api/organization.ts` (`revokeInvite`) | a pending invite was revoked | — |
+| `org_member_removed` | L3 | `lib/api/organization.ts` (`removeMember`) | an admin removed a member | — |
+| `org_left` | L3 | `lib/api/organization.ts` (`leaveOrganization`) | the user left the workspace | `with_successor` |
+| `org_deleted` | L3 | `lib/api/organization.ts` (`deleteOrg`) | an admin deleted the workspace | — |
 | `share_created` | L3 | `lib/api/chat-shares.ts` (`createChatShare`) | share a chat/project | `kind` (`user`/`team`/`project`/`link`) |
-| `permission_level_changed` | L4 | `app/(app)/org/teams/[teamId]/page.tsx` | add/remove editor | `role_changed_to` |
+| `share_preview_viewed` | L4 | `app/(app)/share/[id]/page.tsx` | an agent share preview loaded | `kind` (`agent`) |
+| `share_expired_seen` | L4 | `app/(app)/share/[id]/page.tsx` | the preview or accept answered 410 | `kind` (`agent`) |
+| `share_accepted` | L3 | `app/(app)/share/[id]/page.tsx` | the recipient accepted an agent share | `kind` (`agent`) |
+| `share_forked` | L3 | `lib/api/chat-shares.ts` (`forkChatShare`) | the recipient forked a shared chat | `kind` (`chat`) |
+| `share_revoked` | L3 | `lib/api/persona-shares.ts` (`revokeShare`), `lib/api/chat-shares.ts` (`deleteChatShare`) | the sender revoked a share | `kind` (`agent`/`chat`) |
+| `permission_level_changed` | L4 | `lib/api/organization.ts` (`setMemberRole`) | org role changed | `role_changed_to` |
 | `signup_completed` | L3 | `app/(onboarding)/onboarding/import/page.tsx` | onboarding completes | `account_type?`, `invited_by_org` |
 | `onboarding_step_completed` | L3 | `app/(onboarding)/onboarding/import/page.tsx` | 🟡 completion step only | `step` |
-| `checkout_started` | L3 | `app/(app)/settings/billing/change-plan/page.tsx` | open Stripe checkout (3 paths) | `from_plan?`, `to_plan` |
-| `schedule_created` | L4 | `templates/Brain/ScheduleEditModal.tsx` | save a schedule | `frequency_type` |
+| `checkout_started` | L3 | `app/(standalone)/org/change-plan/page.tsx`, `app/(onboarding)/onboarding/plans/page.tsx` | open Stripe checkout / upgrade in place | `from_plan?`, `to_plan`, `source?` |
+| `checkout_failed` | L3 | same, plus `settings/(shell)/plans-and-billing/page.tsx` (enterprise setup) | creating a checkout/setup session failed | `from_plan?`, `to_plan`, `source?` |
+| `checkout_confirmed` | L3 | `settings/(shell)/plans-and-billing/page.tsx` | after a Stripe return, the poll saw the plan/credits change | `source` |
+| `subscription_canceled` | L3 | `settings/(shell)/plans-and-billing/page.tsx` | cancel at period end succeeded | — |
+| `subscription_resumed` | L3 | `settings/(shell)/plans-and-billing/page.tsx` | resume succeeded | — |
+| `billing_portal_opened` | L4 | `settings/(shell)/plans-and-billing/page.tsx` | Stripe portal session opened | — |
+| `prompt_enhance_outcome` | L4 | `components/EnhancePromptField/index.tsx` | an Enhance session ends or changes path (`applied`, `discarded`, `closed`, `credits_exhausted`), or falls back (`fallback_local`, `timeout`) | `outcome`, `source` (`backend`/`local`), `latency` (bucket), `questions_answered` |
+| `trial_claimed` | L3 | `settings/(shell)/plans-and-billing/page.tsx` | free trial credits claimed | — |
+| `schedule_created` | L4 | `templates/Schedules/ScheduleEditModal.tsx` | save a schedule | `frequency_type` |
 | `settings_help_opened` | L4 | `app/(app)/settings/(shell)/help/page.tsx` | open Help page | — |
+| `profile_updated` | L3 | `app/(app)/settings/(shell)/account/page.tsx` (`handleSave`) | save name/avatar (after the PATCH succeeds) | `name_changed`, `avatar_changed` |
+| `tone_changed` | L3 | `app/(app)/settings/(shell)/account/page.tsx` (`handleToneChange`) | pick a response style | `tone` (lowercase enum) |
+| `theme_changed` | L3 | `app/(app)/settings/(shell)/account/page.tsx` | pick Light/Dark/System (theming on) | `mode` |
+| `model_toggled_off` | L3 | `lib/api/models.ts` (`toggleBlockModel`) | a model becomes blocked | `model_id` |
+| `model_toggled_on` | L3 | `lib/api/models.ts` (`toggleBlockModel`) | a blocked model is enabled again | `model_id` |
+| `model_selected` | L3 | `hooks/use-model-selection.ts` (`selectModel`) | the stored chat-model selection changes by a user pick, from any picker (`model_selector_manual` is the preset dialog only) | `model_id` |
+| `auth_refresh_failed` | L3 | `lib/api/client.ts` (`apiFetch`) | a 401 the token refresh could not recover (counted even when sign-out is suppressed during onboarding/checkout) | `suppressed` |
+| `auth_session_expired` | L3 | `context/auth-context.tsx` | the app signs the user out because the session expired | — |
+| `model_fallback` | L3 | `hooks/use-model-selection.ts` | a saved model was retired or blocked and replaced automatically | `from_model_id`, `to_model_id` |
+| `credit_cap_set` | L3 | `lib/api/plan.ts` (`Plan.setBudget`) | Enterprise budget set or lifted | `has_cap` |
+| `connector_connect_attempted` | L3 | `lib/api/connectors.ts` (`initiateLink`) | connect started (OAuth/form may still be abandoned) | `connector` (slug) |
+| `connector_connected` | L3 | `lib/useConnectorSetupFlow.ts` (`finish`) | the new or re-authorized account showed up | `connector` (slug), `reconnect`, `shared` |
+| `connector_connect_failed` | L3 | `lib/useConnectorSetupFlow.ts` | connect ended in an error | `connector` (slug), `reason` (timeout, popup_blocked, access_denied, not_configured, server, network, unknown) |
+| `connector_connect_cancelled` | L3 | `lib/useConnectorSetupFlow.ts` | the sign-in window was closed without linking | `connector` (slug) |
+| `connector_unlinked` | L3 | `lib/api/connectors.ts` (`unlinkAccount`) | an account was removed | — |
+| `connector_share_changed` | L3 | `lib/api/connectors.ts` (`updateAccount`) | an account's sharing was set | `shared` |
+| `share_button` | L4 | `components/chat/ChatShareOverlay.tsx` | click Share on a chat | `surface` |
+| `context_panel_opened` | L4 | `components/layout/FloatingPanel.tsx` | open the Context panel | — |
+
+Coverage is enforced by `src/lib/analytics/coverage.test.ts`: every declared name needs a call site or an entry, with a reason, in its `NOT_YET_WIRED` list.
 
 **Design choices worth noting:**
 - `agent_published` / `agent_edited` / `agent_shared` and `project_created` / `project_instructions_added` / `share_created` were wired at their **API/context choke points** — one edit covers every UI entry point and avoids duplicate call sites.

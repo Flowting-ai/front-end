@@ -10,6 +10,7 @@ import { TimeField } from '@/components/TimeField'
 import Tabs from '@/components/Tabs'
 import { springs } from '@/lib/springs'
 import { trackFeature } from '@/lib/analytics/events'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,9 @@ export function ScheduleEditModal({
   const [tzSearch,     setTzSearch]     = useState('')
 
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const cardRef      = useRef<HTMLDivElement>(null)
+  // Keeps Tab inside the card; Esc is handled by the listener below.
+  useFocusTrap(cardRef, isOpen)
 
   // Reset form when modal opens/schedule changes
   useEffect(() => {
@@ -275,6 +279,7 @@ export function ScheduleEditModal({
         >
           <m.div
             key="schedule-edit-card"
+            ref={cardRef}
             role="dialog"
             aria-modal="true"
             aria-label={isCreate ? 'New schedule' : 'Edit schedule'}

@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useId, useRef } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { springs } from '@/lib/springs'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,10 @@ export function ScheduleDeleteModal({
   onClose,
   deleting = false,
 }: ScheduleDeleteModalProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  // Tab stays inside the card; Esc closes it unless a delete is in flight.
+  useFocusTrap(cardRef, isOpen, () => { if (!deleting) onClose() })
 
   return (
     <AnimatePresence initial={false}>
@@ -50,6 +55,11 @@ export function ScheduleDeleteModal({
         >
           <m.div
             key="schedule-delete-card"
+            ref={cardRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-busy={deleting}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
             exit={{    opacity: 0, scale: 0.96, y: 8 }}
@@ -68,7 +78,7 @@ export function ScheduleDeleteModal({
             }}
           >
             {/* Header */}
-            <span style={{
+            <span id={titleId} style={{
               fontFamily: 'var(--font-body)',
               fontSize:   'var(--font-size-body-lg)',
               fontWeight: 'var(--font-weight-semibold)',

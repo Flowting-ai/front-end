@@ -1,5 +1,25 @@
 # Templates Feature: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 and Phase 2 done** (item 3 decided against, see below). Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Both fetches have `AbortSignal.timeout(15s)`. The page reports a timeout state; the route returns 504. `upstream.json()` is in try/catch, so invalid JSON becomes the error state instead of a throw.
+> 2. The HTML route no longer forwards backend error bodies. It returns fixed `{ error: { code, message } }` responses (403/404/410 kept, others 502, timeout 504; `TEMPLATE_ROUTE_ERRORS`) and logs the uuid, status and the first 500 characters of the body on the server.
+> 3. Added `loading.tsx` (header skeleton) and `not-found.tsx`. An invalid uuid and a backend 404 now call `notFound()`; `(app)/error.tsx` covers throws.
+> 4. Pure logic moved to `lib/templates/template-view.ts`: schema, `loadTemplate` (fetch is injectable), status mapping, `decodeEntities` (out-of-range code points like `&#x110000;` are now left as written instead of throwing `RangeError`), `formatBytes`, `formatBuilt` (returns a fallback for an invalid date).
+> 5. Tests: 16 in `lib/templates/template-view.test.ts` and 8 in `app/api/template/[uuid]/route.test.ts`, covering 400, 401, the sandbox CSP, nosniff and no-store headers, 403/404/410/500 mapping without body leakage, 504 and 502.
+> 6. `TemplateNotice` (now a separate file) has `role="status"`, or `role="alert"` for timeout and error. Its heading is an `h1`.
+> 7. (Phase 2.1) The page uses `BACKEND_BASE` and `getSessionToken` from `lib/server/backend.ts` instead of its own copies. `RouteErrorCode` gained `timeout`.
+>
+> Open: Phase 3 (analytics event, TTFB budget, size cap and rate limit, `features.md` correction).
+>
+> Phase 2 (Oct 14 2026):
+> - 2.2: new shared `components/RouteState` (heading, body, actions, `status`/`alert` role; Tailwind with design tokens, server-safe). `TemplateNotice` is now a thin wrapper over it, and `ScheduleRouteStates` and `ProjectNotFound` use it too. The template header, frame and `loading.tsx` moved from inline styles to Tailwind classes; `--legacy-1a1916` is replaced by `--neutral-900` (a slightly warmer near-black, same in dark mode).
+> - 2.3: decided against. The not-found / no-access / revoked / timeout states replace the frame, so metadata has to be known before the frame renders; loading the HTML in parallel would fetch (and show) an error body behind the notice. The metadata call is one small request with a timeout. Recorded in the page comment.
+> - 2.4: decided and documented in the page comment and the route: `sandbox="allow-scripts allow-popups allow-forms"` with no `allow-same-origin` (opaque origin) and no `allow-popups-to-escape-sandbox` (popups inherit the sandbox); the route's CSP mirrors it and `next.config.ts` relaxes framing only for `/api/template`.
+>
+> Backend gaps: (a) the title is stored with HTML entities still in it; the backend should unescape it when it extracts `<title>`, so the frontend decoder can go. (b) Rate limiting and a size cap for `/templates/{id}/html` belong on the backend.
+
 Correction to `features.md`: the `template` route is not "reusable chat/prompt templates". It serves **stored, model-written HTML pages** (dashboards, reports) that people share by link (often from Slack). The folder `src/templates` is unrelated: it holds Schedules and SuperLinks UI. Agent/chat "template cards" (`agents/templates`, `TemplateCardList`) are separate features.
 
 Scope: `app/(app)/template/[uuid]/page.tsx` (229 lines), `app/api/template/[uuid]/route.ts` (72 lines), the `/api/template` header override in `next.config.ts`.

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -8,12 +9,11 @@ import { ArrowUpRightOneIcon, LinkSixIcon, PlusSignIcon, SearchOneIcon, SourceCo
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
-import { SetupModal } from '@/components/connectors/SetupModal'
+import { SetupModal } from '@/components/connectors/lazy'
 import { useOrg } from '@/context/org-context'
-import { bustConnectorCatalogCache, getConnector, type ConnectorCatalog } from '@/lib/api/connectors'
-import {
-  cachedFeaturedApps, cachedSearch, featuredIsStale, invalidateConnectApps, loadFeaturedApps, searchApps,
-} from '@/lib/connect-apps-cache'
+import { bustConnectorCatalogCache, type ConnectorCatalog } from '@/lib/api/connectors'
+import { appSearchQuery, connectorDetailQuery, featuredAppsQuery } from '@/lib/connectors/connector-queries'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import styles from './ChatHome.module.css'
 
@@ -38,37 +38,24 @@ function AppRowsSkeleton() {
 export function ConnectAppMenu() {
   const router = useRouter()
   const { orgId } = useOrg()
-  // First render reads the module cache only (empty on the server → no hydration mismatch); the
-  // effect below fills it and refreshes in the background when stale.
-  const [featuredRows, setFeaturedRows] = useState<ConnectorCatalog[] | null>(() => cachedFeaturedApps())
+  const queryClient = useQueryClient()
+  // Featured apps by slug (warmed from the app shell) and typed backend search,
+  // both React Query: cached, deduplicated, refreshed in the background when stale.
+  const featuredQ = useQuery(featuredAppsQuery())
+  // A failed first load shows an empty list instead of skeletons forever.
+  const featuredRows: ConnectorCatalog[] | null = featuredQ.data ?? (featuredQ.isError ? [] : null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [searched, setSearched] = useState<{ q: string; rows: ConnectorCatalog[] } | null>(null)
   const [setupFor, setSetupFor] = useState<ConnectorCatalog | null>(null)
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const hit = cachedFeaturedApps()
-    if (!hit || featuredIsStale()) {
-      void loadFeaturedApps().then(rows => { if (!cancelled) setFeaturedRows(rows) }).catch(() => { if (!cancelled) setFeaturedRows(prev => prev ?? []) })
-    }
-    return () => { cancelled = true }
-  }, [])
-
   // Typed search goes to the backend (8 results), debounced; a repeated query is served from cache.
   const q = query.trim()
-  useEffect(() => {
-    if (!q || cachedSearch(q)) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      void searchApps(q)
-        .then(rows => { if (!cancelled) setSearched({ q, rows }) })
-        .catch(() => { if (!cancelled) setSearched({ q, rows: [] }) })
-    }, SEARCH_DEBOUNCE_MS)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [q])
-  const results = !q ? null : (cachedSearch(q) ?? (searched?.q === q ? searched.rows : null))
+  const debouncedQ = useDebouncedValue(q, SEARCH_DEBOUNCE_MS)
+  const searchQ = useQuery(appSearchQuery(debouncedQ))
+  // A query already searched shows at once, without waiting for the debounce.
+  const cachedNow = q ? queryClient.getQueryData<ConnectorCatalog[]>(appSearchQuery(q).queryKey) : undefined
+  const results = !q ? null : (cachedNow ?? (debouncedQ === q ? (searchQ.data ?? (searchQ.isError ? [] : null)) : null))
 
   const stack = TRIGGER_STACK
     .map(slug => (featuredRows ?? []).find(row => row.slug === slug))
@@ -91,7 +78,7 @@ export function ConnectAppMenu() {
       return
     }
     setPendingSlug(row.slug)
-    void getConnector(row.slug)
+    void queryClient.fetchQuery(connectorDetailQuery(row.slug))
       .then(detail => {
         changeOpen(false)
         setSetupFor(detail)
@@ -102,9 +89,8 @@ export function ConnectAppMenu() {
 
   function connected() {
     setSetupFor(null)
+    // Refetches featured (new linked tick), search results and every connector list.
     bustConnectorCatalogCache()
-    invalidateConnectApps()
-    void loadFeaturedApps().then(setFeaturedRows).catch(() => {})
   }
 
   return (

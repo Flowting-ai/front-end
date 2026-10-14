@@ -7,6 +7,7 @@ import {
   clearInMemoryAccessToken,
   setInMemoryAccessToken,
   isTokenExpiringSoon,
+  msUntilTokenRefresh,
   decodeJwtSub,
   getInMemoryAccessToken,
 } from "@/lib/jwt-utils";
@@ -22,6 +23,12 @@ import { formatCredits } from "@/lib/plan-config";
 import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
 import { AUTH_LOGIN_ROUTE, AUTH_LOGOUT_ROUTE } from "@/lib/routes";
+import { clearOrgIdCache, clearSearchRecents } from "@/lib/storage-keys";
+import { getQueryClient } from "@/lib/query-client";
+import { clearUserScopedCache } from "@/lib/query-invalidation";
+import { queryKeys } from "@/lib/query-keys";
+import { trackBrowserEvent } from "@/lib/analytics/events";
+import { clearSelection } from "@/lib/models/model-selection-store";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -204,6 +211,15 @@ function mapProfileToUser(profile: UserProfile, jwtToken: string | null): AuthUs
   };
 }
 
+const AUTH_CHANNEL = "souvenir-auth";
+
+function broadcastLogout(): void {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel(AUTH_CHANNEL);
+  channel.postMessage({ type: "logout" });
+  channel.close();
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -239,24 +255,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Proactive token refresh every 30s
+  // Proactive refresh: one timer set for when the token enters its expiry
+  // buffer, re-armed by each new token. Background tabs throttle timers, so a
+  // tab coming back into view also checks. Requests still refresh on demand
+  // through ensureFreshToken.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const timer = setInterval(async () => {
-      if (isTokenExpiringSoon()) {
-        const token = await getAuth0AccessToken();
-        setJwtToken(token);
-      }
-    }, 30_000);
-    return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (typeof window === "undefined" || !jwtToken) return;
+    const refresh = async () => {
+      if (isTokenExpiringSoon()) setJwtToken(await getAuth0AccessToken());
+    };
+    const timer = setTimeout(refresh, msUntilTokenRefresh());
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [jwtToken]);
 
   const clearAuth = () => {
     setUser(null);
     setJwtTokenState(null);
     clearInMemoryAccessToken();
     currentUser.clear();
+    clearOrgIdCache();
+    clearSearchRecents();
+    clearSelection();
+    clearUserScopedCache(getQueryClient());
   };
 
   // Stable reference across renders — setUser (from useState) and the module-level
@@ -278,6 +305,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
+    // Other tabs share the cleared session cookie but still hold a token in
+    // memory, so tell them to sign out too.
+    broadcastLogout();
     // Pass an explicit, slash-free returnTo. The Auth0 SDK (v4) catch-all at
     // /auth/logout otherwise defaults post_logout_redirect_uri to APP_BASE_URL,
     // which carries a trailing slash ("http://localhost:3000/") that Auth0
@@ -290,27 +320,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for session-expired events
   useEffect(() => {
-    const handleExpired = () => void logout();
+    const handleExpired = () => {
+      trackBrowserEvent("auth_session_expired", {});
+      void logout();
+    };
     window.addEventListener("auth:session-expired", handleExpired);
     return () => window.removeEventListener("auth:session-expired", handleExpired);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh the profile whenever the credit balance changes (e.g. after a
-  // topup). Lets balances update app-wide — chat gate, banners, sidebar — with
-  // no manual page reload. Event name kept in sync with use-credit-status.ts.
+  // A logout in another tab: drop this tab's token and go to login. Not
+  // logout() again: the IdP session is already gone.
   useEffect(() => {
-    const handleCreditsUpdated = () => void refreshUser();
-    window.addEventListener("credits:updated", handleCreditsUpdated);
-    return () => window.removeEventListener("credits:updated", handleCreditsUpdated);
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(AUTH_CHANNEL);
+    channel.onmessage = (event: MessageEvent) => {
+      if (event.data?.type !== "logout") return;
+      clearAuth();
+      window.location.href = AUTH_LOGIN_ROUTE;
+    };
+    return () => channel.close();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Follow the ["me"] query: any successful profile fetch — refreshUser(), a
+  // credits invalidation after a top-up (here or in another tab), the settings
+  // save — updates the signed-in user app-wide (chat gate, banners, sidebar)
+  // with no manual page reload.
+  useEffect(() => {
+    const meKey = JSON.stringify(queryKeys.me());
+    return getQueryClient().getQueryCache().subscribe(event => {
+      if (event.type !== "updated" || event.action.type !== "success") return;
+      if (JSON.stringify(event.query.queryKey) !== meKey) return;
+      const profile = event.query.state.data as UserProfile | null | undefined;
+      if (profile) setUser(mapProfileToUser(profile, getInMemoryAccessToken()));
+    });
   }, []);
 
   // Fetch user profile once after hydration.
   //
   // Deps: [isHydrated] only — jwtToken is intentionally NOT a dep.
-  // Including jwtToken would re-fire this on every 30 s token refresh, sending
-  // a GET /users/me every half-minute.  isHydrated flips exactly once (false →
+  // Including jwtToken would re-fire this on every token refresh, sending
+  // a GET /users/me each time.  isHydrated flips exactly once (false →
   // true) and jwtToken is already set in the same React batch (see hydrate()),
   // so the token is always available when this effect runs.
   // Explicit re-fetches go through refreshUser().
@@ -353,4 +404,14 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+/**
+ * Auth is settled enough to fetch: hydrated and holding an access token.
+ * Gate authenticated requests (and show a skeleton until then) with this
+ * instead of re-deriving `isHydrated && !!jwtToken` per page.
+ */
+export function useAuthReady(): boolean {
+  const { isHydrated, jwtToken } = useAuth();
+  return isHydrated && !!jwtToken;
 }

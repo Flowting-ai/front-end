@@ -29,6 +29,7 @@ import { XmlMap } from "@/components/chat/XmlMap"
 import { XmlSteps } from "@/components/chat/XmlSteps"
 import { XmlCallout } from "@/components/chat/XmlCallout"
 import { XmlTags } from "@/components/chat/XmlTags"
+import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary"
 import { WidgetReveal, WidgetSkeleton } from "@/components/chat/WidgetSkeleton"
 import type { WebCitation } from "@/types/chat"
 
@@ -157,7 +158,7 @@ export function ContentRenderer({
       default:
         return (
           <WidgetReveal key={i} animate={isStreaming}>
-            {renderWidget(seg, isStreaming)}
+            <BlockErrorBoundary label={seg.type}>{renderWidget(seg, isStreaming)}</BlockErrorBoundary>
           </WidgetReveal>
         )
     }

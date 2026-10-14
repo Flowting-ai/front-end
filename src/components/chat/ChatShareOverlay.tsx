@@ -12,6 +12,7 @@ import { copyChat } from '@/lib/api/chat'
 import { createChatShare, listChatShares, deleteChatShare, type ChatShare } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
+import { trackFeature } from '@/lib/analytics/events'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
@@ -185,7 +186,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
             size="sm"
             aria-label="Share chat"
             leftIcon={<ShareOneIcon animated />}
-            onClick={handleOpenChatShare}
+            onClick={() => { trackFeature('share_button', { surface: 'chat' }); handleOpenChatShare() }}
           >
             Share
           </Button>

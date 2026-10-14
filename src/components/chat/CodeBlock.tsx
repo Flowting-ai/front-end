@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useSyncExternalStore } from "react
 import { Copy, Check } from "lucide-react";
 import { MermaidDiagram } from "@/components/chat/MermaidDiagram";
 import { DiffBlock } from "@/components/chat/DiffBlock";
+import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary";
 import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
 import { hasRawRange } from "@/lib/highlight-offsets";
 import type { HighlightSpec } from "@/lib/markdown-utils";
@@ -81,8 +82,8 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: 
 export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
   // ```mermaid and ```diff fences are widgets, not code — every markdown path
   // (chat, line renderer) funnels through here, so this is the one hook point.
-  if (language === "mermaid") return <MermaidDiagram code={value} />;
-  if (language === "diff") return <DiffBlock code={value} />;
+  if (language === "mermaid") return <BlockErrorBoundary label="diagram"><MermaidDiagram code={value} /></BlockErrorBoundary>;
+  if (language === "diff") return <BlockErrorBoundary label="diff"><DiffBlock code={value} /></BlockErrorBoundary>;
 
   return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} />;
 }
@@ -233,6 +234,8 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
+            // hljs HTML-escapes all source text (guarded by lib/highlight-escape.test.ts);
+            // applyMarksToHtml only adds <mark> elements via DOM APIs.
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />

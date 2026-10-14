@@ -7,7 +7,8 @@
 // worse than saying nothing. A shared account is warned about instead, since
 // removing it takes it away from everyone.
 
-import React from 'react'
+import React, { useRef } from 'react'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Button } from '@/components/ui/button'
 import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
@@ -28,11 +29,16 @@ export function RemoveModal({
   cancel: () => void
   confirm: () => void
 }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  // Tab stays inside; Esc cancels unless the removal is in flight.
+  useFocusTrap(panelRef, true, () => { if (!busy) cancel() })
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={cancel}>
       <div
-        role="dialog"
+        ref={panelRef}
+        role="alertdialog"
         aria-modal="true"
+        aria-busy={busy}
         aria-label={`Remove ${account.nickname} (${account.email})?`}
         onClick={e => e.stopPropagation()}
         style={{ ...panel, width: '100%', maxWidth: 480, padding: SPACE.xxl, boxShadow: '0 24px 72px rgba(30,28,27,.28)' }}

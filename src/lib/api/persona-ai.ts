@@ -3,6 +3,7 @@
 import { apiFetchJson } from "./client";
 import { enhancePromptSchema, personaStarterSchema, type EnhancePromptResponse, type PersonaStarterResponse } from "./persona-schemas";
 import { PERSONA_ENHANCE_ENDPOINT, PERSONA_STARTER_ENDPOINT } from "@/lib/config";
+import { enhanceAnswersSchema } from "@/lib/enhance/enhance-request";
 
 export interface PersonaStarterRequest {
   name: string;
@@ -39,10 +40,16 @@ export interface EnhanceAnswerRequest {
  * Earlier answers are sent back as `{ question, answer }` pairs and folded into the
  * next enhancement. Nothing is saved.
  */
-export async function enhancePrompt(prompt: string, answers: EnhanceAnswerRequest[] = []): Promise<EnhancePromptResponse> {
+export async function enhancePrompt(
+  prompt: string,
+  answers: EnhanceAnswerRequest[] = [],
+  options: { signal?: AbortSignal } = {},
+): Promise<EnhancePromptResponse> {
   return enhancePromptSchema.parse(await apiFetchJson<unknown>(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ prompt, answers }),
+    // Validated against ENHANCE_LIMITS (the backend sets none).
+    body: JSON.stringify({ prompt, answers: enhanceAnswersSchema.parse(answers) }),
+    signal: options.signal,
   }));
 }
 

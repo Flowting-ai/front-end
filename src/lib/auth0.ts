@@ -1,5 +1,6 @@
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 const audience = process.env.AUTH0_AUDIENCE?.trim();
 const scope = process.env.AUTH0_SCOPE?.trim() || "openid profile email offline_access";
@@ -17,6 +18,8 @@ export const auth0 = new Auth0Client({
   onCallback: async (error, ctx) => {
     const baseUrl = process.env.APP_BASE_URL!;
     if (error) {
+      // Countable, redacted line in the log drain; the code only, never the user.
+      logger.event("auth_login_failed", { code: (error as { code?: string }).code ?? error.name });
       // Preserve the intended destination across the retry. ctx.returnTo is
       // populated from transaction state even on an error callback (it's a
       // plain optional field on OnCallbackContext, not gated on success) —

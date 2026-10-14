@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useId, useMemo, useRef, useState } from 'react'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
@@ -9,6 +9,7 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { leaveOrganization } from '@/lib/api/organization'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 
 // Same hand-rolled overlay shape as ConfirmModal — this one needs its own
 // component (not ConfirmModal) because the last-admin case adds a required
@@ -25,6 +26,12 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [successorMenuOpen, setSuccessorMenuOpen] = useState(false)
   const [successorId, setSuccessorId] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const descId = useId()
+  // Tab stays inside; Esc closes unless leaving is in flight or the
+  // successor menu is open (Esc closes that menu first).
+  useFocusTrap(panelRef, true, () => { if (!submitting && !successorMenuOpen) onClose() })
 
   // Owner folds into admin for this count too — same fold used everywhere
   // else this session (organization.ts's foldOwnerRole, members/page.tsx's
@@ -73,6 +80,12 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
     >
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        aria-busy={submitting}
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',
@@ -80,10 +93,10 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
         }}
       >
         <div>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+          <h2 id={titleId} style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
             Leave workspace?
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+          </h2>
+          <p id={descId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
             {membersLoading
               ? 'Checking workspace admins…'
               : isLastAdmin

@@ -1,11 +1,12 @@
 'use client'
 
-import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
+import React, { Suspense, useDeferredValue, useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
+import { canProject } from '@/lib/projects/project-permissions'
 import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
@@ -14,9 +15,9 @@ import { Button, IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
-import { EditProjectModal } from '@/components/EditProjectModal'
-import { LeaveProjectModal } from '@/components/LeaveProjectModal'
-import { DeleteProjectModal } from '@/components/DeleteProjectModal'
+import { EditProjectModal } from '@/components/Projects/lazy-modals'
+import { LeaveProjectModal } from '@/components/Projects/lazy-modals'
+import { DeleteProjectModal } from '@/components/Projects/lazy-modals'
 import { ProjectTrashList } from '@/components/ProjectTrashModal/ProjectTrashList'
 import { ProjectViewToggle } from '@/components/ProjectViewToggle'
 import { ScopeFilterDropdown } from '@/components/ScopeFilterDropdown'
@@ -130,7 +131,7 @@ function ProjectsPageInner() {
   // this stays frontend-only for now: only a non-owner collaborator on a
   // workspace/shared project can leave.
   function canLeaveProject(project: Project): boolean {
-    return project.visibility !== 'personal' && !project.canEdit
+    return canProject('leave', project, orgId)
   }
 
   // refreshProjects() itself has no built-in error handling (unlike the
@@ -149,7 +150,7 @@ function ProjectsPageInner() {
   // on a Shared project — that needs the project's member list, which isn't
   // fetched eagerly here.
   function canEditProjectContent(project: Project): boolean {
-    return project.canEdit || (project.visibility === 'workspace' && !!orgId && project.teamId === orgId)
+    return canProject('edit-content', project, orgId)
   }
 
   // Owner-only — matches the backend exactly (requireDelete === requireOwned,
@@ -158,7 +159,7 @@ function ProjectsPageInner() {
   // click Delete only to have it 404 (invisibly, until deleteProjectApi's
   // own missing-response.ok bug was fixed — see projects.ts).
   function canDeleteProject(project: Project): boolean {
-    return project.canEdit
+    return canProject('delete', project, orgId)
   }
 
   // Every delete entry point confirms first — permanently deleting a
@@ -202,11 +203,14 @@ function ProjectsPageInner() {
   // re-run when sort order changes.
   const sorted = useMemo(() => sortProjects(scopedProjects, sort), [scopedProjects, sort])
 
+  // The input updates at once; the list re-filters at lower priority so typing
+  // stays responsive with many projects.
+  const deferredQuery = useDeferredValue(query)
   const filtered = useMemo(() => {
-    if (!query.trim()) return sorted
-    const q = query.toLowerCase()
+    if (!deferredQuery.trim()) return sorted
+    const q = deferredQuery.toLowerCase()
     return sorted.filter((p) => p.name.toLowerCase().includes(q))
-  }, [sorted, query])
+  }, [sorted, deferredQuery])
 
   const emptyLabel = scopeFilter === 'all'
     ? 'No projects yet. Create your first one to get started.'
@@ -507,7 +511,7 @@ function ProjectsPageInner() {
         description={editTarget?.description ?? ''}
         tags={editTarget?.tags ?? []}
         visibility={editTarget?.visibility ?? 'personal'}
-        visibilityOptions={editTarget?.canEdit && orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        visibilityOptions={canProject('change-visibility', editTarget, orgId) ? PROJECT_VISIBILITY_OPTIONS : []}
         onSave={(name, description, tags, visibility) => {
           if (!editTarget) return
           return updateProject(editTarget.id, { name, description, tags, visibility })

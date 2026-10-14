@@ -9,33 +9,38 @@ let _tokenFetchPromise: Promise<string | null> | null = null;
 
 const EXPIRY_BUFFER_SECONDS = 60;
 
-function parseTokenExpiry(token: string): number | null {
+/**
+ * Decode a JWT's payload. JWTs use base64url (`-`, `_`, no padding), which
+ * `atob` rejects, and claims may hold UTF-8 (names), which `atob` alone mangles.
+ * No signature check: the token came from our own session.
+ */
+export function decodeJwtPayload(token: string | null): Record<string, unknown> | null {
+  const payload = token?.split(".")[1];
+  if (!payload) return null;
   try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    const decoded = JSON.parse(atob(payload));
-    return typeof decoded.exp === "number" ? decoded.exp : null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+    const decoded: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    return decoded && typeof decoded === "object" ? (decoded as Record<string, unknown>) : null;
   } catch {
     return null;
   }
+}
+
+export function parseTokenExpiry(token: string): number | null {
+  const exp = decodeJwtPayload(token)?.exp;
+  return typeof exp === "number" ? exp : null;
 }
 
 /**
  * Decode the `sub` (subject) claim from a JWT access token — the Auth0 user id
  * (e.g. "auth0|abc123"). This is the same value the backend uses as `auth0_id`, and
  * `GET /users/me` does NOT currently return it, so analytics derives identity here.
- * Pure/base64-only decode; no signature verification (the token is already trusted).
  */
 export function decodeJwtSub(token: string | null): string | null {
-  if (!token) return null;
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    const decoded = JSON.parse(atob(payload));
-    return typeof decoded.sub === "string" && decoded.sub.length > 0 ? decoded.sub : null;
-  } catch {
-    return null;
-  }
+  const sub = decodeJwtPayload(token)?.sub;
+  return typeof sub === "string" && sub.length > 0 ? sub : null;
 }
 
 export function setInMemoryAccessToken(token: string | null): void {
@@ -55,6 +60,12 @@ export function clearInMemoryAccessToken(): void {
 export function isTokenExpiringSoon(): boolean {
   if (!inMemoryAccessToken || tokenExpiresAt === null) return true;
   return Math.floor(Date.now() / 1000) >= tokenExpiresAt - EXPIRY_BUFFER_SECONDS;
+}
+
+/** Milliseconds until the token enters the expiry buffer; 0 when already there or unknown. */
+export function msUntilTokenRefresh(): number {
+  if (!inMemoryAccessToken || tokenExpiresAt === null) return 0;
+  return Math.max(0, (tokenExpiresAt - EXPIRY_BUFFER_SECONDS) * 1000 - Date.now());
 }
 
 export async function getAuth0AccessToken(): Promise<string | null> {

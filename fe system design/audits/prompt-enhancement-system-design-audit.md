@@ -1,5 +1,25 @@
 # Prompt Enhancement: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 item 3 done, items 1, 2, 4, 5 wait for approval (they come with splitting the 937-line `EnhancePromptField`).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. The local-path "scanning" delay is now a 300 ms transition (it was 1.8 s).
+> 2. `enhancePrompt(prompt, answers, { signal })` passes an `AbortSignal` to `apiFetchJson`. `EnhancePromptField` aborts the in-flight call on close, restart, give-up (45 s) and unmount, and an aborted call is silent.
+> 3. A credit-exhausted reply (402 or an "insufficient credits" message) on the first call closes the panel and shows the billing message from `friendlyApiError`, instead of falling back to the local check. On the refine call it shows the message and still offers the first draft. The decision is `classifyEnhanceFailure()` in `lib/enhance/enhance-outcome.ts`.
+> 4. A new `prompt_enhance_outcome` event fires with `outcome` (`applied`, `discarded`, `closed`, `credits_exhausted`, `fallback_local`, `timeout`), `source` (`backend`/`local`), a `latency` bucket and `questions_answered`. It is in `events.ts` and the Mixpanel doc. The fallback and timeout outcomes fire when they happen, so one session can send two events.
+> 5. Dead code removed: the `PersonaContext` type, the `personaContext` prop and `DEFAULT_CONTEXT`, `selectQuestions`'s unused argument, and the deprecated `diffSentences` alias. No caller passed them.
+> 6. The open panel sits in a `BlockErrorBoundary` whose fallback says the prompt is unchanged and has a "Back to editing" button. Esc closes the dialog.
+> 7. Tests: `lib/enhance/enhance-outcome.test.ts` (failure classes, latency buckets, event props). The component test now also checks abort on close, the credits path and Esc, and asserts the `signal` argument. Backend success, timeout fallback, the stale-reply guard and the refine fallback were already covered.
+>
+> Phase 2 (Oct 14 2026):
+> - 3: `lib/enhance/enhance-request.ts`: `ENHANCE_LIMITS` (10 answers, 500-char question, 1,000-char answer, 300-char "Other" text), a Zod `enhanceAnswersSchema` that `enhancePrompt()` validates before sending, `buildAnswerPayload()` (answered questions only, trimmed to the limits; replaces the inline mapping) and `clampCustomText()` (typing and committing "Other"). One question type was already in place: `fromBackendQuestions` maps the backend shape onto the local `Question`. 3 tests.
+> - 1 (`useEnhanceFlow` reducer, one view per state, file under ~300 lines), 2 (`useMutation` for first pass and refine), 4 (undo for the applied draft) and 5 (lazy open-state views) all restructure the 937-line `EnhancePromptField`; held for approval per the "ask before large splits" rule.
+>
+> Open: items 1, 2, 4, 5; focus management when the state changes (Esc is done; focus does not move into the panel yet); Phase 3 (streaming, per-hunk diff).
+>
+> Backend gap (Phase 2): `EnhancePromptRequest` has no length limits on `prompt` or `answers`; the client caps answers, the server should too.
+> Backend gaps: (a) streaming the draft (SSE) for Phase 3; (b) it is unconfirmed whether `/persona/enhance-prompt` returns 402 when credits run out. The client handles 402 and an "insufficient credits" message.
+
 Scope: `components/EnhancePromptField` (874 lines, plus `index.test.tsx` 194), `EnhanceDotProgress`, `EnhanceScanningState`, `EnhanceSummaryBar`, `DiffLine`, `src/enhance/index.ts` (287, plus `index.test.ts` 64), `enhancePrompt` in `lib/api/personas.ts`, `EnhancePromptField` use in `agent/configure/instructions` and `AgentEditor` / `FineTuneModal`. About 1,700 lines. It improves an agent's system instructions (not the chat composer).
 Method: `enhance/index.ts` in full, the component's state machine and backend flow, and the API call read; presentational pieces by grep. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

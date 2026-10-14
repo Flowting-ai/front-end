@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ORG_PLAN_BUDGET_ENDPOINT, ORG_PLAN_ENDPOINT } from "@/lib/config";
 import type { OrgMember } from "@/types/teams";
 import { apiFetchJson } from "./client";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 
 export type CheckoutPlan = "50" | "100" | "125" | "250" | "500" | "1000" | "2000";
 /** Retired individual tiers that existing subscribers still renew on. Never offered. */
@@ -122,12 +123,15 @@ function utcDate(iso: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// Billing cycles are UTC instants (Stripe), so labels are formatted in UTC: a
+// cycle ending at 00:00Z on Oct 19 reads "Oct 19" everywhere, not "Oct 18" in
+// the Americas.
 function dateLabel(date: Date | null): string {
-  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—";
 }
 
 function shortDateLabel(date: Date | null): string {
-  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "—";
 }
 
 const formatUsd = (usd: number) =>
@@ -216,6 +220,7 @@ export class Plan {
       method: "PATCH",
       body: JSON.stringify({ budgetUsd }),
     });
+    trackBrowserEvent("credit_cap_set", { has_cap: budgetUsd !== null });
     return Plan.parse(raw);
   }
 
@@ -282,10 +287,14 @@ export class Plan {
     return `${shortDateLabel(this.cycleStart)} – ${dateLabel(this.cycleEnd)}`;
   }
 
-  /** Days elapsed in the cycle so far, at least one. */
-  get daysIntoCycle(): number {
+  /** Days elapsed in the cycle at `now` (pass one shared value per render), at least one. */
+  daysIntoCycleAt(now: number): number {
     if (!this.cycleStart) return 1;
-    return Math.max(1, Math.floor((Date.now() - this.cycleStart.getTime()) / 86_400_000) + 1);
+    return Math.max(1, Math.floor((now - this.cycleStart.getTime()) / 86_400_000) + 1);
+  }
+
+  get daysIntoCycle(): number {
+    return this.daysIntoCycleAt(Date.now());
   }
 
   get chargesThisCycleLabel(): string {
@@ -308,7 +317,11 @@ export class Plan {
     return this.paymentDueAt ? dateLabel(this.paymentDueAt) : null;
   }
 
+  isPastDueAt(now: number): boolean {
+    return this.paymentDueAt != null && this.paymentDueAt.getTime() < now;
+  }
+
   get isPastDue(): boolean {
-    return this.paymentDueAt != null && this.paymentDueAt.getTime() < Date.now();
+    return this.isPastDueAt(Date.now());
   }
 }

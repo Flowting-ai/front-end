@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { useAuth } from '@/context/auth-context'
 import { createCheckout } from '@/lib/api/stripe'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 import { TeamsTier, type CheckoutPlan } from '@/lib/api/billing'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { Button } from '@/components/ui/button'
@@ -361,12 +362,15 @@ function OnboardingPlansContent() {
   ].join(', ')
 
   const handleTeamPlan = async () => {
+    if (teamLoading) return
     setTeamLoading(true)
     setTeamError(null)
     try {
       const { checkout_url } = await createCheckout({ planId: teamTier.planId, billingInterval: billing })
+      trackBrowserEvent('checkout_started', { to_plan: teamTier.planId, source: 'onboarding' })
       window.location.href = checkout_url
     } catch (err) {
+      trackBrowserEvent('checkout_failed', { to_plan: teamTier.planId, source: 'onboarding' })
       setTeamError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setTeamLoading(false)
     }
@@ -537,7 +541,7 @@ function OnboardingPlansContent() {
                 </div>
               </div>
 
-              {teamError && <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-tag-Red-text,var(--red-400))', margin: 0 }}>{teamError}</p>}
+              {teamError && <p role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-tag-Red-text,var(--red-400))', margin: 0 }}>{teamError}</p>}
               <button type="button" disabled={teamLoading} onClick={() => void handleTeamPlan()} style={{ width: '100%', padding: '6px 20px 8px', borderRadius: 10, border: 'none', cursor: teamLoading ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-50)', background: teamLoading ? 'var(--neutral-500,#827a74)' : 'linear-gradient(180deg, var(--neutral-700,#524b47) 0%, var(--neutral-900,#26211e) 100%)', boxShadow: teamLoading ? 'none' : ctaShadow, transition: 'background 0.15s' }}>
                 {teamLoading ? 'Setting up…' : 'Start a Team Workspace'}
               </button>

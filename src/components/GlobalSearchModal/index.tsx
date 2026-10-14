@@ -14,8 +14,9 @@ import {
 } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { TabItem }    from '@/components/TabItem'
-import { highlightMatch } from '@/lib/highlightMatch'
+import { highlightTerms } from '@/lib/highlightMatch'
 import { cn } from '@/lib/utils'
+import { resultCountMessage } from '@/lib/search/global-search'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,10 @@ export interface GlobalSearchModalProps {
   /** Pre-populate the input — useful for story/test fixtures */
   defaultQuery?: string
   loading?:      boolean
+  /** One line under the results, e.g. a source still loading or partly failed. */
+  notice?:       string
+  /** An action shown after the notice, e.g. "Search older chats". */
+  noticeAction?: { label: string; onClick: () => void; busy?: boolean }
   className?:    string
 }
 
@@ -201,7 +206,7 @@ function ResultRow({ result, focused, query, onClick, onHover }: ResultRowProps)
             whiteSpace:   'nowrap',
           }}
         >
-          {highlightMatch(result.title, query)}
+          {highlightTerms(result.title, query)}
         </p>
         {result.subtitle && (
           <p
@@ -217,7 +222,7 @@ function ResultRow({ result, focused, query, onClick, onHover }: ResultRowProps)
               whiteSpace:   'nowrap',
             }}
           >
-            {highlightMatch(result.subtitle, query)}
+            {highlightTerms(result.subtitle, query)}
           </p>
         )}
       </div>
@@ -337,6 +342,8 @@ export function GlobalSearchModal({
   recents      = EMPTY_SEARCH_RESULTS,
   defaultQuery = '',
   loading      = false,
+  notice,
+  noticeAction,
   className,
 }: GlobalSearchModalProps) {
   const [query,        setQuery]        = useState(defaultQuery)
@@ -752,6 +759,37 @@ export function GlobalSearchModal({
               )}
 
             </div>
+
+            {notice && (
+              <p role="note" style={{
+                margin:     0,
+                padding:    '0 16px 6px',
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                color:      'var(--neutral-500)',
+              }}>
+                {notice}
+                {noticeAction && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={noticeAction.onClick}
+                      disabled={noticeAction.busy}
+                      aria-busy={noticeAction.busy || undefined}
+                      style={{ border: 0, padding: 0, background: 'none', font: 'inherit', color: 'var(--neutral-900)', textDecoration: 'underline', cursor: noticeAction.busy ? 'default' : 'pointer' }}
+                    >
+                      {noticeAction.busy ? 'Loading…' : noticeAction.label}
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+
+            {/* Result count for screen readers; the list itself isn't a live region. */}
+            <p aria-live="polite" className="sr-only">
+              {resultCountMessage(hasQuery && activeFilter !== 'all' ? flatList.length : results.length, hasQuery, loading)}
+            </p>
 
             {/* ── Footer kbd hints — white bg, no divider ────────────────── */}
             <div

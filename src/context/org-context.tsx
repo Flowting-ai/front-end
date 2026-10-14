@@ -1,10 +1,20 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/auth-context'
-import { getOrg, listMembers, listOrganizations } from '@/lib/api/organization'
-import { Plan } from '@/lib/api/plan'
+import type { Plan } from '@/lib/api/plan'
 import { resolveRole, type Member } from '@/lib/roles'
+import { resolveOrgRole } from '@/lib/org/role'
+import {
+  deriveOrg,
+  orgInfoQuery,
+  orgMembersQuery,
+  orgMembershipQuery,
+  orgPlanQuery,
+  readCachedOrgId,
+  refreshOrgMembers,
+} from '@/lib/org/org-queries'
 import type {
   WorkspaceOrg,
   OrgMember,
@@ -13,7 +23,8 @@ import type {
 
 interface OrgContextValue {
   orgId: string | null
-  org: WorkspaceOrg
+  /** Null until the org record or plan has loaded, and for users with no org. */
+  org: WorkspaceOrg | null
   members: OrgMember[]
   membersLoading: boolean
   /** The org's billing state. Every plan, cycle, and credit figure renders from here. */
@@ -34,9 +45,8 @@ interface OrgContextValue {
    * project-scoped checks.
    */
   caps: Member
+  /** Refetch the plan and member list (an invalidation; safe to call often). */
   refreshMembers: () => void
-  activeProjectId: string | null
-  setActiveProjectId: (id: string | null) => void
   /**
    * True once both the org id AND (if in an org) the current user's role have
    * resolved. Consumers that route based on role (e.g. the settings home
@@ -66,212 +76,71 @@ interface OrgContextValue {
 
 const OrgContext = createContext<OrgContextValue | null>(null)
 
-const DEFAULT_ORG: WorkspaceOrg = {
-  id: '',
-  name: '',
-  plan: 'teams',
-}
+const NO_MEMBERS: OrgMember[] = []
 
+// Server state is React Query (lib/org/org-queries.ts). The provider only
+// derives the role/ready flags its 35 consumers already rely on.
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-
-  // The account chose the Teams plan at onboarding (role_fit) — used as a
-  // fallback guess for "this user is an org admin" only when the backend
-  // hasn't returned a definitive per-org `my_role` yet (e.g. before an org id
-  // resolves, or `my_role` itself came back null).
-  const isTeamPlan = user?.roleFit === 'small_team' || user?.roleFit === 'large_team'
+  const qc = useQueryClient()
+  const userId = user ? String(user.id) : ''
 
   // Resolve the active org id. Prefer `org_id` from the profile, but /users/me
   // doesn't always include it — so when it's missing, discover the user's org
-  // via the list endpoint. This ensures team members (and freshly-created team
-  // admins) get their Organization settings instead of an empty/hidden section.
-  const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(user?.orgId ?? null)
-  const [orgIdResolved, setOrgIdResolved] = useState<boolean>(Boolean(user?.orgId))
-  useEffect(() => {
-    if (!user) return // wait for the authenticated profile before deciding
-    if (user.orgId) {
-      setResolvedOrgId(user.orgId)
-      setOrgIdResolved(true)
-      return
-    }
-    let mounted = true
-    // The list call sits at the head of the org/members/plan chain on every full page load.
-    // Start from the id we resolved last time and let the list call correct it in the background.
-    const cacheKey = `souvenir:org-id:${user.id}`
-    let cachedOrgId: string | null = null
-    try { cachedOrgId = localStorage.getItem(cacheKey) } catch { /* storage unavailable */ }
-    if (cachedOrgId) {
-      setResolvedOrgId(cachedOrgId)
-      setOrgIdResolved(true)
-    } else {
-      setOrgIdResolved(false)
-    }
-    listOrganizations()
-      .then(orgs => {
-        const id = orgs[0]?.id ?? null
-        try {
-          if (id) localStorage.setItem(cacheKey, id)
-          else localStorage.removeItem(cacheKey)
-        } catch { /* storage unavailable */ }
-        if (mounted) setResolvedOrgId(id)
-      })
-      .catch(() => { if (mounted && !cachedOrgId) setResolvedOrgId(null) })
-      .finally(() => { if (mounted) setOrgIdResolved(true) })
-    return () => { mounted = false }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- user object is intentionally excluded;
-  // only re-run when user identity (id) or org membership (orgId) changes, not on every
-  // refreshUser() call that returns a new object reference with the same data.
-  }, [user?.id, user?.orgId])
-  const orgId = resolvedOrgId
+  // via the list endpoint, starting from the id resolved last time.
+  const needsLookup = !!user && !user.orgId
+  const cachedOrgId = useMemo(() => (needsLookup ? readCachedOrgId(userId) : null), [needsLookup, userId])
+  const membershipQ = useQuery(orgMembershipQuery(userId, needsLookup))
+  const orgId: string | null = user?.orgId
+    ?? (membershipQ.isSuccess ? membershipQ.data : cachedOrgId)
+    ?? null
+  const orgIdResolved = !!user && (!!user.orgId || !!cachedOrgId || !membershipQ.isPending)
 
-  const [orgName,          setOrgName]          = useState('')
-  const [orgPlanType,      setOrgPlanType]      = useState<'teams' | 'enterprise'>('teams')
-  const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
-  const [orgRoleResolved,  setOrgRoleResolved]  = useState(false)
-  const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'member'>('member')
-  const [plan,             setPlan]             = useState<Plan | null>(null)
-  const [orgPlanSettled,   setOrgPlanSettled]   = useState(false)
-  const [members,          setMembers]          = useState<OrgMember[]>([])
-  const [membersLoading,   setMembersLoading]   = useState(false)
-  const [planRefreshToken, setPlanRefreshToken] = useState(0)
+  // Org record (name + my role). Retries once on a transient failure (query
+  // policy), so a network blip doesn't leave a real admin stuck at 'member'.
+  const infoQ = useQuery(orgInfoQuery(orgId))
+  const planQ = useQuery(orgPlanQuery(orgId))
+  const membersQ = useQuery(orgMembersQuery(qc, orgId))
 
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const info = infoQ.data
+  // Only the backend's my_role makes someone an admin; a null role (or no org)
+  // stays an unresolved 'member' (see lib/org/role.ts).
+  const { role: orgRole, resolved: orgRoleResolved } = info ? resolveOrgRole(info.role) : { role: 'member' as OrgRole, resolved: false }
+  const roleResolved = !orgId ? orgIdResolved : !infoQ.isPending
+  const roleError = !!orgId && infoQ.isError && !info
 
-  // Fetch org name + current user role
-  const [roleResolved, setRoleResolved] = useState(false)
-  const [roleError,    setRoleError]    = useState(false)
-  useEffect(() => {
-    if (!orgIdResolved) return // wait until we know whether there's an org
-    if (!orgId) {
-      // No resolved org yet — fall back to the isTeamPlan guess; everyone else is a member.
-      setOrgRole(isTeamPlan ? 'admin' : 'member')
-      setOrgRoleResolved(isTeamPlan) // only "resolved" if we have a real signal
-      setCurrentUserRole(isTeamPlan ? 'admin' : 'member')
-      setRoleError(false)
-      setRoleResolved(true)
-      return
-    }
-    // Guards against an out-of-order response: switching orgs quickly (e.g.
-    // via TeamSwitcherDropdown) starts a new getOrg() before the previous
-    // org's call has resolved. Without this, a slow response for the OLD org
-    // can land after the new org's fetch already resolved, silently
-    // overwriting the new org's correct role/name with the old org's — the
-    // sidebar's admin-only "+ New Project" button (and anything else gated on
-    // currentUserRole) would then read the wrong org's permissions until the
-    // next unrelated re-render happened to fix it.
-    let cancelled = false
-    setRoleResolved(false)
-    setRoleError(false)
-
-    const applyOrg = (data: Awaited<ReturnType<typeof getOrg>>) => {
-      setOrgName(data.name)
-      if (data.planType) setOrgPlanType(data.planType)
-      // isTeamPlan is a guess for when the backend role is unknown (my_role
-      // came back null) — it must NOT override a definitive 'member' answer,
-      // or every real member whose own onboarding roleFit happened to be
-      // small_team/large_team gets silently promoted to 'admin' (this broke
-      // the clone-before-chat logic gated on currentUserRole !== 'admin'
-      // throughout the app, since a definitively-confirmed member was
-      // treated as an admin).
-      const roleDefinitive = data.role !== null
-      const resolvedRole: OrgRole = data.role ?? (isTeamPlan ? 'admin' : 'member')
-      setOrgRole(resolvedRole)
-      setOrgRoleResolved(roleDefinitive)
-      setCurrentUserRole(resolvedRole === 'admin' ? 'admin' : 'member')
-    }
-
-    // A single automatic retry on failure: a transient network blip otherwise
-    // leaves currentUserRole permanently stuck at its default 'member' for
-    // the rest of the session (nothing else re-triggers this fetch), silently
-    // hiding admin-only UI — e.g. the sidebar's "+ New Project" button — for
-    // a real admin with no way to recover short of a full page reload.
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
-    const attempt = (isRetry: boolean) => {
-      getOrg(orgId)
-        .then(data => {
-          if (cancelled) return
-          applyOrg(data)
-          setRoleResolved(true)
-        })
-        .catch(err => {
-          if (cancelled) return
-          if (!isRetry) {
-            retryTimer = setTimeout(() => { if (!cancelled) attempt(true) }, 1000)
-            return
-          }
-          console.error(err)
-          setOrgRoleResolved(false)
-          setRoleError(true) // role is unknown — orgRole stays at default 'member'
-          setRoleResolved(true)
-        })
-    }
-    attempt(false)
-    return () => { cancelled = true; clearTimeout(retryTimer) }
-  }, [orgId, orgIdResolved, isTeamPlan])
-
-  // Fetch plan (credit pool) and the authoritative member list. Members come
-  // from the dedicated /members endpoint so roles (admin/member) are
-  // accurate; the plan endpoint is used only for the credit pool. They're
-  // fetched independently so a failure in one doesn't blank the other; the
-  // plan's bundled members are a fallback if /members fails.
-  useEffect(() => {
-    if (!orgId) return
-    setOrgPlanSettled(false)
-    setMembersLoading(true)
-    const planP = Plan.fetch(orgId).then(p => {
-      setPlan(p)
-      if (p.planType) setOrgPlanType(p.planType)
-    }).catch(console.error).finally(() => setOrgPlanSettled(true))
-    const membersP = listMembers(orgId)
-      .then(setMembers)
-      .catch(async () => {
-        // Fallback: reuse the members bundled in the plan response.
-        const p = await Plan.fetch(orgId).catch(() => null)
-        if (p) setMembers(p.members)
-      })
-    Promise.all([planP, membersP]).finally(() => setMembersLoading(false))
-  }, [orgId, planRefreshToken])
-
-  function refreshMembers() {
-    setPlanRefreshToken(t => t + 1)
-  }
+  const plan = planQ.data ?? null
+  const org = useMemo(() => deriveOrg(orgId, info, plan), [orgId, info, plan])
 
   // Resolved capability ladder. The admin gate is role-only; a plain
   // member's per-team editor grants aren't loaded here (project-scoped checks
   // fall back to backend per-resource flags), so grants stay empty.
+  // Keyed by the backend's user id (Auth0 sub), the same id grants and
+  // ownerUserId use — not the email.
   const caps = useMemo<Member>(
-    () => resolveRole(orgRole, { userId: user?.email ?? '' }),
-    [orgRole, user?.email],
+    () => resolveRole(orgRole, { userId: user?.auth0Id ?? '' }),
+    [orgRole, user?.auth0Id],
   )
 
-  const org: WorkspaceOrg = {
-    ...DEFAULT_ORG,
-    id:   orgId ?? '',
-    name: orgName,
-    plan: orgPlanType,
-  }
+  const refreshMembers = useCallback(() => refreshOrgMembers(qc, orgId), [qc, orgId])
 
-  return (
-    <OrgContext.Provider value={{
-      orgId,
-      org,
-      members,
-      membersLoading,
-      plan,
-      orgRole,
-      currentUserRole,
-      caps,
-      refreshMembers,
-      activeProjectId,
-      setActiveProjectId,
-      orgReady: orgIdResolved && roleResolved,
-      roleError,
-      orgRoleResolved,
-      orgPlanSettled: !orgId || orgPlanSettled,
-    }}>
-      {children}
-    </OrgContext.Provider>
-  )
+  const value = useMemo<OrgContextValue>(() => ({
+    orgId,
+    org,
+    members: membersQ.data ?? NO_MEMBERS,
+    membersLoading: membersQ.isFetching,
+    plan,
+    orgRole,
+    currentUserRole: orgRole === 'admin' ? 'admin' : 'member',
+    caps,
+    refreshMembers,
+    orgReady: orgIdResolved && roleResolved,
+    roleError,
+    orgRoleResolved: !!orgId && orgRoleResolved,
+    orgPlanSettled: !orgId || !planQ.isPending,
+  }), [orgId, org, membersQ.data, membersQ.isFetching, plan, orgRole, caps, refreshMembers, orgIdResolved, roleResolved, roleError, orgRoleResolved, planQ.isPending])
+
+  return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>
 }
 
 export function useOrg(): OrgContextValue {

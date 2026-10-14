@@ -16,7 +16,8 @@ const ModelIcon = dynamic(
 import { ArrowLeftOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
-import { fetchModelsWithCache, normalizeModels, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
+import { useQuery } from "@tanstack/react-query";
+import { fetchModelsWithCache, modelsQuery, normalizeModels } from "@/lib/ai-models";
 import { fetchAllModels } from "@/lib/api/models";
 import { AGENT_EDIT_ROUTE, CHATS_ROUTE } from "@/lib/routes";
 import type { AIModel } from "@/types/ai-model";
@@ -100,6 +101,9 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
   const [personaModel, setPersonaModel] = useState<AIModel | null>(null);
+  // Re-resolve when the catalogue refetches (a model blocked/unblocked in
+  // /settings/ai, in this tab or another) without needing a reload.
+  const catalogUpdatedAt = useQuery(modelsQuery()).dataUpdatedAt;
   useEffect(() => {
     if (!personaId) { setPersona(null); setPersonaModel(null); return; }
     let cancelled = false;
@@ -128,11 +132,8 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
     }
 
     resolve();
-    // Re-resolve if a model gets blocked/unblocked in the same SPA session
-    // (e.g. /settings/ai in another tab-switch) without needing a reload.
-    window.addEventListener(MODELS_CACHE_BUSTED_EVENT, resolve);
-    return () => { cancelled = true; window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, resolve); };
-  }, [personaId]);
+    return () => { cancelled = true; };
+  }, [personaId, catalogUpdatedAt]);
 
   // The primary (TopBar) model selector button has been removed — ChatInput's
   // own embedded ModelMenu (the "secondary" selector) now covers the same 3

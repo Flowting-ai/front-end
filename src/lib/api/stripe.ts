@@ -5,11 +5,11 @@ import {
   type CheckoutPlan,
   type CheckoutSessionResponse,
 } from "./user";
+import { singleFlight } from "@/lib/billing/billing-actions";
 
 export {
   billingInfoSchema,
   cancelSubscription,
-  fetchBilling,
   openBillingPortal,
   resumeSubscription,
   startTrial,
@@ -35,8 +35,7 @@ export interface CreateCheckoutSessionRequest {
   billingInterval?: "monthly" | "annual";
 }
 
-export async function createCheckout(
-  body: CreateCheckoutSessionRequest,
-): Promise<CheckoutSessionResponse> {
-  return createCheckoutSession(body.planId, body.billingInterval);
-}
+/** Single-flight: a second click while a session is being created reuses the first request. */
+export const createCheckout: (body: CreateCheckoutSessionRequest) => Promise<CheckoutSessionResponse> = singleFlight(
+  (body: CreateCheckoutSessionRequest) => createCheckoutSession(body.planId, body.billingInterval),
+);

@@ -1,5 +1,29 @@
 # Schedules Feature: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except removing the link store (backend gap b).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Zod schemas for every automation response in `lib/api/automation-schemas.ts` (mirrors `services/automations/schemas.py`). `lib/api/automations.ts` parses every response; the list endpoints use `parseList`, which drops malformed rows (its warning prefix is now `[api]`). `schedule_json` is typed (`description`, `drift`, `kind`, `cron`, `timezone`; other keys pass through). Ids are URL-encoded in paths. The regex parsing of the description string in `ScheduleEditModal` stays until the backend returns structured hour/minute/day fields (see Backend gaps).
+> 2. Detail load branches on `ApiError.status` (`detailFailureKind`). Only 403/404 fall back to the org list. Network, 5xx and parse failures show a "Couldn't load" view with **Try again**. An id found in neither list shows "Schedule not found" in place (`ScheduleRouteStates.tsx`) instead of a toast and redirect. Load, delete, pause/resume, run and copy toasts now include the backend's reason.
+> 3. `loading.tsx` for `/schedules` and `/schedules/[id]` (`SchedulesRouteLoading` reuses the existing skeletons inside the screen's frame). `(app)/error.tsx` covers throws; not-found is handled in the client view (see item 2), since the id is resolved client-side.
+> 4. Mappers moved to `lib/schedules/schedule-mappers.ts` as pure functions. The link-store write is now a separate `detailFromApi` step in the screen, and the formatters take `now` and return undefined for bad dates. 14 tests cover the schemas, mappers, run records, `failureReason` and the error classification.
+> 5. Accessibility: the cards were already `<button>`s. The toggle now has `aria-label`, and "Running now" is in a polite live region. The delete modal is now an `alertdialog` with `aria-labelledby`, a focus trap and Esc to close (blocked while deleting). The edit modal now has a focus trap too.
+> 6. The edit and delete modals are lazy-loaded on first open (`templates/Schedules/lazy-modals.tsx`, exported through the barrel).
+>
+> Not done from Phase 1: tests for toggle revert and the delete flow (done in Phase 2, see below).
+>
+> Open: Phases 2–4 (React Query, polling while running, removing local placeholders and the link store, component split, RHF form, folder rename, analytics, run paging).
+>
+> Phase 2 (Oct 14 2026):
+> 1. `lib/schedules/schedule-queries.ts`: `mySchedulesQuery`, `organizationSchedulesQuery`, `scheduleDetailQuery` (keys `queryKeys.schedules.*`). `loadScheduleDetail` keeps the Phase 1 rule (only 403/404 fall back to the org list; a not-found is a typed `ScheduleNotFoundError` that is never retried). Mutations: `toggleScheduleActive` (optimistic in list and detail, cancels in-flight fetches, reverts only that schedule on failure), delete via `useMutation` + `forgetSchedule`, run via `useMutation` + invalidation. `SchedulesScreen` lost 9 `useState`s, `localIdsRef` and its fetch effects.
+> 2. Polling: list and detail refetch every 5 s while any shown schedule `is_running`, and stop when it finishes, so the Running badge and run history update live after **Run now**.
+> 3. Local placeholders removed. They were dead: creating navigates to chat, which unmounts the screen, so the placeholder row never showed. The pending prompt now uses its own `new-<ts>` key. The link store stays (list rows still lack `chat_id`, checked against `services/automations/schemas.py` `AutomationListItem`).
+> 4. Link-store and pending-prompt keys registered in `storage-keys.ts` (`SCHEDULE_CHAT_LINKS_KEY`, `schedulePendingPromptKey`).
+> 5. The Phase 1 deferred tests now exist: `schedule-queries.test.ts` covers toggle success and revert, delete cleanup, polling and the detail fallback rules (8 tests).
+>
+> Phase 2 open: remove `scheduleLinks` map once list rows carry `chat_id`.
+> Backend gaps: (a) `schedule_json` should carry structured `hour`/`minute`/`day` fields, so the edit modal can stop regex-parsing the description. (b) `GET /automations` rows should include `chat_id`, so the localStorage link store can be removed (Phase 2.3). (c) Run history needs paging params on `GET /automations/{id}`.
+
 Scope: `app/(app)/schedules` (`page.tsx`, `[id]/page.tsx`, `SchedulesScreen.tsx` 589 lines, `ScheduleSkeletons.tsx`), `src/templates/Schedules/*` (list, card, detail, edit modal 595 lines, delete modal, loop history), `lib/api/automations.ts`, `lib/scheduleLinks.ts`. About 2,900 lines. Backend calls this "automations".
 Method: structural scan plus reading the screen's load, toggle, delete and run flows and the API module. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

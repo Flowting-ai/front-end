@@ -1,10 +1,16 @@
 import { type NextRequest } from "next/server"
 import { z } from "zod"
-import { auth0 } from "@/lib/auth0"
+import { logger } from "@/lib/logger"
+import { BACKEND_BASE, getSessionToken, routeError, type RouteErrorCode } from "@/lib/server/backend"
+import {
+  isTimeoutError,
+  stateForStatus,
+  TEMPLATE_FETCH_TIMEOUT_MS,
+  TEMPLATE_ROUTE_ERRORS,
+  type TemplateLoadState,
+} from "@/lib/templates/template-view"
 
 export const dynamic = "force-dynamic"
-
-const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
 
 const ParamsSchema = z.object({ uuid: z.uuid() })
 
@@ -34,35 +40,42 @@ const SANDBOX_HEADERS = {
   "Cache-Control": "private, no-store",
 }
 
+function templateError(code: RouteErrorCode, state: TemplateLoadState): Response {
+  const { status, message } = TEMPLATE_ROUTE_ERRORS[state]
+  return routeError(status, code, message)
+}
+
 export async function GET(
   _request: NextRequest,
   ctx: { params: Promise<{ uuid: string }> },
 ): Promise<Response> {
   const parsed = ParamsSchema.safeParse(await ctx.params)
   if (!parsed.success) {
-    return new Response("Not a template id", { status: 400 })
+    return routeError(400, "bad_request", "Not a template id")
   }
 
-  const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined
-  let token: string
-  try {
-    token = (await auth0.getAccessToken({ audience })).token
-  } catch {
-    return new Response("Unauthorized", { status: 401 })
-  }
+  const token = await getSessionToken()
+  if (!token) return routeError(401, "unauthorized", "Sign in to continue")
 
+  const { uuid } = parsed.data
   let upstream: Response
   try {
-    upstream = await fetch(`${BACKEND_BASE}/templates/${parsed.data.uuid}/html`, {
+    upstream = await fetch(`${BACKEND_BASE}/templates/${uuid}/html`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(TEMPLATE_FETCH_TIMEOUT_MS),
     })
-  } catch {
-    return new Response("Failed to load template", { status: 502 })
+  } catch (error) {
+    const state = isTimeoutError(error) ? "timeout" : "error"
+    logger.error("[api/template] Backend unreachable", uuid, state)
+    return templateError(state === "timeout" ? "timeout" : "upstream_unreachable", state)
   }
 
   if (!upstream.ok || !upstream.body) {
-    return new Response(await upstream.text(), { status: upstream.status })
+    // The backend's body stays in the server log; the browser gets a fixed message.
+    const detail = await upstream.text().catch(() => "")
+    logger.error("[api/template] Backend error", uuid, upstream.status, detail.slice(0, 500))
+    return templateError("upstream_error", upstream.ok ? "error" : stateForStatus(upstream.status))
   }
 
   return new Response(upstream.body, {

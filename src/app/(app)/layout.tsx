@@ -2,7 +2,6 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
 import { cookies } from "next/headers";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
@@ -42,7 +41,6 @@ export default async function AppGroupLayout({
       <LazyLibraryUploadHost />
       <NotificationsProvider>
       <ProjectsProvider>
-        <ChatHistoryProvider>
           <PinboardProvider>
             <HighlightProvider>
               <CompareProvider>
@@ -63,7 +61,6 @@ export default async function AppGroupLayout({
               </CompareProvider>
             </HighlightProvider>
           </PinboardProvider>
-        </ChatHistoryProvider>
       </ProjectsProvider>
       </NotificationsProvider>
       </OrgProvider>

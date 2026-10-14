@@ -2,19 +2,19 @@
 
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
+import { getQueryClient } from '@/lib/query-client'
+import { invalidateCredits } from '@/lib/query-invalidation'
 
-// ── Credit lifecycle events ──────────────────────────────────────────────────
-// Dispatched on `window`; the AuthProvider listens for CREDITS_UPDATED and
-// refreshes the user profile so balances update app-wide without a page reload.
+// ── Credit lifecycle ─────────────────────────────────────────────────────────
 
-/** Fire after any operation that changes the credit balance (e.g. a topup). */
-export const CREDITS_UPDATED_EVENT = 'credits:updated'
-
-/** Broadcast that the credit balance changed → triggers a profile refresh. */
+/**
+ * Call after any operation that changes the credit balance (e.g. a topup):
+ * refetches the profile, billing and the org pool, here and in other tabs
+ * (lib/query-invalidation.ts). AuthProvider follows the profile query, so
+ * balances update app-wide without a page reload.
+ */
 export function notifyCreditsUpdated(): void {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event(CREDITS_UPDATED_EVENT))
-  }
+  if (typeof window !== 'undefined') invalidateCredits(getQueryClient())
 }
 
 // ── Status derivation ────────────────────────────────────────────────────────

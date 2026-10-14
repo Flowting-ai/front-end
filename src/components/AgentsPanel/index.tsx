@@ -13,7 +13,8 @@ import { CompactAgentCard } from './CompactAgentCard'
 import { TemplateCardList } from '@/components/chat/TemplateCardList'
 import { AgentDetailsBody } from '@/components/AgentEditor/AgentDetailsSidebar'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
-import { listShares } from '@/lib/api/persona-shares'
+import { useQuery } from '@tanstack/react-query'
+import { activeLinkRepoIds, personaSharesQuery } from '@/lib/share/share-queries'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { AGENTS_ROUTE, AGENTS_NEW_ROUTE } from '@/lib/routes'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -111,21 +112,8 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   // Active-link Super Link ids, keyed by persona repo id — shares are
   // repo-scoped (a later publish moves an existing link with it), same as
   // agents/page.tsx's activeShareRepoIds.
-  const [activeSuperlinkRepoIds, setActiveSuperlinkRepoIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    let cancelled = false
-    listShares()
-      .then(shares => {
-        if (cancelled) return
-        const ids = shares
-          .filter(share => share.is_active && share.share_type === 'link')
-          .map(share => share.persona_repo_id)
-        setActiveSuperlinkRepoIds(new Set(ids))
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
+  const sharesQ = useQuery(personaSharesQuery())
+  const activeSuperlinkRepoIds = useMemo(() => activeLinkRepoIds(sharesQ.data), [sharesQ.data])
 
   const isSuperlink = (p: SelectedPersonaInfo) => activeSuperlinkRepoIds.has(p.id)
 

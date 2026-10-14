@@ -1,5 +1,26 @@
 # Organizations: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except the three-context split (2.2) and the backend items (2.4 multi-org, 2.5 paging).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. `components/RequireAdmin.tsx` replaces the copied guard in `settings/(shell)/(org)/layout.tsx` and `souvenir-slack/layout.tsx`. It shows a skeleton while the role resolves and an "Only workspace admins can see this page" state with a link back to chat, instead of rendering `null` and redirecting. The decision is `adminGate()` in `lib/org/role.ts`.
+> 2. The six `/org/*` client stubs and `org/layout.tsx` are deleted (the whole `app/(app)/org` folder; unstaged in git). `/org`, `/org/general|members|plans|analytics|activity` are now permanent redirects in `next.config.ts`. `/org/change-plan` lives in `(standalone)` and is unaffected.
+> 3. Admin is no longer inferred from the onboarding plan (`roleFit`). `resolveOrgRole()` makes a null `my_role` or no org an unresolved `member` (`orgRoleResolved: false`, which billing gates already treat as "unknown, allow; the backend decides"). **Behaviour change:** a team-plan user whose role is unknown no longer sees admin-only UI until the backend confirms it.
+> 4. The org-id cache key moved to `storage-keys.ts` (`orgIdCacheKey`), and `clearOrgIdCache()` runs in `clearAuth` on sign-out.
+> 5. Tests in `lib/org/role.test.ts`: the role resolution matrix, the admin gate and cache clearing (8 tests). The provider's effect wiring has no tests (no DOM setup).
+> 6. Events: `org_invite_revoked`, `org_member_removed`, `org_left` (`with_successor`) and `org_deleted`, emitted from `lib/api/organization.ts`, in `events.ts` and the Mixpanel doc. Invites (`team_member_invited`) and role changes (`permission_level_changed`) were already tracked.
+> 7. `LeaveWorkspaceModal` is an `alertdialog` with a heading and description, `aria-busy` and `useFocusTrap`; Esc closes it except while leaving or while the successor menu is open. Delete workspace is still disabled ("Coming soon"), so it has no dialog to fix yet.
+>
+> Phase 2 (Oct 14 2026):
+> 1. `lib/org/org-queries.ts`: `orgMembershipQuery` (GET /organizations, still seeded from the cached org id), `orgInfoQuery` (name + my role), `orgPlanQuery`, `orgMembersQuery` (falls back to the plan's bundled members) and `orgAuditQuery` (activity page). `OrgProvider` keeps its API but holds no fetched state: the `planRefreshToken` counter, the hand-rolled one-retry timer and the out-of-order guard are gone (the query policy retries transient failures once; keys make stale responses impossible). `refreshMembers()` is now an invalidation of plan + members, and `invalidateCredits` also refreshes the org pool. 4 tests.
+> 2. Partly: the context value is memoised and the unused `activeProjectId`/`setActiveProjectId` is deleted. The split into identity / plan / members contexts is not done (35 consumers; worth doing with the Phase 3 component work).
+> 3. `org` is `WorkspaceOrg | null` until the org record or plan loads (no `DEFAULT_ORG` name/plan); the 14 call sites now use `org?.`. `OrgStamps` waits for a real org before stamping the tier.
+> 4. `caps` is keyed by the backend user id (Auth0 sub) instead of the email. Multi-org selection still waits on backend gap (a).
+>
+> Open: Phases 3–4 (component splits and forms), the provider split, `AppLayout`'s `isAdminPage` `/org` check. `AppLayout`'s `isAdminPage` still checks the `/org` prefix; it is harmless now and can go with the layout work.
+>
+> Backend gaps: (a) confirm whether a user can belong to several orgs (`listOrganizations()[0]` is still used); (b) cursor paging and search for members and the audit log.
+
 Scope: `context/org-context.tsx` (303), `lib/api/organization.ts` (460), `lib/api/teams.ts`, `lib/roles.ts` (139), admin pages under `settings/(shell)/(org)` (`members` 1,280, `general` 1,419, `activity` 322; `analytics` and `plans` belong to the Analytics and Credits/billing audits), legacy `/org/*` stubs and `org/layout.tsx`, `org-invite/[inviteId]`, `team-invite/[inviteId]`, `InviteModal` (574), `LeaveWorkspaceModal` (159), `OrgBadge`. About 5,000 lines in scope (the whole `settings` plus `org` tree is 11,700).
 Method: `org-context`, `roles`, the layout guards, the invite landing and the API function list read; pages checked by grep metrics. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

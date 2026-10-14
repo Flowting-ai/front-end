@@ -1,5 +1,25 @@
 # Connectors: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done (2.4 kept imperative, see below).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. `/connectors` now has `loading.tsx`, and its Suspense fallback is the list skeleton (`ConnectorsLoading`, which reuses `ConnectionsView`'s loading state) instead of `null`. `ConnectorDetailView` and `AccountDetailView` are each wrapped in `BlockErrorBoundary` (resets when the selected connector or account changes). `(app)/error.tsx` covers the rest.
+> 2. New browser events: `connector_connected` (`reconnect`, `shared`), `connector_connect_failed` (`reason` enum), `connector_connect_cancelled`, `connector_unlinked` and `connector_share_changed`. They are in `events.ts` and the Mixpanel doc, and are emitted from `useConnectorSetupFlow` and `lib/api/connectors.ts`.
+> 3. Typed connect errors in `lib/connectors/connect-errors.ts`: `ConnectTimeoutError` (now thrown by `pollConnectorUntilActive`) and `MissingAuthUrlError`. `describeConnectError` maps every failure to a kind (timeout, popup_blocked, access_denied, not_configured, server, network, unknown), a message and a recovery (retry, allow pop-ups, ask an admin); 8 tests. The hook detects a refused pop-up, so a timeout after a blocked pop-up says to allow pop-ups. The hook exposes `error` (`errorMsg` is kept). SetupModal shows the error as `role="alert"`, adds an admin hint for ask-admin errors, and labels the button "Try again" when a retry makes sense.
+> 4. `components/connectors/lazy.tsx` dynamically loads SetupModal, CustomApiModal, RemoveModal and AccountDetailView, used by `ConnectorsExperience` and the chat `ConnectAppMenu`. The connector request modal was dead code (item 6).
+> 5. The shared `Modal` (SetupModal and CustomApiModal) and RemoveModal now use `useFocusTrap`: Tab is trapped, Esc dismisses (Remove only when not busy), and focus returns to the opener. RemoveModal is an `alertdialog` with `aria-busy`. An `aria-live` line announces "Opening … sign-in" and "Waiting for you to authorize … in the other window".
+> 6. Deleted unused legacy components: `components/ConnectorCard`, `ConnectorRow` and `ConnectorRequestModal` (no imports; the onboarding page has its own local `ConnectorCard`). `ConnectorBrowse` and `ConnectorCatalogCard` are still used by `ConnectionsView` and stay.
+>
+> Phase 2 (Oct 14 2026):
+> 1. `lib/connectors/connector-queries.ts`: page, linked, detail, categories, featured and menu-search queries (`queryKeys.connectors.*`). All three caches are gone: `ConnectionsView`'s `pageCache` (its two helpers now read/fetch the query cache, keeping the instant Previous and prefetched Next), `lib/connect-apps-cache.ts` (deleted, unstaged; `ConnectAppMenu` uses `featuredAppsQuery` + debounced `appSearchQuery`, the app shell prefetches featured) and the `catalogBySlug` module map (now a never-stale entry in the query cache that `resolveConnector()` reads synchronously, so logout clears it). `ConnectorsExperience` derives its list from `linkedConnectorsQuery` plus picked rows (`mergeCatalog`) and reads the open connector from its detail query, which keeps tools and per-tool permissions that the list omits. 4 tests.
+> 2. Every connector mutation in `lib/api/connectors.ts` already ended in `bustConnectorCatalogCache()`; it now invalidates every connector query, so link, update, unlink and custom-API changes refresh lists, details, featured and search everywhere. Share and permission toggles in `AccountDetailView` were already optimistic with rollback.
+> 3. Logout clears all connector data (`clearUserScopedCache`); the linked list refetches on window focus, which picks up a connect finished in another tab.
+> 4. `pollConnectorUntilActive` stays a promise (three callers await it inside the setup flow) but gains ±20% jitter and seeds the detail query when it settles. Converting it to `refetchInterval` would not remove code, so it was left.
+>
+> Open: Phases 3–4 (component splits, `canManage`, setup state-machine tests that need a DOM or an extracted reducer, budget, reconnect nudges). Connector caches on org switch: logout covers it; there is no in-app org switch yet. Status badges are still visual only; leave them for the a11y pass.
+>
+> Backend gaps: (a) a lighter link-status endpoint for polling instead of the full `GET /connectors/{slug}` (Phase 2.4); (b) dependency counts for an account (what uses it) for the Remove modal.
+
 Scope: `app/(app)/connectors/page.tsx`, `components/connectors/*` (ConnectorsExperience 324, ConnectionsView 731, AccountDetailView 537, ConnectorDetailView, SetupModal, CustomApiModal, RemoveModal), `components/ConnectorBrowse|Card|CatalogCard|Row|RequestModal`, `lib/api/connectors.ts` (585), `lib/api/connector-schemas.ts`, `lib/useConnectorSetupFlow.ts` (274), `lib/connect-apps-cache.ts`, `lib/connector*.ts`. About 3,600 lines (UI plus lib).
 Method: API module, schemas, setup-flow hook, page and the browse/cache sections of `ConnectionsView` read; the rest by grep. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

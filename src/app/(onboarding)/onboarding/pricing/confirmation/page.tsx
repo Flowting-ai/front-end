@@ -4,7 +4,6 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { Button } from '@/components/ui/button'
-import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { createOrganization } from '@/lib/api/organization'
 import { CHAT_ROUTE, ONBOARDING_WORKSPACE_ROUTE, ONBOARDING_IMPORT_ROUTE } from '@/lib/routes'
@@ -146,7 +145,6 @@ function PricingConfirmationContent() {
         await createOrganization({ name }).catch(() => {/* org may already exist */})
       }
       await refreshUser()
-      void fetchBilling()
       notifyCreditsUpdated()
     }
     void run()

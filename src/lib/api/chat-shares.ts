@@ -8,6 +8,13 @@ import {
   CHAT_SHARE_FORK_ENDPOINT,
 } from '@/lib/config'
 import { trackBrowserEvent } from '@/lib/analytics/events'
+import { parseList } from './project-schemas'
+import {
+  chatShareResponseSchema,
+  forkResponseSchema,
+  sharedChatItemResponseSchema,
+  sharedChatViewResponseSchema,
+} from './share-schemas'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Standalone chat sharing is person-to-person only now — no project/team
@@ -98,10 +105,10 @@ export async function createChatShare(params: {
   chatId: string
   userId: string
 }): Promise<ChatShare> {
-  const data = await apiFetchJson<ChatShareResponse>(CHAT_SHARES_ENDPOINT, {
+  const data = chatShareResponseSchema.parse(await apiFetchJson<unknown>(CHAT_SHARES_ENDPOINT, {
     method: 'POST',
     body:   JSON.stringify({ chatId: params.chatId, userId: params.userId }),
-  })
+  }))
   trackBrowserEvent('share_created', { kind: 'user' })
   return normalizeShare(data)
 }
@@ -109,21 +116,21 @@ export async function createChatShare(params: {
 /** GET /chat-shares?chat_id=... */
 export async function listChatShares(chatId: string): Promise<ChatShare[]> {
   const url = `${CHAT_SHARES_ENDPOINT}?chat_id=${encodeURIComponent(chatId)}`
-  const list = await apiFetchJson<ChatShareResponse[]>(url)
-  return list.map(normalizeShare)
+  return parseList(chatShareResponseSchema, await apiFetchJson<unknown>(url), 'chat share').map(normalizeShare)
 }
 
 /** GET /chat-shares/shared-with-me */
 export async function listSharedWithMe(): Promise<SharedChatItem[]> {
-  const list = await apiFetchJson<SharedChatItemResponse[]>(CHAT_SHARES_SHARED_WITH_ME_ENDPOINT)
-  return list.map(normalizeSharedItem)
+  const raw = await apiFetchJson<unknown>(CHAT_SHARES_SHARED_WITH_ME_ENDPOINT)
+  return parseList(sharedChatItemResponseSchema, raw, 'shared chat').map(normalizeSharedItem)
 }
 
 /** POST /chat-shares/{shareId}/fork */
 export async function forkChatShare(shareId: string): Promise<{ chatId: string }> {
-  const data = await apiFetchJson<{ chat_id: string }>(CHAT_SHARE_FORK_ENDPOINT(shareId), {
+  const data = forkResponseSchema.parse(await apiFetchJson<unknown>(CHAT_SHARE_FORK_ENDPOINT(shareId), {
     method: 'POST',
-  })
+  }))
+  trackBrowserEvent('share_forked', { kind: 'chat' })
   return { chatId: data.chat_id }
 }
 
@@ -138,6 +145,7 @@ export async function deleteChatShare(shareId: string): Promise<void> {
     } catch { /* non-JSON error body */ }
     throw new ApiError(res.status, 'revoke_share_failed', friendlyApiError(detail, res.status), detail)
   }
+  trackBrowserEvent('share_revoked', { kind: 'chat' })
 }
 
 // ── Shared chat view (§19.4) ──────────────────────────────────────────────────
@@ -161,23 +169,9 @@ export interface SharedChatView {
   messages:  SharedChatMessage[]
 }
 
-interface SharedChatViewResponse {
-  share_id:   string
-  chat_id:    string
-  chat_title: string
-  messages:   {
-    id:         string
-    input:      string | null
-    output:     string | null
-    reasoning?: string | null
-    model_name: string | null
-    created_at: string
-  }[]
-}
-
 /** GET /chat-shares/{shareId} — returns live view with full message history */
 export async function getSharedChatView(shareId: string): Promise<SharedChatView> {
-  const data = await apiFetchJson<SharedChatViewResponse>(CHAT_SHARE_ENDPOINT(shareId))
+  const data = sharedChatViewResponseSchema.parse(await apiFetchJson<unknown>(CHAT_SHARE_ENDPOINT(shareId)))
   return {
     shareId:   data.share_id,
     chatId:    data.chat_id,

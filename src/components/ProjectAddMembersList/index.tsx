@@ -1,13 +1,16 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
-import { fetchProjectMembers, inviteProjectMember } from '@/lib/api/projects'
+import { inviteProjectMember } from '@/lib/api/projects'
+import { projectMembersQuery } from '@/lib/projects/project-queries'
+import { queryKeys } from '@/lib/query-keys'
 import type { OrgMember } from '@/types/teams'
 
 // The Sharing modal's job for a Shared project is purely "invite someone
@@ -69,6 +72,7 @@ export interface ProjectAddMembersListProps {
 
 export function ProjectAddMembersList({ projectId, onAdded }: ProjectAddMembersListProps) {
   const { orgId } = useOrg()
+  const queryClient = useQueryClient()
   const [loading,  setLoading]  = useState(true)
   const [eligible, setEligible] = useState<OrgMember[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
@@ -76,7 +80,7 @@ export function ProjectAddMembersList({ projectId, onAdded }: ProjectAddMembersL
   useEffect(() => {
     if (!orgId) { setLoading(false); return }
     let cancelled = false
-    Promise.all([fetchProjectMembers(projectId), listMembers(orgId)])
+    Promise.all([queryClient.fetchQuery(projectMembersQuery(projectId)), listMembers(orgId)])
       .then(([members, all]) => {
         if (cancelled) return
         const memberIds = new Set(members.map(m => m.userId))
@@ -88,7 +92,7 @@ export function ProjectAddMembersList({ projectId, onAdded }: ProjectAddMembersL
       .catch(() => { if (!cancelled) toast.error('Failed to load workspace members') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [projectId, orgId])
+  }, [projectId, orgId, queryClient])
 
   const handleAdd = async (member: OrgMember) => {
     setAddingId(member.id)
@@ -96,6 +100,7 @@ export function ProjectAddMembersList({ projectId, onAdded }: ProjectAddMembersL
       await inviteProjectMember(projectId, member.id)
       setEligible(prev => prev.filter(m => m.id !== member.id))
       toast.success(`${member.name || member.email} added to project`)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers(projectId) })
       onAdded?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to add ${member.name || member.email}`)

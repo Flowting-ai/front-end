@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   listChats,
@@ -11,6 +11,17 @@ import {
   starChat,
   archiveChat,
 } from "@/lib/api/chat";
+import {
+  flattenChats,
+  isPlaceholderTitle,
+  nextChatCursor,
+  patchChat,
+  prependChat,
+  removeChats,
+  type ChatPages,
+} from "@/lib/chat/chat-history-cache";
+import { queryKeys } from "@/lib/query-keys";
+import { STALE_STATIC_MS } from "@/lib/query-policy";
 import type { Chat } from "@/types/chat";
 
 export interface UseChatHistoryResult {
@@ -40,63 +51,45 @@ export interface UseChatHistoryResult {
   refreshChatTitle: (chatId: string) => Promise<void>;
 }
 
-export function useChatHistory(): UseChatHistoryResult {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const cursorRef = useRef<string | undefined>(undefined);
-  const loadingRef = useRef(false);
-  // Mirrors `chats` synchronously so refreshChatTitle can read current state
-  // without stale-closure issues inside async callbacks / setTimeout handlers.
-  const chatsRef = useRef<Chat[]>(chats);
-  useEffect(() => { chatsRef.current = chats }, [chats]);
-  // Deduplication: map of chatId → in-flight refreshChatTitle promise.
-  // Prevents the staggered 2.5s/5s title-refresh timers from firing two
-  // concurrent listChats() calls for the same newly-created chat.
-  const refreshInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
+const LIST_KEY = queryKeys.chats.list();
 
-  const loadChats = async (reset: boolean) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    setIsLoading(true);
-    try {
-      const cursor = reset ? undefined : cursorRef.current;
-      const res = await listChats(cursor);
-      // Exclude chats linked to a project — those belong to their project page,
-      // not the global chat list. project_id is set by the backend when a chat
-      // is successfully linked via POST /projects/{id}/chats/{chat_id}.
-      const incoming = (res.chats ?? []).filter((c) => !c.project_id);
-      setChats((prev) => {
-        if (reset) return incoming;
-        // Deduplicate: skip entries that are already present in `prev`
-        const prevIds = new Set(prev.map((c) => c.id));
-        return [...prev, ...incoming.filter((c) => !prevIds.has(c.id))];
-      });
-      cursorRef.current = res.next_cursor ?? undefined;
-      setHasMore(res.has_more ?? false);
-    } catch {
-      // Silent - sidebar missing chats is non-fatal
-    } finally {
-      loadingRef.current = false;
-      setIsLoading(false);
-    }
-  };
+/**
+ * The sidebar chat list. Server state is one React Query infinite query
+ * (GET /chats pages), so every caller shares the same data and requests; the
+ * pure page operations live in lib/chat/chat-history-cache.ts. Optimistic
+ * writes cancel an in-flight page fetch first and roll back only the chat they
+ * touched.
+ */
+export function useChatHistory(): UseChatHistoryResult {
+  const qc = useQueryClient();
 
   // Settings pages never show the chat list, so keep it off their first-paint connections
   // (88 KB, the slowest shell call); it loads as soon as the user leaves /settings.
   const onSettings = (usePathname() ?? "").startsWith("/settings");
-  const loadedRef = useRef(false);
-  useEffect(() => {
-    if (onSettings || loadedRef.current) return;
-    loadedRef.current = true;
-    loadChats(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadChats is recreated each render; run once.
-  }, [onSettings]);
+  const query = useInfiniteQuery({
+    queryKey: LIST_KEY,
+    queryFn: ({ pageParam }) => listChats(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: nextChatCursor,
+    enabled: !onSettings,
+    // Every loaded page refetches together, and this is the heaviest shell call,
+    // so keep the old cost: load once, refresh on demand (refresh()), not on focus.
+    staleTime: STALE_STATIC_MS,
+    refetchOnWindowFocus: false,
+  });
+  const chats = flattenChats(query.data as ChatPages | undefined);
+
+  const write = (fn: (data: ChatPages | undefined) => ChatPages | undefined) =>
+    qc.setQueryData<ChatPages>(LIST_KEY, fn);
+  const findChat = (chatId: string) => flattenChats(qc.getQueryData<ChatPages>(LIST_KEY)).find((c) => c.id === chatId);
+  /** Stop a page fetch that would land after (and overwrite) an optimistic write. */
+  const hold = () => qc.cancelQueries({ queryKey: LIST_KEY, exact: true });
 
   const handleCreate = async (model?: string): Promise<Chat | null> => {
     try {
       const chat = await createChat(model);
-      setChats((prev) => [chat, ...prev]);
+      await hold();
+      write((data) => prependChat(data, chat.id, chat));
       return chat;
     } catch {
       toast.error("Failed to create chat");
@@ -105,148 +98,96 @@ export function useChatHistory(): UseChatHistoryResult {
   };
 
   const handleRename = async (chatId: string, title: string): Promise<void> => {
-    const rollback = chats.find((c) => c.id === chatId)?.title ?? title;
-    setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, title } : c)),
-    );
+    const rollback = findChat(chatId)?.title ?? title;
+    await hold();
+    write((data) => patchChat(data, chatId, { title }));
     try {
       await renameChat(chatId, title);
       toast.success("Chat renamed");
     } catch {
-      setChats((prev) =>
-        prev.map((c) => (c.id === chatId ? { ...c, title: rollback } : c)),
-      );
+      write((data) => patchChat(data, chatId, { title: rollback }));
       toast.error("Failed to rename chat");
     }
   };
 
   const handleDelete = async (chatId: string): Promise<boolean> => {
-    const snapshot = chats;
-    setChats((prev) => prev.filter((c) => c.id !== chatId));
+    const snapshot = qc.getQueryData<ChatPages>(LIST_KEY);
+    await hold();
+    write((data) => removeChats(data, [chatId]));
     try {
       await deleteChat(chatId);
       return true;
     } catch {
-      setChats(snapshot);
+      qc.setQueryData(LIST_KEY, snapshot);
       toast.error("Failed to delete chat");
       return false;
     }
   };
 
   const handleStar = async (chatId: string): Promise<void> => {
-    const chat = chats.find((c) => c.id === chatId);
+    const chat = findChat(chatId);
     if (!chat) return;
     const next = !chat.starred;
-    setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, starred: next } : c)),
-    );
+    await hold();
+    write((data) => patchChat(data, chatId, { starred: next }));
     try {
       await starChat(chatId);
       toast.success(next ? "Chat pinned" : "Chat unpinned");
     } catch {
-      setChats((prev) =>
-        prev.map((c) => (c.id === chatId ? { ...c, starred: !next } : c)),
-      );
+      write((data) => patchChat(data, chatId, { starred: !next }));
       toast.error("Failed to update pin");
     }
   };
 
   const handleArchive = async (chatId: string): Promise<boolean> => {
-    const rollback = chats.find((c) => c.id === chatId)?.visibility;
-    setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, visibility: "archived" } : c)),
-    );
+    const rollback = findChat(chatId)?.visibility;
+    await hold();
+    write((data) => patchChat(data, chatId, { visibility: "archived" }));
     try {
       await archiveChat(chatId);
       toast.success("Chat archived");
       return true;
     } catch {
-      setChats((prev) =>
-        prev.map((c) => (c.id === chatId ? { ...c, visibility: rollback } : c)),
-      );
+      write((data) => patchChat(data, chatId, { visibility: rollback }));
       toast.error("Failed to archive chat");
       return false;
     }
   };
 
-  const addOptimistic = (chat: Chat) => {
-    setChats((prev) => [chat, ...prev.filter((c) => c.id !== chat.id)]);
-  };
-
   /**
-   * Fetch the first page of chats from the backend and, if the title of the
-   * given chat has been updated (i.e. is no longer the placeholder "New chat"),
-   * update it locally.  Intentionally bypasses the loadingRef lock so it can
-   * run concurrently with an ongoing sidebar load.
-   *
-   * Bails out early when local state already has a real title — prevents the
-   * staggered second timeout (5 s) from firing a redundant listChats() after
-   * the first timeout (2.5 s) already resolved it.
+   * Fetch the first page and, if this chat's title is no longer the
+   * placeholder, update it in the list. Concurrent calls (the staggered 2.5 s /
+   * 5 s timers) share one request through fetchQuery; a chat that already has
+   * a real title is left alone.
    */
-  const refreshChatTitle = (chatId: string): Promise<void> => {
-    const current = chatsRef.current.find((c) => c.id === chatId);
-    if (current?.title && current.title !== "New chat" && current.title !== "Untitled") {
-      return Promise.resolve();
+  const refreshChatTitle = async (chatId: string): Promise<void> => {
+    if (!isPlaceholderTitle(findChat(chatId)?.title)) return;
+    try {
+      const res = await qc.fetchQuery({ queryKey: queryKeys.chats.titleProbe(), queryFn: () => listChats(undefined), staleTime: 0 });
+      const found = (res.chats ?? []).find((c) => c.id === chatId);
+      if (found && !isPlaceholderTitle(found.title)) write((data) => patchChat(data, chatId, { title: found.title }));
+    } catch {
+      // non-fatal — sidebar will show correct title on next full refresh
     }
-    // Return the existing in-flight promise if one is already running for this chat
-    // — prevents staggered timeouts (2.5s + 5s) from issuing two concurrent listChats() calls.
-    const existing = refreshInFlightRef.current.get(chatId);
-    if (existing) return existing;
-
-    const promise = (async () => {
-      try {
-        const res = await listChats(undefined);
-        const found = (res.chats ?? []).find((c) => c.id === chatId);
-        if (found?.title && found.title !== "New chat" && found.title !== "Untitled") {
-          setChats((prev) =>
-            prev.map((c) => (c.id === chatId ? { ...c, title: found.title } : c)),
-          );
-        }
-      } catch {
-        // non-fatal — sidebar will show correct title on next full refresh
-      } finally {
-        refreshInFlightRef.current.delete(chatId);
-      }
-    })();
-
-    refreshInFlightRef.current.set(chatId, promise);
-    return promise;
-  };
-
-  const renameLocal = (chatId: string, title: string) => {
-    setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, title } : c)),
-    );
-  };
-
-  const removeLocal = (...chatIds: string[]) => {
-    const idSet = new Set(chatIds)
-    setChats((prev) => prev.filter((c) => !idSet.has(c.id)))
-  };
-
-  const moveToTop = (chatId: string) => {
-    setChats((prev) => {
-      const existing = prev.find((c) => c.id === chatId);
-      if (!existing) return prev;
-      return [existing, ...prev.filter((c) => c.id !== chatId)];
-    });
   };
 
   return {
     chats,
-    isLoading,
-    hasMore,
-    loadMore: () => loadChats(false),
-    refresh: () => loadChats(true),
+    isLoading: query.isFetching,
+    hasMore: query.hasNextPage,
+    loadMore: () => {
+      if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+    },
+    refresh: () => { void query.refetch(); },
     create: handleCreate,
     rename: handleRename,
-    renameLocal,
-    moveToTop,
+    renameLocal: (chatId, title) => write((data) => patchChat(data, chatId, { title })),
+    moveToTop: (chatId) => write((data) => prependChat(data, chatId)),
     remove: handleDelete,
-    removeLocal,
+    removeLocal: (...chatIds) => write((data) => removeChats(data, chatIds)),
     star: handleStar,
     archive: handleArchive,
-    addOptimistic,
+    addOptimistic: (chat) => write((data) => prependChat(data, chat.id, chat)),
     refreshChatTitle,
   };
 }

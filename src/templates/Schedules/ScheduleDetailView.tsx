@@ -87,6 +87,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label="Schedule active"
       onClick={() => onChange(!checked)}
       style={{
         position:        'relative',
@@ -270,7 +271,10 @@ export function ScheduleDetailView({
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
           <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
-          {schedule.isRunning && <Badge color="Blue" label="Running now" />}
+          {/* Announced when a run starts or finishes. */}
+          <span aria-live="polite" style={{ display: 'contents' }}>
+            {schedule.isRunning && <Badge color="Blue" label="Running now" />}
+          </span>
           {!!schedule.runCount && (
             <Badge color="Neutral" label={`${schedule.runCount} ${schedule.runCount === 1 ? 'run' : 'runs'}`} />
           )}

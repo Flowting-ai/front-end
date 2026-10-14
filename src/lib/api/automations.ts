@@ -1,78 +1,45 @@
 import { apiFetchJson, apiFetch, ApiError } from './client'
 import { API_BASE_URL } from '../config'
+import { parseList } from './project-schemas'
+import {
+  automationCopySchema,
+  automationDeleteSchema,
+  automationDetailSchema,
+  automationSchema,
+  organizationAutomationSchema,
+  type Automation,
+  type AutomationCopy,
+  type AutomationDeleteResponse,
+  type AutomationDetail,
+  type AutomationRun,
+  type OrganizationAutomation,
+} from './automation-schemas'
+
+export type {
+  Automation,
+  AutomationConnector,
+  AutomationCopy,
+  AutomationDeleteResponse,
+  AutomationDetail,
+  AutomationRun,
+  OrganizationAutomation,
+  ScheduleJson,
+} from './automation-schemas'
 
 const withBase = (path: string) => `${API_BASE_URL}${path}`
 
 const AUTOMATIONS_BASE = withBase('/automations')
-const AUTOMATION_BY_ID = (id: string) => withBase(`/automations/${id}`)
-const AUTOMATION_RUN   = (id: string) => withBase(`/automations/${id}/run`)
-const AUTOMATION_COPY  = (id: string) => withBase(`/automations/${id}/copy`)
+const AUTOMATION_BY_ID = (id: string) => withBase(`/automations/${encodeURIComponent(id)}`)
+const AUTOMATION_RUN   = (id: string) => withBase(`/automations/${encodeURIComponent(id)}/run`)
+const AUTOMATION_COPY  = (id: string) => withBase(`/automations/${encodeURIComponent(id)}/copy`)
 const ORGANIZATION_AUTOMATIONS = withBase('/automations/organization')
 
-// ── Schemas (match OpenAPI components.schemas) ────────────────────────────────
-
-export interface AutomationRun {
-  id:           string
-  status:       string          // running | succeeded | failed
-  started_at?:  string | null
-  finished_at?: string | null
-  answer:       string
-  error?:       string | null
-}
-
-export interface Automation {
-  id:             string
-  name:           string
-  summary:        string        // what it does each run, in the user's words
-  schedule_json:  Record<string, unknown>
-  trigger:        Record<string, unknown>
-  is_active:      boolean
-  next_run_at?:   string | null
-  last_run_at?:   string | null
-  run_count:      number
-  success_count:  number
-  failure_count:  number
-  running_count:  number
-  is_running:     boolean
-  success_rate:   number | null
-  created_at?:    string | null
-  updated_at?:    string | null
-}
-
-export interface AutomationDetail extends Automation {
-  chat_id?: string | null
-  runs?:    AutomationRun[]
-}
-
-/** A connector an automation's program calls, as the catalog names it. */
-export interface AutomationConnector {
-  slug:         string
-  display_name: string
-  logo_url:     string | null
-}
-
-/** Someone else's automation in the org list. Read-only: it carries only its
- *  public trigger fields and no run history. */
-export interface OrganizationAutomation extends Automation {
-  owner_name: string
-  connectors: AutomationConnector[]
-}
-
-/** A chat holding the source's program, and the request that sets it up. */
-export interface AutomationCopy {
-  chat_id: string
-  prompt:  string
-}
+// Response shapes live in ./automation-schemas (Zod, mirrors the backend).
 
 export interface AutomationUpdate {
   is_active?: boolean
   name?:      string
   summary?:   string
-}
-
-export interface AutomationDeleteResponse {
-  deleted:       boolean
-  automation_id: string
 }
 
 /** What a finished run has to say for itself: its answer, or why it failed.
@@ -97,37 +64,41 @@ export function failureReason(error: string): string {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
-/** GET /automations — list the user's automations. */
-export function listAutomations(): Promise<Automation[]> {
-  return apiFetchJson<Automation[]>(AUTOMATIONS_BASE)
+/** GET /automations — list the user's automations. Malformed rows are dropped. */
+export async function listAutomations(): Promise<Automation[]> {
+  return parseList(automationSchema, await apiFetchJson<unknown>(AUTOMATIONS_BASE), 'automation')
 }
 
 /** GET /automations/organization — everyone else's live automations in the user's org. */
-export function listOrganizationAutomations(): Promise<OrganizationAutomation[]> {
-  return apiFetchJson<OrganizationAutomation[]>(ORGANIZATION_AUTOMATIONS)
+export async function listOrganizationAutomations(): Promise<OrganizationAutomation[]> {
+  return parseList(
+    organizationAutomationSchema,
+    await apiFetchJson<unknown>(ORGANIZATION_AUTOMATIONS),
+    'organization automation',
+  )
 }
 
 /** POST /automations/{id}/copy — open a chat that rebuilds it as the user's own. */
-export function copyAutomation(id: string): Promise<AutomationCopy> {
-  return apiFetchJson<AutomationCopy>(AUTOMATION_COPY(id), { method: 'POST' })
+export async function copyAutomation(id: string): Promise<AutomationCopy> {
+  return automationCopySchema.parse(await apiFetchJson<unknown>(AUTOMATION_COPY(id), { method: 'POST' }))
 }
 
 /** GET /automations/{id} — the automation plus its run history. */
-export function getAutomation(id: string): Promise<AutomationDetail> {
-  return apiFetchJson<AutomationDetail>(AUTOMATION_BY_ID(id))
+export async function getAutomation(id: string): Promise<AutomationDetail> {
+  return automationDetailSchema.parse(await apiFetchJson<unknown>(AUTOMATION_BY_ID(id)))
 }
 
 /** PATCH /automations/{id} — pause/resume, rename, or rewrite the summary. */
-export function updateAutomation(id: string, body: AutomationUpdate): Promise<AutomationDetail> {
-  return apiFetchJson<AutomationDetail>(AUTOMATION_BY_ID(id), {
+export async function updateAutomation(id: string, body: AutomationUpdate): Promise<AutomationDetail> {
+  return automationDetailSchema.parse(await apiFetchJson<unknown>(AUTOMATION_BY_ID(id), {
     method: 'PATCH',
     body:   JSON.stringify(body),
-  })
+  }))
 }
 
 /** DELETE /automations/{id} — drop the trigger and retire it. Runs are kept. */
-export function deleteAutomation(id: string): Promise<AutomationDeleteResponse> {
-  return apiFetchJson<AutomationDeleteResponse>(AUTOMATION_BY_ID(id), { method: 'DELETE' })
+export async function deleteAutomation(id: string): Promise<AutomationDeleteResponse> {
+  return automationDeleteSchema.parse(await apiFetchJson<unknown>(AUTOMATION_BY_ID(id), { method: 'DELETE' }))
 }
 
 /** POST /automations/{id}/run — fire it once, now. */

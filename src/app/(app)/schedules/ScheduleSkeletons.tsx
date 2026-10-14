@@ -189,3 +189,21 @@ export function ScheduleDetailLoadingState() {
     </div>
   )
 }
+
+// Route-level loading (loading.tsx): the same center frame SchedulesScreen
+// draws, so the swap to the real page doesn't shift anything.
+export function SchedulesRouteLoading({ detail = false }: { detail?: boolean }) {
+  return (
+    <div style={{ position: 'relative', flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--neutral-50)', padding: '10px 10px 10px 0' }}>
+      <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', borderRadius: '22px', border: '1px solid var(--border-default)', backgroundColor: 'var(--color-surface-glass)', overflow: 'hidden' }}>
+        <div
+          role="status"
+          aria-label={detail ? 'Loading schedule' : 'Loading schedules'}
+          style={{ maxWidth: 991, width: '100%', margin: '0 auto', paddingLeft: 28, paddingRight: 28, boxSizing: 'border-box' }}
+        >
+          {detail ? <ScheduleDetailLoadingState /> : <SchedulesLoadingState />}
+        </div>
+      </div>
+    </div>
+  )
+}

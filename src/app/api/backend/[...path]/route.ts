@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server"
+import { BACKEND_BASE, newRequestId, upstreamFetch } from "@/lib/server/backend"
 
 /**
  * Same-origin streaming proxy to the backend API.
@@ -22,7 +23,7 @@ export const runtime = "nodejs"
 // backend's 740s stream deadline plus the 300s prompt gate.
 export const maxDuration = 800
 
-const UPSTREAM = (process.env.SERVER_URL || "http://localhost:8000").replace(/\/$/, "")
+const UPSTREAM = BACKEND_BASE || "http://localhost:8000"
 
 // Hop-by-hop request headers that must not be forwarded to the upstream.
 // `cookie` is dropped specifically: the upstream API authenticates via
@@ -59,10 +60,10 @@ async function handler(
   const search = new URL(req.url).search
   const target = `${UPSTREAM}/${path.join("/")}${search}`
 
-  const headers = new Headers()
+  const headers: Record<string, string> = {}
   for (const [key, value] of req.headers.entries()) {
     if (!STRIP_REQUEST_HEADERS.has(key.toLowerCase())) {
-      headers.set(key, value)
+      headers[key] = value
     }
   }
 
@@ -80,11 +81,14 @@ async function handler(
     init.duplex = "half"
   }
 
+  // upstreamFetch adds X-Request-Id and logs failures as structured lines with
+  // the method and first path segment only (full paths and queries carry ids).
+  const requestId = newRequestId()
   let upstream: Response
   try {
-    upstream = await fetch(target, init)
-  } catch (err) {
-    console.error("[backend-proxy] upstream fetch failed", target, err)
+    upstream = await upstreamFetch(`api/backend ${req.method} ${path[0] ?? ""}`, target, init as RequestInit & { headers: Record<string, string> }, requestId)
+  } catch {
+    // `detail` is the backend's own error key, which the client already reads.
     return new Response(
       JSON.stringify({ detail: "Upstream unreachable" }),
       { status: 502, headers: { "Content-Type": "application/json" } },
@@ -97,6 +101,7 @@ async function handler(
       responseHeaders.set(key, value)
     }
   }
+  if (!responseHeaders.has("X-Request-Id")) responseHeaders.set("X-Request-Id", requestId)
 
   // For SSE specifically, force-disable any downstream buffering. `next start`
   // and most CDNs honour `X-Accel-Buffering: no`; the Cache-Control hint

@@ -7,6 +7,8 @@ import {
   MODELS_TEST_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch, apiFetchJson, ApiError } from "./client";
+import { trackBrowserEvent } from "@/lib/analytics/events";
+import { blockResultSchema, modelWireSchema, modelWithStatusSchema, parseModelList } from "./model-schemas";
 
 // ── Schemas (match OpenAPI components.schemas) ────────────────────────────────
 
@@ -53,16 +55,25 @@ export type LLMModel = GetModelsWithStatus;
 
 /** GET /llm/models — bundled all / recent / most-used (already tier-filtered). */
 export async function listModels(): Promise<ModelsResponse> {
-  return apiFetchJson<ModelsResponse>(MODELS_ENDPOINT, { method: "GET" });
+  const raw = await apiFetchJson<Record<string, unknown>>(MODELS_ENDPOINT, { method: "GET" });
+  const list = (value: unknown): GetModels[] =>
+    Array.isArray(value) ? parseModelList(modelWireSchema, value).models : [];
+  return { all: list(raw?.all), recent: list(raw?.recent), most_used: list(raw?.most_used) };
 }
 
-/** GET /llm/models/all — every model with its blocked flag for this user. */
+/** GET /llm/models/all — every model with its blocked flag for this user.
+ *  Throws ApiError (or a parse error) so a screen can tell "failed" from
+ *  "no models". Malformed rows are dropped individually. */
+export async function loadAllModels(): Promise<GetModelsWithStatus[]> {
+  const raw = await apiFetchJson<unknown>(MODELS_ALL_ENDPOINT, { method: "GET" });
+  return parseModelList(modelWithStatusSchema, raw).models;
+}
+
+/** As loadAllModels, but never throws: [] on any failure. For callers that
+ *  treat the catalogue as optional (agent health, pickers). */
 export async function fetchAllModels(): Promise<GetModelsWithStatus[]> {
   try {
-    const res = await apiFetch(MODELS_ALL_ENDPOINT, { method: "GET" });
-    if (!res.ok) return [];
-    const data = (await res.json()) as unknown;
-    return Array.isArray(data) ? (data as GetModelsWithStatus[]) : [];
+    return await loadAllModels();
   } catch {
     return [];
   }
@@ -75,7 +86,10 @@ export async function toggleBlockModel(model_id: string): Promise<{ blocked: boo
     body:   JSON.stringify({ model_id } satisfies BlockModelRequest),
   });
   if (!res.ok) throw new ApiError(res.status, "block_model_failed", "Failed to update model status");
-  return res.json() as Promise<{ blocked: boolean }>;
+  const result = blockResultSchema.parse(await res.json());
+  if (result.blocked) trackBrowserEvent("model_toggled_off", { model_id });
+  else trackBrowserEvent("model_toggled_on", { model_id });
+  return result;
 }
 
 /** POST /llm/models/test — compare 1–3 models on a single prompt. */

@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Spinner } from '@/components/Spinner'
 import { toast } from 'sonner'
-import { fetchProjectMembers, leaveProjectApi, type ApiProjectMember } from '@/lib/api/projects'
+import { useQueryClient } from '@tanstack/react-query'
+import { leaveProjectApi, type ApiProjectMember } from '@/lib/api/projects'
+import { projectMembersQuery } from '@/lib/projects/project-queries'
 
 // Same hand-rolled overlay shape as ConfirmModal/LeaveWorkspaceModal. Needs
 // its own component: the owner's exit branches into a successor picker OR an
@@ -26,7 +29,9 @@ export interface LeaveProjectModalProps {
 }
 
 export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, onLeft }: LeaveProjectModalProps) {
+  const queryClient = useQueryClient()
   const [loadingMembers, setLoadingMembers] = useState(isOwner)
+  const panelRef = useRef<HTMLDivElement>(null)
   const [others,         setOthers]         = useState<ApiProjectMember[]>([])
   // Distinct from "loaded, zero others" — a failed fetch must never be read
   // as "you're alone", or the owner could archive/convert a project that
@@ -44,7 +49,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
     let cancelled = false
     setLoadingMembers(true)
     setMembersLoadFailed(false)
-    fetchProjectMembers(projectId)
+    queryClient.fetchQuery({ ...projectMembersQuery(projectId), staleTime: 0 })
       .then(members => {
         if (cancelled) return
         setOthers(members.filter(m => m.userId !== currentUserId))
@@ -56,7 +61,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
       })
       .finally(() => { if (!cancelled) setLoadingMembers(false) })
     return () => { cancelled = true }
-  }, [isOwner, projectId, currentUserId, loadAttempt])
+  }, [isOwner, projectId, currentUserId, loadAttempt, queryClient])
 
   const hasOthers = others.length > 0
   const selectedSuccessor = others.find(m => m.userId === successorId) ?? null
@@ -92,6 +97,8 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
           ? 'Pick who takes over as owner before you leave.'
           : "You're the only one on this project — archive it or convert it to a personal project first."
 
+  useFocusTrap(panelRef, true, () => { if (!submitting) onClose() })
+
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
@@ -103,6 +110,10 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
     >
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Leave project"
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',

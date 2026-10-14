@@ -1,5 +1,32 @@
 # Chat Feature: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 items 1, 2 and 5 done, 3 needs an install decision, 4 open.** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Error/loading surface: `(app)/error.tsx` already covered chat; added `app/(app)/chat/loading.tsx` (reuses `ChatMessagesSkeleton`). New `components/chat/BlockErrorBoundary.tsx` wraps every XML widget (`lib/content-renderer.tsx`), Mermaid and diff fences (`CodeBlock.tsx`) and every structured response block (`ResponseBlocks.tsx`), so one bad block shows an inline notice instead of blanking the chat.
+> 2. Injected HTML: Mermaid SVG now passes through new `sanitizeSVG` (DOMPurify SVG profile) in `lib/security.ts`; tests in `lib/security-svg.test.ts` use real `beautiful-mermaid` output. hljs output is safe by design (escapes all source text); locked in by `lib/highlight-escape.test.ts` and a comment at the sink.
+> 3. Heavy imports (verified): Mermaid, `XmlMap`, `jspdf`/`html2canvas` were already lazy; chat charts are hand-rolled SVG (Recharts is only in usage/sparkline). KaTeX stays synchronous by the documented decision in `bundle-fix-test-report.md`.
+> 4. Transcript is `role="log"` with `aria-relevant="additions"`; existing `aria-busy` holds announcements while streaming, and the existing status region announces completion.
+> 5. Retries (verified): the real send path (`apiFetch`) only re-sends after a 401, which the backend rejected before processing, so no duplicates. The unused `secureFetch` retried POSTs 3×; it now retries GET/HEAD only by default (`defaultRetries`, tested in `lib/api-client-retries.test.ts`).
+> 6. Token batching was already done (reveal loop steps per animation frame). `ChatMessage` now renders `useDeferredValue(shownContent)` so markdown re-parse yields to typing/scrolling.
+> 7. CI: new `.github/workflows/ci.yml` (type-check + vitest blocking, `TZ=UTC`; lint advisory); React Doctor set to `blocking: error`.
+>
+> Phase 2 (Oct 14 2026):
+> 1. The sidebar chat list is one React Query infinite query (`queryKeys.chats.list`, GET /chats pages). `hooks/use-chat-history.ts` keeps `UseChatHistoryResult` (14 consumers unchanged) but holds no state, refs or in-flight maps: paging is `fetchNextPage`, `refreshChatTitle` dedupes through `fetchQuery`, and the optimistic rename/delete/star/archive cancel an in-flight page fetch first and roll back only that chat. `ChatHistoryProvider` is gone from `(app)/layout.tsx`; `context/chat-history-context.tsx` is now a one-line re-export, since every caller reads the same cache. Logout clears the list. It keeps the old cost profile: loaded once (5-min staleTime), refreshed on demand, not on window focus, because all loaded pages refetch together and this is the heaviest shell call. Pure page operations in `lib/chat/chat-history-cache.ts`, 5 tests. Projects' chats stay in `ProjectsProvider` (also on React Query now); normalising chats by id across both is left for when the chat detail moves.
+> 2. Done by the shared foundation: `lib/query-keys.ts`, `lib/query-policy.ts` (retry/backoff/staleTime), `lib/query-invalidation.ts`.
+> 3. Not done: a single UI-state store (Zustand recommended) needs `npm install zustand`; waiting for approval.
+> 4. Not done: narrowing context scopes needs a React Profiler pass in the running app.
+> 5. The chat and persona-chat request boundaries are validated with Zod in the Internal/API routes Phase 2 work (see that audit).
+>
+> Open / caveats:
+> - Lint has 186 pre-existing errors, so the CI lint step is advisory until they are fixed. `theme.test.tsx` already fails (theme.css out of sync), so the CI test step will be red until it is regenerated.
+> - No `next build` / bundle check in CI: `prebuild` needs secrets CI does not have.
+> - Screen-reader pass with the new `role="log"` not done yet (Phase 4 item 6).
+>
+> Backend gaps:
+> - Resumable streams need `Last-Event-ID` or a cursor on the chat SSE endpoint.
+> - Idempotency keys for message sends (accept and dedupe an `Idempotency-Key` header) before any send retry can be added.
+
 Scope: chat (`app/(app)/chat`, `chats`, `components/chat`, `hooks/use-streaming-chat`, `use-chat-*`, `lib/stream-registry`, `lib/api-client`, `app/api/chat`).
 Method: the 56 principles across the 6 folders were matched to chat by structural scan (file sizes, greps, config). This is not a line-by-line review. Items marked (verify) need a closer look.
 Scoring: 1 = fully applied, 0.5 = partial, 0 = absent. Applicable principles only.

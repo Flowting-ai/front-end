@@ -1,5 +1,26 @@
 # Personas and Share: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done, except the route-level files (item 4, see below). Phase 2 front-end done (items 1, 2, 5); items 3–4 need the backend.** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Persona-chat proxy: `repoId`/`chatId` were already checked with `isSafeId` (Internal/API routes audit). New: `checkUploads()` in `lib/server/upload-limits.ts` (at most 10 files, 30 MB each, matching the client's `FILE_CONSTRAINTS`) returns a 413 `payload_too_large`. It applies to `/api/persona-chat` and also to `/api/chat`. `payload_too_large` was added to `RouteErrorCode`.
+> 2. Zod: `lib/api/share-schemas.ts` covers persona shares (share, preview, accept, received, sent, dashboard) and chat shares (share, shared-with-me item, fork, live view). Lists go through `parseList`, which drops malformed rows. Dashboard link cards that fail to parse are dropped instead of failing the dashboard. Optional fields fall back to null, 0 or [], so a field the backend drops does not crash a page.
+> 3. Copy link: `lib/share/copy-link.ts` reports the real clipboard result. On failure the toast shows the link so it can be copied by hand (`AgentShareModal`, `agents/published`). The accept page's state cards have `role="status"`/`alert`, the loading card has `aria-busy`, and the headings have heading semantics.
+> 5. The accept page navigates to Agents as soon as the accept succeeds; the fixed 1.2 s timer is gone. A double click is ignored while the accept is pending. `formatShareExpiry` guards invalid dates and uses the browser locale. Failures are mapped by `previewFailure`/`acceptFailure` in `lib/share/share-accept.ts`.
+> 6. Tests: `lib/share/share.test.ts` covers the accept and preview mapping, the expiry guard, the copy result, `canonicalShareUrl` (with and without the env var, and an invalid URL), the upload limits and the schemas. `app/api/persona-chat/route.test.ts` covers URL routing (existing chat, new chat, `temp-` ids), token and geo headers, id validation and the file-count 413.
+> 7. Events: `share_preview_viewed`, `share_expired_seen`, `share_accepted` (accept page), `share_forked` (`forkChatShare`) and `share_revoked` (`revokeShare`, `deleteChatShare`). Each carries a `kind` of `agent` or `chat`, and all are in `events.ts` and the Mixpanel doc.
+>
+> Not done: item 4 (`loading`/`error`/`not-found` files for the share routes). Both pages already render their own skeleton, not-found and expired states, and `(app)/error.tsx` catches crashes. Proper route files belong with the Phase 2 server-rendered preview.
+>
+> Phase 2 (Oct 14 2026):
+> 1. `lib/share/share-queries.ts`: one `personaSharesQuery` replaces the four separate `listShares()` fetches (share modal, published page, agents panel badges, agents page filter); `shareDashboardQuery(days)` and `receivedSharesQuery` back `useSuperLinksData` (same return API, no set-state-in-effect). Writes: `rememberShare` / `forgetShare` update the list and cached dashboards and refetch them, so the share modal's `onChanged` refetch plumbing is gone; `afterShareAccepted` refreshes the agents list (`bustPersonasCache`) and "Shared with me" after accepting. 3 tests.
+> 2. `/share/[id]` is now a server page: `loadSharePreviewOnServer` (React `cache`, session token, 4 s timeout) renders the preview or the not-found/expired state with no loading flash, and `generateMetadata` titles the tab with the agent and sender. Auth/5xx/malformed responses fall back to the browser fetch (`ShareAcceptClient`). 3 tests for the mapping.
+> 5. The accept page's hand-rolled skeleton now uses the shared `components/Skeleton`.
+>
+> Open: chat shares (`ChatShareOverlay`, "shared with me" on /chats) move with the Chat Phase 2 migration; route `error`/`not-found` files for the share routes; the accept page still loads the whole model catalogue to show one model name (gap a).
+>
+> Backend gaps: (f, Phase 2) `GET /persona-shares/{id}` requires a session, so link unfurls can't show the agent; a public, minimal preview (name, sender, image) would let `generateMetadata` serve Open Graph tags. (a) `model_name` in the share preview; (b) a snapshot option and a live-view flag for chat shares; (c) a sender setting for whether the preview shows the agent's prompt; (d) rate limits on preview and accept; (e) the backend's own upload limits should match the proxy's (10 files, 30 MB each).
+
 Scope: the sharing side of personas (agents) and chats. `app/(app)/share/[id]` (486), `app/(app)/chat-shares/[shareId]` (268), `components/chat/ChatShareOverlay` (474), `components/AgentShareModal` (247), `templates/SuperLinks` (286), `agent/configure/components/SharingTab` (744), `agent/configure/sharing/page` (381), `agents/published/page` (659, shared with Agents), `lib/api/persona-shares.ts` (214), `lib/api/chat-shares.ts` (194), `lib/share-url.ts`, `app/api/persona-chat/route.ts` (140), `lib/chat-personas.ts`, `hooks/use-selectable-chat-personas`, `use-pending-persona-handoff`. About 3,500 lines.
 The persona editor, list, cards, API module and caching are covered in the **Agents audit**; this one covers sharing, the persona chat proxy, and persona chat plumbing only.
 Method: share accept page, both share API modules, share-url helper and the persona-chat route read; other files by grep metrics. Items marked (verify) need a closer look.

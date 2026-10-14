@@ -4,29 +4,29 @@ One audit per feature in `../features.md`, scored against the 56 principles in `
 
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only. Scores come from a structural scan, not a line-by-line review; "(verify)" marks items needing a closer look.
 
-| # | Feature | Report | Efficiency |
-|---|---|---|---|
-| 1 | Chat | [chat-system-design-audit.md](chat-system-design-audit.md) | ~56% |
-| 2 | Compare | [compare-system-design-audit.md](compare-system-design-audit.md) | ~43% |
-| 3 | Agents | [agents-system-design-audit.md](agents-system-design-audit.md) | ~43% |
-| 4 | Projects | [projects-system-design-audit.md](projects-system-design-audit.md) | ~42% |
-| 5 | Templates | [templates-system-design-audit.md](templates-system-design-audit.md) | ~63% |
-| 6 | Schedules | [schedules-system-design-audit.md](schedules-system-design-audit.md) | ~46% |
-| 7 | Pinboard and Highlights | [pinboard-system-design-audit.md](pinboard-system-design-audit.md) | ~47% |
-| 8 | Global search | [global-search-system-design-audit.md](global-search-system-design-audit.md) | ~40% |
-| 9 | Connectors | [connectors-system-design-audit.md](connectors-system-design-audit.md) | ~55% |
-| 10 | Slack | [slack-system-design-audit.md](slack-system-design-audit.md) | ~44% |
-| 11 | AI Models view | [ai-models-system-design-audit.md](ai-models-system-design-audit.md) | ~46% |
-| 12 | Auth | [auth-system-design-audit.md](auth-system-design-audit.md) | ~59% |
-| 13 | Onboarding | [onboarding-system-design-audit.md](onboarding-system-design-audit.md) | ~48% |
-| 14 | Organizations | [organizations-system-design-audit.md](organizations-system-design-audit.md) | ~42% |
-| 15 | Settings | [settings-system-design-audit.md](settings-system-design-audit.md) | ~43% |
-| 16 | Credits and billing | [credits-billing-system-design-audit.md](credits-billing-system-design-audit.md) | ~46% |
-| 17 | Analytics (dashboard and Mixpanel) | [analytics-system-design-audit.md](analytics-system-design-audit.md) | ~49% |
-| 18 | Notifications | [notifications-system-design-audit.md](notifications-system-design-audit.md) | ~57% |
-| 19 | Prompt enhancement | [prompt-enhancement-system-design-audit.md](prompt-enhancement-system-design-audit.md) | ~49% |
-| 20 | Personas and Share | [personas-share-system-design-audit.md](personas-share-system-design-audit.md) | ~45% |
-| 21 | Internal and API routes | [internal-api-routes-system-design-audit.md](internal-api-routes-system-design-audit.md) | ~54% |
+| # | Feature | Report | Efficiency | Status |
+|---|---|---|---|---|
+| 1 | Chat | [chat-system-design-audit.md](chat-system-design-audit.md) | ~56% | Phase 1 done, Phase 2 partly done (Oct 14) |
+| 2 | Compare | [compare-system-design-audit.md](compare-system-design-audit.md) | ~43% | Phase 1 done, Phase 2 item 3 done; 1/2/4 need approval (Oct 14) |
+| 3 | Agents | [agents-system-design-audit.md](agents-system-design-audit.md) | ~43% | Done (Oct 11–12; budget and a11y pass open) |
+| 4 | Projects | [projects-system-design-audit.md](projects-system-design-audit.md) | ~42% | Phase 1 done, Phase 2 mostly done (Oct 14) |
+| 5 | Templates | [templates-system-design-audit.md](templates-system-design-audit.md) | ~63% | Phase 1–2 done (Oct 14) |
+| 6 | Schedules | [schedules-system-design-audit.md](schedules-system-design-audit.md) | ~46% | Phase 1 done, Phase 2 done except link store (Oct 14) |
+| 7 | Pinboard and Highlights | [pinboard-system-design-audit.md](pinboard-system-design-audit.md) | ~47% | Skipped (Oct 14, by request) |
+| 8 | Global search | [global-search-system-design-audit.md](global-search-system-design-audit.md) | ~40% | Phase 1–2 done (Oct 14) |
+| 9 | Connectors | [connectors-system-design-audit.md](connectors-system-design-audit.md) | ~55% | Phase 1–2 done (Oct 14) |
+| 10 | Slack | [slack-system-design-audit.md](slack-system-design-audit.md) | ~44% | Skipped (Oct 14, by request) |
+| 11 | AI Models view | [ai-models-system-design-audit.md](ai-models-system-design-audit.md) | ~46% | Phase 1 partly done, Phase 2 mostly done (Oct 14) |
+| 12 | Auth | [auth-system-design-audit.md](auth-system-design-audit.md) | ~59% | Phase 1–2 done (Oct 14) |
+| 13 | Onboarding | [onboarding-system-design-audit.md](onboarding-system-design-audit.md) | ~48% | Skipped (Oct 14, by request) |
+| 14 | Organizations | [organizations-system-design-audit.md](organizations-system-design-audit.md) | ~42% | Phase 1 done, Phase 2 mostly done (Oct 14) |
+| 15 | Settings | [settings-system-design-audit.md](settings-system-design-audit.md) | ~43% | Phase 1 done, Phase 2 front-end done; rest needs backend (Oct 14) |
+| 16 | Credits and billing | [credits-billing-system-design-audit.md](credits-billing-system-design-audit.md) | ~46% | Phase 1 done, Phase 2 front-end done (Oct 14) |
+| 17 | Analytics (dashboard and Mixpanel) | [analytics-system-design-audit.md](analytics-system-design-audit.md) | ~49% | Phase 1 done, Phase 2 done except backend time series (Oct 14) |
+| 18 | Notifications | [notifications-system-design-audit.md](notifications-system-design-audit.md) | ~57% | Skipped (Oct 14, by request) |
+| 19 | Prompt enhancement | [prompt-enhancement-system-design-audit.md](prompt-enhancement-system-design-audit.md) | ~49% | Phase 1 done, Phase 2 item 3 done; rest needs approval (Oct 14) |
+| 20 | Personas and Share | [personas-share-system-design-audit.md](personas-share-system-design-audit.md) | ~45% | Phase 1 done, Phase 2 front-end done (Oct 14) |
+| 21 | Internal and API routes | [internal-api-routes-system-design-audit.md](internal-api-routes-system-design-audit.md) | ~54% | Phase 1–2 done (Oct 14) |
 
 All 21 feature areas in `features.md` are now audited. See the cross-cutting summary below.
 

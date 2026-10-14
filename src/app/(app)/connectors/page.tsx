@@ -9,6 +9,7 @@
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ConnectorsExperience } from '@/components/connectors/ConnectorsExperience'
+import { ConnectorsLoading } from '@/components/connectors/ConnectorsLoading'
 
 function ConnectorsPageContent() {
   const searchParams = useSearchParams()
@@ -17,7 +18,7 @@ function ConnectorsPageContent() {
 
 export default function ConnectorsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ConnectorsLoading />}>
       <ConnectorsPageContent />
     </Suspense>
   )

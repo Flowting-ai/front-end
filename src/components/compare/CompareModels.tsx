@@ -12,10 +12,15 @@ import { ThemedLlmIcon } from "@/components/ThemedLlmIcon";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button, IconButton } from "@/components/ui/button";
 import { friendlyModelError } from "@/lib/model-error";
+import { NETWORK_ERROR_MESSAGE, extractCredits, httpErrorMessage, omitKey, resolveModelId } from "@/lib/compare/run-events";
+import { filterCompareModels } from "@/lib/compare/filter-models";
+import { formatContextWindow } from "@/lib/models/catalog";
+import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import type { AIModel } from "@/types/ai-model";
-import { fetchModelsWithCache } from "@/lib/ai-models";
+import { useQuery } from "@tanstack/react-query";
+import { modelsQuery } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
@@ -170,12 +175,6 @@ interface CompareModel {
 const resolveRequestModelId = (model: AIModel): string | null =>
   normalizeUuid(model.id) ?? normalizeUuid(model.modelId);
 
-function formatCtx(limit: number): string {
-  if (!limit || limit <= 0) return "N/A";
-  if (limit >= 1_000_000) return `${Math.round(limit / 1_000_000)}M ctx`;
-  if (limit >= 1_000)     return `${Math.round(limit / 1_000)}k ctx`;
-  return `${limit} ctx`;
-}
 
 const transformModelForCompare = (model: AIModel): CompareModel => {
   const company   = model.companyName || "Unknown";
@@ -204,7 +203,7 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
     modelName,
     description:    model.description || (model.version ? `Version ${model.version}` : modelName),
     tierLabel:      model.planType || model.callType || model.modelType || "Standard",
-    contextLabel:   formatCtx(model.inputLimit ?? 0),
+    contextLabel:   formatContextWindow(model.inputLimit) ?? "N/A",
     featureLabel:   type === "video" ? "Video generation"
                   : type === "image" ? "Image generation"
                   : null,
@@ -740,19 +739,78 @@ function ModelReasoning({ reasoning, streaming, hasAnswer }: {
   );
 }
 
+/**
+ * One model's answer area: reasoning, then streaming text, an error with
+ * Retry, a waiting state, the formatted answer, or the empty prompt. Used by
+ * both the column tray and the expanded view. Wrapped in a boundary so a
+ * render error in one answer can't blank the whole modal.
+ */
+function ModelResponseBody({ modelId, modelName, response, reasoning, error, streaming, testing, fill, onRetry }: {
+  modelId: string;
+  modelName: string;
+  response?: string;
+  reasoning?: CompareReasoning;
+  error?: string;
+  streaming: boolean;
+  testing: boolean;
+  /** Expanded view: placeholders fill the panel height. */
+  fill?: boolean;
+  onRetry: (modelId: string) => void;
+}) {
+  const placeholder: React.CSSProperties = fill
+    ? { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }
+    : { display: "flex", flexDirection: "column", alignItems: "center", gap: 8 };
+  return (
+    <BlockErrorBoundary label="answer">
+      <ModelReasoning reasoning={reasoning} streaming={streaming} hasAnswer={Boolean(response)} />
+      {streaming ? (
+        <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
+          {response || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
+        </div>
+      ) : error ? (
+        <>
+          {response && <FormattedResponse content={response} modelId={modelId} />}
+          <div role="alert" style={placeholder}>
+            <div style={{ fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Red-text)", textAlign: "center", fontFamily: "var(--font-body)" }}>{error}</div>
+            <Button variant="outline" size="sm" onClick={() => onRetry(modelId)} disabled={testing}>Retry</Button>
+          </div>
+        </>
+      ) : testing && !response ? (
+        <div style={placeholder}>
+          <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} className="animate-pulse" />
+          <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
+        </div>
+      ) : response ? (
+        <FormattedResponse content={response} modelId={modelId} />
+      ) : (
+        <div style={placeholder}>
+          <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
+          <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
+            Run a prompt to see<br />{modelName}&apos;s<br />answer here.
+          </div>
+        </div>
+      )}
+    </BlockErrorBoundary>
+  );
+}
+
 export default function CompareModels({ selectedModel, onModelSelect, onClose }: CompareModelsProps = {}) {
   void selectedModel;
 
   const [selectedModels,       setSelectedModels]       = useState<string[]>([]);
   const [showResults,          setShowResults]           = useState(false);
   const [prompt,               setPrompt]                = useState("");
-  const [models,               setModels]                = useState<CompareModel[]>([]);
-  const [isLoading,            setIsLoading]             = useState(true);
+  // The shared ["models"] query, the same cache the model selector reads.
+  const modelsQ = useQuery(modelsQuery());
+  const fullModels: AIModel[] = useMemo(() => modelsQ.data ?? [], [modelsQ.data]);
+  const models: CompareModel[] = useMemo(() => fullModels.map(transformModelForCompare), [fullModels]);
+  const isLoading = modelsQ.isPending;
   const [testResponses,        setTestResponses]         = useState<Record<string, string>>({});
+  const [lastPrompt,           setLastPrompt]            = useState("");
+  const [testErrors,           setTestErrors]            = useState<Record<string, string>>({});
   const [testReasoning,        setTestReasoning]         = useState<Record<string, CompareReasoning>>({});
   const [isTesting,            setIsTesting]             = useState(false);
   const [streamingModels,      setStreamingModels]       = useState<Set<string>>(new Set());
-  const [fullModels,           setFullModels]            = useState<AIModel[]>([]);
   const [promptInputCollapsed, setPromptInputCollapsed]  = useState(false);
   const [activeTab,            setActiveTab]             = useState<string>("all");
   const [searchQuery,          setSearchQuery]           = useState("");
@@ -811,26 +869,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c);
   }, [models]);
 
-  const filteredModels = useMemo(() => {
-    let result = activeTab === "all" ? models : models.filter((m) => m.company === activeTab);
-    if (selectedTiers.size > 0) {
-      result = result.filter((m) => {
-        const t = (m.tierLabel ?? "").toLowerCase();
-        if (selectedTiers.has("starter") && (t === "free" || t === "starter")) return true;
-        if (selectedTiers.has("pro")     && (t === "paid" || t === "pro"))     return true;
-        if (selectedTiers.has("power")   && t === "power")                     return true;
-        return false;
-      });
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((m) =>
-        m.modelName.toLowerCase().includes(q) ||
-        m.company.toLowerCase().includes(q),
-      );
-    }
-    return result;
-  }, [models, activeTab, searchQuery, selectedTiers]);
+  const filteredModels = useMemo(
+    () => filterCompareModels(models, { company: activeTab, tiers: selectedTiers, query: searchQuery }),
+    [models, activeTab, searchQuery, selectedTiers],
+  );
 
   // â”€â”€ Auto-grow textarea â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -855,26 +897,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     }
   }, [prompt, showResults, promptInputCollapsed]);
 
-  // â”€â”€ Fetch models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    fetchModelsWithCache()
-      .then((ms) => {
-        if (cancelled) return;
-        setFullModels(ms);
-        setModels(ms.map(transformModelForCompare));
-        setIsLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setModels([]);
-        setFullModels([]);
-        setIsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -969,13 +991,184 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     openPinboard();
   }, [testResponses, testMessageIds, addPin, openPinboard]);
 
+  /**
+   * Streams `modelIds` in parallel for `trimmedPrompt`. Each model succeeds or
+   * fails on its own (errors land in `testErrors`, never in the answer text),
+   * so one failure doesn't blank the other columns. Also used by per-model retry.
+   */
+  const runModels = async (modelIds: string[], trimmedPrompt: string) => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setIsTesting(true);
+
+    const streamingResponses: Record<string, string> = {};
+    const reasoningByModel = new Map(modelIds.map((id) => [id, createReasoningAccumulator()]));
+    const runModelSet = new Set(modelIds);
+    modelIds.forEach((id) => { streamingResponses[id] = ""; });
+
+    // Merge rather than replace so a single-model retry keeps the other answers.
+    const publish = () => setTestResponses((prev) => ({ ...prev, ...streamingResponses }));
+    const stopStreaming = (id: string) =>
+      setStreamingModels((prev) => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+    const failModel = (id: string, message: string) => {
+      setTestErrors((prev) => ({ ...prev, [id]: message }));
+      stopStreaming(id);
+    };
+
+    const handleEvent = (eventType: string, payload: Record<string, unknown>, fallbackModelId?: string) => {
+      const modelIdStr = resolveModelId(payload) ?? fallbackModelId ?? null;
+      if (!modelIdStr || !runModelSet.has(modelIdStr)) return;
+      if (!(modelIdStr in streamingResponses)) streamingResponses[modelIdStr] = "";
+
+      // Extract message_id from any event that carries it
+      const rawMsgId = payload.message_id ?? payload.messageId ?? null;
+      if (typeof rawMsgId === "string" && rawMsgId.trim()) {
+        setTestMessageIds((prev) =>
+          prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
+        );
+      }
+
+      switch (eventType) {
+        case "content": {
+          const chunk = typeof payload.content === "string" ? payload.content : "";
+          if (!chunk) return;
+          streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
+          setStreamingModels((prev) => (prev.has(modelIdStr) ? prev : new Set(prev).add(modelIdStr)));
+          publish();
+          break;
+        }
+        case "reasoning_heading":
+        case "reasoning_body": {
+          const accumulator = reasoningByModel.get(modelIdStr) ?? createReasoningAccumulator();
+          reasoningByModel.set(modelIdStr, accumulator);
+          const content = typeof payload.content === "string" ? payload.content : "";
+          accumulator.event(eventType, content);
+          const snapshot = accumulator.snapshot();
+          setTestReasoning((prev) => ({
+            ...prev,
+            [modelIdStr]: { text: snapshot.text, sections: snapshot.sections },
+          }));
+          break;
+        }
+        case "image": {
+          const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
+          if (!imageUrl) return;
+          streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
+          publish();
+          break;
+        }
+        case "done": {
+          const final = typeof payload.response === "string" ? payload.response : "";
+          if (final) { streamingResponses[modelIdStr] = final; publish(); }
+          const credits = extractCredits(payload);
+          if (credits !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: credits }));
+          stopStreaming(modelIdStr);
+          break;
+        }
+        case "error": {
+          const errText = typeof payload.error === "string" ? payload.error : "Unknown error";
+          failModel(modelIdStr, friendlyModelError(errText));
+          break;
+        }
+        case "tool_connect_prompt": {
+          const prompt: ConnectorConnectPrompt = {
+            request_id:     typeof payload.prompt_id      === "string" ? payload.prompt_id      : `ccp-${Date.now()}`,
+            connector:      toConnector(payload),
+            auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
+            tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
+          };
+          setConnectPromptsPerModel((prev) => ({
+            ...prev,
+            [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+          }));
+          break;
+        }
+        case "permission_prompt": {
+          const prompt = parsePermissionPrompt(payload);
+          if (!prompt) break;
+          setPermissionPromptsPerModel((prev) => ({
+            ...prev,
+            [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+          }));
+          break;
+        }
+      }
+    };
+
+    const processDecodedEvent = (event: DecodedSSEEvent, fallbackModelId?: string) => {
+      if (!event.appEvent) return;
+      const rawEvent = event.raw.rawEvent;
+      const modelTag = rawEvent && typeof rawEvent === "object"
+        ? rawEvent as Record<string, unknown>
+        : {};
+      handleEvent(
+        event.appEvent.eventName,
+        { ...event.raw, ...modelTag, ...event.appEvent.parsed },
+        fallbackModelId,
+      );
+    };
+
+    const streamOne = async (modelId: string) => {
+      const sseDecoder = new AguiSSEDecoder();
+      const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
+        method: "POST",
+        body: JSON.stringify({
+          model_ids: [modelId],
+          prompt:    trimmedPrompt,
+          modelIds:  [modelId],
+          message:   trimmedPrompt,
+        }),
+        signal:  controller.signal,
+        headers: { Accept: "text/event-stream" },
+      });
+
+      if (!resp.ok) { failModel(modelId, httpErrorMessage(resp.status)); return; }
+
+      const reader = resp.body?.getReader();
+      if (!reader) { failModel(modelId, NETWORK_ERROR_MESSAGE); return; }
+
+      try {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const event of sseDecoder.push(decoder.decode(value, { stream: true }))) {
+            processDecodedEvent(event, modelId);
+          }
+        }
+        for (const event of sseDecoder.push(decoder.decode())) processDecodedEvent(event, modelId);
+        for (const event of sseDecoder.flush()) processDecodedEvent(event, modelId);
+      } finally {
+        reader.cancel().catch(() => {});
+      }
+    };
+
+    try {
+      await Promise.all(modelIds.map(async (modelId) => {
+        try {
+          await streamOne(modelId);
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") { stopStreaming(modelId); return; }
+          console.error("Error testing model:", modelId, error);
+          failModel(modelId, NETWORK_ERROR_MESSAGE);
+        }
+      }));
+    } finally {
+      modelIds.forEach(stopStreaming);
+      if (abortControllerRef.current === controller) abortControllerRef.current = null;
+      setIsTesting(false);
+    }
+  };
+
   const handleTestModels = async () => {
     if (!prompt.trim() || selectedModels.length < 2 || isTesting) return;
 
+    const trimmedPrompt = prompt.trim();
+    setLastPrompt(trimmedPrompt);
     setPromptInputCollapsed(true);
     setPrompt("");
-    setIsTesting(true);
     setTestResponses({});
+    setTestErrors({});
     setTestReasoning({});
     setTestCredits({});
     setTestMessageIds({});
@@ -985,198 +1178,28 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     // Revoke object URLs for pasted images to avoid memory leaks
     setPastedImages((prev) => { prev.forEach((url) => URL.revokeObjectURL(url)); return []; });
 
-    try {
-      const modelIds      = selectedModels.map((id) => id.trim()).filter((id) => id.length > 0);
-      const validModelIds = modelIds.filter((id) => isValidUUID(id));
-      const invalidIds    = modelIds.filter((id) => !isValidUUID(id));
-
-      if (validModelIds.length === 0) throw new Error("No valid model IDs found");
-
-      if (invalidIds.length > 0) {
-        const errMsg = `Error: Invalid model ID selected (${invalidIds.join(", ")})`;
-        const errorResponses: Record<string, string> = {};
-        selectedModels.forEach((id) => { errorResponses[id] = errMsg; });
-        setTestResponses(errorResponses);
-        setStreamingModels(new Set());
-        return;
-      }
-
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      const trimmedPrompt = prompt.trim();
-
-      const streamingResponses: Record<string, string> = {};
-      const reasoningByModel = new Map(selectedModels.map((id) => [id, createReasoningAccumulator()]));
-      const selectedModelSet = new Set(selectedModels);
-      selectedModels.forEach((id) => { streamingResponses[id] = ""; });
-
-      const resolveModelIdFromPayload = (payload: Record<string, unknown>): string | null => {
-        const raw = payload.model_id ?? payload.modelId ?? null;
-        if (raw === null || raw === undefined) return null;
-        const resolved = String(raw).trim();
-        return resolved.length > 0 ? resolved : null;
-      };
-
-      const handleEvent = (eventType: string, payload: Record<string, unknown>, fallbackModelId?: string) => {
-        const modelIdStr = resolveModelIdFromPayload(payload) ?? fallbackModelId ?? null;
-        if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
-        if (!(modelIdStr in streamingResponses)) streamingResponses[modelIdStr] = "";
-
-        // Extract message_id from any event that carries it
-        const rawMsgId = payload.message_id ?? payload.messageId ?? null;
-        if (typeof rawMsgId === "string" && rawMsgId.trim()) {
-          setTestMessageIds((prev) =>
-            prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
-          );
-        }
-
-        switch (eventType) {
-          case "content": {
-            const chunk = typeof payload.content === "string" ? payload.content : "";
-            if (!chunk) return;
-            streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
-            setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-            setTestResponses({ ...streamingResponses });
-            break;
-          }
-          case "reasoning_heading":
-          case "reasoning_body": {
-            const accumulator = reasoningByModel.get(modelIdStr) ?? createReasoningAccumulator();
-            reasoningByModel.set(modelIdStr, accumulator);
-            const content = typeof payload.content === "string" ? payload.content : "";
-            accumulator.event(eventType, content);
-            const snapshot = accumulator.snapshot();
-            setTestReasoning((prev) => ({
-              ...prev,
-              [modelIdStr]: { text: snapshot.text, sections: snapshot.sections },
-            }));
-            break;
-          }
-          case "image": {
-            const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
-            if (!imageUrl) return;
-            streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
-            setTestResponses({ ...streamingResponses });
-            break;
-          }
-          case "done": {
-            const final = typeof payload.response === "string" ? payload.response : "";
-            if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
-            const creditsRaw =
-              typeof payload.credits_used  === "number" ? payload.credits_used  :
-              typeof payload.creditsUsed   === "number" ? payload.creditsUsed   :
-              typeof payload.credits       === "number" ? payload.credits       :
-              typeof payload.cost          === "number" ? payload.cost          :
-              typeof (payload.usage as Record<string, unknown> | undefined)?.total_cost === "number"
-                ? (payload.usage as Record<string, number>).total_cost :
-              typeof (payload.usage as Record<string, unknown> | undefined)?.cost === "number"
-                ? (payload.usage as Record<string, number>).cost :
-              null;
-            if (creditsRaw !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: creditsRaw }));
-            setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
-            break;
-          }
-          case "error": {
-            const errText = typeof payload.error === "string" ? payload.error : "Unknown error";
-            streamingResponses[modelIdStr] = friendlyModelError(errText);
-            setTestResponses({ ...streamingResponses });
-            setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
-            break;
-          }
-          case "tool_connect_prompt": {
-            const prompt: ConnectorConnectPrompt = {
-              request_id:     typeof payload.prompt_id      === "string" ? payload.prompt_id      : `ccp-${Date.now()}`,
-              connector:      toConnector(payload),
-              auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
-              tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
-            };
-            setConnectPromptsPerModel((prev) => ({
-              ...prev,
-              [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-            }));
-            break;
-          }
-          case "permission_prompt": {
-            const prompt = parsePermissionPrompt(payload);
-            if (!prompt) break;
-            setPermissionPromptsPerModel((prev) => ({
-              ...prev,
-              [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-            }));
-            break;
-          }
-        }
-      };
-
-      const processDecodedEvent = (event: DecodedSSEEvent, fallbackModelId?: string) => {
-        if (!event.appEvent) return;
-        const rawEvent = event.raw.rawEvent;
-        const modelTag = rawEvent && typeof rawEvent === "object"
-          ? rawEvent as Record<string, unknown>
-          : {};
-        handleEvent(
-          event.appEvent.eventName,
-          { ...event.raw, ...modelTag, ...event.appEvent.parsed },
-          fallbackModelId,
-        );
-      };
-
-      // Fire one request per model in parallel so all columns stream simultaneously
-      await Promise.all(validModelIds.map(async (modelId) => {
-        const sseDecoder = new AguiSSEDecoder();
-        const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
-          method: "POST",
-          body: JSON.stringify({
-            model_ids: [modelId],
-            prompt:    trimmedPrompt,
-            modelIds:  [modelId],
-            message:   trimmedPrompt,
-          }),
-          signal:  controller.signal,
-          headers: { Accept: "text/event-stream" },
-        });
-
-        if (!resp.ok) {
-          streamingResponses[modelId] = `Error: ${resp.status}`;
-          setTestResponses({ ...streamingResponses });
-          setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
-          return;
-        }
-
-        const reader = resp.body?.getReader();
-        if (!reader) {
-          streamingResponses[modelId] = "Error: No response body";
-          setTestResponses({ ...streamingResponses });
-          return;
-        }
-
-        try {
-          const decoder = new TextDecoder();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            for (const event of sseDecoder.push(decoder.decode(value, { stream: true }))) {
-              processDecodedEvent(event, modelId);
-            }
-          }
-          for (const event of sseDecoder.push(decoder.decode())) processDecodedEvent(event, modelId);
-          for (const event of sseDecoder.flush()) processDecodedEvent(event, modelId);
-        } finally {
-          reader.cancel().catch(() => {});
-        }
-      }));
-      setStreamingModels(new Set());
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
-      console.error("Error testing models:", error);
-      const errorResponses: Record<string, string> = {};
-      selectedModels.forEach((id) => { errorResponses[id] = "Error: Failed to get response"; });
-      setTestResponses(errorResponses);
-    } finally {
-      abortControllerRef.current = null;
-      setIsTesting(false);
+    const modelIds   = selectedModels.map((id) => id.trim()).filter((id) => id.length > 0);
+    const invalidIds = modelIds.filter((id) => !isValidUUID(id));
+    if (modelIds.length === 0 || invalidIds.length > 0) {
+      const message = `Invalid model ID selected (${invalidIds.join(", ") || "none"}).`;
+      setTestErrors(Object.fromEntries(selectedModels.map((id) => [id, message])));
+      return;
     }
+
+    await runModels(modelIds, trimmedPrompt);
+  };
+
+  /** Re-runs one model with the last prompt, keeping the other columns as they are. */
+  const handleRetryModel = (modelId: string) => {
+    if (isTesting || !lastPrompt) return;
+    setTestErrors((prev) => omitKey(prev, modelId));
+    setTestResponses((prev) => omitKey(prev, modelId));
+    setTestReasoning((prev) => omitKey(prev, modelId));
+    setTestCredits((prev) => omitKey(prev, modelId));
+    setTestMessageIds((prev) => omitKey(prev, modelId));
+    setConnectPromptsPerModel((prev) => omitKey(prev, modelId));
+    setPermissionPromptsPerModel((prev) => omitKey(prev, modelId));
+    void runModels([modelId], lastPrompt);
   };
 
   // â”€â”€ Results view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1321,27 +1344,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "var(--neutral-white)", borderRadius: 8 }}
                     >
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
-                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
-                        {isModelStreaming ? (
-                          <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
-                            {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
-                          </div>
-                        ) : isTesting && !modelResponse ? (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} className="animate-pulse" />
-                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
-                          </div>
-                        ) : modelResponse ? (
-                          <FormattedResponse content={modelResponse} modelId={responseKey} />
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
-                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
-                              Run a prompt to see<br />{expandedModel.modelName}&apos;s<br />answer here.
-                            </div>
-                          </div>
-                        )}
+                      <div className="kaya-scrollbar" aria-live="polite" aria-busy={isModelStreaming || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
+                        <ModelResponseBody modelId={responseKey} modelName={expandedModel.modelName} response={modelResponse} reasoning={modelReasoning}
+                          error={testErrors[responseKey]} streaming={isModelStreaming} testing={isTesting} fill onRetry={handleRetryModel} />
                       </div>
                       {/* Connector prompts — shown below the response in expanded view */}
                       {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
@@ -1430,27 +1435,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         </Button>
                       </div>
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse || modelReasoning ? "flex-start" : "center", justifyContent: modelResponse || modelReasoning ? "flex-start" : "center" }}>
-                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
-                        {isModelStreaming ? (
-                          <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
-                            {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
-                          </div>
-                        ) : isTesting && !modelResponse ? (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} className="animate-pulse" />
-                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
-                          </div>
-                        ) : modelResponse ? (
-                          <FormattedResponse content={modelResponse} modelId={responseKey} />
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
-                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
-                              Run a prompt to see<br />{model.modelName}&apos;s<br />answer here.
-                            </div>
-                          </div>
-                        )}
+                      <div className="kaya-scrollbar" aria-live="polite" aria-busy={isModelStreaming || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse || modelReasoning ? "flex-start" : "center", justifyContent: modelResponse || modelReasoning ? "flex-start" : "center" }}>
+                        <ModelResponseBody modelId={responseKey} modelName={model.modelName} response={modelResponse} reasoning={modelReasoning}
+                          error={testErrors[responseKey]} streaming={isModelStreaming} testing={isTesting} onRetry={handleRetryModel} />
                       </div>
                       {/* Connector prompts — shown below the response */}
                       {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (

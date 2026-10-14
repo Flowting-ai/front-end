@@ -28,6 +28,10 @@ import {
   type ToolEntryWire,
   type ToolPermissionEntryWire,
 } from './connector-schemas'
+import { trackBrowserEvent } from '@/lib/analytics/events'
+import { ConnectTimeoutError } from '@/lib/connectors/connect-errors'
+import { getQueryClient } from '@/lib/query-client'
+import { queryKeys } from '@/lib/query-keys'
 
 export type {
   ApiKeyField,
@@ -330,16 +334,39 @@ export type ConnectorListPage = {
   hasMore: boolean
 }
 
-let catalogBySlug = new Map<string, ConnectorCatalog>()
 const listInFlight = new Map<string, Promise<ConnectorListPage>>()
 
+/**
+ * Slug → last-seen catalog entry, for the synchronous `resolveConnector()`
+ * lookups agents and personas do while rendering. Lives in the React Query
+ * cache (never stale, never collected) so logout clears it with everything else.
+ */
+function identities(): Map<string, ConnectorCatalog> {
+  const qc = getQueryClient()
+  const key = queryKeys.connectors.identities()
+  let map = qc.getQueryData<Map<string, ConnectorCatalog>>(key)
+  if (!map) {
+    qc.setQueryDefaults(key, { staleTime: Infinity, gcTime: Infinity })
+    map = new Map()
+    qc.setQueryData(key, map)
+  }
+  return map
+}
+
+/**
+ * After any connector change (link, update, unlink, custom API): every
+ * connector query refetches (lists, details, featured, search) and the identity
+ * map starts over. The mutations below call this themselves.
+ */
 export function bustConnectorCatalogCache(): void {
-  catalogBySlug = new Map()
+  const qc = getQueryClient()
+  qc.removeQueries({ queryKey: queryKeys.connectors.identities(), exact: true })
   listInFlight.clear()
+  void qc.invalidateQueries({ queryKey: queryKeys.connectors.all() })
 }
 
 function remember(entry: ConnectorCatalog): ConnectorCatalog {
-  catalogBySlug.set(entry.slug, entry)
+  identities().set(entry.slug, entry)
   return entry
 }
 
@@ -396,7 +423,7 @@ export async function listLinkedConnectors(): Promise<ConnectorCatalog[]> {
 }
 
 export function resolveConnector(slug: string): Connector {
-  const entry = catalogBySlug.get(slug)
+  const entry = identities().get(slug)
   return entry ? entry.identity : toConnector(slug)
 }
 
@@ -446,6 +473,8 @@ export async function initiateLink(
   initData?: Record<string, string>,
 ): Promise<LinkResponse> {
   const hasInit = initData != null && Object.keys(initData).length > 0
+  // An attempt: the OAuth or form step that follows may still be abandoned.
+  trackBrowserEvent('connector_connect_attempted', { connector: slug })
   const raw = await apiFetchJson<unknown>(CONNECTOR_LINK_ENDPOINT(slug), {
     method: 'POST',
     ...(hasInit ? { body: JSON.stringify({ init_data: initData }) } : {}),
@@ -475,6 +504,7 @@ export async function updateAccount(
     body:   JSON.stringify(body),
   })
   bustConnectorCatalogCache()
+  if (body.shared !== undefined) trackBrowserEvent('connector_share_changed', { shared: body.shared })
   return ConnectorConnection.parse(raw)
 }
 
@@ -485,6 +515,7 @@ export async function unlinkAccount(accountId: string): Promise<void> {
     throw new Error(`Failed to unlink account: ${res.status}`)
   }
   bustConnectorCatalogCache()
+  trackBrowserEvent('connector_unlinked')
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -555,12 +586,15 @@ export async function pollConnectorUntilActive(
     timeoutMs         = 120_000,
     signal,
     target            = {},
+    random            = Math.random,
   }: {
     initialIntervalMs?: number
     maxIntervalMs?: number
     timeoutMs?: number
     signal?: AbortSignal
     target?: PollTarget
+    /** Jitter source (tests pass a fixed one). */
+    random?: () => number
   } = {},
 ): Promise<ConnectorCatalog> {
   const deadline = Date.now() + timeoutMs
@@ -571,9 +605,15 @@ export async function pollConnectorUntilActive(
     // Never `entry.linked`: that is org-wide, true the instant ANY org member
     // has a shared connection, so it settled before the popup's OAuth flow
     // even finished whenever a shared account already existed.
-    if (pollSatisfied(entry, target)) return entry
+    if (pollSatisfied(entry, target)) {
+      // Seed the detail query so the page shows the new account without another fetch.
+      getQueryClient().setQueryData(queryKeys.connectors.detail(slug), entry)
+      return entry
+    }
+    // ±20% jitter so tabs (and users) that started together don't poll in lockstep.
+    const waitMs = Math.round(intervalMs * (0.8 + random() * 0.4))
     await new Promise<void>((resolve, reject) => {
-      const t = setTimeout(resolve, intervalMs)
+      const t = setTimeout(resolve, waitMs)
       signal?.addEventListener('abort', () => {
         clearTimeout(t)
         reject(new DOMException('Polling aborted', 'AbortError'))
@@ -581,5 +621,5 @@ export async function pollConnectorUntilActive(
     })
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }
-  throw new Error(`Connector ${slug} did not become linked within ${timeoutMs}ms`)
+  throw new ConnectTimeoutError(slug, timeoutMs)
 }

@@ -1,5 +1,26 @@
 # AI Models View: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 partly done; Phase 2 done except 2.3 (backend confirmation) and 2.4 (needs a provider slug).** Selector a11y and popover boundaries are open.
+>
+> Done:
+> 1. New `loadAllModels()` in `lib/api/models.ts` throws (`ApiError` or a parse error). `fetchAllModels()` is now its never-throwing wrapper, kept for the agents page, TopBar and persona chat, which treat the catalogue as optional. `/settings/ai` uses `loadAllModels` and shows "Couldn't load your models" with **Try again** instead of an empty list; an empty catalogue now reads "No models are available on your plan".
+> 2. Zod in `lib/api/model-schemas.ts`: `modelWireSchema`, `modelWithStatusSchema` and `blockResultSchema`. `parseModelList` parses per item, so one bad model is dropped (and counted) without emptying the list. Used by `loadAllModels`, `listModels` (all, recent, most_used) and `toggleBlockModel`. The legacy camelCase normaliser in `lib/ai-models.ts` is untouched (Phase 2.3).
+> 3. Partly: each model switch has an `aria-label` ("Enable <model>"), and provider names are `h2` headings. Provider groups aren't collapsible, so `aria-expanded` doesn't apply.
+> 4. Partly: `toggleBlockModel` now tracks `model_toggled_on` as well as `model_toggled_off` (in `events.ts` and the Mixpanel doc).
+> 5. Toggle, filter and provider-order logic moved to `lib/models/catalog.ts` (`withBlocked` drives the optimistic update, reconcile and rollback), with 7 tests covering it and the schemas.
+> 6. Partly: `settings/(shell)/ai/loading.tsx` (`AiModelsLoading`). `(app)/error.tsx` covers throws.
+>
+> Open: listbox semantics and keyboard handling in the four chat selectors (`ModelSelector`, `ModelMenu`, `PresetModelSelector`, `PresetModelSelectorDialog`), left for Phase 3.1, which merges them into one primitive, so the work isn't done twice. Also open: `model_selected` / `model_fallback` events (they need the selection-store work in Phase 2.2 to have one call site), boundaries around selector popovers, the icon-table tests (Phase 2.4 moves icon matching to provider ids), and Phases 2–4.
+>
+> Phase 2 (Oct 14 2026):
+> 1. One `["models"]` query (`modelsQuery` in `lib/ai-models.ts`); `fetchModelsWithCache()` reads it (never throws, 60 s fresh) and the module cache is gone. `bustModelsCache()` invalidates it in every tab, so `MODELS_CACHE_BUSTED_EVENT` and its two listeners (`use-model-selection`, `TopBar`) are deleted; `TopBar` re-resolves on the query's `dataUpdatedAt`. The `/settings/ai` toggle was already optimistic with rollback (Phase 1 `withBlocked`).
+> 2. Single selection store `lib/models/model-selection-store.ts`: the stable id plus a display copy in localStorage (keys now in `storage-keys.ts`), read with `useSyncExternalStore`, synced across tabs via the `storage` event, resolved against the catalogue on every change (`resolveSelection`: saved model, closest replacement, or the recommended default), cleared on logout. `use-model-selection.ts` lost its state, effects and refs. The Phase 1 deferred `model_selected` and `model_fallback` events now fire from it (ids only; in `events.ts` and the Mixpanel doc). 5 tests.
+> 3. Not done: removing the camelCase normaliser needs backend gap (a) answered.
+> 4. Not done: icons by provider id need a stable provider slug on each model (ids are database rows); the keyword mapping in `lib/model-icons.ts` stays.
+> 5. `formatContextWindow` in `lib/models/catalog.ts` replaces the two different formatters in `/settings/ai` and Compare ("1.5M ctx" instead of "2M" or "1.5M" depending on screen). Pricing is not shown anywhere, so there is nothing else to format. 1 test.
+>
+> Backend gaps: (a) confirm which endpoints still emit legacy camelCase model fields, so the old normaliser can go; (b) a field for org-enforced blocks (Phase 4.3).
+
 Scope: `components/AiModelsView` (661 lines, route `settings/(shell)/ai`), `ModelFeaturedCard` (343), `ModelSelectItem` (482), `ModelIcon`, `PresetModelSelector` (276), `chat/ModelSelector` (406), `chat/ModelMenu` (229), `chat/PresetModelSelectorDialog` (379), `context/model-selector-context.tsx` (267), `hooks/use-model-selection.ts` (177), `lib/api/models.ts` (87), `lib/ai-models.ts` (288), `lib/model-fallback.ts`, `lib/model-error.ts`, `lib/model-icons.ts`, `lib/agent-model-health.ts`. About 4,300 lines. The settings page is the catalogue and enable/disable screen; the selector components feed model choice into Chat, Compare and Agents.
 Method: API modules, normaliser, selection hook and context, and the AiModelsView toggle and filter logic read; the selector components checked by grep. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

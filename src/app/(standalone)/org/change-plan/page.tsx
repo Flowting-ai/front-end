@@ -311,7 +311,7 @@ function OrgChangePlanPageInner() {
   // The backend's plan ID identifies the tier independently of wallet usage.
   const currentTier             = TeamsTier.fromPlanId(plan?.planId)
   const currentWorkspaceTierIdx = currentTier ? WORKSPACE_PLANS.findIndex(p => p.price === currentTier.price) : -1
-  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org.plan !== 'enterprise'
+  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org?.plan !== 'enterprise'
   // No backend field distinguishes "org is on a free/trial plan" from "org has
   // no plan yet" — the only trial mechanism that exists (services/stripe/account.py
   // startTrial) is individual-only and 403s for org members, so this can never
@@ -342,7 +342,7 @@ function OrgChangePlanPageInner() {
   const currentPlanToastShown = useRef(false)
   useEffect(() => {
     if (currentPlanToastShown.current || !orgReady) return
-    if (org.plan === 'enterprise') {
+    if (org?.plan === 'enterprise') {
       currentPlanToastShown.current = true
       toast.success("You're on the Pro (Enterprise) plan", { duration: Infinity })
     } else if (hasWorkspacePlan) {
@@ -355,7 +355,7 @@ function OrgChangePlanPageInner() {
     } else {
       currentPlanToastShown.current = true
     }
-  }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
+  }, [orgReady, org?.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
 
   const handleSelectTier = (idx: number) => {
     setWorkspaceIdx(idx)
@@ -394,6 +394,7 @@ function OrgChangePlanPageInner() {
       try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
     } catch (err) {
+      trackBrowserEvent('checkout_failed', { from_plan: currentPlan ?? undefined, to_plan: planId })
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout')
       setChangingTo(null)
     }
@@ -496,6 +497,7 @@ function OrgChangePlanPageInner() {
             <button
               ref={monthlyBtnRef}
               type="button"
+              aria-pressed={billing === 'monthly'}
               onClick={() => setBilling('monthly')}
               style={{
                 position: 'relative',
@@ -517,6 +519,7 @@ function OrgChangePlanPageInner() {
             <button
               ref={annualBtnRef}
               type="button"
+              aria-pressed={billing === 'annual'}
               onClick={() => setBilling('annual')}
               style={{
                 position: 'relative',
@@ -718,9 +721,9 @@ function OrgChangePlanPageInner() {
 
                 <m.button
                   type="button"
-                  onClick={() => { if (!changingTo && org.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
-                  disabled={!!changingTo || org.plan === 'enterprise'}
-                  whileTap={(!!changingTo || org.plan === 'enterprise') ? undefined : { scale: 0.98 }}
+                  onClick={() => { if (!changingTo && org?.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
+                  disabled={!!changingTo || org?.plan === 'enterprise'}
+                  whileTap={(!!changingTo || org?.plan === 'enterprise') ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.1, ease: 'easeOut' }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
@@ -730,8 +733,8 @@ function OrgChangePlanPageInner() {
                     fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
-                  {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
-                  {org.plan !== 'enterprise' && (
+                  {org?.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
+                  {org?.plan !== 'enterprise' && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

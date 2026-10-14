@@ -1,12 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { InformationCircleIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Tooltip } from '@/components/Tooltip'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
-import { UsageBarChart } from '@/components/UsageBarChart'
 import { Avatar } from '@/components/Avatar'
 import { UsageMeter } from '@/components/UsageMeter'
 import { SettingsTable, SettingsTableCell, SettingsTableHeader, SettingsTableHeaderCell, SettingsTableRow, SettingsTableToolbar } from '@/components/SettingsTable'
@@ -15,95 +13,10 @@ import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { ORG_MEMBERS_ROUTE } from '@/lib/routes'
 
-type DateRange = '7d' | '1m' | '3m' | '6m'
-
-const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
-  { id: '7d', label: 'Last 7 days' },
-  { id: '1m', label: '1 month' },
-  { id: '3m', label: '3 months' },
-  { id: '6m', label: '6 months' },
-]
-
-type ChartMetric = 'chat' | 'assistants' | 'automation'
-
-interface ChartDay { label: string; chat: number; assistants: number; automation: number }
-
-// Figma 18:26029 colour slots (blue/purple/green) for the Chat / Slack /
-// Automations categories this data tracks.
-//
-// Based on the same tag bg tints Chip/Badge/PinCategory use (aliases.css
-// --color-tag-{Color}-bg), one primitive step darker than the exact tag tint
-// (blue-100→200, purple-100→200, green's tag tint is already the lighter
-// -bg-soft/green-50, so its next step is green-100 — the tag system's own
-// plain -bg). `border` is that tag's ring color (--color-tag-{Color}-ring) —
-// the same 1px outline every Chip/Badge renders around its bg tint.
-const FEATURE_META: Record<ChartMetric, { label: string; color: string }> = {
-  assistants: { label: 'Slack',       color: 'var(--chart-slack)' },
-  automation: { label: 'Automations', color: 'var(--chart-automation)' },
-  chat:       { label: 'Chat',        color: 'var(--chart-chat)' },
-}
-
-// Approximate feature mix of total consumption. The backend exposes org credit
-// totals (and per-member / per-team breakdowns) but no per-feature time series,
-// so the daily curve below is *derived* from the real `used` total — apportioned
-// to the selected window by day-count and split across features — rather than a
-// frozen mock. It changes per org, per usage level, and per date range.
-const FEATURE_SPLIT: Record<ChartMetric, number> = { chat: 0.68, assistants: 0.20, automation: 0.12 }
-
 // Matches AnalyticsPageSkeleton's 4 placeholder rows below. A real top-N cap —
 // "Manage members" only makes sense as a way to see the REST of the team, so
 // it must stay hidden whenever this list already covers everyone active.
 const TOP_USERS_LIMIT = 4
-
-const METRIC_KEYS: ChartMetric[] = ['assistants', 'automation', 'chat']
-
-function rangeConfig(range: DateRange): { buckets: number; windowDays: number } {
-  switch (range) {
-    case '7d': return { buckets: 7, windowDays: 7 }
-    case '1m': return { buckets: 6, windowDays: 30 }
-    case '3m': return { buckets: 6, windowDays: 90 }
-    case '6m': return { buckets: 6, windowDays: 180 }
-  }
-}
-
-/** Build a date-range-aware, usage-scaled feature series (see FEATURE_SPLIT note). */
-function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date, elapsedDays: number): {
-  days: ChartDay[]
-  totals: Record<ChartMetric, number>
-  windowUsed: number
-} {
-  const { buckets, windowDays } = rangeConfig(range)
-  // `totalUsed` is the cycle-to-date total, so a window longer than the cycle
-  // so far is capped at it; a shorter window takes its share of elapsed days.
-  const windowUsed  = Math.round(totalUsed * Math.min(1, windowDays / elapsedDays))
-  const bucketSpan = windowDays / buckets
-
-  // Deterministic per-bucket weights (stable across renders — no Math.random).
-  const weights: Record<ChartMetric, number[]> = { chat: [], assistants: [], automation: [] }
-  METRIC_KEYS.forEach((metric, fi) => {
-    const raw = Array.from({ length: buckets }, (_, i) =>
-      Math.max(0.2, 1 + 0.55 * Math.sin(i * 1.3 + fi * 2.1) + 0.25 * Math.cos(i * 0.7 + fi)))
-    const sum = raw.reduce((a, b) => a + b, 0)
-    weights[metric] = raw.map(w => w / sum)
-  })
-
-  const days:   ChartDay[]                 = []
-  const totals: Record<ChartMetric, number> = { chat: 0, assistants: 0, automation: 0 }
-  for (let i = 0; i < buckets; i++) {
-    const offsetDays = Math.round((buckets - 1 - i) * bucketSpan)
-    const d = new Date(now)
-    d.setDate(now.getDate() - offsetDays)
-    const day: ChartDay = {
-      label:      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      chat:       Math.round(windowUsed * FEATURE_SPLIT.chat       * weights.chat[i]),
-      assistants: Math.round(windowUsed * FEATURE_SPLIT.assistants * weights.assistants[i]),
-      automation: Math.round(windowUsed * FEATURE_SPLIT.automation * weights.automation[i]),
-    }
-    days.push(day)
-    totals.chat += day.chat; totals.assistants += day.assistants; totals.automation += day.automation
-  }
-  return { days, totals, windowUsed }
-}
 
 function PageCard({
   children,
@@ -133,82 +46,8 @@ function PageCard({
 }
 
 
-function FeatureCard({ days, totals, windowUsed, rangeLabel, caption }: {
-  days: ChartDay[]
-  totals: Record<ChartMetric, number>
-  windowUsed: number
-  rangeLabel: string
-  caption: string
-}) {
-  const sum = METRIC_KEYS.reduce((acc, metric) => acc + totals[metric], 0)
-  const series = METRIC_KEYS.map(metric => ({
-    id:    metric,
-    label: FEATURE_META[metric].label,
-    color: FEATURE_META[metric].color,
-    data:  days.map(d => d[metric]),
-  }))
-
-  return (
-    <PageCard padding={0}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-              Credit usage by feature
-            </h2>
-            <Tooltip
-              side="top"
-              maxWidth={280}
-              content="The total is your real credit use. How it splits across Slack, Automations and Chat, and day by day, is estimated until per-feature reporting is available."
-            >
-              <span style={{ display: 'inline-flex', cursor: 'default' }}><Badge label="Estimated split" color="Neutral" /></span>
-            </Tooltip>
-          </div>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: '2px 0 0' }}>
-            {windowUsed.toLocaleString()} credits · {rangeLabel}
-          </p>
-        </div>
-      </div>
-
-      {/* One tile per feature: what it cost, its share, and a thin bar in its chart colour. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, padding: '20px 24px 0' }}>
-        {METRIC_KEYS.map(metric => {
-          const value = totals[metric]
-          const share = sum > 0 ? value / sum : 0
-          return (
-            <div key={metric} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12, background: 'var(--neutral-white)', boxShadow: 'var(--shadow-surface-card)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)' }}>
-                <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: FEATURE_META[metric].color, flexShrink: 0 }} />
-                {FEATURE_META[metric].label}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-title)', fontSize: 22, lineHeight: '30px', color: 'var(--neutral-900)', fontVariantNumeric: 'tabular-nums' }}>
-                  {value.toLocaleString()}
-                </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', fontVariantNumeric: 'tabular-nums' }}>
-                  {Math.round(share * 100)}%
-                </span>
-              </span>
-              <span aria-hidden style={{ height: 4, borderRadius: 999, background: 'var(--neutral-100)', overflow: 'hidden' }}>
-                <span style={{ display: 'block', height: '100%', width: `${share * 100}%`, minWidth: share > 0 ? 4 : 0, borderRadius: 999, background: FEATURE_META[metric].color }} />
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      <div style={{ padding: '20px 24px 20px' }}>
-        <UsageBarChart days={days.map(d => d.label)} series={series} mode="per-link" height={200} barRadius={[4, 4, 0, 0]} segmentGap="var(--neutral-50)" showHoverCursor />
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: '12px 0 0' }}>
-          {caption}
-        </p>
-      </div>
-    </PageCard>
-  )
-}
-
-// Same table language as /settings/members. Member usage is a billing-cycle total from the backend (it
-// does not follow the date range above), so the table says "this cycle" and each share is of the team's
+// Same table language as /settings/members. Member usage is a billing-cycle total from the backend,
+// so the table says "this cycle" and each share is of the team's
 // total, which adds up to 100%, rather than of the plan allowance.
 const TOP_USER_COLUMNS = 'minmax(0, 1fr) 96px 112px 168px'
 
@@ -347,11 +186,6 @@ function AnalyticsPageSkeleton() {
           </div>
         </div>
 
-        {/* Date range tab strip */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px' }}>
-          <SkeletonBlock width={280} height={32} radius={8} />
-        </div>
-
         {/* Stats row — Monthly Limits + Active members */}
         <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
           <div style={{ display: 'flex', gap: 9 }}>
@@ -369,39 +203,6 @@ function AnalyticsPageSkeleton() {
               <SkeletonBlock width={30} height={28} radius={6} />
               <SkeletonBlock width={80} height={13} radius={4} />
               <SkeletonBlock width={100} height={20} radius={6} />
-            </div>
-          </div>
-        </div>
-
-        {/* Feature chart card */}
-        <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: '12px 0' }}>
-          {/* Card title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <SkeletonBlock width={180} height={16} radius={4} />
-            <div style={{ flex: '1 0 0' }} />
-            <div style={{ display: 'flex', gap: 6 }}>
-              <SkeletonBlock width={70} height={22} radius={6} />
-              <SkeletonBlock width={90} height={22} radius={6} />
-              <SkeletonBlock width={55} height={22} radius={6} />
-            </div>
-          </div>
-          {/* Chart area */}
-          <div style={{ padding: '24px 24px 28px' }}>
-            <div style={{ height: 184, position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
-              <SkeletonBlock width="100%" height={184} radius={8} />
-            </div>
-            {/* X-axis labels */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-              {[0, 1, 2, 3, 4, 5, 6].map(i => <SkeletonBlock key={i} width={36} height={11} radius={4} />)}
-            </div>
-            {/* Legend */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 12 }}>
-              {[80, 100, 55].map((w, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <SkeletonBlock width={16} height={3} radius={999} />
-                  <SkeletonBlock width={w} height={11} radius={4} />
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -435,19 +236,11 @@ export default function OrgUsageAnalyticsPage() {
   const router = useRouter()
   const { members, membersLoading, plan, orgReady } = useOrg()
   const { user } = useAuth()
-  const [dateRange,  setDateRange]  = useState<DateRange>('7d')
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0
   const isEnterprise = plan?.isEnterprise ?? false
   const monthlyPrice = plan?.monthlyPrice ?? 0
-  const daysIntoCycle = plan?.daysIntoCycle ?? 1
-
-  // Feature-usage series — derived from real `used` credits + selected range.
-  const featureSeries = React.useMemo(
-    () => buildFeatureSeries(dateRange, totalUsed, new Date(), daysIntoCycle),
-    [dateRange, totalUsed, daysIntoCycle],
-  )
 
   if (!orgReady || membersLoading) {
     return (
@@ -507,17 +300,6 @@ export default function OrgUsageAnalyticsPage() {
       ? `Member totals come to ${membersUsedSum.toLocaleString()} credits, ${Math.abs(usageGap).toLocaleString()} less than the ${totalUsed.toLocaleString()} used above. The difference is usage from people who have left the workspace.`
       : undefined
 
-  // Whenever the selected window's estimate reaches the full cycle-to-date
-  // total (windowUsed clamps at totalUsed — true for 1/3/6 months in nearly
-  // every case, and for "Last 7 days" itself early in a new cycle), it
-  // reconciles exactly with the "Monthly Limits" total above. Otherwise it's
-  // a real subset of that total — spelled out so that isn't mistaken for the
-  // bars simply not adding up.
-  const rangeLabel   = DATE_RANGES.find(r => r.id === dateRange)?.label ?? dateRange
-  const chartCaption = featureSeries.windowUsed >= totalUsed
-    ? `${featureSeries.windowUsed.toLocaleString()} credits — matches your Monthly Limits total for this cycle.`
-    : `${featureSeries.windowUsed.toLocaleString()} of ${totalUsed.toLocaleString()} credits used this cycle · estimated for ${rangeLabel.toLowerCase()} (no per-day breakdown yet).`
-
   const avgPerMember = activeMembers.length > 0 ? Math.round(totalUsed / activeMembers.length) : 0
   const remaining = Math.max(0, totalCredits - totalUsed)
   const kpiLabel: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)' }
@@ -552,7 +334,9 @@ export default function OrgUsageAnalyticsPage() {
           gap:           12,
         }}
       >
-        {/* Header: title on the left, the date range it controls on the right. */}
+        {/* Header. There is no date range: the backend reports this cycle's
+            totals and per-member credits only, with no per-day or per-feature
+            series for an organization. A chart returns when one exists. */}
         <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
@@ -562,13 +346,6 @@ export default function OrgUsageAnalyticsPage() {
               How your workspace is using its credits{plan?.cycleEndLabel && plan.cycleEndLabel !== '—' ? `, this cycle ${isEnterprise ? 'billed' : 'resets'} ${plan.cycleEndLabel}` : ''}.
             </p>
           </div>
-          <Tabs value={dateRange} onValueChange={value => setDateRange(value as DateRange)}>
-            <TabsList size="small" aria-label="Usage date range">
-              {DATE_RANGES.map(range => (
-                <TabsTrigger key={range.id} value={range.id}>{range.label}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
         </div>
 
         {/* Four headline numbers, the plan meter spanning under the first two. */}
@@ -616,8 +393,6 @@ export default function OrgUsageAnalyticsPage() {
             About {avgPerMember.toLocaleString()} credits per active member this cycle.
           </p>
         </PageCard>
-
-        <FeatureCard days={featureSeries.days} totals={featureSeries.totals} windowUsed={featureSeries.windowUsed} rangeLabel={rangeLabel} caption={chartCaption} />
 
         <TopUsersTable
           users={topUsers}

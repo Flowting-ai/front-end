@@ -1,11 +1,10 @@
-﻿'use client'
+'use client'
 
-import React, { createContext, useCallback, use, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, use, useEffect, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import type { BadgeColor } from '@/components/Badge'
 import { useAuth } from '@/context/auth-context'
 import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
-import type { PinProps, PinLabel } from '@/components/Pin'
 import {
   fetchProjects,
   fetchProject,
@@ -18,193 +17,42 @@ import {
   removeProjectDocumentApi,
   addProjectFilesApi,
 } from '@/lib/api/projects'
-import type { ApiProject, ApiProjectSummary, ApiProjectChat, ProjectVisibility } from '@/lib/api/projects'
+import type { ProjectVisibility } from '@/lib/api/projects'
+import { queryKeys } from '@/lib/query-keys'
+import {
+  apiChatToProjectChat,
+  apiToProject,
+  formatBytes,
+  loadStoredSizes,
+  mapProject,
+  mergeProjectChats,
+  mergeSummaries,
+  saveStoredSizes,
+  toApiPatch,
+  upsertProject,
+  type Project,
+  type ProjectChat,
+  type ProjectPatch,
+  type ProjectTag,
+} from '@/lib/projects/project-model'
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Types and tag helpers live in lib/projects/project-model.ts; re-exported for existing imports.
+export { TAG_COLORS, tagsFromLabels } from '@/lib/projects/project-model'
+export type { Project, ProjectChat, ProjectFile, ProjectPin, ProjectTag } from '@/lib/projects/project-model'
 
-export interface ProjectTag {
-  id:    string
-  label: string
-  color: BadgeColor
-}
-
-// Backend stores tags as a flat `string[]` (label only) — color/id are
-// frontend-only presentation, derived deterministically from position so a
-// tag's color stays stable across loads/saves without needing its own storage.
-export const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Yellow', 'Purple', 'Red', 'Brown']
-
-export function tagsFromLabels(labels: string[]): ProjectTag[] {
-  return labels.map((label, i) => ({ id: label, label, color: TAG_COLORS[i % TAG_COLORS.length] }))
-}
-
-export interface ProjectFile {
-  id:         string
-  name:       string
-  type:       'PDF' | 'DOC' | 'FIG' | 'MD' | 'URL' | string
-  sizeBytes:  number
-  sizeLabel:  string
-  uploadedAt: string
-  url:        string
-}
-
-export interface ProjectChat {
-  id:        string
-  ownerUserId: string
-  canEdit:   boolean
-  projectId: string
-  title:     string
-  pinCount:  number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ProjectPin {
-  id:          string
-  projectId:   string
-  chatId:      string
-  chatTitle:   string
-  category:    PinProps['category']
-  pinTitle:    string
-  description: string
-  labels:      PinLabel[]
-  createdAt:   string
-}
-
-export interface Project {
-  id:           string
-  ownerUserId:  string
-  name:         string
-  description:  string
-  instructions: string
-  teamId:       string | null
-  visibility:   ProjectVisibility
-  canEdit:      boolean
-  tags:         ProjectTag[]
-  files:        ProjectFile[]
-  chatCount:    number
-  updatedAt:    string
-  createdAt:    string
-}
-
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function storageSizesKey(projectId: string) { return `project-file-sizes:${projectId}` }
-
-function loadStoredSizes(projectId: string): Map<string, number> {
-  if (typeof window === 'undefined') return new Map()
-  try {
-    const raw = localStorage.getItem(storageSizesKey(projectId))
-    return raw ? new Map(JSON.parse(raw) as [string, number][]) : new Map()
-  } catch { return new Map() }
-}
-
-function saveStoredSizes(projectId: string, sizes: Map<string, number>) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem(storageSizesKey(projectId), JSON.stringify([...sizes])) } catch {}
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes <= 0)          return ''
-  if (bytes < 1024)        return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function docToProjectFile(
-  doc: ApiProject['documents'][number],
-  sizeBytes = 0,
-): ProjectFile {
-  return {
-    id:         doc.id,
-    name:       doc.filename,
-    type:       doc.filename.split('.').pop()?.toUpperCase() ?? 'FILE',
-    sizeBytes,
-    sizeLabel:  formatBytes(sizeBytes),
-    uploadedAt: doc.createdAt,
-    url:        doc.fileLink ?? '',
-  }
-}
-
-function summaryToProject(s: ApiProjectSummary): Project {
-  return {
-    id:           s.id,
-    ownerUserId:  s.ownerUserId,
-    name:         s.title,
-    description:  s.description,
-    instructions: '',
-    teamId:       s.teamId,
-    visibility:   s.visibility,
-    canEdit:      s.canEdit,
-    tags:         tagsFromLabels(s.tags),
-    files:        [],
-    chatCount:    s.chatCount,
-    updatedAt:    s.updatedAt,
-    createdAt:    s.updatedAt,
-  }
-}
-
-function apiToProject(
-  api: ApiProject,
-  existing?: Project,
-  uploadedSizes?: Map<string, number>,
-): Project {
-  // Priority: server size_bytes > uploaded/existing localStorage > 0
-  const knownSizes = new Map<string, number>([
-    ...(existing?.files.map((f): [string, number] => [f.name, f.sizeBytes]) ?? []),
-    ...(uploadedSizes ? [...uploadedSizes] : []),
-  ])
-  // Skip ghost records: backend creates a DB row before type-validation, so a
-  // rejected upload leaves a document with an empty file_link. Filter these out
-  // so they never appear in the UI (they surface via PATCH/GET responses).
-  const files = api.documents.filter(doc => !!doc.fileLink).map(doc => {
-    const serverSize = doc.sizeBytes != null && doc.sizeBytes > 0 ? doc.sizeBytes : null
-    const sizeBytes  = serverSize ?? knownSizes.get(doc.filename) ?? 0
-    // Reuse existing record (preserves any extra local state) but refresh size/url.
-    const match = existing?.files.find(f => f.id === doc.id)
-    if (match) return { ...match, sizeBytes, sizeLabel: formatBytes(sizeBytes), url: doc.fileLink ?? match.url }
-    return docToProjectFile(doc, sizeBytes)
-  })
-  return {
-    id:           api.id,
-    ownerUserId:  api.ownerUserId,
-    name:         api.title,
-    description:  api.description,
-    instructions: api.systemInstruction,
-    teamId:       api.teamId ?? existing?.teamId ?? null,
-    // Same fallback as teamId above — a partial/degraded response shouldn't
-    // be able to leave these two disagreeing (one falling back to the last-
-    // known value, the other silently taking whatever came back).
-    visibility:   api.visibility ?? existing?.visibility ?? 'personal',
-    canEdit:      api.canEdit,
-    tags:         tagsFromLabels(api.tags),
-    files,
-    chatCount:    existing?.chatCount ?? 0,
-    updatedAt:    api.updatedAt,
-    createdAt:    api.createdAt,
-  }
-}
-
-function apiChatToProjectChat(c: ApiProjectChat, projectId: string): ProjectChat {
-  return {
-    id:        c.id,
-    ownerUserId: c.ownerUserId,
-    canEdit:   c.canEdit,
-    projectId,
-    title:     c.chatTitle,
-    pinCount:  0,
-    createdAt: c.updatedAt,
-    updatedAt: c.updatedAt,
-  }
-}
-
-// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Context ──────────────────────────────────────────────────────────────────
+// Server state lives in the React Query cache (queryKeys.projects.*): the list,
+// and a flat chat list filled per project. This provider keeps the original
+// API and does the optimistic writes; every write cancels in-flight fetches for
+// its key first so a late response can't overwrite it, and rolls back only the
+// item it touched.
 
 interface ProjectsContextValue {
   projects:         Project[]
   chats:            ProjectChat[]
   loading:          boolean
   createProject:    (name: string, description: string, teamId?: string, visibility?: ProjectVisibility, tags?: ProjectTag[]) => Promise<Project>
-  updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags' | 'visibility'>>) => Promise<void>
+  updateProject:    (id: string, patch: ProjectPatch) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
   loadProject:      (id: string) => Promise<void>
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
@@ -218,72 +66,69 @@ interface ProjectsContextValue {
   /** Re-fetches the project list from the server (not a mutation itself) —
    *  for callers whose own action already changed server state through some
    *  other endpoint (e.g. leaving or restoring a project) and just need the
-   *  list to catch up, without going through createProject/deleteProject's
-   *  own API calls. */
+   *  list to catch up. Rejects if the fetch fails. */
   refreshProjects:  () => Promise<void>
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null)
 
+const EMPTY_PROJECTS: Project[] = []
+const EMPTY_CHATS: ProjectChat[] = []
+const errorDescription = (err: unknown) => (err instanceof Error ? err.message : undefined)
+
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   // Auth0 `sub` — matches the backend's `ownerUserId` on every project shape.
-  // `canEdit` has no server-supplied signal any more (see lib/api/projects.ts),
-  // so every normalizer derives it as `ownerUserId === currentUserId` — this
-  // must be the real id, not a placeholder, or every project looks read-only
-  // until the profile loads.
+  // `canEdit` is derived as `ownerUserId === currentUserId`, so this must be the
+  // real id; the queries wait for the profile.
   const currentUserId = user?.auth0Id ?? ''
+  const qc = useQueryClient()
+  const listKey = queryKeys.projects.list(currentUserId)
+  const chatsKey = queryKeys.projects.chats(currentUserId)
 
-  const [projects,        setProjects]        = useState<Project[]>([])
-  const [chats,           setChats]           = useState<ProjectChat[]>([])
-  const [loading,         setLoading]         = useState(true)
+  const listQuery = useQuery({
+    queryKey: listKey,
+    queryFn: async () => mergeSummaries(qc.getQueryData<Project[]>(listKey) ?? [], await fetchProjects(currentUserId)),
+    enabled: !!currentUserId,
+  })
+  // Chats are written per project by loadProjectChats and the optimistic
+  // actions; this query only exposes that cache entry.
+  const chatsQuery = useQuery({
+    queryKey: chatsKey,
+    queryFn: () => qc.getQueryData<ProjectChat[]>(chatsKey) ?? [],
+    initialData: EMPTY_CHATS,
+    staleTime: Infinity,
+    enabled: !!currentUserId,
+  })
 
-  const projectsRef = useRef(projects)
-  useEffect(() => { projectsRef.current = projects }, [projects])
-
-  // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  const refreshProjects = useCallback(async () => {
-    const summaries = await fetchProjects(currentUserId)
-    // Use a functional updater so we never clobber full project data that
-    // loadProject() may have already fetched (race: loadProject resolves
-    // before this list call if the detail endpoint responds faster). Also
-    // naturally drops any project no longer in the server's list (e.g. one
-    // the caller just left or that got deleted from under them).
-    setProjects(prev => {
-      const prevMap = new Map(prev.map(p => [p.id, p]))
-      return summaries.map(s => {
-        const existing = prevMap.get(s.id)
-        // Preserve instructions + files if already loaded; just refresh summary fields.
-        if (existing && (existing.instructions || existing.files.length > 0)) {
-          return {
-            ...existing,
-            name:        s.title,
-            description: s.description,
-            ownerUserId: s.ownerUserId,
-            teamId:      s.teamId,
-            visibility:  s.visibility,
-            canEdit:     s.canEdit,
-            chatCount:   s.chatCount,
-            updatedAt:   s.updatedAt,
-          }
-        }
-        return summaryToProject(s)
-      })
-    })
-  }, [currentUserId])
+  const projects = listQuery.data ?? EMPTY_PROJECTS
+  const chats = chatsQuery.data
+  const loading = listQuery.isPending
 
   useEffect(() => {
-    if (!user) return // wait for the authenticated profile so canEdit resolves correctly
-    refreshProjects()
-      .catch(err => toast.error('Failed to load projects', { description: err instanceof Error ? err.message : undefined }))
-      .finally(() => setLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the user's
-  // identity actually changes (mirrors org-context's rationale), not on every
-  // refreshUser() call that returns a new object reference with the same id.
-  }, [user?.auth0Id])
+    if (listQuery.isError && !listQuery.data) {
+      toast.error('Failed to load projects', { description: errorDescription(listQuery.error) })
+    }
+  }, [listQuery.isError, listQuery.data, listQuery.error, listQuery.errorUpdatedAt])
 
-  // â”€â”€ CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const setProjects = useCallback((fn: (prev: Project[]) => Project[]) => {
+    qc.setQueryData<Project[]>(listKey, prev => fn(prev ?? []))
+  }, [qc, listKey])
+  const setChats = useCallback((fn: (prev: ProjectChat[]) => ProjectChat[]) => {
+    qc.setQueryData<ProjectChat[]>(chatsKey, prev => fn(prev ?? []))
+  }, [qc, chatsKey])
+  const currentProject = useCallback(
+    (id: string) => qc.getQueryData<Project[]>(listKey)?.find(p => p.id === id),
+    [qc, listKey],
+  )
+  /** Stop a list refetch that would land after (and overwrite) an optimistic write. */
+  const holdList = useCallback(() => qc.cancelQueries({ queryKey: listKey, exact: true }), [qc, listKey])
+
+  const refreshProjects = useCallback(async () => {
+    await qc.refetchQueries({ queryKey: listKey, exact: true }, { throwOnError: true })
+  }, [qc, listKey])
+
+  // ── CRUD ───────────────────────────────────────────────────────────────────
 
   const createProject = useCallback(async (
     name: string,
@@ -294,63 +139,47 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   ): Promise<Project> => {
     const api = await createProjectApi({ title: name, description, teamId, visibility, tags: tags?.map(t => t.label) }, currentUserId)
     const project = apiToProject(api)
-    setProjects(prev => [project, ...prev])
+    await holdList()
+    setProjects(prev => [project, ...prev.filter(p => p.id !== project.id)])
     // Analytics: shared-context adoption — team-shared vs personal project.
     // Reads the visibility param, not teamId — the only caller
-    // (projects/new/page.tsx) always passes visibility and never teamId, so
-    // keying off teamId here silently reported team_shared:false always.
+    // (projects/new/page.tsx) always passes visibility and never teamId.
     trackBrowserEvent('project_created', { team_shared: visibility !== undefined && visibility !== 'personal' })
     return project
-  }, [currentUserId])
+  }, [currentUserId, holdList, setProjects])
 
-  const updateProject = useCallback(async (
-    id: string,
-    patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags' | 'visibility'>>,
-  ) => {
-    const snapshot = projectsRef.current.find(p => p.id === id)
+  const updateProject = useCallback(async (id: string, patch: ProjectPatch) => {
+    const snapshot = currentProject(id)
+    await holdList()
+    setProjects(prev => mapProject(prev, id, p => ({ ...p, ...patch, updatedAt: new Date().toISOString() })))
 
-    // optimistic
-    setProjects(prev => prev.map(p =>
-      p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p,
-    ))
-
-    const apiPatch: Parameters<typeof updateProjectApi>[1] = {}
-    if (patch.name !== undefined)         apiPatch.title = patch.name
-    if (patch.description !== undefined)  apiPatch.description = patch.description
-    if (patch.instructions !== undefined) apiPatch.systemInstruction = patch.instructions
-    if (patch.tags !== undefined)         apiPatch.tags = patch.tags.map(t => t.label)
-    if (patch.visibility !== undefined)   apiPatch.visibility = patch.visibility
-
-    if (Object.keys(apiPatch).length > 0) {
-      try {
-        const updated = await updateProjectApi(id, apiPatch, currentUserId)
-        setProjects(prev => prev.map(p => p.id === id ? apiToProject(updated, p, undefined) : p))
-        // Analytics: do people give projects instructions, or just make empty folders?
-        if (patch.instructions !== undefined) {
-          trackFeature('project_instructions_added', { has_instructions: !!patch.instructions.trim() })
-        }
-      } catch (err) {
-        if (snapshot) setProjects(prev => prev.map(p => p.id === id ? snapshot : p))
-        toast.error('Failed to update project', { description: err instanceof Error ? err.message : undefined })
-        throw err
+    const apiPatch = toApiPatch(patch)
+    if (Object.keys(apiPatch).length === 0) return
+    try {
+      const updated = await updateProjectApi(id, apiPatch, currentUserId)
+      setProjects(prev => mapProject(prev, id, p => apiToProject(updated, p, undefined)))
+      // Analytics: do people give projects instructions, or just make empty folders?
+      if (patch.instructions !== undefined) {
+        trackFeature('project_instructions_added', { has_instructions: !!patch.instructions.trim() })
       }
+    } catch (err) {
+      if (snapshot) setProjects(prev => mapProject(prev, id, () => snapshot))
+      toast.error('Failed to update project', { description: errorDescription(err) })
+      throw err
     }
-  }, [currentUserId])
+  }, [currentUserId, currentProject, holdList, setProjects])
 
   const deleteProject = useCallback(async (id: string) => {
-    const snapshot = projectsRef.current.find(p => p.id === id)
+    const snapshot = currentProject(id)
 
     // Guardrail: owner-only, matching the backend exactly (requireDelete ===
-    // requireOwned, project.py). Used to also allow an org admin — the
-    // backend dropped that bypass, so this stale copy let a non-owner admin's
-    // optimistic removal proceed only to 404 silently (deleteProjectApi never
-    // checked response.ok — fixed in lib/api/projects.ts).
+    // requireOwned, project.py).
     if (snapshot && !snapshot.canEdit) {
       toast.error("You don't have permission to delete this project.")
       return
     }
 
-    // optimistic
+    await holdList()
     setProjects(prev => prev.filter(p => p.id !== id))
     setChats(prev => prev.filter(c => c.projectId !== id))
 
@@ -358,10 +187,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       await deleteProjectApi(id)
     } catch (err) {
       if (snapshot) setProjects(prev => [snapshot, ...prev])
-      toast.error('Failed to delete project', { description: err instanceof Error ? err.message : undefined })
+      toast.error('Failed to delete project', { description: errorDescription(err) })
       throw err
     }
-  }, [])
+  }, [currentProject, holdList, setProjects, setChats])
 
   const loadProject = useCallback(async (id: string) => {
     try {
@@ -374,56 +203,41 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           .filter(doc => doc.sizeBytes != null && doc.sizeBytes > 0)
           .map(doc => [doc.filename, doc.sizeBytes!]),
       )
-      if (serverSizes.size > 0) {
-        saveStoredSizes(id, new Map([...storedSizes, ...serverSizes]))
-      }
+      if (serverSizes.size > 0) saveStoredSizes(id, new Map([...storedSizes, ...serverSizes]))
       const mergedSizes = new Map([...storedSizes, ...serverSizes])
 
-      setProjects(prev => {
-        const existing = prev.find(p => p.id === id)
-        const full = apiToProject(api, existing, mergedSizes)
-        return existing ? prev.map(p => p.id === id ? full : p) : [full, ...prev]
-      })
+      setProjects(prev => upsertProject(prev, apiToProject(api, prev.find(p => p.id === id), mergedSizes)))
 
-      // Background: HEAD-request sizes for docs the server AND localStorage both lack.
-      const missing = api.documents.filter(
-        doc => !mergedSizes.has(doc.filename) && doc.fileLink,
+      // Background: HEAD-request sizes for docs the server AND localStorage both
+      // lack. Goes away once documents carry size_bytes (backend gap).
+      const missing = api.documents.filter(doc => !mergedSizes.has(doc.filename) && doc.fileLink)
+      if (missing.length === 0) return
+      const settled = await Promise.allSettled(
+        missing.map(async doc => {
+          const res = await fetch(doc.fileLink, { method: 'HEAD' })
+          const len = res.headers.get('content-length')
+          return { name: doc.filename, size: len ? parseInt(len, 10) : 0 }
+        }),
       )
-      if (missing.length > 0) {
-        const headCtrl = new AbortController()
-        const settled = await Promise.allSettled(
-          missing.map(async doc => {
-            const res = await fetch(doc.fileLink, { method: 'HEAD', signal: headCtrl.signal })
-            const len  = res.headers.get('content-length')
-            return { name: doc.filename, size: len ? parseInt(len, 10) : 0 }
-          }),
-        )
-        const resolved = new Map<string, number>()
-        for (const r of settled) {
-          if (r.status === 'fulfilled' && r.value.size > 0) {
-            resolved.set(r.value.name, r.value.size)
-          }
-        }
-        if (resolved.size > 0) {
-          saveStoredSizes(id, new Map([...loadStoredSizes(id), ...resolved]))
-          setProjects(prev => prev.map(p => {
-            if (p.id !== id) return p
-            return {
-              ...p,
-              files: p.files.map(f => {
-                const size = resolved.get(f.name)
-                return size ? { ...f, sizeBytes: size, sizeLabel: formatBytes(size) } : f
-              }),
-            }
-          }))
-        }
+      const resolved = new Map<string, number>()
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value.size > 0) resolved.set(r.value.name, r.value.size)
       }
+      if (resolved.size === 0) return
+      saveStoredSizes(id, new Map([...loadStoredSizes(id), ...resolved]))
+      setProjects(prev => mapProject(prev, id, p => ({
+        ...p,
+        files: p.files.map(f => {
+          const size = resolved.get(f.name)
+          return size ? { ...f, sizeBytes: size, sizeLabel: formatBytes(size) } : f
+        }),
+      })))
     } catch (err) {
-      toast.error('Failed to load project', { description: err instanceof Error ? err.message : undefined })
+      toast.error('Failed to load project', { description: errorDescription(err) })
     }
-  }, [currentUserId])
+  }, [currentUserId, setProjects])
 
-  // â”€â”€ File management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── File management ────────────────────────────────────────────────────────
 
   const uploadFiles = useCallback(async (projectId: string, files: File[]) => {
     if (!files.length) return
@@ -432,45 +246,40 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       const updated = await addProjectFilesApi(projectId, files, currentUserId)
       const merged = new Map([...loadStoredSizes(projectId), ...uploadedSizes])
       saveStoredSizes(projectId, merged)
-      setProjects(prev => prev.map(p =>
-        p.id === projectId ? apiToProject(updated, p, merged) : p,
-      ))
+      await holdList()
+      setProjects(prev => mapProject(prev, projectId, p => apiToProject(updated, p, merged)))
     } catch (err) {
-      toast.error('Failed to upload files', { description: err instanceof Error ? err.message : undefined })
+      toast.error('Failed to upload files', { description: errorDescription(err) })
       throw err
     }
-  }, [currentUserId])
+  }, [currentUserId, holdList, setProjects])
 
   const removeFile = useCallback(async (projectId: string, fileId: string) => {
-    const snapshot = projectsRef.current.find(p => p.id === projectId)
+    const snapshot = currentProject(projectId)
     const removedName = snapshot?.files.find(f => f.id === fileId)?.name
 
-    // optimistic
-    setProjects(prev => prev.map(p =>
-      p.id === projectId ? { ...p, files: p.files.filter(f => f.id !== fileId) } : p,
-    ))
+    await holdList()
+    setProjects(prev => mapProject(prev, projectId, p => ({ ...p, files: p.files.filter(f => f.id !== fileId) })))
 
     try {
       // DELETE /projects/{project_id}/files/{document_id} returns the updated ProjectResponse directly.
       const updated = await removeProjectDocumentApi(projectId, fileId, currentUserId)
       // Guard: if the backend returned 200 but the file is still in the response, treat it as failure.
-      if (updated.documents.some(d => d.id === fileId)) {
-        throw new Error('File could not be removed')
-      }
+      if (updated.documents.some(d => d.id === fileId)) throw new Error('File could not be removed')
       if (removedName) {
         const stored = loadStoredSizes(projectId)
         stored.delete(removedName)
         saveStoredSizes(projectId, stored)
       }
       const storedSizes = loadStoredSizes(projectId)
-      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(updated, p, storedSizes) : p))
+      setProjects(prev => mapProject(prev, projectId, p => apiToProject(updated, p, storedSizes)))
     } catch (err) {
-      if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
-      toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })
+      if (snapshot) setProjects(prev => mapProject(prev, projectId, () => snapshot))
+      toast.error('Failed to remove file', { description: errorDescription(err) })
     }
-  }, [currentUserId])
+  }, [currentUserId, currentProject, holdList, setProjects])
 
-  // â”€â”€ Chat management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chat management ────────────────────────────────────────────────────────
 
   // Optimistic: called after a chat has been created via the chats API and linked to this project.
   // `skipLink` is for callers (move-to-project) that already awaited addChatToProject
@@ -479,74 +288,48 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     const now  = new Date().toISOString()
     const chat: ProjectChat = { id: chatId, ownerUserId: '', canEdit: true, projectId, title, pinCount: 0, createdAt: now, updatedAt: now }
     setChats(prev => [chat, ...prev.filter(c => !(c.projectId === projectId && c.id === chatId))])
-    setProjects(prev => prev.map(p =>
-      p.id === projectId ? { ...p, chatCount: p.chatCount + 1, updatedAt: now } : p,
-    ))
+    setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: p.chatCount + 1, updatedAt: now })))
     if (!options?.skipLink) {
       addChatToProject(projectId, chatId).catch(() => {
         // silent - the chat was created, linking failure is non-fatal
       })
     }
-  }, [])
+  }, [setChats, setProjects])
 
   const removeChat = useCallback((projectId: string, chatId: string) => {
-    // Optimistic removal
     setChats(prev => prev.filter(c => !(c.projectId === projectId && c.id === chatId)))
-    setProjects(prev => prev.map(p =>
-      p.id === projectId ? { ...p, chatCount: Math.max(0, p.chatCount - 1) } : p,
-    ))
-    // Returns the request so a caller that cares when the delete actually
-    // completes (e.g. the sidebar's confirm-delete dialog, which drives its
-    // Delete button's loading state off this) can await/catch it. The extra
-    // .catch here keeps it from surfacing as an unhandled rejection for the
-    // other, fire-and-forget callers that don't — non-fatal if the chat was
-    // never linked in the first place (e.g. addChatToProject failed).
+    setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: Math.max(0, p.chatCount - 1) })))
+    // Returns the request so a caller that cares when the delete completes
+    // (e.g. the sidebar's confirm-delete dialog) can await/catch it. The extra
+    // .catch keeps fire-and-forget callers from an unhandled rejection —
+    // non-fatal if the chat was never linked in the first place.
     const request = removeChatFromProject(projectId, chatId)
     request.catch(() => {})
     return request
-  }, [])
+  }, [setChats, setProjects])
 
   const renameChat = useCallback((projectId: string, chatId: string, title: string) => {
-    setChats(prev => prev.map(c =>
-      c.projectId === projectId && c.id === chatId ? { ...c, title } : c,
-    ))
-  }, [])
+    setChats(prev => prev.map(c => (c.projectId === projectId && c.id === chatId ? { ...c, title } : c)))
+  }, [setChats])
 
-  const fetchProjectChatsInto = useCallback(async (projectId: string) => {
+  // The sidebar lists, the projects page and the project page all ask for the
+  // same project at once; fetchQuery shares one in-flight request per project.
+  const loadProjectChats = useCallback(async (projectId: string): Promise<void> => {
     try {
-      const apiChats = await fetchProjectChats(projectId, currentUserId)
-      const mapped   = apiChats.map(c => apiChatToProjectChat(c, projectId))
-      setChats(prev => {
-        const apiIds   = new Set(mapped.map(c => c.id))
-        // Keep locally-added chats not yet reflected in the API (e.g. just created).
-        const localOnly = prev.filter(c => c.projectId === projectId && !apiIds.has(c.id))
-        return [
-          ...prev.filter(c => c.projectId !== projectId),
-          ...localOnly,
-          ...mapped,
-        ]
+      const mapped = await qc.fetchQuery({
+        queryKey: queryKeys.projects.chatLoad(currentUserId, projectId),
+        queryFn: async () => (await fetchProjectChats(projectId, currentUserId)).map(c => apiChatToProjectChat(c, projectId)),
+        staleTime: 0,
       })
+      setChats(prev => mergeProjectChats(prev, projectId, mapped))
       // Sync chatCount to match the authoritative list from the API.
-      setProjects(prev => prev.map(p =>
-        p.id === projectId ? { ...p, chatCount: mapped.length } : p,
-      ))
+      setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: mapped.length })))
     } catch (err) {
-      toast.error('Failed to load project chats', { description: err instanceof Error ? err.message : undefined })
+      toast.error('Failed to load project chats', { description: errorDescription(err) })
     }
-  }, [currentUserId])
+  }, [qc, currentUserId, setChats, setProjects])
 
-  const chatLoadsRef = useRef(new Map<string, Promise<void>>())
-  const loadProjectChats = useCallback((projectId: string): Promise<void> => {
-    // The sidebar lists, the projects page and the project page all ask for the same
-    // project at once; share one request per project.
-    const pending = chatLoadsRef.current.get(projectId)
-    if (pending) return pending
-    const request = fetchProjectChatsInto(projectId).finally(() => { chatLoadsRef.current.delete(projectId) })
-    chatLoadsRef.current.set(projectId, request)
-    return request
-  }, [fetchProjectChatsInto])
-
-  // â”€â”€ Lookups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Lookups ────────────────────────────────────────────────────────────────
 
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects])
 

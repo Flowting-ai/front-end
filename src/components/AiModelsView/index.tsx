@@ -6,7 +6,9 @@ import { SearchOneIcon } from '@strange-huge/icons'
 import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { useAuth } from '@/context/auth-context'
-import { fetchAllModels, toggleBlockModel, type LLMModel } from '@/lib/api/models'
+import { Button } from '@/components/ui/button'
+import { loadAllModels, toggleBlockModel, type LLMModel } from '@/lib/api/models'
+import { filterModels, formatContextWindow, providersInOrder, withBlocked } from '@/lib/models/catalog'
 import { bustModelsCache } from '@/lib/ai-models'
 import { toast } from 'sonner'
 
@@ -33,13 +35,6 @@ const PLAN_COLOR: Record<string, BadgeColor> = {
   standard: 'neutral',
   pro:      'blue',
   power:    'brown',
-}
-
-function formatContext(n: number | null | undefined): string | null {
-  if (!n || n <= 0) return null
-  if (n >= 1_000_000) return `${n / 1_000_000}M ctx`
-  if (n >= 1_000)     return `${Math.round(n / 1_000)}k ctx`
-  return `${n} ctx`
 }
 
 function featureLabel(model: LLMModel): string | null {
@@ -179,6 +174,18 @@ function SkeletonCard() {
   )
 }
 
+/** Route-level placeholder (settings/ai/loading.tsx). */
+export function AiModelsLoading() {
+  return (
+    <div role="status" aria-label="Loading models" style={{ flex: '1 0 0', display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
+      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box' }}>
+        <SkeletonSection cardCount={3} />
+        <SkeletonSection cardCount={3} />
+      </div>
+    </div>
+  )
+}
+
 function SkeletonSection({ cardCount = 3 }: { cardCount?: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
@@ -202,7 +209,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
   const tierKey  = (model.model_plan_type ?? 'standard').toLowerCase() as PlanTier
   const tierLbl  = PLAN_LABEL[tierKey] ?? model.model_plan_type ?? 'Standard'
   const tierClr  = (PLAN_COLOR[tierKey] ?? 'neutral') as BadgeColor
-  const ctxLbl   = formatContext(model.model_context_window)
+  const ctxLbl   = formatContextWindow(model.model_context_window)
   const featLbl  = featureLabel(model)
 
   return (
@@ -268,6 +275,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
           </div>
         </div>
         <Switch
+          aria-label={`Enable ${model.model_name}`}
           checked={!model.blocked}
           onCheckedChange={() => onToggle(model)}
           disabled={toggling}
@@ -337,7 +345,7 @@ function ProviderSection({
       borderBottom:  divider ? '1px solid var(--neutral-100)' : undefined,
     }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <p style={{
+        <h2 style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 500,
           fontSize:   14,
@@ -347,7 +355,7 @@ function ProviderSection({
           whiteSpace: 'nowrap',
         }}>
           {provider}
-        </p>
+        </h2>
         <MiniChip label={`${enabledCount}/${totalCount} enabled`} color="brown" />
       </div>
 
@@ -379,16 +387,26 @@ export function AiModelsView() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [search,     setSearch]     = useState('')
   const [tab,        setTab]        = useState('all')
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt,    setAttempt]    = useState(0)
 
-  // Fetch on mount
+  // Fetch on mount and on retry. A failure is shown as such, not as "no models".
   useEffect(() => {
     let alive = true
     setIsLoading(true)
-    fetchAllModels()
+    loadAllModels()
       .then(data => { if (alive) setModels(data) })
-      .catch(() => { if (alive) setModels([]) })
+      .catch((err: unknown) => {
+        console.error('[settings/ai] failed to load models', err)
+        if (alive) setLoadFailed(true)
+      })
       .finally(() => { if (alive) setIsLoading(false) })
     return () => { alive = false }
+  }, [attempt])
+
+  const retryLoad = useCallback(() => {
+    setLoadFailed(false)
+    setAttempt(n => n + 1)
   }, [])
 
   // Toggle handler — optimistic update + rollback on failure
@@ -397,23 +415,17 @@ export function AiModelsView() {
     setTogglingId(model.model_id)
     const nextBlocked = !model.blocked
     // Optimistic
-    setModels(prev => prev.map(m =>
-      m.model_id === model.model_id ? { ...m, blocked: nextBlocked } : m,
-    ))
+    setModels(prev => withBlocked(prev, model.model_id, nextBlocked))
     try {
       const result = await toggleBlockModel(model.model_id)
       // Reconcile with backend response
-      setModels(prev => prev.map(m =>
-        m.model_id === model.model_id ? { ...m, blocked: result.blocked } : m,
-      ))
+      setModels(prev => withBlocked(prev, model.model_id, result.blocked))
       // Bust the shared model cache so selectors elsewhere pick up the change immediately
       bustModelsCache()
       toast.success(result.blocked ? `${model.model_name} disabled` : `${model.model_name} enabled`)
     } catch {
       // Rollback
-      setModels(prev => prev.map(m =>
-        m.model_id === model.model_id ? { ...m, blocked: model.blocked } : m,
-      ))
+      setModels(prev => withBlocked(prev, model.model_id, model.blocked))
       toast.error(`Failed to update ${model.model_name}`)
     } finally {
       setTogglingId(null)
@@ -421,28 +433,10 @@ export function AiModelsView() {
   }, [togglingId])
 
   // All unique providers (preserving order from API)
-  const allProviders = useMemo(() => {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const m of models) {
-      if (!seen.has(m.model_provider)) {
-        seen.add(m.model_provider)
-        out.push(m.model_provider)
-      }
-    }
-    return out
-  }, [models])
+  const allProviders = useMemo(() => providersInOrder(models), [models])
 
   // Filtered models (tab + search)
-  const filteredModels = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return models.filter(m => {
-      if (tab === 'enabled'  &&  m.blocked) return false
-      if (tab === 'disabled' && !m.blocked) return false
-      if (q && !m.model_name.toLowerCase().includes(q) && !m.model_provider.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [models, search, tab])
+  const filteredModels = useMemo(() => filterModels(models, tab, search), [models, search, tab])
 
   // Providers that have at least one visible model after filtering
   const visibleProviders = useMemo(
@@ -592,6 +586,13 @@ export function AiModelsView() {
               <SkeletonSection cardCount={3} />
               <SkeletonSection cardCount={2} />
             </>
+          ) : loadFailed && models.length === 0 ? (
+            <div role="alert" style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                Couldn&apos;t load your models.
+              </p>
+              <Button size="sm" onClick={retryLoad}>Try again</Button>
+            </div>
           ) : visibleProviders.length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{
@@ -602,9 +603,7 @@ export function AiModelsView() {
                 color:      'var(--neutral-400)',
                 margin:     0,
               }}>
-                {models.length === 0
-                  ? 'No models found. Please check your connection and try again.'
-                  : 'No models match your search.'}
+                {models.length === 0 ? 'No models are available on your plan.' : 'No models match your search.'}
               </p>
             </div>
           ) : (

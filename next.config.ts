@@ -127,6 +127,18 @@ const nextConfig: NextConfig = {
       // is now the only entry point for every account type. Redirect any
       // stale bookmarks/links instead of 404ing.
       {
+        // Legacy /org/* admin pages moved under /settings (the stub pages that
+        // redirected client-side are gone). /org/change-plan is still a route.
+        source: '/org',
+        destination: '/settings/general',
+        permanent: true,
+      },
+      { source: '/org/general',   destination: '/settings/general',           permanent: true },
+      { source: '/org/members',   destination: '/settings/members',           permanent: true },
+      { source: '/org/plans',     destination: '/settings/plans-and-billing', permanent: true },
+      { source: '/org/analytics', destination: '/settings/analytics',         permanent: true },
+      { source: '/org/activity',  destination: '/settings/activity',          permanent: true },
+      {
         source: '/settings/connectors',
         destination: '/connectors',
         permanent: true,

@@ -12,10 +12,11 @@
 // already in use is parked: it does not take over what automations already
 // run through, and switching is its own deliberate act on the Access tab.
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { Button } from '@/components/ui/button'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { InputField } from '@/components/InputField'
 import { VisibilityRow } from '@/components/VisibilityRow'
 import {
@@ -37,9 +38,13 @@ const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)'
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
 export function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  // Tab stays inside, Esc dismisses, and focus returns to the opener on close.
+  useFocusTrap(panelRef, true, onDismiss)
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={onDismiss}>
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={label}
@@ -199,9 +204,19 @@ export function SetupModal({
         </div>
       )}
 
-      {flow.state === 'error' && flow.errorMsg && (
-        <p style={{ margin: `${SPACE.md}px 0 0`, color: 'var(--red-600, #DC2626)', fontSize: 13 }}>{flow.errorMsg}</p>
+      {flow.state === 'error' && flow.error && (
+        <div role="alert" style={{ marginTop: SPACE.md }}>
+          <p style={{ margin: 0, color: 'var(--red-600, #DC2626)', fontSize: 13 }}>{flow.error.message}</p>
+          {flow.error.recovery === 'ask_admin' && (
+            <p style={{ ...muted, marginTop: SPACE.xs, fontSize: 13 }}>Ask a workspace admin to enable or set up {catalog.name}.</p>
+          )}
+        </div>
       )}
+
+      {/* Announces the wait while the user is in the other window. */}
+      <p aria-live="polite" className="sr-only">
+        {flow.state === 'opening' ? `Opening ${catalog.name} sign-in` : flow.state === 'polling' ? `Waiting for you to authorize ${catalog.name} in the other window` : ''}
+      </p>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
         {/* Only disabled while actually writing to the account row
@@ -218,7 +233,7 @@ export function SetupModal({
           loading={busy}
           onClick={submit}
         >
-          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : reconnecting ? 'Reconnect' : `Continue to ${catalog.name}`}
+          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : flow.state === 'error' && flow.error?.recovery !== 'ask_admin' ? 'Try again' : reconnecting ? 'Reconnect' : `Continue to ${catalog.name}`}
         </Button>
       </div>
     </Modal>

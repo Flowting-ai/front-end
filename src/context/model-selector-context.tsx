@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useModelSelection } from "@/hooks/use-model-selection";
 import { AUTO_ROUTING_LABELS } from "@/lib/ai-models";
+import { MODEL_ALGORITHM_KEY, MODEL_EFFORT_KEY, MODEL_SELECTION_KEY } from "@/lib/storage-keys";
 import type { RoutingTier } from "@/lib/chat-model-selection";
 import type { AIModel } from "@/types/ai-model";
 
@@ -61,9 +62,9 @@ const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(
 // wins, so a stale leftover model key from a mode someone switched away from
 // can't resurrect itself).
 
-const ALGORITHM_STORAGE_KEY = "souvenir_selected_algorithm";
-const MODEL_STORAGE_KEY = "souvenir_selected_model";
-const EFFORT_STORAGE_KEY = "souvenir_reasoning_effort";
+const ALGORITHM_STORAGE_KEY = MODEL_ALGORITHM_KEY;
+const MODEL_STORAGE_KEY = MODEL_SELECTION_KEY;
+const EFFORT_STORAGE_KEY = MODEL_EFFORT_KEY;
 
 type EffortsByModel = Record<string, string>;
 

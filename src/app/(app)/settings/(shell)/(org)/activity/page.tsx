@@ -1,7 +1,8 @@
 'use client'
 
 import { Tooltip } from '@/components/Tooltip'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { SearchOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
@@ -20,7 +21,7 @@ import {
 } from '@/components/SettingsTable'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { listAudit } from '@/lib/api/organization'
+import { orgAuditQuery } from '@/lib/org/org-queries'
 import { parseServerDate, formatServerDateTime } from '@/lib/utils/format-utils'
 import type { AuditLogEntry } from '@/types/teams'
 
@@ -129,24 +130,13 @@ export default function OrgActivityPage() {
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
 
-  const [entries,      setEntries]      = useState<AuditLogEntry[]>([])
-  const [loading,      setLoading]      = useState(true)
+  const auditQ = useQuery(orgAuditQuery(orgId))
+  const entries: AuditLogEntry[] = useMemo(() => auditQ.data ?? [], [auditQ.data])
+  // No org: nothing to load, so not loading.
+  const loading = !!orgId && auditQ.isPending
   const [filterAction, setFilterAction] = useState('all')
   const [search,       setSearch]       = useState('')
   const [filterMenuOpen, setFilterMenuOpen] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      if (!orgId) { setLoading(false); return }
-      setLoading(true)
-      listAudit(orgId, { limit: 100 })
-        .then(rows => { if (!cancelled) setEntries(rows) })
-        .catch(console.error)
-        .finally(() => { if (!cancelled) setLoading(false) })
-    }, 0)
-    return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [orgId])
 
   // Non-admins are told (via the subtitle below) that they're only seeing
   // their own activity — the API has no role-aware filtering, so we scope it

@@ -4,8 +4,7 @@
 // was started from its prompt. Once written, a schedule is bound to that chat
 // for the lifetime of the entry — there is no rebind path.
 
-const MAP_KEY    = 'schedule_chat_links_v1'
-const PROMPT_KEY = (scheduleId: string) => `schedule_pending_prompt:${scheduleId}`
+import { SCHEDULE_CHAT_LINKS_KEY as MAP_KEY, schedulePendingPromptKey as PROMPT_KEY } from '@/lib/storage-keys'
 
 // In-memory store for pending prompts. Client-side navigation never reloads
 // the JS module, so this Map survives the /schedules → /chat hop

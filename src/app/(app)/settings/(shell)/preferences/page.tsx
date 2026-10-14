@@ -1,14 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Checkbox } from '@/components/Checkbox'
 import { useTheme } from '@/context/theme-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ThemeMode  = 'light' | 'dark' | 'system'
-type TonePreset = 'Balanced' | 'Direct' | 'Warm'
 
 // ── Theme preview thumbnail ───────────────────────────────────────────────────
 
@@ -125,19 +123,10 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 ]
 
 export default function PreferencesPage() {
-  // Previously gated behind a `mounted` flag purely to force an extra
-  // skeleton-then-real-content render pass — every value below is a static
-  // default (no props/API/localStorage read), so nothing here actually
-  // differs between the server render and the client's first render. Same
-  // root cause and fix as help/notifications/security.
-  // With theming OFF this stays a local, non-functional selector exactly as it
-  // was (default 'system'). With it ON it is the real Light / Dark / System
-  // preference, stored and applied by ThemeProvider.
   const theme = useTheme()
   const [localThemeMode,      setLocalThemeMode]      = useState<ThemeMode>('system')
   const themeMode    = theme.enabled ? theme.mode    : localThemeMode
   const setThemeMode = theme.enabled ? theme.setMode : setLocalThemeMode
-  const [tonePreset,          setTonePreset]          = useState<TonePreset>('Balanced')
   const [customInstructions,  setCustomInstructions]  = useState('')
 
   return (
@@ -267,7 +256,8 @@ export default function PreferencesPage() {
           </div>
         </div>
 
-        {/* ── AI tone card ── */}
+        {/* ── AI instructions card (response style lives on Account; this was a
+            second, unsaved tone picker and is gone) ── */}
         <div style={{
           border:       '1px solid var(--border-default)',
           borderRadius: 16,
@@ -287,7 +277,7 @@ export default function PreferencesPage() {
               color:      'var(--neutral-900)',
               margin:     '0 0 6px',
             }}>
-              AI tone
+              AI instructions
             </p>
             <p style={{
               fontFamily:   'var(--font-body)',
@@ -300,35 +290,8 @@ export default function PreferencesPage() {
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              Set a default communication style for all AI responses. You can override this per agent or per chat.
+              Extra guidance for every AI response. Your response style is set under Account.
             </p>
-          </div>
-
-          {/* Presets */}
-          <div style={{
-            borderBottom:  '1px solid var(--neutral-100)',
-            padding:       '12px 24px 24px',
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           16,
-          }}>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize:   14,
-              lineHeight: '22px',
-              color:      'var(--neutral-900)',
-              margin:     0,
-            }}>
-              Presets
-            </p>
-            <Tabs value={tonePreset} onValueChange={v => setTonePreset(v as TonePreset)}>
-              <TabsList>
-                <TabsTrigger value="Balanced">Balanced</TabsTrigger>
-                <TabsTrigger value="Direct">Direct</TabsTrigger>
-                <TabsTrigger value="Warm">Warm</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
 
           {/* Custom instructions */}

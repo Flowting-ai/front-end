@@ -7,7 +7,12 @@ About 1,900 lines. Chat's own chart widgets (`XmlChart`, `AnimatedBarChart`) bel
 Method: dashboard page logic, `ChartCard`, `events.ts`, `screens.ts`, the head of `mixpanel.ts` read; call-site coverage counted by grep. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.
 
-## Overall efficiency: ~49% (12.7 / 26 applicable principles)
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except item 3 (backend time series).**
+> - Done: the synthetic chart (`FEATURE_SPLIT`, sin/cos daily weights) and the 7d/1m/3m/6m tabs that changed nothing are removed; the page shows only measured numbers (cycle totals, plan meter, per-member credits) and is 753 → ~400 lines. 8 of the 13 unwired names now fire, mostly at API choke points: `team_member_invited`, `model_toggled_off`, `credit_cap_set`, `connector_connect_attempted`, `permission_level_changed`, `share_button`, `context_panel_opened`, `project_agent_attached`. `lib/analytics/coverage.test.ts` fails on any declared name without a call site unless it is in `NOT_YET_WIRED` with a reason (now: `activation_milestone` backend door, `brain_run_stopped` needs run phase, `pin_drag` pins off, `flashcards` no feature, `output_viewed` component removed). Docs table corrected (stale `org/teams` and `ExternalOutputCard` rows).
+> - Needs backend: an org usage time series (per day, per feature) to bring back a real chart and date ranges.
+> - Phase 2 (Oct 14 2026): (1) `BrowserEventPropMap` in `lib/analytics/events.ts` types the properties of the 43 documented events (`trackBrowserEvent` is generic over the event name; unlisted events fall back to `EventProps`). Turning it on surfaced an undocumented `queued` prop and two props that can be absent on `chat_message_sent`; type and doc now match. The doc names the map as the rule to keep in step. (2) The dashboard reads plan and members from `useOrg()`, which is React Query now (Organizations Phase 2), so the swallowed `Plan.fetch().catch(console.error)` is gone; no separate `useOrgUsage()` needed. (4) `Plan` cycle labels format in UTC (a cycle ending 00:00Z Oct 19 no longer reads "Oct 18" in the Americas); `daysIntoCycleAt(now)` / `isPastDueAt(now)` take one shared `now` (the getters remain for existing callers); plan tests pass in UTC and America/Los_Angeles. (5) `screen_viewed` carries `tab` for the shared `org_manage` concept (`routeToScreenView`); `/template/[uuid]` is the new `template_view` screen; schedules stay `brain`, connectors are an `org_manage` tab, Compare is a modal with no route. Tests in `screens.test.ts`.
+> - Open: consent gating, retention docs.
+: ~49% (12.7 / 26 applicable principles)
 
 | Folder | Applicable | Score | % |
 |---|---|---|---|

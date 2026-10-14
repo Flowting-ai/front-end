@@ -1,5 +1,23 @@
 # Compare Feature: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 item 3 done, items 1, 2 and 4 wait for approval (large rework of CompareModels.tsx).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Each model's answer renders through one new `ModelResponseBody` (replacing two copies of the same JSX), wrapped in `BlockErrorBoundary`. The lazily loaded modal now shows a skeleton (`CompareModelsLoading` in `AppDialogs.tsx`) instead of nothing.
+> 2. Errors are typed: a separate `testErrors` map, never written into the answer text. Each model streams in its own try/catch, so one failure leaves the other columns intact. Each failed column shows the message with a **Retry** button that re-runs only that model with the last prompt (`runModels` / `handleRetryModel`). HTTP failures get friendly messages (`httpErrorMessage`).
+> 3. The `/compare` lab page now 404s in production (server `page.tsx` + client `CompareLab.tsx`, the same pattern as `dev/greetings`); `/api/lab` was already 404 in production.
+> 4. The modal is `role="dialog"` + `aria-modal` with `useFocusTrap` (Tab trapped, Esc closes, focus restored). Each answer area is `aria-live="polite"` with `aria-busy` while streaming.
+> 5. Tests: event parsing in `lib/compare/run-events.ts`, and the grid filter in `lib/compare/filter-models.ts` (now used by the component), 14 tests in total.
+> 6. Icon bundle (verified): already solved. `lib/llm-icons.generated.ts` is a 46 KB subset, and nothing imports the 10 MB `@strange-huge/icons/llm` module.
+>
+> Phase 2 (Oct 14 2026):
+> - 3: the model catalogue is the shared `["models"]` query (`modelsQuery` in `lib/ai-models.ts`). `fetchModelsWithCache()` keeps its never-throw contract and 60 s freshness but now reads that query instead of a module cache, so Compare, the selector, the agents pages and settings share one request and one cache, cleared on logout. `bustModelsCache()` invalidates it in every tab. `CompareModels` dropped three `useState`s and its fetch effect.
+> - 1 (shared markdown renderer, ~320 lines deleted), 2 (shared streaming transport from `use-streaming-chat`) and 4 (per-model run state in a store so one token doesn't re-render every column) all rework the 2,034-line `CompareModels.tsx`; held for approval per the "ask before large splits" rule.
+>
+> Open: items 1, 2, 4 above, the component split, and fixed width 1212. Esc inside the filter dropdown may close the whole modal; check during the a11y pass.
+>
+> Backend gaps: none for Phase 1.
+
 Scope: two surfaces share the name "compare".
 1. **Model compare modal**: `components/compare/CompareModels.tsx` (2034 lines), `compareModels.module.css`, `context/compare-context.tsx`, opened from `components/layout/AppDialogs.tsx`.
 2. **`/compare` page** (`app/(app)/compare/page.tsx`, 293 lines): a routing-lab recording tool (old router vs "Jev" router, via `/api/lab`).

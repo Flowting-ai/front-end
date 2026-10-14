@@ -10,6 +10,7 @@ import { ChipTooltip } from '@/components/Chip/ChipTooltip'
 import { AgentChip } from '@/components/chat/AgentChip'
 import { publishActiveChatAgent } from '@/lib/active-chat-agent-store'
 import { useProjects } from '@/context/projects-context'
+import { canProject } from '@/lib/projects/project-permissions'
 import { emitProjectNewChat } from '@/hooks/use-sidebar-events'
 import { useAuth } from '@/context/auth-context'
 import { usePinboard } from '@/context/pinboard-context'
@@ -25,13 +26,15 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import { Skeleton } from '@/components/Skeleton'
+import { BlockErrorBoundary } from '@/components/chat/BlockErrorBoundary'
+import { ProjectNotFound } from '@/components/Projects/ProjectRouteStates'
 import { Divider } from '@/components/Divider'
 import { teamChatsLoadingRows, withDividers } from '@/components/ProjectChatListSkeleton'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { AgentsPanelContent, AGENT_SELECT_EVENT } from '@/components/AgentsPanel'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
-import { ProjectShareModal } from '@/components/ProjectShareModal'
+import { ProjectShareModal } from '@/components/Projects/lazy-modals'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { publishProjectChat } from '@/lib/api/chat'
 import { fetchProjectChats, PROJECT_VISIBILITY_OPTIONS, type ApiProjectChat } from '@/lib/api/projects'
@@ -39,9 +42,9 @@ import { useOrg } from '@/context/org-context'
 import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
 import { AlertCircleIcon } from '@strange-huge/icons'
-import { EditProjectModal } from '@/components/EditProjectModal'
-import { LeaveProjectModal } from '@/components/LeaveProjectModal'
-import { DeleteProjectModal } from '@/components/DeleteProjectModal'
+import { EditProjectModal } from '@/components/Projects/lazy-modals'
+import { LeaveProjectModal } from '@/components/Projects/lazy-modals'
+import { DeleteProjectModal } from '@/components/Projects/lazy-modals'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { ChatAddMenu, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -94,19 +97,9 @@ export default function ProjectPage() {
   const chats   = getChats(params.id)
   // Per sharing-model-v2: on a Shared project, any collaborator (not just the
   // owner) can add or remove other collaborators — the owner is the only
-  // person nobody can remove. Workspace projects have no manageable member
-  // list at all (access = "everyone currently in the workspace"), so this is
-  // only ever true for 'shared'.
-  const canManageProjectMembers = project?.visibility === 'shared'
-  // Editing content (title/description/instructions/files) is broader than
-  // ownership — the backend's update() uses requireWritable, which also
-  // passes for any workspace member on a Workspace project (project.py).
-  // `project.canEdit` itself stays ownership-only (it also gates Delete and
-  // the leave-flow's owner branch elsewhere on this page), so this is a
-  // separate flag. NOT yet correct for a non-owner collaborator on a Shared
-  // project — that needs the project's member list, which isn't fetched
-  // eagerly here.
-  const canEditProjectContent = !!project && (project.canEdit || (project.visibility === 'workspace' && !!orgId && project.teamId === orgId))
+  // person nobody can remove. Rules: lib/projects/project-permissions.ts.
+  const canManageProjectMembers = canProject('manage-members', project, orgId)
+  const canEditProjectContent = canProject('edit-content', project, orgId)
 
   useEffect(() => {
     setProjectLoading(true)
@@ -138,7 +131,6 @@ export default function ProjectPage() {
   // Bumped whenever a member is added via the Sharing modal (ProjectAddMembersList),
   // which manages its own separate state — this forces the "Members" side
   // panel's own list (ProjectMembersPanel) to refetch if it's open at the time.
-  const [memberListVersion, setMemberListVersion] = useState(0)
   const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<ApiProjectChat[]>([])
   const [teamChatsLoading, setTeamChatsLoading] = useState(true)
@@ -268,7 +260,9 @@ export default function ProjectPage() {
   useEffect(() => {
     const handler = (e: Event) => {
       const persona = (e as CustomEvent<SelectedPersonaInfo>).detail
-      if (persona) setSelectedPersona(persona)
+      if (!persona) return
+      setSelectedPersona(persona)
+      trackFeature('project_agent_attached', { persona_id: persona.id })
     }
     window.addEventListener(AGENT_SELECT_EVENT, handler)
     return () => window.removeEventListener(AGENT_SELECT_EVENT, handler)
@@ -301,11 +295,14 @@ export default function ProjectPage() {
             >
               Instructions are included as part of the context for every chat in this project.
             </p>
+            <BlockErrorBoundary label="instructions">
             <ProjectInstructionsPanel
               value={project.instructions}
               editable={canEditProjectContent}
               onOpenEditor={canEditProjectContent ? () => setInstructionsOpen(true) : undefined}
             />
+            </BlockErrorBoundary>
+            <BlockErrorBoundary label="files">
             <ProjectFilesPanel
               files={project.files}
               pendingFiles={pendingFiles}
@@ -325,6 +322,7 @@ export default function ProjectPage() {
               } : undefined}
               onRemove={canEditProjectContent ? (fileId) => removeFile(project.id, fileId) : undefined}
             />
+            </BlockErrorBoundary>
           </div>
         ),
       })
@@ -347,13 +345,14 @@ export default function ProjectPage() {
         title:       'Members',
         onClose:     () => setMembersPanelOpen(false),
         content:     (
+          <BlockErrorBoundary label="member list">
           <ProjectMembersPanel
             projectId={project.id}
             ownerUserId={project.ownerUserId}
             canManage={canManageProjectMembers}
-            refreshKey={memberListVersion}
             onAddMember={() => setShareOpen(true)}
           />
+          </BlockErrorBoundary>
         ),
         // Same flush 8px layout as the sibling Agents panel — ProjectMembersPanel
         // no longer renders its own 24px-padded title/header internally.
@@ -369,7 +368,7 @@ export default function ProjectPage() {
     // composeRefs for whatever's nested inside the panel content). Calling
     // setShareOpen directly above sidesteps the need for that dependency
     // entirely — it's a stable state setter, not a per-render closure.
-  }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile, memberListVersion])
+  }, [project, panelOpen, agentsPanelOpen, membersPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
 
   useEffect(() => () => setProjectPanel(null), [setProjectPanel])
 
@@ -394,11 +393,7 @@ export default function ProjectPage() {
         </div>
       )
     }
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>Project not found.</p>
-      </div>
-    )
+    return <ProjectNotFound />
   }
 
   // Owner-only — matches the backend exactly (requireDelete === requireOwned,
@@ -406,13 +401,13 @@ export default function ProjectPage() {
   // dropped that bypass; the stale client-side copy let a non-owner admin
   // click Delete only to have it 404 (invisibly, until deleteProjectApi's
   // own missing-response.ok bug was fixed — see projects.ts).
-  const canDeleteProject = project.canEdit
+  const canDeleteProject = canProject('delete', project, orgId)
   // Personal projects have no membership to leave (backend 400s). The owner
   // leaving would trigger the backend's real successor/archive/convert
   // logic, but there's no "transfer ownership" flow to pair with it yet, so
   // this stays frontend-only for now: only a non-owner collaborator on a
   // workspace/shared project can leave.
-  const canLeaveProject = project.visibility !== 'personal' && !project.canEdit
+  const canLeaveProject = canProject('leave', project, orgId)
   const hasMenuActions = canDeleteProject || canLeaveProject
 
   const projectId = project.id
@@ -1071,7 +1066,7 @@ export default function ProjectPage() {
         description={project.description}
         tags={project.tags}
         visibility={project.visibility}
-        visibilityOptions={project.canEdit && orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        visibilityOptions={canProject('change-visibility', project, orgId) ? PROJECT_VISIBILITY_OPTIONS : []}
         onSave={(name, description, tags, visibility) => updateProject(projectId, { name, description, tags, visibility })}
         onClose={() => setEditOpen(false)}
       />}
@@ -1120,8 +1115,7 @@ export default function ProjectPage() {
           onClose={handleCloseShare}
           projectId={project.id}
           projectVisibility={project.visibility}
-          orgName={org.name}
-          onMemberAdded={() => setMemberListVersion(v => v + 1)}
+          orgName={org?.name ?? ''}
         />
       )}
     </div>

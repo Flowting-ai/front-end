@@ -1,12 +1,12 @@
 ﻿'use client'
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PlusSignIcon, AlertTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { type Persona } from '@/lib/api/personas'
 import { can, type AgentViewer } from '@/lib/agent-permissions'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePersonas, PERSONAS_QUERY_KEY } from '@/lib/queries/personas'
 import { normalizeModels } from '@/lib/ai-models'
 import { buildModelBlockedMap, modelUnavailableReason as resolveModelUnavailableReason, patchableVersionId, type ModelUnavailableReason } from '@/lib/agent-model-health'
@@ -14,7 +14,8 @@ import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
 import { AGENTS_SEE_ALL_EVENT } from '@/hooks/use-sidebar-events'
-import { fetchDashboard, listShares, revokeShare, type PersonaShare } from '@/lib/api/persona-shares'
+import { revokeShare, type PersonaShare } from '@/lib/api/persona-shares'
+import { forgetShare, personaSharesQuery } from '@/lib/share/share-queries'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
 import { AGENTS_ROUTE, AGENTS_NEW_ROUTE, AGENT_EDIT_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
@@ -67,7 +68,6 @@ function parseTabParam(value: string | null): TabId {
 
 function PersonasPageInner() {
   const { push, replace } = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const { close: closePinboard } = usePinboard()
   const { currentUserRole, members } = useOrg()
@@ -175,7 +175,6 @@ function PersonasPageInner() {
   // Latch: mount the lazy modal on first open, then keep it mounted so its state/exit behave as before.
   const [fixModelsMounted,  setFixModelsMounted]  = useState(false)
   if (fixModelsOpen && !fixModelsMounted) setFixModelsMounted(true)
-  const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
   // Full catalog (blocked models included) so a persona whose model was disabled
   // in Settings, or retired by the provider, still resolves to a real name here
   // instead of falling through to the raw model id.
@@ -187,23 +186,22 @@ function PersonasPageInner() {
 
   // Super Links state
   const {
-    dashboard, setDashboard, sharesLoading, dashboardRefreshing, refreshDashboard: handleRefreshDashboard,
+    dashboard, sharesLoading, dashboardRefreshing, refreshDashboard: handleRefreshDashboard,
     slRange, setSlRange, slDays, receivedShares, setReceivedShares, receivedLoading,
-  } = useSuperLinksData({ active: activeTab === 'super-links', pathname })
+  } = useSuperLinksData({ active: activeTab === 'super-links' })
+  // All shares, for the filter panel and the "has a link" badges (shared query).
+  const sharesQ = useQuery(personaSharesQuery(activeTab === 'my-personas'))
+  const allSharesForFilter: PersonaShare[] = useMemo(() => sharesQ.data ?? [], [sharesQ.data])
   const [selectedShareId,    setSelectedShareId]    = useState<string | null>(null)
   // The agent whose share modal is open (card Share button, ⋯ → Share, Super Links tab).
   const [shareTarget,        setShareTarget]        = useState<{ repoId: string; name: string } | null>(null)
   // Close the pinboard whenever the personas page is mounted.
   useEffect(() => { closePinboard() }, [closePinboard])
 
-  // Silently load all shares + models once for the filter panel.
-  // The super-links tab has its own loading effect that will overwrite shares on activation.
+  // Silently load the models once for the filter panel (shares come from sharesQ).
   useEffect(() => {
     if (activeTab !== 'my-personas' || filterSharesLoadedRef.current) return
     filterSharesLoadedRef.current = true
-    listShares()
-      .then(setAllSharesForFilter)
-      .catch(() => {})
     fetchAllModels()
       .then(list => setModelsForNameLookup(normalizeModels(list)))
       .catch(() => {})
@@ -595,11 +593,6 @@ function PersonasPageInner() {
           repoId={shareTarget.repoId}
           agentName={shareTarget.name}
           onClose={() => setShareTarget(null)}
-          onChanged={() => {
-            // Links / invites changed: refresh the dashboard + the "has a link" badges.
-            fetchDashboard(slDays).then(setDashboard).catch(console.error)
-            listShares().then(setAllSharesForFilter).catch(console.error)
-          }}
         />
       )}
 
@@ -612,7 +605,7 @@ function PersonasPageInner() {
             const id = selectedShareId
             try {
               await revokeShare(id)
-              setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
+              forgetShare(queryClient, id)
               setSelectedShareId(null)
               toast.success('Super Link revoked')
             } catch {

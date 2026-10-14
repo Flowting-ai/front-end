@@ -16,7 +16,8 @@ import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { warmRecommendations } from "@/hooks/use-recommendations";
-import { warmConnectApps } from "@/lib/connect-apps-cache";
+import { featuredAppsQuery } from "@/lib/connectors/connector-queries";
+import { getQueryClient } from "@/lib/query-client";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
@@ -69,7 +70,7 @@ export function AppLayout({
   const wantsChatWarmup = pathname === '/chat' || pathname.startsWith('/project/')
   useEffect(() => {
     if (!userKey || !wantsChatWarmup) return
-    const run = () => { warmRecommendations(userKey); warmConnectApps() }
+    const run = () => { warmRecommendations(userKey); void getQueryClient().prefetchQuery(featuredAppsQuery()) }
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 3000 })
       return () => window.cancelIdleCallback(id)

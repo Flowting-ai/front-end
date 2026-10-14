@@ -1,16 +1,15 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PlusSignIcon, ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { toast } from 'sonner'
-import {
-  fetchProjectMembers,
-  removeProjectMemberFromProject,
-  type ApiProjectMember,
-} from '@/lib/api/projects'
+import { removeProjectMemberFromProject, type ApiProjectMember } from '@/lib/api/projects'
+import { projectMembersQuery } from '@/lib/projects/project-queries'
+import { queryKeys } from '@/lib/query-keys'
 
 export interface ProjectMembersPanelProps {
   projectId:   string
@@ -19,11 +18,6 @@ export interface ProjectMembersPanelProps {
    *  mutations for anyone but the project owner, so the controls are hidden
    *  entirely for everyone else rather than rendering a dead-end action. */
   canManage:   boolean
-  /** Bump this (e.g. a counter) to force the member list to refetch. Adding a
-   *  member now happens through the project's Sharing modal (ProjectAddMembersList),
-   *  a separate component with its own state, so this panel has no other way
-   *  to learn a member was just added while it's open. */
-  refreshKey?: number | string
   /** Called when "Add member" is clicked. This panel no longer has its own
    *  inline add-member picker — adding now goes through the same Sharing
    *  modal the page's "Share" button opens, so this just asks the parent to
@@ -76,24 +70,17 @@ function EmptyState({ text }: { text: string }) {
   )
 }
 
-export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refreshKey, onAddMember }: ProjectMembersPanelProps) {
-  const [members,      setMembers]      = useState<ApiProjectMember[]>([])
-  const [loading,      setLoading]      = useState(true)
+export function ProjectMembersPanel({ projectId, ownerUserId, canManage, onAddMember }: ProjectMembersPanelProps) {
+  // Shared query: ProjectAddMembersList invalidates it when someone is added.
+  const queryClient = useQueryClient()
+  const membersQ = useQuery(projectMembersQuery(projectId))
+  const members = membersQ.data ?? []
+  const loading = membersQ.isPending
   const [removeTarget, setRemoveTarget] = useState<ApiProjectMember | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    fetchProjectMembers(projectId)
-      .then(list => {
-        if (!cancelled) setMembers(list)
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Failed to load project members')
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [projectId, refreshKey])
+    if (membersQ.isError) toast.error('Failed to load project members')
+  }, [membersQ.isError, membersQ.errorUpdatedAt])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
@@ -159,7 +146,8 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, refresh
           confirmLabel="Remove"
           onConfirm={async () => {
             await removeProjectMemberFromProject(projectId, removeTarget.userId)
-            setMembers(prev => prev.filter(m => m.userId !== removeTarget.userId))
+            queryClient.setQueryData<ApiProjectMember[]>(queryKeys.projectMembers(projectId), prev => prev?.filter(m => m.userId !== removeTarget.userId))
+            void queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers(projectId) })
             toast.success('Member removed from project')
           }}
           onClose={() => setRemoveTarget(null)}

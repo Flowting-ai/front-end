@@ -1,5 +1,27 @@
 # Global Search: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done**, except keyboard/focus tests for the modal (no DOM test setup). **Phase 2 done** (2.2 as a notice + load-more until a search endpoint exists). Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. The query goes through `useDeferredValue`. Results are computed only while search is open, from an index built once per change of the sources, with titles lower-cased up front. Each keystroke only runs `searchIndex`.
+> 2. Agents and agent chats load through the existing cached, de-duplicated helpers (`fetchPersonas` on the shared query client, `fetchPersonaChats` with a 10 s TTL) via a new `fetchAgentChatsFor()` in `lib/api/persona-chats.ts` that counts failed agents. Closing search drops in-flight results instead of aborting them, because the requests are shared with the sidebar.
+> 3. Provider split: `SearchProvider` (`context/search-context.tsx`) only owns open/close and Cmd/Ctrl+K, and its context value is memoised. All data subscriptions (chat history, projects, pinboard, agents) moved to `components/GlobalSearchModal/SearchData.tsx`.
+> 4. `SearchData` (and the modal with it) is a `dynamic()` chunk mounted on first open and kept mounted after. It is wrapped in `BlockErrorBoundary` with the new `fallback={null}` and `resetKey` props, so a crash renders nothing and the next open retries (Phase 4.4).
+> 5. Matching, ranking order, caps, recents and the screen-reader count live in `lib/search/global-search.ts`, with 13 tests (sources, subtitles, caps, draft agents, pins off, recents, count text).
+> 6. While agent chats load, the modal shows a one-line notice ("Loading agent chats…"), and it says when results may be incomplete because some lists failed. Other results stay visible while agents load. An `aria-live` line announces the result count.
+> 7. New feature event `search_result_opened` with `result_type` and `had_query` (no query text), added to `events.ts` and the Mixpanel doc. The doc's stale `schedule_created` path was fixed too.
+>
+> Phase 2 (Oct 14 2026):
+> 1. `lib/search/text-match.ts`: case- and diacritic-insensitive folding, multi-term matching (every term must hit some field), title ranking (exact > prefix > word start > substring > other field) with source order (most recent first) as the tie-break, and match ranges mapped back to the original text. `searchIndex` ranks each group before capping it; the modal uses the new `highlightTerms`, which marks every term.
+> 2. While a query is typed and the sidebar has more chats, the notice says "Searched your N most recent chats." with a **Search older chats** button that loads the next page (the chat list is a shared infinite query now). A real search endpoint is still backend gap (a).
+> 3. Agent chat lists moved from a module cache in `persona-chats.ts` to React Query (`['personas','chats',id]`, 10 s), so `bustPersonasCache()` and logout clear them; the sidebar's own fan-out now uses `fetchAgentChatsFor` (one shared, cached request per agent; a failing agent no longer blanks the section). `highlight-context` is part of the skipped Pinboard/Highlights audit and still has its own loop (over the same cached requests).
+> 4. Opening an `agent-chat` result that is no longer loaded toasts "That chat is no longer available." and goes to Agents, instead of doing nothing.
+> 5. Recently opened results persist (`SEARCH_RECENT_OPENED_KEY` in `storage-keys.ts`, 5 entries, parsed defensively, cleared on logout) and show before typing ahead of recent chats; entries that no longer exist drop out and titles come from current data. 8 new tests in `text-match.test.ts`.
+>
+> Open: modal keyboard/focus tests, `setTimeout` focus, modal split and CSS hover (3.3).
+>
+> Backend gaps: (a) a search endpoint for chat titles and message content with cursor paging (Phase 3.1); (b) one endpoint for "all my agent chats" to replace the per-agent fan-out.
+
 Scope: `components/GlobalSearchModal/index.tsx` (778 lines), `context/search-context.tsx` (295 lines, mounted in `app/(app)/layout.tsx`), `lib/highlightMatch.tsx`, entry points in `LeftSidebar`, `Sidebar`, chat pages. About 1,100 lines.
 Method: both main files read in full; consumers found by grep. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

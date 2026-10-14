@@ -19,7 +19,7 @@ import {
   resetAnalytics,
 } from "@/lib/analytics/mixpanel";
 import { trackScreenView } from "@/lib/analytics/events";
-import { routeToScreen } from "@/lib/analytics/screens";
+import { routeToScreenView } from "@/lib/analytics/screens";
 import { STAMP } from "@/lib/analytics/stamps";
 import { decodeJwtSub } from "@/lib/jwt-utils";
 
@@ -81,8 +81,8 @@ export function MixpanelProvider({ children }: { children: ReactNode }) {
   // 4) Layer 1 — fire screen_viewed on every navigation (including the first load,
   //    since track_pageview is off). Unmapped routes fire nothing.
   useEffect(() => {
-    const screen = routeToScreen(pathname);
-    if (screen) trackScreenView(screen);
+    const view = routeToScreenView(pathname);
+    if (view) trackScreenView(view.screen, view.tab ? { tab: view.tab } : undefined);
     else if (isDev) console.debug("[analytics] unmapped route (no screen_viewed):", pathname);
   }, [pathname]);
 

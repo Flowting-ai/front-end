@@ -2,7 +2,11 @@
 
 import type { AIModel } from "@/types/ai-model";
 import { MODELS_ALL_ENDPOINT } from "@/lib/config";
-import { apiFetch } from "@/lib/api/client";
+import { queryOptions } from "@tanstack/react-query";
+import { apiFetch, buildApiError } from "@/lib/api/client";
+import { getQueryClient } from "@/lib/query-client";
+import { invalidateModels } from "@/lib/query-invalidation";
+import { queryKeys } from "@/lib/query-keys";
 
 type BackendModel = {
   model_id?: string;
@@ -128,26 +132,33 @@ export const normalizeModels = (payload: unknown): AIModel[] => {
   return list.map((model) => normalizeModel(model as BackendModel));
 };
 
-// ── Shared in-memory cache ────────────────────────────────────────────────────
+// ── Shared catalogue (React Query) ────────────────────────────────────────────
+// One ["models"] query for every picker, selector and settings page: deduped,
+// cleared on logout, and invalidated (in every tab) by bustModelsCache().
 
-let _modelsCache: AIModel[] | null = null;
-let _modelsFetchPromise: Promise<AIModel[]> | null = null;
 const MODELS_CACHE_TTL = 60_000;
-let _modelsCacheTime = 0;
 
-// Fired whenever the cache is busted so already-mounted consumers (the model
-// selector is a single instance shared app-wide via ModelSelectorProvider,
-// mounted once in the (app) layout) know to refetch instead of keeping their
-// already-loaded — now stale — model list for the rest of the SPA session.
-export const MODELS_CACHE_BUSTED_EVENT = "models:cache-busted";
+/** GET /models/all as a query. Throws ApiError on failure; callers that treat the catalogue as optional use fetchModelsWithCache. */
+export const modelsQuery = () =>
+  queryOptions({
+    queryKey: queryKeys.models.all(),
+    queryFn: async (): Promise<AIModel[]> => {
+      // apiFetch (not raw fetch) so this shares one in-flight request with fetchAllModels().
+      const response = await apiFetch(MODELS_ALL_ENDPOINT);
+      if (!response.ok) throw await buildApiError(response);
+      // Every model is included regardless of its blocked flag — a model blocked
+      // in /settings/ai must not vanish from every picker with no way back.
+      // `blocked` stays on each AIModel for the "assigned model is disabled" warnings.
+      const models = normalizeModels(await response.json());
+      indexCatalogIcons(models);
+      return models;
+    },
+    staleTime: MODELS_CACHE_TTL,
+  });
 
-/** Force the next fetchModelsWithCache call to bypass the TTL and re-fetch. */
+/** Refetch the catalogue everywhere (here and in other tabs), e.g. after a model is toggled. */
 export function bustModelsCache(): void {
-  _modelsCache = null;
-  _modelsCacheTime = 0;
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(MODELS_CACHE_BUSTED_EVENT));
-  }
+  invalidateModels(getQueryClient());
 }
 
 // Canonical display order for every model-selector dropdown in the app (the
@@ -275,43 +286,17 @@ export function pickReplacementModel(
   return [...available].sort((a, b) => score(b) - score(a))[0]
 }
 
+/**
+ * The catalogue, never throwing: cached data within 60 s (or a fresh fetch with
+ * `force`), the last good copy if a fetch fails, else []. Backed by modelsQuery.
+ */
 export async function fetchModelsWithCache(
   opts?: { force?: boolean },
 ): Promise<AIModel[]> {
-  const now = Date.now();
-  if (
-    !opts?.force &&
-    _modelsCache &&
-    now - _modelsCacheTime < MODELS_CACHE_TTL
-  ) {
-    return _modelsCache;
+  const qc = getQueryClient();
+  try {
+    return await qc.fetchQuery({ ...modelsQuery(), staleTime: opts?.force ? 0 : MODELS_CACHE_TTL });
+  } catch {
+    return qc.getQueryData<AIModel[]>(queryKeys.models.all()) ?? [];
   }
-
-  if (_modelsFetchPromise) return _modelsFetchPromise;
-
-  _modelsFetchPromise = (async () => {
-    try {
-      // apiFetch (not raw fetch) so this shares one in-flight request with fetchAllModels().
-      const response = await apiFetch(MODELS_ALL_ENDPOINT);
-      if (!response.ok) return _modelsCache ?? [];
-      const data = await response.json();
-      // Previously filtered out models the user had blocked in /settings/ai.
-      // That page is no longer reachable from nav, so a model someone blocked
-      // in the past would otherwise vanish from every picker with no way back —
-      // include every model here regardless of its blocked flag. (`blocked`
-      // itself is left intact on each AIModel for the surfaces that still use
-      // it to show an accurate "this assigned model is disabled" warning.)
-      const models = normalizeModels(data);
-      indexCatalogIcons(models);
-      _modelsCache = models;
-      _modelsCacheTime = Date.now();
-      return models;
-    } catch {
-      return _modelsCache ?? [];
-    } finally {
-      _modelsFetchPromise = null;
-    }
-  })();
-
-  return _modelsFetchPromise;
 }

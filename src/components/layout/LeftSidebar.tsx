@@ -16,9 +16,9 @@ import { Divider } from "@/components/Divider";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
-import { MoveToProjectModal } from "@/components/MoveToProjectModal";
+import { MoveToProjectModal } from "@/components/Projects/lazy-modals";
 import { addChatToProject } from "@/lib/api/projects";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isDraftPersona } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, fetchAgentChatsFor, renamePersonaChat, deletePersonaChat, personasForTeamContext, isDraftPersona } from "@/lib/api/personas";
 import { can } from "@/lib/agent-permissions";
 import { onPersonasInvalidated } from "@/lib/api/persona-cache";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
@@ -1565,12 +1565,10 @@ function RecentAgentChatsSection() {
   const fetchAll = useCallback(async () => {
     try {
       const personas = await fetchPersonas()
-      const results  = await Promise.all(
-        personas.map(p =>
-          fetchPersonaChats(p.id).then(chats => chats.map(c => ({ ...c, personaId: p.id })))
-        )
-      )
-      const merged = results.flat().sort((a, b) => {
+      // Shared with global search: one cached request per agent; an agent whose
+      // list fails is skipped instead of blanking every agent's chats.
+      const { chats } = await fetchAgentChatsFor(personas)
+      const merged = chats.sort((a, b) => {
         const at = a.updated_at ?? a.created_at ?? ''
         const bt = b.updated_at ?? b.created_at ?? ''
         return bt.localeCompare(at)
@@ -2691,7 +2689,7 @@ function LeftSidebarImpl({
         const label = ADMIN_SECTION_COMING_SOON[id] ?? id
         toast.info(`${label} — coming soon`, { id: 'nav' })
       }}
-      orgName={orgId ? orgDisplayName(org.name) : undefined}
+      orgName={orgId ? orgDisplayName(org?.name ?? '') : undefined}
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && orgRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}

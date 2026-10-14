@@ -8,11 +8,14 @@ import { CancelOneIcon, CopyOneIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { Spinner } from '@/components/Spinner'
-import { createShare, listShares, revokeShare, type PersonaShare } from '@/lib/api/persona-shares'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createShare, revokeShare } from '@/lib/api/persona-shares'
+import { activeInvitesFor, activeLinkFor, forgetShare, personaSharesQuery, rememberShare } from '@/lib/share/share-queries'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
 import { canonicalShareUrl } from '@/lib/share-url'
+import { copyShareLink } from '@/lib/share/copy-link'
 import { BOX_STYLE, HINT_STYLE, INPUT_STYLE, LABEL_STYLE } from '@/components/AgentEditor/styles'
 
 // ── Agent share modal ─────────────────────────────────────────────────────────
@@ -49,26 +52,14 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
   const { user } = useAuth()
   const creditLimit = Math.floor(getShareTokenLimit(user?.planType) / 2)
 
-  const [loading, setLoading] = useState(true)
-  const [link, setLink] = useState<PersonaShare | null>(null)
-  const [invites, setInvites] = useState<PersonaShare[]>([])
+  const queryClient = useQueryClient()
+  const sharesQ = useQuery(personaSharesQuery())
+  const loading = sharesQ.isPending
+  const link = activeLinkFor(sharesQ.data, repoId)
+  const invites = activeInvitesFor(sharesQ.data, repoId)
   const [busy, setBusy] = useState<'link' | 'email' | string | null>(null)
   const [email, setEmail] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    listShares()
-      .then(all => {
-        if (cancelled) return
-        const mine = all.filter(share => share.persona_repo_id === repoId && share.is_active)
-        setLink(mine.find(share => share.share_type === 'link') ?? null)
-        setInvites(mine.filter(share => share.share_type === 'email'))
-      })
-      .catch(() => { if (!cancelled) { setLink(null); setInvites([]) } })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [repoId])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -81,7 +72,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
   async function turnOnLink() {
     setBusy('link')
     try {
-      setLink(await createShare({ persona_repo_id: repoId, share_type: 'link', credit_limit: creditLimit }))
+      rememberShare(queryClient, await createShare({ persona_repo_id: repoId, share_type: 'link', credit_limit: creditLimit }))
       onChanged?.()
       toast.success('Share link created')
     } catch (err) {
@@ -94,7 +85,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
     setBusy('link')
     try {
       await revokeShare(link.id)
-      setLink(null)
+      forgetShare(queryClient, link.id)
       onChanged?.()
       toast.success('Share link turned off')
     } catch (err) {
@@ -104,8 +95,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
 
   function copyLink() {
     if (!link?.share_url) return
-    navigator.clipboard.writeText(canonicalShareUrl(link.share_url)).catch(() => {})
-    toast.success('Link copied')
+    void copyShareLink(canonicalShareUrl(link.share_url), toast)
   }
 
   async function sendInvite() {
@@ -117,7 +107,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
       const share = await createShare({
         persona_repo_id: repoId, share_type: 'email', recipient_emails: [address], credit_limit: creditLimit,
       })
-      setInvites(prev => [...prev, share])
+      rememberShare(queryClient, share)
       setEmail('')
       onChanged?.()
       toast.success(`Invite sent to ${address}`)
@@ -130,7 +120,7 @@ function ModalBody({ repoId, agentName, onClose, onChanged }: Omit<AgentShareMod
     setBusy(id)
     try {
       await revokeShare(id)
-      setInvites(prev => prev.filter(share => share.id !== id))
+      forgetShare(queryClient, id)
       onChanged?.()
       toast.success('Invite revoked')
     } catch (err) {

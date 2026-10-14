@@ -17,6 +17,7 @@ import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { trackFeature } from '@/lib/analytics/events'
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from '@/lib/feature-flags'
 
 const AGENTS_PANEL_TITLE = 'Agents'
@@ -129,6 +130,7 @@ function FloatingPanelImpl() {
     }
     closePinboard()
     closeHighlight()
+    trackFeature('context_panel_opened')
     setSidePanel({
       title:   CONTEXT_PANEL_TITLE,
       content: <ContextPanelContent />,

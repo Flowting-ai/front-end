@@ -18,11 +18,16 @@ import {
   buildRewrite, diffLines, diffSummary, fromBackendQuestions,
 } from '@/enhance'
 import { enhancePrompt } from '@/lib/api/personas'
+import { buildAnswerPayload, clampCustomText } from '@/lib/enhance/enhance-request'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { toast } from 'sonner'
 import type {
-  EnhanceMode, PersonaContext, Question, Answers,
+  EnhanceMode, Question, Answers,
 } from '@/enhance'
+import { trackBrowserEvent } from '@/lib/analytics/events'
+import { friendlyApiError } from '@/lib/api/client'
+import { classifyEnhanceFailure, enhanceOutcomeProps, type EnhanceOutcome } from '@/lib/enhance/enhance-outcome'
+import { BlockErrorBoundary } from '@/components/chat/BlockErrorBoundary'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,11 +37,6 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
   value:            string
   /** Fires whenever the prompt text changes (typing OR an Apply commit). */
   onChange:         (next: string) => void
-  /**
-   * Persona surroundings - feeds the P2 question filters (PRD §8). Optional -
-   * defaults to a permissive private persona with no knowledge/connectors.
-   */
-  personaContext?:  PersonaContext
   /** Textarea placeholder when empty. */
   placeholder?:     string
   /** Optional label for screen readers. */
@@ -63,13 +63,8 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
 type EnhanceState = 'idle' | 'scanning' | 'qa' | 'diff' | 'complete'
 type DiffView = 'changes' | 'preview'
 
-const DEFAULT_CONTEXT: PersonaContext = {
-  knowledgeCount:    0,
-  connectorsEnabled: [],
-  sharing:           'private',
-}
-
-const SCAN_DURATION_MS = 1800   // PRD §11
+// The local scan is instant; this is only a short transition, not a fake wait.
+const SCAN_DURATION_MS = 300
 // A backend call that takes longer than this gets a "still working" note and a Cancel; one that
 // takes longer than the timeout is dropped for the local check.
 const SLOW_AFTER_MS = 8_000
@@ -84,7 +79,6 @@ export function EnhancePromptField(
   {
     value,
     onChange,
-    personaContext = DEFAULT_CONTEXT,
     placeholder = "Describe your agent's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
     ariaLabel = 'System prompt',
     forceMode,
@@ -116,8 +110,30 @@ export function EnhancePromptField(
     const requestId = useRef(0)   // bumped to ignore a stale response after close / restart
     const scanTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    // The in-flight backend call; aborted on close / restart / give-up so it stops costing model time.
+    const abortRef = useRef<AbortController | null>(null)
+    const startedAt = useRef<number | null>(null)
+    const sourceRef = useRef<'backend' | 'local'>('local')
+    const newRequestSignal = () => {
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
+      return abortRef.current.signal
+    }
+    const cancelRequest = () => { abortRef.current?.abort(); abortRef.current = null }
+    const reportOutcome = (outcome: EnhanceOutcome) => {
+      trackBrowserEvent('prompt_enhance_outcome', enhanceOutcomeProps({
+        outcome,
+        source: sourceRef.current,
+        startedAt: startedAt.current,
+        now: Date.now(),
+        questionsAnswered: Object.values(answers).filter(a => a.length > 0).length,
+      }))
+    }
 
-    useEffect(() => () => { if (scanTimer.current) clearTimeout(scanTimer.current) }, [])
+    useEffect(() => () => {
+      if (scanTimer.current) clearTimeout(scanTimer.current)
+      abortRef.current?.abort()
+    }, [])
 
     useEffect(() => {
       if (!waiting) return
@@ -143,7 +159,8 @@ export function EnhancePromptField(
     const openLocalEnhance = () => {
       const scores = scanPrompt(value)
       const detectedMode = forceMode ?? classifyMode(scores)
-      const qs = selectQuestions(detectedMode, scores, personaContext)
+      const qs = selectQuestions(detectedMode, scores)
+      sourceRef.current = 'local'
       setBackendMode(false)
       setMode(detectedMode)
       setQuestions(qs)
@@ -159,8 +176,11 @@ export function EnhancePromptField(
 
     const openEnhance = () => {
       trackFeature('agent_enhance_instructions')
+      startedAt.current = Date.now()
       if (!value.trim()) { openLocalEnhance(); return }
       const run = ++requestId.current
+      const signal = newRequestSignal()
+      sourceRef.current = 'backend'
       setMode('BUILD')
       setQIdx(0)
       setAnswers({})
@@ -169,11 +189,13 @@ export function EnhancePromptField(
       setWaiting(true)
       giveUpRef.current = () => {
         requestId.current++
+        cancelRequest()
         stopWaiting()
+        reportOutcome('timeout')
         toast.info('Enhance is taking too long — using a quick local check instead.')
         openLocalEnhance()
       }
-      enhancePrompt(value, []).then(res => {
+      enhancePrompt(value, [], { signal }).then(res => {
         if (run !== requestId.current) return
         stopWaiting()
         setBackendMode(true)
@@ -187,15 +209,26 @@ export function EnhancePromptField(
         } else {
           setState('qa')
         }
-      }).catch(() => {
+      }).catch((err: unknown) => {
         if (run !== requestId.current) return
+        const failure = classifyEnhanceFailure(err)
+        if (failure === 'aborted') return
         stopWaiting()
+        if (failure === 'credits') {
+          reportOutcome('credits_exhausted')
+          setState('idle')
+          toast.error(friendlyApiError('', 402))
+          return
+        }
+        reportOutcome('fallback_local')
         openLocalEnhance()
       })
     }
 
     const closeEnhance = () => {
+      if (state !== 'idle') reportOutcome('closed')
       requestId.current++
+      cancelRequest()
       stopWaiting()
       if (scanTimer.current) clearTimeout(scanTimer.current)
       setState('idle')
@@ -204,10 +237,9 @@ export function EnhancePromptField(
     // Send the answers back so the backend folds them into a final draft.
     const refineWithBackend = () => {
       const run = ++requestId.current
-      const payload = questions.flatMap(q => {
-        const a = answers[q.id] ?? []
-        return a.length > 0 ? [{ question: q.text, answer: a.join(', ') }] : []
-      })
+      const signal = newRequestSignal()
+      // Answered questions only, trimmed to ENHANCE_LIMITS.
+      const payload = buildAnswerPayload(questions, answers)
       setState('scanning')
       setWaiting(true)
       const showFirstDraft = () => {
@@ -218,17 +250,23 @@ export function EnhancePromptField(
       }
       giveUpRef.current = () => {
         requestId.current++
+        cancelRequest()
+        reportOutcome('timeout')
         toast.info('Enhance is taking too long — showing the first draft.')
         showFirstDraft()
       }
-      enhancePrompt(value, payload).then(res => {
+      enhancePrompt(value, payload, { signal }).then(res => {
         if (run !== requestId.current) return
         stopWaiting()
         setDraftRewrite(res.enhanced_prompt)
         setDiffView('changes')
         setState('diff')
-      }).catch(() => {
+      }).catch((err: unknown) => {
         if (run !== requestId.current) return
+        const failure = classifyEnhanceFailure(err)
+        if (failure === 'aborted') return
+        // Out of credits on the refine: the first draft is still usable, so show it with the reason.
+        if (failure === 'credits') toast.error(friendlyApiError('', 402))
         showFirstDraft()
       })
     }
@@ -252,7 +290,7 @@ export function EnhancePromptField(
     }
 
     const commitCustom = (qid: string) => {
-      const text = customText[qid]?.trim()
+      const text = clampCustomText(customText[qid]?.trim() ?? '')
       if (!text) return
       setAnswers(prev => ({ ...prev, [qid]: [...(prev[qid] ?? []), text] }))
       setCustomText(prev => ({ ...prev, [qid]: '' }))
@@ -289,11 +327,13 @@ export function EnhancePromptField(
     // ── Apply / discard ────────────────────────────────────────────────────────
 
     const applyChanges = () => {
+      reportOutcome('applied')
       onChange(draftRewrite)
       setState('idle')
       setDraftRewrite('')
     }
     const discard = () => {
+      reportOutcome('discarded')
       setDraftRewrite('')
       setState('idle')
     }
@@ -370,6 +410,13 @@ export function EnhancePromptField(
             ...containerStateStyle,
           }}
           {...props}
+          onKeyDown={(e) => {
+            props.onKeyDown?.(e)
+            if (e.key === 'Escape' && isOpen && !e.defaultPrevented) {
+              e.preventDefault()
+              closeEnhance()
+            }
+          }}
         >
         {/* Idle: textarea fills, footer pinned in flex flow at bottom — matches Figma node I848:53731;1677:7723 */}
         {!isOpen && (
@@ -429,7 +476,20 @@ export function EnhancePromptField(
           </div>
         )}
 
-        {/* Open: EnhanceBox replaces the textarea */}
+        {/* Open: EnhanceBox replaces the textarea. A crash in the diff/preview
+            returns to the idle textarea instead of losing the editor. */}
+        <BlockErrorBoundary
+          label="enhance panel"
+          resetKey={state}
+          fallback={
+            <div role="alert" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-700)', textAlign: 'center' }}>
+                Enhance hit a problem. Your prompt is unchanged.
+              </p>
+              <Button size="md" variant="secondary" onClick={closeEnhance}>Back to editing</Button>
+            </div>
+          }
+        >
         <AnimatePresence initial={false}>
           {isOpen && (
             <m.div
@@ -531,7 +591,7 @@ export function EnhancePromptField(
                   answers={answers[currentQuestion.id] ?? []}
                   customText={customText[currentQuestion.id] ?? ''}
                   onToggleOption={(label) => toggleOption(currentQuestion.id, label)}
-                  onCustomChange={(t) => setCustomText(prev => ({ ...prev, [currentQuestion.id]: t }))}
+                  onCustomChange={(t) => setCustomText(prev => ({ ...prev, [currentQuestion.id]: clampCustomText(t) }))}
                   onCustomCommit={() => commitCustom(currentQuestion.id)}
                   onCustomRemove={(label) => removeAnswer(currentQuestion.id, label)}
                 />
@@ -607,7 +667,8 @@ export function EnhancePromptField(
                 onRunDeeper={() => {
                   // Re-enter scan with forced AUDIT
                   const scores = scanPrompt(value)
-                  const qs = selectQuestions('AUDIT', scores, personaContext)
+                  const qs = selectQuestions('AUDIT', scores)
+                  sourceRef.current = 'local'
                   setBackendMode(false)
                   setMode('AUDIT')
                   setQuestions(qs)
@@ -622,6 +683,7 @@ export function EnhancePromptField(
             </m.div>
           )}
         </AnimatePresence>
+        </BlockErrorBoundary>
         </div>
       </div>
     )

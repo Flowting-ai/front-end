@@ -1272,7 +1272,7 @@ export default function OrgMembersPage() {
         isOpen={inviteOpen}
         onClose={() => setInviteOpen(false)}
         onInvite={handleInvite}
-        workspaceName={org.name}
+        workspaceName={org?.name ?? ''}
         loading={inviteLoading}
         existingEmails={members.map(m => m.email).filter(Boolean)}
         allowedDomains={allowedDomains}

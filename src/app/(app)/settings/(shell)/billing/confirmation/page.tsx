@@ -4,7 +4,6 @@ import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { Button } from '@/components/ui/button'
 import { ORG_PLANS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
@@ -55,7 +54,6 @@ function BillingConfirmationContent() {
   useEffect(() => {
     document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
     void refreshUser()
-    void fetchBilling()
     // Re-fetch the org credit pool so team plan credits land in the UI without
     // waiting for the next org-context mount cycle.
     refreshMembers()

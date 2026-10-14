@@ -1,16 +1,21 @@
 import { QueryClient } from "@tanstack/react-query";
+import { STALE_DEFAULT_MS, queryRetryDelay, shouldRetryQuery } from "@/lib/query-policy";
 
 // staleTime matches the ~30s TTL convention used across src/lib/api/*.ts so
 // data on React Query behaves like the module-level caches it replaced.
-export const DEFAULT_STALE_TIME_MS = 30_000;
+// Tiers and retry rules live in lib/query-policy.ts.
+export const DEFAULT_STALE_TIME_MS = STALE_DEFAULT_MS;
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: DEFAULT_STALE_TIME_MS,
-        retry: 1,
+        retry: shouldRetryQuery,
+        retryDelay: queryRetryDelay,
       },
+      // Mutations never retry on their own: a repeated POST can double-apply.
+      mutations: { retry: 0 },
     },
   });
 }

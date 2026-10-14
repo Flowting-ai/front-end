@@ -36,3 +36,13 @@ export class FeatureDisabledError extends Error {
     this.name = 'FeatureDisabledError'
   }
 }
+
+/**
+ * Settings → Preferences, Notifications, Security and Files. These pages are
+ * designed but not wired: their values are local defaults that never load or
+ * save, and Security lists invented sessions. OFF by default, so the routes
+ * 404 and nothing links to them. Turn on with
+ *   NEXT_PUBLIC_ENABLE_SETTINGS_PREVIEW=true
+ * Remove a page from this switch once it reads and writes real data.
+ */
+export const SETTINGS_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SETTINGS_PREVIEW === 'true'

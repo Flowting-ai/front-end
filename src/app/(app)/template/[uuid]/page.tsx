@@ -1,148 +1,40 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { z } from 'zod'
-import { auth0 } from '@/lib/auth0'
+import { BACKEND_BASE, getSessionToken } from '@/lib/server/backend'
+import {
+  decodeEntities,
+  formatBuilt,
+  formatBytes,
+  loadTemplate,
+  type TemplateLoadState,
+} from '@/lib/templates/template-view'
+import { TemplateNotice } from './TemplateNotice'
 
 export const dynamic = 'force-dynamic'
 
-const BACKEND_BASE = (process.env.SERVER_URL ?? '').replace(/\/+$/, '')
-
 const ParamsSchema = z.object({ uuid: z.uuid() })
 
-/** Mirrors services/templates/schemas.py TemplateResponse. */
-const templateSchema = z.object({
-  id: z.uuid(),
-  title: z.string(),
-  url: z.string(),
-  byte_size: z.number(),
-  created_at: z.string(),
-  revoked: z.boolean(),
-})
-
-type Template = z.infer<typeof templateSchema>
-
-type LoadResult =
-  | { state: 'ok'; template: Template }
-  | { state: 'forbidden' | 'not_found' | 'revoked' | 'error' }
-
-async function loadTemplate(uuid: string, token: string): Promise<LoadResult> {
-  let upstream: Response
-  try {
-    upstream = await fetch(`${BACKEND_BASE}/templates/${uuid}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-  } catch {
-    return { state: 'error' }
-  }
-
-  if (upstream.status === 403) return { state: 'forbidden' }
-  if (upstream.status === 404) return { state: 'not_found' }
-  if (upstream.status === 410) return { state: 'revoked' }
-  if (!upstream.ok) return { state: 'error' }
-
-  const parsed = templateSchema.safeParse(await upstream.json())
-  if (!parsed.success) return { state: 'error' }
-  return { state: 'ok', template: parsed.data }
-}
-
-const NOTICES: Record<Exclude<LoadResult['state'], 'ok'>, { heading: string; body: string }> = {
+const NOTICES: Record<Exclude<TemplateLoadState, 'not_found'>, { heading: string; body: string; tone: 'status' | 'alert' }> = {
   forbidden: {
     heading: "You don't have access",
     body: 'This page belongs to someone in another organization. Ask whoever sent the link to share it from your workspace.',
+    tone: 'status',
   },
-  not_found: { heading: 'Link not found', body: "This template doesn't exist." },
   revoked: {
     heading: 'This page was revoked',
     body: 'Its creator took it down. Ask them for a fresh one.',
+    tone: 'status',
+  },
+  timeout: {
+    heading: 'This is taking too long',
+    body: "The template didn't load in time. Try again in a moment.",
+    tone: 'alert',
   },
   error: {
     heading: 'Something went wrong',
     body: "The template couldn't be loaded. Try again in a moment.",
+    tone: 'alert',
   },
-}
-
-const ENTITIES: Record<string, string> = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-  nbsp: '\u00a0',
-}
-
-/**
- * The stored title is the raw inner text of the document's own `<title>` —
- * the backend extracts it with a regex and does not unescape it, so a page
- * named "Revenue & funnel" arrives as "Revenue &amp; funnel". Decoding is
- * safe here because React escapes whatever this returns on render.
- */
-function decodeEntities(text: string): string {
-  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body: string) => {
-    if (body.startsWith('#')) {
-      const code = body[1] === 'x' || body[1] === 'X'
-        ? Number.parseInt(body.slice(2), 16)
-        : Number.parseInt(body.slice(1), 10)
-      return Number.isNaN(code) ? whole : String.fromCodePoint(code)
-    }
-    return ENTITIES[body.toLowerCase()] ?? whole
-  })
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatBuilt(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-function Notice({ heading, body }: { heading: string; body: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        minHeight: '100%',
-        padding: '48px 16px',
-        textAlign: 'center',
-      }}
-    >
-      <p
-        style={{
-          fontFamily: 'var(--font-title)',
-          fontSize: 20,
-          lineHeight: '28px',
-          color: 'var(--legacy-1a1916)',
-          margin: 0,
-        }}
-      >
-        {heading}
-      </p>
-      <p
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 14,
-          lineHeight: '22px',
-          color: 'var(--neutral-500)',
-          margin: 0,
-          maxWidth: 380,
-        }}
-      >
-        {body}
-      </p>
-    </div>
-  )
 }
 
 export default async function TemplatePage({
@@ -151,62 +43,30 @@ export default async function TemplatePage({
   params: Promise<{ uuid: string }>
 }) {
   const parsedParams = ParamsSchema.safeParse(await params)
-  if (!parsedParams.success) {
-    return <Notice heading="Link not found" body="That isn't a template address." />
-  }
+  if (!parsedParams.success) notFound()
   const { uuid } = parsedParams.data
 
   // Signing in has to come back here, not to the app root — this page is
   // usually opened straight from a Slack link by someone with no session yet.
-  const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined
-  let token: string
-  try {
-    token = (await auth0.getAccessToken({ audience })).token
-  } catch {
-    redirect(`/auth/login?returnTo=${encodeURIComponent(`/template/${uuid}`)}`)
-  }
+  const token = await getSessionToken()
+  if (!token) redirect(`/auth/login?returnTo=${encodeURIComponent(`/template/${uuid}`)}`)
 
-  const result = await loadTemplate(uuid, token)
+  const result = await loadTemplate(BACKEND_BASE, uuid, token)
+  if (result.state === 'not_found') notFound()
   if (result.state !== 'ok') {
-    return <Notice {...NOTICES[result.state]} />
+    return <TemplateNotice {...NOTICES[result.state]} />
   }
 
   const { template } = result
   const title = decodeEntities(template.title)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 10,
-          flexWrap: 'wrap',
-          padding: '14px 20px',
-          borderBottom: '1px solid var(--neutral-100)',
-          flexShrink: 0,
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: 'var(--font-title)',
-            fontWeight: 400,
-            fontSize: 18,
-            lineHeight: '26px',
-            color: 'var(--legacy-1a1916)',
-            margin: 0,
-          }}
-        >
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-baseline gap-2.5 border-b border-[var(--neutral-100)] px-5 py-3.5">
+        <h1 className="m-0 font-[family-name:var(--font-title)] text-lg leading-[26px] font-normal text-[var(--neutral-900)]">
           {title}
         </h1>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            lineHeight: '20px',
-            color: 'var(--neutral-500)',
-          }}
-        >
+        <span className="text-[13px] leading-5 text-[var(--neutral-500)]">
           Built {formatBuilt(template.created_at)} · {formatBytes(template.byte_size)}
         </span>
       </header>
@@ -216,13 +76,19 @@ export default async function TemplatePage({
         gives it an opaque origin: its own scripts run — charts, filters,
         drill-downs — but it cannot reach this page's session or storage.
         The route handler sets the matching CSP so the guarantee holds even if
-        the frame is opened directly.
+        the frame is opened directly. The iframe is a normal tab stop, so
+        keyboard users reach its content right after the header.
+        Popups: `allow-popups` without `allow-popups-to-escape-sandbox` is
+        deliberate — a link the document opens inherits the same sandbox, so
+        model-written HTML can't use a new window to escape it.
+        Metadata loads before the frame on purpose: the not-found / no-access /
+        revoked states replace the frame, so they must be known first.
       */}
       <iframe
         src={`/api/template/${uuid}`}
         title={title}
         sandbox="allow-scripts allow-popups allow-forms"
-        style={{ flex: 1, width: '100%', border: 'none', minHeight: 0, display: 'block' }}
+        className="block min-h-0 w-full flex-1 border-none"
       />
     </div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
@@ -99,6 +100,8 @@ export function EditProjectModal({
   const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, open && mounted)
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -193,6 +196,10 @@ export function EditProjectModal({
         >
           <m.div
             key="edit-project-modal"
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={creating ? 'New project' : 'Edit project'}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
             exit={{    opacity: 0, scale: 0.96, y: 8 }}

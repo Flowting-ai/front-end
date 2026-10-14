@@ -1,7 +1,9 @@
 'use client'
 
 import React from 'react'
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
@@ -16,7 +18,6 @@ export interface ProjectShareModalProps {
    *  opens this modal is itself hidden on personal projects. */
   projectVisibility: Exclude<ProjectVisibility, 'personal'>
   orgName:           string
-  onMemberAdded:     () => void
 }
 
 // Portaled to document.body: AppLayout's rounded content container sets
@@ -39,7 +40,9 @@ export interface ProjectShareModalProps {
 // current members, to avoid duplicating that same list in two places.
 // Workspace projects have nothing to manage: access is automatic for the
 // whole workspace, per spec ("membership = whole workspace, not managed").
-export function ProjectShareModal({ open, onClose, projectId, projectVisibility, orgName, onMemberAdded }: ProjectShareModalProps) {
+export function ProjectShareModal({ open, onClose, projectId, projectVisibility, orgName }: ProjectShareModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, open, onClose)
   if (!open || typeof document === 'undefined') return null
 
   return createPortal(
@@ -49,6 +52,10 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
         style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)', zIndex: 100 }}
       />
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sharing"
         style={{
           position:        'fixed',
           top:             '50%',
@@ -126,7 +133,7 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
           // header/badge/footer leave (bounded by the card's own
           // maxHeight above) and scroll internally once it overflows.
           <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-            <ProjectAddMembersList projectId={projectId} onAdded={onMemberAdded} />
+            <ProjectAddMembersList projectId={projectId} />
           </div>
         )}
 

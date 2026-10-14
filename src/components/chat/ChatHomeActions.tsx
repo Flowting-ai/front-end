@@ -6,7 +6,7 @@ import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon } from '@str
 import { Dropdown } from '@/components/Dropdown'
 import { useProjects } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
-import { EditProjectModal } from '@/components/EditProjectModal'
+import { EditProjectModal } from '@/components/Projects/lazy-modals'
 import { PROJECT_VISIBILITY_OPTIONS } from '@/lib/api/projects'
 import { ConnectAppMenu } from './ConnectAppMenu'
 import styles from './ChatHome.module.css'

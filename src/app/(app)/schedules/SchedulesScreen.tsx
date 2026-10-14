@@ -1,35 +1,30 @@
-﻿'use client'
+'use client'
 
-import { Suspense, useState, useEffect, useId, useRef, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   ScheduleListView,
   ScheduleDetailView,
   ScheduleEditModal,
   ScheduleDeleteModal,
-  type ScheduleListItem,
-  type ScheduleDetailItem,
   type ScheduleEditData,
   type ScheduleScope,
 } from '@/templates/Schedules'
+import { copyAutomation, deleteAutomation, runAutomationNow } from '@/lib/api/automations'
+import { errorDetail, listItemToDetail } from '@/lib/schedules/schedule-mappers'
 import {
-  listAutomations,
-  listOrganizationAutomations,
-  copyAutomation,
-  getAutomation,
-  runAutomationNow,
-  updateAutomation,
-  deleteAutomation,
-  runSummary,
-  type Automation,
-  type AutomationDetail,
-  type AutomationRun,
-  type OrganizationAutomation,
-} from '@/lib/api/automations'
-import type { ScheduleRunRecord } from '@/templates/Schedules'
-import { getAllScheduleLinks, getChatForSchedule, linkScheduleToChat, stashPendingPrompt } from '@/lib/scheduleLinks'
-import { ApiError } from '@/lib/api/client'
+  ScheduleNotFoundError,
+  forgetSchedule,
+  mySchedulesQuery,
+  organizationSchedulesQuery,
+  scheduleDetailQuery,
+  toggleScheduleActive,
+} from '@/lib/schedules/schedule-queries'
+import { queryKeys } from '@/lib/query-keys'
+import { stashPendingPrompt } from '@/lib/scheduleLinks'
+import { ScheduleLoadFailed, ScheduleNotFound } from './ScheduleRouteStates'
 import { CHAT_ROUTE, SCHEDULES_ROUTE } from '@/lib/routes'
 import { SchedulesLoadingState, ScheduleDetailLoadingState } from './ScheduleSkeletons'
 
@@ -43,156 +38,9 @@ export function SchedulesScreen({ scheduleId }: { scheduleId?: string }) {
   )
 }
 
-// ── Mapping helpers ───────────────────────────────────────────────────────────
-
-// The schedule sentence the backend built ("Every 5 minutes", "Every weekday at
-// 9:30 AM (America/Chicago)"). `CronSpec` owns cron — this page formats none of
-// it, so what the user reads is what Pipedream is actually running.
-// See services/automations/schedule.py :: describeSchedule.
-function scheduleDescription(json: Record<string, unknown>): string {
-  const description = json?.description
-  return typeof description === 'string' && description ? description : 'On a schedule'
-}
-
-// True when the deployed Pipedream timer disagrees with what's stored — see
-// services/automations/schedule.py :: driftBetween. Surfaced as a warning
-// banner in the detail view rather than left invisible.
-function scheduleDrift(json: Record<string, unknown>): boolean {
-  return json?.drift === true
-}
-
-function timeOfDay(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-}
-
-function daysApart(date: Date, now: Date): number {
-  const dayOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  return Math.round((dayOf(date) - dayOf(now)) / 86_400_000)
-}
-
-function formatNextRun(iso: string): string {
-  const date = new Date(iso)
-  const now  = new Date()
-  const days = daysApart(date, now)
-  if (days === 0) return `Today · ${timeOfDay(date)}`
-  if (days === 1) return `Tomorrow · ${timeOfDay(date)}`
-  return `${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${timeOfDay(date)}`
-}
-
-// A run already happened, so "Tomorrow" can never be the answer — reusing the
-// next-run formatter left yesterday's failures reading as a bare date.
-function formatRunTime(iso: string): string {
-  const date = new Date(iso)
-  const now  = new Date()
-  const days = daysApart(date, now)
-  if (days === 0)  return `Today · ${timeOfDay(date)}`
-  if (days === -1) return `Yesterday · ${timeOfDay(date)}`
-  const sameYear = date.getFullYear() === now.getFullYear()
-  return `${date.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
-  })} · ${timeOfDay(date)}`
-}
-
-function formatCreatedAt(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-}
-
-function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
-  return {
-    id:          task.id,
-    name:        task.name,
-    description: task.summary || undefined,
-    frequency:   scheduleDescription(task.schedule_json),
-    isActive:    task.is_active,
-    createdAt:   task.created_at ? formatCreatedAt(task.created_at) : undefined,
-    chatId,
-    runCount:    task.run_count,
-    successRate: task.success_rate,
-    isRunning:   task.is_running,
-    drift:       scheduleDrift(task.schedule_json),
-  }
-}
-
-/** Map one backend run into a run-history record for the detail view. A run is
- *  one turn rather than a graph — there are no steps to list, so the card is a
- *  status, a time, and what the run has to say when expanded. */
-function runToRecord(run: AutomationRun): ScheduleRunRecord {
-  const whenIso  = run.finished_at ?? run.started_at ?? null
-  const isFailed = run.status === 'failed'
-  const isDone   = run.status === 'succeeded'
-  const summary  = runSummary(run)
-  const raw      = (run.error ?? '').trim()
-  return {
-    id:          run.id,
-    label:       whenIso ? formatRunTime(whenIso) : 'Run',
-    title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
-    status:      isFailed ? 'failed' : isDone ? 'complete' : 'executing',
-    summary,
-    // Only worth offering when there's more to it than the line above.
-    detail:      raw && raw !== summary ? raw : undefined,
-    steps:       [],
-    completedAt: run.finished_at ? new Date(run.finished_at) : undefined,
-  }
-}
-
-function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDetailItem {
-  // Backend just told us the real link — mirror it into the local store so
-  // the list view (whose GET /automations rows don't carry chat_id) can
-  // still resolve "open chat" without a full detail fetch per card.
-  if (task.chat_id) linkScheduleToChat(task.id, task.chat_id)
-  return {
-    id:           task.id,
-    name:         task.name,
-    instructions: task.summary ?? '',
-    frequency:    scheduleDescription(task.schedule_json),
-    nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
-    lastRun:      task.last_run_at ? formatRunTime(task.last_run_at) : undefined,
-    isActive:     task.is_active,
-    createdAt:    formatCreatedAt(task.created_at ?? ''),
-    runHistory:   (task.runs ?? []).map(runToRecord),
-    // Backend's own chat_id is authoritative — only fall back to the local
-    // link-store mapping (localStorage) for schedules the backend doesn't
-    // know a chat for yet (e.g. a just-created local placeholder row).
-    chatId:       task.chat_id ?? chatId,
-    runCount:     task.run_count,
-    successRate:  task.success_rate,
-    isRunning:    task.is_running,
-    drift:        scheduleDrift(task.schedule_json),
-  }
-}
-
-// Someone else's automation: the org row is all a non-owner can read, so its
-// detail view is built from this row alone.
-function organizationToListItem(task: OrganizationAutomation): ScheduleListItem {
-  return {
-    ...taskToListItem(task),
-    ownerName:  task.owner_name,
-    connectors: task.connectors.map(connector => ({
-      slug:    connector.slug,
-      name:    connector.display_name,
-      logoUrl: connector.logo_url,
-    })),
-  }
-}
-
-function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
-  return {
-    id:           item.id,
-    name:         item.name,
-    instructions: item.description ?? '',
-    frequency:    item.frequency,
-    isActive:     item.isActive,
-    createdAt:    item.createdAt,
-    chatId:       item.chatId,
-    runCount:     item.runCount,
-    successRate:  item.successRate,
-    isRunning:    item.isRunning,
-    ownerName:    item.ownerName,
-    connectors:   item.connectors,
-  }
-}
-
 // ── Inner page ────────────────────────────────────────────────────────────────
+// Server state is React Query (lib/schedules/schedule-queries.ts): the list,
+// the org list and the detail, each polling while a run is in progress.
 
 // `scheduleId` comes from the /schedules/[id] route; the legacy ?selected= link
 // (notifications, Slack) is redirected to that route below.
@@ -200,46 +48,27 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
   const { push, replace } = useRouter()
   const searchParams = useSearchParams()
   const legacySelectedId = searchParams.get('selected')
-  const idPrefix = useId()
+  const queryClient = useQueryClient()
 
-  // ── State ──────────────────────────────────────────────────────────────────
-
-  const [schedules,       setSchedules]       = useState<ScheduleListItem[]>([])
   const [scope,           setScope]           = useState<ScheduleScope>('mine')
-  const [orgSchedules,    setOrgSchedules]    = useState<ScheduleListItem[] | null>(null)
   const [isCopying,       setIsCopying]       = useState(false)
-  const [isLoadingList,   setIsLoadingList]   = useState(true)
-  const [isLoadingDetail, setIsLoadingDetail] = useState(!!scheduleId)
-  const [selectedId,      setSelectedId]      = useState<string | null>(null)
-  const [selectedDetail,  setSelectedDetail]  = useState<ScheduleDetailItem | null>(null)
   const [editModalOpen,   setEditModalOpen]   = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEditData | undefined>(undefined)
 
-  // IDs of schedules created locally that haven't been persisted to the backend yet
-  const localIdsRef = useRef<Set<string>>(new Set())
-
-  // ── Load task list on mount ────────────────────────────────────────────────
+  const listQ   = useQuery(mySchedulesQuery())
+  const orgQ    = useQuery(organizationSchedulesQuery(scope === 'organization'))
+  const detailQ = useQuery(scheduleDetailQuery(scheduleId))
+  const selectedId = scheduleId ?? null
+  const selectedDetail = detailQ.data ?? null
 
   useEffect(() => {
-    listAutomations()
-      .then(tasks => {
-        // Be defensive: a non-array payload (error envelope, paginated wrapper)
-        // would otherwise throw in .map and surface as a generic load failure.
-        const list = Array.isArray(tasks) ? tasks : []
-        const links = getAllScheduleLinks()
-        const nextSchedules = list.map(t => taskToListItem(t, links[t.id]))
-        setSchedules(nextSchedules)
-      })
-      .catch((err: unknown) => {
-        // Surface the real reason — the generic message hid backend/auth errors
-        // and made this undiagnosable.
-        console.error('[schedules] failed to load tasks', err)
-        const detail = err instanceof ApiError ? err.message : null
-        toast.error('Failed to load schedules', detail ? { description: detail } : undefined)
-      })
-      .finally(() => setIsLoadingList(false))
-  }, [])
+    if (!listQ.isError) return
+    // Surface the real reason — a generic message hides backend/auth errors.
+    console.error('[schedules] failed to load tasks', listQ.error)
+    const description = errorDetail(listQ.error)
+    toast.error('Failed to load schedules', description ? { description } : undefined)
+  }, [listQ.isError, listQ.error, listQ.errorUpdatedAt])
 
   // ── Legacy ?selected= links → /schedules/[id] ──────────────────────────────
 
@@ -247,84 +76,38 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
     if (!scheduleId && legacySelectedId) replace(`${SCHEDULES_ROUTE}/${encodeURIComponent(legacySelectedId)}`)
   }, [scheduleId, legacySelectedId, replace])
 
-  // ── Detail route: load the schedule named by the URL ───────────────────────
-
-  useEffect(() => {
-    if (!scheduleId) return
-    let cancelled = false
-    setSelectedId(scheduleId)
-    setIsLoadingDetail(true)
-    getAutomation(scheduleId)
-      .then(detail => { if (!cancelled) setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(scheduleId))) })
-      .catch(() =>
-        // Not mine — a non-owner can only read the org row.
-        listOrganizationAutomations()
-          .then(tasks => {
-            if (cancelled) return
-            const row = tasks.find(task => task.id === scheduleId)
-            if (row) setSelectedDetail(listItemToDetail(organizationToListItem(row)))
-            else { toast.error('Schedule not found'); replace(SCHEDULES_ROUTE) }
-          })
-          .catch(() => { if (!cancelled) { toast.error('Failed to load schedule'); replace(SCHEDULES_ROUTE) } })
-      )
-      .finally(() => { if (!cancelled) setIsLoadingDetail(false) })
-    return () => { cancelled = true }
-  }, [scheduleId, replace])
+  // Only 403/404 from both the owner and org endpoints means "not found"; a
+  // network or server failure gets a retry (see loadScheduleDetail).
+  const detailError: 'not_found' | 'failed' | null = !detailQ.isError
+    ? null
+    : detailQ.error instanceof ScheduleNotFoundError ? 'not_found' : 'failed'
 
   // ── Organization scope (loaded on first visit) ─────────────────────────────
 
   const handleScopeChange = useCallback((next: ScheduleScope) => {
     setScope(next)
-    if (next !== 'organization' || orgSchedules) return
-    listOrganizationAutomations()
-      .then(tasks => setOrgSchedules(tasks.map(organizationToListItem)))
-      .catch((err: unknown) => {
-        console.error('[schedules] failed to load organization schedules', err)
-        toast.error('Failed to load organization schedules')
-        setScope('mine')
-      })
-  }, [orgSchedules])
+    if (next !== 'organization') return
+    queryClient.fetchQuery(organizationSchedulesQuery(true)).catch((err: unknown) => {
+      console.error('[schedules] failed to load organization schedules', err)
+      toast.error('Failed to load organization schedules')
+      setScope('mine')
+    })
+  }, [queryClient])
 
-  const visibleSchedules = scope === 'organization' ? (orgSchedules ?? []) : schedules
+  const visibleSchedules = (scope === 'organization' ? orgQ.data : listQ.data) ?? []
 
   // ── Select / open detail ───────────────────────────────────────────────────
+  // Every schedule has its own URL.
 
   const handleScheduleClick = useCallback((id: string) => {
-    // Every persisted schedule has its own URL; local-only placeholders don't.
-    if (!localIdsRef.current.has(id)) {
-      push(`${SCHEDULES_ROUTE}/${encodeURIComponent(id)}`)
-      return
-    }
-    setSelectedId(id)
-    // Someone else's: the org row is everything a non-owner may read.
-    const orgItem = scope === 'organization' ? orgSchedules?.find(s => s.id === id) : undefined
-    if (orgItem) {
-      setSelectedDetail(listItemToDetail(orgItem))
-      return
-    }
-    // Local-only items: use list-item data immediately, no API call
-    if (localIdsRef.current.has(id)) {
-      const item = schedules.find(s => s.id === id)
-      setSelectedDetail(item ? listItemToDetail(item) : null)
-      return
-    }
-    // Fetch full detail (includes run history)
-    setSelectedDetail(null)
-    getAutomation(id)
-      .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
-      .catch(() => {
-        const item = schedules.find(s => s.id === id)
-        setSelectedDetail(item ? listItemToDetail(item) : null)
-      })
-  }, [schedules, scope, orgSchedules, push])
+    push(`${SCHEDULES_ROUTE}/${encodeURIComponent(id)}`)
+  }, [push])
 
   const handleBack = useCallback(() => {
-    setSelectedId(null)
-    setSelectedDetail(null)
     if (scheduleId) push(SCHEDULES_ROUTE)
   }, [scheduleId, push])
 
-  // ── Create / edit (local — no create/update endpoints available yet) ───────
+  // ── Create / edit (through chat — there are no create/update-program endpoints) ──
 
   const handleCreateNew = useCallback(() => {
     setEditingSchedule(undefined)
@@ -365,11 +148,11 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
     }
 
     // Create: build a structured prompt from all form fields so the chat has
-    // full context, stash it, then navigate. The chat page prefills it and
-    // writes the chatId back into the link store on first send, binding the
-    // two for the lifetime of the schedule.
-    const newId = `${idPrefix}-${Date.now()}`
-    localIdsRef.current.add(newId)
+    // full context, stash it under a fresh key, then navigate. The chat page
+    // prefills it and writes the chatId back into the link store on first send.
+    // The schedule shows up in the list once the chat has created it (this
+    // screen unmounts on navigation, so there is no local placeholder row).
+    const pendingKey = `new-${Date.now()}`
     const prompt = [
       `I want to create a schedule called "${data.name}".`,
       ``,
@@ -377,96 +160,58 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
       `Frequency: ${data.frequency}`,
       ...(data.timezone ? [`Timezone: ${data.timezone}`] : []),
     ].join('\n')
-    stashPendingPrompt(newId, prompt)
-    setSchedules(prev => [...prev, {
-      id:          newId,
-      name:        data.name,
-      description: data.instructions,
-      frequency:   data.frequency,
-      isActive:    true,
-    }])
+    stashPendingPrompt(pendingKey, prompt)
     setEditModalOpen(false)
     setEditingSchedule(undefined)
-    push(`${CHAT_ROUTE}?fromSchedule=${encodeURIComponent(newId)}`)
-  }, [editingSchedule, selectedId, selectedDetail, idPrefix, push])
+    push(`${CHAT_ROUTE}?fromSchedule=${encodeURIComponent(pendingKey)}`)
+  }, [editingSchedule, selectedId, selectedDetail, push])
 
-  // ── Delete (DELETE /automations/{id}; local-only items just drop from state) ──
+  // ── Delete (DELETE /automations/{id}) ──────────────────────────────────────
+  // Keeps the modal (and detail view) open with a spinner until it resolves.
 
-  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false)
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAutomation(id),
+    onSuccess: (_res, id) => {
+      toast.success('Schedule deleted')
+      forgetSchedule(queryClient, id)
+      if (scheduleId) replace(SCHEDULES_ROUTE)
+    },
+    onError: (err: unknown) => { toast.error('Failed to delete schedule', { description: errorDetail(err) }) },
+    onSettled: () => setDeleteModalOpen(false),
+  })
+  const deleteSchedule = deleteMutation.mutate
 
   const handleDeleteConfirm = useCallback(() => {
-    const id = selectedId
-    if (!id) return
-    // Never persisted to the backend — nothing to delete server-side, so the
-    // instant local removal below isn't misleading (there's no request to
-    // wait for). A real delete keeps the modal (and detail view) open with a
-    // spinner until deleteAutomation resolves, instead of clearing
-    // selectedId/selectedDetail up front — doing that first would unmount
-    // this very modal (gated on `detailToShow`) mid-request.
-    if (localIdsRef.current.has(id)) {
-      localIdsRef.current.delete(id)
-      setSchedules(prev => prev.filter(s => s.id !== id))
-      setSelectedId(null)
-      setSelectedDetail(null)
-      setDeleteModalOpen(false)
-      return
-    }
-    setIsDeletingSchedule(true)
-    deleteAutomation(id)
-      .then(() => {
-        toast.success('Schedule deleted')
-        setSchedules(prev => prev.filter(s => s.id !== id))
-        setSelectedId(null)
-        setSelectedDetail(null)
-        if (scheduleId) replace(SCHEDULES_ROUTE)
-      })
-      .catch(() => {
-        toast.error('Failed to delete schedule')
-      })
-      .finally(() => {
-        setIsDeletingSchedule(false)
-        setDeleteModalOpen(false)
-      })
-  }, [selectedId, scheduleId, replace])
+    if (selectedId) deleteSchedule(selectedId)
+  }, [selectedId, deleteSchedule])
 
   // ── Toggle active (PATCH /automations/{id} — pause/resume; optimistic) ────────
 
   const handleToggleActive = useCallback((active: boolean) => {
-    const id = selectedId
-    if (!id) return
-    setSchedules(prev => prev.map(s => s.id === id ? { ...s, isActive: active } : s))
-    setSelectedDetail(prev => prev ? { ...prev, isActive: active } : prev)
-    // Local-only items have no backend row yet — keep the optimistic state.
-    if (localIdsRef.current.has(id)) return
-    updateAutomation(id, { is_active: active }).catch(() => {
-      // Revert on failure (e.g. resuming a schedule with no future run → 409).
-      setSchedules(prev => prev.map(s => s.id === id ? { ...s, isActive: !active } : s))
-      setSelectedDetail(prev => prev ? { ...prev, isActive: !active } : prev)
-      toast.error(active ? 'Failed to resume schedule' : 'Failed to pause schedule')
+    if (!selectedId) return
+    // Reverts on failure (e.g. resuming a schedule with no future run → 409).
+    toggleScheduleActive(queryClient, selectedId, active).catch((err: unknown) => {
+      toast.error(active ? 'Failed to resume schedule' : 'Failed to pause schedule', { description: errorDetail(err) })
     })
-  }, [selectedId])
+  }, [selectedId, queryClient])
 
   // ── Run now ────────────────────────────────────────────────────────────────
+  // The refetch picks up is_running, which starts polling until the run ends.
 
-  const [isRunningNow, setIsRunningNow] = useState(false)
+  const runMutation = useMutation({
+    mutationFn: (id: string) => runAutomationNow(id),
+    onSuccess: (_res, id) => {
+      toast.success('Schedule triggered', { description: 'This task will start shortly.' })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.detail(id) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.mine() })
+    },
+    onError: (err: unknown) => { toast.error('Failed to run schedule', { description: errorDetail(err) }) },
+  })
+  const runSchedule = runMutation.mutate
 
   const handleRunNow = useCallback(() => {
-    if (!selectedId || localIdsRef.current.has(selectedId)) {
-      toast.info('This schedule has not been saved to the server yet.')
-      return
-    }
-    const id = selectedId
-    setIsRunningNow(true)
-    runAutomationNow(id)
-      .then(() => {
-        toast.success('Schedule triggered', { description: 'This task will start shortly.' })
-        // Refresh detail so run_count and run history reflect the new run.
-        return getAutomation(id)
-      })
-      .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
-      .catch(() => toast.error('Failed to run schedule'))
-      .finally(() => setIsRunningNow(false))
-  }, [selectedId])
+    if (selectedId) runSchedule(selectedId)
+  }, [selectedId, runSchedule])
 
   // ── Copy (someone else's → a chat that rebuilds it as mine) ───────────────
   // The chat already holds the program. The prompt is prefilled for the user to
@@ -481,18 +226,19 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
         stashPendingPrompt(key, prompt)
         push(`${CHAT_ROUTE}?id=${chat_id}&fromSchedule=${encodeURIComponent(key)}`)
       })
-      .catch(() => {
-        toast.error('Failed to copy schedule')
+      .catch((err: unknown) => {
+        toast.error('Failed to copy schedule', { description: errorDetail(err) })
         setIsCopying(false)
       })
   }, [selectedId, push])
 
   // ── Derived: what to show in the center ───────────────────────────────────
 
-  const selectedListItem  = selectedId ? (visibleSchedules.find(s => s.id === selectedId) ?? null) : null
-  // Show API-loaded detail if available; fall back to list-item data instantly so
-  // the detail view opens immediately without waiting for the fetch.
-  const detailToShow      = selectedDetail ?? (selectedListItem ? listItemToDetail(selectedListItem) : null)
+  const selectedListItem  = selectedId ? ([...(listQ.data ?? []), ...(orgQ.data ?? [])].find(s => s.id === selectedId) ?? null) : null
+  // Show the loaded detail if available; fall back to the list row instantly so
+  // the detail view opens without waiting for the fetch (not once it has failed).
+  const detailToShow      = selectedDetail ?? (selectedListItem && !detailQ.isError ? listItemToDetail(selectedListItem) : null)
+  const isLoading         = (scheduleId ? detailQ.isPending : listQ.isPending) || (scope === 'organization' && !orgQ.data)
 
   return (
     <>
@@ -544,13 +290,17 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
                   onEdit={handleEdit}
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={handleRunNow}
-                  runningNow={isRunningNow}
+                  runningNow={runMutation.isPending}
                   onToggleActive={handleToggleActive}
                   onOpenChat={(chatId) => push(`${CHAT_ROUTE}?id=${chatId}`)}
                   onCopy={handleCopy}
                   copying={isCopying}
                 />
-              ) : isLoadingDetail || isLoadingList || (scope === 'organization' && !orgSchedules) ? (
+              ) : scheduleId && detailError === 'not_found' ? (
+                <ScheduleNotFound />
+              ) : scheduleId && detailError === 'failed' ? (
+                <ScheduleLoadFailed onRetry={() => { void detailQ.refetch() }} />
+              ) : isLoading ? (
                 scheduleId ? <ScheduleDetailLoadingState /> : <SchedulesLoadingState />
               ) : (
                 <ScheduleListView
@@ -580,10 +330,9 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
           scheduleName={detailToShow.name}
           onConfirm={handleDeleteConfirm}
           onClose={() => setDeleteModalOpen(false)}
-          deleting={isDeletingSchedule}
+          deleting={deleteMutation.isPending}
         />
       )}
     </>
   )
 }
-

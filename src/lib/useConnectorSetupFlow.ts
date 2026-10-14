@@ -11,7 +11,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { ApiError } from '@/lib/api/client'
+import { trackBrowserEvent } from '@/lib/analytics/events'
+import { describeConnectError, MissingAuthUrlError, type ConnectErrorInfo } from '@/lib/connectors/connect-errors'
 import {
   completeZapierLink,
   initiateLink,
@@ -38,7 +39,7 @@ interface UseConnectorSetupFlowArgs {
 
 export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorProvider, onConnected }: UseConnectorSetupFlowArgs) {
   const [state, setState] = useState<SetupState>('idle')
-  const [errorMsg, setErrorMsg] = useState('')
+  const [error, setError] = useState<ConnectErrorInfo | null>(null)
   const abortedRef = useRef(false)
   const pollAbortRef = useRef<AbortController | null>(null)
   // Tracks the popup across the whole flow so unmounting (e.g. the user
@@ -88,8 +89,25 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     const popup = isMcp || isApi ? null : window.open('', '_blank', 'width=900,height=700')
     if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     popupRef.current = popup
+    // The flow wanted a pop-up and the browser refused it. The fallback
+    // window.open below may be blocked too, so a later timeout is reported
+    // as a blocked pop-up with "allow pop-ups" as the fix.
+    const popupBlocked = !isMcp && !isApi && popup === null
     setState('opening')
-    setErrorMsg('')
+    setError(null)
+
+    const fail = (err: unknown) => {
+      const info = describeConnectError(err, connectorName, { popupBlocked })
+      trackBrowserEvent('connector_connect_failed', { connector: connectorSlug, reason: info.kind })
+      setState('error')
+      setError(info)
+      toast.error(info.message)
+    }
+    const cancelled = () => {
+      trackBrowserEvent('connector_connect_cancelled', { connector: connectorSlug })
+      setState('idle')
+      toast.info(`${connectorName} connection cancelled`)
+    }
 
     initiateLink(connectorSlug, initData)
       .then(link => {
@@ -97,7 +115,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
         const url = link.redirectUrl
         if (!url && !isApi) {
           popup?.close()
-          throw new Error(`${connectorName} did not return an OAuth URL. The connector provider may be misconfigured on the backend.`)
+          throw new MissingAuthUrlError(connectorName)
         }
         if (url && isMcp) {
           // Native MCP connectors' OAuth callback redirects back to our own
@@ -133,6 +151,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           if (settled || abortedRef.current) return
           settled = true
           popup?.close()
+          trackBrowserEvent('connector_connected', { connector: connectorSlug, reconnect: !!reconnecting, shared: !!shared })
           // The row the authorization produced: the owned account that was not
           // on file when this started. Each remote account is its own row, so
           // a genuinely new one is identifiable — and re-authorizing an
@@ -198,8 +217,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           pollAbortRef.current?.abort()
           if (hosted) {
             settled = true
-            setState('idle')
-            toast.info(`${connectorName} connection cancelled`)
+            cancelled()
             return
           }
           pollAbortRef.current = new AbortController()
@@ -215,8 +233,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
               if (settled || abortedRef.current) return
               settled = true
               if (err instanceof DOMException && err.name === 'AbortError') return
-              setState('idle')
-              toast.info(`${connectorName} connection cancelled`)
+              cancelled()
             })
         }, 1_000)
 
@@ -233,32 +250,13 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           if (err instanceof DOMException && err.name === 'AbortError') return
           popup?.close()
           settled = true
-          setState('error')
-          let msg = err instanceof Error ? err.message : 'Connection failed'
-          // Prefer the raw backend detail on 5xx/403 over the laundered generic
-          // message — e.g. "googledrive is not available in your organization —
-          // request access from an admin first." is far more actionable than
-          // "You don't have permission to perform this action."
-          if (err instanceof ApiError && err.status >= 500) {
-            msg = err.rawMessage
-              ? `${connectorName} (${err.status}): ${err.rawMessage}`
-              : `${connectorName}: backend returned ${err.status}. The connector provider may not be configured (check backend logs).`
-          } else if (err instanceof ApiError && err.status === 403 && err.rawMessage) {
-            msg = err.rawMessage
-          }
-          setErrorMsg(msg)
-          toast.error(msg)
+          fail(err)
         })
       })
       .catch((err: unknown) => {
         if (abortedRef.current) return
         popup?.close()
-        setState('error')
-        const msg = err instanceof ApiError && err.status === 403 && err.rawMessage
-          ? err.rawMessage
-          : err instanceof Error ? err.message : 'Connection failed'
-        setErrorMsg(msg)
-        toast.error(msg)
+        fail(err)
       })
   }, [connectorSlug, connectorName, connectorProvider, onConnected])
 
@@ -267,7 +265,9 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
 
   return {
     state,
-    errorMsg,
+    /** What failed and how to recover, while `state` is 'error'. */
+    error,
+    errorMsg: error?.message ?? '',
     connect,
     disconnect,
   }

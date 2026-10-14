@@ -1,10 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowRightOneIcon } from '@strange-huge/icons'
-import { Usage } from '@/lib/api/billing'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
+import { usageQuery } from '@/lib/billing/billing-queries'
+import { orgScope } from '@/lib/query-keys'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/ui/button'
 import { ORG_PLANS_ROUTE } from '@/lib/routes'
@@ -173,28 +176,17 @@ function Skeleton() {
 export default function UsagePage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [usage, setUsage] = useState<Usage | null>(null)
+  const { orgId } = useOrg()
+  const usageQ = useQuery(usageQuery(orgScope(orgId)))
+  const usage = usageQ.data ?? null
   const [active, setActive] = useState<CategoryKey | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
 
-  useEffect(() => {
-    let cancelled = false
-    Usage.fetch()
-      .then(next => { if (!cancelled) setUsage(next) })
-      .catch((error: unknown) => {
-        console.error(error)
-        if (!cancelled) setFailed(true)
-      })
-    return () => { cancelled = true }
-  }, [attempt])
-
-  if (!usage && failed) {
+  if (!usage && usageQ.isError) {
     return (
       <div style={{ flex: "1 0 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 48, textAlign: "center" }}>
         <p style={{ margin: 0, fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: "24px", color: "var(--neutral-900)" }}>Couldn&apos;t load your usage</p>
         <p style={{ margin: 0, fontFamily: BODY, fontSize: 14, lineHeight: "22px", color: "var(--neutral-600)" }}>Check your connection and try again.</p>
-        <Button variant="secondary" size="sm" onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>Try again</Button>
+        <Button variant="secondary" size="sm" onClick={() => { void usageQ.refetch() }}>Try again</Button>
       </div>
     )
   }

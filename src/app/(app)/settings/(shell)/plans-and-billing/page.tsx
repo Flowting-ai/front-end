@@ -1,18 +1,18 @@
 'use client'
 
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CancelOneIcon, TokenCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { UsageMeter } from '@/components/UsageMeter'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { Tooltip } from '@/components/Tooltip'
-import { useAuth } from '@/context/auth-context'
+import { useAuth, useAuthReady } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useMounted } from '@/hooks/use-mounted'
 import {
-  Billing,
   Invoice,
   Usage,
   TeamsTier,
@@ -21,6 +21,10 @@ import {
   resumeSubscription,
 } from '@/lib/api/stripe'
 import { setupEnterprisePayment } from '@/lib/api/billing'
+import { trackBrowserEvent } from '@/lib/analytics/events'
+import { billingErrorMessage, pollUntilChanged } from '@/lib/billing/billing-actions'
+import { billingInfoQuery, invoicesQuery, needsInvoiceList, personalBillingFingerprint, pickInvoices, usageQuery } from '@/lib/billing/billing-queries'
+import { orgScope, queryKeys } from '@/lib/query-keys'
 import { Plan } from '@/lib/api/plan'
 import {
   ORG_CHANGE_PLAN_ROUTE,
@@ -528,11 +532,10 @@ function OrgBillingView() {
   const router = useRouter()
   const { org, orgId, orgRole, plan, refreshMembers } = useOrg()
 
-  const isEnterprise = plan?.isEnterprise ?? org.plan === 'enterprise'
+  const isEnterprise = plan?.isEnterprise ?? org?.plan === 'enterprise'
 
-  const [billing,        setBilling]        = useState<Billing | null>(null)
-  const [invoices,       setInvoices]       = useState<Invoice[]>([])
-  const [billingLoading, setBillingLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const billingScope = orgScope(orgId)
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
   const [showCancelDialog,  setShowCancelDialog]  = useState(false)
@@ -550,27 +553,13 @@ function OrgBillingView() {
   const usedCredits = plan?.used ?? 0
   const hasPlan = isEnterprise || Boolean(plan?.hasSelectedPlan)
 
-  // Fetch billing data. Payment/Invoices below are admin-only (the backend's
-  // visiblePlan() zeroes billing/usage fields for any non-admin — see ST2/ST3
-  // in the spec tracker), but the Plan card's cancel/next-billing state is
-  // shown to everyone, so this fetches regardless of role.
-  useEffect(() => {
-    if (!orgId || !isAdmin) {
-      setBillingLoading(false)
-      return
-    }
-    Billing.fetch()
-      .then(async billed => {
-        setBilling(billed)
-        if (billed && billed.invoices.length > 0) {
-          setInvoices(billed.invoices)
-          return
-        }
-        setInvoices(await Invoice.list())
-      })
-      .catch(console.error)
-      .finally(() => setBillingLoading(false))
-  }, [orgId, isAdmin])
+  // Payment and invoices are admin-only (the backend's visiblePlan() zeroes
+  // billing/usage fields for any non-admin — see ST2/ST3 in the spec tracker).
+  const billingQ = useQuery(billingInfoQuery(billingScope, !!orgId && isAdmin))
+  const billing = billingQ.data ?? null
+  const invoicesQ = useQuery(invoicesQuery(billingScope, !!orgId && isAdmin && needsInvoiceList(billingQ.isSuccess, billing)))
+  const invoices = pickInvoices(billing, invoicesQ.data)
+  const billingLoading = billingQ.isLoading || invoicesQ.isLoading
 
   const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'unknown') as CardBrand
@@ -586,13 +575,14 @@ function OrgBillingView() {
       toast.error('Only an organization admin can manage billing.')
       return
     }
+    if (openingPortal) return
     setOpeningPortal(true)
     try {
       const url = await openBillingPortal()
-      if (url) window.open(url, '_blank', 'noopener,noreferrer')
-      else toast.error('Could not open billing portal.')
-    } catch {
-      toast.error('Could not open billing portal.')
+      trackBrowserEvent('billing_portal_opened', {})
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(billingErrorMessage(err, 'Could not open billing portal.'))
     } finally {
       setOpeningPortal(false)
     }
@@ -610,7 +600,7 @@ function OrgBillingView() {
     toast.success(urls.length === 1 ? 'Opened 1 invoice' : `Opened ${urls.length} invoices`)
   }
 
-  const reloadBilling = () => Billing.fetch().then(setBilling).catch(console.error)
+  const reloadBilling = () => queryClient.invalidateQueries({ queryKey: queryKeys.billing.all(billingScope) })
 
   // Cancel / resume the organization subscription — same flow as Settings → Billing.
   const handleCancelSubscription = async () => {
@@ -618,9 +608,11 @@ function OrgBillingView() {
       toast.error('Only an organization admin can manage billing.')
       return
     }
+    if (isCanceling) return
     setIsCanceling(true)
     try {
       await cancelSubscription()
+      trackBrowserEvent('subscription_canceled', {})
       setShowCancelDialog(false)
       toast.success(`Plan canceled — access continues until ${nextBilling}`)
       await reloadBilling()
@@ -636,9 +628,11 @@ function OrgBillingView() {
       toast.error('Only an organization admin can manage billing.')
       return
     }
+    if (isResuming) return
     setIsResuming(true)
     try {
       await resumeSubscription()
+      trackBrowserEvent('subscription_resumed', {})
       toast.success('Subscription resumed successfully')
       await reloadBilling()
     } catch (err) {
@@ -920,9 +914,14 @@ function OrgBillingView() {
               </div>
               {isEnterprise && !billing?.paymentSetupComplete ? (
                 <Button variant="secondary" loading={openingPortal} onClick={async () => {
+                  if (openingPortal) return
                   setOpeningPortal(true)
                   try { window.location.assign(await setupEnterprisePayment()) }
-                  catch { toast.error('Could not start payment setup.'); setOpeningPortal(false) }
+                  catch (err) {
+                    trackBrowserEvent('checkout_failed', { to_plan: 'enterprise', source: 'settings' })
+                    toast.error(billingErrorMessage(err, 'Could not start payment setup.'))
+                    setOpeningPortal(false)
+                  }
                 }}>Set up automatic payments</Button>
               ) : (
                 <Button variant="secondary" loading={openingPortal} onClick={() => void handleStripePortal()}>Manage on Stripe</Button>
@@ -1009,60 +1008,65 @@ function PersonalBillingView() {
 
   // Lazy-init from the cached snapshot (runs once; SSR-safe) so returning from
   // Stripe paints instantly instead of flashing an empty "No Plan" state.
-  const [billing,       setBilling]       = useState<Billing | null>(null)
-  const [usage,         setUsage]         = useState<Usage | null>(null)
-  const [billingLoaded, setBillingLoaded] = useState(false)
+  const queryClient = useQueryClient()
+  const { orgId } = useOrg()
+  const billingScope = orgScope(orgId)
+  const authed = useAuthReady()
+  const billingQ = useQuery(billingInfoQuery(billingScope, authed))
+  const usageQ = useQuery(usageQuery(billingScope, authed))
+  const billing = billingQ.data ?? null
+  const usage = usageQ.data ?? null
+  const billingLoaded = billingQ.isFetched
   const [snap]                            = useState<PersonalBillingSnapshot | null>(() => readCache<PersonalBillingSnapshot>(PERSONAL_SNAP_KEY))
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [isCanceling,      setIsCanceling]      = useState(false)
   const [isResuming,       setIsResuming]       = useState(false)
   const [isClaimingTrial,  setIsClaimingTrial]  = useState(false)
   const [openingPortal,    setOpeningPortal]    = useState(false)
+  const [confirmState,     setConfirmState]     = useState<'idle' | 'confirming' | 'confirmed' | 'slow'>('idle')
 
-  const didInit = useRef(false)
-
-  const reload = useCallback(async () => {
-    await Promise.all([
+  // Refetches profile, usage and billing; resolves to a billing fingerprint
+  // (null if usage failed) so the Stripe return poll can tell when the webhook
+  // has applied the purchase. fetchQuery with staleTime 0 also updates the
+  // cached data the queries above render.
+  const reload = useCallback(async (): Promise<string | null> => {
+    const [, nextUsage, nextBilling] = await Promise.all([
       refreshUser(),
-      Usage.fetch().then(setUsage).catch(console.error),
-      Billing.fetch()
-        .then(b => { if (b) setBilling(b) })
-        .catch(() => {})
-        .finally(() => setBillingLoaded(true)),
+      queryClient.fetchQuery({ ...usageQuery(billingScope), staleTime: 0 }).catch(() => null),
+      queryClient.fetchQuery({ ...billingInfoQuery(billingScope), staleTime: 0 }).catch(() => null),
     ])
-  }, [refreshUser])
+    return personalBillingFingerprint(nextUsage, nextBilling)
+  }, [refreshUser, queryClient, billingScope])
 
-  // First real load — only once auth is hydrated and a token is available.
-  useEffect(() => {
-    if (!isHydrated || !jwtToken || didInit.current) return
-    didInit.current = true
-    void reload()
-  }, [isHydrated, jwtToken, reload])
-
-  // Returning from Stripe: the webhook may lag a beat, so re-fetch a few times.
+  // Returning from Stripe: the webhook may lag, so poll with backoff until the
+  // plan/credits change (or ~45 s pass) and show a "confirming" state meanwhile.
   useEffect(() => {
     if (!isHydrated || !jwtToken || !isStripeReturn()) return
-    const timers = [1200, 3000, 6000].map(ms => window.setTimeout(() => { void reload() }, ms))
-    return () => timers.forEach(t => window.clearTimeout(t))
+    const controller = new AbortController()
+    void (async () => {
+      const initial = await reload().catch(() => null)
+      if (controller.signal.aborted) return
+      setConfirmState('confirming')
+      const outcome = await pollUntilChanged({ initial: initial ?? '', check: reload, signal: controller.signal })
+      if (outcome === 'aborted') return
+      setConfirmState(outcome === 'changed' ? 'confirmed' : 'slow')
+      if (outcome === 'changed') trackBrowserEvent('checkout_confirmed', { source: 'settings' })
+    })()
+    return () => controller.abort()
   }, [isHydrated, jwtToken, reload])
 
-  // Keep fresh when the tab regains focus/visibility.
+  // Usage and billing refetch on focus through React Query, and on any balance
+  // change through notifyCreditsUpdated → invalidateCredits. The profile is not
+  // a query yet, so refresh it on focus here.
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') void reload() }
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshUser() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [reload])
-
-  // Refresh on any balance change (e.g. a topup).
-  useEffect(() => {
-    const onCreditsUpdated = () => { void reload() }
-    window.addEventListener('credits:updated', onCreditsUpdated)
-    return () => window.removeEventListener('credits:updated', onCreditsUpdated)
-  }, [reload])
+  }, [refreshUser])
 
   const liveReady = isHydrated && !!user && billingLoaded && usage !== null
   const nextBillingRaw = billing?.upcomingInvoice?.nextPaymentDate ?? user?.nextBillingDate ?? billing?.plan?.cycleEnd?.toISOString() ?? null
@@ -1122,13 +1126,14 @@ function PersonalBillingView() {
   const resetDate     = nextBilling !== '—' ? nextBilling : fmtDate(nextMonthStart.toISOString())
 
   const handleStripePortal = async () => {
+    if (openingPortal) return
     setOpeningPortal(true)
     try {
       const url = await openBillingPortal()
-      if (url) window.open(url, '_blank', 'noopener,noreferrer')
-      else toast.error('Could not open billing portal.')
-    } catch {
-      toast.error('Could not open billing portal.')
+      trackBrowserEvent('billing_portal_opened', {})
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(billingErrorMessage(err, 'Could not open billing portal.'))
     } finally {
       setOpeningPortal(false)
     }
@@ -1142,9 +1147,11 @@ function PersonalBillingView() {
   }
 
   const handleCancelSubscription = async () => {
+    if (isCanceling) return
     setIsCanceling(true)
     try {
       await cancelSubscription()
+      trackBrowserEvent('subscription_canceled', {})
       setShowCancelDialog(false)
       toast.success(`Plan canceled — access continues until ${fmtDate(periodEnd)}`)
       await reload()
@@ -1156,9 +1163,11 @@ function PersonalBillingView() {
   }
 
   const handleResumeSubscription = async () => {
+    if (isResuming) return
     setIsResuming(true)
     try {
       await resumeSubscription()
+      trackBrowserEvent('subscription_resumed', {})
       toast.success('Subscription resumed successfully')
       await reload()
     } catch (err) {
@@ -1173,6 +1182,7 @@ function PersonalBillingView() {
     setIsClaimingTrial(true)
     try {
       await Usage.startTrial()
+      trackBrowserEvent('trial_claimed', {})
       toast.success('1,000 free trial credits added to your account.')
       await reload()
     } catch (err) {
@@ -1202,6 +1212,12 @@ function PersonalBillingView() {
             Manage your plan, monitor credit consumption, and download invoices.
           </p>
         </div>
+
+        <p role="status" aria-live="polite" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0, paddingLeft: 4, display: confirmState === 'idle' ? 'none' : undefined }}>
+          {confirmState === 'confirming' && 'Confirming your payment…'}
+          {confirmState === 'confirmed' && 'Payment confirmed. Your plan is up to date.'}
+          {confirmState === 'slow' && 'Your payment is still processing. It can take a few minutes to appear; refresh this page later.'}
+        </p>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 0 0', minWidth: 280 }}>
@@ -1387,35 +1403,35 @@ function InvoiceTable({ invoices, loading }: { invoices: Invoice[]; loading: boo
   const cellBody: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
 
   return (
-    <div style={{
+    <div role="table" aria-label="Invoice history" aria-busy={loading} style={{
       background:   'var(--neutral-white)',
       borderRadius: 8,
       padding:      12,
       boxShadow:    SHADOW_TILE,
     }}>
-      <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
-        <span style={cellHead}>Date</span>
-        <span style={cellHead}>Amount</span>
-        <span style={cellHead}>Status</span>
-        <span style={{ width: 200, textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>Actions</span>
+      <div role="row" style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+        <span role="columnheader" style={cellHead}>Date</span>
+        <span role="columnheader" style={cellHead}>Amount</span>
+        <span role="columnheader" style={cellHead}>Status</span>
+        <span role="columnheader" style={{ width: 200, textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>Actions</span>
       </div>
 
       {loading ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>Loading invoices…</p>
+        <p role="status" style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>Loading invoices…</p>
       ) : invoices.length === 0 ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>No invoices yet.</p>
+        <p role="status" style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>No invoices yet.</p>
       ) : (
         invoices.map((inv, i) => (
-          <div key={`${inv.status}-${inv.created}-${inv.displayAmount}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
-            <span style={cellBody}>{fmtDate(inv.created)}</span>
-            <span style={cellBody}>{fmtUsd(inv.displayAmount)}</span>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <div role="row" key={`${inv.status}-${inv.created}-${inv.displayAmount}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
+            <span role="cell" style={cellBody}>{fmtDate(inv.created)}</span>
+            <span role="cell" style={cellBody}>{fmtUsd(inv.displayAmount)}</span>
+            <div role="cell" style={{ flex: '1 0 0', minWidth: 0 }}>
               <Badge
                 label={inv.statusLabel}
                 tone={inv.isUpcoming ? 'neutral' : inv.isPaid ? 'green' : 'red'}
               />
             </div>
-            <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
+            <div role="cell" style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
               {inv.viewUrl ? (
                 <a
                   href={inv.viewUrl}

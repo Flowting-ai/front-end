@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { m } from "framer-motion";
 import type { ResponseBlock, WebCitation } from "@/types/chat";
 import { TextBlockContent } from "./TextBlockContent";
+import { BlockErrorBoundary } from "./BlockErrorBoundary";
 import { AnimatedTable } from "./AnimatedTable";
 import { AnimatedBarChart } from "./AnimatedBarChart";
 import { AnimatedSteps } from "./AnimatedSteps";
@@ -110,10 +111,10 @@ export const BlockSequenceRenderer = React.memo(function BlockSequenceRenderer({
 
         // Use wrapper for breathing-dot delay on first structured block
         const wrap = (children: (done: () => void) => React.ReactNode) => isDone
-          ? <div key={`b${i}`}>{children(() => {})}</div>
+          ? <div key={`b${i}`}><BlockErrorBoundary label={block.kind}>{children(() => {})}</BlockErrorBoundary></div>
           : (
             <StructuredResponseWrapper key={`b${i}`} firstTokenDelay={wrapDelay} onComplete={() => handleBlockDone(i)}>
-              {children}
+              {(d) => <BlockErrorBoundary label={block.kind}>{children(d)}</BlockErrorBoundary>}
             </StructuredResponseWrapper>
           );
 

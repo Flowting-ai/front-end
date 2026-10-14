@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
@@ -371,8 +371,11 @@ export function StreamingTextContent({
   // One that was never animated (e.g. loaded from history) shows in full.
   const shownContent = animate ? displayedContent : content;
   const showCursor = !stopped && (isLoading || shownContent !== content);
+  // Markdown re-parse is the expensive part of each reveal step; deferring it
+  // lets typing and scrolling interrupt a long render instead of queueing behind it.
+  const renderedContent = useDeferredValue(shownContent);
   const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
-  return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
+  return <ContentRenderer content={renderedContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
 }
 
 // ── ErrorNotice - a failure below output that was already shown ───────────────

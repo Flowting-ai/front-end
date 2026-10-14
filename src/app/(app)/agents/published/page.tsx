@@ -12,13 +12,11 @@ import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
 import { fetchPersonaRepo, type PersonaRepo } from '@/lib/api/persona-repo'
 import { ApiError } from '@/lib/api/client'
-import {
-  createShare,
-  revokeShare,
-  listShares,
-  type PersonaShare,
-} from '@/lib/api/persona-shares'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createShare, revokeShare, type PersonaShare } from '@/lib/api/persona-shares'
+import { activeLinkFor, forgetShare, personaSharesQuery, rememberShare } from '@/lib/share/share-queries'
 import { canonicalShareUrl } from '@/lib/share-url'
+import { copyShareLink } from '@/lib/share/copy-link'
 import { AGENTS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -95,8 +93,7 @@ function SuperLinkSection({
 
   function handleCopy() {
     if (!share.share_url) return
-    navigator.clipboard.writeText(canonicalShareUrl(share.share_url)).catch(() => {})
-    toast.success('Link copied')
+    void copyShareLink(canonicalShareUrl(share.share_url), toast)
   }
 
   return (
@@ -218,12 +215,12 @@ function PersonaPublishedContent() {
   const nameParam     = searchParams.get('name') || ''
   const repoId        = searchParams.get('repoId')     ?? ''
   const isRepublished = searchParams.get('republished') === 'true'
+  const queryClient = useQueryClient()
 
   const { user } = useAuth()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
 
   const [personaName,    setPersonaName]    = useState(nameParam || 'Your Agent')
-  const [linkShare,      setLinkShare]      = useState<PersonaShare | null>(null)
   // Blank by default — the user must enter a credit limit before generating.
   const [tokenLimit,     setTokenLimit]     = useState<string>('')
   const [isGenerating,   setIsGenerating]   = useState(false)
@@ -246,20 +243,11 @@ function PersonaPublishedContent() {
       .catch(() => {})
   }, [repoId])
 
-  // Load the existing link share — shares are repo-scoped, not frozen to a
-  // version, so this matches on persona_repo_id. Re-run after the share modal changes anything.
-  const loadLinkShare = React.useCallback(() => {
-    if (!repoId) return
-    listShares()
-      .then(all => {
-        const existing = all.find(
-          s => s.persona_repo_id === repoId && s.share_type === 'link' && s.is_active,
-        )
-        setLinkShare(existing ?? null)
-      })
-      .catch(() => {})
-  }, [repoId])
-  useEffect(() => { loadLinkShare() }, [loadLinkShare])
+  // The existing link share — shares are repo-scoped, not frozen to a version,
+  // so this matches on persona_repo_id. The shared query updates when the share
+  // modal (or the buttons below) change anything.
+  const sharesQ = useQuery(personaSharesQuery(!!repoId))
+  const linkShare = repoId ? activeLinkFor(sharesQ.data, repoId) : null
 
   async function handleGenerateSuperLink() {
     const limit = parseInt(tokenLimit, 10)
@@ -271,7 +259,7 @@ function PersonaPublishedContent() {
         share_type: 'link',
         credit_limit: limit,
       })
-      setLinkShare(share)
+      rememberShare(queryClient, share)
     } catch (err) {
       // Surface the backend detail (e.g. "Persona repo not found") instead of a
       // generic message so the real failure is visible.
@@ -287,7 +275,7 @@ function PersonaPublishedContent() {
     setIsRevoking(true)
     try {
       await revokeShare(linkShare.id)
-      setLinkShare(null)
+      forgetShare(queryClient, linkShare.id)
     } catch {
       toast.error('Failed to revoke link')
     } finally {
@@ -655,7 +643,6 @@ function PersonaPublishedContent() {
           repoId={repoId}
           agentName={personaName}
           onClose={() => setShareModalOpen(false)}
-          onChanged={loadLinkShare}
         />
       )}
     </div>

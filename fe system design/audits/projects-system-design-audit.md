@@ -1,5 +1,26 @@
 # Projects Feature: System Design Audit
 
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except item 6 (moves with Chat) and item 4 (backend).** Phases 3–4 open.
+>
+> Done (Phase 1):
+> 1. Route files: `projects/loading.tsx`, `project/[id]/loading.tsx`, `project/[id]/not-found.tsx` (shared views in `components/Projects/ProjectRouteStates.tsx`; the detail page's bare "Project not found." text now uses the same view, with a link back). `(app)/error.tsx` already covers errors. The instructions, files and member panels are each wrapped in `BlockErrorBoundary`.
+> 2. Lazy modals: `components/Projects/lazy-modals.tsx` loads Edit, Delete, Share and Move-to-project the first time each opens and keeps it mounted afterwards, so exit animations still play; Leave is a plain dynamic import. All 11 import sites now use it, including the sidebar and every chat history row.
+> 3. Zod: `lib/api/project-schemas.ts` validates every project, project chat and member response; list rows that fail are dropped with one warning instead of failing the whole list. Tests in `project-schemas.test.ts`.
+> 4. URL state was already in place (`scope`, `view`, `sort`, `q`); search filtering now uses `useDeferredValue`.
+> 5. A11y: all five project modals have `role="dialog"`, `aria-modal`, a label and `useFocusTrap` (focus moves in, Tab is trapped, focus returns on close, Esc closes). `useFocusTrap` now reads `onEscape` through a ref, so an inline callback no longer re-runs the trap on every render.
+> 6. Analytics: `project_deleted`, `project_left`, `project_member_added` and `chat_moved_to_project` fire after the server succeeds, in `lib/api/projects.ts`. They are added to `events.ts` and the Mixpanel doc.
+>
+> Phase 2 (Oct 14 2026):
+> 1. `ProjectsProvider` keeps its API but holds no server state of its own: the list and the flat chat list are React Query entries (`queryKeys.projects.list/chats/chatLoad(user)`), so they clear on logout and refetch on focus. Every optimistic write (update, delete, upload, remove file, add/remove chat) first cancels the in-flight list fetch so a late response can't overwrite it, and still rolls back only the item it changed. `loadProjectChats` dedupes through `fetchQuery` (replacing `chatLoadsRef`); `refreshProjects` is a refetch that rejects on failure. Mappers and merge rules (`mergeSummaries`, `mergeProjectChats`, `upsertProject`, `toApiPatch`) moved to `lib/projects/project-model.ts` with tests; the provider shrank 586 → ~330 lines and lost its mojibake comments. Shared `optimisticUpdate` helper in `lib/query-invalidation.ts` (tested against a late response).
+> 2. `memberListVersion`/`refreshKey`/`onMemberAdded` removed: `ProjectMembersPanel`, `ProjectAddMembersList` and `LeaveProjectModal` share `projectMembersQuery` (`lib/projects/project-queries.ts`); adding or removing a member invalidates it.
+> 3. The six hand-rolled `res.ok`/`ApiError` blocks in `lib/api/projects.ts` now use the existing `apiFetchVoid` (errors carry the backend `detail` through `buildApiError`).
+> 5. `canProject(action, project, orgId)` in `lib/projects/project-permissions.ts` (edit-content, delete, leave, manage-members, change-visibility) replaces the copies in `/projects` and `/project/[id]`; tested.
+> 4. The file-size localStorage key is registered as `projectFileSizesKey` in `storage-keys.ts`; the cache and HEAD requests stay until the backend returns sizes.
+>
+> Open: item 6 (normalise chats by id, shared with chat history) moves with the Chat Phase 2 migration; page splits; keyboard test of the scope/sort dropdowns; shared-project collaborator edit rights need the member list.
+>
+> Backend gaps: `size_bytes` on project documents, so the client stops sending HEAD requests and caching sizes in localStorage.
+
 Scope: `app/(app)/projects` (list, new), `app/(app)/project/[id]` (detail, `chat/[chatId]`), `context/projects-context.tsx`, `context/project-panel-context.tsx`, `lib/api/projects.ts`, `lib/project-*.ts`, `components/ProjectCard`, `EditProjectModal`, `DeleteProjectModal`, `LeaveProjectModal`, `MoveToProjectModal`, `FlatSidebarProjectGroup`. About 6,100 lines.
 Method: structural scan (sizes, greps, key sections), not a line-by-line review. Items marked (verify) need a closer look.
 Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.

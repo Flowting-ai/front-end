@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { m, AnimatePresence } from 'framer-motion'
@@ -177,6 +178,8 @@ export function MoveToProjectModal({
   const [atTop,      setAtTop]      = useState(true)
   const [atBottom,   setAtBottom]   = useState(false)
   const mounted = useMounted()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, open && mounted, () => { if (!loading) { setSelectedId(null); onClose() } })
 
   const handleConfirm = () => {
     if (!selectedId || loading) return
@@ -235,6 +238,7 @@ export function MoveToProjectModal({
           {/* Card — framer-motion owns transform; wrapper handles centering */}
           <m.div
             key="modal"
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label={`Move ${chatLabel} to project`}

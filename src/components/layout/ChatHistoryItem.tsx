@@ -6,7 +6,7 @@ import { SidebarMenuItem } from "@/components/ui";
 import { Badge } from "@/components/Badge";
 import type { Chat } from "@/types/chat";
 import { openDeleteChatDialog } from "./AppDialogs";
-import { MoveToProjectModal }    from "@/components/MoveToProjectModal";
+import { MoveToProjectModal }    from "@/components/Projects/lazy-modals";
 import { useProjects }           from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { addChatToProject }      from "@/lib/api/projects";

@@ -1477,8 +1477,11 @@ export function ChatInterface({
         <div
           ref={messagesContainerRef}
           className="kaya-scrollbar"
-          role="region"
+          // role="log" is a polite live region; aria-busy holds announcements
+          // while tokens stream, so the finished answer is read once, not per token.
+          role="log"
           aria-label="Conversation"
+          aria-relevant="additions"
           aria-busy={isLoadingMessages || isStreaming ? true : undefined}
           onScroll={handleScroll}
           style={{

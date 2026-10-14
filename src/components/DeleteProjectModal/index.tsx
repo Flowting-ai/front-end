@@ -4,6 +4,7 @@ import React from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { AlertCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button, IconButton } from '@/components/ui/button'
 
@@ -25,6 +26,8 @@ export interface DeleteProjectModalProps {
 
 export function DeleteProjectModal({ open, projectName, chatCount, loading = false, onConfirm, onClose }: DeleteProjectModalProps) {
   const mounted = useMounted()
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, open && mounted, () => { if (!loading) onClose() })
   if (!mounted) return null
 
   return createPortal(
@@ -62,6 +65,7 @@ export function DeleteProjectModal({ open, projectName, chatCount, loading = fal
           >
             <m.div
               key="delete-project-modal"
+              ref={panelRef}
               role="dialog"
               aria-modal="true"
               aria-label="Delete project"

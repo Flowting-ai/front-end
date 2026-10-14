@@ -6,6 +6,7 @@ import { getFriendlyHttpErrorText } from "@/lib/http-errors";
 import { CHAT_NOT_FOUND_MESSAGE } from "@/lib/model-error";
 import { clientGeoHeaders } from "@/lib/geo-headers";
 import { toast } from "sonner";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -266,6 +267,8 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
     const inOnboardingOrCheckout =
       currentPath.startsWith("/onboarding") ||
       currentPath.includes("/billing/confirmation");
+    // Counts every unrecoverable refresh, including the ones not acted on.
+    trackBrowserEvent("auth_refresh_failed", { suppressed: inOnboardingOrCheckout });
     if (inOnboardingOrCheckout) {
       console.warn("[apiFetch] 401 during onboarding/checkout — not signing out");
     } else {

@@ -21,35 +21,33 @@ import { InputField } from '@/components/InputField'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { Tabs as TabsRoot, TabsList, TabsTrigger } from '@/components/Tabs'
 import { fetchRecommendations, type ConnectorPick } from '@/lib/api/recommendations'
-import { ConnectorCatalog, getConnector, listConnectorCategories, listConnectors } from '@/lib/api/connectors'
+import { ConnectorCatalog, type ConnectorListQuery, type ConnectorListPage } from '@/lib/api/connectors'
+import { connectorCategoriesQuery, connectorDetailQuery, connectorsPageQuery } from '@/lib/connectors/connector-queries'
+import { getQueryClient } from '@/lib/query-client'
 
 const AVAILABLE_PAGE_SIZE = 10
 
-// Catalogue pages, cached by (search term, category, cursor). Each page request takes seconds on a cold backend,
-// and the list used to sit on the OLD page the whole time, so Next/Previous looked dead. Pages are now
-// served from this cache when seen before (Previous is instant), and the page after the current one is
-// prefetched in the background (Next is usually instant). Entries expire so connect/disconnect state
-// does not go stale for long.
+// Catalogue pages, cached by (search term, category, cursor) in React Query. Each page request takes
+// seconds on a cold backend, and the list used to sit on the OLD page the whole time, so Next/Previous
+// looked dead. Pages seen before are served from the cache (Previous is instant), and the page after the
+// current one is prefetched in the background (Next is usually instant). A connect or disconnect
+// invalidates them (bustConnectorCatalogCache), and they go stale after a minute.
 const PAGE_TTL_MS = 60_000
-type BrowsePage = Awaited<ReturnType<typeof listConnectors>>
-const pageCache = new Map<string, { at: number; page: BrowsePage }>()
-const pageKey = (q: string, category: string, cursor: string | undefined) => `${q}::${category}::${cursor ?? ''}`
+type BrowsePage = ConnectorListPage
+const browseQuery = (q: string, category: string, cursor: string | undefined): ConnectorListQuery => ({
+  q: q || category,
+  category,
+  linked: q ? undefined : false,
+  cursor,
+  limit: AVAILABLE_PAGE_SIZE,
+})
 function cachedPage(q: string, category: string, cursor: string | undefined): BrowsePage | null {
-  const hit = pageCache.get(pageKey(q, category, cursor))
-  return hit && Date.now() - hit.at < PAGE_TTL_MS ? hit.page : null
+  const key = connectorsPageQuery(browseQuery(q, category, cursor)).queryKey
+  const state = getQueryClient().getQueryState(key)
+  return state?.data && !state.isInvalidated && Date.now() - state.dataUpdatedAt < PAGE_TTL_MS ? state.data : null
 }
-async function fetchBrowsePage(q: string, category: string, cursor: string | undefined): Promise<BrowsePage> {
-  const hit = cachedPage(q, category, cursor)
-  if (hit) return hit
-  const page = await listConnectors({
-    q: q || category,
-    category,
-    linked: q ? undefined : false,
-    cursor,
-    limit: AVAILABLE_PAGE_SIZE,
-  })
-  pageCache.set(pageKey(q, category, cursor), { at: Date.now(), page })
-  return page
+function fetchBrowsePage(q: string, category: string, cursor: string | undefined): Promise<BrowsePage> {
+  return getQueryClient().fetchQuery({ ...connectorsPageQuery(browseQuery(q, category, cursor)), staleTime: PAGE_TTL_MS })
 }
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
@@ -307,7 +305,7 @@ function CategorySection({
   useEffect(() => {
     if (!near) return
     let live = true
-    void listConnectors({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE })
+    void getQueryClient().fetchQuery(connectorsPageQuery({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE }))
       .then(page => {
         if (!live) return
         setRows(page.connectors)
@@ -354,7 +352,7 @@ type PicksState = { sure: ConnectorPick[]; maybe: ConnectorPick[]; loading: bool
 function withDescriptions(picks: ConnectorPick[]): Promise<ConnectorPick[]> {
   return Promise.all(picks.map(pick => pick.description
     ? pick
-    : getConnector(pick.slug).then(row => ({ ...pick, description: row.description }), () => pick)))
+    : getQueryClient().fetchQuery(connectorDetailQuery(pick.slug)).then(row => ({ ...pick, description: row.description }), () => pick)))
 }
 
 // The connectors half of GET /recommendations: `sureConnectors` are what
@@ -378,7 +376,7 @@ function useConnectorCategories(): string[] | null {
   const [categories, setCategories] = useState<string[] | null>(null)
   useEffect(() => {
     let live = true
-    void listConnectorCategories()
+    void getQueryClient().fetchQuery(connectorCategoriesQuery())
       .then(result => { if (live) setCategories(result) })
       .catch(() => { /* derived from the rows on screen instead */ })
     return () => { live = false }
