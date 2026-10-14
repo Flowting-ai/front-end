@@ -3,6 +3,8 @@ import { z } from "zod"
 import { logger } from "@/lib/logger"
 import { BACKEND_BASE, getSessionToken, routeError, type RouteErrorCode } from "@/lib/server/backend"
 import {
+  capStream,
+  declaredTooLarge,
   isTimeoutError,
   stateForStatus,
   TEMPLATE_FETCH_TIMEOUT_MS,
@@ -67,18 +69,27 @@ export async function GET(
     })
   } catch (error) {
     const state = isTimeoutError(error) ? "timeout" : "error"
-    logger.error("[api/template] Backend unreachable", uuid, state)
+    logger.event("template_html_failed", { state, reason: "unreachable" }, "error")
     return templateError(state === "timeout" ? "timeout" : "upstream_unreachable", state)
   }
 
   if (!upstream.ok || !upstream.body) {
     // The backend's body stays in the server log; the browser gets a fixed message.
     const detail = await upstream.text().catch(() => "")
-    logger.error("[api/template] Backend error", uuid, upstream.status, detail.slice(0, 500))
+    logger.event("template_html_failed", { state: upstream.ok ? "error" : stateForStatus(upstream.status), status: upstream.status, detail: detail.slice(0, 500) })
     return templateError("upstream_error", upstream.ok ? "error" : stateForStatus(upstream.status))
   }
 
-  return new Response(upstream.body, {
+  // Size cap: refuse a declared oversize body up front, and cut off an
+  // undeclared one while streaming (rate limiting: decision D4).
+  if (declaredTooLarge(upstream.headers.get("content-length"))) {
+    await upstream.body.cancel().catch(() => {})
+    logger.event("template_html_failed", { state: "too_large", status: upstream.status })
+    return templateError("upstream_error", "too_large")
+  }
+  const body = capStream(upstream.body, undefined, () => logger.event("template_html_failed", { state: "too_large", streamed: true }))
+
+  return new Response(body, {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8", ...SANDBOX_HEADERS },
   })

@@ -11,10 +11,11 @@ import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
 import { TAG_COLORS, type ProjectTag } from '@/context/projects-context'
 import { PROJECT_VISIBILITY_OPTIONS, type ProjectVisibility } from '@/lib/api/projects'
+import { MAX_PROJECT_TAGS as MAX_TAGS, addTag, projectFormSchema, type ProjectFormValues } from '@/lib/projects/project-form'
+import { useZodForm } from '@/hooks/use-zod-form'
 import { toast } from 'sonner'
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
-const MAX_TAGS = 5
 
 // ── Shared input style ────────────────────────────────────────────────────────
 
@@ -91,11 +92,10 @@ export function EditProjectModal({
   open, mode = 'edit', name, description, tags = EMPTY_PROJECT_TAGS, visibility, visibilityOptions, onSave, onClose,
 }: EditProjectModalProps) {
   const creating = mode === 'create'
-  const [draftName, setDraftName]   = useState(name)
-  const [draftDesc, setDraftDesc]   = useState(description)
-  const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
-  const [draftVisibility, setDraftVisibility] = useState<ProjectVisibility>(visibility)
-  const visibilityNote = accessChangeNote(visibility, draftVisibility)
+  // Values, validation and the parsed result come from one schema (lib/projects/project-form.ts).
+  const form = useZodForm<ProjectFormValues>(projectFormSchema, { name, description, tags, visibility })
+  const { values: draft, setField } = form
+  const visibilityNote = accessChangeNote(visibility, draft.visibility)
   const [tagInput,  setTagInput]    = useState('')
   const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
@@ -105,27 +105,25 @@ export function EditProjectModal({
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      setDraftName(name)
-      setDraftDesc(description)
-      setDraftTags(tags)
-      setDraftVisibility(visibility)
+      form.reset({ name, description, tags, visibility })
       setTagInput('')
     }
     prevOpenRef.current = open
+    // form.reset is stable; the reset only runs on the closed → open edge.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, name, description, tags, visibility])
 
   function commitTag() {
-    const label = tagInput.trim()
-    if (!label || draftTags.length >= MAX_TAGS || draftTags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
-    const color = TAG_COLORS[draftTags.length % TAG_COLORS.length]
-    // id === label — matches tagsFromLabels' scheme (the backend only stores
-    // label strings), so a tag's identity/color stay stable across save+reload.
-    setDraftTags(prev => [...prev, { id: label, label, color }])
+    // id === label, as tagsFromLabels makes them (the backend stores labels), so identity and
+    // colour stay stable across save and reload.
+    const next = addTag(draft.tags, tagInput, TAG_COLORS)
+    if (!next) return
+    setField('tags', next)
     setTagInput('')
   }
 
   function removeTag(id: string) {
-    setDraftTags(prev => prev.filter(t => t.id !== id))
+    setField('tags', draft.tags.filter(t => t.id !== id))
   }
 
   const closeOnEscape = useEffectEvent(onClose)
@@ -136,15 +134,15 @@ export function EditProjectModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  async function handleSave() {
-    if (!draftName.trim() || submitting) return
+  const handleSave = form.handleSubmit(async (data) => {
+    if (submitting) return
     setSubmitting(true)
     try {
       await onSave(
-        draftName.trim(),
-        draftDesc.trim(),
-        draftTags,
-        !creating && draftVisibility === visibility ? undefined : draftVisibility,
+        data.name,
+        data.description,
+        data.tags,
+        !creating && data.visibility === visibility ? undefined : data.visibility,
       )
       toast.success(creating ? 'Project created' : 'Project updated')
       onClose()
@@ -153,7 +151,7 @@ export function EditProjectModal({
     } finally {
       setSubmitting(false)
     }
-  }
+  })
 
   function focusInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
     Object.assign(e.currentTarget.style, {
@@ -266,15 +264,22 @@ export function EditProjectModal({
                 <input
                   id="edit-project-name"
                   type="text"
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
+                  value={draft.name}
+                  onChange={(e) => setField('name', e.target.value)}
                   placeholder="Name your project"
                   style={INPUT_BASE}
                   onFocus={focusInput}
                   onBlur={blurInput}
                   autoFocus
                   aria-required="true"
+                  aria-invalid={form.errors.name ? true : undefined}
+                  aria-describedby={form.errors.name ? 'edit-project-name-error' : undefined}
                 />
+                {form.errors.name && (
+                  <p id="edit-project-name-error" role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--red-500, #ef4444)', margin: 0 }}>
+                    {form.errors.name}
+                  </p>
+                )}
               </div>
 
               {/* Who can see this — owner-only, inline so it can't open
@@ -284,14 +289,14 @@ export function EditProjectModal({
                   <span id="edit-project-visibility" style={LABEL_STYLE}>Who can see this</span>
                   <div role="radiogroup" aria-labelledby="edit-project-visibility" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {visibilityOptions.map(opt => {
-                      const selected = draftVisibility === opt.value
+                      const selected = draft.visibility === opt.value
                       return (
                         <button
                           key={opt.value}
                           type="button"
                           role="radio"
                           aria-checked={selected}
-                          onClick={() => setDraftVisibility(opt.value)}
+                          onClick={() => setField('visibility', opt.value)}
                           style={{
                             display:         'flex',
                             alignItems:      'center',
@@ -341,8 +346,8 @@ export function EditProjectModal({
                 <textarea
                   id="edit-project-desc"
                   className="kaya-chat-textarea"
-                  value={draftDesc}
-                  onChange={(e) => setDraftDesc(e.target.value)}
+                  value={draft.description}
+                  onChange={(e) => setField('description', e.target.value)}
                   placeholder="e.g. All discovery and design work for the V2 redesign"
                   rows={6}
                   style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
@@ -357,7 +362,7 @@ export function EditProjectModal({
                 <span style={LABEL_STYLE}>Tags</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                   <AnimatePresence initial={false}>
-                    {draftTags.map((tag) => (
+                    {draft.tags.map((tag) => (
                       <m.div
                         key={tag.id}
                         initial={{ opacity: 0, scale: 0.85 }}
@@ -390,7 +395,7 @@ export function EditProjectModal({
                       </m.div>
                     ))}
                   </AnimatePresence>
-                  {draftTags.length < MAX_TAGS && (
+                  {draft.tags.length < MAX_TAGS && (
                     <ChipInput
                       placeholder="Add tag…"
                       value={tagInput}
@@ -412,7 +417,7 @@ export function EditProjectModal({
                     margin:     0,
                   }}
                 >
-                  {draftTags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
+                  {draft.tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
                 </p>
               </div>
             </div>
@@ -431,7 +436,7 @@ export function EditProjectModal({
               }}
             >
               <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-              <Button variant="default" onClick={() => void handleSave()} loading={submitting} disabled={!draftName.trim() || submitting}>
+              <Button variant="default" onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
                 {creating ? 'Create project' : 'Save changes'}
               </Button>
             </div>

@@ -1,6 +1,6 @@
 # AI Models View: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 partly done; Phase 2 done except 2.3 (backend confirmation) and 2.4 (needs a provider slug).** Selector a11y and popover boundaries are open.
+> **Status (Oct 14 2026): Phase 2 done except 2.3/2.4 (backend); Phase 3 items 2–4 done; 3.1 (one selector primitive, with the listbox a11y) open.**
 >
 > Done:
 > 1. New `loadAllModels()` in `lib/api/models.ts` throws (`ApiError` or a parse error). `fetchAllModels()` is now its never-throwing wrapper, kept for the agents page, TopBar and persona chat, which treat the catalogue as optional. `/settings/ai` uses `loadAllModels` and shows "Couldn't load your models" with **Try again** instead of an empty list; an empty catalogue now reads "No models are available on your plan".
@@ -18,6 +18,12 @@
 > 3. Not done: removing the camelCase normaliser needs backend gap (a) answered.
 > 4. Not done: icons by provider id need a stable provider slug on each model (ids are database rows); the keyword mapping in `lib/model-icons.ts` stays.
 > 5. `formatContextWindow` in `lib/models/catalog.ts` replaces the two different formatters in `/settings/ai` and Compare ("1.5M ctx" instead of "2M" or "1.5M" depending on screen). Pricing is not shown anywhere, so there is nothing else to format. 1 test.
+>
+> Phase 3 (Oct 14 2026):
+> - 3.2: `AiModelsView` 660 → 241 lines: data and filters in `use-model-catalog.ts` (the settings list is a React Query entry under `["models"]`, so `bustModelsCache()` refreshes it with everything else; the toggle cancels in-flight fetches, stays optimistic, reconciles and rolls back), presentational parts in `parts.tsx`.
+> - 3.3: tab and search live in the URL (`/settings/ai?tab=enabled&q=gpt`); the input is local and instant, the URL follows after 300 ms, and filtering uses the deferred value. The page has a Suspense boundary for `useSearchParams`.
+> - 3.4: provider icons are already a generated subset (`lib/llm-icons.generated.ts`, bundle work); nothing further without a provider slug (gap).
+> - 3.1 open: one selector primitive replacing `ModelSelector`, `ModelMenu`, `PresetModelSelector`, `PresetModelSelectorDialog` (and the listbox keyboard semantics with it) needs a visual QA pass across the composer, agent editor and dialogs.
 >
 > Backend gaps: (a) confirm which endpoints still emit legacy camelCase model fields, so the old normaliser can go; (b) a field for org-enforced blocks (Phase 4.3).
 

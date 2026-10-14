@@ -91,5 +91,7 @@ export const queryKeys = {
     members: (org: string) => [...queryKeys.orgs.all(org), "members"] as const,
     audit: (org: string) => [...queryKeys.orgs.all(org), "audit"] as const,
     usage: (org: string) => [...queryKeys.orgs.all(org), "usage"] as const,
+    /** GET /organizations/{id}/slack/installation (the sidebar's Slack row). */
+    slackStatus: (org: string) => [...queryKeys.orgs.all(org), "slack-status"] as const,
   },
 } as const;

@@ -20,7 +20,7 @@ import {
   SettingsTableFooter,
 } from '@/components/SettingsTable'
 import { useAuth } from '@/context/auth-context'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { orgAuditQuery } from '@/lib/org/org-queries'
 import { parseServerDate, formatServerDateTime } from '@/lib/utils/format-utils'
 import type { AuditLogEntry } from '@/types/teams'
@@ -126,7 +126,7 @@ function ActivityPageSkeleton() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgActivityPage() {
-  const { orgId, currentUserRole } = useOrg()
+  const { orgId, currentUserRole } = useOrgIdentity()
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
 

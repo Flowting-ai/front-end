@@ -4,7 +4,7 @@
 // depends on.
 
 import { useAuth } from "@/context/auth-context";
-import { useOrg } from "@/context/org-context";
+import { useOrgIdentity } from "@/context/org-context";
 import { orgKeyOf } from "./keys";
 
 export type LibraryViewer = {
@@ -24,7 +24,7 @@ export type LibraryViewer = {
 
 export function useLibraryViewer(): LibraryViewer {
   const { user } = useAuth();
-  const { orgId, currentUserRole, orgReady } = useOrg();
+  const { orgId, currentUserRole, orgReady } = useOrgIdentity();
   const authId = user?.auth0Id ?? (user?.id !== undefined && user?.id !== null ? String(user.id) : undefined);
   return {
     viewerId: authId,

@@ -56,7 +56,7 @@ function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
           maxWidth:   427,
           margin:     0,
         }}>
-          Create a schedule to run Task automatically on a cadence.
+          Create a schedule to run a task automatically on a cadence.
         </p>
       </div>
       <Button

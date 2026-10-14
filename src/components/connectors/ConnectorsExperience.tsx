@@ -207,7 +207,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   const confirmRemove = useCallback(async () => {
-    if (!removeAccount || !removeAccount.owned) return
+    if (!removeAccount || !removeAccount.canManage) return
     setRemoveBusy(true)
     try {
       // One id, whether it is shared or not — the row is the account.
@@ -305,7 +305,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <RemoveModal
           account={removeAccount}
           catalog={active}
-          blockedReason={removeAccount.owned ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
+          blockedReason={removeAccount.canManage ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
           busy={removeBusy}
           cancel={() => setRemoveAccount(null)}
           confirm={() => void confirmRemove()}

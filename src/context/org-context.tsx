@@ -74,12 +74,23 @@ interface OrgContextValue {
   orgPlanSettled: boolean
 }
 
-const OrgContext = createContext<OrgContextValue | null>(null)
+/** Who I am in the org: id, role, capabilities and the ready flags. Changes rarely. */
+export type OrgIdentity = Pick<OrgContextValue, 'orgId' | 'orgRole' | 'currentUserRole' | 'caps' | 'orgReady' | 'roleError' | 'orgRoleResolved'>
+/** The org record and its billing plan. Changes when credits or the plan change. */
+export type OrgPlanState = Pick<OrgContextValue, 'org' | 'plan' | 'orgPlanSettled'>
+/** The member list. Changes when members load or are refreshed. */
+export type OrgMembersState = Pick<OrgContextValue, 'members' | 'membersLoading' | 'refreshMembers'>
+
+// Three contexts, so a consumer that reads only the role does not re-render when the plan's
+// credits tick or the member list refetches. useOrg() still returns all three together.
+const OrgIdentityContext = createContext<OrgIdentity | null>(null)
+const OrgPlanContext = createContext<OrgPlanState | null>(null)
+const OrgMembersContext = createContext<OrgMembersState | null>(null)
 
 const NO_MEMBERS: OrgMember[] = []
 
 // Server state is React Query (lib/org/org-queries.ts). The provider only
-// derives the role/ready flags its 35 consumers already rely on.
+// derives the role/ready flags its consumers rely on.
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -124,27 +135,62 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
   const refreshMembers = useCallback(() => refreshOrgMembers(qc, orgId), [qc, orgId])
 
-  const value = useMemo<OrgContextValue>(() => ({
+  const orgReady = orgIdResolved && roleResolved
+  const roleIsResolved = !!orgId && orgRoleResolved
+  const identity = useMemo<OrgIdentity>(() => ({
     orgId,
-    org,
-    members: membersQ.data ?? NO_MEMBERS,
-    membersLoading: membersQ.isFetching,
-    plan,
     orgRole,
     currentUserRole: orgRole === 'admin' ? 'admin' : 'member',
     caps,
-    refreshMembers,
-    orgReady: orgIdResolved && roleResolved,
+    orgReady,
     roleError,
-    orgRoleResolved: !!orgId && orgRoleResolved,
-    orgPlanSettled: !orgId || !planQ.isPending,
-  }), [orgId, org, membersQ.data, membersQ.isFetching, plan, orgRole, caps, refreshMembers, orgIdResolved, roleResolved, roleError, orgRoleResolved, planQ.isPending])
+    orgRoleResolved: roleIsResolved,
+  }), [orgId, orgRole, caps, orgReady, roleError, roleIsResolved])
 
-  return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>
+  const orgPlanSettled = !orgId || !planQ.isPending
+  const planState = useMemo<OrgPlanState>(() => ({ org, plan, orgPlanSettled }), [org, plan, orgPlanSettled])
+
+  const members = membersQ.data ?? NO_MEMBERS
+  const membersLoading = membersQ.isFetching
+  const membersState = useMemo<OrgMembersState>(
+    () => ({ members, membersLoading, refreshMembers }),
+    [members, membersLoading, refreshMembers],
+  )
+
+  return (
+    <OrgIdentityContext.Provider value={identity}>
+      <OrgPlanContext.Provider value={planState}>
+        <OrgMembersContext.Provider value={membersState}>{children}</OrgMembersContext.Provider>
+      </OrgPlanContext.Provider>
+    </OrgIdentityContext.Provider>
+  )
 }
 
+function useRequired<T>(context: React.Context<T | null>, name: string): T {
+  const value = useContext(context)
+  if (!value) throw new Error(`${name} must be used within OrgProvider`)
+  return value
+}
+
+/** Id, role, capabilities and ready flags only. Prefer this when nothing else is needed. */
+export function useOrgIdentity(): OrgIdentity {
+  return useRequired(OrgIdentityContext, 'useOrgIdentity')
+}
+
+/** The org record and plan only. */
+export function useOrgPlan(): OrgPlanState {
+  return useRequired(OrgPlanContext, 'useOrgPlan')
+}
+
+/** The member list only. */
+export function useOrgMembers(): OrgMembersState {
+  return useRequired(OrgMembersContext, 'useOrgMembers')
+}
+
+/** Everything at once; re-renders on any of the three changing. Prefer the narrow hooks above. */
 export function useOrg(): OrgContextValue {
-  const ctx = useContext(OrgContext)
-  if (!ctx) throw new Error('useOrg must be used within OrgProvider')
-  return ctx
+  const identity = useRequired(OrgIdentityContext, 'useOrg')
+  const planState = useRequired(OrgPlanContext, 'useOrg')
+  const membersState = useRequired(OrgMembersContext, 'useOrg')
+  return useMemo(() => ({ ...identity, ...planState, ...membersState }), [identity, planState, membersState])
 }

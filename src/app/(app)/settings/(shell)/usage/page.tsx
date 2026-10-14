@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightOneIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { usageQuery } from '@/lib/billing/billing-queries'
 import { orgScope } from '@/lib/query-keys'
 import { Badge } from '@/components/Badge'
@@ -176,7 +176,7 @@ function Skeleton() {
 export default function UsagePage() {
   const { user } = useAuth()
   const router = useRouter()
-  const { orgId } = useOrg()
+  const { orgId } = useOrgIdentity()
   const usageQ = useQuery(usageQuery(orgScope(orgId)))
   const usage = usageQ.data ?? null
   const [active, setActive] = useState<CategoryKey | null>(null)

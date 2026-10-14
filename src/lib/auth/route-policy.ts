@@ -16,7 +16,7 @@ import {
  * - `removed-org-security`: the deleted /org/security page; redirect before any session work.
  * - `auth`: Auth0's own routes, served by its middleware.
  * - `api`: route handlers; need a session, get a JSON 401, never the onboarding gate.
- * - `public`: the pre-login invite landing (it is the sign-in/sign-up choice).
+ * - `public`: the pre-login invite landing (it is the sign-in/sign-up choice) and /api/health.
  * - `onboarding`: /onboarding/*; signed in, and blocked once onboarded (see below).
  * - `app`: everything else; signed in and onboarded (with the exemptions below).
  */
@@ -30,10 +30,27 @@ export function routePolicy(pathname: string, isProduction: boolean): RoutePolic
   if (!isProduction && DEV_HARNESSES.has(pathname)) return 'dev-harness'
   if (under(pathname, '/org/security')) return 'removed-org-security'
   if (pathname.startsWith('/auth/')) return 'auth'
+  // Uptime checks: no session, reports config names and backend reachability only.
+  if (pathname === '/api/health') return 'public'
   if (pathname.startsWith('/api/')) return 'api'
   if (pathname.startsWith(`${INVITE_LANDING_BASE_ROUTE}/`)) return 'public'
   if (pathname.startsWith(`${ONBOARDING_BASE_ROUTE}/`)) return 'onboarding'
   return 'app'
+}
+
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+/**
+ * CSRF defence in depth for `/api/*` (the session cookie is already
+ * SameSite=Lax): a state-changing request whose `Origin` is present and not
+ * this site's own origin is refused. Browsers always send `Origin` on POST and
+ * friends, so a missing header means a non-browser caller, which cannot ride
+ * the user's cookies anyway.
+ */
+export function isCrossSiteMutation(method: string, origin: string | null, requestUrl: string, allowedOrigins: readonly string[] = []): boolean {
+  if (!MUTATING.has(method.toUpperCase()) || !origin) return false
+  const own = new URL(requestUrl).origin
+  return origin !== own && !allowedOrigins.includes(origin)
 }
 
 /**

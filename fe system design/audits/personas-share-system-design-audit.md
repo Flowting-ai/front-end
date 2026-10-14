@@ -1,6 +1,6 @@
 # Personas and Share: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done, except the route-level files (item 4, see below). Phase 2 front-end done (items 1, 2, 5); items 3–4 need the backend.** Phases 3–4 open.
+> **Status (Oct 14 2026): Phases 1–2 done (front-end); Phase 3 items 1 and 3 done, 4.4 done; 3.2 (one link model across share kinds), 3.4 paging and 3.5 notifications open (paging/notifications need the backend).**
 >
 > Done (Phase 1):
 > 1. Persona-chat proxy: `repoId`/`chatId` were already checked with `isSafeId` (Internal/API routes audit). New: `checkUploads()` in `lib/server/upload-limits.ts` (at most 10 files, 30 MB each, matching the client's `FILE_CONSTRAINTS`) returns a 413 `payload_too_large`. It applies to `/api/persona-chat` and also to `/api/chat`. `payload_too_large` was added to `RouteErrorCode`.
@@ -18,6 +18,12 @@
 > 5. The accept page's hand-rolled skeleton now uses the shared `components/Skeleton`.
 >
 > Open: chat shares (`ChatShareOverlay`, "shared with me" on /chats) move with the Chat Phase 2 migration; route `error`/`not-found` files for the share routes; the accept page still loads the whole model catalogue to show one model name (gap a).
+>
+> Phases 3–4 (Oct 14 2026):
+> - 3.1: one `components/ShareAgentPanel` (Super Link: create, copy, turn off, usage meter; optional email invites; optional typed credit limit) used by `AgentShareModal` (now 62 lines of dialog chrome, with `useFocusTrap` and Esc) and the agent's published page (link only, asks for the limit; its own `SuperLinkSection`, usage bar and generate form are gone). The legacy configure editor and its sharing tab were already deleted in the Agents audit; `/agents/configure` remains only as a redirect for old links (per your call: delete the legacy editor, keep current agents working). Limit and usage helpers in `lib/share/share-limit.ts` (4 tests).
+> - 3.3: `ChatShareOverlay` 474 → 347 lines, its state and actions in `components/chat/use-chat-share.ts`; the accept page was split in Phase 2 (server page + `ShareAcceptClient`).
+> - 4.4: the panel says what recipients see (name, description, instructions on the preview) and that their chats run on the sender's credits up to the link's limit.
+> - Open: 3.2 a common link model across agent shares, chat shares, Super Links and templates; 3.4 paging for sent/received (backend); 3.5 share notifications (backend feed; Notifications is a skipped audit).
 >
 > Backend gaps: (f, Phase 2) `GET /persona-shares/{id}` requires a session, so link unfurls can't show the agent; a public, minimal preview (name, sender, image) would let `generateMetadata` serve Open Graph tags. (a) `model_name` in the share preview; (b) a snapshot option and a live-view flag for chat shares; (c) a sender setting for whether the preview shows the agent's prompt; (d) rate limits on preview and accept; (e) the backend's own upload limits should match the proxy's (10 files, 30 MB each).
 

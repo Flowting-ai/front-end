@@ -63,7 +63,7 @@ import {
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
-import { useOrg } from "@/context/org-context";
+import { useOrgPlan } from "@/context/org-context";
 import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -371,7 +371,7 @@ export function ChatInterface({
   // Org context — pool status (via useWorkspaceCreditNotice below) drives
   // InlineCreditNotice above input; plan is also read directly for the
   // locked-state input disable/placeholder further down.
-  const { plan } = useOrg();
+  const { plan } = useOrgPlan();
   // Individual credit/topup status — drives the warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
 

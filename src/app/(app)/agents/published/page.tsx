@@ -4,19 +4,12 @@ import React, { useState, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeftOneIcon, LinkSixIcon, CancelOneIcon, BubbleChatAddIcon, ShareOneIcon } from '@strange-huge/icons'
-import { Spinner } from '@/components/Spinner'
+import { ArrowLeftOneIcon, BubbleChatAddIcon, ShareOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { useAuth } from '@/context/auth-context'
-import { getShareTokenLimit } from '@/lib/plan-config'
 import { fetchPersonaRepo, type PersonaRepo } from '@/lib/api/persona-repo'
-import { ApiError } from '@/lib/api/client'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { createShare, revokeShare, type PersonaShare } from '@/lib/api/persona-shares'
-import { activeLinkFor, forgetShare, personaSharesQuery, rememberShare } from '@/lib/share/share-queries'
-import { canonicalShareUrl } from '@/lib/share-url'
-import { copyShareLink } from '@/lib/share/copy-link'
+import { useQuery } from '@tanstack/react-query'
+import { activeLinkFor, personaSharesQuery } from '@/lib/share/share-queries'
+import { ShareAgentPanel } from '@/components/ShareAgentPanel'
 import { AGENTS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -32,181 +25,6 @@ function toHandle(name: string): string {
 
 // ── Token usage bar ───────────────────────────────────────────────────────────
 
-function UsageBar({ percent }: { percent: number }) {
-  const clamped = Math.max(0, Math.min(100, percent))
-  return (
-    <div
-      style={{
-        position: 'relative',
-        height: 4,
-        backgroundColor: 'var(--neutral-white)',
-        borderRadius: 2,
-        width: '100%',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          height: '100%',
-          width: `${clamped}%`,
-          backgroundColor: 'var(--blue-600)',
-          borderRadius: 2,
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: `${clamped}%`,
-          transform: 'translate(-50%, -50%)',
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          backgroundColor: 'var(--blue-600)',
-          border: '1.5px solid white',
-          boxShadow: '0px 0px 0px 1px rgba(13,110,178,0.5)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  )
-}
-
-// ── Super link section ────────────────────────────────────────────────────────
-
-function SuperLinkSection({
-  share,
-  onRevoke,
-  isRevoking,
-}: {
-  share: PersonaShare
-  onRevoke: () => void
-  isRevoking: boolean
-}) {
-  const displayUrl = share.share_url ? canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '') : ''
-  const limit = share.credit_limit ?? 0
-  const used = share.credit_used
-  const usagePercent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
-
-  function handleCopy() {
-    if (!share.share_url) return
-    void copyShareLink(canonicalShareUrl(share.share_url), toast)
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 719 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 560 }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
-            lineHeight: 1.5,
-            letterSpacing: '0.07px',
-            color: 'var(--legacy-0a0a0a)',
-          }}
-        >
-          Super Link
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 12,
-            lineHeight: '16px',
-            color: 'var(--neutral-600)',
-          }}
-        >
-          Generate a shareable URL anyone can chat without a Souvenir account. You cover the credit cost.
-        </span>
-      </div>
-
-      {/* URL row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: 'var(--neutral-white)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 10,
-          padding: '8px 7px',
-          height: 46,
-        }}
-      >
-        <div style={{ flex: '1 0 0', minWidth: 0, overflow: 'hidden', paddingLeft: 8 }}>
-          <span
-            style={{
-              display: 'block',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 14,
-              lineHeight: '22px',
-              color: 'var(--neutral-800)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {displayUrl}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={onRevoke}
-            disabled={isRevoking}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '5px 8px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: isRevoking ? 'not-allowed' : 'pointer',
-              backgroundColor: 'transparent',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 14,
-              lineHeight: '22px',
-              color: isRevoking ? 'var(--neutral-400)' : 'var(--red-400)',
-              opacity: isRevoking ? 0.6 : 1,
-              transition: 'opacity 150ms',
-            }}
-          >
-            {isRevoking ? <Spinner size={16} color="var(--neutral-400)" /> : <CancelOneIcon size={16} color="var(--red-400)" />}
-            {isRevoking ? 'Revoking…' : 'Revoke link'}
-          </button>
-          <Button variant="secondary" size="sm" onClick={handleCopy}>
-            Copy
-          </Button>
-        </div>
-      </div>
-
-      {/* Usage */}
-      {limit > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize: 14,
-              lineHeight: '22px',
-              color: 'var(--neutral-700)',
-            }}
-          >
-            {usagePercent}% used · {used.toLocaleString()} / {limit.toLocaleString()} credits
-          </span>
-          <UsageBar percent={usagePercent} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Page content ──────────────────────────────────────────────────────────────
 
 function PersonaPublishedContent() {
@@ -215,16 +33,9 @@ function PersonaPublishedContent() {
   const nameParam     = searchParams.get('name') || ''
   const repoId        = searchParams.get('repoId')     ?? ''
   const isRepublished = searchParams.get('republished') === 'true'
-  const queryClient = useQueryClient()
 
-  const { user } = useAuth()
-  const maxTokenLimit = getShareTokenLimit(user?.planType)
 
   const [personaName,    setPersonaName]    = useState(nameParam || 'Your Agent')
-  // Blank by default — the user must enter a credit limit before generating.
-  const [tokenLimit,     setTokenLimit]     = useState<string>('')
-  const [isGenerating,   setIsGenerating]   = useState(false)
-  const [isRevoking,     setIsRevoking]     = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
   // Kept in full (not just name/imageUrl) so "Use this Agent" can build a
@@ -248,40 +59,6 @@ function PersonaPublishedContent() {
   // modal (or the buttons below) change anything.
   const sharesQ = useQuery(personaSharesQuery(!!repoId))
   const linkShare = repoId ? activeLinkFor(sharesQ.data, repoId) : null
-
-  async function handleGenerateSuperLink() {
-    const limit = parseInt(tokenLimit, 10)
-    if (!repoId || !Number.isFinite(limit) || limit < 1) return
-    setIsGenerating(true)
-    try {
-      const share = await createShare({
-        persona_repo_id: repoId,
-        share_type: 'link',
-        credit_limit: limit,
-      })
-      rememberShare(queryClient, share)
-    } catch (err) {
-      // Surface the backend detail (e.g. "Persona repo not found") instead of a
-      // generic message so the real failure is visible.
-      const detail = err instanceof ApiError ? (err.rawMessage || err.message) : null
-      toast.error(detail ? `Failed to generate link: ${detail}` : 'Failed to generate link')
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  async function handleRevokeLink() {
-    if (!linkShare) return
-    setIsRevoking(true)
-    try {
-      await revokeShare(linkShare.id)
-      forgetShare(queryClient, linkShare.id)
-    } catch {
-      toast.error('Failed to revoke link')
-    } finally {
-      setIsRevoking(false)
-    }
-  }
 
   // "Use this Agent" opens a fresh /chat with the agent pre-attached to the
   // input (not sent, not the agent's own dedicated /agents/[id]/chat page).
@@ -507,92 +284,10 @@ function PersonaPublishedContent() {
                   </p>
                 </div>
 
-                {/* Super link section — shown once the link is generated */}
-                {linkShare ? (
-                  <SuperLinkSection
-                    share={linkShare}
-                    onRevoke={handleRevokeLink}
-                    isRevoking={isRevoking}
-                  />
-                ) : (
-                  /* Pre-generation: token limit input + generate button */
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                      alignItems: 'center',
-                      width: 242,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 400,
-                          fontSize: 13,
-                          color: 'var(--neutral-600)',
-                        }}
-                      >
-                        Credit limit
-                      </span>
-                      <div
-                        style={{
-                          backgroundColor: 'var(--field-surface)',
-                          border: '1px solid var(--border-default)',
-                          borderRadius: 8,
-                          padding: '4px 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={tokenLimit}
-                          placeholder="Enter a value"
-                          aria-label="Credit limit"
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9]/g, '')
-                            if (raw === '') { setTokenLimit(''); return }
-                            const n = parseInt(raw, 10)
-                            if (Number.isNaN(n)) return
-                            setTokenLimit(String(Math.min(maxTokenLimit, Math.max(1, n))))
-                          }}
-                          style={{
-                            width: 72,
-                            border: 'none',
-                            outline: 'none',
-                            backgroundColor: 'transparent',
-                            fontFamily: 'var(--font-body)',
-                            fontWeight: 400,
-                            fontSize: 12,
-                            lineHeight: 'normal',
-                            color: 'var(--neutral-800)',
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      leftIcon={<LinkSixIcon size={16} />}
-                      fluid
-                      onClick={handleGenerateSuperLink}
-                      loading={isGenerating}
-                      disabled={isGenerating || !tokenLimit}
-                    >
-                      Generate Super Link
-                    </Button>
-                  </div>
-                )}
+                {/* Same panel as the share modal, link only, asking for the credit limit. */}
+                <div style={{ width: '100%', maxWidth: 560 }}>
+                  <ShareAgentPanel repoId={repoId} invites={false} askLimit />
+                </div>
               </div>
 
               {/* Back to Library | Use this Agent | Configure Sharing — side by

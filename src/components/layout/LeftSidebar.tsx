@@ -27,6 +27,7 @@ import { usePersonas } from "@/lib/queries/personas";
 import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll, emitProjectNewChat, emitPersonaChatNav } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { ChatHistoryItem } from "./ChatHistoryItem";
+import { SidebarChatRowsSkeleton, SidebarDestinationsSkeleton, SidebarProfileSkeleton, SidebarProjectsSkeleton, SidebarRecentsSkeleton } from "./SidebarChromeSkeleton";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { Project, ProjectChat } from "@/context/projects-context";
@@ -35,13 +36,16 @@ import { useOrg } from "@/context/org-context";
 import type { CreditsDisplay } from "@/lib/api/plan";
 import { formatCredits } from "@/lib/format-credits";
 import { getOrgSlackStatus } from "@/lib/api/slack";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { STALE_DEFAULT_MS } from "@/lib/query-policy";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { ChipColor } from "@/components/Chip";
-import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed, personaProfileKey } from "@/lib/storage-keys";
+import { SIDEBAR_COLLAPSED_KEY, SIDEBAR_SLACK_ROW_HINT_KEY, parseSidebarCollapsed, personaProfileKey } from "@/lib/storage-keys";
 import { useMobile } from "@/hooks/use-mobile";
 import {
   PROJECT_ROUTE,
@@ -1875,7 +1879,7 @@ function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, onNewChat
           style={{ display: "flex", flexDirection: "column", gap: 4 }}
         >
           {loading && chats.length === 0 ? (
-            Array.from({ length: 5 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)
+            <SidebarChatRowsSkeleton rows={5} />
           ) : recentChats.length === 0 ? (
             <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>No chats yet</div>
           ) : (
@@ -2205,20 +2209,14 @@ interface FlatDestinationsProps {
   onNewChat: () => void
   newChatSelected: boolean
   collapsed?: boolean
+  /** From the sidebar's Slack status query (read in LeftSidebarImpl so the reveal can wait for it). */
+  slackConnected: boolean
 }
 
-function FlatDestinations({ onNewChat, newChatSelected, collapsed = false }: FlatDestinationsProps) {
+function FlatDestinations({ onNewChat, newChatSelected, collapsed = false, slackConnected }: FlatDestinationsProps) {
   const { push } = useGuardedRouter()
   const pathname = usePathname()
-  const { orgId, currentUserRole } = useOrg()
-  const [slackConnected, setSlackConnected] = useState(false)
-
-  useEffect(() => {
-    if (!orgId) { setSlackConnected(false); return }
-    let cancelled = false
-    getOrgSlackStatus(orgId).then(status => { if (!cancelled) setSlackConnected(status.connected) }).catch(() => {})
-    return () => { cancelled = true }
-  }, [orgId])
+  const { currentUserRole } = useOrg()
 
   return (
     <>
@@ -2293,7 +2291,26 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
-  const { orgId, org, plan, orgRole, currentUserRole, orgPlanSettled } = useOrg();
+  const { orgId, org, plan, orgRole, currentUserRole, orgPlanSettled, orgReady } = useOrg();
+
+  // The Slack row's state (Add vs connected) for admins.
+  const showsSlackRow = !!orgId && currentUserRole === 'admin';
+  const slackStatusQ = useQuery({
+    queryKey: queryKeys.orgs.slackStatus(orgId ?? ''),
+    queryFn: () => getOrgSlackStatus(orgId!),
+    enabled: showsSlackRow,
+    staleTime: STALE_DEFAULT_MS,
+    retry: false,
+  });
+  const slackConnected = slackStatusQ.data?.connected ?? false;
+
+  // Everything in the sidebar except the chat lists appears in one frame: the
+  // destinations (whose Slack row depends on the role and the Slack status),
+  // the Projects and Recent Chats headers, and the profile row (which needs the
+  // user and, for a workspace, its plan). Until all of that is known the whole
+  // sidebar shows skeletons, instead of rows popping in one by one over a few
+  // seconds. Chat rows keep their own loading state after the reveal.
+  const chromeReady = !!user && orgReady && orgPlanSettled && (!showsSlackRow || !slackStatusQ.isPending);
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -2456,6 +2473,18 @@ function LeftSidebarImpl({
     if (!isClient) return null
     try { const r = window.sessionStorage.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
+  // Whether the skeleton includes the Slack row: known once the role resolves;
+  // before that, what this viewer saw last time (read only after hydration).
+  const slackRowHint = (() => {
+    if (!isClient) return false
+    try { return window.localStorage.getItem(SIDEBAR_SLACK_ROW_HINT_KEY) === '1' } catch { return false }
+  })()
+  const skeletonHasSlackRow = orgReady ? showsSlackRow : slackRowHint
+  useEffect(() => {
+    if (!chromeReady) return
+    try { window.localStorage.setItem(SIDEBAR_SLACK_ROW_HINT_KEY, showsSlackRow ? '1' : '0') } catch { /* storage unavailable */ }
+  }, [chromeReady, showsSlackRow])
+
   const isTeamUser = Boolean(
     orgId ||
     user?.orgId ||
@@ -2533,8 +2562,12 @@ function LeftSidebarImpl({
           onCollapse={handleCollapse}
           defaultCollapsed={collapsedRef.current}
           forceCollapsed={isSlackPage && isMobile}
-          destinationsItems={(collapsed) => <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatPage} collapsed={collapsed} />}
-          projectItems={orgId ? (
+          destinationsItems={(collapsed) => chromeReady
+            ? <FlatDestinations onNewChat={handleNewChat} newChatSelected={isNewChatPage} collapsed={collapsed} slackConnected={slackConnected} />
+            : <SidebarDestinationsSkeleton withSlack={skeletonHasSlackRow} collapsed={collapsed} />}
+          projectItems={!chromeReady ? (
+            <SidebarProjectsSkeleton />
+          ) : orgId ? (
             <FlatTeamsSidebarContent role={currentUserRole} />
           ) : (
             <FlatProjectsSection
@@ -2548,12 +2581,8 @@ function LeftSidebarImpl({
             />
           )}
           recentItems={
-            !user ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <SidebarMenuSkeleton key={i} index={i} fluid />
-                ))}
-              </div>
+            !chromeReady ? (
+              <SidebarRecentsSkeleton />
             ) : (
               <>
                 <FlatPinnedSection {...sectionProps} />
@@ -2568,18 +2597,8 @@ function LeftSidebarImpl({
             // `!orgHasPlan` branch reads org-context state. Rendering early
             // showed "No Plan Selected" for a beat, then flipped to the real
             // plan tag once org data caught up.
-            if (!user || (isTeamUser && !orgPlanSettled)) {
-              return (
-                <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0 }} />
-                  {!collapsed && (
-                    <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
-                      <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
-                    </div>
-                  )}
-                </div>
-              )
+            if (!chromeReady || !user || (isTeamUser && !orgPlanSettled)) {
+              return <SidebarProfileSkeleton collapsed={collapsed} />
             }
             return (
               <AccountMenu

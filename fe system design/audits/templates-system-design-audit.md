@@ -1,6 +1,6 @@
 # Templates Feature: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 and Phase 2 done** (item 3 decided against, see below). Phases 3–4 open.
+> **Status (Oct 14 2026): Phases 1–3 done** (2.3 decided against; rate limiting is decision D4).
 >
 > Done (Phase 1):
 > 1. Both fetches have `AbortSignal.timeout(15s)`. The page reports a timeout state; the route returns 504. `upstream.json()` is in try/catch, so invalid JSON becomes the error state instead of a throw.
@@ -11,12 +11,18 @@
 > 6. `TemplateNotice` (now a separate file) has `role="status"`, or `role="alert"` for timeout and error. Its heading is an `h1`.
 > 7. (Phase 2.1) The page uses `BACKEND_BASE` and `getSessionToken` from `lib/server/backend.ts` instead of its own copies. `RouteErrorCode` gained `timeout`.
 >
-> Open: Phase 3 (analytics event, TTFB budget, size cap and rate limit, `features.md` correction).
+> Open (was): Phase 3 (analytics event, TTFB budget, size cap and rate limit, `features.md` correction).
 >
 > Phase 2 (Oct 14 2026):
 > - 2.2: new shared `components/RouteState` (heading, body, actions, `status`/`alert` role; Tailwind with design tokens, server-safe). `TemplateNotice` is now a thin wrapper over it, and `ScheduleRouteStates` and `ProjectNotFound` use it too. The template header, frame and `loading.tsx` moved from inline styles to Tailwind classes; `--legacy-1a1916` is replaced by `--neutral-900` (a slightly warmer near-black, same in dark mode).
 > - 2.3: decided against. The not-found / no-access / revoked / timeout states replace the frame, so metadata has to be known before the frame renders; loading the HTML in parallel would fetch (and show) an error body behind the notice. The metadata call is one small request with a timeout. Recorded in the page comment.
 > - 2.4: decided and documented in the page comment and the route: `sandbox="allow-scripts allow-popups allow-forms"` with no `allow-same-origin` (opaque origin) and no `allow-popups-to-escape-sandbox` (popups inherit the sandbox); the route's CSP mirrors it and `next.config.ts` relaxes framing only for `/api/template`.
+>
+> Phase 3 (Oct 14 2026):
+> - 3.1: every non-200 outcome is one structured line: `template_view_failed` (page, with the state) and `template_html_failed` (route: state, status, first 500 characters of the backend body; no ids). Views are counted by `screen_viewed` with the new `template_view` screen (Analytics Phase 2).
+> - 3.2: TTFB, LCP and the other Web Vitals arrive as `web_vital` events tagged `template_view` (shared reporter, decision D6); a hard budget needs a CI build (D8).
+> - 3.3: size cap on `/api/template/[uuid]`: 10 MB (`TEMPLATE_MAX_BYTES`), refused up front from `Content-Length` and enforced while streaming (`capStream`), with a new `too_large` state and notice. Rate limiting is decision D4. Revoke and audience controls live in the backend's share flow (Slack), not in this app.
+> - 3.4: `features.md` already describes the feature correctly; the tests run in CI (`npm test`). 3 tests in `template-size.test.ts`.
 >
 > Backend gaps: (a) the title is stored with HTML entities still in it; the backend should unescape it when it extracts `<title>`, so the frontend decoder can go. (b) Rate limiting and a size cap for `/templates/{id}/html` belong on the backend.
 

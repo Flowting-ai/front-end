@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { canSchedule } from "@/lib/schedules/schedule-permissions"
 import {
   ArrowLeftOneIcon,
   PenOneIcon,
@@ -130,7 +131,8 @@ export function ScheduleDetailView({
   onCopy,
   copying = false,
 }: ScheduleDetailViewProps) {
-  const readOnly = !!schedule.ownerName
+  // Someone else's org schedule: read and copy only (lib/schedules/schedule-permissions.ts).
+  const readOnly = !canSchedule('edit', schedule)
   const [isActive, setIsActive] = useState(schedule.isActive)
 
   const handleToggle = (v: boolean) => {

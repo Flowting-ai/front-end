@@ -23,7 +23,7 @@ import { formatCredits } from "@/lib/plan-config";
 import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
 import { AUTH_LOGIN_ROUTE, AUTH_LOGOUT_ROUTE } from "@/lib/routes";
-import { clearOrgIdCache, clearSearchRecents } from "@/lib/storage-keys";
+import { clearOrgIdCache, clearSearchRecents, clearSessionTiming } from "@/lib/storage-keys";
 import { getQueryClient } from "@/lib/query-client";
 import { clearUserScopedCache } from "@/lib/query-invalidation";
 import { queryKeys } from "@/lib/query-keys";
@@ -282,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     currentUser.clear();
     clearOrgIdCache();
     clearSearchRecents();
+    clearSessionTiming();
     clearSelection();
     clearUserScopedCache(getQueryClient());
   };

@@ -1,24 +1,13 @@
-import { useSyncExternalStore } from 'react'
 import type { UIMessage } from '@/types/chat'
+import { useChatUiStore, type ChatContextSnapshot } from '@/lib/chat/chat-ui-store'
 
 // The Context panel renders in the app shell (next to the floating toolbar), outside the
 // chat page's own React tree, so it can't read the chat's messages directly. ChatInterface
 // publishes them here instead — the same cross-tree handoff the Agents panel uses with
-// AGENT_SELECT_EVENT, but as a store because this is state, not a one-off event.
+// AGENT_SELECT_EVENT, but as a store because this is state, not a one-off event. The state lives
+// in the chat UI store (lib/chat/chat-ui-store.ts); turn timing stays here, as a clock, not state.
 
-export interface ChatContextSnapshot {
-  chatId: string | undefined
-  messages: UIMessage[]
-}
-
-const EMPTY: ChatContextSnapshot = { chatId: undefined, messages: [] }
-
-let snapshot: ChatContextSnapshot = EMPTY
-const listeners = new Set<() => void>()
-
-function emit() {
-  listeners.forEach(listener => listener())
-}
+export type { ChatContextSnapshot }
 
 // ── Turn timing ───────────────────────────────────────────────────────────────
 // Messages carry no duration, so how long a turn ran is clocked here, where every
@@ -56,22 +45,14 @@ export function turnTiming(message: UIMessage | undefined): TurnTiming | undefin
 
 export function publishChatContext(next: ChatContextSnapshot): void {
   clockTurns(next.messages)
-  snapshot = next
-  emit()
+  useChatUiStore.getState().publishContext(next)
 }
 
 /** Clears the snapshot, but only if it is still the one `chatId` published — a newer chat's data must survive an older one unmounting. */
 export function clearChatContext(chatId: string | undefined): void {
-  if (snapshot.chatId !== chatId) return
-  snapshot = EMPTY
-  emit()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => { listeners.delete(listener) }
+  useChatUiStore.getState().clearContext(chatId)
 }
 
 export function useChatContext(): ChatContextSnapshot {
-  return useSyncExternalStore(subscribe, () => snapshot, () => EMPTY)
+  return useChatUiStore((state) => state.context)
 }

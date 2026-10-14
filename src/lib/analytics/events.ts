@@ -57,6 +57,7 @@ export type FeatureName =
   | "effort_level_changed"
   | "permission_level_changed"
   | "schedule_created"
+  | "schedule_edit_started"
   | "voice_input"
   | "flashcards"
   | "document_download"
@@ -112,6 +113,14 @@ export type BrowserEvent =
   | "model_selected"
   | "auth_refresh_failed"
   | "auth_session_expired"
+  | "auth_session_timed_out"
+  | "web_vital"
+  | "usage_csv_exported"
+  | "schedule_paused"
+  | "schedule_resumed"
+  | "schedule_run_now"
+  | "schedule_deleted"
+  | "schedule_copied"
   | "model_fallback"
   | "checkout_started"
   | "checkout_failed"
@@ -184,6 +193,14 @@ export interface BrowserEventPropMap {
   connector_share_changed: { shared: boolean };
   auth_refresh_failed: { suppressed: boolean };
   auth_session_expired: NoProps;
+  auth_session_timed_out: { reason: "idle" | "max" };
+  schedule_paused: NoProps;
+  schedule_resumed: NoProps;
+  schedule_run_now: NoProps;
+  schedule_deleted: NoProps;
+  schedule_copied: NoProps;
+  usage_csv_exported: { rows: number };
+  web_vital: { metric: string; value: number; rating: string; screen: string; navigation?: string };
 }
 
 /** The props an event takes: its typed shape when listed, else the loose `EventProps`. */

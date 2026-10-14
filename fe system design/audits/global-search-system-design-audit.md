@@ -1,6 +1,6 @@
 # Global Search: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done**, except keyboard/focus tests for the modal (no DOM test setup). **Phase 2 done** (2.2 as a notice + load-more until a search endpoint exists). Phases 3–4 open.
+> **Status (Oct 14 2026): Phase 1 done**, except keyboard/focus tests for the modal (no DOM test setup). **Phase 2 done** (2.2 as a notice + load-more until a search endpoint exists). **Phase 3.3 and Phase 4.4 done; 3.1, 3.2, 3.4 wait on the backend search endpoint.**
 >
 > Done (Phase 1):
 > 1. The query goes through `useDeferredValue`. Results are computed only while search is open, from an index built once per change of the sources, with titles lower-cased up front. Each keystroke only runs `searchIndex`.
@@ -18,7 +18,8 @@
 > 4. Opening an `agent-chat` result that is no longer loaded toasts "That chat is no longer available." and goes to Agents, instead of doing nothing.
 > 5. Recently opened results persist (`SEARCH_RECENT_OPENED_KEY` in `storage-keys.ts`, 5 entries, parsed defensively, cleared on logout) and show before typing ahead of recent chats; entries that no longer exist drop out and titles come from current data. 8 new tests in `text-match.test.ts`.
 >
-> Open: modal keyboard/focus tests, `setTimeout` focus, modal split and CSS hover (3.3).
+> Phases 3–4 (Oct 14 2026): (3.3) presentational pieces (type colours/icons, section header, result row, close button, keyboard hints) moved to `ResultParts.tsx` (modal 816 → 562 lines); row and close-button hover are CSS (`hover:` classes) instead of per-row `useState`, so moving the mouse no longer re-renders rows; the input focuses on the next animation frame instead of a 50 ms timeout. (4.4) the modal already sits in `BlockErrorBoundary` (Phase 1). 3.1/3.2/3.4 (server search with paging, debounced query with `keepPreviousData`, more sources) need backend gap (a); 4.3 a `/search` page makes sense only with server search.
+> Open: modal keyboard/focus tests, the server-side search work above.
 >
 > Backend gaps: (a) a search endpoint for chat titles and message content with cursor paging (Phase 3.1); (b) one endpoint for "all my agent chats" to replace the per-agent fan-out.
 

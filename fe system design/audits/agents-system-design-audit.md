@@ -6,6 +6,8 @@ Scoring: 1 = applied, 0.5 = partial, 0 = absent, applicable principles only.
 
 ## Overall efficiency: ~43% (16.5 / 38 applicable principles)
 
+> Oct 14 2026: `app/(app)/agents/_hooks/use-agents-page.ts` takes the list page's state and actions (page 659 → 293 lines); sharing uses the one `components/ShareAgentPanel` (see the Personas/Share audit). The legacy configure editor is gone; `/agents/configure` is only a redirect to `/agents/[id]/edit`, so existing agents and links keep working. Open: perf budget, a11y pass.
+
 | Folder | Applicable | Score | % |
 |---|---|---|---|
 | 1. Requirements and Rendering | 3 | 1.5 | 50% |

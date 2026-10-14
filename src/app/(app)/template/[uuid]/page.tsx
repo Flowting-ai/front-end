@@ -9,6 +9,7 @@ import {
   type TemplateLoadState,
 } from '@/lib/templates/template-view'
 import { TemplateNotice } from './TemplateNotice'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,11 @@ const NOTICES: Record<Exclude<TemplateLoadState, 'not_found'>, { heading: string
     heading: 'This page was revoked',
     body: 'Its creator took it down. Ask them for a fresh one.',
     tone: 'status',
+  },
+  too_large: {
+    heading: 'This page is too large to show',
+    body: 'Ask whoever made it for a smaller version.',
+    tone: 'alert',
   },
   timeout: {
     heading: 'This is taking too long',
@@ -52,6 +58,8 @@ export default async function TemplatePage({
   if (!token) redirect(`/auth/login?returnTo=${encodeURIComponent(`/template/${uuid}`)}`)
 
   const result = await loadTemplate(BACKEND_BASE, uuid, token)
+  // One countable line per failed view (no ids or titles).
+  if (result.state !== 'ok') logger.event('template_view_failed', { state: result.state })
   if (result.state === 'not_found') notFound()
   if (result.state !== 'ok') {
     return <TemplateNotice {...NOTICES[result.state]} />

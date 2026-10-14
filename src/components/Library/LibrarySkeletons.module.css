@@ -76,10 +76,15 @@
   margin-left: 8px;
 }
 
+/* Same box as a real tile (64 px, 1 px border, 14 px padding), with the frame left out. */
 .tile {
+  display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 16px;
+  min-width: 0;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 15px;
 }
 
 .stack6,
@@ -117,10 +122,16 @@
   padding: 3px;
 }
 
+/* Same box as a real Recent card (168 px, 1 px border, 14/16/12 padding), with the frame left out. */
 .card {
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   align-items: stretch;
+  min-width: 0;
+  height: 168px;
+  box-sizing: border-box;
+  padding: 15px 17px 13px;
 }
 
 .cardIcon {

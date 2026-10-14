@@ -5,7 +5,7 @@
 // reconnecting afterwards go through the usual account screens.
 
 import React, { useState } from 'react'
-import { z } from 'zod'
+import { customApiCredentialsSchema, customApiSchema, httpsUrl } from '@/lib/connectors/custom-api-schema'
 import { toast } from 'sonner'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
@@ -29,26 +29,8 @@ const AUTH_OPTIONS: { value: AuthType; label: string; nameLabel?: string; namePl
   { value: 'basic',  label: 'Basic auth (username + password)' },
 ]
 
-// Same rule as the backend's CredentialName: an HTTP token, never Host.
-const credentialName = z.string().trim().regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}$/).refine(v => v.toLowerCase() !== 'host')
-
-const customApiSchema = z.object({
-  name:     z.string().trim().min(1).max(128),
-  base_url: z.string().trim().url().startsWith('https://'),
-  auth:     z.discriminatedUnion('type', [
-    z.object({ type: z.literal('bearer') }),
-    z.object({ type: z.literal('header'), name: credentialName }),
-    z.object({ type: z.literal('query'), name: credentialName }),
-    z.object({ type: z.literal('basic') }),
-  ]),
-  docs_url: z.string().trim().url().optional(),
-})
-
-// What the link call files, keyed by the backend's api_key field names.
-const credentialsSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('basic'), username: z.string().trim().min(1), password: z.string().min(1) }),
-  z.object({ type: z.enum(['bearer', 'header', 'query']), token: z.string().trim().min(1) }),
-])
+// Schemas shared with createCustomApi: lib/connectors/custom-api-schema.ts.
+const credentialsSchema = customApiCredentialsSchema
 
 function AuthDropdown({ value, onChange }: { value: AuthType; onChange: (value: AuthType) => void }) {
   const [open, setOpen] = useState(false)
@@ -107,7 +89,7 @@ export function CustomApiModal({
     docs_url: docsUrl.trim() || undefined,
   })
   const credentials = credentialsSchema.safeParse({ type: authType, token, username, password })
-  const baseUrlInvalid = Boolean(baseUrl.trim()) && !z.string().trim().url().startsWith('https://').safeParse(baseUrl).success
+  const baseUrlInvalid = Boolean(baseUrl.trim()) && !httpsUrl.safeParse(baseUrl).success
 
   async function submit() {
     if (!validation.success || !credentials.success || busy) return

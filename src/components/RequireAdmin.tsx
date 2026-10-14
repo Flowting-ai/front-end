@@ -2,7 +2,7 @@
 
 import { Skeleton } from '@/components/Skeleton'
 import { LinkButton } from '@/components/Library/LinkButton'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { adminGate } from '@/lib/org/role'
 import { CHAT_ROUTE } from '@/lib/routes'
 
@@ -12,7 +12,7 @@ import { CHAT_ROUTE } from '@/lib/routes'
  * Client-side gating is for UX only; the backend enforces every admin action.
  */
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { orgReady, currentUserRole } = useOrg()
+  const { orgReady, currentUserRole } = useOrgIdentity()
   const gate = adminGate(orgReady, currentUserRole)
 
   if (gate === 'loading') {

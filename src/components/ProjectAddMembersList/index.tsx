@@ -6,7 +6,7 @@ import { ManageTeamsIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
 import { inviteProjectMember } from '@/lib/api/projects'
 import { projectMembersQuery } from '@/lib/projects/project-queries'
@@ -71,7 +71,7 @@ export interface ProjectAddMembersListProps {
 }
 
 export function ProjectAddMembersList({ projectId, onAdded }: ProjectAddMembersListProps) {
-  const { orgId } = useOrg()
+  const { orgId } = useOrgIdentity()
   const queryClient = useQueryClient()
   const [loading,  setLoading]  = useState(true)
   const [eligible, setEligible] = useState<OrgMember[]>([])

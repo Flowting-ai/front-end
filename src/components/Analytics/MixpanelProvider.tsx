@@ -19,6 +19,7 @@ import {
   resetAnalytics,
 } from "@/lib/analytics/mixpanel";
 import { trackScreenView } from "@/lib/analytics/events";
+import { WebVitalsReporter } from "@/components/Analytics/WebVitalsReporter";
 import { routeToScreenView } from "@/lib/analytics/screens";
 import { STAMP } from "@/lib/analytics/stamps";
 import { decodeJwtSub } from "@/lib/jwt-utils";
@@ -86,5 +87,11 @@ export function MixpanelProvider({ children }: { children: ReactNode }) {
     else if (isDev) console.debug("[analytics] unmapped route (no screen_viewed):", pathname);
   }, [pathname]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {/* Core Web Vitals → `web_vital` events, sampled (decision D6). */}
+      <WebVitalsReporter />
+      {children}
+    </>
+  );
 }

@@ -1,6 +1,6 @@
 # Organizations: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except the three-context split (2.2) and the backend items (2.4 multi-org, 2.5 paging).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except the backend items (2.4 multi-org, 2.5 paging); the three-context split (2.2) done Oct 14. Phase 3 items 1, 3, 4 done (Oct 14); 2 and 5 open.** Phase 4 open.
 >
 > Done (Phase 1):
 > 1. `components/RequireAdmin.tsx` replaces the copied guard in `settings/(shell)/(org)/layout.tsx` and `souvenir-slack/layout.tsx`. It shows a skeleton while the role resolves and an "Only workspace admins can see this page" state with a link back to chat, instead of rendering `null` and redirecting. The decision is `adminGate()` in `lib/org/role.ts`.
@@ -13,11 +13,17 @@
 >
 > Phase 2 (Oct 14 2026):
 > 1. `lib/org/org-queries.ts`: `orgMembershipQuery` (GET /organizations, still seeded from the cached org id), `orgInfoQuery` (name + my role), `orgPlanQuery`, `orgMembersQuery` (falls back to the plan's bundled members) and `orgAuditQuery` (activity page). `OrgProvider` keeps its API but holds no fetched state: the `planRefreshToken` counter, the hand-rolled one-retry timer and the out-of-order guard are gone (the query policy retries transient failures once; keys make stale responses impossible). `refreshMembers()` is now an invalidation of plan + members, and `invalidateCredits` also refreshes the org pool. 4 tests.
-> 2. Partly: the context value is memoised and the unused `activeProjectId`/`setActiveProjectId` is deleted. The split into identity / plan / members contexts is not done (35 consumers; worth doing with the Phase 3 component work).
+> 2. `OrgProvider` now provides three contexts: identity (`orgId`, roles, `caps`, ready flags), plan (`org`, `plan`, `orgPlanSettled`) and members (`members`, `membersLoading`, `refreshMembers`), read with `useOrgIdentity()`, `useOrgPlan()` and `useOrgMembers()`. `useOrg()` still returns all three, so no consumer had to change. Ten single-slice consumers moved to a narrow hook: Activity, General and Usage settings, `ChatHomeActions`, `ConnectAppMenu`, `ProjectAddMembersList`, `RequireAdmin` and the Library viewer (identity), plus `ChatInterface` and `MessageQueueRunner` (plan). A credits tick or member refetch no longer re-renders them. Consumers in other audits' areas (agents, connectors, billing, notifications, analytics) still use `useOrg()` and can move when those files are next touched.
 > 3. `org` is `WorkspaceOrg | null` until the org record or plan loads (no `DEFAULT_ORG` name/plan); the 14 call sites now use `org?.`. `OrgStamps` waits for a real org before stamping the tier.
 > 4. `caps` is keyed by the backend user id (Auth0 sub) instead of the email. Multi-org selection still waits on backend gap (a).
 >
-> Open: Phases 3–4 (component splits and forms), the provider split, `AppLayout`'s `isAdminPage` `/org` check. `AppLayout`'s `isAdminPage` still checks the `/org` prefix; it is harmless now and can go with the layout work.
+> Phase 3 (Oct 14 2026):
+> 1. `members/page.tsx` (1,282 lines) is a 340-line page over `members/_components`: `RoleControls` (remove button, role dropdown, confirm), `MembersTable`, `RoleModals`, `MembersSkeleton`, `members-shared`. `general/page.tsx` (1,273) is a 67-line page over `general/_components`: `use-workspace-identity` (name, slug, logo, nav guard), `use-org-settings` (instructions, domains, defaults), `WorkspaceIdentityCard`, `OrgInstructionsCard`, `HiddenSettingsCards` (domains and defaults, still switched off), `OrgDangerZoneCard` (still hidden), `GeneralParts`, `GeneralSkeleton`. No file over 340 lines. `InviteModal` (574, shared component) is not split.
+> 3. The roles and invite dialogs load the first time they open (`next/dynamic`) and stay mounted for their exit animation. `loading.tsx` for General and Members, with the pages' own skeletons. **Fixed:** the Roles & Permissions and Role comparison dialogs were `aria-modal` with no focus trap and no Escape; both use `useFocusTrap` now (the outer one pauses while the comparison is open).
+> 4. Member search filters on `useDeferredValue` of the query.
+> Checked in the app (admin test account): General shows identity and instructions, Edit enables Save, Cancel restores; Members shows the table, the roles dialog opens lazily and closes on Escape, the invite dialog opens; no console errors.
+> Phase 3 open: 2 (`useZodForm` for the identity form; the instructions box is a single capped textarea), 5 (read-only views for non-admins). Two lint errors moved with the code (setState in the loading effects of `use-workspace-identity` and `use-org-settings`); they go away when that data moves to React Query.
+> Open: Phase 4, `AppLayout`'s `isAdminPage` `/org` check. `AppLayout`'s `isAdminPage` still checks the `/org` prefix; it is harmless now and can go with the layout work.
 >
 > Backend gaps: (a) confirm whether a user can belong to several orgs (`listOrganizations()[0]` is still used); (b) cursor paging and search for members and the audit log.
 

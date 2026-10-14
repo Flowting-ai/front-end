@@ -30,6 +30,7 @@ import {
 } from './connector-schemas'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { ConnectTimeoutError } from '@/lib/connectors/connect-errors'
+import { customApiSchema } from '@/lib/connectors/custom-api-schema'
 import { getQueryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 
@@ -453,7 +454,8 @@ export interface CustomApiRequest {
 export async function createCustomApi(body: CustomApiRequest): Promise<ConnectorCatalog> {
   const raw = await apiFetchJson<unknown>(CONNECTOR_CUSTOM_ENDPOINT, {
     method: 'POST',
-    body:   JSON.stringify(body),
+    // Same schema the form uses (lib/connectors/custom-api-schema.ts).
+    body:   JSON.stringify(customApiSchema.parse(body)),
   })
   bustConnectorCatalogCache()
   return remember(ConnectorCatalog.parse(raw))

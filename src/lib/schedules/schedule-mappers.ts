@@ -1,4 +1,4 @@
-import type { ScheduleDetailItem, ScheduleListItem, ScheduleRunRecord } from '@/templates/Schedules'
+import type { ScheduleDetailItem, ScheduleListItem, ScheduleRunRecord } from '@/components/Schedules'
 import {
   runSummary,
   type Automation,

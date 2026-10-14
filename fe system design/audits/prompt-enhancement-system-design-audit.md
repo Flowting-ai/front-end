@@ -1,6 +1,6 @@
 # Prompt Enhancement: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 item 3 done, items 1, 2, 4, 5 wait for approval (they come with splitting the 937-line `EnhancePromptField`).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done (items 1, 2, 4, 5 approved and done Oct 14).** Phases 3–4 open.
 >
 > Done (Phase 1):
 > 1. The local-path "scanning" delay is now a 300 ms transition (it was 1.8 s).
@@ -13,9 +13,12 @@
 >
 > Phase 2 (Oct 14 2026):
 > - 3: `lib/enhance/enhance-request.ts`: `ENHANCE_LIMITS` (10 answers, 500-char question, 1,000-char answer, 300-char "Other" text), a Zod `enhanceAnswersSchema` that `enhancePrompt()` validates before sending, `buildAnswerPayload()` (answered questions only, trimmed to the limits; replaces the inline mapping) and `clampCustomText()` (typing and committing "Other"). One question type was already in place: `fromBackendQuestions` maps the backend shape onto the local `Question`. 3 tests.
-> - 1 (`useEnhanceFlow` reducer, one view per state, file under ~300 lines), 2 (`useMutation` for first pass and refine), 4 (undo for the applied draft) and 5 (lazy open-state views) all restructure the 937-line `EnhancePromptField`; held for approval per the "ask before large splits" rule.
+> - 1: the state machine is a pure reducer, `lib/enhance/enhance-flow.ts` (one state: phase, mode, source, questions, answers, draft, waiting/slow; 8 tests). `EnhancePromptField/use-enhance-flow.ts` owns the side effects (requests, abort, slow and give-up timers, local fallback, outcome analytics). `index.tsx` is now the 259-line shell (from 936); the views are in `EnhancePanel.tsx`. Props are unchanged, so the agent editor callers are untouched.
+> - 2: decided against `useMutation` (decision D10): the field is reused where there is no `QueryClientProvider` (agent editor tests), and the reducer already models loading, failure and cancel. Both calls are plain promises in the hook, with the request-id guard and abort signal as before.
+> - 4: Apply shows a "Prompt enhanced" toast with **Undo**, which restores the previous prompt.
+> - 5: `EnhancePanel` (Q&A, diff, markdown preview) is `next/dynamic` and loads on first open, with the scanning view as its placeholder. The component test waits for the dynamic import; all 12 behaviour tests pass unchanged.
 >
-> Open: items 1, 2, 4, 5; focus management when the state changes (Esc is done; focus does not move into the panel yet); Phase 3 (streaming, per-hunk diff).
+> Open: focus management when the state changes (Esc is done; focus does not move into the panel yet); Phase 3 (streaming, per-hunk diff).
 >
 > Backend gap (Phase 2): `EnhancePromptRequest` has no length limits on `prompt` or `answers`; the client caps answers, the server should too.
 > Backend gaps: (a) streaming the draft (SSE) for Phase 3; (b) it is unconfirmed whether `/persona/enhance-prompt` returns 402 when credits run out. The client handles 402 and an "insufficient credits" message.

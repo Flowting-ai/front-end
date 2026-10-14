@@ -17,6 +17,7 @@ import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
 import { LazyLibraryUploadHost } from "@/components/Library/upload/LazyLibraryUploadHost";
+import { SessionTimeoutGuard } from "@/components/auth/SessionTimeoutGuard";
 import { NotificationsProvider } from "@/context/notifications-context";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
@@ -39,6 +40,8 @@ export default async function AppGroupLayout({
       <OrgStamps />
       {/* Library uploads: lifecycle only, renders nothing; loads only when the feature is on. */}
       <LazyLibraryUploadHost />
+      {/* Idle/absolute session limits; renders nothing unless configured (decision D2). */}
+      <SessionTimeoutGuard />
       <NotificationsProvider>
       <ProjectsProvider>
           <PinboardProvider>

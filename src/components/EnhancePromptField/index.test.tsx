@@ -47,7 +47,8 @@ afterEach(async () => {
 const render = (value: string) => act(async () => { root.render(<EnhancePromptField value={value} onChange={onChange} />) })
 const button = (re: RegExp) => [...document.querySelectorAll('button')].find(b => re.test(b.getAttribute('aria-label') || b.textContent || ''))
 const click = async (el: Element | undefined) => { expect(el).toBeTruthy(); await act(async () => { (el as HTMLElement).click() }) }
-const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
+// The open panel is lazy-loaded, so a flush also waits for that import.
+const flush = () => act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); await Promise.resolve() })
 const text = () => document.body.textContent ?? ''
 
 describe('EnhancePromptField (backend flow)', () => {

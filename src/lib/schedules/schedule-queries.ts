@@ -1,5 +1,5 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import type { ScheduleDetailItem, ScheduleListItem } from '@/templates/Schedules'
+import type { ScheduleDetailItem, ScheduleListItem } from '@/components/Schedules'
 import {
   getAutomation,
   listAutomations,

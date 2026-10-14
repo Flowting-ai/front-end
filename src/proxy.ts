@@ -8,6 +8,7 @@ import {
 } from "@/lib/onboarding-gate";
 import {
   exemptFromOnboardingRedirect,
+  isCrossSiteMutation,
   onboardingOpenWhenOnboarded,
   routePolicy,
 } from "@/lib/auth/route-policy";
@@ -49,6 +50,14 @@ export default async function proxy(request: NextRequest) {
     // Route handlers never see the onboarding gate, but every one needs a
     // session. A JSON 401, not a login redirect, because the callers are fetches.
     case "api": {
+      // APP_BASE_URL may differ from the request host behind a proxy or preview alias.
+      const allowed = process.env.APP_BASE_URL ? [new URL(process.env.APP_BASE_URL).origin] : [];
+      if (isCrossSiteMutation(request.method, request.headers.get("origin"), request.url, allowed)) {
+        return NextResponse.json(
+          { error: { code: "forbidden", message: "Cross-site request refused" } },
+          { status: 403 },
+        );
+      }
       const response = await auth0.middleware(request);
       if (!(await auth0.getSession(request))) {
         return NextResponse.json(
@@ -60,7 +69,7 @@ export default async function proxy(request: NextRequest) {
     }
 
     // The pre-login invite landing IS the "sign in vs sign up" screen for a
-    // logged-out invitee, so it runs before any session check.
+    // logged-out invitee, so it runs before any session check; /api/health too.
     case "public":
       return NextResponse.next();
 

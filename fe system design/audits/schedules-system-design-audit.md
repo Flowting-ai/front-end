@@ -1,6 +1,6 @@
 # Schedules Feature: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except removing the link store (backend gap b).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phases 1–4 done**, except the link store (backend gap b), run paging (gap c) and the manual screen-reader pass.
 >
 > Done (Phase 1):
 > 1. Zod schemas for every automation response in `lib/api/automation-schemas.ts` (mirrors `services/automations/schemas.py`). `lib/api/automations.ts` parses every response; the list endpoints use `parseList`, which drops malformed rows (its warning prefix is now `[api]`). `schedule_json` is typed (`description`, `drift`, `kind`, `cron`, `timezone`; other keys pass through). Ids are URL-encoded in paths. The regex parsing of the description string in `ScheduleEditModal` stays until the backend returns structured hour/minute/day fields (see Backend gaps).
@@ -22,6 +22,15 @@
 > 5. The Phase 1 deferred tests now exist: `schedule-queries.test.ts` covers toggle success and revert, delete cleanup, polling and the detail fallback rules (8 tests).
 >
 > Phase 2 open: remove `scheduleLinks` map once list rows carry `chat_id`.
+> Phases 3–4 (Oct 14 2026):
+> - 3.1: `app/(app)/schedules/use-schedules.ts` holds the queries, actions, toasts and prompts; `SchedulesScreen` is layout and modal state (338 → ~120 lines, Tailwind instead of inline styles).
+> - 3.2: the edit modal runs on `useZodForm` (new `hooks/use-zod-form.ts` + `lib/forms/zod-form.ts`, an in-house stand-in for react-hook-form, decision D9) with `scheduleFormSchema` (name required ≤ 255, instructions ≤ 4,000, valid HH:MM) and inline field errors. The pure parts moved to `lib/schedules/schedule-form.ts`; the day and timezone pickers to `SchedulePickers.tsx` (599 → 215 lines). Fixed: `schedule_created` also fired on edits; edits now send `schedule_edit_started`.
+> - 3.3: `src/templates/Schedules` → `src/components/Schedules` (`git mv`).
+> - 3.4: `canSchedule(action, schedule)` in `lib/schedules/schedule-permissions.ts`, used by the detail view and the edit entry point.
+> - 4.1: `schedule_paused`, `schedule_resumed`, `schedule_run_now`, `schedule_deleted`, `schedule_copied` (typed, in the Mixpanel doc) and one `schedule_action_failed` log line per failure (action + status).
+> - 4.3: next-run display tested across both 2026 DST changes in America/New_York; vitals via the shared reporter (D6). 13 new tests.
+> - 4.2 run paging needs backend gap (c); 4.4 manual screen-reader pass still to do.
+>
 > Backend gaps: (a) `schedule_json` should carry structured `hour`/`minute`/`day` fields, so the edit modal can stop regex-parsing the description. (b) `GET /automations` rows should include `chat_id`, so the localStorage link store can be removed (Phase 2.3). (c) Run history needs paging params on `GET /automations/{id}`.
 
 Scope: `app/(app)/schedules` (`page.tsx`, `[id]/page.tsx`, `SchedulesScreen.tsx` 589 lines, `ScheduleSkeletons.tsx`), `src/templates/Schedules/*` (list, card, detail, edit modal 595 lines, delete modal, loop history), `lib/api/automations.ts`, `lib/scheduleLinks.ts`. About 2,900 lines. Backend calls this "automations".

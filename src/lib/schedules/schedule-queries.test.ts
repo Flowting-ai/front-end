@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
-import type { ScheduleDetailItem, ScheduleListItem } from '@/templates/Schedules'
+import type { ScheduleDetailItem, ScheduleListItem } from '@/components/Schedules'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-keys'
 import {

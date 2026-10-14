@@ -70,7 +70,13 @@ interface ProjectsContextValue {
   refreshProjects:  () => Promise<void>
 }
 
-const ProjectsContext = createContext<ProjectsContextValue | null>(null)
+/** The lists and lookups. Changes whenever a project or chat changes. */
+export type ProjectsData = Pick<ProjectsContextValue, 'projects' | 'chats' | 'loading' | 'getProject' | 'getChats'>
+/** The writes and loads. Stable for the signed-in user, so action-only consumers do not re-render on data changes. */
+export type ProjectActions = Omit<ProjectsContextValue, keyof ProjectsData>
+
+const ProjectsDataContext = createContext<ProjectsData | null>(null)
+const ProjectActionsContext = createContext<ProjectActions | null>(null)
 
 const EMPTY_PROJECTS: Project[] = []
 const EMPTY_CHATS: ProjectChat[] = []
@@ -335,10 +341,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const getChats = useCallback((projectId: string) => chats.filter(c => c.projectId === projectId), [chats])
 
-  const value = useMemo<ProjectsContextValue>(() => ({
-    projects,
-    chats,
-    loading,
+  const data = useMemo<ProjectsData>(
+    () => ({ projects, chats, loading, getProject, getChats }),
+    [projects, chats, loading, getProject, getChats],
+  )
+  const actions = useMemo<ProjectActions>(() => ({
     createProject,
     updateProject,
     deleteProject,
@@ -349,21 +356,37 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     removeChat,
     renameChat,
     loadProjectChats,
-    getProject,
-    getChats,
     refreshProjects,
   }), [
-    projects, chats, loading,
     createProject, updateProject, deleteProject, loadProject,
     uploadFiles, removeFile, addChat, removeChat, renameChat,
-    loadProjectChats, getProject, getChats, refreshProjects,
+    loadProjectChats, refreshProjects,
   ])
 
-  return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>
+  return (
+    <ProjectActionsContext.Provider value={actions}>
+      <ProjectsDataContext.Provider value={data}>{children}</ProjectsDataContext.Provider>
+    </ProjectActionsContext.Provider>
+  )
 }
 
-export function useProjects(): ProjectsContextValue {
-  const ctx = use(ProjectsContext)
-  if (!ctx) throw new Error('useProjects must be used inside <ProjectsProvider>')
+/** The project lists and lookups only. */
+export function useProjectsData(): ProjectsData {
+  const ctx = use(ProjectsDataContext)
+  if (!ctx) throw new Error('useProjectsData must be used inside <ProjectsProvider>')
   return ctx
+}
+
+/** The project writes and loads only; does not re-render when project data changes. */
+export function useProjectActions(): ProjectActions {
+  const ctx = use(ProjectActionsContext)
+  if (!ctx) throw new Error('useProjectActions must be used inside <ProjectsProvider>')
+  return ctx
+}
+
+/** Data and actions together; re-renders on any project change. Prefer the two hooks above. */
+export function useProjects(): ProjectsContextValue {
+  const data = useProjectsData()
+  const actions = useProjectActions()
+  return useMemo(() => ({ ...data, ...actions }), [data, actions])
 }

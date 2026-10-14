@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMounted } from '@/hooks/use-mounted'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
@@ -36,6 +37,12 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const mounted = useMounted()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+  // Focus moves in (to Cancel, the first control), Tab stays inside, and it
+  // returns to the opener on close. Escape is handled below.
+  useFocusTrap(dialogRef, mounted)
 
   // Escape closes like any other dismissible overlay in the app — added when
   // this component absorbed CancelCreationModal (agents wizard), which had
@@ -77,6 +84,12 @@ export function ConfirmModal({
     >
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        tabIndex={-1}
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
@@ -84,10 +97,10 @@ export function ConfirmModal({
         }}
       >
         <div>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+          <p id={titleId} style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
             {title}
           </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+          <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
             {description}
           </p>
         </div>

@@ -34,7 +34,7 @@ export function OrgStamps() {
     if (!orgId || !orgPlanSettled || !org) return;
     const tier: OrgTier = org.plan;
     registerStamps({ [STAMP.orgTier]: tier });
-  }, [orgId, orgPlanSettled, org?.plan]);
+  }, [orgId, orgPlanSettled, org]);
 
   return null;
 }

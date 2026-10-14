@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { ArrowDownOneIcon, FolderOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { useProjects } from '@/context/projects-context'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { EditProjectModal } from '@/components/Projects/lazy-modals'
 import { PROJECT_VISIBILITY_OPTIONS } from '@/lib/api/projects'
 import { ConnectAppMenu } from './ConnectAppMenu'
@@ -18,7 +18,7 @@ export function ChatHomeActions({
   onProjectChange: (id: string | null) => void
 }) {
   const { projects, loading, createProject } = useProjects()
-  const { orgId } = useOrg()
+  const { orgId } = useOrgIdentity()
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const selected = projects.find(project => project.id === projectId)

@@ -1,6 +1,12 @@
 # Projects Feature: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except item 6 (moves with Chat) and item 4 (backend).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done except item 6 (moves with Chat) and item 4 (backend). Phase 3 items 1, 3, 4 done (Oct 14); item 2 open.** Phase 4 open.
+>
+> Phase 3 (Oct 14 2026):
+> 1. `project/[id]/page.tsx` (1,123 lines) is now an 11-line route that renders `components/Projects/project-page/ProjectScreen` keyed by project id; the remount replaces the hand-written 13-state reset on project switch. Hooks: `use-project-team-chats` (team chat list, optimistic publish), `use-project-composer` (draft, chips, agent, send) and `use-project-panels` (one open panel as an enum instead of three booleans, the shared-slot content). Sections: `ProjectHeader`, `ProjectComposer`, `ProjectChatList`, and `ProjectSections` (frame, skeleton, tools menu, modals; dialogs are one `dialog` state). No file is over 152 lines. Checked in the running app on a Personal project (title, composer, Instructions & Files open by default, Agents panel swap, options menu, no console errors); the Workspace/Shared view (tabs, Members) was not exercised, since the test account has no team project.
+> 3. The create/edit form uses `useZodForm` (decision D9) with `lib/projects/project-form.ts` (`projectFormSchema`, `addTag`; 4 tests). The parsed values are what `onSave` sends. The name shows "Enter a name" inline and Save disables while it is invalid (checked in the app).
+> 4. `ProjectsProvider` now provides data (`projects`, `chats`, `loading`, lookups) and actions (stable writes and loads) as two contexts: `useProjectsData()` and `useProjectActions()`; `useProjects()` still returns both. The new-project page and the panels hook use actions only.
+> Phase 3 open: 2 (one chat-page controller for `/chat` and project chat; both pages are large and the dev backend's chat stream was unreliable for live checks).
 >
 > Done (Phase 1):
 > 1. Route files: `projects/loading.tsx`, `project/[id]/loading.tsx`, `project/[id]/not-found.tsx` (shared views in `components/Projects/ProjectRouteStates.tsx`; the detail page's bare "Project not found." text now uses the same view, with a link back). `(app)/error.tsx` already covers errors. The instructions, files and member panels are each wrapped in `BlockErrorBoundary`.

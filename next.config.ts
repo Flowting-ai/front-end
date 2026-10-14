@@ -181,13 +181,20 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // The driven browser plays as a MediaSource, which is a blob: URL.
               `media-src 'self' blob:${libraryStorageOrigin ? ` ${libraryStorageOrigin}` : ""}`,
-              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.googletagmanager.com`,
+              // 'unsafe-inline' covers Next's inline bootstrap and the theme init script;
+              // nonces would remove it (decision D3). No third-party script origins:
+              // Google Tag Manager was allowed but never loaded, so it is gone.
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               `connect-src ${connectSrcParts.join(" ")}`,
               "font-src 'self'",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
+              // No plugins, no <base> hijacking, forms only post to us or Auth0.
+              "object-src 'none'",
+              "base-uri 'self'",
+              `form-action 'self'${auth0Domain ? ` ${auth0Domain}` : " https://*.us.auth0.com"}`,
             ].join("; "),
           },
         ],

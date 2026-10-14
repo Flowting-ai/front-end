@@ -60,6 +60,18 @@ export const MODEL_EFFORT_KEY = "souvenir_reasoning_effort";
 // Settings → Account default model, until the backend stores one (gap).
 export const SETTINGS_DEFAULT_MODEL_KEY = "souvenir:settings:default-model";
 
+// ── Session limits (lib/auth/session-policy.ts; off unless configured) ────────
+export const SESSION_LAST_ACTIVITY_KEY = "souvenir:session:last-activity";
+export const SESSION_SIGNED_IN_AT_KEY = "souvenir:session:signed-in-at";
+
+/** Forget session timing on logout so the next sign-in starts fresh. */
+export function clearSessionTiming(): void {
+  try {
+    localStorage.removeItem(SESSION_LAST_ACTIVITY_KEY);
+    localStorage.removeItem(SESSION_SIGNED_IN_AT_KEY);
+  } catch { /* storage unavailable */ }
+}
+
 // ── Global search ────────────────────────────────────────────────────────────
 // The last few results opened from Cmd/Ctrl+K, shown before typing.
 export const SEARCH_RECENT_OPENED_KEY = "souvenir:search-recent-opened:v1";
@@ -113,3 +125,6 @@ export function clearPersonaRepoStorage(repoId: string): void {
     } catch { /* storage unavailable */ }
   }
 }
+
+/** "1" when this viewer last saw the admin-only Slack row, so the sidebar skeleton has the same number of rows. Layout hint only. */
+export const SIDEBAR_SLACK_ROW_HINT_KEY = "souvenir:sidebar:slack-row";

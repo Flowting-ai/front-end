@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
-import { useProjects, TAG_COLORS, type ProjectTag } from '@/context/projects-context'
+import { useProjectActions, TAG_COLORS, type ProjectTag } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button, IconButton } from '@/components/ui/button'
@@ -21,7 +21,7 @@ const MAX_TAGS = 5
 
 function NewProjectPageInner() {
   const { push }                     = useRouter()
-  const { createProject } = useProjects()
+  const { createProject } = useProjectActions()
   const { orgId, orgReady }          = useOrg()
   const [name,        setName]       = useState('')
   const [description, setDescription] = useState('')

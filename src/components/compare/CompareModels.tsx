@@ -1,18 +1,18 @@
 "use client";
 import { Tooltip } from '@/components/Tooltip'
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, type JSX } from "react";
-import Image from "next/image";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/springs";
 import { toConnector } from "@/lib/connector";
 import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
-import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { ThemedLlmIcon } from "@/components/ThemedLlmIcon";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button, IconButton } from "@/components/ui/button";
 import { friendlyModelError } from "@/lib/model-error";
-import { NETWORK_ERROR_MESSAGE, extractCredits, httpErrorMessage, omitKey, resolveModelId } from "@/lib/compare/run-events";
+import { NETWORK_ERROR_MESSAGE, extractCredits, httpErrorMessage, resolveModelId } from "@/lib/compare/run-events";
+import { useCompareRunStore, useModelRun, type CompareReasoning } from "@/lib/compare/compare-run-store";
 import { filterCompareModels } from "@/lib/compare/filter-models";
 import { formatContextWindow } from "@/lib/models/catalog";
 import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary";
@@ -24,7 +24,9 @@ import { modelsQuery } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
-import { AguiSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
+import { ContentRenderer } from "@/lib/content-renderer";
+import type { DecodedSSEEvent } from "@/lib/sse-decoder";
+import { readAguiStream } from "@/lib/agui-stream";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { PINS_ENABLED } from "@/lib/feature-flags";
 import { trackBrowserEvent } from "@/lib/analytics/events";
@@ -32,14 +34,11 @@ import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/types/chat";
 import { parsePermissionPrompt } from "@/lib/api/prompts";
-import katex from "katex";
-import "katex/dist/katex.min.css";
-import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { BreathingDot } from "@/components/BreathingDot";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
-import { createReasoningAccumulator, type ReasoningSection } from "@/lib/reasoning";
+import { createReasoningAccumulator } from "@/lib/reasoning";
 
 // â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -215,356 +214,6 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
   };
 };
 
-// â”€â”€ Markdown rendering helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
-
-const headingClassByLevel: Record<number, string> = {
-  1: "text-2xl", 2: "text-xl", 3: "text-lg",
-  4: "text-base", 5: "text-sm", 6: "text-xs",
-};
-
-const isTableDivider = (line: string) =>
-  /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line.trim());
-
-const isTableRow = (line: string) => {
-  const t = line.trim();
-  return t.startsWith("|") && t.includes("|", 1);
-};
-
-const parseTableRow = (line: string) =>
-  line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
-
-const getHostname = (url: string): string => {
-  try { return new URL(url).hostname; } catch { return ""; }
-};
-
-const renderLatexInlineContent = (text: string, keyPrefix: string) => {
-  const nodes: Array<string | JSX.Element> = [];
-  const latexRegex = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let latexCount = 0;
-
-  while ((match = latexRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(...renderBoldInlineContent(text.slice(lastIndex, match.index), `${keyPrefix}-pre-${latexCount}`));
-    }
-    const blockContent  = match[1] ?? match[2];
-    const inlineContent = match[3] ?? match[4];
-    const isBlock       = Boolean(blockContent);
-    const latexContent  = (isBlock ? blockContent : inlineContent) ?? "";
-    try {
-      const html = katex.renderToString(latexContent, { throwOnError: false, displayMode: isBlock });
-      nodes.push(
-        <span key={`${keyPrefix}-latex-${latexCount++}`}
-          className={isBlock ? "block my-2" : "inline-block mx-0.5"}
-          dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
-        />,
-      );
-    } catch {
-      nodes.push(
-        <code key={`${keyPrefix}-latex-err-${latexCount++}`} className="bg-red-100 text-red-800 px-1 rounded">
-          {match[0]}
-        </code>,
-      );
-    }
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) nodes.push(...renderBoldInlineContent(text.slice(lastIndex), `${keyPrefix}-post`));
-  if (nodes.length === 0) nodes.push(...renderBoldInlineContent(text, `${keyPrefix}-all`));
-  return nodes;
-};
-
-const renderBoldInlineContent = (text: string, keyPrefix: string) => {
-  const markdownRegex = /(\*\*\*|___)([\s\S]+?)\1|(\*\*|__)([\s\S]+?)\3|\*([^*\n]+?)\*|`([^`\n]+)`/g;
-  const nodes: Array<string | JSX.Element> = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let count = 0;
-
-  while ((match = markdownRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-    if      (match[2] !== undefined) nodes.push(<strong key={`${keyPrefix}-bi-${count++}`} className="font-semibold text-[var(--neutral-900)]"><em>{match[2]}</em></strong>);
-    else if (match[4] !== undefined) nodes.push(<strong key={`${keyPrefix}-bold-${count++}`} className="font-semibold text-[var(--neutral-900)]">{match[4]}</strong>);
-    else if (match[5] !== undefined) nodes.push(<em key={`${keyPrefix}-em-${count++}`}>{match[5]}</em>);
-    else if (match[6] !== undefined) nodes.push(<code key={`${keyPrefix}-code-${count++}`} className="rounded bg-[var(--neutral-100)] px-1 py-0.5 font-mono text-[0.875em] text-[var(--neutral-900)]">{match[6]}</code>);
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
-  if (nodes.length === 0) nodes.push(text);
-  return nodes;
-};
-
-const SimpleLinkPreview = ({ url, label, k }: { url: string; label?: string; k: string }) => {
-  const normalizedUrl = sanitizeURL(url.trim());
-  const hostname      = getHostname(normalizedUrl) || normalizedUrl;
-  const displayLabel  = (label || hostname || normalizedUrl).trim();
-  const faviconSrc    = hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "";
-  return (
-    <a key={k} href={normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`}
-      target="_blank" rel="noopener noreferrer"
-      className="group inline-flex items-center gap-1 rounded-full border border-[var(--neutral-100)] bg-[var(--neutral-white)] px-2 py-0.5 text-xs font-medium text-[var(--neutral-900)] hover:bg-[var(--neutral-100)] transition-all duration-200 max-w-full align-middle"
-    >
-      {faviconSrc && <Image src={faviconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5 shrink-0 rounded-sm" unoptimized />}
-      <span className="truncate max-w-50">{displayLabel}</span>
-      <ExternalLink size={12} className="shrink-0 opacity-60 group-hover:opacity-100" />
-    </a>
-  );
-};
-
-const renderInlineContent = (text: string, keyPrefix: string) => {
-  if (!text) return [text];
-  const nodes: Array<string | JSX.Element> = [];
-  const linkRegex =
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)*_`~\[\]]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)*_`~\[\]]*)?)|(?:\*{1,3}|_{1,2})?((?:mailto:)?[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\*{1,3}|_{1,2})?/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let partIndex = 0;
-
-  while ((match = linkRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      let before    = text.slice(lastIndex, match.index);
-      const afterCh = text[match.index + match[0].length];
-      if (before.endsWith("(") && afterCh === ")") before = before.slice(0, -1);
-      nodes.push(...renderLatexInlineContent(before, `${keyPrefix}-text-${partIndex++}`));
-    }
-    if (match[2]) {
-      nodes.push(<SimpleLinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={match[2]} label={match[1]} />);
-    } else if (match[3]) {
-      const trimmed = match[3].replace(/[).,*_`~\[\]]+$/, "");
-      const trailing = match[3].slice(trimmed.length);
-      nodes.push(<SimpleLinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmed} />);
-      if (trailing) nodes.push(...renderLatexInlineContent(trailing, `${keyPrefix}-trail-${partIndex++}`));
-    } else if (match[4]) {
-      const trimmed  = match[4].replace(/[).,*_`~\[\]]+$/, "");
-      const trailing = match[4].slice(trimmed.length);
-      nodes.push(<SimpleLinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmed} />);
-      if (trailing) nodes.push(...renderLatexInlineContent(trailing, `${keyPrefix}-trail-${partIndex++}`));
-    } else if (match[5]) {
-      const email = match[5].replace(/^mailto:/i, "");
-      nodes.push(
-        <a key={`${keyPrefix}-email-${partIndex++}`} href={`mailto:${email}`}
-          className="group inline-flex items-center gap-1 rounded-full border border-[var(--neutral-100)] bg-[var(--neutral-white)] px-2 py-0.5 text-xs font-medium text-[var(--neutral-900)] hover:bg-[var(--neutral-100)] transition-all duration-200 align-middle"
-        >
-          <Mail className="h-3.5 w-3.5 shrink-0 text-[var(--neutral-500)] group-hover:text-[var(--neutral-700)] transition-colors" aria-hidden />
-          <span className="truncate max-w-50">{email}</span>
-        </a>,
-      );
-    }
-    const afterOffset =
-      text[match.index + match[0].length] === ")" && text[match.index - 1] === "(" ? 1 : 0;
-    lastIndex = match.index + match[0].length + afterOffset;
-  }
-  if (lastIndex < text.length) {
-    nodes.push(...renderLatexInlineContent(text.slice(lastIndex), `${keyPrefix}-text-${partIndex++}`));
-  }
-  if (nodes.length === 0) nodes.push(text);
-  return nodes;
-};
-
-function InlineContent({ text, keyPrefix }: { text: string; keyPrefix: string }) {
-  return <>{renderInlineContent(text, keyPrefix)}</>
-}
-
-const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
-  const nodes: JSX.Element[] = [];
-  const lines = value.replace(/\r/g, "").split("\n");
-  const listBuffer: string[] = [];
-
-  const flushList = () => {
-    if (listBuffer.length === 0) return;
-    const listKey = `${keyPrefix}-list-${nodes.length}`;
-    nodes.push(
-      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[var(--neutral-900)]">
-        {listBuffer.map((item, idx) => (
-          <li key={`${listKey}-item-${idx}`} className="leading-relaxed">
-            <InlineContent text={item} keyPrefix={`${listKey}-item-${idx}`} />
-          </li>
-        ))}
-      </ul>,
-    );
-    listBuffer.length = 0;
-  };
-
-  for (let index = 0; index < lines.length; index++) {
-    const line    = lines[index];
-    const trimmed = line.trim();
-
-    const isBracketMath = trimmed.startsWith("\\[");
-    const isDollarMath  = trimmed === "$$" || trimmed.startsWith("$$");
-
-    if (isBracketMath || isDollarMath) {
-      flushList();
-      let mathContent = "";
-      let closed = false;
-
-      if (isBracketMath) {
-        const afterOpen = trimmed.slice(2).trimStart();
-        if (afterOpen.endsWith("\\]")) {
-          mathContent = afterOpen.slice(0, -2).trimEnd();
-          closed = true;
-        } else {
-          const collected = [afterOpen];
-          for (let j = index + 1; j < lines.length; j++) {
-            const ct = lines[j].trim();
-            if (ct.endsWith("\\]")) { collected.push(ct.slice(0, -2)); index = j; closed = true; break; }
-            collected.push(lines[j]);
-          }
-          mathContent = collected.join("\n").trim();
-        }
-      } else {
-        const afterOpen = trimmed.slice(2).trimStart();
-        if (afterOpen.endsWith("$$")) {
-          mathContent = afterOpen.slice(0, -2).trimEnd();
-          closed = true;
-        } else {
-          const collected = [afterOpen];
-          for (let j = index + 1; j < lines.length; j++) {
-            const ct = lines[j].trim();
-            if (ct.endsWith("$$")) { collected.push(ct.slice(0, -2)); index = j; closed = true; break; }
-            collected.push(lines[j]);
-          }
-          mathContent = collected.join("\n").trim();
-        }
-      }
-
-      if (closed && mathContent) {
-        try {
-          const html = katex.renderToString(mathContent, { throwOnError: false, displayMode: true });
-          // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
-          nodes.push(<div key={`${keyPrefix}-math-${index}`} className="my-2 overflow-x-auto kaya-scrollbar" dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />);
-          continue;
-        } catch { /* fall through */ }
-      }
-    }
-
-    if (!trimmed) {
-      flushList();
-      nodes.push(<span key={`${keyPrefix}-gap-${index}`} className="block h-2" aria-hidden />);
-      continue;
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-    if (headingMatch) {
-      flushList();
-      const level      = Math.min(headingMatch[1].length, 6);
-      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-      nodes.push(
-        <HeadingTag key={`${keyPrefix}-heading-${index}`}
-          className={`font-semibold text-[var(--neutral-900)] tracking-tight ${headingClassByLevel[level]}`}
-        >
-          <InlineContent text={headingMatch[2]} keyPrefix={`${keyPrefix}-heading-${index}`} />
-        </HeadingTag>,
-      );
-      continue;
-    }
-
-    if (isTableRow(line) && isTableDivider(lines[index + 1] ?? "")) {
-      flushList();
-      const headerCells = parseTableRow(line);
-      index += 2;
-      const bodyRows: string[][] = [];
-      while (index < lines.length && isTableRow(lines[index])) { bodyRows.push(parseTableRow(lines[index])); index++; }
-      const tk = `${keyPrefix}-table-${nodes.length}`;
-      nodes.push(
-        <div key={tk} className="overflow-x-auto kaya-scrollbar rounded-lg border border-[var(--neutral-100)] my-2">
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-[var(--neutral-white)] text-[var(--neutral-700)]">
-              <tr>{headerCells.map((cell, ci) => (
-                <th key={`${tk}-header-${ci}`} className="border-b border-[var(--neutral-100)] px-3 py-2 text-left font-semibold text-[var(--neutral-900)]">
-                  <InlineContent text={cell} keyPrefix={`${tk}-header-${ci}`} />
-                </th>
-              ))}</tr>
-            </thead>
-            <tbody>
-              {bodyRows.map((row, ri) => (
-                <tr key={`${tk}-row-${ri}`} className="odd:bg-[var(--neutral-white)] even:bg-[color-mix(in_srgb,var(--neutral-white)_50%,transparent)]">
-                  {row.map((cell, ci) => (
-                    <td key={`${tk}-cell-${ri}-${ci}`} className="border-t border-[var(--neutral-100)] px-3 py-2 align-top text-[var(--neutral-900)]">
-                      <InlineContent text={cell} keyPrefix={`${tk}-cell-${ri}-${ci}`} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      );
-      index -= 1;
-      continue;
-    }
-
-    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
-    if (listMatch) { listBuffer.push(listMatch[1]); continue; }
-
-    flushList();
-    nodes.push(
-      <p key={`${keyPrefix}-paragraph-${index}`} className="whitespace-pre-wrap leading-relaxed text-[var(--neutral-900)]">
-        <InlineContent text={line} keyPrefix={`${keyPrefix}-paragraph-${index}`} />
-      </p>,
-    );
-  }
-
-  flushList();
-  return nodes;
-};
-
-function TextContent({ value, keyPrefix }: { value: string; keyPrefix: string }) {
-  return <>{renderTextContent(value, keyPrefix)}</>
-}
-
-type ContentSegment = { type: "text"; value: string } | { type: "code"; value: string; language?: string };
-
-const parseContentSegments = (value: string): ContentSegment[] => {
-  if (!value) return [];
-  const segments: ContentSegment[] = [];
-  const codeRegex = /```([\w+-]+)?\s*\n?([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = codeRegex.exec(value)) !== null) {
-    if (match.index > lastIndex) segments.push({ type: "text", value: value.slice(lastIndex, match.index) });
-    segments.push({ type: "code", language: match[1]?.trim(), value: match[2] ?? "" });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < value.length) segments.push({ type: "text", value: value.slice(lastIndex) });
-  return segments;
-};
-
-const FormattedResponse = ({ content, modelId }: { content: string; modelId: string }) => (
-  <div className="w-full space-y-1" style={{ fontFamily: "var(--font-body)" }}>
-    {parseContentSegments(content).map((seg, idx) =>
-      seg.type === "code"
-        ? <CodeBlock key={`${modelId}-code-${idx}`} code={seg.value} language={seg.language} />
-        : <div key={`${modelId}-text-${idx}`} className="text-sm"><TextContent value={seg.value} keyPrefix={`${modelId}-text-${idx}`} /></div>,
-    )}
-  </div>
-);
-
-const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
-  const codeRef    = useRef<HTMLElement>(null);
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (codeRef.current) {
-      import("@/lib/highlight").then((hljs) => { if (codeRef.current) hljs.default.highlightElement(codeRef.current); });
-    }
-  }, [code, language]);
-  return (
-    <div className="relative rounded-lg overflow-hidden my-2 border border-[var(--neutral-100)]">
-      <div className="flex items-center justify-between bg-[var(--neutral-white)] px-3 py-1.5 text-xs">
-        <span className="font-mono text-[var(--neutral-700)]">{language || "code"}</span>
-        <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--neutral-100)] transition-colors text-[var(--neutral-700)]"
-        >
-          {copied ? "Copied!" : "Copy"}
-        </button>
-      </div>
-      <pre className="m-0 p-3 overflow-x-auto kaya-scrollbar bg-[color-mix(in_srgb,var(--neutral-white)_50%,transparent)] text-sm">
-        <code ref={codeRef} className={language ? `language-${language}` : ""}>{code}</code>
-      </pre>
-    </div>
-  );
-};
 
 // â”€â”€ ModelCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -721,7 +370,6 @@ export interface CompareModelsProps {
   onClose?: () => void;
 }
 
-type CompareReasoning = { text: string; sections: ReasoningSection[] };
 
 function ModelReasoning({ reasoning, streaming, hasAnswer }: {
   reasoning?: CompareReasoning;
@@ -764,12 +412,15 @@ function ModelResponseBody({ modelId, modelName, response, reasoning, error, str
     <BlockErrorBoundary label="answer">
       <ModelReasoning reasoning={reasoning} streaming={streaming} hasAnswer={Boolean(response)} />
       {streaming ? (
-        <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
-          {response || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
-        </div>
+        // The same renderer as chat, so markdown, code, tables and math look identical while streaming.
+        <ContentRenderer
+          content={response || ""}
+          isStreaming
+          cursor={<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />}
+        />
       ) : error ? (
         <>
-          {response && <FormattedResponse content={response} modelId={modelId} />}
+          {response && <ContentRenderer content={response} />}
           <div role="alert" style={placeholder}>
             <div style={{ fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Red-text)", textAlign: "center", fontFamily: "var(--font-body)" }}>{error}</div>
             <Button variant="outline" size="sm" onClick={() => onRetry(modelId)} disabled={testing}>Retry</Button>
@@ -781,7 +432,7 @@ function ModelResponseBody({ modelId, modelName, response, reasoning, error, str
           <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
         </div>
       ) : response ? (
-        <FormattedResponse content={response} modelId={modelId} />
+        <ContentRenderer content={response} />
       ) : (
         <div style={placeholder}>
           <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "var(--neutral-100)" }} />
@@ -792,6 +443,46 @@ function ModelResponseBody({ modelId, modelName, response, reasoning, error, str
       )}
     </BlockErrorBoundary>
   );
+}
+
+/**
+ * One model's answer area, connector prompts included. It reads only its own run from the store, so a
+ * token for this model re-renders this view alone. `expanded` is the single-model panel's layout.
+ */
+function ModelRunView({ runKey, modelName, testing, onRetry, expanded = false }: {
+  runKey: string;
+  modelName: string;
+  testing: boolean;
+  onRetry: (modelId: string) => void;
+  expanded?: boolean;
+}) {
+  const run = useModelRun(runKey);
+  const hasContent = Boolean(run.response || run.reasoning);
+  const area: React.CSSProperties = expanded
+    ? { flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }
+    : { flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: hasContent ? "flex-start" : "center", justifyContent: hasContent ? "flex-start" : "center" };
+  return (
+    <>
+      <div className="kaya-scrollbar" aria-live="polite" aria-busy={run.streaming || undefined} style={area}>
+        <ModelResponseBody modelId={runKey} modelName={modelName} response={run.response} reasoning={run.reasoning}
+          error={run.error} streaming={run.streaming} testing={testing} fill={expanded} onRetry={onRetry} />
+      </div>
+      {(run.connectPrompts.length > 0 || run.permissionPrompts.length > 0) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+          {run.connectPrompts.map((p) => <ConnectPromptCard key={p.request_id} prompt={p} />)}
+          {run.permissionPrompts.map((p) => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The credits a model's run cost, once it is done. `bar` wraps it in the column's bottom bar. */
+function RunCredits({ runKey, bar = false }: { runKey: string; bar?: boolean }) {
+  const credits = useCompareRunStore((state) => state.runs[runKey]?.credits);
+  if (credits === undefined) return null;
+  const chip = <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />;
+  return bar ? <div style={{ display: "flex", alignItems: "center", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>{chip}</div> : chip;
 }
 
 export default function CompareModels({ selectedModel, onModelSelect, onClose }: CompareModelsProps = {}) {
@@ -805,12 +496,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const fullModels: AIModel[] = useMemo(() => modelsQ.data ?? [], [modelsQ.data]);
   const models: CompareModel[] = useMemo(() => fullModels.map(transformModelForCompare), [fullModels]);
   const isLoading = modelsQ.isPending;
-  const [testResponses,        setTestResponses]         = useState<Record<string, string>>({});
   const [lastPrompt,           setLastPrompt]            = useState("");
-  const [testErrors,           setTestErrors]            = useState<Record<string, string>>({});
-  const [testReasoning,        setTestReasoning]         = useState<Record<string, CompareReasoning>>({});
   const [isTesting,            setIsTesting]             = useState(false);
-  const [streamingModels,      setStreamingModels]       = useState<Set<string>>(new Set());
   const [promptInputCollapsed, setPromptInputCollapsed]  = useState(false);
   const [activeTab,            setActiveTab]             = useState<string>("all");
   const [searchQuery,          setSearchQuery]           = useState("");
@@ -818,10 +505,15 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [atTop,           setAtTop]           = useState(true);
   const [atBottom,        setAtBottom]        = useState(false);
   const [expandedModelId,  setExpandedModelId]  = useState<string | null>(null);
-  const [testCredits,      setTestCredits]      = useState<Record<string, number>>({});
-  const [testMessageIds,   setTestMessageIds]   = useState<Record<string, string>>({});
-  const [connectPromptsPerModel,    setConnectPromptsPerModel]    = useState<Record<string, import('@/types/chat').ConnectorConnectPrompt[]>>({});
-  const [permissionPromptsPerModel, setPermissionPromptsPerModel] = useState<Record<string, import('@/types/chat').ConnectorPermissionPrompt[]>>({});
+  // Per-model run state lives in the compare run store, so streaming one model re-renders one column.
+  const updateRun = useCompareRunStore((state) => state.update);
+  const resetRun = useCompareRunStore((state) => state.reset);
+  const resetAllRuns = useCompareRunStore((state) => state.resetAll);
+  // A new modal starts clean, and closing it drops the answers.
+  useEffect(() => {
+    resetAllRuns();
+    return resetAllRuns;
+  }, [resetAllRuns]);
   const [filterOpen,      setFilterOpen]      = useState(false);
   const [selectedTiers,   setSelectedTiers]   = useState<Set<string>>(new Set());
   const [pastedImages,    setPastedImages]     = useState<string[]>([]);
@@ -982,18 +674,19 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
   const handleSavePin = useCallback((responseKey: string, modelDisplayName: string) => {
     if (!PINS_ENABLED) return;
-    const content   = testResponses[responseKey] ?? "";
-    const messageId = testMessageIds[responseKey];
+    const run       = useCompareRunStore.getState().runs[responseKey];
+    const content   = run?.response ?? "";
+    const messageId = run?.messageId;
     if (!content || !messageId) return;
     const title = content.split("\n")[0].slice(0, 80) || modelDisplayName;
     addPin({ content, title, category: "Quote", messageId, modelName: modelDisplayName });
     trackBrowserEvent("pin_created", { source: "brain" });
     openPinboard();
-  }, [testResponses, testMessageIds, addPin, openPinboard]);
+  }, [addPin, openPinboard]);
 
   /**
    * Streams `modelIds` in parallel for `trimmedPrompt`. Each model succeeds or
-   * fails on its own (errors land in `testErrors`, never in the answer text),
+   * fails on its own (errors land in the run's `error`, never in the answer text),
    * so one failure doesn't blank the other columns. Also used by per-model retry.
    */
   const runModels = async (modelIds: string[], trimmedPrompt: string) => {
@@ -1006,14 +699,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     const runModelSet = new Set(modelIds);
     modelIds.forEach((id) => { streamingResponses[id] = ""; });
 
-    // Merge rather than replace so a single-model retry keeps the other answers.
-    const publish = () => setTestResponses((prev) => ({ ...prev, ...streamingResponses }));
-    const stopStreaming = (id: string) =>
-      setStreamingModels((prev) => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
-    const failModel = (id: string, message: string) => {
-      setTestErrors((prev) => ({ ...prev, [id]: message }));
-      stopStreaming(id);
-    };
+    // Each write touches one model's entry, so a single-model retry keeps the other answers.
+    const publish = (id: string) => updateRun(id, { response: streamingResponses[id] });
+    const stopStreaming = (id: string) => updateRun(id, (run) => (run.streaming ? { streaming: false } : {}));
+    const failModel = (id: string, message: string) => updateRun(id, { error: message, streaming: false });
 
     const handleEvent = (eventType: string, payload: Record<string, unknown>, fallbackModelId?: string) => {
       const modelIdStr = resolveModelId(payload) ?? fallbackModelId ?? null;
@@ -1023,9 +712,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       // Extract message_id from any event that carries it
       const rawMsgId = payload.message_id ?? payload.messageId ?? null;
       if (typeof rawMsgId === "string" && rawMsgId.trim()) {
-        setTestMessageIds((prev) =>
-          prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
-        );
+        const messageId = rawMsgId.trim();
+        updateRun(modelIdStr, (run) => (run.messageId === messageId ? {} : { messageId }));
       }
 
       switch (eventType) {
@@ -1033,8 +721,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           const chunk = typeof payload.content === "string" ? payload.content : "";
           if (!chunk) return;
           streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
-          setStreamingModels((prev) => (prev.has(modelIdStr) ? prev : new Set(prev).add(modelIdStr)));
-          publish();
+          updateRun(modelIdStr, { response: streamingResponses[modelIdStr], streaming: true });
           break;
         }
         case "reasoning_heading":
@@ -1044,24 +731,21 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           const content = typeof payload.content === "string" ? payload.content : "";
           accumulator.event(eventType, content);
           const snapshot = accumulator.snapshot();
-          setTestReasoning((prev) => ({
-            ...prev,
-            [modelIdStr]: { text: snapshot.text, sections: snapshot.sections },
-          }));
+          updateRun(modelIdStr, { reasoning: { text: snapshot.text, sections: snapshot.sections } });
           break;
         }
         case "image": {
           const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
           if (!imageUrl) return;
           streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
-          publish();
+          publish(modelIdStr);
           break;
         }
         case "done": {
           const final = typeof payload.response === "string" ? payload.response : "";
-          if (final) { streamingResponses[modelIdStr] = final; publish(); }
+          if (final) { streamingResponses[modelIdStr] = final; publish(modelIdStr); }
           const credits = extractCredits(payload);
-          if (credits !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: credits }));
+          if (credits !== null) updateRun(modelIdStr, { credits });
           stopStreaming(modelIdStr);
           break;
         }
@@ -1077,19 +761,13 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
             tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
           };
-          setConnectPromptsPerModel((prev) => ({
-            ...prev,
-            [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-          }));
+          updateRun(modelIdStr, (run) => ({ connectPrompts: [...run.connectPrompts, prompt] }));
           break;
         }
         case "permission_prompt": {
           const prompt = parsePermissionPrompt(payload);
           if (!prompt) break;
-          setPermissionPromptsPerModel((prev) => ({
-            ...prev,
-            [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-          }));
+          updateRun(modelIdStr, (run) => ({ permissionPrompts: [...run.permissionPrompts, prompt] }));
           break;
         }
       }
@@ -1109,7 +787,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     };
 
     const streamOne = async (modelId: string) => {
-      const sseDecoder = new AguiSSEDecoder();
       const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
         method: "POST",
         body: JSON.stringify({
@@ -1124,23 +801,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
       if (!resp.ok) { failModel(modelId, httpErrorMessage(resp.status)); return; }
 
-      const reader = resp.body?.getReader();
-      if (!reader) { failModel(modelId, NETWORK_ERROR_MESSAGE); return; }
-
-      try {
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          for (const event of sseDecoder.push(decoder.decode(value, { stream: true }))) {
-            processDecodedEvent(event, modelId);
-          }
-        }
-        for (const event of sseDecoder.push(decoder.decode())) processDecodedEvent(event, modelId);
-        for (const event of sseDecoder.flush()) processDecodedEvent(event, modelId);
-      } finally {
-        reader.cancel().catch(() => {});
-      }
+      if (!resp.body) { failModel(modelId, NETWORK_ERROR_MESSAGE); return; }
+      await readAguiStream(resp.body, (event) => processDecodedEvent(event, modelId));
     };
 
     try {
@@ -1167,14 +829,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setLastPrompt(trimmedPrompt);
     setPromptInputCollapsed(true);
     setPrompt("");
-    setTestResponses({});
-    setTestErrors({});
-    setTestReasoning({});
-    setTestCredits({});
-    setTestMessageIds({});
-    setStreamingModels(new Set());
-    setConnectPromptsPerModel({});
-    setPermissionPromptsPerModel({});
+    resetAllRuns();
     // Revoke object URLs for pasted images to avoid memory leaks
     setPastedImages((prev) => { prev.forEach((url) => URL.revokeObjectURL(url)); return []; });
 
@@ -1182,7 +837,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     const invalidIds = modelIds.filter((id) => !isValidUUID(id));
     if (modelIds.length === 0 || invalidIds.length > 0) {
       const message = `Invalid model ID selected (${invalidIds.join(", ") || "none"}).`;
-      setTestErrors(Object.fromEntries(selectedModels.map((id) => [id, message])));
+      selectedModels.forEach((id) => updateRun(id, { error: message }));
       return;
     }
 
@@ -1192,13 +847,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   /** Re-runs one model with the last prompt, keeping the other columns as they are. */
   const handleRetryModel = (modelId: string) => {
     if (isTesting || !lastPrompt) return;
-    setTestErrors((prev) => omitKey(prev, modelId));
-    setTestResponses((prev) => omitKey(prev, modelId));
-    setTestReasoning((prev) => omitKey(prev, modelId));
-    setTestCredits((prev) => omitKey(prev, modelId));
-    setTestMessageIds((prev) => omitKey(prev, modelId));
-    setConnectPromptsPerModel((prev) => omitKey(prev, modelId));
-    setPermissionPromptsPerModel((prev) => omitKey(prev, modelId));
+    resetRun(modelId);
     void runModels([modelId], lastPrompt);
   };
 
@@ -1330,10 +979,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 <AnimatePresence mode="wait" initial={false}>
                 {expandedModel && (() => {
                   const responseKey      = expandedModel.requestModelId ?? expandedModel.id;
-                  const modelResponse    = testResponses[responseKey];
-                  const modelReasoning   = testReasoning[responseKey];
-                  const isModelStreaming = streamingModels.has(responseKey);
-                  const credits          = testCredits[responseKey];
                   return (
                     <m.div
                       key={expandedModelId}
@@ -1343,26 +988,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       transition={springs.fast}
                       style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "var(--neutral-white)", borderRadius: 8 }}
                     >
-                      {/* Response area */}
-                      <div className="kaya-scrollbar" aria-live="polite" aria-busy={isModelStreaming || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
-                        <ModelResponseBody modelId={responseKey} modelName={expandedModel.modelName} response={modelResponse} reasoning={modelReasoning}
-                          error={testErrors[responseKey]} streaming={isModelStreaming} testing={isTesting} fill onRetry={handleRetryModel} />
-                      </div>
-                      {/* Connector prompts — shown below the response in expanded view */}
-                      {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-                          {connectPromptsPerModel[responseKey]?.map((p) => (
-                            <ConnectPromptCard key={p.request_id} prompt={p} />
-                          ))}
-                          {permissionPromptsPerModel[responseKey]?.map((p) => (
-                            <PermissionPromptCard key={p.request_id} prompt={p} />
-                          ))}
-                        </div>
-                      )}
+                      <ModelRunView runKey={responseKey} modelName={expandedModel.modelName} testing={isTesting} onRetry={handleRetryModel} expanded />
                       {/* Bottom action bar */}
                       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
-                          {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                          <RunCredits runKey={responseKey} />
                         </div>
                         {/* Use this model */}
                         <Button
@@ -1385,11 +1015,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
               <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", gap: 12, padding: 12, borderRadius: 16, backgroundColor: "color-mix(in srgb, var(--static-white) 50%, transparent)", boxShadow: TRAY_BG_SHADOW }}>
                 {modelsToShow.map((model) => {
                   const responseKey      = model.requestModelId ?? model.id;
-                  const modelResponse    = testResponses[responseKey];
-                  const modelReasoning   = testReasoning[responseKey];
-                  const isModelStreaming = streamingModels.has(responseKey);
                   const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
-                  const credits          = testCredits[responseKey];
                   return (
                     <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "var(--neutral-white)", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
                       {/* Column header */}
@@ -1434,28 +1060,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           Use this model
                         </Button>
                       </div>
-                      {/* Response area */}
-                      <div className="kaya-scrollbar" aria-live="polite" aria-busy={isModelStreaming || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse || modelReasoning ? "flex-start" : "center", justifyContent: modelResponse || modelReasoning ? "flex-start" : "center" }}>
-                        <ModelResponseBody modelId={responseKey} modelName={model.modelName} response={modelResponse} reasoning={modelReasoning}
-                          error={testErrors[responseKey]} streaming={isModelStreaming} testing={isTesting} onRetry={handleRetryModel} />
-                      </div>
-                      {/* Connector prompts — shown below the response */}
-                      {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-                          {connectPromptsPerModel[responseKey]?.map((p) => (
-                            <ConnectPromptCard key={p.request_id} prompt={p} />
-                          ))}
-                          {permissionPromptsPerModel[responseKey]?.map((p) => (
-                            <PermissionPromptCard key={p.request_id} prompt={p} />
-                          ))}
-                        </div>
-                      )}
+                      <ModelRunView runKey={responseKey} modelName={model.modelName} testing={isTesting} onRetry={handleRetryModel} />
                       {/* Bottom bar: credits */}
-                      {credits !== undefined && (
-                        <div style={{ display: "flex", alignItems: "center", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
-                          <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />
-                        </div>
-                      )}
+                      <RunCredits runKey={responseKey} bar />
                     </div>
                   );
                 })}

@@ -1,27 +1,28 @@
 'use client'
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react'
 import { m, AnimatePresence } from 'framer-motion'
-import {
-  SearchOneIcon,
-  CancelOneIcon,
-  FolderOneIcon,
-  PinIcon,
-  UserAiIcon,
-  MessagePreviewOneIcon,
-  DashboardSquareOneIcon,
-  BubbleChatIcon,
-} from '@strange-huge/icons'
+import { SearchOneIcon } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
-import { TabItem }    from '@/components/TabItem'
-import { highlightTerms } from '@/lib/highlightMatch'
+import { TabItem } from '@/components/TabItem'
 import { cn } from '@/lib/utils'
 import { resultCountMessage } from '@/lib/search/global-search'
 
-// ── Shadows ───────────────────────────────────────────────────────────────────
-
-const SHADOW_MODAL   = '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_FOCUSED = '0px 0px 0px 1.5px var(--blue-400)'
+import {
+  SHADOW_MODAL,
+  EMPTY_SEARCH_RESULTS,
+  TYPE_LABEL,
+  SectionHeader,
+  ResultRow,
+  CloseModalButton,
+  KbdHint,
+} from './ResultParts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,262 +59,6 @@ export interface GlobalSearchModalProps {
   /** An action shown after the notice, e.g. "Search older chats". */
   noticeAction?: { label: string; onClick: () => void; busy?: boolean }
   className?:    string
-}
-
-// ── Color system — mirrors KDS tag palette (Chip, Badge) ─────────────────────
-// Tokens live in aliases.css under `--color-tag-{Color}-{prop}`.
-
-const EMPTY_SEARCH_RESULTS: SearchResult[] = []
-
-const TYPE_ICON_BG: Record<SearchResultType, string> = {
-  chat:          'var(--color-tag-Blue-bg)',
-  'agent-chat':  'var(--color-tag-Green-bg-soft)',
-  project:       'var(--color-tag-Purple-bg)',
-  persona:       'var(--color-tag-Green-bg-soft)',
-  pin:           'var(--color-tag-Yellow-bg)',
-  page:          'var(--color-tag-Neutral-bg)',
-}
-
-const TYPE_ICON_COLOR: Record<SearchResultType, string> = {
-  chat:          'var(--color-tag-Blue-text)',
-  'agent-chat':  'var(--color-tag-Green-text)',
-  project:       'var(--color-tag-Purple-text)',
-  persona:       'var(--color-tag-Green-text)',
-  pin:           'var(--color-tag-Yellow-text)',
-  page:          'var(--color-tag-Neutral-text)',
-}
-
-// ── Icon map by type ──────────────────────────────────────────────────────────
-
-const TYPE_ICON: Record<SearchResultType, React.ComponentType<{ size: number; color: string }>> = {
-  chat:          MessagePreviewOneIcon,
-  'agent-chat':  BubbleChatIcon,
-  project:       FolderOneIcon,
-  persona:       UserAiIcon,
-  pin:           PinIcon,
-  page:          DashboardSquareOneIcon,
-}
-
-const TYPE_LABEL: Record<SearchResultType, string> = {
-  chat:          'Chats',
-  'agent-chat':  'Agent Chats',
-  project:       'Projects',
-  persona:       'Agents',
-  pin:           'Pins',
-  page:          'Pages',
-}
-
-// ── SectionHeader ─────────────────────────────────────────────────────────────
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <p
-      style={{
-        margin:        '8px 16px 2px',
-        fontFamily:    'var(--font-body)',
-        fontSize:      'var(--font-size-caption)',
-        fontWeight:    600,
-        lineHeight:    'var(--line-height-caption)',
-        color:         'var(--neutral-400)',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-      }}
-    >
-      {label}
-    </p>
-  )
-}
-
-// ── ResultRow ─────────────────────────────────────────────────────────────────
-
-interface ResultRowProps {
-  result:  SearchResult
-  focused: boolean
-  query:   string
-  onClick: () => void
-  onHover: (id: string | null) => void
-}
-
-function ResultRow({ result, focused, query, onClick, onHover }: ResultRowProps) {
-  const [hovered, setHovered] = useState(false)
-  const Icon = TYPE_ICON[result.type]
-
-  return (
-    <button
-      type="button"
-      id={`search-result-${result.id}`}
-      role="option"
-      aria-selected={focused}
-      aria-label={[
-        // "Chat: Onboarding flow redesign, Today"
-        // "Project: Souvenir V2, 18 components"
-        `${TYPE_LABEL[result.type].slice(0, -1)}: ${result.title}`,
-        result.meta      ?? result.subtitle,
-      ].filter(Boolean).join(', ')}
-      onClick={onClick}
-      onMouseEnter={() => { setHovered(true);  onHover(result.id) }}
-      onMouseLeave={() => { setHovered(false); onHover(null) }}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             10,
-        padding:         '8px 8px',
-        margin:          '1px 8px',
-        borderRadius:    10,
-        border:          'none',
-        width:           'calc(100% - 16px)',
-        textAlign:       'left',
-        backgroundColor: focused
-          ? 'var(--neutral-100)'
-          : hovered
-            ? 'var(--neutral-50)'
-            : 'transparent',
-        boxShadow:       focused ? SHADOW_FOCUSED : 'none',
-        cursor:          'pointer',
-        outline:         'none',
-        transition:      'background-color 100ms, box-shadow 100ms',
-        flexShrink:      0,
-      }}
-    >
-      {/* Colour-coded icon container */}
-      <div
-        style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          width:           28,
-          height:          28,
-          borderRadius:    8,
-          backgroundColor: TYPE_ICON_BG[result.type],
-          flexShrink:      0,
-        }}
-      >
-        <Icon size={14} color={TYPE_ICON_COLOR[result.type]} />
-      </div>
-
-      {/* Text */}
-      <div style={{ flex: '1 1 0', minWidth: 0 }}>
-        <p
-          style={{
-            margin:       0,
-            fontFamily:   'var(--font-body)',
-            fontSize:     'var(--font-size-body)',
-            fontWeight:   500,
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--neutral-800)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
-          {highlightTerms(result.title, query)}
-        </p>
-        {result.subtitle && (
-          <p
-            style={{
-              margin:       '2px 0 0',
-              fontFamily:   'var(--font-body)',
-              fontSize:     'var(--font-size-caption)',
-              fontWeight:   400,
-              lineHeight:   'var(--line-height-caption)',
-              color:        'var(--neutral-400)',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}
-          >
-            {highlightTerms(result.subtitle, query)}
-          </p>
-        )}
-      </div>
-
-      {/* Meta (timestamp, count, etc.) */}
-      {result.meta && (
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            fontWeight: 400,
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-400)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          {result.meta}
-        </span>
-      )}
-    </button>
-  )
-}
-
-// ── CloseModalButton ──────────────────────────────────────────────────────────
-
-function CloseModalButton({ onClick }: { onClick: () => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button
-      type="button"
-      aria-label="Close search"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        width:           32,
-        height:          32,
-        borderRadius:    8,
-        border:          'none',
-        backgroundColor: hovered ? 'var(--neutral-100)' : 'transparent',
-        cursor:          'pointer',
-        flexShrink:      0,
-        transition:      'background-color 120ms',
-      }}
-    >
-      <CancelOneIcon size={16} color="var(--neutral-500)" />
-    </button>
-  )
-}
-
-// ── KbdHint ───────────────────────────────────────────────────────────────────
-
-function KbdHint({ keys, label }: { keys: string[]; label: string }) {
-  return (
-    <span
-      style={{
-        display:    'inline-flex',
-        alignItems: 'center',
-        gap:        4,
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-caption)',
-        color:      'var(--neutral-400)',
-      }}
-    >
-      {keys.map(k => (
-        <kbd
-          key={k}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            minWidth:        20,
-            padding:         '1px 5px',
-            borderRadius:    5,
-            backgroundColor: 'var(--neutral-100)',
-            boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
-            fontFamily:      'var(--font-code)',
-            fontSize: 12,
-            color:           'var(--neutral-600)',
-          }}
-        >
-          {k}
-        </kbd>
-      ))}
-      <span>{label}</span>
-    </span>
-  )
 }
 
 // ── GlobalSearchModal ─────────────────────────────────────────────────────────
@@ -360,8 +105,9 @@ export function GlobalSearchModal({
       setFocusedId(null)
       return
     }
-    const id = setTimeout(() => inputRef.current?.focus(), 50)
-    return () => clearTimeout(id)
+    // Next frame: the input exists once the dialog has rendered.
+    const id = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
   }, [open])
 
   // Focus trap — keep Tab / Shift+Tab cycling inside the modal card.

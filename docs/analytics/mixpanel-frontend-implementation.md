@@ -108,7 +108,8 @@ titles, names, filenames, prompt text are all excluded by design).
 | `billing_portal_opened` | L4 | `settings/(shell)/plans-and-billing/page.tsx` | Stripe portal session opened | — |
 | `prompt_enhance_outcome` | L4 | `components/EnhancePromptField/index.tsx` | an Enhance session ends or changes path (`applied`, `discarded`, `closed`, `credits_exhausted`), or falls back (`fallback_local`, `timeout`) | `outcome`, `source` (`backend`/`local`), `latency` (bucket), `questions_answered` |
 | `trial_claimed` | L3 | `settings/(shell)/plans-and-billing/page.tsx` | free trial credits claimed | — |
-| `schedule_created` | L4 | `templates/Schedules/ScheduleEditModal.tsx` | save a schedule | `frequency_type` |
+| `schedule_created` | L4 | `components/Schedules/ScheduleEditModal.tsx` | send a new schedule to Task | `frequency_type` |
+| `schedule_edit_started` | L4 | `components/Schedules/ScheduleEditModal.tsx` | send changes to an existing schedule to Task | `frequency_type` |
 | `settings_help_opened` | L4 | `app/(app)/settings/(shell)/help/page.tsx` | open Help page | — |
 | `profile_updated` | L3 | `app/(app)/settings/(shell)/account/page.tsx` (`handleSave`) | save name/avatar (after the PATCH succeeds) | `name_changed`, `avatar_changed` |
 | `tone_changed` | L3 | `app/(app)/settings/(shell)/account/page.tsx` (`handleToneChange`) | pick a response style | `tone` (lowercase enum) |
@@ -117,6 +118,13 @@ titles, names, filenames, prompt text are all excluded by design).
 | `model_toggled_on` | L3 | `lib/api/models.ts` (`toggleBlockModel`) | a blocked model is enabled again | `model_id` |
 | `model_selected` | L3 | `hooks/use-model-selection.ts` (`selectModel`) | the stored chat-model selection changes by a user pick, from any picker (`model_selector_manual` is the preset dialog only) | `model_id` |
 | `auth_refresh_failed` | L3 | `lib/api/client.ts` (`apiFetch`) | a 401 the token refresh could not recover (counted even when sign-out is suppressed during onboarding/checkout) | `suppressed` |
+| `schedule_paused` / `schedule_resumed` | L3 | `app/(app)/schedules/use-schedules.ts` | pause/resume confirmed by the backend | — |
+| `schedule_run_now` | L3 | `app/(app)/schedules/use-schedules.ts` | Run now accepted | — |
+| `schedule_deleted` | L3 | `app/(app)/schedules/use-schedules.ts` | delete confirmed | — |
+| `schedule_copied` | L3 | `app/(app)/schedules/use-schedules.ts` | an org schedule copied into a chat to rebuild | — |
+| `usage_csv_exported` | L3 | `settings/(org)/analytics/use-org-usage.ts` | admin downloads per-member usage as CSV | `rows` |
+| `web_vital` | L3 | `components/Analytics/WebVitalsReporter.tsx` | a Core Web Vital is reported (sampled per page load, `NEXT_PUBLIC_WEB_VITALS_SAMPLE`, default 0.1) | `metric` (LCP/INP/CLS/FCP/TTFB), `value` (ms; CLS ×1000), `rating`, `screen`, `navigation?` |
+| `auth_session_timed_out` | L3 | `components/auth/SessionTimeoutGuard.tsx` | the idle or absolute session limit signed the user out (only when configured) | `reason` (`idle`/`max`) |
 | `auth_session_expired` | L3 | `context/auth-context.tsx` | the app signs the user out because the session expired | — |
 | `model_fallback` | L3 | `hooks/use-model-selection.ts` | a saved model was retired or blocked and replaced automatically | `from_model_id`, `to_model_id` |
 | `credit_cap_set` | L3 | `lib/api/plan.ts` (`Plan.setBudget`) | Enterprise budget set or lifted | `has_cap` |

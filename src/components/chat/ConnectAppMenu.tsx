@@ -10,7 +10,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { SetupModal } from '@/components/connectors/lazy'
-import { useOrg } from '@/context/org-context'
+import { useOrgIdentity } from '@/context/org-context'
 import { bustConnectorCatalogCache, type ConnectorCatalog } from '@/lib/api/connectors'
 import { appSearchQuery, connectorDetailQuery, featuredAppsQuery } from '@/lib/connectors/connector-queries'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -37,7 +37,7 @@ function AppRowsSkeleton() {
 
 export function ConnectAppMenu() {
   const router = useRouter()
-  const { orgId } = useOrg()
+  const { orgId } = useOrgIdentity()
   const queryClient = useQueryClient()
   // Featured apps by slug (warmed from the app shell) and typed backend search,
   // both React Query: cached, deduplicated, refreshed in the background when stale.

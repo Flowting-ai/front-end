@@ -123,7 +123,7 @@ function Tiles() {
   return (
     <div className={suggestedStyles.tileGrid}>
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className={cx(suggestedStyles.tile, styles.tile)}>
+        <div key={index} className={styles.tile}>
           <Skeleton width={32} height={32} radius={8} />
           <div className={styles.stack6}>
             <Skeleton width="70%" height={14} radius={6} />
@@ -135,7 +135,11 @@ function Tiles() {
   )
 }
 
-/** Recent cards, Frequently used and Generated tiles, in the Suggested view's real sizes and gaps. */
+/**
+ * Recent, Frequently used and Generated, in the Suggested view's real grid, sizes and gaps. Only the content is
+ * drawn as bones (title, icon, meta): the cards and tiles themselves (border, fill, shadow) are not, because
+ * which of them exist is not known until the files arrive.
+ */
 export function SuggestedSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading suggestions" className={cx(suggestedStyles.page, styles.suggested)}>
@@ -143,7 +147,7 @@ export function SuggestedSkeleton() {
         <SectionHead width={56} action />
         <div className={cx(suggestedStyles.cardGrid, styles.cardGrid)}>
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className={cx(suggestedStyles.card, styles.card)}>
+            <div key={index} className={styles.card}>
               <Skeleton width="70%" height={14} radius={6} />
               <div className={styles.cardIcon}>
                 <Skeleton width={56} height={56} radius={14} />

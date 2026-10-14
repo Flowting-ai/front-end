@@ -1,6 +1,6 @@
 # Connectors: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 done (2.4 kept imperative, see below).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phases 1–4 done**, except `next/image` for logos (decision D20), reconnect nudges in chat and the manual screen-reader pass.
 >
 > Done (Phase 1):
 > 1. `/connectors` now has `loading.tsx`, and its Suspense fallback is the list skeleton (`ConnectorsLoading`, which reuses `ConnectionsView`'s loading state) instead of `null`. `ConnectorDetailView` and `AccountDetailView` are each wrapped in `BlockErrorBoundary` (resets when the selected connector or account changes). `(app)/error.tsx` covers the rest.
@@ -16,7 +16,15 @@
 > 3. Logout clears all connector data (`clearUserScopedCache`); the linked list refetches on window focus, which picks up a connect finished in another tab.
 > 4. `pollConnectorUntilActive` stays a promise (three callers await it inside the setup flow) but gains ±20% jitter and seeds the detail query when it settles. Converting it to `refetchInterval` would not remove code, so it was left.
 >
-> Open: Phases 3–4 (component splits, `canManage`, setup state-machine tests that need a DOM or an extracted reducer, budget, reconnect nudges). Connector caches on org switch: logout covers it; there is no in-app org switch yet. Status badges are still visual only; leave them for the a11y pass.
+> Phases 3–4 (Oct 14 2026):
+> - 3.1: `ConnectionsView` (728 lines) → `connections-shared.tsx` (page cache, styles, shell, toolbar, card helpers; 260), `CatalogDiscover.tsx` (picks + category sections; 132), `Catalog.tsx` (292) and a 113-line `ConnectionsView` that re-exports `Catalog`/`ConnectorsShell`. `AccountDetailView` (537) → `AccountPermissions.tsx` (291), `AccountRail.tsx` (name, sharing, removal; 184), `account-styles.ts` and an 87-line dialog. Moved, not rewritten; lint errors 0.
+> - 3.2: the one rule for edit rights is the model's `ConnectorConnection.canManage`; the permissions tab, rail, rename, remove and reconnect checks now use it instead of reading `owned`. One catalog card already (`ConnectorCatalogCard`; the old card/row were deleted in Phase 1).
+> - 3.3: the custom API schema lives in `lib/connectors/custom-api-schema.ts`; `CustomApiModal` validates with it and `createCustomApi` validates the body with the same schema before sending.
+> - 3.4: view, category and sort switches run as transitions (`useTransition`), so the click and typing stay responsive while the grid re-renders. `next/image` for logos needs a remote-image allowlist for every vendor's logo host (D20).
+> - 4.1: `useConnectorSetupFlow.test.tsx` (jsdom): popup gets the OAuth URL with `opener` cut, poll target and completion; popup refused + timeout → `popup_blocked`; sharing applied only to the newly created account; unmount aborts the poll and closes the popup.
+> - 4.2: vitals via the shared reporter (D6); budget needs a CI build (D8).
+>
+> Open: reconnect-needed nudges in chat (notifications are a skipped audit), screen-reader pass of status badges, D20. Connector caches on org switch: logout covers it; there is no in-app org switch yet. Status badges are still visual only; leave them for the a11y pass.
 >
 > Backend gaps: (a) a lighter link-status endpoint for polling instead of the full `GET /connectors/{slug}` (Phase 2.4); (b) dependency counts for an account (what uses it) for the Remove modal.
 

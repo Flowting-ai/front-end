@@ -21,7 +21,32 @@ export const templateSchema = z.object({
 
 export type Template = z.infer<typeof templateSchema>
 
-export type TemplateLoadState = 'forbidden' | 'not_found' | 'revoked' | 'timeout' | 'error'
+export type TemplateLoadState = 'forbidden' | 'not_found' | 'revoked' | 'timeout' | 'too_large' | 'error'
+
+/** Largest HTML document the route will serve (model-written pages are far smaller). */
+export const TEMPLATE_MAX_BYTES = 10 * 1024 * 1024
+
+/** Declared size is over the cap (a missing or bad header passes; the stream cap still applies). */
+export function declaredTooLarge(contentLength: string | null, max = TEMPLATE_MAX_BYTES): boolean {
+  const n = Number(contentLength)
+  return contentLength !== null && Number.isFinite(n) && n > max
+}
+
+/** Pass bytes through until `max`, then fail the stream (the frame shows a broken load, not a partial page that looks complete). */
+export function capStream(body: ReadableStream<Uint8Array>, max = TEMPLATE_MAX_BYTES, onExceeded: () => void = () => {}): ReadableStream<Uint8Array> {
+  let seen = 0
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      seen += chunk.byteLength
+      if (seen > max) {
+        onExceeded()
+        controller.error(new Error('Template exceeds the size cap'))
+        return
+      }
+      controller.enqueue(chunk)
+    },
+  }))
+}
 
 export type TemplateLoadResult =
   | { state: 'ok'; template: Template }
@@ -80,6 +105,7 @@ export const TEMPLATE_ROUTE_ERRORS: Record<TemplateLoadState, { status: number; 
   not_found: { status: 404, message: 'Template not found' },
   revoked: { status: 410, message: 'This template was revoked' },
   timeout: { status: 504, message: 'The template took too long to load' },
+  too_large: { status: 502, message: 'This template is too large to show' },
   error: { status: 502, message: 'Failed to load template' },
 }
 

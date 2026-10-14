@@ -1,6 +1,6 @@
 # Compare Feature: System Design Audit
 
-> **Status (Oct 14 2026): Phase 1 done; Phase 2 item 3 done, items 1, 2 and 4 wait for approval (large rework of CompareModels.tsx).** Phases 3–4 open.
+> **Status (Oct 14 2026): Phase 1 done; Phase 2 done (items 1, 2, 4 approved and done Oct 14).** Phases 3–4 open.
 >
 > Done (Phase 1):
 > 1. Each model's answer renders through one new `ModelResponseBody` (replacing two copies of the same JSX), wrapped in `BlockErrorBoundary`. The lazily loaded modal now shows a skeleton (`CompareModelsLoading` in `AppDialogs.tsx`) instead of nothing.
@@ -12,9 +12,12 @@
 >
 > Phase 2 (Oct 14 2026):
 > - 3: the model catalogue is the shared `["models"]` query (`modelsQuery` in `lib/ai-models.ts`). `fetchModelsWithCache()` keeps its never-throw contract and 60 s freshness but now reads that query instead of a module cache, so Compare, the selector, the agents pages and settings share one request and one cache, cleared on logout. `bustModelsCache()` invalidates it in every tab. `CompareModels` dropped three `useState`s and its fetch effect.
-> - 1 (shared markdown renderer, ~320 lines deleted), 2 (shared streaming transport from `use-streaming-chat`) and 4 (per-model run state in a store so one token doesn't re-render every column) all rework the 2,034-line `CompareModels.tsx`; held for approval per the "ask before large splits" rule.
+> - 1: answers render through the shared chat `ContentRenderer` (also while streaming, with the breathing cursor); the custom markdown/LaTeX/table/code renderer (~350 lines) and its imports are deleted.
+> - 2: the fetch-reader loop is now `lib/agui-stream.ts` (`readAguiStream`, 4 tests: split events, trailing flush, split multi-byte character, handler errors). Every stream already shared `AguiSSEDecoder` (the AG-UI mapping); chat's XHR transport stays as is, since rewriting it carries more risk than it removes.
+> - 4: per-model run state is a Zustand store, `lib/compare/compare-run-store.ts` (3 tests). `ModelRunView` and `RunCredits` each read only their model's entry, so a token re-renders one column, not the modal. Eight `useState`s gone; the store resets when the modal opens and closes.
+> - `CompareModels.tsx` is 1,627 lines (from 2,034).
 >
-> Open: items 1, 2, 4 above, the component split, and fixed width 1212. Esc inside the filter dropdown may close the whole modal; check during the a11y pass.
+> Open: the component split (Phase 3) and fixed width 1212. Esc inside the filter dropdown may close the whole modal; check during the a11y pass.
 >
 > Backend gaps: none for Phase 1.
 

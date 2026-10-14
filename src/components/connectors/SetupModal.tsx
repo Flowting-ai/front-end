@@ -104,7 +104,7 @@ export function SetupModal({
 
   // Re-authorizing writes to the row, and only its owner may do that. An
   // account shared with you is usable but not yours to reconnect.
-  const reconnectNotOwned = reconnecting && initialAccount != null && !initialAccount.owned
+  const reconnectNotOwned = reconnecting && initialAccount != null && !initialAccount.canManage
 
   function submit() {
     if (reconnectNotOwned) {
