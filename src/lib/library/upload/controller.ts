@@ -1,6 +1,6 @@
 "use client";
 
-// Runs uploads: create the server upload, send the parts straight to storage (3 at a time, each
+// Runs uploads: create the server upload, send bounded parts to our API (3 at a time, each
 // retried with backoff), complete, then follow processing with ONE batch poll for every upload in
 // flight (so ten attachments cost one request every few seconds, not ten). It pauses when the
 // browser goes offline and resumes by sending only the parts that have not landed. Every outside
@@ -62,6 +62,8 @@ type Runtime = {
   paused: boolean;
   cancelled: boolean;
   misses: number;
+  running?: boolean;
+  resumeRequested?: boolean;
 };
 
 const PROGRESS_INTERVAL_MS = 100;
@@ -69,6 +71,7 @@ const POLL_FAST_MS = 2000;
 const POLL_MEDIUM_MS = 5000;
 const POLL_SLOW_MS = 10_000;
 const POLL_BATCH = 50;
+const MAX_POLL_FAILURES = 6;
 
 /** Exponential backoff with jitter, capped, so many parts failing at once do not retry in lockstep. */
 export function backoffDelay(attempt: number, random: number): number {
@@ -77,6 +80,7 @@ export function backoffDelay(attempt: number, random: number): number {
 }
 
 function reasonFromError(error: unknown): UploadFailureReason {
+  if (error instanceof PartTransportError && error.status === 413) return "too_large";
   if (error instanceof ApiError) {
     if ((UPLOAD_FAILURE_REASONS as readonly string[]).includes(error.code)) return error.code as UploadFailureReason;
     if (error.status === 413) return "too_large";
@@ -145,8 +149,8 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
     store.dispatch(id, { type: "progress", value: Math.min(0.99, loaded / total) });
   }
 
-  async function uploadPart(id: string, runtime: Runtime, api: LibraryApi, init: UploadInit, partNumber: number, initialUrl: string): Promise<void> {
-    let url = initialUrl;
+  async function uploadPart(id: string, runtime: Runtime, init: UploadInit, partNumber: number, initialUrl: string, signal: AbortSignal): Promise<void> {
+    const url = initialUrl;
     const start = (partNumber - 1) * init.partSize;
     const body = runtime.file.slice(start, Math.min(runtime.file.size, start + init.partSize));
     for (let attempt = 0; ; attempt += 1) {
@@ -155,7 +159,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
         const etag = await deps.transport.putPart({
           url,
           body,
-          signal: runtime.abort.signal,
+          signal,
           onProgress: (loaded) => {
             runtime.partLoaded.set(partNumber, loaded);
             reportProgress(id, runtime);
@@ -168,33 +172,27 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       } catch (error) {
         if (isAbort(error)) throw error;
         if (attempt >= deps.maxPartRetries) throw error;
-        // The presigned URL expired: ask for a fresh one for this part and try again.
-        if (error instanceof PartTransportError && error.status === 403) {
-          const fresh = await api.presignUploadParts(init.id, [partNumber]);
-          const next = fresh.find((part) => part.partNumber === partNumber);
-          if (!next) throw error;
-          url = next.url;
-        } else {
-          await wait(backoffDelay(attempt, deps.random()), runtime.abort.signal);
-        }
+        if (error instanceof PartTransportError && error.status >= 400 && error.status < 500
+            && error.status !== 408 && error.status !== 429) throw error;
+        await wait(backoffDelay(attempt, deps.random()), signal);
       }
     }
   }
 
-  async function uploadAllParts(id: string, runtime: Runtime, api: LibraryApi, init: UploadInit): Promise<void> {
+  async function uploadAllParts(id: string, runtime: Runtime, init: UploadInit, signal: AbortSignal): Promise<void> {
     const pending = init.parts.filter((part) => !runtime.etags.has(part.partNumber));
     let cursor = 0;
     let failure: unknown;
     const worker = async () => {
-      while (failure === undefined && !runtime.abort.signal.aborted) {
+      while (failure === undefined && !signal.aborted) {
         const part = pending[cursor++];
         if (!part) return;
         try {
-          await uploadPart(id, runtime, api, init, part.partNumber, part.url);
+          await uploadPart(id, runtime, init, part.partNumber, part.url, signal);
         } catch (error) {
           failure ??= error;
           // One part is out of retries: stop its siblings instead of letting them finish for nothing.
-          if (!isAbort(error)) runtime.abort.abort();
+          if (!isAbort(error) && runtime.abort.signal === signal) runtime.abort.abort();
         }
       }
     };
@@ -207,10 +205,20 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
   async function run(id: string): Promise<void> {
     const runtime = runtimes.get(id);
     if (!runtime) return;
+    // A reconnect can arrive before the aborted attempt has unwound. Finish it
+    // before resuming so an in-flight create request cannot create a second upload.
+    if (runtime.running) {
+      runtime.resumeRequested = true;
+      return;
+    }
+    runtime.running = true;
+    const signal = runtime.abort.signal;
+    const active = () => !signal.aborted && !runtime.paused && !runtime.cancelled;
     try {
       const api = deps.api;
       if (!runtime.init) {
         const limits = await deps.getLimits();
+        if (!active()) return;
         const reason = validateFile(runtime.file, limits);
         if (reason) {
           fail(id, reason);
@@ -227,26 +235,42 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
           void api.cancelUpload(runtime.init.id).catch(() => undefined);
           return;
         }
-        store.dispatch(id, { type: "created", serverId: runtime.init.id });
       }
-      await uploadAllParts(id, runtime, api, runtime.init);
-      if (runtime.paused || runtime.cancelled) return;
+      if (!active()) return;
+      store.dispatch(id, { type: "created", serverId: runtime.init.id });
+      await uploadAllParts(id, runtime, runtime.init, signal);
+      if (!active()) return;
       const parts = [...runtime.etags.entries()].sort(([a], [b]) => a - b).map(([partNumber, etag]) => ({ partNumber, etag }));
-      await api.completeUpload(runtime.init.id, parts);
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await api.completeUpload(runtime.init.id, parts);
+          break;
+        } catch (error) {
+          if (!(error instanceof ApiError) || !error.retryable || attempt >= deps.maxPartRetries) throw error;
+          await wait(backoffDelay(attempt, deps.random()), signal);
+        }
+      }
+      if (!active()) return;
       store.dispatch(id, { type: "uploaded" });
       schedulePoll(0);
     } catch (error) {
-      if (runtime.cancelled) return;
+      if (runtime.cancelled || runtime.paused || runtime.abort.signal !== signal) return;
       // An abort we caused (pausing, cancelling, sibling failure) is not a failure of its own; a resume picks the remaining parts up.
       if (isAbort(error)) return;
       if (!deps.isOnline()) {
         runtime.paused = true;
-        runtime.abort = new AbortController();
+        runtime.abort.abort();
         store.dispatch(id, { type: "paused" });
         return;
       }
       captureError(error, { boundary: "upload", action: "run" });
       fail(id, reasonFromError(error));
+    } finally {
+      runtime.running = false;
+      if (runtime.resumeRequested) {
+        runtime.resumeRequested = false;
+        if (!runtime.paused && !runtime.cancelled && runtimes.get(id) === runtime) void run(id);
+      }
     }
   }
 
@@ -254,6 +278,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
 
   let pollTimer: unknown;
   let pollCount = 0;
+  let pollFailures = 0;
 
   function processingItems() {
     return store.all().filter((item) => item.status === "processing" && item.serverId !== undefined);
@@ -277,6 +302,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
     const items = processingItems();
     if (items.length === 0) {
       pollCount = 0;
+      pollFailures = 0;
       return;
     }
     // A hidden tab does not poll; the visibilitychange handler calls pollNow() when it returns.
@@ -310,9 +336,16 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
           if (next?.status === "ready") runtimes.delete(item.id);
         }
       }
+      pollFailures = 0;
     } catch (error) {
-      // A failed poll is not a failed upload; try again on the normal cadence.
       captureError(error, { boundary: "upload", action: "poll" });
+      pollFailures += 1;
+      // A broken contract or a refused status request cannot recover by polling forever.
+      // Give transient failures time to recover, then let the person retry the upload.
+      const permanent = error instanceof ApiError && (error.code === "contract_error" || !error.retryable);
+      if (permanent || pollFailures >= MAX_POLL_FAILURES) {
+        for (const item of items) fail(item.id, permanent ? "unreadable" : "network");
+      }
     }
     pollCount += 1;
     if (processingItems().length > 0) schedulePoll(nextDelay());
@@ -391,10 +424,9 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
     pauseAll() {
       for (const [id, runtime] of runtimes) {
         const item = store.get(id);
-        if (item?.status !== "uploading") continue;
+        if (item?.status !== "uploading" && item?.status !== "validating") continue;
         runtime.paused = true;
         runtime.abort.abort();
-        runtime.abort = new AbortController();
         store.dispatch(id, { type: "paused" });
       }
     },
@@ -404,6 +436,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
         const item = store.get(id);
         if (item?.status !== "paused") continue;
         runtime.paused = false;
+        runtime.abort = new AbortController();
         store.dispatch(id, { type: "resumed" });
         void run(id);
       }
@@ -418,6 +451,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       if (pollTimer !== undefined) deps.clearTimeout(pollTimer);
       pollTimer = undefined;
       pollCount = 0;
+      pollFailures = 0;
       store.clear();
     },
 

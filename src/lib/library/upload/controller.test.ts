@@ -4,6 +4,7 @@ import { FORMATS, type UploadStatus } from "../schemas";
 import { backoffDelay, createUploadController, type UploadController } from "./controller";
 import { createUploadStore, type UploadStore } from "./store";
 import { PartTransportError, type PartRequest, type PartTransport } from "./transport";
+import { ApiError } from "@/lib/api/client";
 
 const MB = 1_000_000;
 const PART_BYTES = 8 * MB;
@@ -36,9 +37,6 @@ function fakeUploadApi() {
     },
     async completeUpload(id: string) {
       uploads.get(id)!.completedAt = Date.now();
-    },
-    async presignUploadParts(id: string, partNumbers: number[]) {
-      return partNumbers.map((partNumber) => ({ partNumber, url: `mock://upload/${id}/${partNumber}` }));
     },
     async cancelUpload(id: string) {
       uploads.delete(id);
@@ -112,7 +110,7 @@ describe("a successful upload", () => {
     expect(h.store.get(id)?.fileId).toBeDefined();
   });
 
-  it("never sends the Authorization header to storage and uses the presigned URL it was given", async () => {
+  it("passes each part body and progress callback to the injected transport", async () => {
     const h = harness();
     h.controller.start(file("a.pdf", MB), { draftKey: "new" });
     await h.flush();
@@ -196,23 +194,15 @@ describe("part retries", () => {
     expect(h.store.get(id)).toMatchObject({ status: "failed", failure: "network" });
   });
 
-  it("asks for a fresh URL when storage answers 403 (expired) and tries again", async () => {
-    let first = true;
-    const h = harness((calls) => ({
-      async putPart(request) {
-        calls.push(request);
-        if (first) {
-          first = false;
-          throw new PartTransportError("expired", 403);
-        }
-        return "etag";
-      },
-    }));
-    const presign = vi.spyOn(h.api, "presignUploadParts");
+  it("surfaces a backend authorization failure without requesting storage links", async () => {
+    const h = harness((calls) => ({ async putPart(request) {
+      calls.push(request);
+      throw new PartTransportError("forbidden", 403);
+    } }));
     const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
     await vi.advanceTimersByTimeAsync(3000);
-    expect(presign).toHaveBeenCalledWith(expect.any(String), [1]);
-    expect(["processing", "ready"]).toContain(h.store.get(id)?.status);
+    expect(h.calls).toHaveLength(1);
+    expect(h.store.get(id)?.status).toBe("failed");
   });
 
   it("backs off with jitter, capped", () => {
@@ -224,6 +214,60 @@ describe("part retries", () => {
 });
 
 describe("pausing when offline", () => {
+  it("resumes when connectivity fails before upload initialization", async () => {
+    const h = harness();
+    vi.spyOn(h.api, "getLimits").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    h.online.value = false;
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await h.flush();
+    expect(h.store.get(id)?.status).toBe("paused");
+    h.online.value = true;
+    h.controller.resumeAll();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(h.store.get(id)?.status).toBe("ready");
+  });
+
+  it("keeps a late upload initialization paused until connectivity returns", async () => {
+    const h = harness();
+    const original = h.api.createUpload.bind(h.api);
+    let release!: () => void;
+    vi.spyOn(h.api, "createUpload").mockImplementation(async (request) => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return original(request);
+    });
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await h.flush();
+    h.controller.pauseAll();
+    release();
+    await h.flush();
+    expect(h.store.get(id)?.status).toBe("paused");
+    expect(h.calls).toHaveLength(0);
+    h.controller.resumeAll();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(h.store.get(id)?.status).toBe("ready");
+    expect(h.api.createUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create duplicate uploads when reconnecting during initialization", async () => {
+    const h = harness();
+    const original = h.api.createUpload.bind(h.api);
+    const releases: Array<() => void> = [];
+    vi.spyOn(h.api, "createUpload").mockImplementation(async (request) => {
+      await new Promise<void>((resolve) => { releases.push(resolve); });
+      return original(request);
+    });
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await h.flush();
+    h.controller.pauseAll();
+    h.controller.resumeAll();
+    await h.flush();
+    expect(h.api.createUpload).toHaveBeenCalledTimes(1);
+    releases[0]();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(h.store.get(id)?.status).toBe("ready");
+    expect(h.calls).toHaveLength(1);
+  });
+
   it("pauses, then resumes by sending only the parts that have not landed", async () => {
     const releases: Array<() => void> = [];
     let landed = 0;
@@ -258,6 +302,40 @@ describe("pausing when offline", () => {
 });
 
 describe("processing polls", () => {
+  it("surfaces a broken status contract instead of processing forever", async () => {
+    const h = harness();
+    vi.spyOn(h.api, "getUploadStatuses").mockRejectedValue(new ApiError(502, "contract_error", "Unexpected response"));
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(h.store.get(id)).toMatchObject({ status: "failed", failure: "unreadable" });
+  });
+
+  it("recovers from a transient status failure", async () => {
+    const h = harness();
+    vi.spyOn(h.api, "getUploadStatuses").mockRejectedValueOnce(new ApiError(503, "unavailable", "Try again"));
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(h.store.get(id)?.status).toBe("ready");
+  });
+
+  it("settles repeated status failures so sending does not hang", async () => {
+    const h = harness();
+    vi.spyOn(h.api, "getUploadStatuses").mockRejectedValue(new TypeError("Failed to fetch"));
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(h.store.get(id)).toMatchObject({ status: "failed", failure: "network" });
+  });
+
+  it("retries completion when the queue is temporarily unavailable", async () => {
+    const h = harness();
+    const complete = vi.spyOn(h.api, "completeUpload").mockRejectedValueOnce(new ApiError(503, "unavailable", "Try again"));
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(h.calls).toHaveLength(1);
+    expect(h.store.get(id)?.status).toBe("ready");
+  });
+
   it("polls every upload in flight with one request per tick", async () => {
     const h = harness();
     const statuses = vi.spyOn(h.api, "getUploadStatuses");

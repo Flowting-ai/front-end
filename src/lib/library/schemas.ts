@@ -93,6 +93,8 @@ export const fileRowWireSchema = z.object({
   snippet: z.string().optional(),
   /** True for a title Souvenir chose, until the owner renames it. */
   titleIsAiGenerated: z.boolean().default(false),
+  processingPhase: z.enum(["queued", "processing", "ocr", "ready", "failed"]).default("ready"),
+  processingFailure: z.string().optional(),
 });
 export type FileRowWire = z.infer<typeof fileRowWireSchema>;
 export const fileRowSchema = fileRowWireSchema.transform((wire) => new LibraryFile(wire));

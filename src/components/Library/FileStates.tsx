@@ -1,12 +1,14 @@
 'use client'
 
+import type { LibraryFile } from '@/lib/library/file'
+
 import React from 'react'
 import { AlertCircleIcon, DeleteTwoIcon, FolderLibraryIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/Spinner'
 import { trackLibrary } from '@/lib/library/analytics'
-import { FILE_MESSAGES } from '@/lib/library/messages'
-import { useRestoreFile } from '@/lib/library/mutations'
+import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
+import { useRestoreFile, useRetryProcessing } from '@/lib/library/mutations'
 import { LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
 import { LinkButton } from './LinkButton'
@@ -73,6 +75,23 @@ export function GhostLines() {
       {GHOST_WIDTHS.map((width, index) => (
         <i key={index} style={{ width: `${width}%` }} />
       ))}
+    </div>
+  )
+}
+
+
+/** Library work does not block access to the original file. */
+export function LibraryProcessingBanner({ file }: { file: LibraryFile }) {
+  const retry = useRetryProcessing()
+  if (!file.processingPending && file.processingPhase !== 'failed') return null
+  const failed = file.processingPhase === 'failed'
+  return (
+    <div role={failed ? 'alert' : 'status'} className={styles.stateBanner}>
+      {!failed && <Spinner size={20} className={styles.stateIcon} />}
+      <p className={styles.grow}>{failed ? FILE_MESSAGES.libraryProcessingFailed : FILE_MESSAGES.libraryProcessing}</p>
+      {failed && file.caps.rename && (
+        <Button variant="secondary" disabled={retry.isPending} onClick={() => retry.mutate(file.id)}>{MESSAGES.retry}</Button>
+      )}
     </div>
   )
 }

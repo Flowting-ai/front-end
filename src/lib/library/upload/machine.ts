@@ -75,9 +75,9 @@ export function reduceUpload(item: UploadItem, event: UploadEvent): UploadItem {
       // Progress only ever moves forward, so a late or reordered event cannot make the bar jump back.
       return event.value > item.progress ? { ...item, progress: Math.min(1, event.value) } : item;
     case "paused":
-      return item.status === "uploading" ? { ...item, status: "paused" } : item;
+      return item.status === "uploading" || item.status === "validating" ? { ...item, status: "paused" } : item;
     case "resumed":
-      return item.status === "paused" ? { ...item, status: "uploading" } : item;
+      return item.status === "paused" ? { ...item, status: item.serverId ? "uploading" : "validating" } : item;
     case "uploaded":
       return item.status === "uploading" ? { ...item, status: "processing", progress: 1 } : item;
     case "server": {

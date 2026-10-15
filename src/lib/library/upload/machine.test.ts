@@ -27,12 +27,14 @@ describe("reduceUpload: the happy path", () => {
 });
 
 describe("reduceUpload: pausing", () => {
-  it("pauses only while uploading and resumes back to uploading", () => {
-    const uploading = run(item(), { type: "validated", format: "pdf" });
+  it("resumes initialization or part upload from the appropriate state", () => {
+    const uploading = run(item(), { type: "validated", format: "pdf" }, { type: "created", serverId: "up-1" });
     const paused = reduceUpload(uploading, { type: "paused" });
     expect(paused.status).toBe("paused");
     expect(reduceUpload(paused, { type: "resumed" }).status).toBe("uploading");
-    expect(reduceUpload(item(), { type: "paused" }).status).toBe("validating");
+    const early = reduceUpload(item(), { type: "paused" });
+    expect(early.status).toBe("paused");
+    expect(reduceUpload(early, { type: "resumed" }).status).toBe("validating");
   });
 });
 

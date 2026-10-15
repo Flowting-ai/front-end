@@ -40,9 +40,13 @@ export interface FilePreviewProps {
 /** Picks the viewer for a file's preview kind and loads the preview payload (a short-lived cache: it can hold storage URLs). */
 export default function FilePreview({ file, cite, onDownload }: FilePreviewProps) {
   const [request, setRequest] = useState<PreviewRequest>(() => initialRequest(file, cite))
-  const enabled = file.phase === 'ready' && file.previewKind !== 'none'
+  const enabled = file.phase === 'ready' && file.previewKind !== 'none' && (!file.requiresProcessedPreview || file.processingPhase === 'ready')
   const preview = useFilePreview(file.id, request, enabled)
 
+  if (file.requiresProcessedPreview && file.processingPhase !== 'ready') {
+    if (file.processingPhase === 'failed') return <NoPreview onDownload={onDownload} />
+    return <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />
+  }
   if (file.previewKind === 'none') {
     return <NoPreview onDownload={onDownload} />
   }

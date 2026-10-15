@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { personName } from "./access";
 import { fileRowSchema, type FileRowWire, type Person } from "./schemas";
-import { LibraryFile } from "./file";
+import { LibraryFile, LibraryFileDetail } from "./file";
 import { testFile } from "./test-files";
 
 const you: Person = { id: "u1", name: "Avery Stone" };
@@ -85,5 +85,34 @@ describe("parsing", () => {
 
   it("rejects a row that breaks the contract", () => {
     expect(fileRowSchema.safeParse({ id: "f9" }).success).toBe(false);
+  });
+});
+
+
+describe("Library processing", () => {
+  it.each(["queued", "processing", "ocr"] as const)("keeps the original usable during %s", (processingPhase) => {
+    const file = row({ processingPhase });
+    expect(file.processingPending).toBe(true);
+    expect(file.caps.open).toBe(true);
+  });
+
+  it("keeps a failed original usable and stops polling a settled attempt", () => {
+    const file = row({ processingPhase: "failed", processingFailure: "unreadable" });
+    expect(file.processingPending).toBe(false);
+    expect(file.caps.open).toBe(true);
+    expect(file.with({ processingPhase: "queued" }).processingPending).toBe(true);
+    expect(row().processingPending).toBe(false);
+  });
+
+  it.each([
+    ["pdf", "pdf", false], ["docx", "pdf", true], ["md", "text", true],
+    ["xlsx", "sheet", false], ["png", "image", false],
+  ] as const)("only waits for processing when the %s preview needs derivatives", (extension, previewKind, expected) => {
+    const file = new LibraryFileDetail({
+      ...row({ extension }), phase: "ready", scope: "private", mimeType: "application/octet-stream",
+      updatedAt: "2026-10-01T00:00:00.000Z", ways: [], previewKind,
+      provenance: { kind: "upload", label: "Upload", via: "web", isTestRun: false },
+    });
+    expect(file.requiresProcessedPreview).toBe(expected);
   });
 });

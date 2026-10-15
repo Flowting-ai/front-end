@@ -24,7 +24,7 @@ import { useLibraryViewer } from '@/lib/library/viewer'
 import { EmptyState } from './EmptyState'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { FileInfoCard } from './FileInfoCard'
-import { GhostLines, GoneState, LockedState, ProcessingBanner, TrashedBanner } from './FileStates'
+import { GhostLines, GoneState, LockedState, ProcessingBanner, LibraryProcessingBanner, TrashedBanner } from './FileStates'
 import { LibraryShell } from './LibraryShell'
 import { LinkButton } from './LinkButton'
 import { RowMenu } from './FileTable/RowMenu'
@@ -131,6 +131,7 @@ export function FileScreen({ id }: { id: string }) {
             ) : file.phase !== 'ready' ? (
               <ProcessingBanner phase={file.phase} />
             ) : null}
+            {!trashed && <LibraryProcessingBanner file={file} />}
             <div className={styles.page}>
               <h1 className={styles.pageTitle}>{name}</h1>
               {file.phase === 'ready' ? (

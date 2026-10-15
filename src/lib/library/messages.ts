@@ -10,7 +10,7 @@ export const UPLOAD_FAILURE_MESSAGES: Record<UploadFailureReason, string> = {
   password_protected: "This file is password-protected, so it can't be added.",
   unsafe: "Blocked: this file looks unsafe.",
   unreadable: "This file couldn't be read.",
-  network: "Upload paused. It will continue when you are back online.",
+  network: "Couldn't finish uploading or checking this file. Please try again.",
 };
 
 /** How long a failure message stays above the composer. */
@@ -114,6 +114,8 @@ export const FILE_MESSAGES = {
   cited: "Cited",
   uploading: "Uploading",
   processing: "Processing",
+  libraryProcessing: "Preparing Library previews and search. You can already use the original file in chat or download it.",
+  libraryProcessingFailed: "Library processing failed. The original file is still available in chat and for download.",
   shareQuiet: "Teammates can use shared files in their chats and routines.",
   addPeoplePlaceholder: "Add people or the whole workspace",
   wholeWorkspace: "Whole workspace",

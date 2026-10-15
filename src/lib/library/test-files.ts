@@ -21,6 +21,7 @@ export function testFile(overrides: Partial<FileRowWire> = {}): LibraryFile {
     unread: false,
     life: "active",
     titleIsAiGenerated: false,
+    processingPhase: "ready",
     ...overrides,
   });
 }

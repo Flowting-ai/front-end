@@ -161,7 +161,7 @@ export function useLibraryFile(id: string) {
     queryFn: async ({ signal }) => libraryApi.getFile(id, signal),
     staleTime: 30 * SECOND,
     retry: libraryRetry,
-    refetchInterval: (query) => (query.state.data && query.state.data.phase !== "ready" ? 3 * SECOND : false),
+    refetchInterval: (query) => (query.state.data && (query.state.data.phase !== "ready" || query.state.data.processingPending) ? 3 * SECOND : false),
   });
 }
 

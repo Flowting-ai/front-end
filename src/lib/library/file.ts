@@ -50,6 +50,8 @@ export class LibraryFile {
   declare readonly thumbnailUrl: FileRowWire["thumbnailUrl"];
   declare readonly snippet: FileRowWire["snippet"];
   declare readonly titleIsAiGenerated: FileRowWire["titleIsAiGenerated"];
+  declare readonly processingPhase: FileRowWire["processingPhase"];
+  declare readonly processingFailure: FileRowWire["processingFailure"];
 
   constructor(wire: FileRowWire) {
     Object.assign(this, wire);
@@ -88,6 +90,10 @@ export class LibraryFile {
     };
   }
 
+  get processingPending(): boolean {
+    return this.processingPhase === "queued" || this.processingPhase === "processing" || this.processingPhase === "ocr";
+  }
+
   get accessLabel(): string {
     if (this.access === "owner") return "Owner";
     return this.adminCanManage ? "Admin, can manage" : "Viewer";
@@ -123,6 +129,10 @@ export class LibraryFileDetail extends LibraryFile {
   declare readonly ways: FileDetailWire["ways"];
   declare readonly previewKind: FileDetailWire["previewKind"];
   declare readonly runInputs: FileDetailWire["runInputs"];
+
+  get requiresProcessedPreview(): boolean {
+    return this.previewKind === "text" || (this.previewKind === "pdf" && this.extension !== "pdf");
+  }
 
   constructor(wire: FileDetailWire) {
     super(wire);

@@ -55,11 +55,25 @@ function invalidate(queryClient: QueryClient, org: string, parts: Part[]): void 
 
 // ── Files ────────────────────────────────────────────────────────────────────
 
+export function useRetryProcessing() {
+  const queryClient = useQueryClient();
+  const { orgKey } = useLibraryViewer();
+  return useMutation({
+    mutationFn: (id: string) => libraryApi.retryProcessing(id),
+    onSuccess: (_, id) => {
+      patchFileEverywhere(queryClient, orgKey, id, { processingPhase: "queued", processingFailure: undefined });
+      void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(orgKey, id) });
+    },
+    onError: (error) => fail(error, "retryProcessing", MESSAGES.genericFailure),
+  });
+}
+
 // Options factories are exported for tests: they drive them with a real QueryClient and a
 // MutationObserver, so the optimistic patch and the rollback are checked without rendering.
 
 export function renameFileOptions(queryClient: QueryClient, orgKey: string) {
   return mutationOptions({
+
     mutationKey: [...libraryKeys.all(orgKey), "rename"],
     mutationFn: async (vars: { id: string; title: string; previousTitle: string; previousAi: boolean }) =>
       libraryApi.renameFile(vars.id, vars.title),

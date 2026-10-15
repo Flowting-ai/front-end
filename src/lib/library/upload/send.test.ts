@@ -12,6 +12,7 @@ vi.mock("./controller", () => ({
       finishes.set(id, () => {
         uploadStore.dispatch(id, { type: "validated", format: "pdf" });
         if (file.name.includes("locked")) uploadStore.dispatch(id, { type: "server", phase: "failed", slow: false, failure: "password_protected" });
+        else if (file.name.includes("network")) uploadStore.dispatch(id, { type: "server", phase: "failed", slow: false, failure: "network" });
         else uploadStore.dispatch(id, { type: "server", phase: "ready", slow: false, fileId: `file-${file.name}` });
       });
       return id;
@@ -40,6 +41,12 @@ describe("uploadForSend", () => {
     finishes.get("u-locked.pdf")!();
     await expect(sending).rejects.toBeInstanceOf(UploadFailed);
     await expect(sending).rejects.toThrow("locked.pdf: This file is password-protected, so it can't be added.");
+  });
+
+  it("does not promise offline recovery for a terminal network failure", async () => {
+    const sending = uploadForSend([file("network.pdf")]);
+    finishes.get("u-network.pdf")!();
+    await expect(sending).rejects.toThrow("network.pdf: Couldn't finish uploading or checking this file. Please try again.");
   });
 
   it("sends nothing when there are no files", async () => {

@@ -1,5 +1,5 @@
 // The Library REST API (back-end services/library). Control-plane calls only: the bytes of an upload
-// go straight to presigned storage URLs (upload/transport.ts), never through here or the Next proxy.
+// go to authenticated API part endpoints (upload/transport.ts), bypassing the deployed Next proxy.
 //
 // Every response is parsed with the zod schemas, so a contract drift fails here, loudly and once,
 // as an ApiError("contract_error"), instead of as an undefined inside a component.
@@ -84,6 +84,14 @@ function previewQuery(request: PreviewRequest): string {
   return queryString ? `?${queryString}` : "";
 }
 
+function backendUploadParts(upload: z.infer<typeof uploadInitSchema>) {
+  return { ...upload, parts: upload.parts.map((part) => {
+    const path = `/library/uploads/${enc(upload.id)}/parts/${part.partNumber}`;
+    if (part.url !== path) throw new ApiError(502, "contract_error", "Unexpected upload endpoint.");
+    return { ...part, url: `${API_BASE_URL}${path}` };
+  }) };
+}
+
 export const libraryApi = {
   // Lists
   listFiles: (params: ListParams, cursor: string | null, signal?: AbortSignal) =>
@@ -102,6 +110,7 @@ export const libraryApi = {
   markOpened: (id: string) => apiFetchVoid(`${fileUrl(id)}/opened`, { method: "POST" }),
 
   // Changes
+  retryProcessing: (id: string) => apiFetchVoid(`${fileUrl(id)}/retry-processing`, { method: "POST" }),
   // The body goes through the rename form's schema, so the form and the request share one contract.
   renameFile: async (id: string, title: string) =>
     parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchema.parse({ title })) }), "renameFile"),
@@ -132,15 +141,8 @@ export const libraryApi = {
 
   // Uploads (the composer owns the UI; Library has no upload button)
   createUpload: async (request: UploadInitRequest) =>
-    parse(uploadInitSchema, await apiFetchJson<unknown>(`${BASE}/uploads`, { method: "POST", ...jsonBody(request) }), "createUpload"),
+    backendUploadParts(parse(uploadInitSchema, await apiFetchJson<unknown>(`${BASE}/uploads`, { method: "POST", ...jsonBody(request) }), "createUpload")),
   completeUpload: (id: string, parts: UploadPartEtag[]) => apiFetchVoid(`${uploadUrl(id)}/complete`, { method: "POST", ...jsonBody({ parts }) }),
-  /** Fresh presigned URLs for parts whose URL expired (the storage origin answered 403). */
-  presignUploadParts: async (id: string, partNumbers: number[]) =>
-    parse(
-      z.object({ parts: uploadInitSchema.shape.parts }),
-      await apiFetchJson<unknown>(`${uploadUrl(id)}/parts`, { method: "POST", ...jsonBody({ partNumbers }) }),
-      "presignUploadParts",
-    ).parts,
   cancelUpload: (id: string) => apiFetchVoid(uploadUrl(id), { method: "DELETE" }),
   getUploadStatuses: (ids: string[], signal?: AbortSignal) =>
     get(z.array(uploadStatusSchema), `${BASE}/uploads?ids=${ids.map(enc).join(",")}`, "getUploadStatuses", signal),
