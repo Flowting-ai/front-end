@@ -22,6 +22,11 @@ One page of every file a person uploaded or Souvenir generated (chat outputs, ro
 | [07-build-plan.md](07-build-plan.md) | The production build plan: architecture and import rules, shared prerequisites, state ownership, data layer, upload subsystem, viewers, security rules, performance budgets, CI and tests, observability, work packages WP0 to WP8, code standards, rollout. |
 | [08-plan-audit.md](08-plan-audit.md) | Audit of the plan against the 56 principles (60 % before fixes, 90 % after), what was wrong and corrected, remaining risks, plan to 100 %. |
 | [09-implementation-status.md](09-implementation-status.md) | What is built, how to run it on the mock, how it was verified (tests, type-check, a real browser run), what is deliberately not built and why, backend assumptions. |
+| [10-test-cases-and-results.md](10-test-cases-and-results.md) | 157 test cases derived from the prototype (page.md, flows.md, Flow A to H checks), run in the real app on 2026-10-15: results, done and missing, findings (F1 to F14), a check-by-check coverage matrix, limits of the run. |
+| [12-prototype-test-cases.md](12-prototype-test-cases.md) | 608 test cases from the current prototype (screens, roles, file states, Flows A to H, a coverage matrix). Result column is blank, to be filled per run. |
+| [13-two-account-test-results.md](13-two-account-test-results.md) | Results of the 2026-10-16 run with an Admin and a Member account: Library roles, sharing, dialogs and Trash, plus chat, project and agent sharing; 11 findings. |
+| [14-visual-comparison.md](14-visual-comparison.md) | The same screens compared with the prototype by eye (images in `visual/`): what matches and 18 visual differences. |
+| [11-open-issues.md](11-open-issues.md) | The 26 open issues from that run (15 fail, 11 partial), one entry each with case, steps, expected, actual, cause and suggested fix, tagged FE / BE / Config / Product. |
 
 ## Scope
 
