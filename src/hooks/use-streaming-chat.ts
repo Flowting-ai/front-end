@@ -9,6 +9,7 @@ import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
 import { friendlyModelError } from "@/lib/model-error"
 import { resolveTurnOutcome, type TurnEnd } from "@/lib/turn-outcome"
 import {
+  API_BASE_URL,
   CHAT_STOP_ENDPOINT,
   CHATS_CREATE_ENDPOINT,
   CHAT_STREAM_ENDPOINT,
@@ -96,6 +97,10 @@ export interface UseStreamingChatParams {
    *  suppressed for background streams whose chatId no longer matches what is displayed. */
   currentChatIdRef?: React.RefObject<string | undefined>
 }
+
+/** Continue a turn parked on a prompt: POST the answer to the prompt's
+ *  respond_url (`/chats/{id}/resume`) and stream the rest of the turn. */
+export type TurnResume = { url: string; promptId: string; response: unknown }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
 
@@ -236,7 +241,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean; resume?: TurnResume },
   ): Promise<StreamOutcome> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -354,16 +359,20 @@ export function useStreamingChat({
       // no ownership question (isExistingChat is false), so this never
       // affects that path, and callers that don't pass the option at all
       // keep today's behavior (undefined !== false).
-      const useDirectBackend =
-        direct !== null &&
-        shouldUseDirectBackend() &&
-        (!isExistingChat || options?.chatOwnershipConfirmed !== false)
+      // A resumed turn answers a prompt at the backend-built respond_url; it
+      // goes wherever API_BASE_URL points (the backend, or the local proxy).
+      const resume = options?.resume
+      const useDirectBackend = resume
+        ? /^https?:\/\//.test(API_BASE_URL)
+        : direct !== null &&
+          shouldUseDirectBackend() &&
+          (!isExistingChat || options?.chatOwnershipConfirmed !== false)
       const directToken = useDirectBackend ? await ensureFreshToken() : null
-      // Direct-to-backend requests must opt into the AG-UI stream themselves;
-      // proxied requests get the parameter added by the proxy route.
-      const resolvedEndpoint = useDirectBackend
-        ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
-        : endpoint
+      const resolvedEndpoint = resume
+        ? `${API_BASE_URL}${resume.url}`
+        : useDirectBackend
+          ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
+          : endpoint
 
       const fd = new FormData()
       fd.append("input", input)
@@ -1581,7 +1590,12 @@ export function useStreamingChat({
           reject(new FriendlyStreamError(friendlyModelError("", 503)))
         }
 
-        xhr.send(fd)
+        if (resume) {
+          xhr.setRequestHeader("Content-Type", "application/json")
+          xhr.send(JSON.stringify({ prompt_id: resume.promptId, response: resume.response }))
+        } else {
+          xhr.send(fd)
+        }
       })
 
       stopFlushInterval()

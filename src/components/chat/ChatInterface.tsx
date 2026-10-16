@@ -1239,6 +1239,31 @@ export function ChatInterface({
     ));
   }, [setMessages]);
 
+  // A prompt answered at `/chats/{id}/resume` continues the turn as a new
+  // stream: it renders into a fresh assistant message below the card.
+  const resumeTurn = async (respondUrl: string, promptId: string, response: unknown) => {
+    const key = queueKey;
+    beginTurn();
+    const loadingId = addLoadingAssistantMessage();
+    setRevealingKey(loadingId);
+    stickAndFollow();
+    try {
+      settleTurn(key, await fetchAiResponse("", chatId ?? null, loadingId, selectedModelId, {
+        resume: { url: respondUrl, promptId, response },
+      }));
+    } catch {
+      toast.error("Failed to continue the reply. Please try again.");
+      holdQueue(key, "error");
+    } finally {
+      endTurn();
+    }
+  };
+  const resumeTurnRef = useRef(resumeTurn);
+  useEffect(() => { resumeTurnRef.current = resumeTurn; });
+  const handlePromptResume = useCallback((respondUrl: string, promptId: string, response: unknown) => {
+    void resumeTurnRef.current(respondUrl, promptId, response);
+  }, []);
+
   // Edit user message — replaces the message content, removes all subsequent
   // messages, then re-streams an assistant response using the backend's
   // replace_message_id edit API.
@@ -1622,6 +1647,7 @@ export function ChatInterface({
                         : undefined
                     }
                     onPromptDecided={handlePromptDecided}
+                    onPromptResume={handlePromptResume}
                   />
                   )}
                 </div>

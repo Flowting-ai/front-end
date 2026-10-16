@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react"
 
 import { ClarificationCard } from "@/components/chat/ClarificationCard"
 import type { QuestionCardOption } from "@/components/QuestionCard"
-import { respondToChatPrompt } from "@/lib/api/chat"
+import { isResumeUrl, respondToChatPrompt } from "@/lib/api/chat"
 import {
   buildDismissResponse,
   canDismissPrompt,
@@ -18,6 +18,8 @@ import type { ChatPrompt, ChatPromptQuestion } from "@/types/chat"
 interface ChatPromptCardProps {
   prompt: ChatPrompt
   onDecided?: (decision: string) => void
+  /** Continues a turn parked on this prompt (respond_url is `/chats/{id}/resume`). */
+  onResume?: (respondUrl: string, promptId: string, response: unknown) => void
 }
 
 const fallbackQuestion = (prompt: ChatPrompt): ChatPromptQuestion => ({
@@ -29,7 +31,7 @@ const fallbackQuestion = (prompt: ChatPrompt): ChatPromptQuestion => ({
   allow_custom: true,
 })
 
-export function ChatPromptCard({ prompt, onDecided }: ChatPromptCardProps) {
+export function ChatPromptCard({ prompt, onDecided, onResume }: ChatPromptCardProps) {
   const questions = useMemo(
     () => prompt.questions?.length ? prompt.questions : [fallbackQuestion(prompt)],
     [prompt],
@@ -85,7 +87,8 @@ export function ChatPromptCard({ prompt, onDecided }: ChatPromptCardProps) {
     setSubmitting(true)
     setError("")
     try {
-      await respondToChatPrompt(prompt.request_id, response, prompt.respond_url)
+      if (isResumeUrl(prompt.respond_url) && onResume) onResume(prompt.respond_url, prompt.request_id, response)
+      else await respondToChatPrompt(prompt.request_id, response, prompt.respond_url)
       setDecided(true)
       onDecided?.(decision)
     } catch (cause) {

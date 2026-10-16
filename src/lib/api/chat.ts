@@ -528,6 +528,12 @@ export async function saveFileToDrive(
  * Uses `respondUrl` (backend-relative path from the SSE event) when provided; falls back to
  * the standard /chats/prompts/{promptId} endpoint.
  */
+/** A prompt whose answer continues the turn as a new stream (`/chats/{id}/resume`)
+ *  rather than unblocking the stream that is still open. */
+export function isResumeUrl(url: string | null | undefined): url is string {
+  return !!url && /^\/chats\/[^/]+\/resume$/.test(url)
+}
+
 export async function respondToChatPrompt(
   promptId: string,
   response: unknown,
