@@ -508,7 +508,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      color: 'var(--static-white)',
+                      color: 'var(--color-interactive-primary-text)',
                       textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -530,7 +530,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      color: 'var(--static-white)',
+                      color: 'var(--color-interactive-primary-text)',
                       textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -547,7 +547,7 @@ function OrgChangePlanPageInner() {
             {/* ── Workspace (Core) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'color-mix(in srgb, var(--brown-100) 40%, var(--neutral-white))',
                 border: '2px solid var(--brown-700)',
                 borderRadius: 24,
                 padding: 32,
@@ -692,11 +692,11 @@ function OrgChangePlanPageInner() {
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
                     background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
                     boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px var(--neutral-white-30), inset 0px -2.182px 0.364px 0px var(--neutral-950), inset 0px -2.545px 4px -2.182px var(--neutral-white-50)',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--color-interactive-primary-text)',
                     textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                   }}
                 >
-                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--static-white)" />}
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--color-interactive-primary-text)" />}
                   {workspaceButtonLabel}
                 </button>
               </div>
@@ -705,7 +705,7 @@ function OrgChangePlanPageInner() {
             {/* ── Enterprise (Pro) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'color-mix(in srgb, var(--neutral-100) 70%, var(--neutral-white))',
                 border: '1px solid var(--border-default)',
                 borderRadius: 24,
                 padding: 32,
@@ -715,7 +715,7 @@ function OrgChangePlanPageInner() {
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-                    Pro
+                    Pro (Enterprise)
                   </p>
                 </div>
 
@@ -729,7 +729,7 @@ function OrgChangePlanPageInner() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     backgroundColor: 'var(--neutral-white)', cursor: changingTo ? 'wait' : 'pointer',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-300), inset 0px -2.182px 0.364px 0px var(--neutral-200)',
                     fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
