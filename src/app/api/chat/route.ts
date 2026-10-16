@@ -27,6 +27,7 @@ export const maxDuration = 800
  *   toneId             - optional style/tone ID (e.g. "professional", "teaching")
  *   systemPrompt       - optional persona system instruction (explicit override)
  *   temperature        - optional persona temperature override
+ *   files              - zero or more File parts (uploaded attachments)
  *   libraryFileIds     - optional JSON array of Library file ids attached to the message
  */
 export async function POST(request: NextRequest) {
@@ -49,8 +50,9 @@ export async function POST(request: NextRequest) {
     chatId, input, modelId, algorithm, pinIds, referenceMessageId, replaceMessageId,
     webSearch, enable_thinking: thinking, effort, personaId, systemPrompt, temperature, toneId, libraryFileIds,
   } = parsed.data
+  const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
 
-  if (!input.trim() && !libraryFileIds) {
+  if (!input.trim() && !libraryFileIds && clientFiles.length === 0) {
     return routeError(400, "bad_request", "A message or a file is required")
   }
 
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature !== undefined) fd.append("temperature", String(temperature))
   if (toneId) fd.append("tone_id", toneId)
+  clientFiles.forEach((f) => fd.append("files", f))
   if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
 
   // ── Proxy request ────────────────────────────────────────────────────────────

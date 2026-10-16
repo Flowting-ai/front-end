@@ -31,7 +31,6 @@ import {
 } from "@/lib/reasoning"
 import { normalizeActivityStatus, stopActiveActivities, toolNameToType, webSearchResults } from "@/lib/activity"
 import { deriveActivityDetail } from "@/lib/activity-detail"
-import { UploadFailed, uploadForSend } from "@/lib/library/upload/send"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -366,14 +365,6 @@ export function useStreamingChat({
         ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
         : endpoint
 
-      // Picked files become Library files first; the message refers to them by id.
-      const libraryFileIds = await uploadForSend(options?.files ?? [], {
-        chatId: isExistingChat ? chatId! : undefined,
-        onProgress: options?.onUploadProgress,
-      }).catch((error: unknown) => {
-        throw error instanceof UploadFailed ? new FriendlyStreamError(error.message) : error
-      })
-
       const fd = new FormData()
       fd.append("input", input)
       if (useDirectBackend) {
@@ -407,7 +398,8 @@ export function useStreamingChat({
         options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
         if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
       }
-      if (libraryFileIds.length > 0) fd.append("libraryFileIds", JSON.stringify(libraryFileIds))
+      // New files ride with the message; the backend adds them to Library after the turn.
+      options?.files?.forEach((f) => fd.append("files", f))
 
       const sseDecoder = new AguiSSEDecoder()
 
@@ -1462,6 +1454,16 @@ export function useStreamingChat({
         // reads them via extract_geo.
         for (const [name, value] of Object.entries(clientGeoHeaders())) {
           xhr.setRequestHeader(name, value)
+        }
+
+        // Report real browser→proxy upload progress per file byte count
+        if (options?.files?.length && options.onUploadProgress) {
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable && e.total > 0) {
+              // Cap at 99 so the caller can set 100 only on confirmed completion
+              options.onUploadProgress!(Math.min(99, Math.round((e.loaded / e.total) * 100)))
+            }
+          })
         }
 
         // Upload finished → signal 100%, enter SSE streaming phase

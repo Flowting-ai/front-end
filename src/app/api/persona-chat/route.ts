@@ -19,6 +19,7 @@ export const maxDuration = 800
  *   input     - required user message
  *   repoId    - required persona repo ID
  *   chatId    - existing chat ID (omit for new chats)
+ *   files     - zero or more File parts (uploaded attachments)
  *   libraryFileIds - optional JSON array of Library file ids attached to the message
  *   connectorSlugs - optional connector slugs (repeated field)
  */
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
   const parsed = personaChatFormSchema.safeParse(fields)
   if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
   const { repoId, chatId, input, modelId, connectorSlugs, libraryFileIds } = parsed.data
-  if (!input.trim() && !libraryFileIds) {
+  const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
+  if (!input.trim() && !libraryFileIds && clientFiles.length === 0) {
     return routeError(400, "bad_request", "A message or a file is required")
   }
 
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
 
   const fd = new FormData()
   fd.append("input", input)
+  clientFiles.forEach((f) => fd.append("files", f))
   if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
   connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
   if (modelId) fd.append("model_id", modelId)
