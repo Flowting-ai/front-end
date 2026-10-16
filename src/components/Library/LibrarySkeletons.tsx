@@ -136,9 +136,8 @@ function Tiles() {
 }
 
 /**
- * Recent, Frequently used and Generated, in the Suggested view's real grid, sizes and gaps. Only the content is
- * drawn as bones (title, icon, meta): the cards and tiles themselves (border, fill, shadow) are not, because
- * which of them exist is not known until the files arrive.
+ * Recent, Frequently used and Generated, in the Suggested view's real grid, sizes and gaps. Recent cards are whole
+ * bones (frame included); the Frequently used / Generated tiles keep only their content as bones.
  */
 export function SuggestedSkeleton() {
   return (
@@ -147,13 +146,7 @@ export function SuggestedSkeleton() {
         <SectionHead width={56} action />
         <div className={cx(suggestedStyles.cardGrid, styles.cardGrid)}>
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className={styles.card}>
-              <Skeleton width="70%" height={14} radius={6} />
-              <div className={styles.cardIcon}>
-                <Skeleton width={56} height={56} radius={14} />
-              </div>
-              <Skeleton width="50%" height={12} radius={6} />
-            </div>
+            <Skeleton key={index} width="100%" height={168} radius={16} />
           ))}
         </div>
       </section>
