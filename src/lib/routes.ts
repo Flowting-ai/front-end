@@ -55,6 +55,7 @@ export const SETTINGS_BILLING_ROUTE = "/settings/billing";
 // Settings v1.5 — PERSONAL > Usage (node 17-22980), split out of the old
 // combined "Usage & Billing" page. This page is personal credit-consumption only.
 export const SETTINGS_USAGE_ROUTE = "/settings/usage";
+export const SETTINGS_MEMORY_ROUTE = "/settings/memory";
 export const SETTINGS_BILLING_CHANGE_PLAN_ROUTE = "/settings/billing/change-plan";
 export const SETTINGS_BILLING_CONFIRMATION_ROUTE = "/settings/billing/confirmation";
 export const TEAM_INVITE_BASE_ROUTE = "/team-invite";

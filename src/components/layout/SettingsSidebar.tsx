@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
-import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, BrainTwoIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Logout01Icon from '@hugeicons/core-free-icons/Logout01Icon'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
@@ -22,7 +22,7 @@ import { useOrg } from '@/context/org-context'
 import type { CreditsDisplay } from '@/lib/api/plan'
 import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
-import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_MEMORY_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -103,6 +103,7 @@ const PERSONAL_ITEMS = [
   // Usage page (node 17-22980) existed — now points at its own route.
   // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+  { id: 'memory',  label: 'Memory',  href: SETTINGS_MEMORY_ROUTE,  icon: <BrainTwoIcon size={20} /> },
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
