@@ -199,7 +199,7 @@ const PlanChip = ({ label, tone }: { label: string; tone: PlanTone }) => {
 
 /** "Core" → "Core Plan", "Pro" → "Pro Plan"; labels that already say what they are ("Free Plan", "Free Trial") are kept. */
 function withPlanSuffix(label: string): string {
-  return /(plan|trial)/i.test(label) ? label : `${label} Plan`
+  return /\b(plan|trial)\b/i.test(label) ? label : `${label} Plan`
 }
 
 const PlanCard = ({
