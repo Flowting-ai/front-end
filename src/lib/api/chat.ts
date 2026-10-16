@@ -523,22 +523,19 @@ export async function saveFileToDrive(
   });
 }
 
-/**
- * POST to the backend's prompt gate to unblock a mid-stream permission/confirmation prompt.
- * Uses `respondUrl` (backend-relative path from the SSE event) when provided; falls back to
- * the standard /chats/prompts/{promptId} endpoint.
- */
-/** A prompt whose answer continues the turn as a new stream (`/chats/{id}/resume`)
- *  rather than unblocking the stream that is still open. */
-export function isResumeUrl(url: string | null | undefined): url is string {
-  return !!url && /^\/chats\/[^/]+\/resume$/.test(url)
-}
+/** What the backend says after an answer: `live` when the turn was still waiting
+ *  on it, otherwise the `message` that starts the next turn. */
+export type PromptAnswer = { live: boolean; message: string | null }
 
+/**
+ * POST the answer to a prompt's `respondUrl` (backend-relative path from the SSE event);
+ * falls back to the standard /chats/prompts/{promptId} endpoint.
+ */
 export async function respondToChatPrompt(
   promptId: string,
   response: unknown,
   respondUrl?: string,
-): Promise<void> {
+): Promise<PromptAnswer | null> {
   const path = respondUrl
     ? `${API_BASE_URL}${respondUrl}`
     : CHAT_PROMPT_RESPOND_ENDPOINT(promptId);
@@ -554,6 +551,9 @@ export async function respondToChatPrompt(
       "Failed to respond to prompt",
     );
   }
+  if (res.status === 204) return null;
+  const body = await res.json() as Partial<PromptAnswer>;
+  return { live: body.live ?? true, message: body.message ?? null };
 }
 
 /**

@@ -694,32 +694,11 @@ export function PersonaChatInterface({
     }
   }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse, sendBlocked]);
 
-  // A prompt answered at `/chats/{id}/resume` continues the turn as a new
-  // stream: it renders into a fresh assistant message below the card.
-  const resumeTurn = async (respondUrl: string, promptId: string, response: unknown) => {
-    const loadingMsgId = `loading-assistant-${Date.now()}`;
-    setMessages(prev => [...prev, {
-      id: loadingMsgId,
-      role: "assistant",
-      content: "",
-      created_at: new Date().toISOString(),
-      chat_id: activeChatId ?? "",
-      isLoading: true,
-    }]);
-    try {
-      await fetchAiResponse("", activeChatId ?? null, loadingMsgId, null, {
-        personaId,
-        resume: { url: respondUrl, promptId, response },
-      });
-    } catch {
-      setMessages(prev => prev.filter(msg => msg.id !== loadingMsgId));
-    }
-  };
-  const resumeTurnRef = useRef(resumeTurn);
-  useEffect(() => { resumeTurnRef.current = resumeTurn; });
-  const handlePromptResume = useCallback((respondUrl: string, promptId: string, response: unknown) => {
-    void resumeTurnRef.current(respondUrl, promptId, response);
-  }, []);
+  // A prompt answered after its turn moved on comes back with the message that
+  // starts the next turn.
+  const handlePromptFollowUp = useCallback((message: string) => {
+    void handleSend(message);
+  }, [handleSend]);
 
   const chatId = activeChatId ?? "";
 
@@ -758,7 +737,7 @@ export function PersonaChatInterface({
               hidePinAction
               disableHighlight
               onPromptDecided={handlePromptDecided}
-              onPromptResume={handlePromptResume}
+              onPromptFollowUp={handlePromptFollowUp}
             />
           ))}
 

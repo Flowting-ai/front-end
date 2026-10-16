@@ -12,7 +12,7 @@ import type { ChatPrompt, ChatPromptQuestion } from '@/types/chat'
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const respond = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api/chat', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/api/chat')>()), respondToChatPrompt: respond }))
+vi.mock('@/lib/api/chat', () => ({ respondToChatPrompt: respond }))
 
 import { ChatPromptCard } from './ChatPromptCard'
 import { DISMISSED_ANSWER } from '@/lib/chat-prompt-answers'
@@ -271,24 +271,24 @@ describe('keyboard and screen readers', () => {
   })
 })
 
-describe('a turn parked on the prompt', () => {
-  it('continues the turn through onResume instead of posting to the prompt gate', async () => {
-    const onResume = vi.fn()
-    const prompt = { ...questionsPrompt([color]), respond_url: '/chats/chat-1/resume' }
-    await act(async () => root.render(<ChatPromptCard prompt={prompt} onDecided={onDecided} onResume={onResume} />))
-    await click(row('Red'))
-    await click(button('Send')!)
-    expect(onResume).toHaveBeenCalledWith('/chats/chat-1/resume', 'p1', { answers: { color: 'red' } })
-    expect(respond).not.toHaveBeenCalled()
-    expect(onDecided).toHaveBeenCalledWith('resolved')
-  })
-
-  it('still posts to the prompt gate when the backend gives a gate url', async () => {
-    const onResume = vi.fn()
-    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onResume={onResume} />))
+describe('an answer after the turn moved on', () => {
+  it('sends the message the backend returns as the next turn', async () => {
+    const onFollowUp = vi.fn()
+    respond.mockResolvedValue({ live: false, message: 'My answers to "A few quick questions":\n- Which colour?: Red' })
+    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onFollowUp={onFollowUp} />))
     await click(row('Red'))
     await click(button('Send')!)
     expect(respond).toHaveBeenCalledWith('p1', { answers: { color: 'red' } }, '/chats/prompts/p1')
-    expect(onResume).not.toHaveBeenCalled()
+    expect(onFollowUp).toHaveBeenCalledWith('My answers to "A few quick questions":\n- Which colour?: Red')
+  })
+
+  it('sends nothing more when the turn was still waiting on the answer', async () => {
+    const onFollowUp = vi.fn()
+    respond.mockResolvedValue({ live: true, message: null })
+    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onFollowUp={onFollowUp} />))
+    await click(row('Red'))
+    await click(button('Send')!)
+    expect(onDecided).toHaveBeenCalledWith('resolved')
+    expect(onFollowUp).not.toHaveBeenCalled()
   })
 })
