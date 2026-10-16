@@ -23,7 +23,7 @@ import { useHighlight } from "@/context/highlight-context";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation } from "@/types/chat";
-import { respondToChatPrompt } from "@/lib/api/chat";
+import { isResumeUrl, respondToChatPrompt } from "@/lib/api/chat";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -448,6 +448,9 @@ interface ChatMessageProps {
   /** Records a permission-prompt answer in the owning messages state so the
    *  card stays hidden across remounts (message-id swap, virtualizer). */
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
+  /** Continues a turn parked on a prompt whose respond_url is `/chats/{id}/resume`.
+   *  The memo comparator ignores it, so pass a stable function. */
+  onPromptResume?: (respondUrl: string, promptId: string, response: unknown) => void;
   /** Called once per message when it has stopped loading and its text reveal
    *  has finished (straight away for a message that isn't animated). The memo
    *  comparator only tracks whether it is set, so pass a stable function. */
@@ -469,6 +472,7 @@ export function ChatMessage({
   onFollowUp,
   onRetry,
   onPromptDecided,
+  onPromptResume,
   onRevealSettled,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
@@ -1129,7 +1133,8 @@ export function ChatMessage({
                 key={prompt.request_id}
                 prompt={prompt}
                 onDecided={(policy) => {
-                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
+                  if (isResumeUrl(prompt.respond_url) && onPromptResume) onPromptResume(prompt.respond_url, prompt.request_id, policy)
+                  else respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
                   onPromptDecided?.(message.id, prompt.request_id, policy)
                 }}
               />
@@ -1144,6 +1149,7 @@ export function ChatMessage({
                 key={prompt.request_id}
                 prompt={prompt}
                 onDecided={(decision) => onPromptDecided?.(message.id, prompt.request_id, decision)}
+                onResume={onPromptResume}
               />
             ))}
           </div>

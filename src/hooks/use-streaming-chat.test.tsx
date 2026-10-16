@@ -26,11 +26,15 @@ class FakeXHR {
   onreadystatechange: (() => void) | null = null
   onabort: (() => void) | null = null
   onerror: (() => void) | null = null
-  open() {}
-  setRequestHeader() {}
+  method = ''
+  url = ''
+  body: unknown = null
+  headers: Record<string, string> = {}
+  open(method: string, url: string) { this.method = method; this.url = url }
+  setRequestHeader(name: string, value: string) { this.headers[name] = value }
   getResponseHeader() { return null }
   abort() {}
-  send() { FakeXHR.last = this }
+  send(body: unknown) { this.body = body; FakeXHR.last = this }
 
   /** Answer with `status` and these AG-UI events, then close. */
   respond(status: number, events: object[]) {
@@ -188,5 +192,28 @@ describe('useStreamingChat turn result', () => {
     FakeXHR.last = null
     expect(isStreamActive('chat-1')).toBe(false)
     expect(ended).toEqual([{ type: 'end', chatId: 'chat-1', outcome: 'aborted' }])
+  })
+})
+
+describe('useStreamingChat resumed turn', () => {
+  it('posts the answer to respond_url as JSON and streams the rest of the turn', async () => {
+    const done = hook.fetchAiResponse('', 'chat-1', 'loading-1', null, {
+      resume: { url: '/chats/chat-1/resume', promptId: 'p1', response: 'allow' },
+    })
+    await vi.waitFor(() => expect(FakeXHR.last).not.toBeNull())
+    const xhr = FakeXHR.last!
+    expect(xhr.method).toBe('POST')
+    expect(xhr.url).toBe('/api/backend/chats/chat-1/resume')
+    expect(xhr.headers['Content-Type']).toBe('application/json')
+    expect(JSON.parse(xhr.body as string)).toEqual({ prompt_id: 'p1', response: 'allow' })
+    xhr.respond(200, [
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Done, sent it.' },
+      { type: 'RUN_FINISHED', ...RUN },
+    ])
+    expect(await done).toBe('done')
+    FakeXHR.last = null
+    expect(messages[0].content).toBe('Done, sent it.')
+    expect(messages[0].isLoading).toBe(false)
   })
 })
