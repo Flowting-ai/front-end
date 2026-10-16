@@ -3,31 +3,19 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
-import { ArrowDownOneIcon, ArrowUpTwoIcon, BrainTwoIcon, CancelOneIcon, DeleteTwoIcon, PenOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, ArrowUpTwoIcon, BrainTwoIcon, CancelOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
-import { editMemory, fetchMemorySummary, type MemoryGroup, type MemoryNote, type MemorySummary } from '@/lib/api/memory'
+import { editMemory, fetchMemorySummary, forgetMemoryNote, type MemoryNote, type MemorySummary } from '@/lib/api/memory'
+import styles from './MemorySection.module.css'
 
 // One memory store on the settings Memory page: its notes topic by topic, each opening to the note itself, then the written summary and the edit chat.
 
-const USER_GROUPS: { group: MemoryGroup; label: string }[] = [
-  { group: 'profile', label: 'You' },
-  { group: 'topics',  label: 'Topics' },
-  { group: 'areas',   label: 'Areas' },
-  { group: 'people',  label: 'People' },
-]
-
-const ORG_GROUPS: { group: MemoryGroup; label: string }[] = [
-  { group: 'mission',    label: 'Mission & values' },
-  { group: 'company',    label: 'Company' },
-  { group: 'product',    label: 'Product & pricing' },
-  { group: 'customers',  label: 'Customers & partners' },
-  { group: 'team',       label: 'Team' },
-  { group: 'operations', label: 'How we work' },
-  { group: 'decisions',  label: 'Key decisions' },
-]
-
 const BODY = 'var(--font-body)'
+// A stale summary is being rewritten in the background; check back this often for the fresh one.
+const REFRESH_POLL_MS = 8_000
+const REFRESH_POLL_LIMIT = 8
 const HOVER = 'color-mix(in srgb, var(--neutral-100) 60%, transparent)'
 const CARD: React.CSSProperties = {
   border:          '1px solid var(--border-default)',
@@ -59,49 +47,107 @@ function teaser(markdown: string): string {
   return markdown.split('\n').map(line => line.trim()).find(line => line && !line.startsWith('#'))?.replace(/[*_`]/g, '') ?? ''
 }
 
-function NoteRow({ note, open, onToggle, onAsk }: {
+function NoteRow({ note, open, onToggle, onForget }: {
   note:     MemoryNote
   open:     boolean
   onToggle: () => void
-  onAsk:    (draft: string) => void
+  onForget: () => Promise<void>
 }) {
-  const [hovered, setHovered] = useState(false)
+  const [hovered,    setHovered]    = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [forgetting, setForgetting] = useState(false)
+
+  async function forget() {
+    setForgetting(true)
+    try {
+      await onForget()
+    } finally {
+      setForgetting(false)
+      setConfirming(false)
+    }
+  }
+
+  const quiet: React.CSSProperties = {
+    display:      'inline-flex',
+    alignItems:   'center',
+    gap:          6,
+    padding:      '4px 8px',
+    border:       'none',
+    borderRadius: 8,
+    background:   'transparent',
+    cursor:       'pointer',
+    fontFamily:   BODY,
+    fontSize:     13,
+    lineHeight:   '20px',
+    whiteSpace:   'nowrap',
+  }
+
   return (
     <div style={{ borderTop: '1px solid var(--neutral-100)' }}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={onToggle}
+      <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          display:             'grid',
-          gridTemplateColumns: '16px minmax(110px, 0.9fr) minmax(0, 2fr) auto',
-          alignItems:          'center',
-          gap:                 14,
-          width:               '100%',
-          padding:             '12px 24px 12px 18px',
-          border:              'none',
-          cursor:              'pointer',
-          textAlign:           'left',
-          backgroundColor:     open || hovered ? HOVER : 'transparent',
-          transition:          'background-color 120ms ease',
-          fontFamily:          BODY,
-          fontSize:            14,
-          lineHeight:          '22px',
+          display:         'flex',
+          alignItems:      'center',
+          gap:             8,
+          paddingRight:    16,
+          backgroundColor: open || hovered ? HOVER : 'transparent',
+          transition:      'background-color 120ms ease',
         }}
       >
-        <m.span
-          animate={{ rotate: open ? 0 : -90 }}
-          transition={{ duration: 0.15 }}
-          style={{ display: 'flex', color: 'var(--neutral-400)' }}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onToggle}
+          style={{
+            flex:       '1 0 0',
+            minWidth:   0,
+            display:    'flex',
+            alignItems: 'center',
+            gap:        12,
+            padding:    '12px 8px 12px 18px',
+            border:     'none',
+            background: 'transparent',
+            cursor:     'pointer',
+            textAlign:  'left',
+            fontFamily: BODY,
+            fontSize:   14,
+            lineHeight: '22px',
+          }}
         >
-          <ArrowDownOneIcon size={14} />
-        </m.span>
-        <span style={{ fontWeight: 500, color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</span>
-        <span style={{ color: 'var(--neutral-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.description}</span>
-        <span style={{ color: 'var(--neutral-400)', fontSize: 13, whiteSpace: 'nowrap' }}>Updated {ago(note.updatedAt)}</span>
-      </button>
+          <m.span
+            animate={{ rotate: open ? 0 : -90 }}
+            transition={{ duration: 0.15 }}
+            style={{ display: 'flex', flexShrink: 0, color: 'var(--neutral-400)' }}
+          >
+            <ArrowDownOneIcon size={14} />
+          </m.span>
+          <span style={{ flex: '1 0 0', minWidth: 0, fontWeight: 500, color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</span>
+          {!confirming && <span style={{ flexShrink: 0, color: 'var(--neutral-400)', fontSize: 13 }}>Updated {ago(note.updatedAt)}</span>}
+        </button>
+
+        {confirming ? (
+          <m.div initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontFamily: BODY, fontSize: 13, color: 'var(--neutral-600)', marginRight: 4, whiteSpace: 'nowrap' }}>Forget this note?</span>
+            <button type="button" onClick={() => void forget()} disabled={forgetting} style={{ ...quiet, color: 'var(--red-600)', fontWeight: 500, opacity: forgetting ? 0.6 : 1 }}>
+              {forgetting ? 'Forgetting…' : 'Forget'}
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} disabled={forgetting} style={{ ...quiet, color: 'var(--neutral-500)' }}>
+              Cancel
+            </button>
+          </m.div>
+        ) : (
+          <button
+            type="button"
+            aria-label={`Forget ${note.title}`}
+            onClick={() => setConfirming(true)}
+            style={{ ...quiet, color: hovered || open ? 'var(--neutral-600)' : 'var(--neutral-400)' }}
+          >
+            <DeleteTwoIcon size={14} /> Forget
+          </button>
+        )}
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -113,29 +159,8 @@ function NoteRow({ note, open, onToggle, onAsk }: {
             transition={{ duration: 0.2, ease: 'easeOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '4px 24px 16px 48px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div
-                className="kaya-scrollbar"
-                style={{
-                  maxHeight:       360,
-                  overflowY:       'auto',
-                  padding:         '12px 16px',
-                  borderRadius:    12,
-                  backgroundColor: 'var(--field-surface)',
-                  boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-                  fontSize:        14,
-                }}
-              >
-                <MarkdownRenderer content={note.content} />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="secondary" size="sm" onClick={() => onAsk(`About my “${note.title}” note: `)}>
-                  <PenOneIcon size={14} /> Ask to change
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => onAsk(`Forget everything in my “${note.title}” note.`)}>
-                  <DeleteTwoIcon size={14} /> Forget
-                </Button>
-              </div>
+            <div className={styles.note} style={{ padding: '4px 24px 18px 44px' }}>
+              <MarkdownRenderer content={note.content} />
             </div>
           </m.div>
         )}
@@ -309,7 +334,6 @@ function ManageDialog({ open, onOpenChange, orgId, summary, onSummary, draft, on
 
 /** `orgId` set = the organization's shared memory (the backend allows admins only); null = the user's own. */
 export function MemorySection({ title, hint, orgId, query }: { title: string; hint: string; orgId: string | null; query: string }) {
-  const groups = orgId ? ORG_GROUPS : USER_GROUPS
   const [summary,  setSummary]  = useState<MemorySummary | null>(null)
   const [failed,   setFailed]   = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -318,15 +342,33 @@ export function MemorySection({ title, hint, orgId, query }: { title: string; hi
 
   useEffect(() => {
     let cancelled = false
-    fetchMemorySummary(orgId)
-      .then(result => { if (!cancelled) { setSummary(result); setFailed(false) } })
-      .catch(() => { if (!cancelled) setFailed(true) })
-    return () => { cancelled = true }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = (attempt: number) => {
+      fetchMemorySummary(orgId)
+        .then(result => {
+          if (cancelled) return
+          setSummary(result)
+          setFailed(false)
+          if (result.stale && attempt < REFRESH_POLL_LIMIT) timer = setTimeout(() => load(attempt + 1), REFRESH_POLL_MS)
+        })
+        .catch(() => { if (!cancelled) setFailed(true) })
+    }
+    load(0)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [orgId])
 
-  function ask(seed: string) {
-    setDraft(seed)
+  function openSummary() {
+    setDraft('')
     setDialog(true)
+  }
+
+  async function forget(path: string) {
+    try {
+      setSummary(await forgetMemoryNote(orgId, path))
+      if (expanded === path) setExpanded(null)
+    } catch {
+      toast.error('Couldn’t forget that note. Try again.')
+    }
   }
 
   const shown = summary?.notes.filter(note => matches(note, query)) ?? []
@@ -339,9 +381,15 @@ export function MemorySection({ title, hint, orgId, query }: { title: string; hi
           <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{hint}</p>
         </div>
         {summary && summary.notes.length > 0 && (
-          <span style={{ fontFamily: BODY, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', whiteSpace: 'nowrap' }}>
-            {summary.notes.length} notes · summarized {ago(summary.generatedAt)}
-          </span>
+          summary.stale ? (
+            <span className="kaya-shimmer-text" style={{ fontFamily: BODY, fontSize: 13, lineHeight: '20px', whiteSpace: 'nowrap' }}>
+              Refreshing with your latest notes…
+            </span>
+          ) : (
+            <span style={{ fontFamily: BODY, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', whiteSpace: 'nowrap' }}>
+              {summary.notes.length} notes · summarized {ago(summary.generatedAt)}
+            </span>
+          )
         )}
       </div>
 
@@ -358,13 +406,13 @@ export function MemorySection({ title, hint, orgId, query }: { title: string; hi
         ) : shown.length === 0 ? (
           <div style={{ padding: '16px 24px', fontFamily: BODY, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>No notes match “{query.trim()}”.</div>
         ) : (
-          groups.map(({ group, label }, index) => {
+          summary.groups.map((group, index) => {
             const notes = shown.filter(note => note.group === group)
             if (notes.length === 0) return null
             return (
               <div key={group} style={{ borderTop: index === 0 ? 'none' : '1px solid var(--neutral-100)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 24px 10px' }}>
-                  <span style={{ fontFamily: BODY, fontWeight: 600, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>{label}</span>
+                  <span style={{ fontFamily: BODY, fontWeight: 600, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>{group}</span>
                   <span style={{
                     display:         'inline-flex',
                     alignItems:      'center',
@@ -388,7 +436,7 @@ export function MemorySection({ title, hint, orgId, query }: { title: string; hi
                     note={note}
                     open={expanded === note.path}
                     onToggle={() => setExpanded(current => current === note.path ? null : note.path)}
-                    onAsk={ask}
+                    onForget={() => forget(note.path)}
                   />
                 ))}
               </div>
@@ -427,7 +475,7 @@ export function MemorySection({ title, hint, orgId, query }: { title: string; hi
             {summary && summary.notes.length > 0 ? teaser(summary.summary) : 'Read the full summary and ask Souvenir to add, change or forget anything.'}
           </p>
         </div>
-        <Button variant="secondary" size="sm" disabled={summary === null} onClick={() => ask('')}>Open summary</Button>
+        <Button variant="secondary" size="sm" disabled={summary === null} onClick={openSummary}>Open summary</Button>
       </div>
 
       {summary && (

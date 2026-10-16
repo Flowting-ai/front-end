@@ -6,15 +6,11 @@ import { API_BASE_URL } from '../config'
 const memoryBase = (orgId: string | null) =>
   orgId ? `${API_BASE_URL}/organizations/${orgId}/memory` : `${API_BASE_URL}/memory`
 
-const memoryGroupSchema = z.enum([
-  'profile', 'topics', 'areas', 'people',
-  'mission', 'company', 'product', 'customers', 'team', 'operations', 'decisions',
-])
-
 const memoryNoteSchema = z.object({
   path:        z.string(),
   title:       z.string(),
-  group:       memoryGroupSchema,
+  /** One of the summary's groups, which the backend picks per memory. */
+  group:       z.string(),
   description: z.string(),
   /** The note itself, markdown without its frontmatter. */
   content:     z.string(),
@@ -23,8 +19,12 @@ const memoryNoteSchema = z.object({
 
 const memorySummarySchema = z.object({
   summary:     z.string(),
+  /** Group names in display order. */
+  groups:      z.array(z.string()),
   notes:       z.array(memoryNoteSchema),
   generatedAt: z.string(),
+  /** Notes changed since this was written; the backend is already writing a fresh one. */
+  stale:       z.boolean(),
 })
 
 const memoryEditSchema = z.object({
@@ -32,7 +32,6 @@ const memoryEditSchema = z.object({
   summary: memorySummarySchema,
 })
 
-export type MemoryGroup = z.infer<typeof memoryGroupSchema>
 export type MemoryNote = z.infer<typeof memoryNoteSchema>
 export type MemorySummary = z.infer<typeof memorySummarySchema>
 export type MemoryEdit = z.infer<typeof memoryEditSchema>
@@ -48,4 +47,12 @@ export async function editMemory(orgId: string | null, message: string): Promise
     method: 'POST',
     body:   JSON.stringify({ message }),
   }))
+}
+
+/** DELETE …/memory/notes — forgets one listed note; the summary comes back without it while a fresh one is written. */
+export async function forgetMemoryNote(orgId: string | null, path: string): Promise<MemorySummary> {
+  return memorySummarySchema.parse(await apiFetchJson<unknown>(
+    `${memoryBase(orgId)}/notes?path=${encodeURIComponent(path)}`,
+    { method: 'DELETE' },
+  ))
 }
