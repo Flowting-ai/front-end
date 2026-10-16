@@ -67,6 +67,102 @@ function getTypeBadgeColor(label: string): BadgeColor {
   }
 }
 
+// ── Remove button ─────────────────────────────────────────────────────────────
+// The button is 24px (the hit target) around a 15px circle. It sits inside a clickable
+// card, so its click and key events must not reach the card (that would open a preview).
+
+function RemoveButton({
+  name,
+  visible,
+  disabled,
+  onRemove,
+  variant,
+}: {
+  name: string;
+  visible: boolean;
+  disabled?: boolean;
+  onRemove: () => void;
+  variant: "image" | "document";
+}) {
+  const onImage = variant === "image";
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      disabled={disabled}
+      aria-label={`Remove ${name}`}
+      style={{
+        position:       "absolute",
+        top:            0,
+        right:          0,
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        width:          "24px",
+        height:         "24px",
+        padding:        0,
+        border:         "none",
+        background:     "none",
+        opacity:        visible ? 1 : 0,
+        transition:     "opacity 100ms",
+        cursor:         disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          display:         "flex",
+          alignItems:      "center",
+          justifyContent:  "center",
+          width:           "15px",
+          height:          "15px",
+          borderRadius:    "50%",
+          border:          onImage ? "none" : "1px solid var(--border-default)",
+          backgroundColor: onImage ? "color-mix(in srgb, var(--static-black) 55%, transparent)" : "var(--neutral-white)",
+          color:           onImage ? "var(--static-white)" : "var(--neutral-600)",
+          boxShadow:       onImage ? "none" : "0 1px 2px color-mix(in srgb, var(--static-black) 6%, transparent)",
+        }}
+      >
+        <CancelOneIcon size={9} />
+      </span>
+    </button>
+  );
+}
+
+// ── Scroll arrow ──────────────────────────────────────────────────────────────
+
+function ScrollArrow({ direction, disabled, onClick }: { direction: "left" | "right"; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={`Scroll attachments ${direction}`}
+      style={{
+        display:         "flex",
+        alignItems:      "center",
+        justifyContent:  "center",
+        width:           "24px",
+        height:          "24px",
+        borderRadius:    "50%",
+        border:          "1px solid var(--border-default)",
+        backgroundColor: "var(--neutral-white)",
+        color:           "var(--neutral-700)",
+        cursor:          disabled ? "default" : "pointer",
+        opacity:         disabled ? 0.4 : 1,
+        padding:         0,
+        transition:      "background-color 120ms, opacity 120ms",
+      }}
+    >
+      {direction === "left" ? <ArrowLeftOneIcon size={12} /> : <ArrowRightOneIcon size={12} />}
+    </button>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface AttachmentManagerProps {
@@ -92,9 +188,20 @@ export function AttachmentManager({
   const [showLeft,   setShowLeft]   = useState(false);
   const [showRight,  setShowRight]  = useState(false);
   const [hoveredId,  setHoveredId]  = useState<string | null>(null);
+  const [focusedId,  setFocusedId]  = useState<string | null>(null);
+  // No hover on touch screens, so the remove button is always shown there.
+  const [noHover,    setNoHover]    = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none)");
+    const sync = () => setNoHover(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   // Re-check scroll buttons whenever attachments are added/removed (RAF lets
   // the browser finish laying out the new chips before we measure widths).
@@ -113,7 +220,20 @@ export function AttachmentManager({
   };
 
   const handleRemove = (id: string) => {
+    // A keyboard user removes from the button, which is about to unmount. Hand focus to a
+    // neighbouring card (or back to the message box) instead of dropping it on the page body.
+    const fromKeyboard = scrollRef.current?.contains(document.activeElement) ?? false;
+    const index = attachments.findIndex((a) => a.id === id);
+    const neighbour = attachments[index + 1] ?? attachments[index - 1];
+    const strip = scrollRef.current;
+    const textarea = strip?.closest("form, [role='group'], body")?.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea")
+      ?? document.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea");
     onAttachmentsChange(removeOne(id, attachments));
+    if (!fromKeyboard) return;
+    requestAnimationFrame(() => {
+      const next = neighbour && strip?.querySelector<HTMLElement>(`[data-attachment-id="${neighbour.id}"]`);
+      (next ?? textarea)?.focus();
+    });
   };
 
   // Opens the local file in a new tab. Images already have a standing preview
@@ -125,6 +245,33 @@ export function AttachmentManager({
     if (!attachment.preview) {
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     }
+  };
+
+  // A card opens its preview only when it is a finished upload. The remove button is
+  // a child of the card, so it must stop its own click and key events from reaching these.
+  const cardProps = (attachment: PendingAttachment) => {
+    const canPreview = !attachment.uploading && !attachment.error;
+    return {
+      role:      "button" as const,
+      "data-attachment-id": attachment.id,
+      tabIndex:  canPreview ? 0 : -1,
+      "aria-label": canPreview ? `Preview ${attachment.file.name}` : attachment.file.name,
+      "aria-disabled": canPreview ? undefined : true,
+      onMouseEnter: () => setHoveredId(attachment.id),
+      onMouseLeave: () => setHoveredId(null),
+      onFocus: () => setFocusedId(attachment.id),
+      onBlur: (e: React.FocusEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusedId(null);
+      },
+      onClick: () => canPreview && handlePreview(attachment),
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.target !== e.currentTarget || !canPreview) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handlePreview(attachment);
+        }
+      },
+    };
   };
 
   const updateScrollButtons = () => {
@@ -211,6 +358,13 @@ export function AttachmentManager({
           >
             {attachments.length} file{attachments.length !== 1 ? "s" : ""} attached
           </span>
+          {/* Scroll arrows sit in this header row, not over the cards, so they never cover a card or its remove button. */}
+          {(showLeft || showRight) && (
+            <span style={{ marginLeft: "auto", display: "flex", gap: "4px" }}>
+              <ScrollArrow direction="left" disabled={!showLeft} onClick={() => scrollBy(-200)} />
+              <ScrollArrow direction="right" disabled={!showRight} onClick={() => scrollBy(200)} />
+            </span>
+          )}
         </div>
         {/* Row */}
         <div
@@ -243,11 +397,8 @@ export function AttachmentManager({
 
             return isImage ? (
               // ── Image thumbnail ────────────────────────────────────────────
-              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
-                key={attachment.id}
-                onMouseEnter={() => setHoveredId(attachment.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => !attachment.uploading && handlePreview(attachment)}
+              <Tooltip key={attachment.id} content={attachment.error ?? attachment.file.name} maxWidth={280}><div
+                {...cardProps(attachment)}
                 style={{
                   position:     "relative",
                   width:        "46px",
@@ -256,7 +407,7 @@ export function AttachmentManager({
                   border:       attachment.error ? "1px solid var(--red-400, #f87171)" : "1px solid var(--border-default)",
                   overflow:     "hidden",
                   flexShrink:   0,
-                  cursor:       attachment.uploading ? "default" : "pointer",
+                  cursor:       attachment.uploading || attachment.error ? "default" : "pointer",
                 }}
               >
                 {attachment.preview && (
@@ -325,41 +476,21 @@ export function AttachmentManager({
                   </span>
                 )}
 
-                {/* Remove - only after upload */}
-                {isHovered && !attachment.uploading && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(attachment.id)}
+                {/* Remove - only after upload. Always in the DOM so keyboard users can reach it. */}
+                {!attachment.uploading && (
+                  <RemoveButton
+                    name={attachment.file.name}
+                    visible={noHover || isHovered || focusedId === attachment.id}
                     disabled={disabled}
-                    aria-label={`Remove ${attachment.file.name}`}
-                    style={{
-                      position:        "absolute",
-                      top:             "2px",
-                      right:           "2px",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      width:           "15px",
-                      height:          "15px",
-                      borderRadius:    "50%",
-                      border:          "none",
-                      backgroundColor: "color-mix(in srgb, var(--static-black) 55%, transparent)",
-                      color:           "var(--static-white)",
-                      cursor:          disabled ? "not-allowed" : "pointer",
-                      padding:         0,
-                    }}
-                  >
-                    <CancelOneIcon size={9} />
-                  </button>
+                    onRemove={() => handleRemove(attachment.id)}
+                    variant="image"
+                  />
                 )}
               </div></Tooltip>
             ) : (
               // ── Document chip ──────────────────────────────────────────────
-              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
-                key={attachment.id}
-                onMouseEnter={() => setHoveredId(attachment.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => !attachment.uploading && handlePreview(attachment)}
+              <Tooltip key={attachment.id} content={attachment.error ?? attachment.file.name} maxWidth={280}><div
+                {...cardProps(attachment)}
                 style={{
                   position:        "relative",
                   display:         "flex",
@@ -373,7 +504,7 @@ export function AttachmentManager({
                   backgroundColor: "var(--neutral-50)",
                   overflow:        "hidden",
                   flexShrink:      0,
-                  cursor:          attachment.uploading ? "default" : "pointer",
+                  cursor:          attachment.uploading || attachment.error ? "default" : "pointer",
                 }}
               >
                 {/* Icon box */}
@@ -480,100 +611,21 @@ export function AttachmentManager({
                   </div>
                 )}
 
-                {/* Remove - only after upload */}
-                {isHovered && !attachment.uploading && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(attachment.id)}
+                {/* Remove - only after upload. Always in the DOM so keyboard users can reach it. */}
+                {!attachment.uploading && (
+                  <RemoveButton
+                    name={attachment.file.name}
+                    visible={noHover || isHovered || focusedId === attachment.id}
                     disabled={disabled}
-                    aria-label={`Remove ${attachment.file.name}`}
-                    style={{
-                      position:        "absolute",
-                      top:             "3px",
-                      right:           "3px",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      width:           "15px",
-                      height:          "15px",
-                      borderRadius:    "50%",
-                      border:          "1px solid var(--border-default)",
-                      backgroundColor: "var(--neutral-white)",
-                      color:           "var(--neutral-600)",
-                      cursor:          disabled ? "not-allowed" : "pointer",
-                      padding:         0,
-                      boxShadow:       "0 1px 2px color-mix(in srgb, var(--static-black) 6%, transparent)",
-                    }}
-                  >
-                    <CancelOneIcon size={9} />
-                  </button>
+                    onRemove={() => handleRemove(attachment.id)}
+                    variant="document"
+                  />
                 )}
               </div></Tooltip>
             );
           })}
         </div>
 
-        {/* ── Left scroll chevron ── */}
-        {showLeft && (
-          <button
-            type="button"
-            onClick={() => scrollBy(-200)}
-            aria-label="Scroll attachments left"
-            style={{
-              position:        "absolute",
-              left:            "4px",
-              top:             "50%",
-              transform:       "translateY(-25%)",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           "28px",
-              height:          "28px",
-              borderRadius:    "50%",
-              border:          "1px solid var(--border-default)",
-              backgroundColor: "var(--neutral-white)",
-              color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
-              cursor:          "pointer",
-              padding:         0,
-              zIndex:          2,
-              transition:      "background-color 120ms",
-            }}
-          >
-            <ArrowLeftOneIcon size={14} />
-          </button>
-        )}
-
-        {/* ── Right scroll chevron ── */}
-        {showRight && (
-          <button
-            type="button"
-            onClick={() => scrollBy(200)}
-            aria-label="Scroll attachments right"
-            style={{
-              position:        "absolute",
-              right:           "4px",
-              top:             "50%",
-              transform:       "translateY(-25%)",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           "28px",
-              height:          "28px",
-              borderRadius:    "50%",
-              border:          "1px solid var(--border-default)",
-              backgroundColor: "var(--neutral-white)",
-              color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
-              cursor:          "pointer",
-              padding:         0,
-              zIndex:          2,
-              transition:      "background-color 120ms",
-            }}
-          >
-            <ArrowRightOneIcon size={14} />
-          </button>
-        )}
       </div>
     </>
   );
