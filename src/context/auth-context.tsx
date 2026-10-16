@@ -23,6 +23,7 @@ import { formatCredits } from "@/lib/plan-config";
 import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
 import { AUTH_LOGIN_ROUTE, AUTH_LOGOUT_ROUTE } from "@/lib/routes";
+import { isLoggingOut, markLoggingOut } from "@/lib/auth/logout-state";
 import { clearOrgIdCache, clearSearchRecents, clearSessionTiming } from "@/lib/storage-keys";
 import { getQueryClient } from "@/lib/query-client";
 import { clearUserScopedCache } from "@/lib/query-invalidation";
@@ -306,6 +307,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
+    // Only the first call navigates. A second one (a session-expired event fired by
+    // the 401s this logout causes) would restart the redirect and abort the first.
+    if (isLoggingOut()) return;
+    markLoggingOut();
     // Other tabs share the cleared session cookie but still hold a token in
     // memory, so tell them to sign out too.
     broadcastLogout();
@@ -316,12 +321,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // and the browser bounces back with the session intact. Targeting
     // /auth/login (an allowlisted logout URL) makes logout reliable everywhere.
     const returnTo = `${window.location.origin}${AUTH_LOGIN_ROUTE}`;
+    // Cancel this page's in-flight requests: each carries the old session cookie,
+    // and a response landing after /auth/logout would re-set it.
+    window.stop();
     window.location.href = AUTH_LOGOUT_ROUTE(returnTo);
   };
 
   // Listen for session-expired events
   useEffect(() => {
     const handleExpired = () => {
+      if (isLoggingOut()) return;
       trackBrowserEvent("auth_session_expired", {});
       void logout();
     };
@@ -337,8 +346,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const channel = new BroadcastChannel(AUTH_CHANNEL);
     channel.onmessage = (event: MessageEvent) => {
       if (event.data?.type !== "logout") return;
+      // BroadcastChannel also delivers to this tab's own listener. If this tab sent
+      // it, logout() is already on its way to Auth0; going to login here would
+      // abort that navigation and leave the Auth0 session signed in.
+      if (isLoggingOut()) return;
+      // Mark this tab as logging out too, so the 401s its own requests now get do
+      // not fire session-expired and start a second logout (which, with no session
+      // left, stops on Auth0's "confirm logout" page instead of the login page).
+      markLoggingOut();
       clearAuth();
-      window.location.href = AUTH_LOGIN_ROUTE;
+      window.stop();
+      // The other tab posts this just before it starts ending the Auth0 session.
+      // Going to /auth/login now would find Auth0 still signed in and sign this
+      // tab straight back in. Wait for that tab's /auth/logout to clear the shared
+      // session cookie (the access-token route then answers 401), then give its
+      // Auth0 hop a moment, and only then go to login.
+      void (async () => {
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline) {
+          const res = await fetch("/auth/access-token", { cache: "no-store" }).catch(() => null);
+          if (res?.status === 401) break;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        window.location.href = AUTH_LOGIN_ROUTE;
+      })();
     };
     return () => channel.close();
   // eslint-disable-next-line react-hooks/exhaustive-deps

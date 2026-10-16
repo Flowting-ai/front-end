@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { hasActivePaidSubscription } from "@/lib/onboarding-access";
+import { redirectToLogin } from "@/lib/auth/logout-state";
 import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_SETUP_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE, SLACK_LINK_ROUTE } from "@/lib/routes";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
@@ -14,7 +15,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) {
-      window.location.href = AUTH_LOGIN_ROUTE;
+      redirectToLogin(AUTH_LOGIN_ROUTE);
       return;
     }
     // Never redirect away from the billing confirmation page (post-checkout return)

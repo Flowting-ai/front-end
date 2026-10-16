@@ -7,6 +7,7 @@ import { CHAT_NOT_FOUND_MESSAGE } from "@/lib/model-error";
 import { clientGeoHeaders } from "@/lib/geo-headers";
 import { toast } from "sonner";
 import { trackBrowserEvent } from "@/lib/analytics/events";
+import { isLoggingOut, pendingForever } from "@/lib/auth/logout-state";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -210,6 +211,7 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
  * themselves.
  */
 export function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  if (isLoggingOut()) return pendingForever();
   if (!isDedupable(options)) return apiFetchOnce(path, options);
   // Identical GETs issued while one is already in flight (several components
   // mounting at once, React StrictMode's double effects) share one request.
@@ -237,7 +239,8 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
 
   const response = await doFetch(path, options);
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  // During a logout every call is expected to 401: no refresh, no "Session expired".
+  if (response.status === 401 && typeof window !== "undefined" && !isLoggingOut()) {
     // Try to recover the session with a fresh token. A single failed refresh is
     // often transient — e.g. a token-rotation race when several calls refresh at
     // once right after a full-page redirect back from Stripe checkout (the

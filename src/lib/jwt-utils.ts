@@ -1,4 +1,5 @@
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
+import { isLoggingOut, pendingForever } from "@/lib/auth/logout-state";
 import { audience } from "@/lib/config";
 
 let inMemoryAccessToken: string | null = null;
@@ -70,6 +71,8 @@ export function msUntilTokenRefresh(): number {
 
 export async function getAuth0AccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
+  // /auth/access-token re-sets the session cookie; never call it mid-logout.
+  if (isLoggingOut()) return pendingForever();
 
   if (_tokenFetchPromise) return _tokenFetchPromise;
 

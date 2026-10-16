@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
+import { redirectToLogin } from "@/lib/auth/logout-state";
 
 const ROLES: OnboardingRole[] = [
   "Founder",
@@ -136,7 +137,7 @@ export default function OnboardingHelloPage() {
   // Auth state is client-side, so redirect unauthenticated users from the client.
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isAuthenticated) { window.location.href = AUTH_LOGIN_ROUTE; return; }
+    if (!isAuthenticated) { redirectToLogin(AUTH_LOGIN_ROUTE); return; }
     // Upsert the backend user record (POST /users/create). Idempotent — safe to
     // call on every page load. Ensures PATCH /users/me succeeds on the first visit.
     void createUser();

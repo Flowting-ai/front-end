@@ -44,8 +44,19 @@ export default async function proxy(request: NextRequest) {
 
     // Auth0 handles its own routes (the v4 SDK serves /auth/access-token natively,
     // with the { token } shape getAccessToken expects and a JSON 401 without a session).
-    case "auth":
-      return await auth0.middleware(request);
+    case "auth": {
+      const response = await auth0.middleware(request);
+      // /auth/login is where logout lands, and it always starts a fresh sign-in, so
+      // any session cookie still here is stale: a request the logging-out page made
+      // just before it unloaded can re-set it after /auth/logout cleared it. Drop it
+      // so the user is really signed out (the callback sets the new session).
+      if (request.nextUrl.pathname === "/auth/login") {
+        for (const { name } of request.cookies.getAll()) {
+          if (name === "__session" || name.startsWith("__session__")) response.cookies.delete(name);
+        }
+      }
+      return response;
+    }
 
     // Route handlers never see the onboarding gate, but every one needs a
     // session. A JSON 401, not a login redirect, because the callers are fetches.
