@@ -17,6 +17,7 @@ import {
   shouldUseDirectBackend,
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
+import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
@@ -1607,6 +1608,8 @@ export function useStreamingChat({
 
       const outcome: StreamOutcome = stopRequestedRef.current ? "aborted" : turnFailed ? "error" : "done"
       completeStream(resolvedChatIdRef.current, outcome)
+      // The backend saves the files this turn carried to Library; refresh what Library shows.
+      if (options?.files?.length) notifyLibraryFilesChanged()
       setStreamState?.("done")
       onStreamDone?.()
       return outcome
@@ -1614,6 +1617,8 @@ export function useStreamingChat({
       stopFlushInterval()
       flushPending()
       completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
+      // A turn that failed or was stopped part-way may still have saved its files.
+      if (options?.files?.length) notifyLibraryFilesChanged()
 
       // User-initiated stop - not an error
       if (stopRequestedRef.current) {

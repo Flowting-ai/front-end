@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/auth-context'
 import { trackLibrary } from '@/lib/library/analytics'
+import { LIBRARY_FILES_CHANGED_EVENT } from '@/lib/library/files-changed'
+import { libraryKeys } from '@/lib/library/keys'
 import { durationBucket } from '@/lib/library/observability'
 import { getUploadController } from '@/lib/library/upload/controller'
 import type { UploadStatusKind } from '@/lib/library/upload/machine'
@@ -18,6 +21,15 @@ import { useLibraryViewer } from '@/lib/library/viewer'
 export function LibraryUploadHost() {
   const { orgKey } = useLibraryViewer()
   const { isAuthenticated } = useAuth()
+  const queryClient = useQueryClient()
+
+  // A chat turn that carried files saves them to Library on the server. Every Library query (lists,
+  // Suggested, storage, the picker) is stale from then on, so mark them all and refetch the ones on screen.
+  useEffect(() => {
+    const refresh = () => { void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) }) }
+    window.addEventListener(LIBRARY_FILES_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(LIBRARY_FILES_CHANGED_EVENT, refresh)
+  }, [queryClient, orgKey])
 
   // Browser state: online/offline and tab visibility.
   useEffect(() => {
