@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useEffectEvent, useMemo, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { DashboardSquareOneIcon, PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
@@ -13,6 +13,8 @@ import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { AgentsPanelContent } from '@/components/AgentsPanel'
 import { ContextPanelContent } from '@/components/ContextPanel'
+import { browserViewOf } from '@/components/BrowserPanel/use-browser-session'
+import { useChatContext } from '@/lib/chat-context-store'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
@@ -122,20 +124,30 @@ function FloatingPanelImpl() {
     })
   }
 
-  const handleToggleContext = () => {
-    if (contextOpen) {
-      setSidePanel(null)
-      return
-    }
+  const showContext = (key?: string) => {
     closePinboard()
     closeHighlight()
     setSidePanel({
       title:   CONTEXT_PANEL_TITLE,
-      content: <ContextPanelContent />,
+      content: <ContextPanelContent key={key} />,
       onClose: () => setSidePanel(null),
       sidePadding: 8,
     })
   }
+
+  const handleToggleContext = () => {
+    if (contextOpen) setSidePanel(null)
+    else showContext()
+  }
+
+  // The agent announces each browser it starts with a `browser_view` event: bring it into view.
+  // Keyed by the link, so the panel starts fresh and follows the agent onto the Browser tab.
+  const { messages } = useChatContext()
+  const announcedBrowser = browserViewOf(messages)?.url
+  const showBrowser = useEffectEvent((url: string) => showContext(url))
+  useEffect(() => {
+    if (announcedBrowser && isContextPage) showBrowser(announcedBrowser)
+  }, [announcedBrowser, isContextPage])
 
   const handleJump = (id: string) => {
     const h = highlights.find(h => h.id === id)
