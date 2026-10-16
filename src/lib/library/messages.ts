@@ -92,6 +92,9 @@ export const FILE_MESSAGES = {
   restore: "Restore",
   restored: (title: string) => `Restored ${title}`,
   renamed: "Renamed",
+  /** Shown when a file page opens and when it is left (Close, browser back, or any other navigation). */
+  openedFile: (title: string) => `Opened ${title}`,
+  closedFile: (title: string) => `Closed ${title}`,
   deletedForever: (title: string) => `${title} deleted forever`,
   filesDeletedForever: (count: number) => `${filesCount(count)} deleted forever`,
   requestSent: "Request sent",

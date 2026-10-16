@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 import { ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, DownloadOneIcon, InformationCircleIcon, ShareOneIcon, SidebarRightIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
@@ -37,6 +38,10 @@ const FilePreview = dynamic(() => import('./viewers/FilePreview'), {
 })
 
 const FILE_ERROR = "Couldn't load this file."
+
+// The Opened / Closed toasts of a file page share one id; `pendingClose` is the Closed still waiting its tick.
+const FILE_PAGE_TOAST_ID = 'library-file-page'
+let pendingClose: ReturnType<typeof setTimeout> | null = null
 
 export function FileScreen({ id }: { id: string }) {
   const router = useRouter()
@@ -73,6 +78,27 @@ export function FileScreen({ id }: { id: string }) {
     document.title = fileDocumentTitle(file)
     return () => { document.title = previous }
   }, [file])
+
+  // "Opened <name>" when the file page shows its file, "Closed <name>" when it is left, however that
+  // happens (Close, browser back, a link, the sidebar): they are all this page unmounting. One toast id,
+  // so a Closed never stacks on an Opened. React's dev double-mount runs the cleanup and the effect
+  // again at once, so the Closed waits a tick and the next Opened cancels it.
+  const fileId = file?.id
+  const nameRef = useRef(file?.name ?? '')
+  const fileName = file?.name
+  useEffect(() => { if (fileName) nameRef.current = fileName }, [fileName])
+  useEffect(() => {
+    if (!fileId) return
+    if (pendingClose) { clearTimeout(pendingClose); pendingClose = null }
+    toast(FILE_MESSAGES.openedFile(nameRef.current), { id: FILE_PAGE_TOAST_ID })
+    return () => {
+      const closedName = nameRef.current
+      pendingClose = setTimeout(() => {
+        pendingClose = null
+        toast(FILE_MESSAGES.closedFile(closedName), { id: FILE_PAGE_TOAST_ID })
+      }, 0)
+    }
+  }, [fileId])
 
   // Once per visit: clear the unread marker and record the view (format and source only).
   const opened = useRef<string | null>(null)
