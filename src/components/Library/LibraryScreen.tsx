@@ -16,12 +16,14 @@ import { SuggestedView } from './SuggestedView'
  */
 export function LibraryScreen() {
   const { query, setQuery, isPending } = useLibraryQuery()
-  const { hasShared, isSettled } = useHasShared()
+  const { hasShared, isSuccess: sharedChecked } = useHasShared()
 
-  // Landing on Shared when nothing is shared (an old link) falls back to All files.
+  // Landing on Shared when nothing is shared (an old link) falls back to All files. Only a check that
+  // succeeded counts: a failed one (network, 5xx) leaves the person where they are.
+  const redirectToAll = query.tab === 'shared' && sharedChecked && !hasShared
   useEffect(() => {
-    if (query.tab === 'shared' && isSettled && !hasShared) setQuery({ tab: 'all' }, 'replace')
-  })
+    if (redirectToAll) setQuery({ tab: 'all' }, 'replace')
+  }, [redirectToAll, setQuery])
 
   useEffect(() => {
     trackLibrary('open_tab', { tab: query.tab })

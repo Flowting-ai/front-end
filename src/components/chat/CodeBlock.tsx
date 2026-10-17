@@ -23,6 +23,8 @@ interface CodeBlockProps {
   elementKey: string;
   highlights?: HighlightSpec[];
   sourceOffset?: number;
+  /** Wrap long lines instead of scrolling sideways (file previews; chat keeps code unwrapped). */
+  wrap?: boolean;
 }
 
 // applyMarksToHtml is imported from @/lib/apply-marks
@@ -79,16 +81,16 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: 
   return nodes
 }
 
-export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
+export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0, wrap = false }: CodeBlockProps) {
   // ```mermaid and ```diff fences are widgets, not code — every markdown path
   // (chat, line renderer) funnels through here, so this is the one hook point.
   if (language === "mermaid") return <BlockErrorBoundary label="diagram"><MermaidDiagram code={value} /></BlockErrorBoundary>;
   if (language === "diff") return <BlockErrorBoundary label="diff"><DiffBlock code={value} /></BlockErrorBoundary>;
 
-  return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} />;
+  return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} wrap={wrap} />;
 }
 
-function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
+function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0, wrap = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   // Changes when hljs finishes loading or a lazy grammar registers; until then
   // the block renders plain. Once both are in place, highlighting happens
@@ -226,8 +228,9 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
           fontFamily: "var(--font-code)",
           fontSize: "var(--prose-size-code)",
           lineHeight: "var(--prose-line-code)",
-          whiteSpace: "pre",
+          whiteSpace: wrap ? "pre-wrap" : "pre",
           wordBreak: "normal",
+          overflowWrap: wrap ? "anywhere" : "normal",
           background: "transparent",
         }}
       >

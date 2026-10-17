@@ -12,6 +12,14 @@ describe("withFocusedRow", () => {
     expect(withFocusedRow([40, 41, 42], 2)).toEqual([2, 40, 41, 42]);
     expect(withFocusedRow([0, 1, 2], 90)).toEqual([0, 1, 2, 90]);
   });
+
+  it("ignores a focused row past the end of a list that shrank", () => {
+    const visible = [0, 1, 2];
+    expect(withFocusedRow(visible, 90, 3)).toBe(visible);
+    expect(withFocusedRow(visible, 3, 3)).toBe(visible);
+    expect(withFocusedRow(visible, -1, 3)).toBe(visible);
+    expect(withFocusedRow([0, 1], 2, 3)).toEqual([0, 1, 2]);
+  });
 });
 
 describe("nextRowIndex", () => {

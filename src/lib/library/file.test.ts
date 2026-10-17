@@ -25,9 +25,11 @@ describe("caps", () => {
     expect(row({ access: "viewer", adminCanManage: true }).caps).toMatchObject({ rename: true, share: true, delete: true, adminOver: true });
   });
 
-  it("only offers restore and delete forever on a trashed file, and only to someone who manages it", () => {
+  it("only offers restore and delete forever on a trashed file, and only to its owner", () => {
     expect(row({ life: "trashed" }).caps).toMatchObject({ rename: false, share: false, delete: false, restore: true, deleteForever: true });
     expect(row({ life: "trashed", access: "viewer" }).caps).toMatchObject({ restore: false, deleteForever: false, open: false });
+    // The server's Trash actions are owner-only, admins included.
+    expect(row({ life: "trashed", access: "viewer", adminCanManage: true }).caps).toMatchObject({ restore: false, deleteForever: false, open: false });
   });
 });
 

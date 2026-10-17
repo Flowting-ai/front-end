@@ -54,6 +54,12 @@ interface OrgContextValue {
    */
   orgReady: boolean
   /**
+   * True once the org id has resolved (or there is none), even while the role is
+   * still loading. For consumers that only key data by the org (Library), so they
+   * need not wait on the role fetch.
+   */
+  orgIdReady: boolean
+  /**
    * True when the org was found (orgId is set) but the getOrg() role fetch
    * failed (network error, 5xx, etc.). In this state orgRole is stuck at the
    * default 'member' even though the user may actually be an admin. Billing
@@ -75,7 +81,7 @@ interface OrgContextValue {
 }
 
 /** Who I am in the org: id, role, capabilities and the ready flags. Changes rarely. */
-export type OrgIdentity = Pick<OrgContextValue, 'orgId' | 'orgRole' | 'currentUserRole' | 'caps' | 'orgReady' | 'roleError' | 'orgRoleResolved'>
+export type OrgIdentity = Pick<OrgContextValue, 'orgId' | 'orgRole' | 'currentUserRole' | 'caps' | 'orgReady' | 'orgIdReady' | 'roleError' | 'orgRoleResolved'>
 /** The org record and its billing plan. Changes when credits or the plan change. */
 export type OrgPlanState = Pick<OrgContextValue, 'org' | 'plan' | 'orgPlanSettled'>
 /** The member list. Changes when members load or are refreshed. */
@@ -143,9 +149,10 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     currentUserRole: orgRole === 'admin' ? 'admin' : 'member',
     caps,
     orgReady,
+    orgIdReady: orgIdResolved,
     roleError,
     orgRoleResolved: roleIsResolved,
-  }), [orgId, orgRole, caps, orgReady, roleError, roleIsResolved])
+  }), [orgId, orgRole, caps, orgReady, orgIdResolved, roleError, roleIsResolved])
 
   const orgPlanSettled = !orgId || !planQ.isPending
   const planState = useMemo<OrgPlanState>(() => ({ org, plan, orgPlanSettled }), [org, plan, orgPlanSettled])

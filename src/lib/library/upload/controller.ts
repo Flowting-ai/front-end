@@ -64,6 +64,10 @@ type Runtime = {
   misses: number;
   running?: boolean;
   resumeRequested?: boolean;
+  /** The server accepted completeUpload: the file will land in the Library, so it must not be cancelled. */
+  completed?: boolean;
+  /** completeUpload has been sent (and may yet succeed): a cancel only detaches the card. */
+  completing?: boolean;
 };
 
 const PROGRESS_INTERVAL_MS = 100;
@@ -131,6 +135,12 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       }
       signal.addEventListener("abort", onAbort, { once: true });
     });
+
+  /** Closes the server's multipart upload of an attempt that will not finish (fire-and-forget). */
+  function releaseServerUpload(runtime: Runtime): void {
+    if (!runtime.init || runtime.completed) return;
+    void deps.api.cancelUpload(runtime.init.id).catch(() => undefined);
+  }
 
   function fail(id: string, reason: UploadFailureReason): void {
     store.dispatch(id, { type: "fail", reason });
@@ -241,9 +251,12 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       await uploadAllParts(id, runtime, runtime.init, signal);
       if (!active()) return;
       const parts = [...runtime.etags.entries()].sort(([a], [b]) => a - b).map(([partNumber, etag]) => ({ partNumber, etag }));
+      // From here the server may finish the upload at any moment, so a cancel no longer races it.
+      runtime.completing = true;
       for (let attempt = 0; ; attempt += 1) {
         try {
           await api.completeUpload(runtime.init.id, parts);
+          runtime.completed = true;
           break;
         } catch (error) {
           if (!(error instanceof ApiError) || !error.retryable || attempt >= deps.maxPartRetries) throw error;
@@ -264,6 +277,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
         return;
       }
       captureError(error, { boundary: "upload", action: "run" });
+      releaseServerUpload(runtime);
       fail(id, reasonFromError(error));
     } finally {
       runtime.running = false;
@@ -305,8 +319,8 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       pollFailures = 0;
       return;
     }
-    // A hidden tab does not poll; the visibilitychange handler calls pollNow() when it returns.
-    if (deps.isHidden()) {
+    // A hidden or offline tab does not poll; the visibilitychange and online handlers call pollNow().
+    if (deps.isHidden() || !deps.isOnline()) {
       schedulePoll(POLL_SLOW_MS);
       return;
     }
@@ -339,10 +353,11 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       pollFailures = 0;
     } catch (error) {
       captureError(error, { boundary: "upload", action: "poll" });
-      pollFailures += 1;
       // A broken contract or a refused status request cannot recover by polling forever.
-      // Give transient failures time to recover, then let the person retry the upload.
+      // Give transient failures time to recover, then let the person retry the upload. Losing the
+      // network is not a failure: the server keeps processing and the online handler polls again.
       const permanent = error instanceof ApiError && (error.code === "contract_error" || !error.retryable);
+      if (!permanent && deps.isOnline()) pollFailures += 1;
       if (permanent || pollFailures >= MAX_POLL_FAILURES) {
         for (const item of items) fail(item.id, permanent ? "unreadable" : "network");
       }
@@ -393,6 +408,11 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       }
       store.dispatch(id, { type: "cancel" });
       store.remove(id);
+      // Once processing, the server refuses to cancel (upload_done) and the file lands in the
+      // Library anyway; removing the card only takes it off this message.
+      // The same while the complete call is in flight: a cancel then could lose to it and leave the
+      // file in the Library with its card already gone.
+      if (item?.status === "processing" || item?.status === "ready" || runtime?.completed || runtime?.completing) return;
       const serverId = runtime?.init?.id ?? item?.serverId;
       if (serverId) void deps.api.cancelUpload(serverId).catch(() => undefined);
     },
@@ -402,7 +422,10 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       const item = store.get(id);
       if (!runtime || item?.status !== "failed") return;
       runtime.abort = new AbortController();
+      releaseServerUpload(runtime);
       runtime.init = undefined;
+      runtime.completed = false;
+      runtime.completing = false;
       runtime.etags.clear();
       runtime.partLoaded.clear();
       runtime.paused = false;
@@ -412,6 +435,8 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
     },
 
     forget(id) {
+      const runtime = runtimes.get(id);
+      if (runtime && store.get(id)?.status === "failed") releaseServerUpload(runtime);
       runtimes.delete(id);
       store.remove(id);
     },
@@ -446,6 +471,7 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       for (const runtime of runtimes.values()) {
         runtime.cancelled = true;
         runtime.abort.abort();
+        releaseServerUpload(runtime);
       }
       runtimes.clear();
       if (pollTimer !== undefined) deps.clearTimeout(pollTimer);

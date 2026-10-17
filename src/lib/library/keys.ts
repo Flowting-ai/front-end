@@ -18,6 +18,7 @@ export const libraryKeys = {
   preview: (org: string, id: string, request: PreviewRequest) => [...libraryKeys.detail(org, id), "preview", request] as const,
   usage: (org: string, id: string) => [...libraryKeys.detail(org, id), "usage"] as const,
   access: (org: string, id: string) => [...libraryKeys.detail(org, id), "access"] as const,
+  source: (org: string, id: string) => [...libraryKeys.detail(org, id), "source"] as const,
   trash: (org: string) => [...libraryKeys.all(org), "trash"] as const,
   storage: (org: string) => [...libraryKeys.all(org), "storage"] as const,
   picker: (org: string, params: PickerParams) => [...libraryKeys.all(org), "picker", params] as const,

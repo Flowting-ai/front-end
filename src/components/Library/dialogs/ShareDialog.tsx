@@ -11,7 +11,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { personName } from '@/lib/library/access'
 import type { GrantTarget } from '@/lib/library/api'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
-import { useRevokeGrant, useShareFile } from '@/lib/library/mutations'
+import { PartialShareError, settledShareKeys, useRevokeGrant, useShareFile } from '@/lib/library/mutations'
 import { useFileAccess, useLibraryPeople } from '@/lib/library/queries'
 import type { AccessEntry, Person } from '@/lib/library/schemas'
 import type { LibraryFile } from '@/lib/library/file'
@@ -30,9 +30,11 @@ type Staged = { key: string; target: GrantTarget; label: string; toastLabel: str
 const WORKSPACE: Staged = { key: 'workspace', target: { kind: 'workspace' }, label: FILE_MESSAGES.wholeWorkspace, toastLabel: 'everyone' }
 
 /** The confirm before removing someone, in place of the Share dialog (Cancel goes back to it). */
-function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: LibraryFile; entry: AccessEntry; entries: AccessEntry[]; viewerId: string | undefined; onBack: () => void }) {
+function RevokeConfirm({ file, entry, entries, viewerId, onBack, onLostAccess }: { file: LibraryFile; entry: AccessEntry; entries: AccessEntry[]; viewerId: string | undefined; onBack: () => void; onLostAccess: () => void }) {
   const revoke = useRevokeGrant()
   const workspace = entry.kind === 'workspace'
+  // An Admin manages someone else's file only through its workspace share: removing that removes their own access.
+  const losesAccess = workspace && file.caps.adminOver
   const name = workspace ? 'the whole workspace' : entry.person ? personName(entry.person, viewerId) : 'Someone'
   const stillVia = !workspace && entries.some((other) => other.kind === 'workspace')
   return (
@@ -47,6 +49,7 @@ function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: Libra
             {FILE_MESSAGES.revokeLine(workspace ? 'People with access only through the workspace' : name, workspace)}
           </DialogDescription>
           {stillVia && <p className={styles.quiet}>{FILE_MESSAGES.stillViaWorkspace(name)}</p>}
+          {losesAccess && <p role="alert" className={styles.quiet} style={{ color: 'var(--color-tag-Red-text)' }}>{FILE_MESSAGES.adminLosesAccess}</p>}
           <p className={styles.quiet}>{FILE_MESSAGES.revokeAnswersLine}</p>
         </DialogBody>
         <DialogFooter>
@@ -55,7 +58,13 @@ function RevokeConfirm({ file, entry, entries, viewerId, onBack }: { file: Libra
             type="button"
             variant="danger"
             loading={revoke.isPending}
-            onClick={() => revoke.mutate({ id: file.id, grantId: entry.grantId, label: workspace ? 'Workspace' : name }, { onSuccess: onBack })}
+            // Awaited rather than a per-call onSuccess: that one is dropped if the dialog unmounts first,
+            // and an admin who just lost access must still be taken off the file. Errors are shown by the mutation.
+            onClick={() => {
+              revoke.mutateAsync({ id: file.id, grantId: entry.grantId, label: workspace ? 'Workspace' : name })
+                .then(() => (losesAccess ? onLostAccess : onBack)())
+                .catch(() => undefined)
+            }}
           >
             Remove
           </Button>
@@ -84,7 +93,7 @@ function StagedChip({ item, onRemove }: { item: Staged; onRemove: () => void }) 
  * Keyboard: the list opens on typing, a click or Arrow Down (not on the dialog's autofocus); arrows move,
  * Enter picks, Backspace in an empty field drops the last chip, and Enter with the list closed shares.
  */
-export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () => void }) {
+export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile; onClose: () => void; onLostAccess?: () => void }) {
   const { viewerId } = useLibraryViewer()
   const inputId = useId()
   const listId = useId()
@@ -105,8 +114,12 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
   const hasWorkspace = entries.some((entry) => entry.kind === 'workspace')
   const isStaged = (key: string) => staged.some((item) => item.key === key)
   const needle = query.trim().toLowerCase()
+  // Results lag the field (debounced, and the previous search shows while the next loads): until they
+  // catch up, narrow them by the current text and don't let Enter pick from them.
+  const stale = query.trim() !== debounced || people.isPlaceholderData
   const options: Staged[] = [
     ...(people.data ?? [])
+      .filter((person) => !stale || person.name.toLowerCase().includes(needle))
       .filter((person) => person.id !== file.owner.id && !present.has(person.id) && !isStaged(person.id))
       .slice(0, 6)
       .map((person) => ({ key: person.id, target: { kind: 'user' as const, personId: person.id }, label: personName(person, viewerId), toastLabel: personName(person, viewerId), person })),
@@ -114,7 +127,7 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
   ]
 
   if (removing) {
-    return <RevokeConfirm file={file} entry={removing} entries={entries} viewerId={viewerId} onBack={() => setRemoving(null)} />
+    return <RevokeConfirm file={file} entry={removing} entries={entries} viewerId={viewerId} onBack={() => setRemoving(null)} onLostAccess={() => { onClose(); onLostAccess?.() }} />
   }
 
   const stage = (option: Staged) => {
@@ -134,7 +147,15 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
     if (staged.length === 0 || share.isPending) return
     share.mutate(
       { id: file.id, targets: staged.map((item) => ({ target: item.target, label: item.toastLabel })) },
-      { onSuccess: () => setStaged([]) },
+      {
+        onSuccess: () => setStaged([]),
+        // Part way through: the ones already shared (or who already had access) leave the field, so a retry sends only the rest.
+        onError: (error) => {
+          if (!(error instanceof PartialShareError)) return
+          const settled = new Set(settledShareKeys(error.outcome))
+          setStaged((items) => items.filter((item) => !settled.has(item.key)))
+        },
+      },
     )
   }
 
@@ -151,6 +172,7 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
       setActive((activeIndex + step + options.length) % options.length)
     } else if (event.key === 'Enter') {
       event.preventDefault()
+      if (showList && stale && needle) return
       if (showList && options[activeIndex]) stage(options[activeIndex])
       else submit()
     } else if (event.key === 'Backspace' && query === '' && staged.length > 0) {
@@ -224,7 +246,7 @@ export function ShareDialog({ file, onClose }: { file: LibraryFile; onClose: () 
                 aria-label="People"
                 className={styles.listbox}
               >
-                {people.isPending ? (
+                {people.isPending || (stale && options.length === 0) ? (
                   <Skeleton height={36} radius={10} />
                 ) : options.length === 0 ? (
                   <p className={cx(styles.quiet, styles.noMatch)}>

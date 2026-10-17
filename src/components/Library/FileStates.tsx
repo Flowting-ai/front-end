@@ -36,7 +36,7 @@ export function TrashedBanner({ fileId, title, daysLeft, canRestore }: { fileId:
       <DeleteTwoIcon size={20} className={styles.stateIcon} />
       <div className={styles.grow}>
         <b>{FILE_MESSAGES.inTrash}</b>
-        {daysLeft !== undefined && <p>{FILE_MESSAGES.daysLeft(daysLeft)}</p>}
+        {daysLeft !== undefined && <p>{daysLeft <= 0 ? FILE_MESSAGES.lessThanADayLeft : FILE_MESSAGES.daysLeft(daysLeft)}</p>}
       </div>
       {canRestore && (
         <Button

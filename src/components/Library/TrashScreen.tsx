@@ -37,6 +37,9 @@ function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFile; onRest
     return () => window.removeEventListener('scroll', close, { capture: true })
   }, [open])
 
+  // Restore and Delete forever are the owner's alone (the server refuses anyone else).
+  const { restore, deleteForever } = file.caps
+  if (!restore && !deleteForever) return null
   return (
     <Dropdown.Float
       open={open}
@@ -57,12 +60,16 @@ function TrashRowMenu({ file, onRestore, onDelete }: { file: LibraryFile; onRest
       }
     >
       <Dropdown maxHeight={false} className={styles.menu}>
-        <Dropdown.Section fluid>
-          <Dropdown.Item label="Restore" icon={<UndoTwoIcon />} fluid onClick={() => { setOpen(false); onRestore() }} />
-        </Dropdown.Section>
-        <Dropdown.Section fluid divider>
-          <Dropdown.Item label="Delete forever" icon={<DeleteTwoIcon />} variant="danger" fluid onClick={() => { setOpen(false); onDelete() }} />
-        </Dropdown.Section>
+        {restore && (
+          <Dropdown.Section fluid>
+            <Dropdown.Item label="Restore" icon={<UndoTwoIcon />} fluid onClick={() => { setOpen(false); onRestore() }} />
+          </Dropdown.Section>
+        )}
+        {deleteForever && (
+          <Dropdown.Section fluid divider={restore}>
+            <Dropdown.Item label="Delete forever" icon={<DeleteTwoIcon />} variant="danger" fluid onClick={() => { setOpen(false); onDelete() }} />
+          </Dropdown.Section>
+        )}
       </Dropdown>
     </Dropdown.Float>
   )
@@ -171,11 +178,13 @@ export function TrashScreen() {
       )}
       {emptying && (
         <ConfirmModal
-          title={MESSAGES.emptyTrashTitle(trash.files.length)}
+          // The server empties the whole Trash; a count is shown only when every row is loaded.
+          title={trash.hasNextPage ? MESSAGES.emptyTrashAllTitle : MESSAGES.emptyTrashTitle(trash.files.length)}
           description={MESSAGES.freesUpLine(trash.freesBytes > 0 ? formatBytes(trash.freesBytes) : null)}
           confirmLabel="Empty Trash"
           onConfirm={async () => {
-            await emptyTrash.mutateAsync({ count: trash.files.length })
+            // 0: the count is unknown, so the toast says "Trash emptied" rather than a wrong number.
+            await emptyTrash.mutateAsync({ count: trash.hasNextPage ? 0 : trash.files.length })
             trackLibrary('empty_trash')
           }}
           onClose={() => setEmptying(false)}

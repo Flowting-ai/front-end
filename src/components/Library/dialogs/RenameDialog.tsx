@@ -18,7 +18,7 @@ export function RenameDialog({ file, onClose }: { file: LibraryFile; onClose: ()
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    const result = validateTitle(title)
+    const result = validateTitle(title, file.extension)
     if (!result.ok) {
       setError(result.error)
       inputRef.current?.focus()
@@ -29,7 +29,7 @@ export function RenameDialog({ file, onClose }: { file: LibraryFile; onClose: ()
       return
     }
     rename.mutate(
-      { id: file.id, title: result.title, previousTitle: file.title, previousAi: file.titleIsAiGenerated },
+      { id: file.id, title: result.title, previousTitle: file.title, previousAi: file.titleIsAiGenerated, extension: file.extension },
       // On failure the mutation already toasted and rolled the title back; the dialog stays open to try again.
       { onSuccess: () => onClose() },
     )
@@ -67,7 +67,7 @@ export function RenameDialog({ file, onClose }: { file: LibraryFile; onClose: ()
               </p>
             )}
             <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)' }}>
-              Currently &ldquo;{sanitizeDisplayText(file.title)}&rdquo;. The file type stays .{file.extension || 'as is'}.
+              Currently &ldquo;{sanitizeDisplayText(file.title)}&rdquo;. The file type stays .{file.extension || 'as is'}. Slashes are saved as dashes.
             </p>
           </DialogBody>
           <DialogFooter>

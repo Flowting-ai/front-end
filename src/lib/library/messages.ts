@@ -78,6 +78,8 @@ export const MESSAGES = {
   trashBanner: (days: number) => `Restore files you've deleted. Files are deleted forever after ${days} days.`,
   deleteForeverTitle: (name: string) => `Delete ${name} forever?`,
   emptyTrashTitle: (count: number) => `Delete ${count} ${count === 1 ? "file" : "files"} forever?`,
+  // While more of the Trash is still to load, the count on screen is not the whole Trash.
+  emptyTrashAllTitle: "Delete everything in Trash forever?",
   freesUpLine: (size: string | null) => (size ? `This frees up ${size} and can't be undone.` : "This can't be undone."),
 } as const;
 
@@ -112,6 +114,10 @@ export const FILE_MESSAGES = {
   backToLibrary: "Back to Library",
   inTrash: "In Trash",
   daysLeft: (days: number) => `${days} ${days === 1 ? "day" : "days"} left`,
+  /** The last day in Trash (daysLeft 0). */
+  lessThanADayLeft: "Less than a day left",
+  /** Moved-to-Trash toast when the viewer is not the owner: only the owner can restore it. */
+  movedToTrashOwnerRestores: (title: string) => `${title} moved to Trash. Only the owner can restore it.`,
   citedPassage: "Cited passage",
   citedRow: "Cited row",
   cited: "Cited",
@@ -139,6 +145,8 @@ export const FILE_MESSAGES = {
   filesThisRunUsed: "Files this run used",
   openInNewChat: "Open in a new chat",
   askInNewChat: "Ask about this file in a new chat",
+  /** An Admin manages someone else's file only while it is shared with the workspace. */
+  adminLosesAccess: "You'll lose access to this file. As an Admin you can manage it only while it's shared with the whole workspace.",
 } as const;
 
 /** Chat, composer and routine copy for Library (prototype wording; flows.md section 7). */
@@ -202,4 +210,14 @@ export const CHAT_MESSAGES = {
 
 export function uploadFailureMessage(reason: UploadFailureReason): string {
   return UPLOAD_FAILURE_MESSAGES[reason];
+}
+
+/** Picker hint once the remaining attachment slots are used up. */
+export function pickerLimitHint(max: number): string {
+  return `You can add up to ${max} ${max === 1 ? "file" : "files"}`;
+}
+
+/** Delete chat: the chat is gone but some saved files could not be moved to Trash. */
+export function chatDeletedTrashFailed(failed: number): string {
+  return `Chat deleted; ${failed} ${failed === 1 ? "file" : "files"} couldn't be moved to Trash`;
 }

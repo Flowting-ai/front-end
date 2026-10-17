@@ -71,6 +71,7 @@ describe("dates", () => {
 
   it("labels the days left in Trash", () => {
     expect(daysLeftLabel(1)).toBe("1 day");
+    expect(daysLeftLabel(0)).toBe("Less than a day");
     expect(daysLeftLabel(27)).toBe("27 days");
     expect(daysLeftLabel(undefined)).toBe("");
   });

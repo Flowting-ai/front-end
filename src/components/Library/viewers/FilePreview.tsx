@@ -1,13 +1,17 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
 import { parsePageCite, parseRowCite } from '@/lib/library/cite'
 import { isApiError } from '@/lib/library/errors'
+import { libraryKeys } from '@/lib/library/keys'
 import { MESSAGES } from '@/lib/library/messages'
 import { useFilePreview } from '@/lib/library/queries'
+import { useLibraryViewer } from '@/lib/library/viewer'
+import { MAX_SOURCE_BYTES, rendersSource } from '@/lib/library/viewers/source-mode'
 import type { CiteLocator, PreviewRequest } from '@/lib/library/schemas'
 import type { LibraryFileDetail } from '@/lib/library/file'
 import AudioViewer from './AudioViewer'
@@ -15,6 +19,21 @@ import ImageViewer from './ImageViewer'
 import { PreviewBoundary } from './PreviewBoundary'
 import SheetViewer, { SHEET_WINDOW } from './SheetViewer'
 import TextViewer from './TextViewer'
+
+// Rendered text files (HTML, Markdown, email, code) bring Markdown and highlighting; loaded only for them.
+const SourceViewer = dynamic(() => import('./SourceViewer'), {
+  ssr: false,
+  loading: () => <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />,
+})
+
+const RtfPreview = dynamic(() => import('./SourceViewer').then((module) => module.RtfPreview), {
+  ssr: false,
+  loading: () => <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />,
+})
+
+// While the server is still preparing a preview: try again this often, for at most 5 minutes.
+const PREVIEW_RETRY_MS = 5_000
+const PREVIEW_RETRY_LIMIT = 60
 
 // pdf.js is large; it loads only when a PDF is opened.
 const PdfViewer = dynamic(() => import('./PdfViewer'), {
@@ -34,17 +53,44 @@ function initialRequest(file: LibraryFileDetail, cite: CiteLocator | null): Prev
 export interface FilePreviewProps {
   file: LibraryFileDetail
   cite: CiteLocator | null
-  onDownload: () => void
+  /** Omitted when the viewer may not download the file: no Download button is offered. */
+  onDownload?: () => void
 }
 
 /** Picks the viewer for a file's preview kind and loads the preview payload (a short-lived cache: it can hold storage URLs). */
 export default function FilePreview({ file, cite, onDownload }: FilePreviewProps) {
   const [request, setRequest] = useState<PreviewRequest>(() => initialRequest(file, cite))
-  const enabled = file.phase === 'ready' && file.previewKind !== 'none' && (!file.requiresProcessedPreview || file.processingPhase === 'ready')
+  const enabled = file.previewKind !== 'none' && (!file.requiresProcessedPreview || file.processingPhase === 'ready')
   const preview = useFilePreview(file.id, request, enabled)
+  // RTF the server could not lay out (a fragment, a failed conversion) is laid out here instead.
+  const queryClient = useQueryClient()
+  const { orgKey } = useLibraryViewer()
+  const errorCode = isApiError(preview.error) ? preview.error.code : undefined
+  // The server is still preparing the preview: re-read the file so its processing state (and banner) catches up.
+  useEffect(() => {
+    if (errorCode === 'preview_processing') void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(orgKey, file.id) })
+  }, [errorCode, queryClient, orgKey, file.id])
+  // Ask for the preview again every few seconds while the server is still preparing it. Not tied to the
+  // file's processing phase: the preview can still be in preparation when the file already reads as
+  // ready, and then the phase never changes. Each failed attempt updates errorUpdatedAt, which schedules
+  // the next; after PREVIEW_RETRY_LIMIT attempts the skeleton gives way to the no-preview card.
+  const refetchPreview = preview.refetch
+  const [previewAttempts, setPreviewAttempts] = useState(0)
+  useEffect(() => {
+    if (errorCode !== 'preview_processing' || previewAttempts >= PREVIEW_RETRY_LIMIT) return
+    const timer = setTimeout(() => {
+      setPreviewAttempts((count) => count + 1)
+      void refetchPreview()
+    }, PREVIEW_RETRY_MS)
+    return () => clearTimeout(timer)
+  }, [errorCode, preview.errorUpdatedAt, previewAttempts, refetchPreview])
+  const previewGaveUp = errorCode === 'preview_processing' && previewAttempts >= PREVIEW_RETRY_LIMIT
+  const rtf = (file.extension ?? '').toLowerCase() === 'rtf' && !cite && (file.sizeBytes ?? Number.POSITIVE_INFINITY) <= MAX_SOURCE_BYTES
 
   if (file.requiresProcessedPreview && file.processingPhase !== 'ready') {
-    if (file.processingPhase === 'failed') return <NoPreview onDownload={onDownload} />
+    if (file.processingPhase === 'failed') {
+      return rtf ? <RtfPreview file={file} serverFailed><NoPreview onDownload={onDownload} /></RtfPreview> : <NoPreview onDownload={onDownload} />
+    }
     return <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />
   }
   if (file.previewKind === 'none') {
@@ -52,13 +98,14 @@ export default function FilePreview({ file, cite, onDownload }: FilePreviewProps
   }
   if (preview.isPending) return <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />
   if (preview.isError || !preview.data) {
-    if (isApiError(preview.error) && preview.error.code === 'no_preview') return <NoPreview onDownload={onDownload} />
+    if (errorCode === 'no_preview' || errorCode === 'preview_failed' || previewGaveUp) return <NoPreview onDownload={onDownload} />
+    if (errorCode === 'preview_processing' && !previewGaveUp) return <Skeleton height={420} radius={12} style={{ width: '100%', maxWidth: 720 }} />
     return (
       <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '48px 24px', textAlign: 'center' }}>
         <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)' }}>Couldn&apos;t load the preview.</p>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" onClick={() => void preview.refetch()}>{MESSAGES.retry}</Button>
-          <Button onClick={onDownload}>Download</Button>
+          {onDownload && <Button onClick={onDownload}>Download</Button>}
         </div>
       </div>
     )
@@ -67,8 +114,15 @@ export default function FilePreview({ file, cite, onDownload }: FilePreviewProps
   const data = preview.data
   return (
     <PreviewBoundary fileId={file.id} onDownload={onDownload}>
-      {data.kind === 'pdf' && <PdfViewer url={data.url} highlightPage={cite?.type === 'page' ? parsePageCite(cite.value) : null} passage={cite?.passage} />}
-      {data.kind === 'text' && <TextViewer pages={data.pages} citePage={cite?.type === 'page' ? cite.value : null} passage={cite?.passage} />}
+      {data.kind === 'pdf' && (() => {
+        const pages = <PdfViewer url={data.url} highlightPage={cite?.type === 'page' ? parsePageCite(cite.value) : null} passage={cite?.passage} fitScreen={file.format === 'slides'} />
+        return rtf ? <RtfPreview file={file}>{pages}</RtfPreview> : pages
+      })()}
+      {data.kind === 'text' && (() => {
+        const indexed = <TextViewer pages={data.pages} citePage={cite?.type === 'page' ? cite.value : null} passage={cite?.passage} />
+        // A cited passage is marked in the indexed text, so a citation keeps that view.
+        return rendersSource(file) && !cite ? <SourceViewer file={file} fallback={indexed} /> : indexed
+      })()}
       {data.kind === 'image' && <ImageViewer url={data.url} caption={data.caption} />}
       {data.kind === 'audio' && <AudioViewer url={data.url} lines={data.lines} citeMs={cite?.type === 'time' ? Number(cite.value) : null} />}
       {data.kind === 'sheet' && (
@@ -84,12 +138,16 @@ export default function FilePreview({ file, cite, onDownload }: FilePreviewProps
   )
 }
 
-function NoPreview({ onDownload }: { onDownload: () => void }) {
+function NoPreview({ onDownload }: { onDownload?: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '48px 24px', textAlign: 'center' }}>
       <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>No preview for this file</p>
-      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)' }}>You can download it to open it.</p>
-      <Button onClick={onDownload}>Download</Button>
+      {onDownload && (
+        <>
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)' }}>You can download it to open it.</p>
+          <Button onClick={onDownload}>Download</Button>
+        </>
+      )}
     </div>
   )
 }

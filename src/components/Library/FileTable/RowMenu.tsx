@@ -51,7 +51,8 @@ export function RowMenu({ file, onAction, alwaysVisible = false, withOpen = true
   const [open, setOpen] = useState(false)
   const caps = file.caps
   const active = file.life === 'active'
-  const canAsk = active && (file.phase ?? 'ready') === 'ready'
+  // Ask and Download need the file itself: off when the viewer cannot open it. Library processing does not block Ask.
+  const canAsk = active && caps.open
   const shareReason = !caps.share ? ONLY_OWNER_TIP : undefined
 
   // On a list, remember it when a file is opened from it, so Close on the file page comes back here.
@@ -121,7 +122,7 @@ export function RowMenu({ file, onAction, alwaysVisible = false, withOpen = true
               <Dropdown.Item label="Share" icon={<ShareOneIcon />} fluid disabled={Boolean(shareReason)} onClick={() => choose('share', !shareReason)} />
             </WithReason>
           )}
-          <Dropdown.Item label="Download" icon={<DownloadOneIcon />} fluid onClick={() => choose('download')} />
+          {caps.open && <Dropdown.Item label="Download" icon={<DownloadOneIcon />} fluid onClick={() => choose('download', caps.open)} />}
         </Dropdown.Section>
         <Dropdown.Section fluid divider>
           <WithReason reason={caps.rename || !active ? undefined : ONLY_OWNER_TIP}>

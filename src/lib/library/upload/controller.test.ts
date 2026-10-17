@@ -47,6 +47,16 @@ function fakeUploadApi() {
   };
 }
 
+/** Parts never land, so the attachment stays "uploading" until it is aborted. */
+const hangingTransport = (calls: PartRequest[]): PartTransport => ({
+  putPart(request) {
+    calls.push(request);
+    return new Promise<string>((_, reject) => {
+      request.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    });
+  },
+});
+
 function file(name: string, bytes: number): File {
   return new File([new Uint8Array(bytes)], name, { type: "application/octet-stream" });
 }
@@ -367,6 +377,39 @@ describe("processing polls", () => {
     expect(statuses).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fail processing attachments while offline, and polls again on reconnect", async () => {
+    const h = harness();
+    const statuses = vi.spyOn(h.api, "getUploadStatuses");
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await h.flush();
+    expect(h.store.get(id)?.status).toBe("processing");
+    statuses.mockRejectedValue(new TypeError("Failed to fetch"));
+    h.online.value = false;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(h.store.get(id)?.status).toBe("processing");
+    statuses.mockRestore();
+    h.online.value = true;
+    h.controller.pollNow();
+    await h.flush();
+    expect(h.store.get(id)?.status).toBe("ready");
+  });
+
+  it("does not count status failures that happen as the connection drops", async () => {
+    const h = harness();
+    const statuses = vi.spyOn(h.api, "getUploadStatuses").mockImplementation(async () => {
+      h.online.value = false;
+      throw new TypeError("Failed to fetch");
+    });
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    for (let i = 0; i < 10; i += 1) {
+      h.online.value = true;
+      h.controller.pollNow();
+      await h.flush();
+    }
+    expect(statuses.mock.calls.length).toBeGreaterThanOrEqual(10);
+    expect(h.store.get(id)?.status).toBe("processing");
+  });
+
   it("flags a slow file after the server says so", async () => {
     const h = harness();
     const id = h.controller.start(file("slow.pdf", MB), { draftKey: "new" });
@@ -377,14 +420,63 @@ describe("processing polls", () => {
 
 describe("cancelling and clearing", () => {
   it("cancel removes the attachment and tells the server", async () => {
-    const h = harness();
+    const h = harness(hangingTransport);
     const cancel = vi.spyOn(h.api, "cancelUpload");
     const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
     await h.flush();
+    expect(h.store.get(id)?.status).toBe("uploading");
     h.controller.cancel(id);
     await h.flush();
     expect(h.store.get(id)).toBeUndefined();
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("removing a processing attachment does not ask the server to cancel a finished upload", async () => {
+    const h = harness();
+    const cancel = vi.spyOn(h.api, "cancelUpload");
+    const id = h.controller.start(file("slow.pdf", MB), { draftKey: "new" });
+    await h.flush();
+    expect(h.store.get(id)?.status).toBe("processing");
+    h.controller.cancel(id);
+    expect(h.store.get(id)).toBeUndefined();
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("closes the server upload when parts run out of retries, and again before a retry starts over", async () => {
+    let attempts = 0;
+    const h = harness((calls) => ({
+      async putPart(request) {
+        calls.push(request);
+        attempts += 1;
+        if (attempts <= 4) throw new PartTransportError("down", 0);
+        return "etag";
+      },
+    }));
+    const cancel = vi.spyOn(h.api, "cancelUpload");
+    const id = h.controller.start(file("a.pdf", MB), { draftKey: "new" });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.store.get(id)?.status).toBe("failed");
+    expect(cancel).toHaveBeenCalledWith("up_0");
+    h.controller.retry(id);
+    expect(cancel).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(["processing", "ready"]).toContain(h.store.get(id)?.status);
+  });
+
+  it("abortAll closes unfinished server uploads but not completed ones", async () => {
+    const h = harness();
+    const cancel = vi.spyOn(h.api, "cancelUpload");
+    h.controller.start(file("slow.pdf", MB), { draftKey: "new" }); // completes, then processes
+    await h.flush();
+    expect(h.calls).toHaveLength(1);
+    const hung = harness(hangingTransport);
+    const hungCancel = vi.spyOn(hung.api, "cancelUpload");
+    hung.controller.start(file("b.pdf", MB), { draftKey: "new" });
+    await hung.flush();
+    h.controller.abortAll();
+    hung.controller.abortAll();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(hungCancel).toHaveBeenCalledTimes(1);
   });
 
   it("release drops a sent draft's attachments", async () => {

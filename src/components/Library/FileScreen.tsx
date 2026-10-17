@@ -22,10 +22,11 @@ import { useMarkOpened } from '@/lib/library/mutations'
 import { useLibraryFile } from '@/lib/library/queries'
 import { libraryReturnUrl } from '@/lib/library/return-to'
 import { useLibraryViewer } from '@/lib/library/viewer'
+import { warmFile } from '@/lib/library/warm'
 import { EmptyState } from './EmptyState'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { FileInfoCard } from './FileInfoCard'
-import { GhostLines, GoneState, LockedState, ProcessingBanner, LibraryProcessingBanner, TrashedBanner } from './FileStates'
+import { GoneState, LockedState, LibraryProcessingBanner, TrashedBanner } from './FileStates'
 import { LibraryShell } from './LibraryShell'
 import { LinkButton } from './LinkButton'
 import { RowMenu } from './FileTable/RowMenu'
@@ -50,6 +51,11 @@ export function FileScreen({ id }: { id: string }) {
   // Close and a delete go back to the Library list the person came from (tab, search, filters).
   const backHref = libraryReturnUrl(params.get('from'))
   const { viewerId } = useLibraryViewer()
+  // Ask for the details and the first preview now, side by side: the queries below wait for the
+  // workspace to load and then pick these up, instead of starting one after the other. A row cite
+  // opens a sheet at another window, so that preview is left to the viewer.
+  const citesRow = cite?.type === 'row'
+  useEffect(() => { warmFile(id, { preview: !citesRow }) }, [id, citesRow])
   const detail = useLibraryFile(id)
   const markOpened = useMarkOpened()
   const { dialog, closeDialog, handle } = useFileActions()
@@ -103,7 +109,7 @@ export function FileScreen({ id }: { id: string }) {
   // Once per visit: clear the unread marker and record the view (format and source only).
   const opened = useRef<string | null>(null)
   useEffect(() => {
-    if (!file || file.phase !== 'ready' || opened.current === file.id) return
+    if (!file || opened.current === file.id) return
     opened.current = file.id
     trackLibrary('open_file', { format: file.format, source: file.source })
     if (file.life === 'active') markOpened.mutate({ id: file.id })
@@ -131,9 +137,11 @@ export function FileScreen({ id }: { id: string }) {
   const caps = file.caps
   const name = file.name
   const trashed = file.life === 'trashed'
-  const download = () => handle('download', file)
+  // Download and Ask need the file itself: neither is offered when the viewer cannot open it.
+  const download = caps.open ? () => handle('download', file) : undefined
   const askAbout = (text: string) => { void ask(file, text) }
-  const canAsk = !trashed && file.phase === 'ready'
+  // The detail's `phase` is always "ready"; Library processing (processingPhase) never blocks chat use of the original.
+  const canAsk = !trashed && caps.open
   // The info card rises in place: opacity and scale only, from the corner its button sits in, so the
   // compositor does all the work. The page re-centres with a FLIP (transform) rather than a width tween.
   const ease = [0.16, 1, 0.3, 1] as const
@@ -152,25 +160,12 @@ export function FileScreen({ id }: { id: string }) {
         {/* The scroller spans the whole viewer, so its scrollbar sits at the far right, beyond the info card. */}
         <m.div ref={scrollRef} layoutScroll className={`${styles.scroll} kaya-scrollbar`}>
           <m.div className={styles.main} layout="position" transition={glide}>
-            {trashed ? (
-              <TrashedBanner fileId={file.id} title={name} daysLeft={file.daysLeft} canRestore={caps.restore} />
-            ) : file.phase !== 'ready' ? (
-              <ProcessingBanner phase={file.phase} />
-            ) : null}
+            {trashed && <TrashedBanner fileId={file.id} title={name} daysLeft={file.daysLeft} canRestore={caps.restore} />}
             {!trashed && <LibraryProcessingBanner file={file} />}
             <div className={styles.page}>
               <h1 className={styles.pageTitle}>{name}</h1>
-              {file.phase === 'ready' ? (
-                <>
-                  <p className={styles.pageSub}>{formatLabel(file.format)}{file.extension ? ` · .${file.extension}` : ''}</p>
-                  <FilePreview file={file} cite={cite} onDownload={download} />
-                </>
-              ) : (
-                <>
-                  <p className={styles.pageSub}>{file.phase === 'uploading' ? FILE_MESSAGES.uploading : FILE_MESSAGES.processing}</p>
-                  <GhostLines />
-                </>
-              )}
+              <p className={styles.pageSub}>{formatLabel(file.format)}{file.extension ? ` · .${file.extension}` : ''}</p>
+              <FilePreview file={file} cite={cite} onDownload={download} />
             </div>
           </m.div>
           <div className={infoOpen ? styles.spacer : `${styles.spacer} ${styles.spacerClosed}`} aria-hidden="true" />
@@ -191,7 +186,7 @@ export function FileScreen({ id }: { id: string }) {
             }
           />
           <span className={styles.end}>
-            <IconButton variant="secondary" aria-label="Download" title="Download" icon={<DownloadOneIcon size={18} />} onClick={download} />
+            {download && <IconButton variant="secondary" aria-label="Download" title="Download" icon={<DownloadOneIcon size={18} />} onClick={download} />}
             {!trashed && (
               caps.share ? (
                 <Button variant="secondary" leftIcon={<ShareOneIcon size={16} />} onClick={() => handle('share', file)}>Share</Button>
@@ -263,7 +258,9 @@ export function FileScreen({ id }: { id: string }) {
         )}
       </div>
 
-      <FileDialogs dialog={dialog} onClose={closeDialog} onDeleted={() => router.push(backHref)} />
+      {/* The dialog works on the live file, not the copy taken when it opened (a rename or a share
+          elsewhere while it is open would otherwise show stale details). */}
+      <FileDialogs dialog={dialog && dialog.file.id === file.id ? { ...dialog, file } : dialog} onClose={closeDialog} onDeleted={() => router.push(backHref)} />
     </LibraryShell>
   )
 }

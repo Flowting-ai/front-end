@@ -8,13 +8,14 @@ import { Skeleton } from '@/components/Skeleton'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { trackLibrary } from '@/lib/library/analytics'
 import { formatDateTime, FORMAT_GROUP_LABELS, pluralize } from '@/lib/library/format'
-import { MESSAGES } from '@/lib/library/messages'
+import { MESSAGES, pickerLimitHint } from '@/lib/library/messages'
 import { useLibraryPicker } from '@/lib/library/queries'
 import { FORMAT_GROUPS, type FormatGroup } from '@/lib/library/schemas'
 import type { LibraryFile } from '@/lib/library/file'
 import { nextRowIndex } from '@/lib/library/table-focus'
 import { FormatGlyph } from '../FormatGlyph'
 import { GeneratedMark } from '../FileMarks'
+import { togglePick } from './togglePick'
 import styles from './PickerDialog.module.css'
 
 type TypeChip = 'all' | FormatGroup | 'runs'
@@ -35,6 +36,8 @@ export interface PickerDialogProps {
   /** One file only (attaching to a routine's single input), instead of several. */
   single?: boolean
   title?: string
+  /** Most files that may be picked (the attachment slots left). Further picks are disabled once reached. */
+  max?: number
 }
 
 /**
@@ -42,7 +45,7 @@ export interface PickerDialogProps {
  * ever listed). Pick one or several and confirm. It holds ids and rows only for this dialog; nothing is
  * saved or attached until the caller handles `onConfirm`.
  */
-export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel = 'Add to chat', single = false, title = 'Add from Library' }: PickerDialogProps) {
+export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel = 'Add to chat', single = false, title = 'Add from Library', max }: PickerDialogProps) {
   const [query, setQuery] = useState('')
   const [chip, setChip] = useState<TypeChip>('all')
   const [picked, setPicked] = useState<LibraryFile[]>([])
@@ -68,8 +71,9 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
   const isPicked = (id: string) => picked.some((file) => file.id === id)
   const toggle = (file: LibraryFile) => {
     if (excludeIds.includes(file.id)) return
-    setPicked((current) => (single ? (isPicked(file.id) ? [] : [file]) : isPicked(file.id) ? current.filter((entry) => entry.id !== file.id) : [...current, file]))
+    setPicked((current) => togglePick(current, file, single, max))
   }
+  const atLimit = !single && max !== undefined && picked.length >= max
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
@@ -123,13 +127,14 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
               {list.files.map((file, index) => {
                 const already = excludeIds.includes(file.id)
                 const selected = already || isPicked(file.id)
+                const blocked = already || (atLimit && !selected)
                 const name = file.name
                 return (
                   <li
                     key={file.id}
                     role="option"
                     aria-selected={selected}
-                    aria-disabled={already || undefined}
+                    aria-disabled={blocked || undefined}
                     // Already-attached files stay focusable (so the arrows can pass them) but cannot be picked.
                     tabIndex={index === rovingIndex ? 0 : -1}
                     onFocus={() => setActiveIndex(index)}
@@ -159,7 +164,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
         </div>
 
         <DialogFooter style={{ justifyContent: 'space-between', paddingTop: 12 }}>
-          <span aria-live="polite" className={styles.count}>{picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
+          <span aria-live="polite" className={styles.count}>{atLimit && max !== undefined ? `${pluralize(picked.length, 'file')} selected. ${pickerLimitHint(max)}` : picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
           <span className={styles.actions}>
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button

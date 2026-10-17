@@ -28,6 +28,7 @@ export function libraryErrorMessage(error: unknown, fallback: string = MESSAGES.
   if (!isApiError(error)) return fallback;
   switch (error.code) {
     case "only_owner":
+    case "forbidden":
       return MESSAGES.onlyOwner;
     case "not_a_member":
       return MESSAGES.onlyMembers;

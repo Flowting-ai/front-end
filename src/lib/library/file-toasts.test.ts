@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import { addedGrantIds, cachedFileName, countTrashRows, findRowIn } from "./file-toasts";
+import { addedGrantIds, cachedFileName, countTrashRows, findRowIn, grantFor, targetKey } from "./file-toasts";
 import { libraryKeys } from "./keys";
 import { FILE_MESSAGES } from "./messages";
 import type { AccessList } from "./schemas";
@@ -31,7 +31,26 @@ describe("file toasts", () => {
     const before: AccessList = { canManage: true, entries: [{ grantId: "o", kind: "owner", via: "owner" }, { grantId: "g1", kind: "user", via: "direct" }] };
     const after: AccessList = { ...before, entries: [...before.entries, { grantId: "g2", kind: "workspace", via: "workspace" }] };
     expect(addedGrantIds(before, after)).toEqual(["g2"]);
-    expect(addedGrantIds(undefined, after)).toEqual(["g1", "g2"]);
+    // An unknown "before" must never make Undo revoke grants that were already there.
+    expect(addedGrantIds(undefined, after)).toEqual([]);
+  });
+
+  it("finds the grant a target got, by person or workspace", () => {
+    const access: AccessList = {
+      canManage: true,
+      entries: [
+        { grantId: "o", kind: "owner", via: "owner", person: { id: "u1", name: "Avery" } },
+        { grantId: "g1", kind: "user", via: "direct", person: { id: "u2", name: "Maya" } },
+        { grantId: "g2", kind: "workspace", via: "workspace" },
+      ],
+    };
+    expect(grantFor(access, { kind: "user", personId: "u2" })?.grantId).toBe("g1");
+    expect(grantFor(access, { kind: "user", personId: "u1" })?.grantId).toBe("o");
+    expect(grantFor(access, { kind: "workspace" })?.grantId).toBe("g2");
+    expect(grantFor(access, { kind: "user", personId: "u9" })).toBeUndefined();
+    expect(grantFor(undefined, { kind: "workspace" })).toBeUndefined();
+    expect(targetKey({ kind: "user", personId: "u2" })).toBe("u2");
+    expect(targetKey({ kind: "workspace" })).toBe("workspace");
   });
 
   it("uses the prototype wording", () => {

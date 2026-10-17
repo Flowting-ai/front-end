@@ -12,7 +12,7 @@ export type Caps = {
   rename: boolean;
   share: boolean;
   delete: boolean;
-  /** Restore and Delete forever on a trashed file. */
+  /** Restore and Delete forever on a trashed file: the owner's alone (the server refuses admins too). */
   restore: boolean;
   deleteForever: boolean;
   /** Admin acting over a workspace-shared file they do not own. */
@@ -84,8 +84,8 @@ export class LibraryFile {
       rename: active && manages,
       share: active && manages,
       delete: active && manages,
-      restore: !active && manages,
-      deleteForever: !active && manages,
+      restore: !active && this.access === "owner",
+      deleteForever: !active && this.access === "owner",
       adminOver: this.access !== "owner" && this.adminCanManage,
     };
   }

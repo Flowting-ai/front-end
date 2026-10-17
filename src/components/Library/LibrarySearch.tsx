@@ -14,19 +14,28 @@ import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 export function LibrarySearch({ query, setQuery }: { query: LibraryQuery; setQuery: SetLibraryQuery }) {
   const [draft, setDraft] = useState(query.q)
   const lastWritten = useRef(query.q)
+  // Set when the person types, cleared when the URL changes from outside: only their own typing is
+  // written back. Without it the debounced value, still holding the old search for 250ms, would undo
+  // a "Clear filters" or a Back.
+  const typed = useRef(false)
   const debounced = useDebouncedValue(draft.trim(), 250)
+  const edit = (value: string) => {
+    typed.current = true
+    setDraft(value)
+  }
 
   // URL to input: Back/Forward, "Clear filters" or a shared link changes q from outside.
   useEffect(() => {
     if (query.q !== lastWritten.current) {
       lastWritten.current = query.q
+      typed.current = false
       setDraft(query.q)
     }
   }, [query.q])
 
   // Input to URL: only once the person pauses, and only when it actually differs.
   useEffect(() => {
-    if (debounced !== lastWritten.current) {
+    if (typed.current && debounced === draft.trim() && debounced !== lastWritten.current) {
       lastWritten.current = debounced
       setQuery({ q: debounced })
     }
@@ -46,8 +55,8 @@ export function LibrarySearch({ query, setQuery }: { query: LibraryQuery; setQue
         type="search"
         value={draft}
         maxLength={MAX_SEARCH_LENGTH}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => { if (event.key === 'Escape' && draft) { event.preventDefault(); setDraft('') } }}
+        onChange={(event) => edit(event.target.value)}
+        onKeyDown={(event) => { if (event.key === 'Escape' && draft) { event.preventDefault(); edit('') } }}
         placeholder="Search library"
         aria-label="Search library"
         autoComplete="off"
@@ -60,7 +69,7 @@ export function LibrarySearch({ query, setQuery }: { query: LibraryQuery; setQue
         <button
           type="button"
           aria-label="Clear search"
-          onClick={() => setDraft('')}
+          onClick={() => edit('')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--neutral-400)', flexShrink: 0, borderRadius: 4 }}
         >
           <CancelOneIcon size={12} />

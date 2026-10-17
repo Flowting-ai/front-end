@@ -15,6 +15,7 @@ import {
 import { Button, IconButton } from '@/components/ui/button'
 import { formatLabel } from '@/lib/library/format'
 import { CHAT_MESSAGES } from '@/lib/library/messages'
+import { useLibraryLimits } from '@/lib/library/queries'
 import { DEFAULT_QUERY, patchQuery, toLibraryHref } from '@/lib/library/query-params'
 import type { Format } from '@/lib/library/schemas'
 import type { LibraryFile } from '@/lib/library/file'
@@ -67,12 +68,15 @@ export interface RoutineAttachedFilesProps {
 
 /** Files every run reads. Add files opens the Library picker; an unusable file stays listed with "Next run skips it". */
 export function RoutineAttachedFiles({ routineTitle, files, canEdit, onAdd, onRemove }: RoutineAttachedFilesProps) {
-  const picker = useAddFromLibrary({ excludeIds: files.map((file) => file.id), confirmLabel: 'Attach', onAdd })
+  // A run sends its files with one message, so the per-message limit caps what can be attached.
+  const limits = useLibraryLimits()
+  const max = limits.data ? Math.max(0, limits.data.maxFilesPerMessage - files.length) : undefined
+  const picker = useAddFromLibrary({ excludeIds: files.map((file) => file.id), confirmLabel: 'Attach', onAdd, max })
   return (
     <section className={styles.section} aria-label={CHAT_MESSAGES.attachedFiles}>
       <h4>
         {CHAT_MESSAGES.attachedFiles}
-        {canEdit && (
+        {canEdit && max !== 0 && (
           <Button variant="ghost" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={picker.open}>{CHAT_MESSAGES.addFiles}</Button>
         )}
       </h4>

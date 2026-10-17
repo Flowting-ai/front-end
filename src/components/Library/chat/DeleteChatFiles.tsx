@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/Checkbox'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { libraryApi } from '@/lib/library/api'
 import { libraryKeys } from '@/lib/library/keys'
-import { CHAT_MESSAGES, MESSAGES } from '@/lib/library/messages'
+import { CHAT_MESSAGES, chatDeletedTrashFailed, MESSAGES } from '@/lib/library/messages'
 import { deleteChatToast, savedFilesLine, type OpenFileRef } from '@/lib/library/sources'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { FormatGlyph } from '../FormatGlyph'
@@ -48,10 +48,12 @@ export function DeleteChatFiles({ files, alsoDelete, onAlsoDeleteChange }: Delet
 export function useTrashChatFiles() {
   const queryClient = useQueryClient()
   const { orgKey } = useLibraryViewer()
-  return async (ids: string[]): Promise<void> => {
-    if (ids.length === 0) return
+  /** Resolves with how many files could not be moved; each is tried, so one failure never stops the rest. */
+  return async (ids: string[]): Promise<number> => {
+    if (ids.length === 0) return 0
     try {
-      await Promise.all(ids.map((id) => libraryApi.trashFile(id)))
+      const results = await Promise.allSettled(ids.map((id) => libraryApi.trashFile(id)))
+      return results.filter((result) => result.status === 'rejected').length
     } finally {
       void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) })
     }
@@ -76,16 +78,27 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, onDeleteChat, onCl
   const trashFiles = useTrashChatFiles()
   const confirm = async () => {
     setBusy(true)
+    // Stage 1: the chat. On failure the dialog stays open so Delete can be retried.
     try {
       await onDeleteChat()
-      if (alsoDelete) await trashFiles(files.map((file) => file.id))
-      toast(deleteChatToast(files.length, alsoDelete))
-      onClose()
     } catch {
       toast.error(MESSAGES.genericFailure)
-    } finally {
       setBusy(false)
+      return
     }
+    // Stage 2: the files. The chat is gone, so it is never retried; report what could not be trashed and close.
+    let failed = 0
+    if (alsoDelete) {
+      try {
+        failed = await trashFiles(files.map((file) => file.id))
+      } catch {
+        failed = files.length
+      }
+    }
+    if (failed > 0) toast.error(chatDeletedTrashFailed(failed))
+    else toast(deleteChatToast(files.length, alsoDelete))
+    setBusy(false)
+    onClose()
   }
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose() }}>

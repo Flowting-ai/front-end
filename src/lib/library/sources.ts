@@ -6,7 +6,7 @@
 // exist on the backend yet; the components that use this file run on the mock until they do.
 
 import { LIBRARY_FILE_ROUTE } from "@/lib/routes";
-import { formatCite, formatTimestamp } from "./cite";
+import { citeQuery, formatTimestamp } from "./cite";
 import { formatDateTime } from "./format";
 import { CHAT_MESSAGES, MESSAGES } from "./messages";
 import type { CiteLocator, Format } from "./schemas";
@@ -55,7 +55,7 @@ export function isOpenRef(ref: FileRef | undefined): ref is OpenFileRef {
 /** The File page with the passage, row or time highlighted. */
 export function citationHref(fileId: string, locator?: CiteLocator | null): string {
   const base = LIBRARY_FILE_ROUTE(fileId);
-  return locator ? `${base}?cite=${encodeURIComponent(formatCite(locator))}` : base;
+  return locator ? `${base}?${citeQuery(locator)}` : base;
 }
 
 /** Chip text: the file name only; an audio citation adds the time ("Supplier call - Acme, 0:42"). Never a title for a locked or deleted file. */

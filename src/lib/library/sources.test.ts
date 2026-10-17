@@ -23,8 +23,9 @@ const open = (id: string, title: string, extra: Partial<Extract<FileRef, { state
 describe("citations", () => {
   it("links to the File page with the locator", () => {
     expect(citationHref("f_a")).toBe("/library/files/f_a");
-    expect(citationHref("f_a", { type: "row", value: "Rates!14" })).toBe("/library/files/f_a?cite=row%3ARates!14");
+    expect(citationHref("f_a", { type: "row", value: "Rates!14" })).toBe("/library/files/f_a?cite=row%3ARates%2114");
     expect(citationHref("f_a", { type: "time", value: "42000" })).toBe("/library/files/f_a?cite=time%3A42000");
+    expect(citationHref("f_a", { type: "page", value: "2", passage: "net 30 days" })).toBe("/library/files/f_a?cite=page%3A2&passage=net+30+days");
   });
 
   it("shows the name only, with a time for audio, and never a title for locked or deleted", () => {

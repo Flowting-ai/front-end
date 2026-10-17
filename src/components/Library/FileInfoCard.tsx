@@ -96,7 +96,8 @@ export interface FileInfoCardProps {
   onRename: () => void
   onClose: () => void
   onAsk: () => void
-  onDownload: () => void
+  /** Omitted when the viewer may not download the file. */
+  onDownload?: () => void
   onDelete: () => void
 }
 
@@ -241,10 +242,13 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
       {/* Actions stay pinned at the bottom of the card; only the details above scroll. */}
       <div className={styles.infoFoot}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed || file.phase !== 'ready'} onClick={onAsk}>
-            Ask about this
-          </Button>
-          <Button variant="outline" size="sm" fluid leftIcon={<DownloadOneIcon size={14} />} onClick={onDownload}>Download</Button>
+          {/* Ask and Download need the file itself: hidden when the viewer cannot open it. */}
+          {caps.open && (
+            <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed} onClick={onAsk}>
+              Ask about this
+            </Button>
+          )}
+          {caps.open && onDownload && <Button variant="outline" size="sm" fluid leftIcon={<DownloadOneIcon size={14} />} onClick={onDownload}>Download</Button>}
           {!trashed && (
             <Tooltip content={ONLY_OWNER_TIP} disabled={caps.delete}>
               <span style={{ gridColumn: '1 / -1' }}>

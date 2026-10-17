@@ -125,6 +125,7 @@ export function activityLine(file: Pick<LibraryFile, "lastActivityAt" | "lastAct
 
 export function daysLeftLabel(daysLeft: number | undefined): string {
   if (daysLeft === undefined) return "";
+  if (daysLeft <= 0) return "Less than a day";
   return daysLeft === 1 ? "1 day" : `${daysLeft} days`;
 }
 

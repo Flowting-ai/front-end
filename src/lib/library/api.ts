@@ -9,7 +9,7 @@ import { ApiError, apiFetchJson, apiFetchVoid } from "@/lib/api/client";
 import { listMembers as listOrgMembers } from "@/lib/api/organization";
 import { API_BASE_URL } from "@/lib/config";
 import { captureError } from "./observability";
-import { renameSchema } from "./forms";
+import { renameSchemaFor } from "./forms";
 import type { ListParams } from "./query-params";
 import {
   accessListSchema,
@@ -106,14 +106,15 @@ export const libraryApi = {
     get(previewSchema, `${fileUrl(id)}/preview${previewQuery(request)}`, "getPreview", signal),
   getUsage: (id: string, signal?: AbortSignal) => get(usageSchema, `${fileUrl(id)}/usage`, "getUsage", signal),
   getAccess: (id: string, signal?: AbortSignal) => get(accessListSchema, `${fileUrl(id)}/access`, "getAccess", signal),
-  getDownloadUrl: async (id: string) => (await get(z.object({ url: z.string() }), `${fileUrl(id)}/download`, "getDownloadUrl")).url,
+  getDownloadUrl: async (id: string, signal?: AbortSignal) => (await get(z.object({ url: z.string() }), `${fileUrl(id)}/download`, "getDownloadUrl", signal)).url,
   markOpened: (id: string) => apiFetchVoid(`${fileUrl(id)}/opened`, { method: "POST" }),
 
   // Changes
   retryProcessing: (id: string) => apiFetchVoid(`${fileUrl(id)}/retry-processing`, { method: "POST" }),
   // The body goes through the rename form's schema, so the form and the request share one contract.
-  renameFile: async (id: string, title: string) =>
-    parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchema.parse({ title })) }), "renameFile"),
+  // `extension`: the file's own (kept by the server), so the title is checked against the room it leaves.
+  renameFile: async (id: string, title: string, extension?: string | null) =>
+    parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchemaFor(extension ?? undefined).parse({ title })) }), "renameFile"),
   trashFile: async (id: string) =>
     parse(z.object({ daysLeft: z.number().int().nonnegative() }), await apiFetchJson<unknown>(fileUrl(id), { method: "DELETE" }), "trashFile"),
   restoreFile: (id: string) => apiFetchVoid(`${trashUrl(id)}/restore`, { method: "POST" }),
@@ -131,8 +132,9 @@ export const libraryApi = {
     return members
       .filter((member) => member.inviteStatus === "signed_up")
       .filter((member) => !needle || member.name.toLowerCase().includes(needle) || member.email.toLowerCase().includes(needle))
-      .map((member) => personSchema.parse({ id: member.id, name: member.name || member.email }))
-      .slice(0, 20);
+      // Not capped here: the Share dialog drops the owner and people who already have access first,
+      // then caps what it shows (a cap here could leave nobody and read as "Everyone already has access").
+      .map((member) => personSchema.parse({ id: member.id, name: member.name || member.email }));
   },
 
   // Summaries

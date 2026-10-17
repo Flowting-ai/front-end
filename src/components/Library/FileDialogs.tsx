@@ -22,7 +22,7 @@ export function FileDialogs({ dialog, onClose, onDeleted }: { dialog: FileDialog
   if (!dialog) return null
   switch (dialog.type) {
     case 'share':
-      return <ShareDialog file={dialog.file} onClose={onClose} />
+      return <ShareDialog file={dialog.file} onClose={onClose} onLostAccess={onDeleted} />
     case 'rename':
       return <RenameDialog file={dialog.file} onClose={onClose} />
     case 'delete':

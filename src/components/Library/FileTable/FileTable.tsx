@@ -12,7 +12,7 @@ import { LIBRARY_FILE_ROUTE } from '@/lib/routes'
 import { AccessAvatars } from '../PersonAvatar'
 import { FileThumb } from '../FileThumb'
 import { GeneratedMark, UnreadDot } from '../FileMarks'
-import { preloadFilePage } from '../viewers/preload'
+import { cancelFilePreload, preloadFilePage } from '../viewers/preload'
 import { RowMenu, type RowAction } from './RowMenu'
 import styles from './FileTable.module.css'
 
@@ -83,9 +83,10 @@ export function FileRow({ file, kind, viewerId, rowIndex, onAction, className, o
           href={LIBRARY_FILE_ROUTE(file.id)}
           className={styles.rowLink}
           title={name}
-          // Warm the file page's code while the pointer is over the row, so opening it does not wait.
-          onPointerEnter={() => preloadFilePage(file.format)}
-          onFocus={() => preloadFilePage(file.format)}
+          // Warm the file page (code, then details and preview) while the pointer is over the row.
+          onPointerEnter={() => preloadFilePage(file.format, file.id)}
+          onPointerLeave={cancelFilePreload}
+          onFocus={() => preloadFilePage(file.format, file.id)}
         >
           <FileThumb file={file} width={32} height={32} className={styles.thumb} />
           <span className={styles.nameStack}>
@@ -151,7 +152,9 @@ export function FileTable({
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   // A row an arrow key moved to: setting focusedIndex renders it, then the effect below focuses it.
   const pendingFocus = useRef<number | null>(null)
-  const rangeExtractor = useCallback((range: Range) => withFocusedRow(defaultRangeExtractor(range), focusedIndex), [focusedIndex])
+  const rowCount = files.length
+  // The count guard drops a focused index the list shrank under before the effect below resets it.
+  const rangeExtractor = useCallback((range: Range) => withFocusedRow(defaultRangeExtractor(range), focusedIndex, rowCount), [focusedIndex, rowCount])
   const virtualizer = useVirtualizer({
     count: files.length,
     getScrollElement: () => scrollRef.current,
@@ -162,7 +165,24 @@ export function FileTable({
     rangeExtractor,
   })
   const items = virtualizer.getVirtualItems()
-  const lastIndex = items.length > 0 ? items[items.length - 1].index : -1
+  // The last row the viewport (plus overscan) reaches. Not the last of `items`: that can be the pinned
+  // focused row, which would keep loading pages while the person is near the top.
+  const visibleEnd = virtualizer.range?.endIndex
+  const lastIndex = visibleEnd === undefined ? -1 : Math.min(visibleEnd + OVERSCAN, files.length - 1)
+
+  // The list shrank under the focused row (a refetch with fewer files): move focus to the new last
+  // row if the table still had focus (the row unmounted, so focus fell to <body>), otherwise drop it.
+  useEffect(() => {
+    if (focusedIndex === null || focusedIndex < files.length) return
+    const active = document.activeElement
+    const tableHadFocus = active === null || active === document.body || bodyRef.current?.contains(active)
+    if (files.length > 0 && tableHadFocus) {
+      pendingFocus.current = files.length - 1
+      setFocusedIndex(files.length - 1)
+    } else {
+      setFocusedIndex(null)
+    }
+  }, [focusedIndex, files.length])
 
   // Load the next page when the person scrolls near the end of what is loaded.
   useEffect(() => {
@@ -201,13 +221,20 @@ export function FileTable({
     virtualizer.scrollToIndex(next, { align: 'auto' })
   }
 
-  // Remember where this view was scrolled to.
+  // Remember where this view was scrolled to, and restore it when the view changes without a remount
+  // (a sort change); on mount initialOffset has already placed it.
+  const mountedViewKey = useRef(viewKey)
   useEffect(() => {
+    if (mountedViewKey.current !== viewKey) {
+      mountedViewKey.current = viewKey
+      virtualizer.scrollToOffset(scrollMemory.get(viewKey) ?? 0)
+    }
     const element = scrollRef.current
     return () => {
       if (element) scrollMemory.set(viewKey, element.scrollTop)
     }
-  }, [viewKey])
+    // The virtualizer instance is stable for the component's life.
+  }, [viewKey, virtualizer])
 
   const dateKey: SortKey = kind === 'shared' ? 'shared' : 'created'
   const ariaSort = (key: SortKey): 'ascending' | 'descending' | 'none' => (sort.key !== key ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending')

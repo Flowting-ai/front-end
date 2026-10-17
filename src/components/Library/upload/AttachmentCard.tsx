@@ -14,6 +14,8 @@ import { FormatGlyph } from '../FormatGlyph'
 export function AttachmentCard({ item, onCancel }: { item: UploadItem; onCancel: (id: string) => void }) {
   const name = sanitizeDisplayText(item.name) || 'Untitled'
   const label = statusLabel(item)
+  // A processing file is already uploaded: the server cannot cancel it and it will land in the Library.
+  const finishing = item.status === 'processing'
   const icon =
     item.status === 'ready' ? <CheckmarkCircleTwoIcon size={14} /> :
     item.status === 'failed' ? <AlertCircleIcon size={14} /> :
@@ -49,8 +51,10 @@ export function AttachmentCard({ item, onCancel }: { item: UploadItem; onCancel:
       <button
         type="button"
         onClick={() => onCancel(item.id)}
-        aria-label={`Remove ${name}`}
-        style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: 'none', borderRadius: 8, background: 'transparent', color: 'var(--neutral-500)', cursor: 'pointer' }}
+        disabled={finishing}
+        aria-label={finishing ? `${name}: already uploaded, finishing processing` : `Remove ${name}`}
+        title={finishing ? 'Already uploaded — finishing processing' : undefined}
+        style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: 'none', borderRadius: 8, background: 'transparent', color: 'var(--neutral-500)', cursor: finishing ? 'not-allowed' : 'pointer', opacity: finishing ? 0.4 : 1 }}
       >
         <CancelOneIcon size={12} />
       </button>

@@ -3,9 +3,10 @@
 // (withFocusedRow) and moves between rows with the arrow keys (nextRowIndex), rendering the target
 // row before it is focused.
 
-/** The virtualiser's visible indexes plus the focused row, kept in order. */
-export function withFocusedRow(indexes: number[], focused: number | null): number[] {
-  if (focused === null || indexes.includes(focused)) return indexes;
+/** The virtualiser's visible indexes plus the focused row, kept in order. A focused index outside
+ *  0..count-1 (the list shrank under it) is ignored, so the virtualiser never gets a missing row. */
+export function withFocusedRow(indexes: number[], focused: number | null, count = Infinity): number[] {
+  if (focused === null || focused < 0 || focused >= count || indexes.includes(focused)) return indexes;
   return [...indexes, focused].sort((a, b) => a - b);
 }
 

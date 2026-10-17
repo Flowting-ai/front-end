@@ -10,7 +10,7 @@ import { sizeBucket } from "../observability";
 import { useLibraryLimits } from "../queries";
 import { getUploadController } from "./controller";
 import { blockingCount, canSend, isInFlight, remainingSlots, type UploadItem } from "./machine";
-import { useDraftUploads } from "./store";
+import { uploadStore, useDraftUploads } from "./store";
 
 export type DraftUploads = {
   items: readonly UploadItem[];
@@ -42,7 +42,8 @@ export function useLibraryUploads(draftKey: string, chatId?: string): DraftUploa
     inFlight: items.some((item) => isInFlight(item.status)),
     readyFileIds: items.flatMap((item) => (item.status === "ready" && item.fileId ? [item.fileId] : [])),
     addFiles: (files) => {
-      const room = remainingSlots(items, max);
+      // Read the live queue, not this render's items: two drops before a re-render must share the room.
+      const room = remainingSlots(uploadStore.forDraft(draftKey), max);
       const accepted = files.slice(0, room);
       if (accepted.length < files.length) toast.error(`You can attach up to ${max} files to a message.`);
       for (const file of accepted) {

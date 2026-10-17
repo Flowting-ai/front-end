@@ -4,7 +4,7 @@
 // components stay independent of the query library, and none of them copies data into useState.
 // The workspace id is part of every key (useLibraryViewer), so switching workspace shows a clean slate.
 
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { libraryApi } from "./api";
 import { flattenPages } from "./cache";
 import { libraryRetry } from "./errors";
@@ -13,6 +13,7 @@ import { MIN_SEARCH_LENGTH, isSearching, toListParams, type LibraryQuery, type L
 import type { PreviewRequest } from "./schemas";
 import type { LibraryFile } from "./file";
 import { useLibraryViewer } from "./viewer";
+import { syncWarmScope, takeWarmFile, takeWarmPreview } from "./warm";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -80,14 +81,14 @@ export function useSuggested() {
  * Whether anything is shared with or by the viewer. The Shared tab only appears once it has something,
  * so this is a cheap one-row check, not the tab's list (that is a different query shape and key).
  */
-export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSettled: boolean } {
+export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSettled: boolean; isSuccess: boolean } {
   const { orgKey, ready } = useLibraryViewer();
   const result = useQuery({
     queryKey: libraryKeys.hasShared(orgKey),
     enabled: ready,
     queryFn: async ({ signal }) => {
       const page = await libraryApi.listFiles(
-        { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc" },
+        { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc", unreadFirst: true },
         null,
         signal,
       );
@@ -96,7 +97,7 @@ export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSett
     staleTime: MINUTE,
     retry: libraryRetry,
   });
-  return { hasShared: result.data?.has === true, hasUnread: result.data?.unread === true, isSettled: !result.isPending };
+  return { hasShared: result.data?.has === true, hasUnread: result.data?.unread === true, isSettled: !result.isPending, isSuccess: result.isSuccess };
 }
 
 /** The picker ("Add from Library"): ready, active, accessible files only, by search and type. */
@@ -155,13 +156,19 @@ export function useTrash() {
 /** One file. A file that is not Ready is re-read every few seconds until it is (processing is short). */
 export function useLibraryFile(id: string) {
   const { orgKey, ready } = useLibraryViewer();
+  const queryClient = useQueryClient();
+  const queryKey = libraryKeys.detail(orgKey, id);
   return useQuery({
-    queryKey: libraryKeys.detail(orgKey, id),
+    queryKey,
     enabled: ready,
-    queryFn: async ({ signal }) => libraryApi.getFile(id, signal),
+    queryFn: async ({ signal }) => {
+      syncWarmScope(orgKey);
+      return takeWarmFile(id, queryClient.getQueryData(queryKey) === undefined, signal);
+    },
     staleTime: 30 * SECOND,
     retry: libraryRetry,
-    refetchInterval: (query) => (query.state.data && (query.state.data.phase !== "ready" || query.state.data.processingPending) ? 3 * SECOND : false),
+    // The detail's `phase` is always "ready"; processingPhase is the real state.
+    refetchInterval: (query) => (query.state.data?.processingPending ? 3 * SECOND : false),
   });
 }
 
@@ -171,9 +178,14 @@ export function useLibraryFile(id: string) {
  */
 export function useFilePreview(id: string, request: PreviewRequest, enabled: boolean) {
   const { orgKey, ready } = useLibraryViewer();
+  const queryClient = useQueryClient();
+  const queryKey = libraryKeys.preview(orgKey, id, request);
   return useQuery({
-    queryKey: libraryKeys.preview(orgKey, id, request),
-    queryFn: async ({ signal }) => libraryApi.getPreview(id, request, signal),
+    queryKey,
+    queryFn: async ({ signal }) => {
+      syncWarmScope(orgKey);
+      return takeWarmPreview(id, request, queryClient.getQueryData(queryKey) === undefined, signal);
+    },
     enabled: enabled && ready,
     staleTime: 4 * MINUTE,
     gcTime: 4 * MINUTE,
@@ -190,6 +202,28 @@ export function useFileUsage(id: string, enabled = true) {
     enabled: enabled && ready,
     staleTime: 30 * SECOND,
     retry: libraryRetry,
+  });
+}
+
+/**
+ * A text file's own bytes, for the previews that render it (HTML, Markdown, email, code). The
+ * Library's text preview is the indexed copy, which trims and re-splits paragraphs, so anything
+ * that depends on exact whitespace needs the original.
+ */
+export function useFileSource(id: string, enabled: boolean) {
+  const { orgKey, ready } = useLibraryViewer();
+  return useQuery({
+    queryKey: libraryKeys.source(orgKey, id),
+    queryFn: async ({ signal }) => {
+      const url = await libraryApi.getDownloadUrl(id, signal);
+      const response = await fetch(url, { signal, credentials: "omit" });
+      if (!response.ok) throw new Error(`source ${response.status}`);
+      return new TextDecoder("utf-8").decode(await response.arrayBuffer());
+    },
+    enabled: enabled && ready,
+    staleTime: 4 * MINUTE,
+    gcTime: 4 * MINUTE,
+    retry: false,
   });
 }
 

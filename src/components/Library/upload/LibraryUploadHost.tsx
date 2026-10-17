@@ -35,7 +35,7 @@ export function LibraryUploadHost() {
   useEffect(() => {
     const controller = getUploadController()
     const onOffline = () => controller.pauseAll()
-    const onOnline = () => controller.resumeAll()
+    const onOnline = () => { controller.resumeAll(); controller.pollNow() }
     const onVisible = () => { if (!document.hidden) controller.pollNow() }
     window.addEventListener('offline', onOffline)
     window.addEventListener('online', onOnline)

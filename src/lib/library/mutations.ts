@@ -13,12 +13,13 @@ import { patchFileEverywhere, removeFileFromLists, removeFromPages, type PagedRo
 import { libraryErrorMessage } from "./errors";
 import { libraryKeys } from "./keys";
 import { FILE_MESSAGES, MESSAGES } from "./messages";
-import { addedGrantIds, cachedFileName, countTrashRows } from "./file-toasts";
+import { cachedFileName, countTrashRows, findRowIn, grantFor, targetKey } from "./file-toasts";
 import { captureError } from "./observability";
 import { TRASH_DAYS } from "./constants";
 import type { AccessList } from "./schemas";
 import type { LibraryFileDetail } from "./file";
 import { useLibraryViewer } from "./viewer";
+import { forgetWarmFile } from "./warm";
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ export function useRetryProcessing() {
     mutationFn: (id: string) => libraryApi.retryProcessing(id),
     onSuccess: (_, id) => {
       patchFileEverywhere(queryClient, orgKey, id, { processingPhase: "queued", processingFailure: undefined });
+      forgetWarmFile(id);
       void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(orgKey, id) });
     },
     onError: (error) => fail(error, "retryProcessing", MESSAGES.genericFailure),
@@ -75,9 +77,10 @@ export function renameFileOptions(queryClient: QueryClient, orgKey: string) {
   return mutationOptions({
 
     mutationKey: [...libraryKeys.all(orgKey), "rename"],
-    mutationFn: async (vars: { id: string; title: string; previousTitle: string; previousAi: boolean }) =>
-      libraryApi.renameFile(vars.id, vars.title),
+    mutationFn: async (vars: { id: string; title: string; previousTitle: string; previousAi: boolean; extension?: string | null }) =>
+      libraryApi.renameFile(vars.id, vars.title, vars.extension),
     onMutate: async (vars) => {
+      forgetWarmFile(vars.id);
       await cancelRowReads(queryClient, orgKey);
       patchFileEverywhere(queryClient, orgKey, vars.id, { title: vars.title.trim(), titleIsAiGenerated: false });
     },
@@ -101,8 +104,18 @@ export function useRenameFile() {
 /** Restore from the API, then re-read what changed. Shared by the Restore button and the Undo on the "Moved to Trash" toast. */
 async function restoreFileNow(queryClient: QueryClient, org: string, id: string): Promise<void> {
   await libraryApi.restoreFile(id);
+  forgetWarmFile(id);
   invalidate(queryClient, org, ["lists", "suggested", "trash", "storage", "picker"]);
   void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(org, id) });
+}
+
+/** Whether the cached row or detail says the viewer owns the file. */
+function cachedIsOwner(queryClient: QueryClient, org: string, id: string): boolean {
+  for (const [, data] of queryClient.getQueriesData({ queryKey: libraryKeys.all(org) })) {
+    const row = findRowIn(data, id);
+    if (row) return row.access === "owner";
+  }
+  return false;
 }
 
 /** `title` is the display name the toasts use; without it the name is looked up in the cache. */
@@ -115,12 +128,15 @@ export function trashFileOptions(queryClient: QueryClient, orgKey: string) {
     onMutate: async (vars) => {
       // Read the name before the row leaves the lists.
       const name = cachedFileName(queryClient, orgKey, vars.id, vars.title);
+      // Restore is the owner's alone, so the toast offers Undo only to the owner (read before the row leaves).
+      const owned = cachedIsOwner(queryClient, orgKey, vars.id);
+      forgetWarmFile(vars.id);
       await cancelRowReads(queryClient, orgKey);
       removeFileFromLists(queryClient, orgKey, vars.id);
       queryClient.setQueryData<LibraryFileDetail>(libraryKeys.detail(orgKey, vars.id), (detail) =>
         detail?.with({ life: "trashed", daysLeft: TRASH_DAYS }),
       );
-      return { name };
+      return { name, owned };
     },
     onError: (error, vars) => {
       // Positions in the lists are not worth reconstructing: read the server's truth again.
@@ -129,8 +145,13 @@ export function trashFileOptions(queryClient: QueryClient, orgKey: string) {
       fail(error, "trash", MESSAGES.deleteFailed);
     },
     onSuccess: (_result, vars, context) => {
-      invalidate(queryClient, orgKey, ["trash", "storage"]);
+      // List cursors are offsets: with the row removed locally, the next page would skip a file. Re-read from the start.
+      invalidate(queryClient, orgKey, ["lists", "suggested", "picker", "trash", "storage"]);
       const name = context?.name ?? cachedFileName(queryClient, orgKey, vars.id, vars.title);
+      if (!context?.owned) {
+        toast(FILE_MESSAGES.movedToTrashOwnerRestores(name));
+        return;
+      }
       toast(FILE_MESSAGES.movedToTrash(name), {
         action: {
           label: FILE_MESSAGES.restore,
@@ -181,6 +202,7 @@ export function useDeleteForever() {
     onMutate: (vars) => ({ name: cachedFileName(queryClient, orgKey, vars.id, vars.title) }),
     onSuccess: (_result, vars, context) => {
       queryClient.setQueriesData<PagedRows>({ queryKey: libraryKeys.trash(orgKey) }, (data) => removeFromPages(data, vars.id));
+      forgetWarmFile(vars.id);
       queryClient.removeQueries({ queryKey: libraryKeys.detail(orgKey, vars.id) });
       invalidate(queryClient, orgKey, ["trash", "storage"]);
       toast(FILE_MESSAGES.deletedForever(context?.name ?? cachedFileName(queryClient, orgKey, vars.id, vars.title)));
@@ -227,6 +249,7 @@ export function useMarkOpened() {
 
 function writeAccess(queryClient: QueryClient, org: string, id: string, access: AccessList): void {
   queryClient.setQueryData<AccessList>(libraryKeys.access(org, id), access);
+  forgetWarmFile(id);
   void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(org, id) });
   invalidate(queryClient, org, ["lists"]);
 }
@@ -257,40 +280,71 @@ export function useAddGrant() {
   return useMutation({
     mutationKey: [...libraryKeys.all(orgKey), "add-grant"],
     mutationFn: async (vars: { id: string; target: GrantTarget; label: string }) => libraryApi.addGrant(vars.id, vars.target),
-    onMutate: (vars) => ({ before: queryClient.getQueryData<AccessList>(libraryKeys.access(orgKey, vars.id)) }),
-    onSuccess: (access, vars, context) => {
+    onSuccess: (access, vars) => {
       writeAccess(queryClient, orgKey, vars.id, access);
-      toast(FILE_MESSAGES.sharedWith([vars.label]), { action: undoShareToast(queryClient, orgKey, vars.id, addedGrantIds(context?.before, access)) });
+      // The grant succeeded, so the target's entry in the response is the one this share added.
+      const grantId = grantFor(access, vars.target)?.grantId;
+      toast(FILE_MESSAGES.sharedWith([vars.label]), { action: undoShareToast(queryClient, orgKey, vars.id, grantId ? [grantId] : []) });
     },
     onError: (error) => fail(error, "share", MESSAGES.shareFailed),
   });
 }
 
+type ShareTarget = { target: GrantTarget; label: string };
+/** What a share got done: the latest access list, who was added (with the grant each added), who already had access. */
+export type ShareOutcome = { access: AccessList | undefined; added: (ShareTarget & { grantId?: string })[]; skipped: ShareTarget[] };
+
+/** A share that stopped part way: carries what was done before the failing grant, so it can be shown and undone. */
+export class PartialShareError extends Error {
+  constructor(readonly failure: unknown, readonly outcome: ShareOutcome) {
+    super(failure instanceof Error ? failure.message : "Share failed");
+    this.name = "PartialShareError";
+  }
+}
+
+/** Targets a share no longer needs to send (added, or already had access), as staged keys. */
+export function settledShareKeys(outcome: ShareOutcome): string[] {
+  return [...outcome.added, ...outcome.skipped].map((item) => targetKey(item.target));
+}
+
+function toastShared(queryClient: QueryClient, orgKey: string, id: string, outcome: ShareOutcome): void {
+  if (outcome.access) writeAccess(queryClient, orgKey, id, outcome.access);
+  if (outcome.added.length === 0) return;
+  const grantIds = outcome.added.map((item) => item.grantId).filter((grantId): grantId is string => Boolean(grantId));
+  toast(FILE_MESSAGES.sharedWith(outcome.added.map((item) => item.label)), { action: undoShareToast(queryClient, orgKey, id, grantIds) });
+}
+
 /**
  * Shares one file with everyone staged in the Share dialog, one grant at a time (the server resolves
- * each), then one "Shared with Maya, Sam" toast whose Undo removes them all. Not optimistic. If a grant
- * fails part way, what was added stays and the error is shown.
+ * each), then one "Shared with Maya, Sam" toast whose Undo removes them all. Not optimistic. Each added
+ * grant is read from that grant's own response (never diffed against an access list that may not be
+ * loaded), and targets that already have access are skipped. If a grant fails part way, the ones added
+ * get their toast and Undo, and the error is shown for the rest (PartialShareError says which).
  */
 export function shareFileOptions(queryClient: QueryClient, orgKey: string) {
   return mutationOptions({
     mutationKey: [...libraryKeys.all(orgKey), "share-file"],
-    mutationFn: async (vars: { id: string; targets: { target: GrantTarget; label: string }[] }) => {
+    mutationFn: async (vars: { id: string; targets: ShareTarget[] }): Promise<ShareOutcome> => {
       const api = libraryApi;
-      let access: AccessList | undefined;
-      for (const { target } of vars.targets) access = await api.addGrant(vars.id, target);
-      return access;
+      const outcome: ShareOutcome = { access: queryClient.getQueryData<AccessList>(libraryKeys.access(orgKey, vars.id)), added: [], skipped: [] };
+      try {
+        outcome.access ??= await api.getAccess(vars.id);
+        for (const item of vars.targets) {
+          if (grantFor(outcome.access, item.target)) { outcome.skipped.push(item); continue; }
+          outcome.access = await api.addGrant(vars.id, item.target);
+          outcome.added.push({ ...item, grantId: grantFor(outcome.access, item.target)?.grantId });
+        }
+      } catch (error) {
+        throw new PartialShareError(error, outcome);
+      }
+      return outcome;
     },
-    onMutate: (vars) => ({ before: queryClient.getQueryData<AccessList>(libraryKeys.access(orgKey, vars.id)) }),
-    onSuccess: (access, vars, context) => {
-      if (!access) return;
-      writeAccess(queryClient, orgKey, vars.id, access);
-      toast(FILE_MESSAGES.sharedWith(vars.targets.map((item) => item.label)), {
-        action: undoShareToast(queryClient, orgKey, vars.id, addedGrantIds(context?.before, access)),
-      });
-    },
+    onSuccess: (outcome, vars) => toastShared(queryClient, orgKey, vars.id, outcome),
     onError: (error, vars) => {
+      const outcome = error instanceof PartialShareError ? error.outcome : undefined;
+      if (outcome) toastShared(queryClient, orgKey, vars.id, outcome);
       void queryClient.invalidateQueries({ queryKey: libraryKeys.access(orgKey, vars.id) });
-      fail(error, "share", MESSAGES.shareFailed);
+      fail(error instanceof PartialShareError ? error.failure : error, "share", MESSAGES.shareFailed);
     },
   });
 }
