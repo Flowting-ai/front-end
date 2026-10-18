@@ -1,3 +1,4 @@
+import { parseLibraryCitations } from "@/components/Library/chat/library-citations";
 import type { Message } from "@/types/chat"
 import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/types/chat"
 import { toolNameToType, webSearchResults } from "@/lib/activity"
@@ -70,6 +71,7 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         file_type: mimeType ?? "application/octet-stream",
         file_size: 0,
         url,
+        ...(att.document_id ? { libraryFileId: att.document_id } : {}),
       });
     }
   }
@@ -125,6 +127,9 @@ export function toUIMessage(raw: Message): UIMessage {
 
   // ── webCitations + activity rows from persisted tool calls and sources ──
   let webCitations: WebCitation[] | undefined;
+  const libraryCitations = parseLibraryCitations(raw.library_citations);
+  // The Library files a user message carried (attachments that are Library files).
+  const libraryFileIds = raw.role === "user" ? (raw.file_attachments ?? []).flatMap((a) => a.document_id ? [a.document_id] : []) : [];
   const toolActivities = toolCallActivities(raw);
   let activities: ActivityItem[] | undefined = toolActivities.length > 0 ? toolActivities : undefined;
 
@@ -213,6 +218,8 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(modelName ? { modelName } : {}),
     ...(modelMeta ? { modelMeta } : {}),
     ...(webCitations ? { webCitations } : {}),
+    ...(libraryCitations.length > 0 ? { libraryCitations } : {}),
+    ...(libraryFileIds.length > 0 ? { libraryFileIds } : {}),
     ...(activities ? { activities } : {}),
     ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
     ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),

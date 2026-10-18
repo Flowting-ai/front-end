@@ -22,6 +22,7 @@ import {
   formatFileSize,
   type PendingAttachment,
 } from "@/hooks/use-file-upload";
+import { attachmentSizeBytes, cancelComposerUpload } from "@/lib/library/upload/composer-uploads";
 import { Badge, type BadgeColor } from "@/components/Badge";
 
 // Re-export so callers that imported PendingAttachment from here still work.
@@ -169,6 +170,8 @@ interface AttachmentManagerProps {
   attachments: PendingAttachment[];
   onAttachmentsChange: (attachments: PendingAttachment[]) => void;
   disabled?: boolean;
+  /** Files go to Library, whose check refuses bad files (see useFileUpload). */
+  libraryValidates?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -182,6 +185,7 @@ export function AttachmentManager({
   attachments,
   onAttachmentsChange,
   disabled,
+  libraryValidates = false,
 }: AttachmentManagerProps) {
   const inputRef  = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -193,7 +197,7 @@ export function AttachmentManager({
   const [noHover,    setNoHover]    = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload({ libraryValidates });
 
   useEffect(() => {
     const mq = window.matchMedia("(hover: none)");
@@ -228,6 +232,8 @@ export function AttachmentManager({
     const strip = scrollRef.current;
     const textarea = strip?.closest("form, [role='group'], body")?.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea")
       ?? document.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea");
+    const removed = attachments.find((a) => a.id === id);
+    if (removed) cancelComposerUpload(removed.file);
     onAttachmentsChange(removeOne(id, attachments));
     if (!fromKeyboard) return;
     requestAnimationFrame(() => {
@@ -419,14 +425,14 @@ export function AttachmentManager({
                     unoptimized
                     style={{
                       objectFit: "cover",
-                      filter: attachment.uploading ? "blur(1.5px)" : "none",
+                      filter: attachment.uploading || attachment.processing ? "blur(1.5px)" : "none",
                       transition: "filter 300ms",
                     }}
                   />
                 )}
 
-                {/* Circular upload progress ring */}
-                {attachment.uploading && (
+                {/* Circular upload progress ring (spins on while the server processes the file) */}
+                {(attachment.uploading || attachment.processing) && (
                   <div
                     style={{
                       position:        "absolute",
@@ -476,8 +482,8 @@ export function AttachmentManager({
                   </span>
                 )}
 
-                {/* Remove - only after upload. Always in the DOM so keyboard users can reach it. */}
-                {!attachment.uploading && (
+                {/* Remove - also while uploading (removing cancels the upload). Always in the DOM so keyboard users can reach it. */}
+                {(
                   <RemoveButton
                     name={attachment.file.name}
                     visible={noHover || isHovered || focusedId === attachment.id}
@@ -540,7 +546,19 @@ export function AttachmentManager({
                   >
                     {attachment.file.name}
                   </p>
-                  {attachment.uploading ? (
+                  {attachment.processing ? (
+                    <p
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize:   "12px",
+                        color:      "var(--neutral-500)",
+                        margin:     "2px 0 0",
+                        lineHeight: 1,
+                      }}
+                    >
+                      Processing…
+                    </p>
+                  ) : attachment.uploading ? (
                     <p
                       style={{
                         fontFamily: "var(--font-body)",
@@ -579,7 +597,7 @@ export function AttachmentManager({
                           lineHeight: 1,
                         }}
                       >
-                        {formatFileSize(attachment.file.size)}
+                        {formatFileSize(attachmentSizeBytes(attachment.file))}
                       </span>
                     </div>
                   )}
@@ -611,8 +629,8 @@ export function AttachmentManager({
                   </div>
                 )}
 
-                {/* Remove - only after upload. Always in the DOM so keyboard users can reach it. */}
-                {!attachment.uploading && (
+                {/* Remove - also while uploading (removing cancels the upload). Always in the DOM so keyboard users can reach it. */}
+                {(
                   <RemoveButton
                     name={attachment.file.name}
                     visible={noHover || isHovered || focusedId === attachment.id}

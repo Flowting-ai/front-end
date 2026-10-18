@@ -142,9 +142,18 @@ describe("refusals", () => {
   it("rejects an unsupported file before talking to the server", async () => {
     const h = harness();
     const create = vi.spyOn(h.api, "createUpload");
-    const id = h.controller.start(file("tool.exe", 100), { draftKey: "new" });
+    const id = h.controller.start(file("archive.xyz", 100), { draftKey: "new" });
     await h.flush();
     expect(h.store.get(id)).toMatchObject({ status: "failed", failure: "unsupported" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("blocks a program as unsafe before talking to the server", async () => {
+    const h = harness();
+    const create = vi.spyOn(h.api, "createUpload");
+    const id = h.controller.start(file("tool.exe", 100), { draftKey: "new" });
+    await h.flush();
+    expect(h.store.get(id)).toMatchObject({ status: "failed", failure: "unsafe" });
     expect(create).not.toHaveBeenCalled();
   });
 

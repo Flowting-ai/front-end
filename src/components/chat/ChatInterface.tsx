@@ -8,6 +8,7 @@ import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/ui/button";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput, type ChatInputProps } from "./ChatInput";
+import { TurnStatusChips } from "./TurnStatusChips";
 import { PinMentionDropdown } from "./PinMentionDropdown";
 import { PinChipStrip } from "./PinChipStrip";
 import {
@@ -16,6 +17,12 @@ import {
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { useComposerUploads } from "@/lib/library/upload/composer-uploads";
+import { UploadNotices } from "@/components/Library/upload/UploadNotices";
+import { LibrarySearchOffNote } from "@/components/Library/chat/LibrarySearchOffNote";
+import { ChatSources } from "@/components/Library/chat/ChatSources";
+import { ChatFilePanelSlot } from "@/components/Library/chat/ChatFilePanelSlot";
+import { useSaveChoice } from "@/components/Library/chat/useSaveChoice";
 import { QueuedMessagesTray, type QueuedRowExit } from "./QueuedMessagesTray";
 import { useChatQueue, useChatStreamActive } from "@/hooks/use-message-queue";
 import {
@@ -287,6 +294,10 @@ export function ChatInterface({
   }, [draft]);
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  // Files upload into Library as soon as they are attached; Send waits until they are ready.
+  const { attachments: attachmentChips, uploadsBusy, notices: uploadNotices } = useComposerUploads(attachments, setAttachments, chatId && !chatId.startsWith("temp-") ? chatId : undefined);
+  // Auto-save setting (Always / Ask each time / Never) applied to the files on send.
+  const { decideSave, saveDialog } = useSaveChoice(chatId && !chatId.startsWith("temp-") ? chatId : undefined);
   const {
     mentionedPins,
     filteredPins,
@@ -360,7 +371,7 @@ export function ChatInterface({
   // Tracks which attachment IDs already have an active simulation interval
   // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
 
-  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT, FILE_CONSTRAINTS } = useFileUpload();
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT, FILE_CONSTRAINTS } = useFileUpload({ libraryValidates: true });
 
   const { selectedModel: contextModel } = useModelSelectorContext();
   const enableReasoning = reasoningEffort === undefined ? undefined : reasoningEffort !== null;
@@ -970,6 +981,7 @@ export function ChatInterface({
     setAttachments([]);
     clearMentions();
     onClearAddMenuFiles?.();
+    await decideSave(capturedAttachments.map((a) => a.file));
 
     await sendTurn({
       content: text.trim(),
@@ -1415,6 +1427,9 @@ export function ChatInterface({
         position: "relative",
       }}
     >
+      {saveDialog}
+      <ChatSources chatId={chatId && !chatId.startsWith("temp-") ? chatId : undefined} messages={messages} />
+      <ChatFilePanelSlot chatId={chatId} />
       {/* Drag overlay */}
       {isDragging && (
         <div
@@ -1717,6 +1732,7 @@ export function ChatInterface({
             maxWidth: '754px',
           }}
         >
+          {!archived && !readOnly && <TurnStatusChips messages={messages} active={isStreaming} />}
           <ExhaustionBanner>
           {/* Queued messages, just above the box and tucked under its top
               edge (the box sits above it, zIndex 1). Keyed by chat so a
@@ -1784,6 +1800,7 @@ export function ChatInterface({
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSend}
+            sendBlocked={uploadsBusy}
             onStop={handleStop}
             onAdd={handleAdd}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
@@ -1808,16 +1825,22 @@ export function ChatInterface({
                       />
                     ))}
                   </PinChipStrip>
+                  <UploadNotices {...uploadNotices} />
                   <AttachmentManager
-                    attachments={attachments}
+                    attachments={attachmentChips}
                     onAttachmentsChange={setAttachments}
+                    libraryValidates
                   />
                 </div>
               ) : (
-                <AttachmentManager
-                  attachments={attachments}
-                  onAttachmentsChange={setAttachments}
-                />
+                <>
+                  <UploadNotices {...uploadNotices} />
+                  <AttachmentManager
+                    attachments={attachmentChips}
+                    onAttachmentsChange={setAttachments}
+                    libraryValidates
+                  />
+                </>
               )
             }
             isStreaming={replyInFlight}
@@ -1847,6 +1870,7 @@ export function ChatInterface({
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
           />
+          <LibrarySearchOffNote />
             </>
           )}
           </div>

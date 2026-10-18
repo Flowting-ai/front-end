@@ -102,21 +102,6 @@
   }
 }
 
-/* The unread dot sits in the card's top right corner; the hover menu button takes its place while it shows. */
-.cardDot {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  display: inline-flex;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.card:hover .cardDot,
-.card:focus-within .cardDot {
-  opacity: 0;
-}
-
 .cardTitle {
   padding-right: 0;
 }

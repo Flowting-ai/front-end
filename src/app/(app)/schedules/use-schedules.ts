@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import type { ScheduleEditData, ScheduleScope } from '@/components/Schedules'
+import type { ScheduleDetailItem, ScheduleEditData, ScheduleScope } from '@/components/Schedules'
 import { copyAutomation, deleteAutomation, runAutomationNow } from '@/lib/api/automations'
 import { ApiError } from '@/lib/api/client'
 import { trackBrowserEvent } from '@/lib/analytics/events'
@@ -107,13 +107,14 @@ export function useSchedules(scheduleId: string | undefined) {
       })
   }, [selectedId, queryClient])
 
-  // The refetch picks up is_running, which starts polling until the run ends.
+  // The run starts after the POST returns, so a refetch now would still read is_running false and
+  // re-enable Run now. Mark it running instead: polling then follows the run until the server says it ended.
   const runMutation = useMutation({
     mutationFn: (id: string) => runAutomationNow(id),
     onSuccess: (_res, id) => {
       trackBrowserEvent('schedule_run_now', {})
       toast.success('Schedule triggered', { description: 'This task will start shortly.' })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.detail(id) })
+      queryClient.setQueryData<ScheduleDetailItem>(queryKeys.schedules.detail(id), prev => (prev ? { ...prev, isRunning: true } : prev))
       void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.mine() })
     },
     onError: (err: unknown) => {

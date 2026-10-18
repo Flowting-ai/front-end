@@ -1,0 +1,83 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 8px;
+  min-height: 0;
+}
+.spacer { flex: 1; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 60%;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--static-black, #000) 6%, transparent);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  line-height: 16px;
+  color: var(--neutral-700);
+  white-space: nowrap;
+}
+
+.browser {
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.browser:hover { background: var(--neutral-50); border-color: var(--neutral-300); }
+.browser:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Icon with a dot orbiting it — reads as "live" without a spinner. */
+.browserIcon {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--neutral-800);
+}
+.orbit {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  animation: tsc-orbit 1.4s linear infinite;
+}
+.orbit::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--blue-500, #3b82f6);
+  box-shadow: 0 0 4px var(--blue-500, #3b82f6);
+}
+
+.label { font-weight: 500; color: var(--neutral-900); }
+.detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--neutral-500);
+}
+.time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--neutral-900);
+}
+
+.spin { animation: tsc-orbit 0.9s linear infinite; }
+
+@keyframes tsc-orbit { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit, .spin { animation: none; }
+}

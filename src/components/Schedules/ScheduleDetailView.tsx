@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { canSchedule } from "@/lib/schedules/schedule-permissions"
 import {
   ArrowLeftOneIcon,
@@ -15,6 +16,8 @@ import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { CHAT_MESSAGES } from '@/lib/library/messages'
+import { RUN_OUTPUTS_HREF } from '@/components/Library/routines/RoutineLibrarySections'
 import { LoopHistoryCard } from './LoopHistoryCard'
 import type { AgentStep, StepStatus } from './types'
 import type { ScheduleConnector } from './ScheduleCard'
@@ -344,6 +347,20 @@ export function ScheduleDetailView({
               </div>
             </div>
           </section>
+
+          {/* Run outputs — every run's files live in All files under Source: Generated */}
+          {!readOnly && (
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label={CHAT_MESSAGES.runOutputs}>
+              <h2 style={sectionTitle}>{CHAT_MESSAGES.runOutputs}</h2>
+              <Link
+                href={RUN_OUTPUTS_HREF}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-900)', textDecoration: 'none' }}
+              >
+                {CHAT_MESSAGES.allRunOutputs}
+                <ArrowRightOneIcon size={14} />
+              </Link>
+            </section>
+          )}
 
           {/* Run history — the owner's alone; its answers can hold their data */}
           {!readOnly && (

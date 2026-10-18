@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dropdown } from '@/components/Dropdown'
 import {
@@ -26,6 +26,7 @@ import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AGENTS_NEW_ROUTE } from '@/lib/routes'
+import { clearComposerNotices } from '@/lib/library/upload/composer-uploads'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 
@@ -63,6 +64,8 @@ export function ChatAddMenu({
   hidePinFolders,
   onAddFromLibraryClick,
 }: ChatAddMenuProps) {
+  // Opening the + menu clears any upload message above the composer (the menu mounts when it opens).
+  useEffect(() => { clearComposerNotices() }, [])
   const { folders: contextFolders } = usePinboard()
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)

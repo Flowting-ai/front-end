@@ -13,7 +13,7 @@ import { VIEW_LABELS, VIEW_DESCRIPTION, type ViewMode } from '@/lib/project-filt
 // Both accept `size` — DropdownMenuItem clones its `icon` prop with a fixed
 // size (20) to fill the row's icon slot; without accepting it these stayed a
 // hardcoded 16×16 inside that 20×20 slot, sitting off-center from the label.
-function GridViewGlyph({ size = 16 }: { size?: number }) {
+export function GridViewGlyph({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
@@ -24,7 +24,7 @@ function GridViewGlyph({ size = 16 }: { size?: number }) {
   )
 }
 
-function ListViewGlyph({ size = 16 }: { size?: number }) {
+export function ListViewGlyph({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <rect x="2" y="3"    width="12" height="2.2" rx="1.1" fill="currentColor" />

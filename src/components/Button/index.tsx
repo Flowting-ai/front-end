@@ -196,9 +196,9 @@ export function Button({
     ? isDisabled ? SHADOW_ICON_EMBOSS_DISABLED : SHADOW_ICON_EMBOSS
     : undefined
 
-  // Secondary and Danger skip squircle clip — white/red bg + box-shadow applied directly.
+  // Secondary skips the squircle clip — white bg + box-shadow applied directly. Danger is clipped like ghost.
   const bgStyle: React.CSSProperties = {
-    ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
+    ...(clipPath && !isSecondary ? { clipPath } : {}),
     ...(variant === 'default'
       ? {
           // Tokens, not hex: these resolve to the same #524b47 / #26211e / #3b3632 in
@@ -219,10 +219,10 @@ export function Button({
       boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
       transition:      'box-shadow 150ms',
     } : {}),
+    // Danger: flat squircle with a solid red fill; hover only changes the colour (no lift or inner shadow).
     ...(isDanger ? {
       backgroundColor: isHovered && !isDisabled ? 'var(--button-danger-bg-hover)' : 'var(--button-danger-bg)',
-      boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
-      transition:      'box-shadow 150ms, background-color 150ms',
+      transition:      'background-color 150ms',
     } : {}),
   }
 
@@ -235,6 +235,9 @@ export function Button({
 
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
+    // Danger: a slight static shadow (drop-shadow, since the squircle clip would cut off a box-shadow); unchanged on hover.
+    : isDanger && !isDisabled
+      ? 'drop-shadow(0px 1px 1px rgb(0 0 0 / 0.08)) drop-shadow(0px 1px 3px rgb(0 0 0 / 0.08))'
     : (isSubtle || isSecondary) && isVisuallyHovered
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
@@ -364,9 +367,6 @@ export function Button({
           <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER, transition: 'box-shadow 150ms' }} />
         )}
 
-        {isDanger && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER, transition: 'box-shadow 150ms' }} />
-        )}
 
       </Comp>
       </MaybeTip>

@@ -88,7 +88,9 @@ export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSett
     enabled: ready,
     queryFn: async ({ signal }) => {
       const page = await libraryApi.listFiles(
-        { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc", unreadFirst: true },
+        // The Shared tab appears once something is shared WITH the person. `tab=shared` also lists files they
+        // own and shared out, so ask All files for Source: Shared, which is only what others shared with them.
+        { tab: "all", q: "", sources: ["shared"], types: [], sort: "shared", dir: "desc", unreadFirst: true },
         null,
         signal,
       );
@@ -270,6 +272,33 @@ export function useLibraryPeople(query: string, enabled: boolean) {
     enabled: enabled && ready,
     staleTime: MINUTE,
     placeholderData: keepPreviousData,
+    retry: libraryRetry,
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export function useLibraryPrefs(enabled = true) {
+  const { orgKey, ready } = useLibraryViewer();
+  return useQuery({
+    queryKey: libraryKeys.prefs(orgKey),
+    enabled: enabled && ready,
+    queryFn: async ({ signal }) => libraryApi.getPrefs(signal),
+    staleTime: 5 * MINUTE,
+    gcTime: 30 * MINUTE,
+    retry: libraryRetry,
+  });
+}
+
+export function useOrgSettings(enabled = true) {
+  const { orgKey, ready } = useLibraryViewer();
+  return useQuery({
+    queryKey: libraryKeys.orgSettings(orgKey),
+    queryFn: async ({ signal }) => libraryApi.getOrgSettings(signal),
+    enabled: enabled && ready,
+    staleTime: 15 * 1000,
+    gcTime: 30 * MINUTE,
+    refetchOnWindowFocus: true,
     retry: libraryRetry,
   });
 }

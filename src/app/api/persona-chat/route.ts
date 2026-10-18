@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   if (!fields.repoId) return routeError(400, "bad_request", "repoId is required")
   const parsed = personaChatFormSchema.safeParse(fields)
   if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
-  const { repoId, chatId, input, modelId, connectorSlugs, libraryFileIds } = parsed.data
+  const { repoId, chatId, input, modelId, connectorSlugs, libraryFileIds, saveToLibrary } = parsed.data
   const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
   if (!input.trim() && !libraryFileIds && clientFiles.length === 0) {
     return routeError(400, "bad_request", "A message or a file is required")
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
   fd.append("input", input)
   clientFiles.forEach((f) => fd.append("files", f))
   if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
+  if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
   connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
   if (modelId) fd.append("model_id", modelId)
   const body: BodyInit = fd

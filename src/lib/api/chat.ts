@@ -226,6 +226,7 @@ interface BackendMessage {
     file_name?: string | null;
     name?: string | null;
     origin?: string | null;
+    document_id?: string | null;
   }> | null;
   pin_ids?: (string | null)[] | null;
   metadata?: Record<string, unknown>;
@@ -234,6 +235,9 @@ interface BackendMessage {
   web_citations?: Array<{ title?: string; url?: string; domain?: string }> | null;
   // Structured web searches (query + link URLs + per-result metadata)
   web_searches?: Array<{ query: string; links: string[]; results?: Array<Record<string, unknown>> }> | null;
+  // Library citations behind the answer's [[L1]] markers (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 2 BE-5)
+  library_citations?: unknown;
+  libraryCitations?: unknown;
   // Structured reasoning steps
   reasoning_sections?: ReasoningSection[] | null;
   // Tool calls the turn made (legacy rows: bare tool names)
@@ -295,6 +299,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         model_name: raw.model_name ?? undefined,
         sources: sources.length > 0 ? sources : undefined,
         web_searches: raw.web_searches ?? undefined,
+        library_citations: raw.libraryCitations ?? raw.library_citations ?? undefined,
         tool_calls: normalizeToolCalls(raw),
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
@@ -325,6 +330,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     model_name: raw.model_name ?? undefined,
     sources: sources.length > 0 ? sources : undefined,
     web_searches: raw.web_searches ?? undefined,
+    library_citations: raw.libraryCitations ?? raw.library_citations ?? undefined,
     tool_calls: role === "assistant" ? normalizeToolCalls(raw) : undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
     image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
@@ -371,6 +377,7 @@ function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").B
       file_name: a.file_name ?? undefined,
       name: a.name ?? undefined,
       origin: a.origin ?? undefined,
+      document_id: a.document_id ?? undefined,
     }] : []);
 }
 

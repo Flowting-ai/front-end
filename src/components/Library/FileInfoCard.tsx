@@ -221,6 +221,9 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
             </div>
           ))
         )}
+        {access.isSuccess && entries.every((entry) => entry.via === 'owner') && (
+          <p style={{ margin: '4px 0 0', ...label }}>{FILE_MESSAGES.privateFile}</p>
+        )}
         {entries.length > ACCESS_PREVIEW && (
           <button type="button" className={styles.more} aria-expanded={allAccess} onClick={() => setAllAccess((open) => !open)}>
             {allAccess ? 'Show fewer' : `Show all ${entries.length}`}

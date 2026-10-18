@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, m } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
+import { DeleteChatWithFilesDialog } from "@/components/Library/chat/DeleteChatFiles";
+import { useChatSavedFiles } from "@/components/Library/chat/useChatSavedFiles";
+import { toast } from "sonner";
+import { CHAT_MESSAGES } from "@/lib/library/messages";
+import { ApiError } from "@/lib/api/client";
+import { getChatMessages } from "@/lib/api/chat";
 // CompareModels (a large component) only renders once the compare dialog is
 // opened (see the `isOpen &&` guard below) — a static import here would make every
 // page pay for it, since AppDialogs mounts globally via AppLayout. Deferred
@@ -125,6 +131,48 @@ function CompareDialog() {
   );
 }
 
+// The chat is gone when its messages answer 404. The callers' own delete reports failure by toasting, not
+// by throwing, so this is how "Also delete these files" knows not to touch files of a chat that is still there.
+async function chatStillExists(chatId: string): Promise<boolean> {
+  try {
+    await getChatMessages(chatId);
+    return true;
+  } catch (error) {
+    return !(error instanceof ApiError && error.status === 404);
+  }
+}
+
+/** Delete chat: asks about the files the chat saved to Library, or the plain confirm when they can't be told. */
+function DeleteChatHost({ state, onClose }: { state: DeleteChatPayload; onClose: () => void }) {
+  const saved = useChatSavedFiles(state.chatId);
+  if (saved.status === "unknown") {
+    return (
+      <DeleteChatDialog
+        open
+        chatTitle={state.chatTitle}
+        onConfirm={async () => {
+          await state.onConfirm();
+          onClose();
+          if (!(await chatStillExists(state.chatId))) toast(CHAT_MESSAGES.chatDeleted);
+        }}
+        onCancel={onClose}
+      />
+    );
+  }
+  return (
+    <DeleteChatWithFilesDialog
+      chatTitle={state.chatTitle}
+      files={saved.status === "ready" ? saved.files : []}
+      loading={saved.status === "loading"}
+      onDeleteChat={async () => {
+        await state.onConfirm();
+        if (await chatStillExists(state.chatId)) throw new Error("chat not deleted");
+      }}
+      onClose={onClose}
+    />
+  );
+}
+
 export function AppDialogs() {
   const [deleteChatState, setDeleteChatState] =
     useState<DeleteChatPayload | null>(null);
@@ -143,15 +191,7 @@ export function AppDialogs() {
   return (
     <>
       {deleteChatState && (
-        <DeleteChatDialog
-          open
-          chatTitle={deleteChatState.chatTitle}
-          onConfirm={async () => {
-            await deleteChatState.onConfirm();
-            setDeleteChatState(null);
-          }}
-          onCancel={() => setDeleteChatState(null)}
-        />
+        <DeleteChatHost state={deleteChatState} onClose={() => setDeleteChatState(null)} />
       )}
       <CompareDialog />
     </>

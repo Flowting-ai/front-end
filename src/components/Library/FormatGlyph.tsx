@@ -58,7 +58,7 @@ export interface FormatGlyphProps {
   showLabel?: boolean
 }
 
-/** The file type as a tinted tile with an icon, and optionally its word, so type never depends on colour alone. */
+/** The file type as a tinted icon with no box around it (prototype: "File icons have no box"), and optionally its word, so type never depends on colour alone. */
 export function FormatGlyph({ format, size = 'sm', showLabel = false }: FormatGlyphProps) {
   const dims = SIZES[size]
   const tint = TINT_BY_FORMAT[format]
@@ -69,13 +69,13 @@ export function FormatGlyph({ format, size = 'sm', showLabel = false }: FormatGl
     format === 'audio' ? <AudioWaveOneIcon size={dims.icon} /> :
     <FileTwoIcon size={dims.icon} />
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 0 }}>
       <span
         aria-hidden="true"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           width: dims.box, height: dims.box, borderRadius: dims.radius,
-          background: `var(--color-tag-${tint}-bg)`, color: `var(--color-tag-${tint}-text)`,
+          color: `var(--color-tag-${tint}-text)`,
         }}
       >
         {icon}

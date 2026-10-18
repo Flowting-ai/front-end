@@ -46,3 +46,18 @@ export class FeatureDisabledError extends Error {
  * Remove a page from this switch once it reads and writes real data.
  */
 export const SETTINGS_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SETTINGS_PREVIEW === 'true'
+
+/**
+ * Settings → Library (personal) and Workspace Library (Admin): auto-save, AI use of files, file
+ * limits. Built, but the backend has no /library/prefs or /library/org-settings endpoints yet
+ * (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1), so OFF by default: the routes 404 and the sidebar hides them.
+ * Turn on with NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS=true.
+ */
+export const LIBRARY_SETTINGS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS === 'true'
+
+/**
+ * "Request access" on the locked file page and panel. Built, but the backend has no
+ * `POST /library/files/{id}/access-requests` yet (LIBRARY_CHECKPOINT_BACKEND_TICKET.md, D), so OFF by
+ * default: the locked state shows no button. Turn on with NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS=true.
+ */
+export const LIBRARY_REQUEST_ACCESS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS === 'true'

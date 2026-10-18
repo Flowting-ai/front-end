@@ -20,7 +20,7 @@ import Brain02Icon from "@hugeicons/core-free-icons/Brain02Icon";
 import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection, PromptMarkerRow, type PromptMarkerState } from "./ActivityRow";
-import { ACTIVITY_VERB } from "@/lib/activity";
+import { activityVerb } from "@/lib/activity";
 import { springs } from "@/lib/springs";
 import {
   cleanReasoningHeading,
@@ -36,10 +36,6 @@ import type { ActivityItem, ModelSelectedMeta } from "@/types/chat";
 
 function isActivityRunning(activity: ActivityItem) {
   return activity.status === "start" || activity.status === "executing" || activity.status === "reading";
-}
-
-function activityVerb(activity: ActivityItem) {
-  return activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
 }
 
 // ── SouvenirMark - inline SVG logo ────────────────────────────────────────────

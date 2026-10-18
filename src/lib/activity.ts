@@ -26,6 +26,29 @@ function asString(value: unknown): string | undefined {
 }
 
 /** Backend tool name → the row's icon and default verb. */
+// A recording is transcribed by code the model runs in the sandbox, so the stream only shows a generic
+// tool call whose subject is the audio file. That call is the transcription step: name it as one
+// until the backend labels it (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A11).
+const AUDIO_PATH = /(?:^|[/\\])([^/\\]+\.(?:wav|mp3|m4a|aac|flac|ogg|oga|opus|mpga|mpeg|weba))$/i
+
+type VerbInput = Pick<ActivityItem, 'label' | 'type' | 'detail' | 'toolName'>
+
+function isTranscribing(activity: VerbInput): boolean {
+  if (activity.label || activity.type !== 'tool-call') return false
+  return /transcrib/i.test(activity.toolName ?? '') || AUDIO_PATH.test(activity.detail?.trim() ?? '')
+}
+
+/** The recording a transcription step works on ("" while its arguments are still streaming), or null. */
+export function transcribingFile(activity: VerbInput): string | null {
+  if (!isTranscribing(activity)) return null
+  return activity.detail?.trim().match(AUDIO_PATH)?.[1] ?? ''
+}
+
+/** The row's verb: the backend's label, then "Transcribing" for a recording, then the type's verb. */
+export function activityVerb(activity: VerbInput): string {
+  return activity.label ?? (isTranscribing(activity) ? 'Transcribing' : ACTIVITY_VERB[activity.type] ?? 'Processing')
+}
+
 export function toolNameToType(toolName: string): ActivityType {
   const lower = toolName.toLowerCase()
   // `browser` drives a real page; it never produces search results, so it must

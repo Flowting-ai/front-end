@@ -128,3 +128,7 @@ export function clearPersonaRepoStorage(repoId: string): void {
 
 /** "1" when this viewer last saw the admin-only Slack row, so the sidebar skeleton has the same number of rows. Layout hint only. */
 export const SIDEBAR_SLACK_ROW_HINT_KEY = "souvenir:sidebar:slack-row";
+
+// ── Library ──────────────────────────────────────────────────────────────────
+// When the person last dismissed the "an Admin changed Library settings" notice (an ISO time).
+export const LIBRARY_SETTINGS_SEEN_KEY = "library:v1:settings-seen";

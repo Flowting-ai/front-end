@@ -502,6 +502,11 @@ const PROJECT_OVERRIDES = [
   ['--shadow-avatar-ring', '0px 2px 6px 0px rgba(255, 255, 255, 0.16)'],
   ['--shadow-card-deep', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12)'],
   ['--shadow-agent-card', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100)'],
+  // Danger buttons: shadcn dark destructive (red at 60%, 85% on hover), white text.
+  ['--button-danger-bg', 'rgb(220 38 38 / 0.6)'],
+  ['--button-danger-bg-hover', 'rgb(220 38 38 / 0.85)'],
+  ['--button-danger-text', '#FFFFFF'],
+  ['--button-danger-text-disabled', '#FFFFFF'],
   ['--shadow-agent-card-hover', '0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400)'],
 ]
 for (const [name, value] of PROJECT_OVERRIDES) lines.push(`  ${name}: ${value};`)

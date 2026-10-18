@@ -132,7 +132,7 @@ export function TrashScreen() {
                 <div key={file.id} role="row" className={cx(tableStyles.row, tableStyles.fixedRow, tableStyles.colsTrash)}>
                   <div role="cell" className={tableStyles.cell}>
                     {/* The owner can still open a file in Trash (its page shows Restore). */}
-                    <Link href={LIBRARY_FILE_ROUTE(file.id)} title={file.name} className={tableStyles.rowLink}>
+                    <Link href={`${LIBRARY_FILE_ROUTE(file.id)}?from=trash`} title={file.name} className={tableStyles.rowLink}>
                       <FormatGlyph format={file.format} />
                       <span className={tableStyles.nameStack}>
                         <span className={cx(cell, tableStyles.name)}>{file.name}</span>

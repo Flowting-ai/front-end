@@ -62,7 +62,7 @@ export function ChatFilePanel({ fileId, cite = null, onClose }: ChatFilePanelPro
         {file.isPending ? (
           <Skeleton height={240} radius={12} />
         ) : locked ? (
-          <LockedState />
+          <LockedState fileId={fileId} />
         ) : gone || !open ? (
           <GoneState />
         ) : (

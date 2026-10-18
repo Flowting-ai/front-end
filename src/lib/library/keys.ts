@@ -25,6 +25,8 @@ export const libraryKeys = {
   people: (org: string, query: string) => [...libraryKeys.all(org), "people", query] as const,
   uploads: (org: string) => [...libraryKeys.all(org), "uploads"] as const,
   limits: (org: string) => [...libraryKeys.all(org), "limits"] as const,
+  prefs: (org: string) => [...libraryKeys.all(org), "prefs"] as const,
+  orgSettings: (org: string) => [...libraryKeys.all(org), "org-settings"] as const,
 };
 
 /** A person with no workspace (an individual account) uses one fixed key. */

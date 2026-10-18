@@ -4,7 +4,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { ArrowDownTwoIcon, ArrowUpDownIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
 import { formatDateTime, formatLabel } from '@/lib/library/format'
+import { FILE_MESSAGES } from '@/lib/library/messages'
 import type { SortDir, SortKey } from '@/lib/library/query-params'
 import type { LibraryFile } from '@/lib/library/file'
 import { nextRowIndex, withFocusedRow } from '@/lib/library/table-focus'
@@ -29,8 +31,8 @@ export const COLUMN_CLASS = {
 
 /** Which columns hide first in a narrow window: All files drops Source then Access; Shared drops Type. */
 export const HIDE_CLASS = {
-  all: { access: styles.cTight, source: styles.cNarrow, type: undefined },
-  shared: { access: undefined, source: undefined, type: styles.cNarrow },
+  all: { access: styles.cTight, source: styles.cNarrow, type: styles.cTiny },
+  shared: { access: styles.cTiny, source: undefined, type: styles.cNarrow },
 } as const
 
 export type TableKind = keyof typeof COLUMN_CLASS
@@ -94,6 +96,8 @@ export function FileRow({ file, kind, viewerId, rowIndex, onAction, className, o
               <span className={cx(styles.truncate, styles.text, styles.name)} data-unread={file.unread}>{name}</span>
               {file.source === 'generated' && <GeneratedMark file={file} />}
               {file.unread && <UnreadDot />}
+              {/* A status in a word, as in the prototype's file badges ("Processing"); failed shows on the file page. */}
+              {file.processingPending && <Badge label={FILE_MESSAGES.processing} color="Neutral" />}
             </span>
             {file.snippet && <span className={cx(styles.truncate, styles.text, styles.snippet)}>{file.snippet}</span>}
           </span>
@@ -105,7 +109,7 @@ export function FileRow({ file, kind, viewerId, rowIndex, onAction, className, o
       {kind === 'all' && (
         <div role="cell" className={cx(styles.truncate, styles.text, hide.source)}>{file.source === 'generated' ? 'Generated' : 'Uploaded'}</div>
       )}
-      <div role="cell" className={cx(styles.truncate, styles.text)}>
+      <div role="cell" className={cx(styles.truncate, styles.text, styles.cTiniest)}>
         {kind === 'shared' && file.sharedAt ? formatDateTime(file.sharedAt) : formatDateTime(file.createdAt)}
       </div>
       <div role="cell" className={cx(styles.truncate, styles.text, hide.type)}>{formatLabel(file.format)}</div>
@@ -255,7 +259,7 @@ export function FileTable({
             </div>
             <div role="columnheader" className={hide.access}><HeadLabel>Access</HeadLabel></div>
             {kind === 'all' && <div role="columnheader" className={hide.source}><HeadLabel>Source</HeadLabel></div>}
-            <div role="columnheader" aria-sort={ariaSort(dateKey)}>
+            <div role="columnheader" aria-sort={ariaSort(dateKey)} className={styles.cTiniest}>
               <SortHeading label={kind === 'shared' ? 'Date shared' : 'Created'} sortKey={dateKey} active={sort.key === dateKey} dir={sort.dir} onSort={onSort} />
             </div>
             <div role="columnheader" className={hide.type}><HeadLabel>Type</HeadLabel></div>

@@ -61,14 +61,14 @@
   --shadow-button-secondary-inner-hover: var(--shadow-item-inner);
 
   /* ── Button / Danger ─────────────────────────────────────────────────────
-     Red extension of Button/Secondary — shares secondary shadow tokens,
-     only bg and text colors differ. Light tint (not a bold fill), same
-     bg/text pairing already validated by the Badge/tag Red variant.
+     shadcn "destructive" style: solid red fill with white text. Literal hex
+     (not --red-*) because the dark theme remaps the red ramp; dark values
+     live in theme.css.
      ─────────────────────────────────────────────────────────────────────────── */
-  --button-danger-bg:            var(--red-100);
-  --button-danger-bg-hover:      var(--red-200);
-  --button-danger-text:          var(--red-700);
-  --button-danger-text-disabled: var(--red-700);
+  --button-danger-bg:            #DC2626;
+  --button-danger-bg-hover:      #B91C1C;
+  --button-danger-text:          #FFFFFF;
+  --button-danger-text-disabled: #FFFFFF;
 
   /* ── Button / Ghost + Outline - Hover/Active shared ──────────────────────── */
   --button-subtle-border-hover: var(--color-interactive-subtle-border-hover);

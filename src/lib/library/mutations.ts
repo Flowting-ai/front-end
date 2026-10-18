@@ -16,7 +16,8 @@ import { FILE_MESSAGES, MESSAGES } from "./messages";
 import { cachedFileName, countTrashRows, findRowIn, grantFor, targetKey } from "./file-toasts";
 import { captureError } from "./observability";
 import { TRASH_DAYS } from "./constants";
-import type { AccessList } from "./schemas";
+import type { AccessList, OrgSettings, OrgSettingsPatch, Prefs, PrefsPatch } from "./schemas";
+import { orgSettingsSavedMessage, prefsSavedMessage } from "./settings-saved";
 import type { LibraryFileDetail } from "./file";
 import { useLibraryViewer } from "./viewer";
 import { forgetWarmFile } from "./warm";
@@ -168,6 +169,18 @@ export function trashFileOptions(queryClient: QueryClient, orgKey: string) {
 
 export function useTrashFile() {
   return useMutation(trashFileOptions(useQueryClient(), useLibraryViewer().orgKey));
+}
+
+export function useRequestAccess() {
+  const { orgKey } = useLibraryViewer();
+  return useMutation({
+    mutationKey: [...libraryKeys.all(orgKey), "request-access"],
+    mutationFn: async (vars: { id: string }) => libraryApi.requestAccess(vars.id),
+    onSuccess: () => {
+      toast(FILE_MESSAGES.requestSent);
+    },
+    onError: (error) => fail(error, "request-access", MESSAGES.genericFailure),
+  });
 }
 
 export function useRestoreFile() {
@@ -396,4 +409,54 @@ export async function downloadFile(id: string): Promise<void> {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export function useUpdatePrefs() {
+  const queryClient = useQueryClient();
+  const { orgKey } = useLibraryViewer();
+  return useMutation({
+    mutationKey: [...libraryKeys.all(orgKey), "update-prefs"],
+    mutationFn: (patch: PrefsPatch) => libraryApi.updatePrefs(patch),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: libraryKeys.prefs(orgKey) });
+      const previous = queryClient.getQueryData<Prefs>(libraryKeys.prefs(orgKey));
+      if (previous) queryClient.setQueryData<Prefs>(libraryKeys.prefs(orgKey), { ...previous, ...patch });
+      return { previous };
+    },
+    onError: (error, _patch, context) => {
+      if (context?.previous) queryClient.setQueryData(libraryKeys.prefs(orgKey), context.previous);
+      fail(error, "update-prefs", MESSAGES.settingNotSaved);
+    },
+    onSuccess: (prefs, patch) => {
+      queryClient.setQueryData(libraryKeys.prefs(orgKey), prefs);
+      toast(prefsSavedMessage(patch));
+    },
+  });
+}
+
+export function useUpdateOrgSettings() {
+  const queryClient = useQueryClient();
+  const { orgKey } = useLibraryViewer();
+  return useMutation({
+    mutationKey: [...libraryKeys.all(orgKey), "update-org-settings"],
+    mutationFn: (vars: { patch: OrgSettingsPatch; version: number }) => libraryApi.updateOrgSettings(vars.patch, vars.version),
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: libraryKeys.orgSettings(orgKey) });
+      const previous = queryClient.getQueryData<OrgSettings>(libraryKeys.orgSettings(orgKey));
+      if (previous) queryClient.setQueryData<OrgSettings>(libraryKeys.orgSettings(orgKey), { ...previous, ...vars.patch });
+      return { previous };
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(libraryKeys.orgSettings(orgKey), context.previous);
+      fail(error, "update-org-settings", MESSAGES.settingNotSaved);
+    },
+    onSuccess: (settings, vars) => {
+      queryClient.setQueryData(libraryKeys.orgSettings(orgKey), settings);
+      toast(orgSettingsSavedMessage(vars.patch));
+      // Defaults change what saving does for everyone: read the effective prefs again.
+      void queryClient.invalidateQueries({ queryKey: libraryKeys.prefs(orgKey) });
+    },
+  });
 }

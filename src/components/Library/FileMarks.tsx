@@ -16,7 +16,8 @@ export function UnreadDot() {
       <span
         role="img"
         aria-label={MESSAGES.unread}
-        style={{ display: 'inline-block', flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: '#F92064' }}
+        // Above a row's stretched link, so hovering the dot shows "Unread" (a click on it still opens the file).
+        style={{ position: 'relative', zIndex: 1, display: 'inline-block', flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: '#F92064' }}
       />
     </Tooltip>
   )
@@ -40,7 +41,8 @@ export function GeneratedMark({ detail, file }: { detail?: string; file?: Pick<L
   const paint = `url(#${gradientId})`
   return (
     <Tooltip content={label}>
-      <span role="img" aria-label={label} style={{ display: 'inline-flex', flexShrink: 0, lineHeight: 0, cursor: 'default' }}>
+      {/* Above a row's stretched link and reachable by Tab, so hovering or focusing it says where the file came from. */}
+      <span role="img" aria-label={label} tabIndex={0} style={{ position: 'relative', zIndex: 1, display: 'inline-flex', flexShrink: 0, lineHeight: 0, cursor: 'default' }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill={paint} stroke={paint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <defs>
             <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21">

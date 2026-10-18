@@ -1,17 +1,23 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { DeleteTwoIcon } from '@strange-huge/icons'
+import { CancelOneIcon, DeleteTwoIcon } from '@strange-huge/icons'
+import { ShieldCheck } from 'lucide-react'
+import { IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
 import Tabs from '@/components/Tabs'
 import { Tooltip } from '@/components/Tooltip'
 import { storageLabel } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { MIN_SEARCH_LENGTH, effectiveListTab, tabPatch, type LibraryQuery, type LibraryTab, type SearchScope } from '@/lib/library/query-params'
-import { useHasShared, useStorage } from '@/lib/library/queries'
+import { useHasShared, useLibraryPrefs, useStorage } from '@/lib/library/queries'
+import { readSeen, shouldShowSettingsNotice, unseenChanges, writeSeen } from '@/lib/library/settings-notice'
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
+import { useLibraryViewer } from '@/lib/library/viewer'
+import { LIBRARY_SETTINGS_ENABLED } from '@/lib/feature-flags'
 import { LIBRARY_TRASH_ROUTE } from '@/lib/routes'
+import { LIBRARY_SETTINGS_SEEN_KEY } from '@/lib/storage-keys'
 import { UnreadDot } from './FileMarks'
 import { FilterPanel } from './FilterPanel'
 import { LibrarySearch } from './LibrarySearch'
@@ -34,6 +40,45 @@ export function StorageLabel() {
   }
   if (storage.isError) return null
   return <Skeleton width={84} height={14} radius={6} />
+}
+
+/**
+ * For members: "Your Admin changed Library settings" and what changed (up to three lines), until dismissed
+ * (prototype library.tsx). Only reads the prefs while the settings flag is on, since the backend has no /library/prefs yet.
+ */
+function SettingsChangedNotice() {
+  const { isAdmin } = useLibraryViewer()
+  const prefs = useLibraryPrefs(LIBRARY_SETTINGS_ENABLED && !isAdmin)
+  // Read on the client only: prefs never load during the server render, so this cannot mismatch.
+  const [seenAt, setSeenAt] = useState<string | null>(() => (typeof window === 'undefined' ? null : readSeen(LIBRARY_SETTINGS_SEEN_KEY)))
+  const data = prefs.data
+  if (isAdmin || !data || !shouldShowSettingsNotice(data.settingsChangedAt, seenAt)) return null
+  const lines = unseenChanges(data.settingsChanges, seenAt)
+  const dismiss = () => {
+    const now = new Date().toISOString()
+    writeSeen(LIBRARY_SETTINGS_SEEN_KEY, now)
+    setSeenAt(now)
+  }
+  return (
+    <div
+      role="status"
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 14, margin: '20px 8px 0', padding: '16px 16px 16px 18px', borderRadius: 16,
+        border: '1px solid var(--border-default)', background: 'var(--card-bg)',
+      }}
+    >
+      <ShieldCheck size={20} strokeWidth={1.5} aria-hidden style={{ flexShrink: 0, marginTop: 2, color: 'var(--neutral-600)' }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <h3 style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>{MESSAGES.settingsNoticeTitle}</h3>
+        {lines.length > 0 && (
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18, listStyle: 'disc', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
+            {lines.map((line) => <li key={line.key}>{line.text}</li>)}
+          </ul>
+        )}
+      </div>
+      <IconButton variant="ghost" size="sm" aria-label="Dismiss" icon={<CancelOneIcon size={14} />} onClick={dismiss} />
+    </div>
+  )
 }
 
 /** The Trash screen is a button at the far right of the header, not a tab. */
@@ -94,6 +139,7 @@ export function LibraryHeader({ query, setQuery }: LibraryHeaderProps) {
           </div>
         </div>
       </div>
+      <SettingsChangedNotice />
       {searching ? (
         <ScopeToggle query={query} setQuery={setQuery} />
       ) : (

@@ -77,6 +77,7 @@ import { ReportBugModal } from "@/components/ReportBugModal";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NOTIFICATIONS_OPEN_EVENT } from "@/context/notifications-context";
 import type { Chat } from "@/types/chat";
+import { DontSaveChatItem } from "@/components/Library/chat/DontSaveChatItem";
 
 // Notifications bell in the account-menu row is switched off; flip to true to restore it.
 const SHOW_NOTIFICATION_BELL = false;
@@ -1769,6 +1770,7 @@ function FlatChatHistoryItem({ chat, isActive, onSelect, onRename, onDelete, onS
             <Dropdown.Item fluid icon={<PinIcon animated color="var(--neutral-600)" />} label={chat.starred ? "Unpin chat" : "Pin chat"} loading={isStarring} onClick={() => { setMenuOpen(false); void handleStar() }} />
             <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Move to project" onClick={() => { setMenuOpen(false); setMoveModalOpen(true) }} />
             <Dropdown.Item fluid icon={<FolderLibraryIcon color="var(--neutral-600)" />} label="Archive" loading={isArchiving} onClick={() => { setMenuOpen(false); void handleArchive() }} />
+            <DontSaveChatItem chatId={chat.id} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>

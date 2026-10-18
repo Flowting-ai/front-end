@@ -16,6 +16,7 @@ import type { Components, ExtraProps } from "react-markdown";
 import type { Pluggable } from "unified";
 import type { WebCitation } from "@/types/chat";
 import { preprocessMarkdown, readCodeBlock, withoutNode } from "@/lib/markdown-preprocess";
+import { LibraryCiteMarker, preprocessLibraryMarkers } from "@/components/Library/chat/library-citations";
 
 // remark-breaks: a single newline inside a paragraph is a line break, the way
 // chat replies are written, instead of collapsing into one line.
@@ -24,6 +25,7 @@ const rehypePlugins: Pluggable[] = [rehypeKatex];
 
 function markdownUrlTransform(value: string, key: string): string {
   if (key === "href" && /^citation:\/\/[1-9]\d*$/.test(value)) return value;
+  if (key === "href" && /^libcite:\/\/L\d{1,4}$/.test(value)) return value;
   return defaultUrlTransform(value);
 }
 
@@ -182,13 +184,11 @@ function BaseLink({
 //   2. Bare URLs     - auto-linked by remarkGfm that match a known webCitation URL
 
 function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
-  if (!webCitations?.length) return BaseLink;
-
-  // O(1) URL → citation-index lookup
-  const urlMap = new Map<string, number>();
-  webCitations.forEach((c, i) => { if (c.url) urlMap.set(c.url, i); });
-
   return function CitationAwareLink(props) {
+    // Library citation: libcite://L<n> (from preprocessLibraryMarkers)
+    const libRef = props.href?.match(/^libcite:\/\/(L\d{1,4})$/);
+    if (libRef) return <LibraryCiteMarker id={libRef[1]} />;
+    if (!webCitations?.length) return <BaseLink {...props} />;
     // Explicit citation reference: citation://N (from preprocessCitations)
     const citRef = props.href?.match(/^citation:\/\/(\d+)$/);
     if (citRef) {
@@ -502,22 +502,24 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, webCitations, highlights, allowHtml = false, streaming = false }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
+  const hasLibraryMarkers = content.includes("[[L");
   // Footnote ids/hrefs get a per-renderer prefix so two messages' footnotes
   // (both "fn-1") never collide or jump to each other.
   const footnotePrefix = `${useId().replace(/[^\w-]/g, "")}-`;
   const remarkRehypeOptions = useMemo(() => ({ clobberPrefix: footnotePrefix }), [footnotePrefix]);
 
   const resolvedComponents = useMemo<Components>(
-    () => hasCitations
+    () => hasCitations || hasLibraryMarkers
       ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
       : BASE_COMPONENTS,
-    [hasCitations, webCitations],
+    [hasCitations, hasLibraryMarkers, webCitations],
   );
 
   const processed = useMemo(() => {
+    const withLibrary = preprocessLibraryMarkers(content, streaming);
     const base = hasCitations
-      ? preprocessMarkdown(preprocessCitations(content), { streaming })
-      : preprocessMarkdown(content, { streaming });
+      ? preprocessMarkdown(preprocessCitations(withLibrary), { streaming })
+      : preprocessMarkdown(withLibrary, { streaming });
     // Sanitise only when about to ask rehype-raw to parse HTML — for pure-markdown
     // rendering, DOMPurify's HTML-context parsing corrupts `<` in code/math.
     // sanitizePreservingMath stashes math blocks before DOMPurify runs.

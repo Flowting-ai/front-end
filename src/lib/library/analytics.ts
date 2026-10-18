@@ -5,6 +5,7 @@
 import { trackFeature } from "@/lib/analytics/events";
 
 export type LibraryAction =
+  | "autosave_changed"
   | "open_tab"
   | "open_file"
   | "search"

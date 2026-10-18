@@ -136,6 +136,8 @@ export interface ChatInputProps
    * can send files without typing a message.
    */
   hasAttachments?: boolean;
+  /** Attachments are still uploading or processing: Send (and Enter) waits until they are ready. */
+  sendBlocked?: boolean;
   /**
    * Turns on `@agent` mentions: typing `@` offers the user's agents, and picking
    * one removes the `@word` from the text and hands the agent to `onSelect`.
@@ -198,6 +200,7 @@ export function ChatInput(
     hideAddButton = false,
     onFilePaste,
     hasAttachments = false,
+    sendBlocked = false,
     agentMention,
     allowQueue = false,
     sendQueues = false,
@@ -503,7 +506,7 @@ export function ChatInput(
     const handleSend = () => {
       // Typing ahead is allowed while a reply streams; sending waits for it,
       // unless the host queues it (allowQueue).
-      if ((!value && !hasAttachments) || disabled || (isStreaming && !allowQueue)) return;
+      if ((!value && !hasAttachments) || disabled || sendBlocked || (isStreaming && !allowQueue)) return;
       focusedSendAtRef.current = document.activeElement === textareaRef.current ? performance.now() : null;
       const text = value;
       if (!isControlled) setInternalValue("");
@@ -664,6 +667,7 @@ export function ChatInput(
     // no text to send.
     const isActionDisabled =
       (disabled && !isStreaming && !isRecording) ||
+      (sendBlocked && !isStreaming && !isRecording) ||
       (!value && !hasAttachments && !isRecording && !isStreaming && !(mounted && browserSupportsSpeechRecognition));
 
     const isChipsOverflowing = chipsScroll.scrollWidth > chipsScroll.clientWidth;

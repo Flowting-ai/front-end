@@ -57,8 +57,8 @@ export function LibrarySearch({ query, setQuery }: { query: LibraryQuery; setQue
         maxLength={MAX_SEARCH_LENGTH}
         onChange={(event) => edit(event.target.value)}
         onKeyDown={(event) => { if (event.key === 'Escape' && draft) { event.preventDefault(); edit('') } }}
-        placeholder="Search library"
-        aria-label="Search library"
+        placeholder="Search Library"
+        aria-label="Search Library"
         autoComplete="off"
         style={{
           flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', padding: '0 2px', appearance: 'none',

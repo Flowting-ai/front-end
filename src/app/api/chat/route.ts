@@ -29,6 +29,8 @@ export const maxDuration = 800
  *   temperature        - optional persona temperature override
  *   files              - zero or more File parts (uploaded attachments)
  *   libraryFileIds     - optional JSON array of Library file ids attached to the message
+ *   saveToLibrary      - optional "true"/"false": the auto-save answer for those files
+ *   librarySourcesOff  - optional JSON array of Library file ids switched off for this chat
  */
 export async function POST(request: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
   const {
     chatId, input, modelId, algorithm, pinIds, referenceMessageId, replaceMessageId,
-    webSearch, enable_thinking: thinking, effort, personaId, systemPrompt, temperature, toneId, libraryFileIds,
+    webSearch, enable_thinking: thinking, effort, personaId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
   } = parsed.data
   const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
 
@@ -83,6 +85,8 @@ export async function POST(request: NextRequest) {
   if (toneId) fd.append("tone_id", toneId)
   clientFiles.forEach((f) => fd.append("files", f))
   if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
+  if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
+  if (librarySourcesOff) fd.append("librarySourcesOff", librarySourcesOff)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   // One id per request, sent upstream and returned as X-Request-Id; failures are

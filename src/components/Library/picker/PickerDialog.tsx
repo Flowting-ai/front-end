@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { CheckmarkCircleTwoIcon, SearchOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/ui/button'
+import { Button, IconButton } from '@/components/ui/button'
+import { GridViewGlyph, ListViewGlyph } from '@/components/ProjectViewToggle'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/Skeleton'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -48,6 +49,7 @@ export interface PickerDialogProps {
 export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel = 'Add to chat', single = false, title = 'Add from Library', max }: PickerDialogProps) {
   const [query, setQuery] = useState('')
   const [chip, setChip] = useState<TypeChip>('all')
+  const [layout, setLayout] = useState<'list' | 'grid'>('list')
   const [picked, setPicked] = useState<LibraryFile[]>([])
   const debounced = useDebouncedValue(query.trim(), 250)
   const list = useLibraryPicker(
@@ -83,6 +85,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           <DialogDescription>Files you can open. Nothing is attached until you confirm.</DialogDescription>
         </DialogHeader>
         <div className={styles.tools}>
+          <div className={styles.searchRow}>
           <div role="search" className={styles.search}>
             <SearchOneIcon size={16} className={styles.searchIcon} />
             <input
@@ -94,6 +97,15 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
               autoComplete="off"
               className={styles.input}
             />
+          </div>
+          <IconButton
+            variant="secondary"
+            size="sm"
+            aria-label={layout === 'list' ? 'Grid view' : 'List view'}
+            title={layout === 'list' ? 'Grid view' : 'List view'}
+            icon={layout === 'list' ? <GridViewGlyph /> : <ListViewGlyph />}
+            onClick={() => setLayout(layout === 'list' ? 'grid' : 'list')}
+          />
           </div>
           <div role="group" aria-label="File type" className={styles.chips}>
             {CHIPS.map((entry) => (
@@ -123,7 +135,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           ) : list.files.length === 0 ? (
             <p role="status" className={styles.empty}>{debounced || chip !== 'all' ? MESSAGES.noFilesText : MESSAGES.suggestedEmptyText}</p>
           ) : (
-            <ul role="listbox" aria-multiselectable={!single} aria-label="Files" className={styles.list} onKeyDown={onListKeyDown}>
+            <ul role="listbox" aria-multiselectable={!single} aria-label="Files" className={layout === 'grid' ? styles.grid : styles.list} onKeyDown={onListKeyDown}>
               {list.files.map((file, index) => {
                 const already = excludeIds.includes(file.id)
                 const selected = already || isPicked(file.id)
@@ -140,7 +152,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
                     onFocus={() => setActiveIndex(index)}
                     onClick={() => toggle(file)}
                     onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); toggle(file) } }}
-                    className={styles.option}
+                    className={layout === 'grid' ? `${styles.option} ${styles.card}` : styles.option}
                   >
                     <FormatGlyph format={file.format} />
                     <span className={styles.text}>

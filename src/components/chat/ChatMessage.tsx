@@ -1,5 +1,6 @@
 "use client";
 
+import { LibraryCitationsProvider, stripLibraryMarkers } from "@/components/Library/chat/library-citations";
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
@@ -13,6 +14,7 @@ import { SourceList } from "./CitationChip";
 import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import { ChatPromptCard } from "./ChatPromptCard";
+import { ImageGenerationPreview, findPendingImageGeneration } from "./ImageGenerationPreview";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { nextReveal, REVEAL_DRAIN_MS, REVEAL_STEP_MS } from "@/lib/reveal";
 import { deriveCitationsFromSources } from "@/lib/citations";
@@ -22,6 +24,7 @@ import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
+import { SentLibraryAttachment } from "@/components/Library/chat/SentLibraryAttachment";
 import type { UIMessage, ActivityItem, WebCitation } from "@/types/chat";
 import { isResumeUrl, respondToChatPrompt } from "@/lib/api/chat";
 import { IconButton } from "@/components/ui/button";
@@ -85,9 +88,11 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
   return (
     <m.div
       key={img.url}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
+      // Lands blurred and sharpens, picking up where the generation
+      // preview's "developing" canvas left off.
+      initial={{ opacity: 0, scale: 0.97, filter: "blur(18px)" }}
+      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: index * 0.1 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -506,6 +511,29 @@ export function ChatMessage({
     [message.responseBlocks],
   )
 
+  // While streaming, a freshly generated image is preloaded before it takes
+  // the preview's place — otherwise the preview leaves on the URL and an empty
+  // frame sits there for the second or two the download takes.
+  const [loadedImageUrls, setLoadedImageUrls] = useState<ReadonlySet<string>>(() => new Set())
+  useEffect(() => {
+    if (!message.isLoading || !message.images) return
+    for (const { url } of message.images) {
+      if (loadedImageUrls.has(url)) continue
+      const probe = new window.Image()
+      probe.onload = probe.onerror = () => setLoadedImageUrls((prev) => new Set(prev).add(url))
+      probe.src = url
+    }
+  }, [message.isLoading, message.images, loadedImageUrls])
+  const visibleImages = useMemo(
+    () => (message.isLoading ? message.images?.filter((img) => loadedImageUrls.has(img.url)) : message.images),
+    [message.isLoading, message.images, loadedImageUrls],
+  )
+
+  const imageGenActivity = useMemo(
+    () => (message.isLoading ? findPendingImageGeneration(message.activities, visibleImages?.length ?? 0) : undefined),
+    [message.isLoading, message.activities, visibleImages?.length],
+  )
+
   // Question-card decisions by prompt id, for the reasoning trace's markers.
   const promptDecisions = useMemo(
     () => Object.fromEntries(
@@ -726,7 +754,7 @@ export function ChatMessage({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(stripLibraryMarkers(message.content));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -938,7 +966,7 @@ export function ChatMessage({
                     )}
                   </div>
                 );
-                return att.url && !att.uploading ? (
+                const node = att.url && !att.uploading ? (
                   <a
                     key={att.id}
                     href={att.url}
@@ -951,6 +979,10 @@ export function ChatMessage({
                 ) : (
                   <React.Fragment key={att.id}>{chip}</React.Fragment>
                 );
+                // A Library file that was deleted (or is locked) reads "File deleted" / "Locked file", not its name.
+                return att.libraryFileId ? (
+                  <SentLibraryAttachment key={att.id} fileId={att.libraryFileId}>{node}</SentLibraryAttachment>
+                ) : node;
               })}
             </div>
           )}
@@ -1090,6 +1122,7 @@ export function ChatMessage({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
+            <LibraryCitationsProvider citations={message.libraryCitations}>
             <StreamingTextContent
               content={answerText}
               citations={citations}
@@ -1099,6 +1132,7 @@ export function ChatMessage({
               revealFrom={revealFrom}
               onCaughtUp={setCaughtUpText}
             />
+            </LibraryCitationsProvider>
           </m.div>
         ) : null}
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come
@@ -1159,8 +1193,17 @@ export function ChatMessage({
         )}
 
 
+        {/* Image generation preview — while an image tool is still running */}
+        {/* popLayout: the exiting preview floats in place, so the real image
+            slides into its spot and sharpens underneath the dissolve. */}
+        <AnimatePresence mode="popLayout">
+          {imageGenActivity && (
+            <ImageGenerationPreview key="image-gen-preview" activity={imageGenActivity} />
+          )}
+        </AnimatePresence>
+
         {/* Generated images */}
-        {message.images && message.images.length > 0 && (
+        {visibleImages && visibleImages.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -1169,7 +1212,7 @@ export function ChatMessage({
               marginTop: "12px",
             }}
           >
-            {message.images.map((img, i) => (
+            {visibleImages.map((img, i) => (
               <GeneratedImageCard key={img.url} img={img} index={i} />
             ))}
           </div>

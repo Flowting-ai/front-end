@@ -63,6 +63,8 @@ export interface PendingAttachment {
   uploading: boolean;
   /** 0–100 upload progress (simulated client-side). */
   uploadProgress?: number;
+  /** Uploaded; the server is still reading the file (Library uploads only). */
+  processing?: boolean;
   error?: string;
 }
 
@@ -225,7 +227,12 @@ function notify(title: string, options: { description?: string } = {}) {
  * setAttachments(next);
  * ```
  */
-export function useFileUpload() {
+/**
+ * `libraryValidates`: the composer uploads into Library, whose own check refuses a file with one short
+ * message above the composer that never names it (UploadNotices). The size and type toasts here are
+ * skipped so the file reaches that check.
+ */
+export function useFileUpload({ libraryValidates = false }: { libraryValidates?: boolean } = {}) {
   const { maxSizeBytes, maxFiles } = FILE_CONSTRAINTS;
 
   const processFiles = useCallback(
@@ -260,13 +267,13 @@ export function useFileUpload() {
         }
 
         // Size
-        if (file.size > maxSizeBytes) {
+        if (!libraryValidates && file.size > maxSizeBytes) {
           oversized.push(file.name);
           continue;
         }
 
         // Type
-        if (!isAllowedType(file)) {
+        if (!libraryValidates && !isAllowedType(file)) {
           unsupported.push(file.name);
           continue;
         }
@@ -317,7 +324,7 @@ export function useFileUpload() {
 
       return toAdd.length > 0 ? [...current, ...toAdd] : current;
     },
-    [maxSizeBytes, maxFiles],
+    [maxSizeBytes, maxFiles, libraryValidates],
   );
 
   /**

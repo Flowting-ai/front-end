@@ -657,7 +657,8 @@ function ChatsPageInner() {
                         onDelete={() => openDeleteChatDialog({
                           chatId:    chat.id,
                           chatTitle: chat.title,
-                          onConfirm: async () => { if (await remove(chat.id)) toast.success('Chat deleted') },
+                          // The Delete chat dialog says "Chat deleted" itself (and what happened to the saved files).
+                          onConfirm: async () => { await remove(chat.id) },
                         })}
                         onArchive={() => void archive(chat.id)}
                       />

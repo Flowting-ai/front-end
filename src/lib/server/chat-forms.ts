@@ -30,6 +30,7 @@ const idList = (field: string, max: number) => z.string().max(10_000).optional()
 }, `${field} must be a JSON array of ids`)
 const pinIds = idList("pinIds", MAX_PIN_IDS)
 const libraryFileIds = idList("libraryFileIds", MAX_LIBRARY_FILE_IDS)
+const librarySourcesOff = idList("librarySourcesOff", 200)
 
 /** A chat id: a real one, or a client placeholder ("temp-…") meaning "create". */
 const chatId = z.string().max(100).optional().refine(v => v === undefined || v.startsWith("temp-") || isSafeId(v), "Invalid chatId")
@@ -50,6 +51,8 @@ export const chatFormSchema = z.object({
   temperature: z.coerce.number().min(0, "temperature must be between 0 and 2").max(2, "temperature must be between 0 and 2").optional(),
   toneId: z.string().max(50).optional(),
   libraryFileIds,
+  saveToLibrary: z.enum(["true", "false"]).optional(),
+  librarySourcesOff,
 }).superRefine((form, ctx) => {
   // The backend only knows these effort levels; only sent with thinking on.
   if (form.enable_thinking && form.effort && !["low", "medium", "high"].includes(form.effort)) {
@@ -64,6 +67,7 @@ export const personaChatFormSchema = z.object({
   modelId: z.string().max(100).optional(),
   connectorSlugs: z.array(z.string().min(1).max(100)).max(MAX_CONNECTOR_SLUGS).default([]),
   libraryFileIds,
+  saveToLibrary: z.enum(["true", "false"]).optional(),
 })
 
 export type ChatForm = z.infer<typeof chatFormSchema>

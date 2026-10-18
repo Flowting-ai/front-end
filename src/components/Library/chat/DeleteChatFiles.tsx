@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/Checkbox'
+import { Skeleton } from '@/components/Skeleton'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { libraryApi } from '@/lib/library/api'
 import { libraryKeys } from '@/lib/library/keys'
@@ -63,6 +64,8 @@ export function useTrashChatFiles() {
 export interface DeleteChatWithFilesDialogProps {
   chatTitle: string
   files: OpenFileRef[]
+  /** The chat's saved files are still being looked up: the list is a placeholder and Delete waits. */
+  loading?: boolean
   /** Deletes the chat itself (the existing chat delete). */
   onDeleteChat: () => Promise<void>
   onClose: () => void
@@ -72,9 +75,11 @@ export interface DeleteChatWithFilesDialogProps {
  * The prototype's Delete chat dialog: "Delete <chat>?", the saved files, "Also delete these files", and
  * a red Delete. With the box ticked the files go to Trash after the chat is deleted.
  */
-export function DeleteChatWithFilesDialog({ chatTitle, files, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
+export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
   const [alsoDelete, setAlsoDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+  const queryClient = useQueryClient()
+  const { orgKey } = useLibraryViewer()
   const trashFiles = useTrashChatFiles()
   const confirm = async () => {
     setBusy(true)
@@ -86,6 +91,8 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, onDeleteChat, onCl
       setBusy(false)
       return
     }
+    // The chat is gone, so every "Used in" list and file origin in Library has changed.
+    void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) })
     // Stage 2: the files. The chat is gone, so it is never retried; report what could not be trashed and close.
     let failed = 0
     if (alsoDelete) {
@@ -107,11 +114,18 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, onDeleteChat, onCl
           <DialogTitle>{`Delete ${chatTitle}?`}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <DeleteChatFiles files={files} alsoDelete={alsoDelete} onAlsoDeleteChange={setAlsoDelete} />
+          {loading ? (
+            <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Skeleton height={20} />
+              <Skeleton height={20} />
+            </div>
+          ) : (
+            <DeleteChatFiles files={files} alsoDelete={alsoDelete} onAlsoDeleteChange={setAlsoDelete} />
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="ghost" disabled={busy} onClick={onClose}>Cancel</Button>
-          <Button variant="danger" loading={busy} disabled={busy} onClick={confirm}>Delete</Button>
+          <Button variant="danger" loading={busy} disabled={busy || loading} onClick={confirm}>Delete</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

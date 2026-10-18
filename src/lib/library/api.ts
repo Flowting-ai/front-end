@@ -12,6 +12,10 @@ import { captureError } from "./observability";
 import { renameSchemaFor } from "./forms";
 import type { ListParams } from "./query-params";
 import {
+  orgSettingsSchema,
+  prefsSchema,
+  type OrgSettingsPatch,
+  type PrefsPatch,
   accessListSchema,
   fileDetailSchema,
   fileRowSchema,
@@ -117,6 +121,7 @@ export const libraryApi = {
     parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchemaFor(extension ?? undefined).parse({ title })) }), "renameFile"),
   trashFile: async (id: string) =>
     parse(z.object({ daysLeft: z.number().int().nonnegative() }), await apiFetchJson<unknown>(fileUrl(id), { method: "DELETE" }), "trashFile"),
+  requestAccess: (id: string) => apiFetchVoid(`${fileUrl(id)}/access-requests`, { method: "POST" }),
   restoreFile: (id: string) => apiFetchVoid(`${trashUrl(id)}/restore`, { method: "POST" }),
   deleteForever: (id: string) => apiFetchVoid(trashUrl(id), { method: "DELETE" }),
   emptyTrash: () => apiFetchVoid(`${BASE}/trash`, { method: "DELETE" }),
@@ -140,6 +145,19 @@ export const libraryApi = {
   // Summaries
   getStorage: (signal?: AbortSignal) => get(storageSchema, `${BASE}/storage`, "getStorage", signal),
   getLimits: (signal?: AbortSignal) => get(limitsSchema, `${BASE}/limits`, "getLimits", signal),
+
+  // Settings (no backend endpoints yet, see LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1)
+  getPrefs: (signal?: AbortSignal) => get(prefsSchema, `${BASE}/prefs`, "getPrefs", signal),
+  updatePrefs: async (patch: PrefsPatch) =>
+    parse(prefsSchema, await apiFetchJson<unknown>(`${BASE}/prefs`, { method: "PATCH", ...jsonBody(patch) }), "updatePrefs"),
+  getOrgSettings: (signal?: AbortSignal) => get(orgSettingsSchema, `${BASE}/org-settings`, "getOrgSettings", signal),
+  /** `version` is the version the caller last saw (If-Match). */
+  updateOrgSettings: async (patch: OrgSettingsPatch, version: number) =>
+    parse(
+      orgSettingsSchema,
+      await apiFetchJson<unknown>(`${BASE}/org-settings`, { method: "PATCH", headers: { "If-Match": String(version) }, ...jsonBody(patch) }),
+      "updateOrgSettings",
+    ),
 
   // Uploads (the composer owns the UI; Library has no upload button)
   createUpload: async (request: UploadInitRequest) =>

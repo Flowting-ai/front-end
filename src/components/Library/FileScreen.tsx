@@ -75,7 +75,11 @@ export function FileScreen({ id }: { id: string }) {
     if (!cardCanScroll) scroller.scrollBy({ top: event.deltaY, left: event.deltaX })
   }
   const [question, setQuestion] = useState('')
-  const file = detail.data
+  // A deleted file is "No longer available" for every link (a chat chip, a citation, a shared URL), even for
+  // its owner. Only a row in Trash opens it (`?from=trash`), to show how many days are left and Restore.
+  const fromTrash = params.get('from') === 'trash'
+  const deletedLink = detail.data?.life === 'trashed' && !fromTrash
+  const file = deletedLink ? undefined : detail.data
 
   // Tab title: the sanitised file name, never the raw one.
   useEffect(() => {
@@ -121,8 +125,8 @@ export function FileScreen({ id }: { id: string }) {
     return (
       <LibraryShell>
         {isLockedError(detail.error) ? (
-          <LockedState />
-        ) : isGoneError(detail.error) ? (
+          <LockedState fileId={id} />
+        ) : isGoneError(detail.error) || deletedLink ? (
           <GoneState backHref={backHref} />
         ) : (
           <EmptyState icon={<ArrowLeftOneIcon size={20} />} title={FILE_ERROR}>

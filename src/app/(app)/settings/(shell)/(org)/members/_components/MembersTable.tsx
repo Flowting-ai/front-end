@@ -18,7 +18,7 @@ import { RemoveButton, RoleDropdown } from './RoleControls'
 
 // Member takes the room and truncates; role and actions are fixed and right-aligned, so the table
 // never needs to scroll sideways at the settings page width.
-export const WORKSPACE_MEMBER_COLUMNS = 'minmax(0, 1fr) 150px 130px'
+export const WORKSPACE_MEMBER_COLUMNS = 'minmax(0, 1fr) 150px 240px'
 
 export function MembersTable({
   members,

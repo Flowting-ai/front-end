@@ -24,7 +24,12 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
 import { useHighlight } from "@/context/highlight-context";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { FILE_CONSTRAINTS, useFileUpload } from "@/hooks/use-file-upload";
+import { libraryPickAsFile, pickedLibraryFileId, useComposerUploads } from "@/lib/library/upload/composer-uploads";
+import { useAddFromLibrary } from "@/components/Library/chat/useAddFromLibrary";
+import { UploadNotices } from "@/components/Library/upload/UploadNotices";
+import { LibrarySearchOffNote } from "@/components/Library/chat/LibrarySearchOffNote";
+import { useSaveChoice } from "@/components/Library/chat/useSaveChoice";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { usePinboard } from "@/context/pinboard-context";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
@@ -221,7 +226,11 @@ function ChatPageInner() {
   // @-mentioned pins from the new-chat landing, passed once to ChatInterface for the initial send.
   const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { processFiles, FILE_ACCEPT } = useFileUpload();
+  const { processFiles, FILE_ACCEPT } = useFileUpload({ libraryValidates: true });
+  // Files upload into Library as soon as they are attached; Send waits until they are ready.
+  const { attachments: newChatAttachmentChips, uploadsBusy: newChatUploadsBusy, notices: newChatUploadNotices } = useComposerUploads(newChatAttachments, setNewChatAttachments);
+  // Auto-save setting (Always / Ask each time / Never) applied to the files on send.
+  const { decideSave, saveDialog } = useSaveChoice();
 
   // "Ask about this file" in Library: the file (and any typed question) waits in memory. A question starts
   // the chat right away with the file attached; with none the file just lands in the composer.
@@ -413,8 +422,22 @@ function ChatPageInner() {
 
   // ── Add menu ──────────────────────────────────────────────────────────────
 
+  // "Add from Library": picked files join the composer like device files (same hand-off to an open chat),
+  // but as Library references that never upload again.
+  const libraryPicker = useAddFromLibrary({
+    confirmLabel: "Add to chat",
+    excludeIds: newChatAttachments.flatMap((a) => pickedLibraryFileId(a.file) ?? []),
+    max: FILE_CONSTRAINTS.maxFiles,
+    onAdd: (files) => {
+      const picked = files.map((file) => libraryPickAsFile({ id: file.id, name: file.name, sizeBytes: file.sizeBytes }));
+      if (isNewChat) setNewChatAttachments((prev) => processFiles(picked, prev));
+      else setAddMenuFiles(picked);
+    },
+  });
+
   const addMenu = (
     <ChatAddMenu
+      onAddFromLibraryClick={libraryPicker.open}
       webSearchEnabled={webSearchEnabled}
       onWebSearchChange={setWebSearchEnabled}
       onAddFilesClick={handleAddFilesClick}
@@ -767,7 +790,7 @@ function ChatPageInner() {
       push(PROJECT_CHAT_NEW_ROUTE(selectedProjectId) + `?q=${encodeURIComponent(value.trim())}`);
       return;
     }
-    submitNewChat(value);
+    void decideSave(newChatAttachments.map((a) => a.file)).then(() => submitNewChat(value));
   };
 
   // Capture typed message from new-chat landing → transition to ChatInterface
@@ -795,6 +818,8 @@ function ChatPageInner() {
         overflow:      "hidden",
       }}
     >
+      {saveDialog}
+      {libraryPicker.dialog}
       {/* Hidden file input - triggered by "Add files or photos" in add menu */}
       <input
         ref={fileInputRef}
@@ -888,6 +913,7 @@ function ChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
+                      sendBlocked={newChatUploadsBusy}
                       agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
@@ -911,16 +937,22 @@ function ChatPageInner() {
                                 />
                               ))}
                             </PinChipStrip>
+                            <UploadNotices {...newChatUploadNotices} />
                             <AttachmentManager
-                              attachments={newChatAttachments}
+                              attachments={newChatAttachmentChips}
                               onAttachmentsChange={setNewChatAttachments}
+                              libraryValidates
                             />
                           </div>
                         ) : (
-                          <AttachmentManager
-                            attachments={newChatAttachments}
-                            onAttachmentsChange={setNewChatAttachments}
-                          />
+                          <>
+                            <UploadNotices {...newChatUploadNotices} />
+                            <AttachmentManager
+                              attachments={newChatAttachmentChips}
+                              onAttachmentsChange={setNewChatAttachments}
+                              libraryValidates
+                            />
+                          </>
                         )
                       }
                       placeholder={
@@ -935,6 +967,7 @@ function ChatPageInner() {
                   </div>
                   </ExhaustionBanner>
                   <ChatHomeActions projectId={selectedProjectId} onProjectChange={setSelectedProjectId} />
+                  <LibrarySearchOffNote />
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}

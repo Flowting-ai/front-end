@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { CancelOneIcon, FilterMailIcon } from '@strange-huge/icons'
+import { CancelOneIcon, FilterMailIcon, TickTwoIcon } from '@strange-huge/icons'
 import { FileAudio, FileSpreadsheet, FileText, Image as ImageIcon, Sparkles, Upload, Users } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
@@ -117,6 +117,7 @@ export function FilterPanel({ query, setQuery }: { query: LibraryQuery; setQuery
                 fluid
                 icon={SOURCE_ICONS[value]}
                 selected={query.source.includes(value)}
+                rightIcon={query.source.includes(value) ? <TickTwoIcon aria-hidden /> : undefined}
                 onClick={() => setQuery((current) => ({ source: toggle(current.source, value, SOURCE_FILTERS) }))}
               />
             ))}
@@ -129,6 +130,7 @@ export function FilterPanel({ query, setQuery }: { query: LibraryQuery; setQuery
                 fluid
                 icon={TYPE_ICONS[value]}
                 selected={query.type.includes(value)}
+                rightIcon={query.type.includes(value) ? <TickTwoIcon aria-hidden /> : undefined}
                 onClick={() => setQuery((current) => ({ type: toggle(current.type, value, FORMAT_GROUPS) }))}
               />
             ))}

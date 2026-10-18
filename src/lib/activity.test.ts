@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeActivityStatus, toolNameToType, webSearchResults } from '@/lib/activity'
+import { activityVerb, normalizeActivityStatus, toolNameToType, transcribingFile, webSearchResults } from '@/lib/activity'
+
+describe('transcription step', () => {
+  it('names the transcribe tool before its arguments arrive', () => {
+    const row = { type: 'tool-call' as const, toolName: 'transcribe_audio' }
+    expect(activityVerb(row)).toBe('Transcribing')
+    expect(transcribingFile(row)).toBe('')
+  })
+  it('shows the name of the recording from a sandbox path', () => {
+    const row = { type: 'tool-call' as const, toolName: 'execute', detail: '/sandbox/input/supplier call.wav' }
+    expect(activityVerb(row)).toBe('Transcribing')
+    expect(transcribingFile(row)).toBe('supplier call.wav')
+  })
+  it('leaves other tools and backend labels alone', () => {
+    expect(activityVerb({ type: 'tool-call', toolName: 'execute', detail: '/sandbox/input/report.pdf' })).toBe('Running tool')
+    expect(activityVerb({ type: 'tool-call', toolName: 'transcribe_audio', label: 'Listening' })).toBe('Listening')
+  })
+})
 
 describe('activity normalization', () => {
   it('does not dress the browser capability up as a search', () => {

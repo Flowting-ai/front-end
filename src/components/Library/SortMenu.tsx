@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ArrowUpDownIcon } from '@strange-huge/icons'
+import { ArrowUpDownIcon, TickTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
@@ -9,6 +9,9 @@ import { chosenSort, sortKeysFor, sortPatch, type LibraryQuery, type SortKey } f
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 
 const KEY_LABELS: Record<string, string> = { name: 'Name', created: 'Created', shared: 'Date shared' }
+
+/** The current choice is ticked (and tinted), as in the prototype. */
+const tick = (on: boolean) => (on ? <TickTwoIcon aria-hidden /> : undefined)
 
 /**
  * The Sort button: the same choice as the column headings (only Name and the date column sort). On
@@ -37,12 +40,12 @@ export function SortMenu({ query, setQuery, tab }: { query: LibraryQuery; setQue
       <Dropdown maxHeight={false} style={{ minWidth: 176 }}>
         <Dropdown.Section fluid label="Sort by">
           {keys.map((key) => (
-            <Dropdown.Item key={key} label={KEY_LABELS[key]} fluid selected={!untouched && current === key} onClick={() => choose(key)} />
+            <Dropdown.Item key={key} label={KEY_LABELS[key]} fluid selected={!untouched && current === key} rightIcon={tick(!untouched && current === key)} onClick={() => choose(key)} />
           ))}
         </Dropdown.Section>
         <Dropdown.Section fluid divider>
-          <Dropdown.Item label={dated ? 'Newest first' : 'A to Z'} fluid selected={!untouched && chosen.dir === (dated ? 'desc' : 'asc')} onClick={() => order(dated ? 'desc' : 'asc')} />
-          <Dropdown.Item label={dated ? 'Oldest first' : 'Z to A'} fluid selected={!untouched && chosen.dir === (dated ? 'asc' : 'desc')} onClick={() => order(dated ? 'asc' : 'desc')} />
+          <Dropdown.Item label={dated ? 'Newest first' : 'A to Z'} fluid selected={!untouched && chosen.dir === (dated ? 'desc' : 'asc')} rightIcon={tick(!untouched && chosen.dir === (dated ? 'desc' : 'asc'))} onClick={() => order(dated ? 'desc' : 'asc')} />
+          <Dropdown.Item label={dated ? 'Oldest first' : 'Z to A'} fluid selected={!untouched && chosen.dir === (dated ? 'asc' : 'desc')} rightIcon={tick(!untouched && chosen.dir === (dated ? 'asc' : 'desc'))} onClick={() => order(dated ? 'asc' : 'desc')} />
         </Dropdown.Section>
       </Dropdown>
     </Dropdown.Float>

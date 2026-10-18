@@ -73,7 +73,7 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
                   onEdit={openEdit}
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={() => { if (scheduleId) s.runNow(scheduleId) }}
-                  runningNow={s.isRunningNow}
+                  runningNow={s.isRunningNow || detail.isRunning}
                   onToggleActive={s.toggleActive}
                   onOpenChat={(chatId) => push(`${CHAT_ROUTE}?id=${chatId}`)}
                   onCopy={s.copy}

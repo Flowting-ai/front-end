@@ -10,7 +10,7 @@ import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { toast } from 'sonner'
 import type { OrgMember } from '@/types/teams'
-import { SHADOW_REMOVE, SHADOW_REMOVE_INNER, displayRoleFor } from './members-shared'
+import { displayRoleFor } from './members-shared'
 
 // ── Remove button (blur-swap animation) ───────────────────────────────────────
 
@@ -32,7 +32,6 @@ export function RemoveButton({
   /** Leading icon for the idle button. Defaults to the remove-user glyph. */
   icon?:         React.ReactNode
 }) {
-  const [hov,        setHov]        = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
   const [busy,       setBusy]       = React.useState(false)
 
@@ -49,35 +48,34 @@ export function RemoveButton({
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       {!confirming ? (
-        <motion.button
+        <motion.div
           key="remove"
-          type="button"
-          aria-label={`${label} ${memberName}`}
-          onClick={() => setConfirming(true)}
-          onMouseEnter={() => setHov(true)}
-          onMouseLeave={() => setHov(false)}
           initial={{ opacity: 0, filter: 'blur(4px)' }}
           animate={{ opacity: 1, filter: 'blur(0px)', transition: REVEAL }}
           exit={{    opacity: 0, filter: 'blur(4px)', transition: REVEAL }}
+          // Inverted danger (red text on the field surface) for the idle state only; the confirm step stays solid red.
           style={{
-            display:         'inline-flex', alignItems: 'center', gap: 2,
-            padding:         '5px 8px', borderRadius: 8, border: 'none',
-            cursor:          'pointer', position: 'relative', overflow: 'hidden',
-            backgroundColor: hov ? 'var(--red-50)' : 'var(--neutral-white)',
-            boxShadow:       SHADOW_REMOVE,
-            fontFamily:      'var(--font-body)', fontWeight: 500,
-            fontSize:        'var(--font-size-body)', color: 'var(--red-500)',
-            whiteSpace:      'nowrap', outline: 'none', transition: 'background-color 120ms ease',
-          }}
+            display: 'flex', flexShrink: 0,
+            '--button-danger-bg':            'var(--field-surface)',
+            '--button-danger-bg-hover':      'var(--red-50)',
+            '--button-danger-text':          'var(--red-500)',
+            '--button-danger-text-disabled': 'var(--red-500)',
+          } as React.CSSProperties}
         >
-          {icon ?? (
-            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path d="M7 7.875a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM1.75 12.25c0-2.071 2.351-3.5 5.25-3.5M10.5 10.5l1.75 1.75M12.25 10.5L10.5 12.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-          {label}
-          <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: SHADOW_REMOVE_INNER }} />
-        </motion.button>
+          <Button
+            variant="danger"
+            size="sm"
+            aria-label={`${label} ${memberName}`}
+            onClick={() => setConfirming(true)}
+            leftIcon={icon ?? (
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M7 7.875a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM1.75 12.25c0-2.071 2.351-3.5 5.25-3.5M10.5 10.5l1.75 1.75M12.25 10.5L10.5 12.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          >
+            {label}
+          </Button>
+        </motion.div>
       ) : (
         <motion.div
           key="confirm"
@@ -90,12 +88,12 @@ export function RemoveButton({
             Cancel
           </Button>
           <Button
-            variant="ghost"
+            variant="danger"
             size="sm"
             loading={busy}
             disabled={busy}
             onClick={() => void handleConfirmClick()}
-            style={{ color: 'var(--red-500)', flexShrink: 0 }}
+            style={{ flexShrink: 0 }}
           >
             {confirmLabel}
           </Button>

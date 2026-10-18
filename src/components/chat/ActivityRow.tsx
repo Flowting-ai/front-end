@@ -17,7 +17,7 @@ import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import { QuillWriteOneIcon, NeuralNetworkIcon } from "@strange-huge/icons";
 import type { ActivityItem, ActivityType } from "@/types/chat";
-import { ACTIVITY_VERB } from "@/lib/activity";
+import { ACTIVITY_VERB, activityVerb, transcribingFile } from "@/lib/activity";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IconEntry = { icon: any; isHuge: boolean };
@@ -120,6 +120,8 @@ function comparable(text: string) {
 // — search web"). A generic verb ("Running tool") does not say which tool, so
 // there the tool name is the detail.
 function activityDetail(activity: ActivityItem, verb: string): string {
+  const recording = transcribingFile(activity);
+  if (recording !== null) return recording;
   const toolName = activity.toolName?.replace(/_/g, " ") ?? "";
   const genericVerb = verb === ACTIVITY_VERB["tool-call"] || verb === ACTIVITY_VERB.other;
   const detail = activity.detail?.trim() || (genericVerb ? toolName : "");
@@ -135,7 +137,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
   const isDone = activity.status === "done";
   const isError = activity.status === "error";
   const isStopped = activity.status === "stopped";
-  const verb = activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
+  const verb = activityVerb(activity);
   const hasResults = activity.results && activity.results.length > 0;
   // Web-search results auto-expand (visible inline while done); other types need a click
   const isWebSearch = activity.type === "web-search";

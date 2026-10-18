@@ -175,6 +175,33 @@
   }
 }
 
+/* Beyond the prototype: with the sidebar open, a ~600-800px window leaves the list under 480px, where the
+   columns above would squeeze Name to nothing. Type goes (and Shared's Access), then the date. */
+@container (max-width: 480px) {
+  .cTiny {
+    display: none;
+  }
+
+  .colsAll {
+    grid-template-columns: minmax(0, 1fr) 132px 44px;
+  }
+
+  .colsShared {
+    grid-template-columns: minmax(0, 1fr) 132px 44px;
+  }
+}
+
+@container (max-width: 300px) {
+  .cTiniest {
+    display: none;
+  }
+
+  .colsAll,
+  .colsShared {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+}
+
 /* Trash: the "more" button shows on hover, focus or while its menu is open. */
 /* (see .menu) */
 .menuHover {
@@ -306,6 +333,14 @@
   overflow-y: auto;
   margin: 0 40px 20px;
   transition: opacity 120ms;
+}
+
+/* In a narrow window the list gives back some of its side margin to the columns. */
+@media (max-width: 900px) {
+  .scroll {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
 }
 
 /* A refetch is running behind the rows on screen. */

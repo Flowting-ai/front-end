@@ -56,7 +56,7 @@ export function MembersPageSkeleton() {
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px' }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
             <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={40} height={13} radius={4} /></div>
-            <div style={{ width: 130, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+            <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
           </div>
           {/* Member rows */}
           {[0, 1, 2, 3].map((i, idx) => (
@@ -71,7 +71,7 @@ export function MembersPageSkeleton() {
                   </div>
                 </div>
                 <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
-                <div style={{ width: 130, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
+                <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
               </div>
             </React.Fragment>
           ))}

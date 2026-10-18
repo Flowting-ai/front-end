@@ -1,0 +1,88 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 16px;
+  width: 100%;
+  user-select: none;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.track {
+  position: relative;
+  flex-grow: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+}
+
+.range {
+  position: absolute;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--effort-color);
+  transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1), background-color 260ms ease;
+}
+
+/* Radix positions each thumb inside a wrapper span via `left` — easing that
+   wrapper is what makes the thumb glide between snapped steps. */
+.root > span:has(> .thumb) {
+  transition: left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.thumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--neutral-white);
+  border: 2px solid var(--effort-color);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--static-black, #000) 18%, transparent);
+  outline: none;
+  cursor: grab;
+  transition: border-color 260ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.thumb:hover { transform: scale(1.15); }
+.thumb:active { cursor: grabbing; transform: scale(1.25); }
+.thumb:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--effort-color) 30%, transparent);
+}
+
+.pips {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  pointer-events: none;
+}
+.pip {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--neutral-300);
+  transition: background-color 260ms ease, transform 260ms ease;
+}
+.pip[data-active="true"] { background: var(--neutral-white); opacity: 0.9; }
+
+.value {
+  display: inline-block;
+  color: var(--effort-color);
+  font-weight: 600;
+  transition: color 260ms ease;
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--neutral-500);
+}
+.label { transition: color 260ms ease, font-weight 260ms ease; }
+.label[data-active="true"] { color: var(--effort-color); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .range, .thumb, .pip, .value, .label, .root > span:has(> .thumb) { transition: none; }
+}

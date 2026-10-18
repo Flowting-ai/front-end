@@ -266,3 +266,48 @@ export type UploadInit = z.infer<typeof uploadInitSchema>;
 
 export type UploadInitRequest = { name: string; sizeBytes: number; mimeType: string; chatId?: string };
 export type UploadPartEtag = { partNumber: number; etag: string };
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+// Personal and workspace Library settings. The backend has no endpoints for these yet
+// (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1), so the pages that use them sit behind LIBRARY_SETTINGS_ENABLED.
+
+export const AUTO_SAVE_MODES = ["always", "ask", "never"] as const;
+export const autoSaveSchema = z.enum(AUTO_SAVE_MODES);
+export type AutoSave = z.infer<typeof autoSaveSchema>;
+
+export const prefsSchema = z.object({
+  /** The person's own choice. Null until they choose: the workspace default applies. */
+  autoSave: autoSaveSchema.nullable(),
+  /** "Let Souvenir use my Library" (the person's own switch). */
+  aiReferenceEnabled: z.boolean(),
+  /** What saving actually does for this person: Admin force-off, then their choice, then the workspace default. */
+  effectiveAutoSave: autoSaveSchema,
+  /** An Admin forced auto-save off for everyone: the personal control is disabled. */
+  forcedOff: z.boolean(),
+  /** False when an Admin turned automatic AI use of Library off for the workspace. */
+  aiReferenceAllowed: z.boolean(),
+  /** When an Admin last changed a Library setting, for the one-time "what changed" notice. */
+  settingsChangedAt: z.string().optional(),
+  /** What an Admin changed, one line each, newest last (the notice lists the unseen ones). */
+  settingsChanges: z.array(z.object({ key: z.string(), at: z.string(), text: z.string() })).optional(),
+});
+export type Prefs = z.infer<typeof prefsSchema>;
+/** The only fields a person can change. */
+export type PrefsPatch = Partial<Pick<Prefs, "autoSave" | "aiReferenceEnabled">>;
+
+export const orgSettingsSchema = z.object({
+  defaultAutoSave: autoSaveSchema,
+  forceAutoSaveOff: z.boolean(),
+  aiReferenceEnabled: z.boolean(),
+  maxFileBytes: z.number().positive(),
+  allowedFormats: z.array(formatSchema),
+  /** Bumped on every write; PATCH sends it as If-Match so two Admins never overwrite silently. */
+  version: z.number().int().nonnegative(),
+  updatedBy: personSchema.optional(),
+  updatedAt: z.string().optional(),
+});
+export type OrgSettings = z.infer<typeof orgSettingsSchema>;
+
+export type OrgSettingsPatch = Partial<
+  Pick<OrgSettings, "defaultAutoSave" | "forceAutoSaveOff" | "aiReferenceEnabled" | "maxFileBytes" | "allowedFormats">
+>;

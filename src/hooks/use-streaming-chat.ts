@@ -18,6 +18,9 @@ import {
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
+import { libraryRefsFor } from "@/lib/library/upload/composer-uploads"
+import { parseLibraryCitations } from "@/components/Library/chat/library-citations"
+import { getSourcesOff } from "@/lib/library/library-sources-off"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
@@ -32,7 +35,7 @@ import {
   reasoningEventText,
 } from "@/lib/reasoning"
 import { normalizeActivityStatus, stopActiveActivities, toolNameToType, webSearchResults } from "@/lib/activity"
-import { deriveActivityDetail } from "@/lib/activity-detail"
+import { argsGenerateImage, argsImageHints, deriveActivityDetail } from "@/lib/activity-detail"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -278,6 +281,9 @@ export function useStreamingChat({
     // Maps toolName → activityId so tool_progress events can find the activity
     // created by the preceding tool_executing event.
     const toolCallIdByName = new Map<string, string>()
+    // Activity id → the image hints last applied, so streamed argument chunks
+    // only re-render the preview when its prompt or shape actually grew.
+    const imageHintsSeen = new Map<string, string>()
     // Tool names that errored — tool_complete still fires right after tool_error,
     // so this stops it from clobbering the "error" status back to "done".
     const erroredToolNames = new Set<string>()
@@ -408,8 +414,21 @@ export function useStreamingChat({
         options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
         if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
       }
-      // New files ride with the message; the backend adds them to Library after the turn.
-      options?.files?.forEach((f) => fd.append("files", f))
+      // Files the composer already uploaded into Library go by id; any other file still rides with
+      // the message as bytes, and the backend adds it to Library after the turn.
+      const fileRefs = libraryRefsFor(options?.files ?? [])
+      fileRefs.files.forEach((f) => fd.append("files", f))
+      if (fileRefs.libraryFileIds.length > 0) fd.append("libraryFileIds", JSON.stringify(fileRefs.libraryFileIds))
+      // The auto-save answer (Ask each time / Never). The backend does not read it yet (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1).
+      if (fileRefs.saveToLibrary !== undefined) fd.append("saveToLibrary", String(fileRefs.saveToLibrary))
+      // Library files switched off in this chat's Sources panel (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A10).
+      const sourcesOff = isExistingChat ? getSourcesOff(chatId!) : []
+      if (sourcesOff.length > 0) fd.append("librarySourcesOff", JSON.stringify(sourcesOff))
+      // The sent message remembers its Library files, for the chat's Sources panel.
+      if (fileRefs.libraryFileIds.length > 0 && options?.userMessageId) {
+        const sentIds = fileRefs.libraryFileIds
+        setMessages((prev) => prev.map((msg) => msg.id === options.userMessageId ? { ...msg, libraryFileIds: sentIds } : msg))
+      }
 
       const sseDecoder = new AguiSSEDecoder()
 
@@ -727,6 +746,16 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "library_citations") {
+            // Which Library file and place each [[L1]] marker in the answer points to (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 2 BE-4).
+            const libraryCitations = parseLibraryCitations(parsed.citations)
+            const msgId = loadingMessageIdRef.current
+            if (msgId && libraryCitations.length > 0) {
+              setMessages((prev) => prev.map((msg) => msg.id === msgId ? { ...msg, libraryCitations } : msg))
+            }
+            continue
+          }
+
           if (eventName === "web_search") {
             // Web search activity - schema: {query, links[], results[]}
             const query = asString(parsed.query) ?? ""
@@ -860,6 +889,8 @@ export function useStreamingChat({
             const activityType = toolNameToType(toolName)
             // What the call was given (its query, URL…), not the tool's name again.
             const detail = deriveActivityDetail(toolName, toolCall?.arguments)
+            const generatesImage = argsGenerateImage(toolCall?.arguments) || undefined
+            const imageHints = generatesImage ? argsImageHints(toolCall?.arguments) : undefined
             if (existingActivityId) {
               reasoning.renameActivity(existingActivityId, toolCallId)
             } else {
@@ -879,7 +910,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === existingActivityId
-                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: detail ?? a.detail }
+                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: detail ?? a.detail, generatesImage: generatesImage ?? a.generatesImage, imageHints: imageHints ?? a.imageHints }
                           : a,
                       ),
                       reasoningTimeline: reasoning.timeline(),
@@ -894,6 +925,8 @@ export function useStreamingChat({
                   toolName,
                   label,
                   detail,
+                  generatesImage,
+                  imageHints,
                   status: "executing",
                 }
                 setMessages((prev) =>
@@ -945,6 +978,28 @@ export function useStreamingChat({
                             ...msg,
                             activities: [...(msg.activities ?? []), activity],
                             reasoningTimeline: reasoning.timeline(),
+                          }
+                        : msg,
+                    ),
+                  )
+                }
+              } else if (argsGenerateImage(toolCall?.arguments)) {
+                // The code is still streaming: flag the image call now so the
+                // preview starts while the model writes it, and refine its
+                // shape/tint as the prompt arrives.
+                const hints = argsImageHints(toolCall?.arguments)
+                const hintsKey = `${hints.aspect ?? ""}|${hints.prompt?.length ?? 0}`
+                const msgId = loadingMessageIdRef.current
+                if (msgId && imageHintsSeen.get(existingId) !== hintsKey) {
+                  imageHintsSeen.set(existingId, hintsKey)
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === msgId
+                        ? {
+                            ...msg,
+                            activities: (msg.activities ?? []).map((a) =>
+                              a.id === existingId ? { ...a, generatesImage: true, imageHints: hints } : a,
+                            ),
                           }
                         : msg,
                     ),

@@ -67,13 +67,14 @@ function RecentCard({ file, onAction, first }: { file: LibraryFile; first: boole
           >
             {name}
           </span>
+          {/* Right after the title, as in the prototype; the "more" button takes the corner on hover. */}
+          {file.unread && <UnreadDot />}
         </span>
         <span style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <FileThumb file={file} width={96} height={64} className={styles.thumb} glyphSize="lg" />
         </span>
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{activityLine(file)}</span>
       </Link>
-      {file.unread && <span className={styles.cardDot}><UnreadDot /></span>}
       <span className={styles.more}>
         <RowMenu file={file} onAction={onAction} menuWidth={MENU_WIDTH} placement={first ? "bottom-start" : "bottom-end"} />
       </span>

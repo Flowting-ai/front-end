@@ -18,7 +18,11 @@ export const SCHEDULES_ROUTE = "/schedules";
 export const LIBRARY_ROUTE = "/library";
 export const LIBRARY_TRASH_ROUTE = "/library/trash";
 export const LIBRARY_FILE_ROUTE = (fileId: string) => `/library/files/${encodeURIComponent(fileId)}`;
+export const SETTINGS_LIBRARY_ROUTE = "/settings/library";
+export const ORG_LIBRARY_ROUTE = "/settings/workspace-library";
 // Static Phase 2 pages next to workspace Library settings (siblings, so the sidebar highlights one item at a time).
+export const ORG_AUDIT_LOG_ROUTE = "/settings/audit-log";
+export const ORG_INVENTORY_ROUTE = "/settings/inventory";
 export const TEMPLATE_BASE_ROUTE = "/template";
 export const WELCOME_ROUTE = "/welcome";
 export const PROJECTS_ROUTE = "/projects";

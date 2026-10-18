@@ -3,6 +3,8 @@
 import React from 'react'
 import { TickTwoIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
+import * as SliderPrimitive from '@radix-ui/react-slider'
+import styles from './EffortSlider.module.css'
 import { useModelSelectorContext, type ModelAlgorithm } from '@/context/model-selector-context'
 import { trackFeature } from '@/lib/analytics/events'
 import { sortModels, modelIconSource, AUTO_ROUTING_LABELS, isAutoRoutingModelName } from '@/lib/ai-models'
@@ -33,6 +35,67 @@ const MODEL_LIST_MAX_HEIGHT =
 function effortLabel(effort: string | null): string {
   if (!effort) return 'Off'
   return effort.charAt(0).toUpperCase() + effort.slice(1)
+}
+
+// Off is neutral; the supported efforts warm from calm blue through violet
+// and amber to a hot red, spread evenly over however many the model has.
+const EFFORT_RAMP = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444']
+
+function effortColor(index: number, count: number): string {
+  if (index === 0) return 'var(--neutral-500)'
+  const levels = count - 1
+  const t = levels <= 1 ? 1 : (index - 1) / (levels - 1)
+  return EFFORT_RAMP[Math.round(t * (EFFORT_RAMP.length - 1))]
+}
+
+/** Thinking effort as a stepped slider: Off, then each effort the model
+ *  supports, low → high. The menu stays open while dragging — the change
+ *  applies live and only analytics waits for the commit. */
+function EffortSlider({ options, value, onChange }: {
+  options: string[]
+  value: string | null
+  onChange: (effort: string | null) => void
+}) {
+  const steps = [null, ...options]
+  const index = Math.max(0, steps.indexOf(value))
+  const color = effortColor(index, steps.length)
+  return (
+    <div
+      // Dropdown's roving focus would otherwise steal the arrow keys the
+      // slider thumb uses to step.
+      onKeyDown={(e) => { if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') e.stopPropagation() }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 10px 8px', '--effort-color': color } as React.CSSProperties}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, lineHeight: '18px' }}>
+        <span style={{ color: 'var(--neutral-700)' }}>Effort</span>
+        <span key={index} className={styles.value}>{effortLabel(steps[index])}</span>
+      </div>
+      <SliderPrimitive.Root
+        className={styles.root}
+        min={0}
+        max={steps.length - 1}
+        step={1}
+        value={[index]}
+        onValueChange={([next]) => onChange(steps[next] ?? null)}
+        onValueCommit={([next]) => trackFeature('effort_level_changed', { effort: steps[next] ?? 'off' })}
+      >
+        <SliderPrimitive.Track className={styles.track}>
+          <SliderPrimitive.Range className={styles.range} />
+        </SliderPrimitive.Track>
+        <div aria-hidden className={styles.pips}>
+          {steps.map((s, i) => (
+            <span key={s ?? 'off'} className={styles.pip} data-active={i > 0 && i < index} />
+          ))}
+        </div>
+        <SliderPrimitive.Thumb className={styles.thumb} aria-label="Thinking effort" aria-valuetext={effortLabel(steps[index])} />
+      </SliderPrimitive.Root>
+      <div className={styles.labels}>
+        {steps.map((s, i) => (
+          <span key={s ?? 'off'} className={styles.label} data-active={i === index}>{effortLabel(s)}</span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export interface ModelMenuProps {
@@ -99,24 +162,6 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
         onClick={() => {
           trackFeature('model_selector_manual', { model_id: `algorithm:${value}`, model_type: 'algorithm' })
           selectAlgorithm(value)
-          onClose?.()
-        }}
-      />
-    )
-  }
-
-  const renderEffortItem = (effort: string | null) => {
-    const selected = reasoningEffort === effort
-    return (
-      <Dropdown.Item
-        key={effort ?? 'off'}
-        fluid
-        label={effortLabel(effort)}
-        selected={selected}
-        rightIcon={<TickTwoIcon style={{ opacity: selected ? 1 : 0 }} />}
-        onClick={() => {
-          trackFeature('effort_level_changed', { effort: effort ?? 'off' })
-          setReasoningEffort(effort)
           onClose?.()
         }}
       />
@@ -191,22 +236,11 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
       </Dropdown.Section>
       {effortOptions.length > 0 && (
         <Dropdown.Section label="Thinking" fluid divider>
-          <Dropdown.Submenu
-            trigger={
-              <Dropdown.Item
-                fluid
-                label="Effort"
-                subLabel={effortLabel(reasoningEffort)}
-                rightIcon={<ArrowRightOneIcon />}
-              />
-            }
-          >
-            <Dropdown size="md" maxHeight={false}>
-              <Dropdown.Section fluid>
-                {[null, ...effortOptions].map(renderEffortItem)}
-              </Dropdown.Section>
-            </Dropdown>
-          </Dropdown.Submenu>
+          <EffortSlider
+            options={effortOptions}
+            value={reasoningEffort}
+            onChange={setReasoningEffort}
+          />
         </Dropdown.Section>
       )}
     </Dropdown>
