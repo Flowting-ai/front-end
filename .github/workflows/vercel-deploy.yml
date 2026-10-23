@@ -1,0 +1,20 @@
+# Builds every push to test and ds-dev on Vercel through a Deploy Hook, so commits from authors without a Vercel seat still deploy.
+
+name: Vercel Deploy
+
+on:
+  push:
+    branches: ["test", "ds-dev"]
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        env:
+          HOOK_URL: ${{ github.ref_name == 'test' && secrets.VERCEL_DEPLOY_HOOK_TEST || secrets.VERCEL_DEPLOY_HOOK_DS_DEV }}
+        run: curl -fsS -X POST "$HOOK_URL"
