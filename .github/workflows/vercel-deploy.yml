@@ -1,4 +1,4 @@
-# Builds every push to test and ds-dev on Vercel through a Deploy Hook, so commits from authors without a Vercel seat still deploy.
+# Builds every push to test and ds-dev on Vercel, so commits from authors without a Vercel seat still deploy; test goes through the deployments API because Vercel drops its Git and hook triggers.
 
 name: Vercel Deploy
 
@@ -14,7 +14,29 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Vercel Deploy Hook
+      - name: Deploy test through the Vercel API
+        if: github.ref_name == 'test'
         env:
-          HOOK_URL: ${{ github.ref_name == 'test' && secrets.VERCEL_DEPLOY_HOOK_TEST || secrets.VERCEL_DEPLOY_HOOK_DS_DEV }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: team_t5FwLuNq1e9hHHA1ACp8m8fO
+        run: |
+          id=$(curl -fsS -X POST "https://api.vercel.com/v13/deployments?teamId=$TEAM_ID&forceNew=1" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"name\":\"front-end\",\"project\":\"front-end\",\"gitSource\":{\"type\":\"github\",\"org\":\"Flowting-ai\",\"repo\":\"front-end\",\"ref\":\"test\",\"sha\":\"$GITHUB_SHA\"}}" | jq -r .id)
+          echo "Deployment $id"
+          for i in $(seq 1 90); do
+            state=$(curl -fsS "https://api.vercel.com/v13/deployments/$id?teamId=$TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r .readyState)
+            echo "$state"
+            case "$state" in
+              READY) exit 0 ;;
+              ERROR|CANCELED) exit 1 ;;
+            esac
+            sleep 10
+          done
+          exit 1
+
+      - name: Trigger the ds-dev Deploy Hook
+        if: github.ref_name == 'ds-dev'
+        env:
+          HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_DS_DEV }}
         run: curl -fsS -X POST "$HOOK_URL"
