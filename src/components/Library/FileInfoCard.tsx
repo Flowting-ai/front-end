@@ -247,7 +247,7 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {/* Ask and Download need the file itself: hidden when the viewer cannot open it. */}
           {caps.open && (
-            <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed} onClick={onAsk}>
+            <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed || file.phase === 'uploading'} onClick={onAsk}>
               Ask about this
             </Button>
           )}

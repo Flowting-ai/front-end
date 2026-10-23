@@ -307,11 +307,18 @@ export async function buildApiError(response: Response): Promise<ApiError> {
       code?: string;
       message?: string;
       requestId?: string;
+      // The backend's own field errors (C-01): one entry per field
+      fieldErrors?: Array<{ field?: string; message?: string }>;
       // FastAPI validation error format
       detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
     };
     code = body.code ?? code;
     if (!extra.requestId && typeof body.requestId === "string") extra.requestId = body.requestId;
+    if (Array.isArray(body.fieldErrors)) {
+      const fields: Record<string, string> = {};
+      for (const entry of body.fieldErrors) if (entry?.field && entry.message) fields[entry.field] = entry.message;
+      if (Object.keys(fields).length > 0) extra.fieldErrors = fields;
+    }
     if (body.message ?? body.error) {
       message = body.message ?? body.error ?? message;
     } else if (Array.isArray(body.detail) && body.detail.length > 0) {

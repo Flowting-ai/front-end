@@ -2,8 +2,8 @@
 // chips, the save prompt, the delete-chat file list and the routine notes. Typed against the chat
 // contract in docs v2/library (02 section "Citations", 04 sections 5 and 5b): the stream sends
 // citations as `{ fileId, locator }`, `sourceEvents` when access changes mid-chat, `groundedness`
-// on the answer, `savedFileIds` after a send and `ask_save` in "Ask each time" mode. None of these
-// exist on the backend yet; the components that use this file run on the mock until they do.
+// on the answer, `savedFileIds` after a send and `ask_save` in "Ask each time" mode. Most of these
+// do not exist on the backend yet; the components that use them stay inert until they do.
 
 import { LIBRARY_FILE_ROUTE } from "@/lib/routes";
 import { citeQuery, formatTimestamp } from "./cite";

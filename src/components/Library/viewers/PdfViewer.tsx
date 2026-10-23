@@ -246,11 +246,7 @@ export default function PdfViewer({ url, highlightPage, passage, fitScreen = fal
     const source = resolvePdfSource(url)
     if (!source) return
     let cancelled = false
-    const task = getDocument(
-      source.kind === 'data'
-        ? { data: source.data, enableXfa: false }
-        : { url: source.url, withCredentials: false, enableXfa: false },
-    )
+    const task = getDocument({ url: source.url, withCredentials: false, enableXfa: false })
     task.promise
       .then(async (loaded) => {
         const first = await loaded.getPage(1)

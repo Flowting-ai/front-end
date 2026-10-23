@@ -21,6 +21,9 @@ import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
 import { libraryRefsFor } from "@/lib/library/upload/composer-uploads"
 import { parseLibraryCitations } from "@/components/Library/chat/library-citations"
 import { getSourcesOff } from "@/lib/library/library-sources-off"
+import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields"
+import { CHAT_MESSAGES } from "@/lib/library/messages"
+import { toast } from "sonner"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
@@ -56,7 +59,24 @@ class FriendlyStreamError extends Error {
  *  the generic 409 copy says. */
 const AGENT_UNAVAILABLE_MESSAGE = "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled."
 
+/** Library refusals checked before the stream starts. Their `message` is written for people
+ *  ("This file isn't ready yet.", "A message can include up to 10 files."), so it is shown as is. */
+const LIBRARY_SEND_CODES = new Set(["not_ready", "too_many_files", "file_gone", "file_locked"])
+
+function librarySendRefusal(rawText: string): string | null {
+  try {
+    const body: unknown = JSON.parse(rawText)
+    if (!body || typeof body !== "object") return null
+    const { code, message } = body as { code?: unknown; message?: unknown }
+    return typeof code === "string" && LIBRARY_SEND_CODES.has(code) && typeof message === "string" && message ? message : null
+  } catch {
+    return null
+  }
+}
+
 function streamFailureMessage(rawText: string, status: number, endpoint: string): string {
+  const refusal = librarySendRefusal(rawText)
+  if (refusal) return refusal
   if (status === 409 && endpoint.includes("persona")) return AGENT_UNAVAILABLE_MESSAGE
   return friendlyModelError(rawText, status)
 }
@@ -743,6 +763,15 @@ export function useStreamingChat({
               }
             }
 
+            continue
+          }
+
+          if (eventName === "library_files") {
+            // Which attached files the server listed in Library and which stayed in the chat. The server
+            // decides (Admin force-off, the chat's "Don't save"), so when it kept files out that this
+            // browser meant to save, say so; a send that already asked not to save was told before it went.
+            const chatOnly = Array.isArray(parsed.chatOnlyFileIds) ? parsed.chatOnlyFileIds : []
+            if (chatOnly.length > 0 && fileRefs.saveToLibrary !== false) toast(CHAT_MESSAGES.notSavedAsk)
             continue
           }
 
@@ -1650,6 +1679,8 @@ export function useStreamingChat({
           xhr.setRequestHeader("Content-Type", "application/json")
           xhr.send(JSON.stringify({ prompt_id: resume.promptId, response: resume.response }))
         } else {
+          // A direct send skips /api/chat, so drop here what the backend would refuse.
+          if (useDirectBackend) keepAcceptedFields(fd, isExistingChat ? CHAT_STREAM_FIELDS : CHAT_CREATE_FIELDS)
           xhr.send(fd)
         }
       })

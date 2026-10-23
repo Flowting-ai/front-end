@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import { CHAT_ROUTE, SCHEDULES_ROUTE } from '@/lib/routes'
 import { stashPendingPrompt } from '@/lib/scheduleLinks'
+import { createRunGuard } from '@/lib/schedules/run-guard'
 import { errorDetail, listItemToDetail } from '@/lib/schedules/schedule-mappers'
 import {
   ScheduleNotFoundError,
@@ -123,6 +124,14 @@ export function useSchedules(scheduleId: string | undefined) {
     },
   })
 
+  // isPending disables the button only after a re-render; the guard drops a second press in the same frame.
+  const [runGuard] = useState(createRunGuard)
+  const { mutate: runMutate } = runMutation
+  const runNow = useCallback((id: string) => {
+    if (!runGuard.tryStart()) return
+    runMutate(id, { onSettled: runGuard.done })
+  }, [runGuard, runMutate])
+
   // Someone else's → a chat that already holds the program; the prompt is prefilled.
   const copy = useCallback(() => {
     if (!selectedId) return
@@ -177,7 +186,7 @@ export function useSchedules(scheduleId: string | undefined) {
     toggleActive,
     deleteSchedule: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
-    runNow: runMutation.mutate,
+    runNow,
     isRunningNow: runMutation.isPending,
     copy,
     isCopying,

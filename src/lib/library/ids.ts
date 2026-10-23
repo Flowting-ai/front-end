@@ -1,7 +1,7 @@
 // Ids reach URLs and request paths, so the shape is checked at the route before anything uses it.
-// Real ids are UUIDs; the pattern is looser only so sample ids ("f_acme") work in the mock.
+// File ids are UUIDs.
 
-const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const SAFE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isValidFileId(value: string): boolean {
   return SAFE_ID.test(value);

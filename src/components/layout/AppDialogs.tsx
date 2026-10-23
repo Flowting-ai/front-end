@@ -6,7 +6,9 @@ import { AnimatePresence, m } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
 import { DeleteChatWithFilesDialog } from "@/components/Library/chat/DeleteChatFiles";
 import { useChatSavedFiles } from "@/components/Library/chat/useChatSavedFiles";
-import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { chatDeletedToast } from "@/components/Library/chat/chat-deleted-toast";
+import { useLibraryViewer } from "@/lib/library/viewer";
 import { CHAT_MESSAGES } from "@/lib/library/messages";
 import { ApiError } from "@/lib/api/client";
 import { getChatMessages } from "@/lib/api/chat";
@@ -145,6 +147,8 @@ async function chatStillExists(chatId: string): Promise<boolean> {
 /** Delete chat: asks about the files the chat saved to Library, or the plain confirm when they can't be told. */
 function DeleteChatHost({ state, onClose }: { state: DeleteChatPayload; onClose: () => void }) {
   const saved = useChatSavedFiles(state.chatId);
+  const queryClient = useQueryClient();
+  const { orgKey } = useLibraryViewer();
   if (saved.status === "unknown") {
     return (
       <DeleteChatDialog
@@ -153,7 +157,7 @@ function DeleteChatHost({ state, onClose }: { state: DeleteChatPayload; onClose:
         onConfirm={async () => {
           await state.onConfirm();
           onClose();
-          if (!(await chatStillExists(state.chatId))) toast(CHAT_MESSAGES.chatDeleted);
+          if (!(await chatStillExists(state.chatId))) chatDeletedToast(CHAT_MESSAGES.chatDeleted, state.chatId, queryClient, orgKey);
         }}
         onCancel={onClose}
       />
@@ -161,6 +165,7 @@ function DeleteChatHost({ state, onClose }: { state: DeleteChatPayload; onClose:
   }
   return (
     <DeleteChatWithFilesDialog
+      chatId={state.chatId}
       chatTitle={state.chatTitle}
       files={saved.status === "ready" ? saved.files : []}
       loading={saved.status === "loading"}

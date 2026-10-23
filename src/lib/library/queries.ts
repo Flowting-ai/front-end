@@ -88,9 +88,8 @@ export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSett
     enabled: ready,
     queryFn: async ({ signal }) => {
       const page = await libraryApi.listFiles(
-        // The Shared tab appears once something is shared WITH the person. `tab=shared` also lists files they
-        // own and shared out, so ask All files for Source: Shared, which is only what others shared with them.
-        { tab: "all", q: "", sources: ["shared"], types: [], sort: "shared", dir: "desc", unreadFirst: true },
+        // The Shared tab appears once something is shared WITH the person, which is exactly what `tab=shared` lists.
+        { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc", unreadFirst: true },
         null,
         signal,
       );
@@ -169,8 +168,9 @@ export function useLibraryFile(id: string) {
     },
     staleTime: 30 * SECOND,
     retry: libraryRetry,
-    // The detail's `phase` is always "ready"; processingPhase is the real state.
-    refetchInterval: (query) => (query.state.data?.processingPending ? 3 * SECOND : false),
+    // Poll while the file is still coming in (`phase: "uploading"`) or Library is still reading it.
+    refetchInterval: (query) =>
+      query.state.data?.processingPending || query.state.data?.phase === "uploading" ? 3 * SECOND : false,
   });
 }
 

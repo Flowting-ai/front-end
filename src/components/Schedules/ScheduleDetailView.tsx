@@ -278,7 +278,7 @@ export function ScheduleDetailView({
           <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
           {/* Announced when a run starts or finishes. */}
           <span aria-live="polite" style={{ display: 'contents' }}>
-            {schedule.isRunning && <Badge color="Blue" label="Running now" />}
+            {(schedule.isRunning || runningNow) && <Badge color="Blue" label="Running now" />}
           </span>
           {!!schedule.runCount && (
             <Badge color="Neutral" label={`${schedule.runCount} ${schedule.runCount === 1 ? 'run' : 'runs'}`} />

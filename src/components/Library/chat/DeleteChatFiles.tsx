@@ -13,6 +13,7 @@ import { CHAT_MESSAGES, chatDeletedTrashFailed, MESSAGES } from '@/lib/library/m
 import { deleteChatToast, savedFilesLine, type OpenFileRef } from '@/lib/library/sources'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { FormatGlyph } from '../FormatGlyph'
+import { chatDeletedToast } from './chat-deleted-toast'
 import styles from './LibraryChat.module.css'
 
 export interface DeleteChatFilesProps {
@@ -62,6 +63,7 @@ export function useTrashChatFiles() {
 }
 
 export interface DeleteChatWithFilesDialogProps {
+  chatId: string
   chatTitle: string
   files: OpenFileRef[]
   /** The chat's saved files are still being looked up: the list is a placeholder and Delete waits. */
@@ -75,7 +77,7 @@ export interface DeleteChatWithFilesDialogProps {
  * The prototype's Delete chat dialog: "Delete <chat>?", the saved files, "Also delete these files", and
  * a red Delete. With the box ticked the files go to Trash after the chat is deleted.
  */
-export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
+export function DeleteChatWithFilesDialog({ chatId, chatTitle, files, loading = false, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
   const [alsoDelete, setAlsoDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const queryClient = useQueryClient()
@@ -103,7 +105,8 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, o
       }
     }
     if (failed > 0) toast.error(chatDeletedTrashFailed(failed))
-    else toast(deleteChatToast(files.length, alsoDelete))
+    // Undo brings back the chat only, so it is offered when no file went to Trash with it.
+    else chatDeletedToast(deleteChatToast(files.length, alsoDelete), chatId, queryClient, orgKey, { undo: !alsoDelete || files.length === 0 })
     setBusy(false)
     onClose()
   }

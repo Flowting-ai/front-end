@@ -50,7 +50,8 @@ describe("selectSuggested", () => {
     expect(tileLine("frequent", { ...file("a"), openCount: 1 }, "x")).toBe("Opened 1 time");
     expect(tileLine("frequent", file("a"), "Opened 2d ago")).toBe("Opened 2d ago");
     expect(tileLine("generated", { ...file("g"), source: "generated", generatedFrom: { kind: "routine", label: "Weekly sales report" } }, "x")).toBe("Run of Weekly sales report");
-    expect(tileLine("generated", { ...file("g"), source: "generated", generatedFrom: { kind: "chat", label: "Refunds" } }, "x")).toBe("");
+    // The Generated row only holds routine outputs; without the routine's name the tile reads the run date.
+    expect(tileLine("generated", { ...file("g"), source: "generated", generatedFrom: { kind: "chat", label: "Refunds" } }, "x", "UTC")).toBe("Run of Oct 1");
   });
 
   it("reports an empty page only when every row is empty", () => {

@@ -26,7 +26,7 @@ import { warmFile } from '@/lib/library/warm'
 import { EmptyState } from './EmptyState'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { FileInfoCard } from './FileInfoCard'
-import { GoneState, LockedState, LibraryProcessingBanner, TrashedBanner } from './FileStates'
+import { GhostLines, GoneState, LockedState, LibraryProcessingBanner, ProcessingBanner, TrashedBanner } from './FileStates'
 import { LibraryShell } from './LibraryShell'
 import { LinkButton } from './LinkButton'
 import { RowMenu } from './FileTable/RowMenu'
@@ -141,11 +141,12 @@ export function FileScreen({ id }: { id: string }) {
   const caps = file.caps
   const name = file.name
   const trashed = file.life === 'trashed'
-  // Download and Ask need the file itself: neither is offered when the viewer cannot open it.
-  const download = caps.open ? () => handle('download', file) : undefined
+  // Download and Ask need the file itself: neither is offered when the viewer cannot open it, or while it is still uploading.
+  const uploading = file.phase === 'uploading'
+  const download = caps.open && !uploading ? () => handle('download', file) : undefined
   const askAbout = (text: string) => { void ask(file, text) }
-  // The detail's `phase` is always "ready"; Library processing (processingPhase) never blocks chat use of the original.
-  const canAsk = !trashed && caps.open
+  // Library processing (processingPhase) never blocks chat use of the original; an upload still in flight does.
+  const canAsk = !trashed && caps.open && !uploading
   // The info card rises in place: opacity and scale only, from the corner its button sits in, so the
   // compositor does all the work. The page re-centres with a FLIP (transform) rather than a width tween.
   const ease = [0.16, 1, 0.3, 1] as const
@@ -165,11 +166,13 @@ export function FileScreen({ id }: { id: string }) {
         <m.div ref={scrollRef} layoutScroll className={`${styles.scroll} kaya-scrollbar`}>
           <m.div className={styles.main} layout="position" transition={glide}>
             {trashed && <TrashedBanner fileId={file.id} title={name} daysLeft={file.daysLeft} canRestore={caps.restore} />}
-            {!trashed && <LibraryProcessingBanner file={file} />}
+            {!trashed && uploading && <ProcessingBanner phase="uploading" />}
+            {!trashed && !uploading && <LibraryProcessingBanner file={file} />}
             <div className={styles.page}>
               <h1 className={styles.pageTitle}>{name}</h1>
               <p className={styles.pageSub}>{formatLabel(file.format)}{file.extension ? ` · .${file.extension}` : ''}</p>
-              <FilePreview file={file} cite={cite} onDownload={download} />
+              {/* No bytes to preview until the upload lands. */}
+              {uploading ? <GhostLines /> : <FilePreview file={file} cite={cite} onDownload={download} />}
             </div>
           </m.div>
           <div className={infoOpen ? styles.spacer : `${styles.spacer} ${styles.spacerClosed}`} aria-hidden="true" />

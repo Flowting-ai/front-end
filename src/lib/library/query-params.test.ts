@@ -5,6 +5,7 @@ import {
   appliedFilterCount,
   chosenSort,
   effectiveListTab,
+  headingSort,
   isSearching,
   isUntouchedSharedOrder,
   tabPatch,
@@ -142,6 +143,19 @@ describe("derived values", () => {
     expect(toListParams({ ...shared, sort: "name" }).unreadFirst).toBeUndefined();
     expect(chosenSort({ ...shared, sort: "name" })).toEqual({ key: "name", dir: "asc" });
     expect(chosenSort({ ...DEFAULT_QUERY, tab: "all" })).toEqual({ key: "created", dir: "desc" });
+  });
+
+  it("leaves sort out of a search: headings are plain labels and the request does not change with it", () => {
+    const sorted: LibraryQuery = { ...DEFAULT_QUERY, tab: "all", sort: "name", dir: "desc" };
+    expect(headingSort(sorted)).toEqual({ key: "name", dir: "desc" });
+    expect(headingSort({ ...sorted, q: "net 30" })).toBeNull();
+    expect(toListParams({ ...sorted, q: "net 30" })).toEqual(toListParams({ ...DEFAULT_QUERY, tab: "all", q: "net 30" }));
+    expect(toListParams({ ...sorted, q: "net 30" })).toMatchObject({ sort: "created", dir: "desc" });
+    // "In Shared" search: no unread-first order, the server ranks by match.
+    expect(toListParams({ ...DEFAULT_QUERY, tab: "shared", q: "nova" }).unreadFirst).toBeUndefined();
+    // A one-letter query is not a search yet, so the chosen sort still applies.
+    expect(headingSort({ ...sorted, q: "n" })).toEqual({ key: "name", dir: "desc" });
+    expect(toListParams({ ...sorted, q: "n" })).toMatchObject({ sort: "name", dir: "desc" });
   });
 
   it("does not let Date shared decide the order or direction of All files", () => {

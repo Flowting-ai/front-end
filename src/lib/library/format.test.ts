@@ -35,6 +35,7 @@ describe("sizes", () => {
   it("describes storage with and without a cap", () => {
     expect(storageLabel(1_930_000_000, null)).toBe("1.93 GB used");
     expect(storageLabel(1_930_000_000, 20_000_000_000)).toBe("1.93 GB of 20 GB used");
+    expect(storageLabel(53_226_514, 21_474_836_480)).toBe("53.2 MB of 20 GB used");
     expect(storageShare(5, null)).toBe(0);
     expect(storageShare(5, 10)).toBe(0.5);
     expect(storageShare(50, 10)).toBe(1);
@@ -67,6 +68,9 @@ describe("dates", () => {
   it("describes the latest activity in generic words", () => {
     expect(activityLine({ lastActivityAt: iso(NOW - 2 * DAY), lastActivityKind: "shared" }, NOW, "UTC")).toBe("Shared 2d ago");
     expect(activityLine({ lastActivityAt: iso(NOW - HOUR), lastActivityKind: "created" }, NOW, "UTC")).toBe("Created today");
+    expect(activityLine({ lastActivityAt: iso(NOW - HOUR), lastActivityKind: "modified", unread: false, sharedAt: iso(NOW - DAY) }, NOW, "UTC")).toBe("Modified today");
+    // An unread shared file says when it was shared, even if the owner changed it later.
+    expect(activityLine({ lastActivityAt: iso(NOW - HOUR), lastActivityKind: "modified", unread: true, sharedAt: iso(NOW - 3 * DAY) }, NOW, "UTC")).toBe("Shared 3d ago");
   });
 
   it("labels the days left in Trash", () => {

@@ -6,7 +6,7 @@ import { Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { lengthBucket, resultBucket, trackLibrary } from '@/lib/library/analytics'
 import { MESSAGES } from '@/lib/library/messages'
-import { appliedFilterCount, chosenSort, effectiveListTab, isSearching, toLibraryHref, toggleSortPatch, type LibraryQuery } from '@/lib/library/query-params'
+import { appliedFilterCount, effectiveListTab, headingSort, isSearching, toLibraryHref, toggleSortPatch, type LibraryQuery } from '@/lib/library/query-params'
 import { useLibraryFiles } from '@/lib/library/queries'
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 import { useLibraryViewer } from '@/lib/library/viewer'
@@ -77,14 +77,14 @@ export function FilesView({ query, setQuery, isPending }: { query: LibraryQuery;
     <>
       {/* Announces the result count after a search or filter change. */}
       <p role="status" style={visuallyHidden}>
-        {searching ? `${list.files.length}${list.hasNextPage ? ' or more' : ''} results` : ''}
+        {searching ? `${list.files.length}${list.hasNextPage ? ' or more' : ''} results, best matches first` : ''}
       </p>
       <FileTable
         files={list.files}
         kind={tab}
         viewerId={viewerId}
         viewKey={viewKey}
-        sort={chosenSort(query)}
+        sort={headingSort(query)}
         onSort={(key) => setQuery((current) => toggleSortPatch(current, key))}
         onAction={handle}
         hasNextPage={list.hasNextPage}

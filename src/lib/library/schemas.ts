@@ -136,7 +136,8 @@ export type RunInput = z.infer<typeof runInputSchema>;
 export const PREVIEW_KINDS = ["pdf", "text", "sheet", "image", "audio", "none"] as const;
 
 export const fileDetailWireSchema = fileRowWireSchema.extend({
-  phase: z.enum(["uploading", "processing", "ready"]),
+  /** "failed" since 19 Oct: the upload or its processing failed (the row also says `processing: "failed"`). */
+  phase: z.enum(["uploading", "processing", "ready", "failed"]),
   scope: z.enum(["private", "shared", "workspace"]),
   provenance: provenanceSchema,
   mimeType: z.string(),
@@ -264,7 +265,8 @@ export const uploadInitSchema = z.object({
 });
 export type UploadInit = z.infer<typeof uploadInitSchema>;
 
-export type UploadInitRequest = { name: string; sizeBytes: number; mimeType: string; chatId?: string };
+/** `staged`: a composer upload, kept out of the lists until the message is sent (or dropped if it never is). */
+export type UploadInitRequest = { name: string; sizeBytes: number; mimeType: string; chatId?: string; staged?: boolean };
 export type UploadPartEtag = { partNumber: number; etag: string };
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -287,9 +289,13 @@ export const prefsSchema = z.object({
   /** False when an Admin turned automatic AI use of Library off for the workspace. */
   aiReferenceAllowed: z.boolean(),
   /** When an Admin last changed a Library setting, for the one-time "what changed" notice. */
-  settingsChangedAt: z.string().optional(),
+  settingsChangedAt: z.string().nullish().transform((v) => v ?? undefined),
   /** What an Admin changed, one line each, newest last (the notice lists the unseen ones). */
-  settingsChanges: z.array(z.object({ key: z.string(), at: z.string(), text: z.string() })).optional(),
+  settingsChanges: z
+    .array(z.object({ key: z.string(), at: z.string(), text: z.string() }))
+    .optional()
+    // The backend sends newest first; sort so the order is the documented one whatever it sends.
+    .transform((changes) => changes && [...changes].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))),
 });
 export type Prefs = z.infer<typeof prefsSchema>;
 /** The only fields a person can change. */

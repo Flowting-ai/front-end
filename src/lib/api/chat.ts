@@ -13,6 +13,7 @@ import {
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
+  CHAT_RESTORE_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -167,6 +168,11 @@ export async function deleteChat(chatId: string): Promise<void> {
   }
 }
 
+/** Undoes Delete chat while the chat is inside the Trash window. */
+export async function restoreChat(chatId: string): Promise<void> {
+  await apiFetchJson(CHAT_RESTORE_ENDPOINT(chatId), { method: "POST" });
+}
+
 export async function starChat(chatId: string): Promise<void> {
   await apiFetchJson(CHAT_STAR_ENDPOINT(chatId), {
     method: "PATCH",
@@ -227,6 +233,7 @@ interface BackendMessage {
     name?: string | null;
     origin?: string | null;
     document_id?: string | null;
+    libraryState?: "open" | "deleted" | "locked" | null;
   }> | null;
   pin_ids?: (string | null)[] | null;
   metadata?: Record<string, unknown>;
@@ -378,6 +385,7 @@ function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").B
       name: a.name ?? undefined,
       origin: a.origin ?? undefined,
       document_id: a.document_id ?? undefined,
+      libraryState: a.libraryState ?? undefined,
     }] : []);
 }
 

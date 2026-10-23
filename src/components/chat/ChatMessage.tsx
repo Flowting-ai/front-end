@@ -981,7 +981,7 @@ export function ChatMessage({
                 );
                 // A Library file that was deleted (or is locked) reads "File deleted" / "Locked file", not its name.
                 return att.libraryFileId ? (
-                  <SentLibraryAttachment key={att.id} fileId={att.libraryFileId}>{node}</SentLibraryAttachment>
+                  <SentLibraryAttachment key={att.id} fileId={att.libraryFileId} state={att.libraryState}>{node}</SentLibraryAttachment>
                 ) : node;
               })}
             </div>

@@ -820,7 +820,7 @@ function ChatPageInner() {
     >
       {saveDialog}
       {libraryPicker.dialog}
-      {/* Hidden file input - triggered by "Add files or photos" in add menu */}
+      {/* Hidden file input - triggered by "Add photos & files" in add menu */}
       <input
         ref={fileInputRef}
         type="file"

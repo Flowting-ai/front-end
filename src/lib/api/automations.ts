@@ -50,6 +50,7 @@ export function runSummary(run: AutomationRun): string {
   if (run.answer) return run.answer
   if (run.status === 'failed') return failureReason(run.error ?? '')
   if (run.status === 'running') return 'Still running.'
+  if (run.status === 'interrupted') return 'Stopped by a Souvenir restart before it finished. It does not count as a failure.'
   return 'This run finished without an answer.'
 }
 

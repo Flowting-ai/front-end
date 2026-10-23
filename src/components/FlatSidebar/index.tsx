@@ -31,18 +31,30 @@ function SouvenirWordmark() {
       }}
     >
       <SouvenirLogo size={24} />
-      <span
-        style={{
-          fontFamily: "var(--font-title)",
-          fontSize: 24,
-          fontWeight: 400,
-          lineHeight: "24px",
-          color: "var(--neutral-700)",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Souvenir
-      </span>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-title)",
+            fontSize: 24,
+            fontWeight: 400,
+            lineHeight: "24px",
+            color: "var(--neutral-700)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Souvenir
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            lineHeight: "11px",
+            color: "var(--neutral-500)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          test
+        </span>
+      </div>
     </div>
   )
 }
@@ -74,6 +86,9 @@ export interface FlatSidebarProps {
   accountMenu?: (collapsed: boolean) => React.ReactNode
 }
 
+/** Below this window width the sidebar starts collapsed (the same breakpoint as useMobile). */
+const NARROW_WINDOW = 768
+
 export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
   function FlatSidebar(
     { onSearch, searchActive, onCollapse, defaultCollapsed = false, forceCollapsed = false, destinationsItems, projectItems, recentItems, accountMenu },
@@ -84,6 +99,16 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
     const [collapseHovered, setCollapseHovered] = useState(false)
     const [atScrollTop, setAtScrollTop] = useState(true)
     const [atScrollBottom, setAtScrollBottom] = useState(false)
+
+    // A narrow window would leave the page only a sliver beside the 294px sidebar, so drop to the
+    // rail whenever the window gets narrower than the breakpoint. The toggle can still open it.
+    useEffect(() => {
+      const narrow = window.matchMedia(`(max-width: ${NARROW_WINDOW - 1}px)`)
+      if (narrow.matches) setIsCollapsed(true)
+      const onChange = (e: MediaQueryListEvent) => { if (e.matches) setIsCollapsed(true) }
+      narrow.addEventListener('change', onChange)
+      return () => narrow.removeEventListener('change', onChange)
+    }, [])
 
     // Ported from src/components/Sidebar/index.tsx — measures the header so the
     // scroll body / fades anchor to its real bottom edge rather than a hand-

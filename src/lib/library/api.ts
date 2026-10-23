@@ -160,8 +160,19 @@ export const libraryApi = {
     ),
 
   // Uploads (the composer owns the UI; Library has no upload button)
-  createUpload: async (request: UploadInitRequest) =>
-    backendUploadParts(parse(uploadInitSchema, await apiFetchJson<unknown>(`${BASE}/uploads`, { method: "POST", ...jsonBody(request) }), "createUpload")),
+  /** `idempotencyKey` is the same for every retry of one upload, so a retried start never makes a second file. */
+  createUpload: async (request: UploadInitRequest, idempotencyKey?: string) =>
+    backendUploadParts(
+      parse(
+        uploadInitSchema,
+        await apiFetchJson<unknown>(`${BASE}/uploads`, {
+          method: "POST",
+          ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
+          ...jsonBody(request),
+        }),
+        "createUpload",
+      ),
+    ),
   completeUpload: (id: string, parts: UploadPartEtag[]) => apiFetchVoid(`${uploadUrl(id)}/complete`, { method: "POST", ...jsonBody({ parts }) }),
   cancelUpload: (id: string) => apiFetchVoid(uploadUrl(id), { method: "DELETE" }),
   getUploadStatuses: (ids: string[], signal?: AbortSignal) =>

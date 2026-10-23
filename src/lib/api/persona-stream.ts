@@ -11,6 +11,7 @@ import { toConnector } from "@/lib/connector";
 import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, PERSONA_CHATS_CREATE_ENDPOINT, PERSONA_CHAT_STREAM_ENDPOINT, directUpload } from "@/lib/config";
 import type { Persona } from "./persona-model";
 import { bustPersonaChatsCache } from "./persona-chats";
+import { PERSONA_CREATE_FIELDS, PERSONA_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields";
 
 // ── Persona test chat ─────────────────────────────────────────────────────────
 
@@ -123,6 +124,8 @@ function buildStreamBody(
      *  rather than the version's stored model (useful when model changed but not yet saved). */
     modelId?: string | null;
   },
+  /** When set, every other field is dropped before sending. */
+  accepted?: ReadonlySet<string>,
 ): { body: BodyInit; headers?: HeadersInit } {
   const hasFiles = (options?.files?.length ?? 0) > 0;
   if (hasFiles) {
@@ -133,7 +136,7 @@ function buildStreamBody(
     options?.disabledConnectors?.forEach(slug => form.append("disabled_connectors", slug));
     options?.connectorSlugs?.forEach(slug => form.append("connector_slugs", slug));
     if (options?.modelId) form.append("model_id", options.modelId);
-    return { body: form };
+    return { body: accepted ? keepAcceptedFields(form, accepted) : form };
   }
   const params = new URLSearchParams();
   params.append("input", input);
@@ -142,7 +145,7 @@ function buildStreamBody(
   options?.connectorSlugs?.forEach(slug => params.append("connector_slugs", slug));
   if (options?.modelId) params.append("model_id", options.modelId);
   return {
-    body: params.toString(),
+    body: (accepted ? keepAcceptedFields(params, accepted) : params).toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   };
 }
@@ -412,7 +415,8 @@ export async function createAndStreamPersonaChat(
   options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
-  const { body, headers } = buildStreamBody(input, options);
+  // The backend refuses connector, model and OCR fields on this route (it never read them).
+  const { body, headers } = buildStreamBody(input, options, PERSONA_CREATE_FIELDS);
   // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
   // going direct to the backend; text-only stays on the same-origin proxy.
   const endpoint = body instanceof FormData
@@ -547,7 +551,8 @@ export async function streamPersonaMessage(
   options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
-  const { body, headers } = buildStreamBody(input, options);
+  // The backend refuses connector, model and OCR fields on this route (it never read them).
+  const { body, headers } = buildStreamBody(input, options, PERSONA_STREAM_FIELDS);
   // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
   // going direct to the backend; text-only stays on the same-origin proxy.
   const endpoint = body instanceof FormData

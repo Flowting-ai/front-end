@@ -92,12 +92,12 @@ export function clearComposerNotices(): void {
   for (const item of uploadStore.forDraft(DRAFT_KEY)) if (item.status === "failed") controller.forget(item.id);
 }
 
-/** Cancels the upload of an attachment removed with its X. */
+/** Cancels the upload of an attachment removed with its X. A finished one is discarded too: it was staged, never sent. */
 export function cancelComposerUpload(file: File): void {
   const id = uploadIdByFile.get(file);
   if (!id) return;
   const item = uploadStore.get(id);
-  if (item && isInFlight(item.status)) getUploadController().cancel(id);
+  if (item && (isInFlight(item.status) || item.status === "ready")) getUploadController().cancel(id);
   uploadIdByFile.delete(file);
 }
 

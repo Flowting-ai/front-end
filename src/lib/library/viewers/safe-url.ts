@@ -1,6 +1,6 @@
 // Storage URLs come from the API and end up in an <img> or <audio> src. Only schemes that cannot run
 // code are allowed there: https storage, same-origin paths, blob: (local playback), and data: for
-// images only (the sample art and tiny inline previews). Everything else renders as "unavailable".
+// images only (tiny inline previews). Everything else renders as "unavailable".
 
 export type AssetKind = "image" | "audio";
 

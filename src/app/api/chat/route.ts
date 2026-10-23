@@ -3,6 +3,7 @@ import { BACKEND_BASE, getSessionToken, newRequestId, routeError, upstreamFetch 
 import { logger } from "@/lib/logger"
 import { forwardGeoHeaders } from "@/lib/geo-headers"
 import { chatFormSchema, firstIssue, formFields } from "@/lib/server/chat-forms"
+import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields"
 
 export const dynamic = "force-dynamic"
 // Allow up to Vercel's Fluid-compute ceiling for Claude extended-thinking +
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
   if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
   if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
   if (librarySourcesOff) fd.append("librarySourcesOff", librarySourcesOff)
+  // The backend refuses fields it does not read yet (web_search, system_prompt, temperature,
+  // tone_id, librarySourcesOff), so they stop here.
+  keepAcceptedFields(fd, isExistingChat ? CHAT_STREAM_FIELDS : CHAT_CREATE_FIELDS)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   // One id per request, sent upstream and returned as X-Request-Id; failures are

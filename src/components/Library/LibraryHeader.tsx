@@ -143,7 +143,8 @@ export function LibraryHeader({ query, setQuery }: LibraryHeaderProps) {
       {searching ? (
         <ScopeToggle query={query} setQuery={setQuery} />
       ) : (
-        <div style={{ marginTop: 24 }}>
+        // In a narrow window the tab row scrolls sideways instead of cutting off its last tab.
+        <div style={{ marginTop: 24, maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
           <Tabs value={query.tab} onValueChange={(value) => setQuery((current) => tabPatch(current, value as LibraryTab), 'push')}>
             <Tabs.List>
               <Tabs.Trigger value="suggested">Suggested</Tabs.Trigger>

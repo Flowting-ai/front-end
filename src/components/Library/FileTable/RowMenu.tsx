@@ -17,7 +17,7 @@ export type RowAction = 'share' | 'rename' | 'download' | 'delete'
 
 export interface RowMenuProps {
   /** A list row, or the file page's detail (which also says whether the file is ready). */
-  file: LibraryFile & { phase?: 'uploading' | 'processing' | 'ready' }
+  file: LibraryFile & { phase?: 'uploading' | 'processing' | 'ready' | 'failed' }
   onAction: (action: RowAction, file: LibraryFile) => void
   /** False when an Admin switched sharing off for the workspace. */
   /** Always visible (the file page header), instead of appearing on row hover. */
