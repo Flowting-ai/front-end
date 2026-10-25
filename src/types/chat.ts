@@ -38,6 +38,8 @@ export interface Attachment {
   uploadProgress?: number;
   /** The Library file this attachment is, when the history names it (`document_id`). Its state (deleted, locked) then drives the chip. */
   libraryFileId?: string;
+  /** What the history says about that Library file: deleted and locked chips need no lookup. */
+  libraryState?: "open" | "deleted" | "locked";
 }
 
 export interface Citation {
@@ -64,6 +66,8 @@ export interface BackendFileAttachment {
   name?: string;
   /** The Library file this attachment is (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A10). */
   document_id?: string;
+  /** Whether the viewer can still open that file. Deleted and locked ones come without a link or name. */
+  libraryState?: "open" | "deleted" | "locked";
 }
 
 export interface Message {

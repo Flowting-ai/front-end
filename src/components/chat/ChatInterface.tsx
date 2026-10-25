@@ -79,6 +79,7 @@ import type { PinFolder } from "@/lib/api/pins";
 import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
 import { MentionChip } from "@/components/chat/MentionChip";
+import { FileDropOverlay } from "./FileDropOverlay";
 
 // How long to wait, once a stream has ended, for a reply's reveal to report
 // settled before the completion UI stops waiting — see handleRevealSettled.
@@ -1430,43 +1431,7 @@ export function ChatInterface({
       {saveDialog}
       <ChatSources chatId={chatId && !chatId.startsWith("temp-") ? chatId : undefined} messages={messages} />
       <ChatFilePanelSlot chatId={chatId} />
-      {/* Drag overlay */}
-      {isDragging && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 40,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(var(--surface-rgb), 0.9)",
-            border: "2px dashed var(--blue-400)",
-            borderRadius: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-              color: "var(--blue-600)",
-            }}
-          >
-            <Upload size={32} />
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--font-size-body-md)",
-                fontWeight: "var(--font-weight-medium)",
-              }}
-            >
-              Drop files here
-            </span>
-          </div>
-        </div>
-      )}
+      <FileDropOverlay visible={isDragging} />
 
       {/* Messages area + scroll-to-bottom button, wrapped so the button can be absolutely positioned at the bottom of the scroll area */}
       <div

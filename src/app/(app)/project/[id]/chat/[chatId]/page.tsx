@@ -85,6 +85,7 @@ function LoadingChatSkeleton() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 import { useRecommendationsState } from '@/hooks/use-recommendations'
+import { FileDropOverlay } from '@/components/chat/FileDropOverlay'
 
 
 function ProjectChatPageInner() {
@@ -554,27 +555,7 @@ function ProjectChatPageInner() {
             className="kaya-scrollbar"
             style={{ position: 'absolute', inset: 0, overflowY: 'auto' }}
           >
-            {/* Drag-and-drop overlay */}
-            {isDragging && (
-              <div
-                style={{
-                  position:        'fixed',
-                  inset:           0,
-                  zIndex:          40,
-                  display:         'flex',
-                  alignItems:      'center',
-                  justifyContent:  'center',
-                  backgroundColor: 'rgba(var(--surface-rgb), 0.88)',
-                  border:          '2px dashed var(--focus-ring)',
-                  borderRadius:    '16px',
-                  pointerEvents:   'none',
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body-md)', color: 'var(--blue-600)', fontWeight: 500 }}>
-                  Drop files here
-                </span>
-              </div>
-            )}
+            <FileDropOverlay visible={isDragging} />
 
             {/* Centering wrapper */}
             <div

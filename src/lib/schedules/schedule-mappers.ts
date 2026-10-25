@@ -94,13 +94,15 @@ export function runToRecord(run: AutomationRun, now = new Date()): ScheduleRunRe
   const whenIso  = run.finished_at ?? run.started_at ?? null
   const isFailed = run.status === 'failed'
   const isDone   = run.status === 'succeeded'
+  // A run the platform ended (restart, dead worker, pause mid-fire) is over but not the routine's failure.
+  const isInterrupted = run.status === 'interrupted'
   const summary  = runSummary(run)
   const raw      = (run.error ?? '').trim()
   return {
     id:          run.id,
     label:       (whenIso && formatRunTime(whenIso, now)) || 'Run',
-    title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
-    status:      isFailed ? 'failed' : isDone ? 'complete' : 'executing',
+    title:       isFailed ? 'Failed' : isDone ? 'Completed' : isInterrupted ? 'Interrupted' : 'Running',
+    status:      isFailed ? 'failed' : isDone ? 'complete' : isInterrupted ? 'skipped' : 'executing',
     summary,
     // Only worth offering when there's more to it than the line above.
     detail:      raw && raw !== summary ? raw : undefined,

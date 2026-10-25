@@ -135,6 +135,9 @@ export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
+/** Brings back a chat deleted inside the Trash window (404 after it). */
+export const CHAT_RESTORE_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/restore`)
 // PATCH .../visibility never existed on this backend's chat router (confirmed
 // by reading services/chat/router.py's full route list) — every call 404s.
 // The real mechanism is this one-way, no-body action route: it looks up the

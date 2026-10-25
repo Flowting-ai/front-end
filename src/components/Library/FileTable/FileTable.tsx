@@ -130,8 +130,11 @@ export interface FileTableProps {
   viewerId: string | undefined
   /** Identifies this view, so its scroll position can be restored. */
   viewKey: string
-  /** The sort to mark on the headings; a null key marks none (Shared's untouched order). */
-  sort: { key: SortKey | null; dir: SortDir }
+  /**
+   * The sort to mark on the headings; a null key marks none (Shared's untouched order). Null makes
+   * every heading a plain label (search results, which come best match first).
+   */
+  sort: { key: SortKey | null; dir: SortDir } | null
   onSort: (key: SortKey) => void
   onAction: (action: RowAction, file: LibraryFile) => void
   hasNextPage: boolean
@@ -241,7 +244,8 @@ export function FileTable({
   }, [viewKey, virtualizer])
 
   const dateKey: SortKey = kind === 'shared' ? 'shared' : 'created'
-  const ariaSort = (key: SortKey): 'ascending' | 'descending' | 'none' => (sort.key !== key ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending')
+  const ariaSort = (key: SortKey): 'ascending' | 'descending' | 'none' | undefined => (!sort ? undefined : sort.key !== key ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending')
+  const dateLabel = kind === 'shared' ? 'Date shared' : 'Created'
   const hide = HIDE_CLASS[kind]
 
   return (
@@ -255,12 +259,12 @@ export function FileTable({
         <div role="rowgroup" className={styles.stickyHead}>
           <div role="row" aria-rowindex={1} className={cx(styles.head, COLUMN_CLASS[kind])}>
             <div role="columnheader" aria-sort={ariaSort('name')}>
-              <SortHeading label="Name" sortKey="name" active={sort.key === 'name'} dir={sort.dir} onSort={onSort} />
+              {sort ? <SortHeading label="Name" sortKey="name" active={sort.key === 'name'} dir={sort.dir} onSort={onSort} /> : <HeadLabel>Name</HeadLabel>}
             </div>
             <div role="columnheader" className={hide.access}><HeadLabel>Access</HeadLabel></div>
             {kind === 'all' && <div role="columnheader" className={hide.source}><HeadLabel>Source</HeadLabel></div>}
             <div role="columnheader" aria-sort={ariaSort(dateKey)} className={styles.cTiniest}>
-              <SortHeading label={kind === 'shared' ? 'Date shared' : 'Created'} sortKey={dateKey} active={sort.key === dateKey} dir={sort.dir} onSort={onSort} />
+              {sort ? <SortHeading label={dateLabel} sortKey={dateKey} active={sort.key === dateKey} dir={sort.dir} onSort={onSort} /> : <HeadLabel>{dateLabel}</HeadLabel>}
             </div>
             <div role="columnheader" className={hide.type}><HeadLabel>Type</HeadLabel></div>
             <div role="columnheader"><span className={styles.srOnly}>Actions</span></div>

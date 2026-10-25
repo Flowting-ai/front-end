@@ -3,6 +3,7 @@ import { BACKEND_BASE, getSessionToken, newRequestId, routeError, upstreamFetch 
 import { logger } from "@/lib/logger"
 import { forwardGeoHeaders } from "@/lib/geo-headers"
 import { firstIssue, formFields, personaChatFormSchema } from "@/lib/server/chat-forms"
+import { PERSONA_CREATE_FIELDS, PERSONA_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields"
 
 export const dynamic = "force-dynamic"
 // Matches the /api/chat proxy's ceiling — see that file for the Vercel Fluid-compute rationale.
@@ -74,7 +75,8 @@ export async function POST(request: NextRequest) {
   if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
   connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
   if (modelId) fd.append("model_id", modelId)
-  const body: BodyInit = fd
+  // The persona routes refuse connector_slugs and model_id (they never read them).
+  const body: BodyInit = keepAcceptedFields(fd, isExistingChat ? PERSONA_STREAM_FIELDS : PERSONA_CREATE_FIELDS)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   // One id per request, sent upstream and returned as X-Request-Id; failures are

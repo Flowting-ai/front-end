@@ -240,7 +240,8 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
           sizeBytes: runtime.file.size,
           mimeType: runtime.file.type || "application/octet-stream",
           chatId: runtime.options.chatId,
-        });
+          staged: true,
+        }, id);
         if (runtime.cancelled) {
           void api.cancelUpload(runtime.init.id).catch(() => undefined);
           return;
@@ -408,11 +409,10 @@ export function createUploadController(partial: Partial<UploadDeps> = {}): Uploa
       }
       store.dispatch(id, { type: "cancel" });
       store.remove(id);
-      // Once processing, the server refuses to cancel (upload_done) and the file lands in the
-      // Library anyway; removing the card only takes it off this message.
-      // The same while the complete call is in flight: a cancel then could lose to it and leave the
-      // file in the Library with its card already gone.
-      if (item?.status === "processing" || item?.status === "ready" || runtime?.completed || runtime?.completing) return;
+      // Uploads are staged: a finished one that was never sent is discarded by the same DELETE (the server
+      // answers upload_done only once a send kept it). While the complete call is in flight a cancel
+      // could lose to it, so wait for it; the server sweeps unsent staged files after a day anyway.
+      if (runtime?.completing && !runtime.completed) return;
       const serverId = runtime?.init?.id ?? item?.serverId;
       if (serverId) void deps.api.cancelUpload(serverId).catch(() => undefined);
     },

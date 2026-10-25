@@ -22,7 +22,8 @@ export function refFromDetail(file: LibraryFileDetail): FileRef {
     title: file.title,
     format: file.format,
     extension: file.extension,
-    phase: file.phase,
+    // A failed file still opens as the original, so the chat treats it as ready.
+    phase: file.phase === 'failed' ? 'ready' : file.phase,
     createdAt: file.createdAt,
     generated: file.source === 'generated',
   }

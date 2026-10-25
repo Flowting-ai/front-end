@@ -9,12 +9,14 @@ import { CitedLabel } from './CitedLabel'
 export interface AudioViewerProps {
   url: string
   lines: { startMs: number; text: string }[]
+  /** Where the transcript is: made at indexing, so `pending` for a while after upload. Absent from older servers. */
+  transcriptStatus?: 'pending' | 'ready' | 'failed'
   /** A time citation in milliseconds: playback is positioned there and its line is marked. */
   citeMs?: number | null
 }
 
 /** Native audio controls plus a transcript. Clicking a line seeks to it; the current line is marked as it plays. */
-export default function AudioViewer({ url, lines, citeMs }: AudioViewerProps) {
+export default function AudioViewer({ url, lines, transcriptStatus, citeMs }: AudioViewerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const listRef = useRef<HTMLOListElement>(null)
   // The playing line and the cited line are two different marks: following playback never clears the citation.
@@ -62,8 +64,13 @@ export default function AudioViewer({ url, lines, citeMs }: AudioViewerProps) {
       >
         Your browser cannot play this recording.
       </audio>
+      {lines.length === 0 && (transcriptStatus === 'pending' || transcriptStatus === 'failed') && (
+        <p role="status" style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+          {transcriptStatus === 'pending' ? FILE_MESSAGES.transcriptPending : FILE_MESSAGES.transcriptFailed}
+        </p>
+      )}
       {lines.length > 0 && (
-        <section aria-label="Transcript" style={{ borderRadius: 12, background: 'var(--card-bg)', boxShadow: 'var(--shadow-card-default)', padding: 8 }}>
+        <section aria-label={FILE_MESSAGES.transcript} style={{ borderRadius: 12, background: 'var(--card-bg)', boxShadow: 'var(--shadow-card-default)', padding: 8 }}>
           <ol ref={listRef} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {lines.map((line, index) => {
               const cited = index === citedIndex

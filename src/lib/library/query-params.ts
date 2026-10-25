@@ -190,9 +190,19 @@ export function appliedFilterCount(query: LibraryQuery): number {
   return isSearching(query) ? 0 : activeFilterCount(query);
 }
 
+/**
+ * The sort the column headings show and change, or null while searching: results come best match
+ * first (name hits, then rank) and the server ignores sort, so the headings are plain labels then.
+ */
+export function headingSort(query: LibraryQuery): { key: SortKey | null; dir: SortDir } | null {
+  return isSearching(query) ? null : chosenSort(query);
+}
+
 export function toListParams(query: LibraryQuery): ListParams {
-  const { key, dir } = resolveSort(query);
   const searching = isSearching(query);
+  // While searching the server orders by match, so a sort left in the URL must not refetch the same results.
+  const searchKey = defaultSortKey(effectiveListTab(query));
+  const { key, dir } = searching ? { key: searchKey, dir: defaultSortDir(searchKey) } : resolveSort(query);
   const params: ListParams = {
     tab: effectiveListTab(query),
     q: searching ? query.q : "",
@@ -201,6 +211,6 @@ export function toListParams(query: LibraryQuery): ListParams {
     sort: key,
     dir,
   };
-  if (isUntouchedSharedOrder(query)) params.unreadFirst = true;
+  if (!searching && isUntouchedSharedOrder(query)) params.unreadFirst = true;
   return params;
 }

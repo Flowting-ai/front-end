@@ -20,7 +20,12 @@ import { ensureFreshToken } from "@/lib/jwt-utils"
 import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
 import { libraryRefsFor } from "@/lib/library/upload/composer-uploads"
 import { parseLibraryCitations } from "@/components/Library/chat/library-citations"
-import { getSourcesOff } from "@/lib/library/library-sources-off"
+import { getSourcesOff, hasSourcesOff } from "@/lib/library/library-sources-off"
+import { parseLibraryShare } from "@/lib/library/library-shares"
+import { showLibraryShareToast } from "@/components/Library/chat/library-share-toast"
+import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields"
+import { CHAT_MESSAGES } from "@/lib/library/messages"
+import { toast } from "sonner"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
@@ -56,7 +61,24 @@ class FriendlyStreamError extends Error {
  *  the generic 409 copy says. */
 const AGENT_UNAVAILABLE_MESSAGE = "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled."
 
+/** Library refusals checked before the stream starts. Their `message` is written for people
+ *  ("This file isn't ready yet.", "A message can include up to 10 files."), so it is shown as is. */
+const LIBRARY_SEND_CODES = new Set(["not_ready", "too_many_files", "file_gone", "file_locked"])
+
+function librarySendRefusal(rawText: string): string | null {
+  try {
+    const body: unknown = JSON.parse(rawText)
+    if (!body || typeof body !== "object") return null
+    const { code, message } = body as { code?: unknown; message?: unknown }
+    return typeof code === "string" && LIBRARY_SEND_CODES.has(code) && typeof message === "string" && message ? message : null
+  } catch {
+    return null
+  }
+}
+
 function streamFailureMessage(rawText: string, status: number, endpoint: string): string {
+  const refusal = librarySendRefusal(rawText)
+  if (refusal) return refusal
   if (status === 409 && endpoint.includes("persona")) return AGENT_UNAVAILABLE_MESSAGE
   return friendlyModelError(rawText, status)
 }
@@ -421,9 +443,9 @@ export function useStreamingChat({
       if (fileRefs.libraryFileIds.length > 0) fd.append("libraryFileIds", JSON.stringify(fileRefs.libraryFileIds))
       // The auto-save answer (Ask each time / Never). The backend does not read it yet (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1).
       if (fileRefs.saveToLibrary !== undefined) fd.append("saveToLibrary", String(fileRefs.saveToLibrary))
-      // Library files switched off in this chat's Sources panel (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A10).
-      const sourcesOff = isExistingChat ? getSourcesOff(chatId!) : []
-      if (sourcesOff.length > 0) fd.append("librarySourcesOff", JSON.stringify(sourcesOff))
+      // Library files switched off in this chat's Sources panel. The server stores the list, so once the chat
+      // has one it is sent even when empty: that is how switching the last file back on reaches the server.
+      if (isExistingChat && hasSourcesOff(chatId!)) fd.append("librarySourcesOff", JSON.stringify(getSourcesOff(chatId!)))
       // The sent message remembers its Library files, for the chat's Sources panel.
       if (fileRefs.libraryFileIds.length > 0 && options?.userMessageId) {
         const sentIds = fileRefs.libraryFileIds
@@ -743,6 +765,22 @@ export function useStreamingChat({
               }
             }
 
+            continue
+          }
+
+          if (eventName === "library_files") {
+            // Which attached files the server listed in Library and which stayed in the chat. The server
+            // decides (Admin force-off, the chat's "Don't save"), so when it kept files out that this
+            // browser meant to save, say so; a send that already asked not to save was told before it went.
+            const chatOnly = Array.isArray(parsed.chatOnlyFileIds) ? parsed.chatOnlyFileIds : []
+            if (chatOnly.length > 0 && fileRefs.saveToLibrary !== false) toast(CHAT_MESSAGES.notSavedAsk)
+            continue
+          }
+
+          if (eventName === "library_shared") {
+            // A file shared by asking ("share the Weekly sales report with Maya"): "Shared with Maya · Undo", as the Share dialog says.
+            const share = parseLibraryShare(parsed)
+            if (share) showLibraryShareToast(share)
             continue
           }
 
@@ -1650,6 +1688,10 @@ export function useStreamingChat({
           xhr.setRequestHeader("Content-Type", "application/json")
           xhr.send(JSON.stringify({ prompt_id: resume.promptId, response: resume.response }))
         } else {
+          // A direct send skips /api/chat, so drop here what the backend would refuse.
+          if (useDirectBackend) keepAcceptedFields(fd, isExistingChat ? CHAT_STREAM_FIELDS : CHAT_CREATE_FIELDS)
+          // One key per send: the backend refuses a repeat of the same send (`409 already_sent`) instead of answering twice.
+          xhr.setRequestHeader("Idempotency-Key", crypto.randomUUID())
           xhr.send(fd)
         }
       })

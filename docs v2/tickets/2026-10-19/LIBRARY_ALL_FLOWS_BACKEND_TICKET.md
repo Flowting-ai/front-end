@@ -8,7 +8,7 @@
 | Built from | `2026-10-19/LIBRARY_FLOW_A_BACKEND_TICKET.md`, `2026-10-18/LIBRARY_CHECKPOINT_BACKEND_TICKET.md` (Flows B to H and All flows, all finished runs), and the existing design docs `docs v2/library/04-backend-requirements.md` (the full backend design) and `06-principles-application.md` |
 | Principles | `front-end/fe system design/principles/` (56 principles, 6 folders). Part 0 turns the ones that touch the API into backend rules, each with its source |
 | Left out on purpose | Everything about **cited passages** (Library citations in chat answers). See "Left out" below |
-| Status | **All eight flows (A to H) and "All flows" are done and included.** Flow G was tested against settings endpoints answered by a local stand-in (the backend has none), so its results prove the screens, not the backend |
+| Status | **All eight flows (A to H) and "All flows" are done and included.** Flow G was tested against settings endpoints answered by a local stand-in (the backend has none), so its results prove the screens, not the backend. **Update 2026-10-19 (evening):** the backend shipped three Library commits (`29aba242`, `483125e0`, `8ef67914`, 18 Oct): staged uploads and discard, no merging of copies, `saveToLibrary` on send, the origin chat on send, `libraryState` and `document_id` on chat attachments, `file_gone` for a trashed file on send, the Shared tab and Source: Shared swapped to the prototype meanings, AND search with name hits first, and one `fieldErrors` body. Flows A to H were each re-run in full against it on 2026-10-19 (see the "Flow A retest" to "Flow H retest" and "All flows retest" tables in Part 1), as was "All flows" (X1 to X13), and each item below now has a **Status after the 18 Oct backend** line |
 | Front-end contact | _fill in_ |
 
 ## How to read this
@@ -70,6 +70,8 @@ These are the backend-facing rules from the front-end principles, checked agains
 **Principles.** 45 (stable codes, per-field `loc`, `Retry-After`, `x-request-id`, RFC 9457, no 200-with-error), 37 (correct status codes, standard error format), 19 (stable `code` plus safe `message`, request reference, 4xx vs 5xx), 20 (messages that say the problem and the fix, not colour or a bare code), 35 (structured per-field errors, no stack traces), 13 (expected failures returned as values).
 
 **Today.** `LibraryError` is turned into `{"code","message"}` only (`main.py` `libraryErrorHandler`): no `requestId`, no `details`, no `fieldErrors`. Request validation errors take a different shape, `422 {"detail": [...loc/msg...]}`, so the front end has to join them into one string and forms cannot highlight a field (45, FE observation). The request id exists only as the `X-Request-Id` header (set by `request_id_middleware`, already in CORS `expose_headers`). Other services raise `HTTPException(detail={code,message})`. 04 5b already asks for `{code, message, details?, requestId, fieldErrors?}`.
+
+**Status after the 18 Oct backend: started.** `core/form_parsing.py` has a `FieldError`, and `main.py` `fieldErrorHandler` answers it with `422`, `application/problem+json` and `{code: "invalid", message, requestId, fieldErrors: [{field, code, message}]}` (seen live for `saveToLibrary=maybe`). Only `parseOptionalBool` raises it so far. `LibraryError` still answers `{code, message}` with no `requestId`, and FastAPI's own `422 {"detail": [...]}` is unchanged. The front end now reads both `fieldErrors` shapes (`src/lib/api/client.ts`).
 
 **Applies to.** Every item. Specific new codes are listed in each item's error table.
 
@@ -169,6 +171,8 @@ These are the backend-facing rules from the front-end principles, checked agains
 
 **Today.** Access resolution is in `services/library/library.py` (`open`, `owned`, `adminCanManage`). CORS has one allowed origin. There is no rate limiting in `services/library` (the only 429 in the backend is the LLM concurrency guard, `services/llm/concurrency.py`), no `Cache-Control` on Library responses, and no `traceparent` or OpenTelemetry handling (all searched). `uploads.py` creates the file before refusal checks run (BE-02). Nothing raises `unsafe` on the server (BE-02). 04 sections 6.1, 7 and 7b already ask for most of this.
 
+*20 Oct (read in `45b2ef3e`).* Uploads are now sniffed by content (`services/library/inspect.py:33-60`: executable magic bytes and zip/OLE disguised as PDF give `unsafe`; encrypted or pageless PDFs are refused). Still missing: a malware scan, EXIF/GPS stripping of images, and any rate limit (no limiter in the codebase; live Library responses carry no `RateLimit` or `Retry-After`).
+
 **Applies to.** All items; most strongly BE-02, BE-08, BE-09, BE-10, BE-11.
 
 ### C-08. Observability
@@ -199,6 +203,8 @@ These are the backend-facing rules from the front-end principles, checked agains
 **Principles.** 37 (OpenAPI as source of truth, additive changes, `Deprecation`/`Sunset`, nouns), 43 and 45 (backward compatible across a rollout window, contract tests against OpenAPI), `base-primitive-rules.md` (the front end adapts to and documents the contract rather than changing it).
 
 **Today.** The front end hand-maintains Zod schemas beside `openapi.yaml` (37, FE observation), so any undocumented field is invisible to the contract test. 04 5b asks for OpenAPI coverage.
+
+*20 Oct.* `back-end/openapi.yaml` has no `/library` path. The generated `GET /openapi.json` on devapi lists all 22 `/library` routes (including `/prefs` and `/org-settings`), but each has only `200` and FastAPI's `422`: no documented error codes or bodies (`LibraryError` codes, `403 file_locked`, `404 file_gone`, `409`), and no examples.
 
 **Applies to.** All items.
 
@@ -242,29 +248,214 @@ These are the backend-facing rules from the front-end principles, checked agains
 
 | Flow | What it covers | Result today | Backend items | Front end |
 |---|---|---|---|---|
-| **A** Capture and reuse | Auto-save, staging, provenance, same file twice, bad files, picker, sources, recordings, search switch, no-save chat | Mixed. A2, A8, A12 and Depth 1 pass. A3, A5, A6, A7 (corrupt and locked), A13, A14 fail. A1 and A4 wait for settings endpoints | BE-01 to BE-04, BE-06 | Built; settings and save choice behind a flag |
-| **B** Set up a routine | Attach files on create, test run, attached files, run outputs, privacy | B4 partial (front end fixed). B1 to B3, B-d1, B-d2 blocked. B5 fails. B6 partial | BE-07 | Cards and sections built, waiting on events and fields |
-| **C** A routine run saves its output | Output rows, message-only runs, failed runs, Slack "ready", provenance, double Run now, skipped files | C1, C3 to C6, C9, C-d1 pass. C2 partial. C7 blocked (no Slack). C8, C-d2 blocked | BE-07 | Built; double Run now and "Private" fixed |
-| **D** Ask in Slack | Library answers in Slack, save from Slack, find, locked file, request access | 8 of 9 checks blocked: Slack is not connected and the code is not built. D4 partial | BE-09, BE-10 | Locked panel fixed; Request access built behind a flag |
-| **E** Share files | Share dialog, Shared tab, unread, share by asking, admin over workspace shares | Dialog side passes (E1 to E5, E10, E11). E7, E8, E-d1 (chat half) fail. E9 blocked | BE-08, BE-12 | Dialog side built; chat confirmation with Undo not built (needs an event) |
-| **F** Delete and restore | Trash, delete forever, empty trash, delete a chat, deleted links, answers | F1, F3, F5 to F8 pass. F2, F4, F9, F10 partial. F11, F-d1, F-d2 blocked | BE-04, BE-05, BE-07 | Built; File page "No longer available" fixed |
-| **G** Admin sets the switches | Admin settings, member view, notice, Phase 2 pages, removing a member, leaving | **Done (G1 to G9, G-d1, G-d2), tested against a stand-in for the missing settings endpoints.** Pass: G5. Partial: G1, G2, G3, G4, G8, G9. **Blocked (backend): G6, G7, G-d1, G-d2.** Backend causes: no prefs or org-settings endpoints, send ignores `saveToLibrary` and force-off, AI reference not enforced, removal and leave are one step and ignore Library files | BE-01, BE-03, BE-04, BE-11 | Notice restored, chat note, wording, MiB, Audit log and Inventory pages, all behind the flag |
-| **H** Browse and find | Header, Suggested, All files, filter, sort, menus, search, Shared, Trash, states, narrow window | **Done (25 checks, 4 depth items, every-flow list).** Pass: H1, H5 to H7, H9 to H11, H13 to H17, H21 to H25, H-d1 to H-d4 (H10, H11 and H25 after front-end fixes). Partial: H2, H3, H4, H8, H12, H18, H20. **Fail (backend): H19.** Backend causes: Shared tab holds files you own, Source: Shared means the opposite of the prototype, search matches any one word, routine origin missing on Generated, Recent order uses a time the card does not show | BE-12 (also BE-06, BE-07) | Seven fixes made: Shared-tab check, search label, Recent dot, Sort and Filter ticks, sparkle tooltip, narrow layout, Processing badge |
-| **All flows** (X1 to X13) | Wording, roles, states, accessibility, icons, no upload | **Done.** 12 pass (X12 after a front-end fix), X3 partial: the Uploading state cannot be shown because no file is ever returned while uploading (`FileDetail.phase` is always `"ready"`) | BE-02 R1 and R9 | Icon box removed, unused "Items" string removed |
+| **A** Capture and reuse | Auto-save, staging, provenance, same file twice, bad files, picker, sources, recordings, search switch, no-save chat | **Re-run 2026-10-19 against the 18 Oct backend.** Pass: A2, A3, A5, A6, A8, A12, A14, Depth 1, Depth 3 (A3, A5, A6, A14 were Fail). Partial: A7 (corrupt, password-protected and disguised `.exe` still become files), A10 (switch is front end only), A15 (menu wording). Fail: A13, Depth 2. Blocked: A1, A4 (no settings endpoints), A11 (BE-06 not built). Left out: A9 (citations) | BE-01, BE-02 R6 to R10, BE-03 R4 to R6, BE-04, BE-06 | Built; staged uploads and the history `libraryState` wired on 2026-10-19; settings behind a flag |
+| **B** Set up a routine | Attach files on create, test run, attached files, run outputs, privacy | **Re-run 2026-10-19 (no routines backend change since 16 Oct).** Pass: B4. Fail: B1, B2, B3, B5, B6 (worse than before: a routine the chat writes as instructions, `kind: "model"`, saves **no** file to Library). Blocked: B-d1, B-d2 (no card) | BE-07 | Cards and sections built, waiting on events and fields |
+| **C** A routine run saves its output | Output rows, message-only runs, failed runs, Slack "ready", provenance, double Run now, skipped files | **Re-run 2026-10-19 (no routines backend change since 16 Oct).** Pass: C3, C4, C5, C6, C9, C-d1 (C-d1 after a front-end fix: a double-click still sent two POSTs). Partial: C1 (every output is titled `files/Draft_product_copy_<date>`, five with the identical name), C2 (no message-only note: no output kind). Fail: C8 (origin reads "Made by Souvenir in a chat", no routine, no Files this run used). Blocked: C7 (no Slack), C-d2 (no attached files) | BE-07 | Built; double Run now and "Private" fixed |
+| **D** Ask in Slack | Library answers in Slack, save from Slack, find, locked file, request access | **Re-run 2026-10-19.** Slack is still not connected (`/slack/status` → `{"workspaces":[]}` for both accounts), so D1 to D3, D5 to D7, D-d1 and D-d2 are **Blocked** and were checked in code: the only change is that a Slack **DM** attachment is now saved to Library, without being asked to (D-d1 would now fail) and without "in Slack" on the File page. D4 **Partial**: chip, panel and wording pass; Request access is still `404` | BE-09, BE-10 | Locked panel fixed; Request access built behind a flag |
+| **E** Share files | Share dialog, Shared tab, unread, share by asking, admin over workspace shares | **Re-run 2026-10-19 against the 18 Oct backend.** Pass: E1 to E5, E10, E11, E-d2 (E4 now also right on the server: the owner's Shared tab no longer lists files they shared out). Partial: E-d1 (dialog half passes, chat half fails). Fail: E7, E8. Blocked: E9 (Slack). Left out: E6 (citations) | BE-08, BE-12 R7 | Dialog side built; chat confirmation with Undo not built (needs BE-08) |
+| **F** Delete and restore | Trash, delete forever, empty trash, delete a chat, deleted links, answers | **Re-run 2026-10-19 against the 18 Oct backend.** Pass: F1 to F9 (F2 and F4 were Partial: a trashed file's chat link is gone, and the Delete chat dialog now lists the chat's saved files). Partial: F10 (notice right, no Undo). Fail: F11 (and the agent named a file that is in Trash). Blocked: F-d1 (BE-07 R1). F-d2: the sent-file chip reads "File deleted" (pass); the citation half is left out | BE-04, BE-05 R4 and R5, BE-07 R1 | Built; nothing new needed until BE-05 R5 |
+| **G** Admin sets the switches | Admin settings, member view, notice, Phase 2 pages, removing a member, leaving | **Re-run 2026-10-19 against the 18 Oct backend.** `GET /library/prefs` and `/library/org-settings` are still `404`, so the screens were run against a stand-in again (results prove the screens, not the backend). Pass: G5. Partial: G1, G2, G3, G4, G8, G9 (screens pass; checked live, the backend enforces none of the switches: a send without `saveToLibrary` is saved, and `librarySourcesOff` / `aiReferenceEnabled` are silently ignored). **Blocked (backend): G6, G7, G-d1, G-d2** (offboarding unchanged) | BE-01, BE-03, BE-04, BE-11 | Unchanged since 19 Oct; all behind the flag |
+| **H** Browse and find | Header, Suggested, All files, filter, sort, menus, search, Shared, Trash, states, narrow window | **Re-run 2026-10-19 against the 18 Oct backend.** Pass: H1, H2, H5 to H7, H9 to H17, H19 to H24, H-d1 to H-d4 (H2, H12, H19 and H20 were Partial or Fail: BE-12 R1 and R2 work). Partial: H3, H4, H8, H18, H25. Backend causes left: no phrase-first ranking and no recording transcripts in search (R3, R4), routine origin on Generated (R5), Recent and Frequently used lines (R6) | BE-12 R3 to R11 (also BE-06, BE-07) | Column headings are plain labels while searching (results come best match first); narrow-window tab row still clips |
+| **All flows** (X1 to X13) | Wording, roles, states, accessibility, icons, no upload | **Re-run 2026-10-19 against the 18 Oct backend.** Pass: X1, X2, X4 to X7, X9 to X13. Partial: X3 (a File page still cannot show Uploading: `FileDetail.phase` is only `"ready"`), X8 (an unread shared file's Recent card reads "Modified") | BE-02 R1 and R9, BE-12 R6 | Icon box removed, unused "Items" string removed |
 
-### Flow G results by check (G1 to G9, G-d1, G-d2; run live 2026-10-19)
+### Flow A retest (A1 to A15 and Depth 1 to 3; run live 2026-10-19 against the 18 Oct backend)
 
-The checkpoint ticket numbers these as in the prototype (G1 to G9, G-d1, G-d2); the doc-12 ids used elsewhere in this ticket are G-C01 to G-C09, G-D01, G-D02 in the same order. Stand-ins: admin "You" = test01@email.com, member "Maya" = "OS8 Test01"; no Sam exists; "Payment terms" and "Return policy 2026" do not exist here, so test files `g2-return-note` ("Return window is 45 days") and `g8-payment-terms`, both Maya's, were used.
+**How it was run.** The real app on `localhost:3000` against `devapi.getsouvenir.com`, as You (admin) and Maya (member). Each check was run twice: once through the screens (Playwright) and once by calling the API directly, so a pass means both the screen and the server behave. Test files are named `a19o4o-*`, `u2*-*` and `rno7z-*`. The backend was then read to say what is still missing. The front-end changes made for this backend are in Part 3 ("Done in the front end").
 
-**How it was tested.** The backend has no `/library/prefs` or `/library/org-settings` (live: both `404` for You and Maya), so with `NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS` turned on for the run, **both endpoints were answered by a local stand-in in the test browser that follows the contract in BE-01**. Everything else was the real app and backend (`GET /library/storage`, chat send, Library lists, Members). Nothing was removed or transferred: Remove was opened and cancelled, and G7 and G-d1 were checked by reading code. The stand-in started at Always / Force off / AI reference on, was set to Ask each time, then Force on and AI reference off, and set back and confirmed after reload. The flag was taken out of `.env.local` afterwards. So these results prove the screens, not the backend.
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| A1 Auto-save by default, no prompt | **Blocked** | `GET /library/prefs` and `/library/org-settings` are still `404`. With nothing sent, the server saves (the default "Always" behaviour holds) | BE-01 |
+| A2 Uploading, Processing, Send waits | **Pass** | A 6 MB file showed "Uploading… N%" then "Processing"; Send stayed off until it was ready | — |
+| A3 Not listed until sent; X deletes it | **Pass** (was Fail) | A ready, unsent upload is not in All files, content search, or storage totals (`usedBytes` unchanged). The owner can open it by id (`phase: "ready"`); Maya gets `403`. X sends `DELETE /library/uploads/{id}` → `204`; the file is then `404 file_gone` and is not in Trash. After a send the same call is `409 upload_done` | — (R1 to R4 done; see BE-02 for the gaps) |
+| A4 Ask each time / Never | **Blocked** | The send half works: `saveToLibrary=false` keeps the file out (see A14). The setting itself needs BE-01 | BE-01 |
+| A5 Row and provenance | **Pass** (was Fail) | In a **new** chat the file reads "Uploaded by You, <chat title>" with a link to the chat; `provenance.chatId` is set and `canOpenChat: true`. The row has source `uploaded`, access `owner` only; Maya `403 file_locked` | — |
+| A6 Same file twice is two files | **Pass** (was Fail) | The same bytes twice give two file ids, both titled `a19o4o-a6-same`, with different Created times. In the chat itself the second copy is shown as `a19o4o-a6-same (2).txt` (the chat's working name, not the Library title) | — |
+| A7 Bad files never become files | **Partial** | `.exe` ("Blocked: this file looks unsafe.") and `.zip` ("This file type isn't supported.") are refused, with no file name, cleared after 6 s, and the server refuses them too (`415 unsupported` at init). **Still failing:** a corrupt PDF, a password-protected PDF and an `.exe` renamed `.pdf` all come back `phase: "ready"`, are sent, and then sit in All files with `processing: "failed"`. They are also offered in the Add from Library picker | BE-02 R6, R7 |
+| A8 Add from Library picker | **Pass** | Search, type chips (All files, Images, Documents, Spreadsheets, PDFs, Audio, Run outputs), list/grid toggle, multi-select, date and time on each row, "2 files selected". Staged files are not offered | — (A7 files in the list are a BE-02 effect) |
+| A9 Citation chip | Left out | Cited-passages ticket | — |
+| A10 Sources panel, switch off | **Partial** | "Sources · N" opens the panel; the file has a switch; switching shows "Off for this chat". Nothing on the server stores or reads `librarySourcesOff` (no code reads it) | BE-04 R4 (and the "cited" mark is the citations ticket) |
+| A11 Recording: Transcribing step | **Blocked** | Not re-run: nothing changed. `preview.py` still returns `AudioPreview(durationMs=0, lines=[])` | BE-06 |
+| A12 Files come in through a chat | **Pass** | Library has no Upload button and no drop area | — |
+| A13 Library answers with nothing attached | **Fail** | New chat, nothing attached, a fact only in a saved, indexed file ("The Wombat Store return window is 73 days"): the answer was "The Wombat Store return window is 30 days from delivery for unused items." The model made up a number instead of searching Library or saying "I couldn't find this in your files." The chat's knowledge is still only the chat's own files (`chat/service.py` `available_documents_hint(knowledge)`) | BE-04 R1 to R3, BE-01 (switch) |
+| A14 "Don't save files from this chat" | **Pass** (was Fail) | The More menu item turns it on; the send carries `saveToLibrary=false` with the file id; the file shows on the message, "Not saved. This chat doesn't save files." appears, and the file is not in All files. The owner can still open it by id, and the chat's history shows it as `libraryState: "open"` | BE-03 R4 (the flag is still only in the browser's localStorage) |
+| A15 + menu | **Partial** | Add files and Add from Library are there, and opening the menu clears an upload message. The first item reads "Add files or photos"; the prototype says "Add photos & files" | Front end wording only |
+| Depth 1 Failed upload has no Retry | **Pass** | Only the short message shows | — |
+| Depth 2 Source switched off | **Fail** | Same cause as A10 and A13 | BE-04 R2 to R4 |
+| Depth 3 X while Uploading or Processing | **Pass** | X while uploading leaves no chip, no upload record and no row | — |
 
-| Result | Checks | Notes |
+**Also verified in this run (BE-05, on Flow A files).** A sent file moved to Trash: the chat history returns `libraryState: "deleted"` with no `file_link`, and the chat shows "File deleted" (front end fixed today: it used to drop the chip because the link is empty). Sending that file again is `404 file_gone` before the stream. Restore: `libraryState: "open"` and a fresh link. `saveToLibrary=maybe` is `422` with `{code: "invalid", message, requestId, fieldErrors: [{field: "saveToLibrary", ...}]}`.
+
+**Side effects seen.** With a search term, `GET /library/files` ignores `sort` and orders by name hit, then rank (two files with the same title came back oldest first under `sort=created&dir=desc`). That is BE-12 R3 working as designed; the Sort menu should say so or be disabled while searching (front end, not built).
+
+### Flow A retest 2026-10-20 (against backend `45b2ef3e`)
+
+All of Flow A was re-run live; results are in `tickets/2026-10-20/LIBRARY_FLOWS_CHECKLIST.md` (A: 14 pass, 3 partial, 2 fail, 1 left out). What changed for the backend:
+
+| Check | Result | Backend left |
 |---|---|---|
-| **Pass** | G5 (Audit log and Inventory, static, "Phase 2", Admin only; front end only, behind the flag) | Were not built; now built |
-| **Partial** | **G1** (every row and the real Storage figure show; "of 20 GB" only when the API gives a limit, `limitBytes: null` today; File size limit read "52 MB" for 50 MiB, fixed; with the real backend the card says "Couldn't load your files"), **G2** (row and send pass in the front end: "Never", disabled, `saveToLibrary=false`, no dialog; **backend still saves**: both test files are in Maya's All files), **G3** (switch off and disabled with the line; chat note was missing, now built; browse, search "return" and Add from Library work; the switch changes nothing server side), **G4** (Admin pages gone for Maya; the "Your Admin changed Library settings" notice was missing on the Library page, now restored with up to three lines, Dismiss, gone after reload; needs `settingsChanges` from the backend), **G8** (row shows "Using your workspace's default" and "Ask each time"; the send asks "Save 1 file to Library?" with Save focused; Don't save gives "Not saved. It stays in this chat."; the file was saved anyway), **G9** (with the file added from Library: "Your return window is 45 days."; with nothing added the agent searched and said "Which store or policy document should I check? I don't have your return policy in this chat.") | Backend causes: BE-01, BE-03, BE-04 |
-| **Blocked (backend)** | **G6** (Remove shows an inline Cancel and Confirm remove with no question and removes at once), **G7** (no Yes or No and no transfer; offboarding never touches Library files; not run), **G-d1** (Who has access would keep listing the person; "Viewing as" is prototype-only; not run), **G-d2** (there is no Leave in the UI: the only one is off, `SHOW_DANGER_ZONE = false`; the backend leave route has no question) | BE-11 |
+| A1, A4 auto-save | **Pass** after a front-end fix (the composer now always reads `/library/prefs`). The server treats Ask each time with no `saveToLibrary` as "don't save" (services/library/prefs.py:41-47), so the client must ask | None. Optional: say "ask" in the send response so a client that skipped prefs still asks |
+| A7 bad files | **Pass**. Byte checks return `unreadable`, `password_protected` and `unsafe` (services/library/inspect.py:33-93); failed uploads leave no row | None |
+| A-new2 send limits | **Pass**. `422 too_many_files` (10) and `409 not_ready` | None |
+| A11 recording | **Partial**, was blocked. The agent calls `transcribe_audio` and the chat shows "Transcribing"; the answer is right | BE-06: transcript with timed lines on the file, and a "transcribing" event that doesn't rely on the agent choosing the tool |
+| A13 Library with nothing attached | **Fail**. "30 days" again; the stream shows it read the agent memory file `/memories/business/customer-fulfillment.md`, not Library | BE-04 R1 to R3 (and decide whether agent memory may answer questions about the person's files) |
+| A10, Depth 2 sources switch | **Fail / partial**. `librarySourcesOff` is still `400 bad_request` (services/library/library.py:100-103) | BE-04 R4 |
+
+### Flow B retest (B1 to B6, B-d1, B-d2; run live 2026-10-19)
+
+**How it was run.** As You, a new chat with two Library files attached (`b3acbf Return policy.txt`, `b3acbf Shipping rates.txt`, stand-ins for Return policy and Shipping rates), asking: "Set up a routine called \"b3acbf Draft product copy\" that drafts product copy every Monday at 9:00 and delivers a Word document. Use the two files I attached. Do not ask me any questions; create it now." Then the routine page, Run now, Library, and Maya's view. The stream, `GET /automations/{id}`, `/automations/organization` and `/library/files` were read directly. `services/automations` has had no commit since 16 Oct, so this mostly re-checks the 18 Oct results; the new finding is B6.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| B1 Routine details card ("Attach the Return policy and Shipping rates?") | **Fail** | The agent read the files and called `automation_manage` in the same turn, then wrote "Created **b3acbf Draft product copy**. It runs every Monday at 9:00 AM IST…". No `routine_proposal` event, no card, no question about files. Stream: `skills`, `read_file`, `execute`, `automation_manage`, `edit_file`, text | BE-07 R2 |
+| B2 Routine created card, "Test run: Done", one "Test run - product copy" | **Fail** | Nothing after create: `runs: []`, no `routine_created` event, no file | BE-07 R3 |
+| B3 Attached files listed on the routine | **Fail** | `GET /automations/{id}` has no file field (keys: id, name, summary, schedule_json, trigger, is_active, status, error, next_run_at, last_run_at, run counts, is_running, created_at, updated_at, kind, entry, instructions, model, chat_id, runs, success_rate). The page shows no Attached files section (it appears only when the field exists) | BE-07 R1 |
+| B4 "All run outputs in Library" opens All files with Source: Generated | **Pass** | Opens `/library?tab=all&source=generated` | — |
+| B5 Not visible to Maya | **Fail** | Not in Maya's own list, and `GET /automations/{id}` is `404` for her, but `GET /automations/organization` lists it with its name and summary ("…grounded in the supplied shipping and return policies") | BE-07 R8 (decision 1) |
+| B6 Run now saves "Draft product copy - <date>" listing the attached files; Run history gains a line | **Fail** (was Partial) | Two quick Run now calls: both `200 {"started": true}`, one run. The run **succeeded** and its answer says "Attached `b3acbf-product-copy-2026-10-19.docx` as the run result.", Run history shows "Completed", but **no file reached Library** (nothing new under Source: Generated, nothing for "b3acbf" in search). This routine is `kind: "model"` (`entry: scripts/automation.md`). The older script routine "Draft product copy" (`kind: "script"`, `scripts/automation.py`) still saves on Run now: a new `files/Draft_product_copy_2026-10-19.docx`, the **same title as the three before it**, `generatedFrom: {kind: "chat"}`, `provenance.kind: "chat"`, no `runInputs` | BE-07 R4, R5, plus the new R11 below |
+| B-d1 Not now → "Attached files: None" / "No files attached." | **Blocked** | No card to press | BE-07 R1 to R3 |
+| B-d2 Create routine greyed until a choice | **Blocked** | No card | BE-07 R2 |
+
+**Side check (C6):** Maya opening a run output is `403 file_locked` (Pass).
+
+### Flow C retest (C1 to C9, C-d1, C-d2; run live 2026-10-19)
+
+**How it was run.** As You, three existing routines stood in for the prototype's: "Draft product copy" (`90fd1216…`, `kind: "script"`, saves a `.docx`) for Weekly sales report, "Daily sales message" (`4983e23b…`, answers one line) and "Always fails" (`328da2a0…`, throws). Run now was pressed through the API (twice in parallel on the first) and through the routine page (a double-click). Then All files with Source: Generated, the row menu, Delete, Trash, Restore and File info were driven in the app, and Maya's list and File page were checked. `services/automations` has had no commit since 16 Oct, and the three Library commits do not touch it (the new `Document.listed` defaults to `true`, so run outputs are still listed).
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| C1 New run output is a row, newest first, Generated, only your avatar; Run now again adds a row; never removed | **Partial** | Run now made `2d60bd56…`, the top row under Source: Generated: "Generated", "Today, 3:55 PM", access `owner` only (`accessSummary.people` = You). Earlier outputs stay. But the title is `files/Draft_product_copy_2026-10-19`, and five outputs now have exactly that name (a sixth is `…_2026-10-18`), so the rows cannot be told apart | BE-07 R4 (title without `files/`, unique per run) |
+| C2 Message-only run: a run history line only; pane says results stay in run history | **Partial** | Run `24509640…` succeeded with "Sales today: 42 orders, $1,980." and no file; run history gained "Completed". The pane still shows **Run outputs** and "All run outputs in Library", not "Results stay in run history, not in Library." (the string and `RoutineRunOutputs messageOnly` exist; the page cannot choose without a field) | BE-07 R5 (`output: "file" \| "message"`) |
+| C3 Failed run in history, no file | **Pass** | Run `2a52bc5b…` `failed` ("Something in its script failed…"), history reads "Failed", no new Library row | — |
+| C4 Ordinary file menu, no Keep, marked generated | **Pass** | Menu: Open, Ask about this, Share, Download, Rename, Delete. The row reads "Generated" | — |
+| C5 Delete goes to Trash with days left; Restore brings it back | **Pass** | "Move … to Trash? Recoverable for 30 days." → `life: "trashed"`, `daysLeft: 30`; Trash row "30 days"; Restore → `life: "active"`, back in All files | — |
+| C6 Not in Maya's All files; File info says Private | **Pass** | Maya's Generated list has no `Draft_product_copy` row; `GET /library/files/2d60bd56…` as Maya → `403 file_locked`; her File page reads "You don't have access" with no title. You's File info: "Who has access: You, Owner … Private" | — (the routine itself is still listed to Maya under Organization: B5, BE-07 R8) |
+| C7 Slack #ops "Weekly sales report is ready." | **Blocked** | Slack not connected (`{"workspaces":[]}`) | BE-07 R10, a Slack test workspace |
+| C8 File info names the routine and run, links to it, lists Files this run used | **Fail** | `provenance: {kind: "chat", label: "Draft product copy", via: "web", chatId}`, `generatedFrom.kind: "chat"`, no `routineId`, `runLabel` or `runInputs`. File info: "Made by Souvenir in a chat, Draft product copy" (a link to the routine's chat) and "Used in 1 chat, 0 routines". The front end already renders "Made by routine …, run of …" and "Files this run used" when the fields come | BE-07 R4 |
+| C9 Ordinary rows, no Routine outputs tab; "All run outputs in Library" and Suggested See all open All files with the Generated chip; removing it shows all | **Pass** | Both open `/library?tab=all&source=generated` with a "Generated" chip; removing it goes to `/library?tab=all` | — |
+| C-d1 Run now twice quickly does not start two runs | **Pass** (after a front-end fix) | Server: two parallel `POST /automations/{id}/run` → both `200 {"started": true}`, **one** run. Screen: a double-click on Run now still sent **two** POSTs (the button is disabled only after a re-render). Fixed with a synchronous guard (`src/lib/schedules/run-guard.ts`, used by `use-schedules.ts`; tests in `run-guard.test.ts`). Re-run: a double-click plus a third click → one POST, the button disabled until the run ends, one run | BE-07 R7 (`409 already_running`; today the second call says `started: true`) |
+| C-d2 A trashed attached file is skipped: pane says so, output lists only the rest, history says "Skipped 1 file" | **Blocked** | No routine can have attached files (`GET /automations/{id}` has no file field), so there is nothing to skip. The pane line ("… is unavailable. The next run skips it.") is built and waits for the field | BE-07 R1, R6 |
+
+**Test data from this run.** You: one new output `2d60bd56…` (`files/Draft_product_copy_2026-10-19.docx`, trashed and restored twice, now in All files), one more run on "Draft product copy", three on "Daily sales message", one on "Always fails".
+
+### Flow D retest (D1 to D7, D-d1, D-d2; run live 2026-10-19)
+
+**How it was run.** `GET /slack/status` as You and as Maya → `{"workspaces":[]}`: Slack is still not connected for the test workspace, so no Slack message could be sent and every Slack check is **Blocked (environment)**. Each was checked by reading `services/slack` after the 18 Oct commits. D4 was run live as Maya (standing in for Sam) on "Supplier contract - Acme" (`8d081d29…`, You's, not shared), in her chat `d272aec0…`, with the dev server started with `NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS=true`. The backend still sends no `library_citations` (citations are left out), so the chat history response was patched in the browser to carry one locked citation, as in the 18 Oct run.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| D1 Return window answer cites Return policy; citation opens its File page | **Blocked** | No Slack. In code a Slack turn's knowledge is the thread's files plus project knowledge (`turn.py` ~line 675, `priorAttachments=[]`); nothing searches Library. The citation half is left out | BE-10 R1, BE-04 R1 |
+| D2 Channel answer uses only files everyone in the channel can open, says one was left out | **Blocked** | No Slack. No channel audience in code: a turn runs as the linked member in a channel too | BE-10 R1 |
+| D3 Same question as a DM cites the Acme contract | **Blocked** | No Slack. Same cause as D1 | BE-10 R1 |
+| D4 As Sam, "Locked file" opens a panel "You don't have access"; Request access → "Request sent" | **Partial** | The chip opens the File panel beside the chat: "Locked file / You don't have access / Ask the owner to share it / Request access", no title or owner. `GET /library/files/8d081d29…` as Maya → `403 file_locked`; the File page reads the same. **Request access against the real backend:** `POST /library/files/8d081d29…/access-requests` → `404 {"detail":"Not Found"}`, the button stays "Request access" and an error toast shows. With the POST mocked to `204`: "Request sent" | BE-09 R1 to R4 |
+| D5 Bot confirms where the file was saved; file in Library; File page says uploaded in Slack | **Blocked** | No Slack. **Changed in code:** `turn.py` `libraryNames` now saves every new uploaded attachment in a **DM** through `Workspace.library(origin=UPLOADED)`: a `Document` with `source: "uploaded"`, the sender as owner and `origin_chat_id` = the Slack turn's chat. Channels save nothing. The bot is not told and cannot confirm, and Library still answers `provenance.via: "web"` (`library.py` ~line 429), so the File page cannot say "in Slack" (the front end reads `via: "slack"`) | BE-10 R3 (confirmation, `via: "slack"`, channel rule) |
+| D6 "find the return policy" → "Found 1 file." with a link; Trash and channel rules | **Blocked** | No Slack. No find command or Library tool in `services/slack` | BE-10 R4 |
+| D7 A file saved from Slack is private to its sender | **Blocked** (would pass in code) | No Slack. The DM save creates an owner-only `Document` with no shares, so it is listed to its sender only | — |
+| D-d1 An attachment without "save this" is not saved, and the bot says how to save it | **Blocked** (would fail in code) | No Slack. The new DM save keeps **every** new DM attachment, asked or not, and there is no "how to save" reply. This is the opposite of the prototype; decide which rule holds | BE-10 R3 (save only when asked), Part 4 |
+| D-d2 An unknown question gets the prototype reply, not silence | **Blocked** | No Slack. `slack/prompt.py` tells the bot not to stay silent, so it answers freely; there is no "I couldn't find this in your files." | BE-10 R2 |
+
+**Test data from this run.** None: no Slack message was sent, and the access request was refused (`404`) or mocked.
+
+### Flow E retest (E1 to E11, E-d1, E-d2; run live 2026-10-19)
+
+**How it was run.** As You (admin) and Maya (member, "OS8 Test01"; Maya stands in for Sam, no third person exists). Files `e3uj8y-*`, `v3ztiq Brand guidelines` and `v45f5r Brand guidelines`, each saved through a chat so it has a use. Every check was done through the API (grants, lists, detail, access) and the main ones again on screen.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| E1 Share dialog | **Pass** | "Teammates can use shared files in their chats and routines.", people and the whole workspace, "Not shared yet" before the first share; sharing with OS8 Test01 shows "Shared with OS8 Test01" with Undo | — |
+| E2 Who has access says how | **Pass** | "OS8 Test01 · Shared directly"; API entries `owner:owner`, `user:direct` | — |
+| E3 In Maya's Shared, unread, owner-only actions off | **Pass** | First in Maya's Shared with `unread: true`, `access: viewer`; Share and Delete disabled on her File page, "You: Viewer"; rename, share and delete through the API are `403 only_owner` | — |
+| E4 Shared tab layout and meaning | **Pass** (was Partial) | Columns Name, Access, Date shared, Type; unread mark. **New:** the owner's Shared tab no longer lists the file they shared out (BE-12 R1), and Source: Shared lists it for both people (R2) | — |
+| E5 Direct and workspace together | **Pass** | Entries owner, direct, workspace; Maya's Shared has it once; her `ways` are `["direct", "workspace"]` | — |
+| E6 Remove a person, the citation locks | Left out | Cited-passages ticket | — |
+| E7 Share by asking in chat | **Fail** | "@Souvenir share the file … with OS8 Test01": the agent only ran `list_chats` and replied "I can't share files through a connected service here. Sharing it via the Souvenir web interface requires browser access… Approve browser access and I'll share it". No share tool, no `library_shared` event. **Note:** the agent offering to drive the web app in a browser to share a file is a risk on its own | BE-08 |
+| E8 Refusals (not owner, several matches, not in Souvenir) | **Fail** | Same cause | BE-08 |
+| E9 Slack confirmation | **Blocked** | Slack not connected | BE-08, BE-10 |
+| E10 Admin over a workspace share | **Pass** | Maya shared her file with the workspace; You: `adminCanManage: true`, access list `canManage: true`, rename `200` | — |
+| E11 Remove direct, workspace remains | **Pass** | Revoke `200`; Maya still opens it, `ways: ["workspace"]`, still in Shared | — |
+| E-d1 "Maya can already open it." | **Partial** | Dialog half: a second workspace grant is `409 already_has_access`. Chat half: no share by chat | BE-08 |
+| E-d2 Unread clears on open | **Pass** | `POST …/opened`, then `unread: false`. (Unread again after a re-share is BE-12 R7, not re-run) | BE-12 R7 |
+
+### Flow F retest (F1 to F11, F-d1, F-d2; run live 2026-10-19)
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| F1 Delete dialog | **Pass** | "Move v45f5r Brand guidelines.txt to Trash? 1 chat Quick Test · 0 routines None · Shared with OS8 Test01 · Recoverable for 30 days. Answers already written stay as they are." | — |
+| F2 Trash with days left; out of search, picker and Maya's Shared | **Pass** (was Partial) | `daysLeft: 30`; not in search or the picker list; gone from Maya's Shared, `404 file_gone` for her. **New:** the chat that sent it now returns `libraryState: "deleted"` with no link (it used to hand out a working signed link), and sending it again is `404 file_gone` | — |
+| F3 Restore keeps shares | **Pass** | From the Trash row menu and through the API: back with the workspace grant, Maya opens it again | — |
+| F4 Delete chat asks about saved files, default keep | **Pass** (was Partial) | "Delete Quick Test? 1 saved file stays in Library." with the file listed and "Also delete these files" unticked. Works now because the history sends `document_id` | BE-05 R4 (`savedFiles`) would save the front end one read per file |
+| F5 No Archive | **Pass** | None on the File page or menus | — |
+| F6 Trash is private | **Pass** | Maya's Trash does not list You's trashed file. (The prototype's seeded "Return policy 2025" does not exist here) | — |
+| F7 Delete forever | **Pass** | `204`, then `404 file_gone`. **New:** the chat history keeps the attachment with `document_id`, `libraryState: "deleted"` and no name (BE-05 R3) | — |
+| F8 Trash screen | **Pass** | `/library/trash`, "Library > Trash", no storage label, Empty Trash with "Frees up 4 KB", columns Name, Days left ("30 days"), Size, Deleted; row menu Restore, Delete forever; "Delete 4 files forever? This frees up 4 KB and can't be undone."; Cancel kept everything | — |
+| F9 Deleted link | **Pass** | "No longer available", no file name, tab title "File \| Library" | — |
+| F10 Notice and Undo after deleting a chat | **Partial** | "Chat deleted. 1 file stays in Library." and the file stays. No Undo: there is no restore endpoint | BE-05 R5 |
+| F11 Trashed file not used in answers | **Fail** | File in Trash, nothing attached: "I can identify the file, but its contents aren't available in this chat. Please attach **e3uj8y Brand guidelines.txt** here…". Contents did not leak, but the agent **named a file that is in Trash** (it found it through its chat tools), and the answer is not "I couldn't find this in your files." | BE-04 R1 to R3; chat tools must not name trashed files (BE-05) |
+| F-d1 Routine says the file is unavailable | **Blocked** | Routines have no attached files | BE-07 R1, R6 |
+| F-d2 "File deleted", never the name | **Pass** (sent-file chip) | The chip reads "File deleted" (Flow A run); the citation half is left out | — |
+
+### Flow G retest (G1 to G9, G-d1, G-d2; run live 2026-10-19 against the 18 Oct backend)
+
+This replaces the first Flow G run of the same day; it covers every check again. The doc-12 ids used elsewhere in this ticket are G-C01 to G-C09, G-D01, G-D02 in the same order.
+
+**How it was run.** First, live: `GET /library/prefs` and `GET /library/org-settings` are still `404 {"detail":"Not Found"}` for You and for Maya (so is `GET /library/summary`). So the **screens** were run again with `NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS=true` set for the dev server process only (`.env.local` untouched) and both endpoints answered by a Playwright stand-in that follows the BE-01 contract. **Those results prove the screens, not the backend.** Second, **without a stand-in**, what the backend does with the switches it should enforce was checked by calling `POST /chats/create` as Maya directly (files `g19x-mvf79dvr-*`). Third, `services/organizations` was read (no commit since before 16 Oct). Maya was not removed and nobody left: Remove was opened and cancelled, and Leave was looked for. Stand-ins: no Sam; Maya's `g2-return-note` and `g8-payment-terms` stand in for Return policy 2026 and Payment terms.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| G1 Admin page rows, Storage "of 20 GB" with a bar | **Partial** | (Stand-in.) Auto-save default, Force auto-save off, AI reference, File size limit "50 MB", File types, and Storage from the real `GET /library/storage`: "52.7 MB used", Files 38.6 MB · 61 files, Images 12.9 MB · 15, Audio 1.2 MB · 2. No "of 20 GB": `limitBytes: null`. Without the stand-in the page cannot load | BE-01 R1 to R6; decision 7 |
+| G2 Force auto-save off: Maya's row "Never", turned off; a sent file is not saved | **Partial** | (Stand-in.) Maya's row: "Your Admin has turned auto-save off", "Never", disabled; the composer sends `saveToLibrary=false`, which the backend now honours. **Live, no stand-in:** the backend has no force-off of its own. Maya's send **without** `saveToLibrary` saved and listed the file (`449f37f2…`, chat `29bc8c6f…`); with `saveToLibrary=false` the file stayed out (chat `afd6079f…`). So force-off holds only while the client sends `false` | BE-01 R5 (enforce on the server), BE-03 R2 rule 1 |
+| G3 AI reference off: Maya's switch off with "Your Admin turned this off", chat note, browse and search still work | **Partial** | (Stand-in.) Switch off and disabled with the line; composer: "Your Admin has turned off Library search. Attaching files still works."; Library browse and search "return" work. **Live:** nothing reads the setting. A send carrying `librarySourcesOff=true` and `aiReferenceEnabled=false` returned `200`, the fields were silently dropped and the file was saved (`649ccd19…`, chat `1d252f22…`) | BE-01 R5, BE-04 R4 |
+| G4 Maya: no Admin pages; notice that defaults changed | **Partial** | (Stand-in.) Maya's Settings has no Workspace section; opening `/settings/workspace-library` reads "Only workspace admins can see this page". Library shows "Your Admin changed Library settings" with the three lines the stand-in sent. The real backend sends no `settingsChanges` | BE-01 R1 (`settingsChanges`) |
+| G5 Audit log and Inventory, static, "Phase 2" | **Pass** | Both pages and sidebar entries read "Phase 2", Admin only (front end only, behind the flag) | — |
+| G6 Remove asks the leaving person one mandatory question | **Blocked** | Members → Remove on OS8 Test01 shows an inline "Cancel / Confirm remove", no question; Cancel kept her. `DELETE /organizations/{id}/members/{memberId}` still runs `offboardFromOrganization` at once: projects, private chats, memberships and share targets go, no Library step, no pending state | BE-11 R1 to R4 |
+| G7 Yes transfers shared files, No deletes; never-shared files deleted either way | **Blocked** (not run) | `offboarding.py` never touches `Document` rows, so Maya's Library files would stay hers, with their shares, after removal | BE-11 R2, R3 |
+| G8 Before force-off: row shows the default; Ask each time asks "Save 1 file to Library?" | **Partial** | (Stand-in.) Maya's row: "Using your workspace's default", "Ask each time". On 19 Oct Don't save still saved the file; since the backend now honours `saveToLibrary=false` the send half works, but the default itself lives only in the stand-in | BE-01 |
+| G9 AI reference off: "I couldn't find this in your files."; normal answer once the file is added | **Partial** | **Live:** with nothing attached, Maya asked for a fact only in her `g19x-…-0` note (chat `421ec7d6…`). The agent ran `list_chats`, `read_chat`, `ls`, `execute`, then said "I can't access the contents of the earlier `g19x-mvf79dvr-0.txt` note from this chat. Please upload it again". So Library is not searched (there is no Library retrieval, switch on or off), the wording is not the prototype's, and the agent reached the file name through chat tools. The "file added" half passed on 19 Oct ("Your return window is 45 days.") and was not re-run | BE-04 R1 to R3, BE-01 R5 |
+| G-d1 Removed person: "Removed", gone from Who has access | **Blocked** (not run) | Same cause as G7: removal leaves her shares in place. "Viewing as" is prototype-only | BE-11 R6 |
+| G-d2 Leave asks the same question; Admin's Leave dimmed "Name another Admin first" | **Blocked** | No Leave button for Maya on Settings → Library, General or Account (`SHOW_DANGER_ZONE = false`). `POST /organizations/{id}/leave` takes only `successor_admin_user_id` and runs the same offboarding, no question | BE-11 R4 |
+
+### Flow H retest (H1 to H25, H-d1 to H-d4; run live 2026-10-19 against the 18 Oct backend)
+
+**How it was run.** The real app on `localhost:3000` against `devapi.getsouvenir.com`, as You (admin, 79 listed files) and Maya (member, 36). Every list, filter, search and Suggested call was also made directly to the API for both accounts (all pages, `limit=100`), so a pass means both the screen and the server agree. Loading, Empty and Error were forced with Playwright routes, as on the first run. No third person exists, so "+2" and "As Sam" use Maya. No test files were made for H; it used the files earlier flows left (`h1-terms-net30`, `h2-nova-notes`, `h5-maya-brief`, `e3uj8y Payment terms` and others). The first H run (next section) is superseded by this table; it is kept for the counts and notes it records.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| H1 Header, "N used" everywhere but Trash, Filter and Sort then search and Trash, no Upload | **Pass** | "Library 52.7 MB used" on every tab and while searching ("Search 52.7 MB used"), not on Trash; icon buttons, "Search Library", Trash icon; 0 upload controls | — |
+| H2 Suggested and All files always; Shared once something is shared with you, dot while unread | **Pass** (was Partial) | `tab=shared` now holds **no** owned files: You 3 (all `viewer`, 1 unread), Maya 7 (all `viewer`, 4 unread). Both see the tab; its dot is labelled "Unread". A person who only shared out gets no tab, since the tab reads `tab=shared` | — (R10 would replace the list call) |
+| H3 Recent: five cards, newest activity first, Opened / Modified / Shared with a short time; unread dot after the title | **Partial** | Five cards in time order ("Opened today" ×3, "Modified today", "Shared today"). But `e3uj8y Payment terms`, shared with You and **unread**, reads "Modified today" (`lastActivityKind: "modified"`), where the prototype says an unread shared file reads "Shared". The order still ranks by a chat or routine use the row does not report (`suggested()` `touched` includes `usedAt`) | BE-12 R6 |
+| H4 Frequently used up to three, "Opened N times", no repeats; Generated up to three "Run of" tiles, only for You | **Partial** | Frequently used shows 3 (the API sends 6), none from Recent. Generated as You: three `files/Draft_product_copy_2026-10-19.docx` tiles with no "Run of" line (`generatedFrom: {kind: "chat"}`); as Maya: three images made in her chats (lighthouse, two `cat.png`) | BE-12 R5, R6; BE-07 R4; decision 11 |
+| H5 See all | **Pass** | Recent → `/library?tab=all`; Generated → `/library?tab=all&source=generated` with the chip | — |
+| H6 Card opens the file, close returns to Suggested; … opens the menu only | **Pass** | Card → `/library/files/6d76e1a8…`, Close → `/library`. The card's … menu: Open, Ask about this, Share, Download, Rename, Delete, URL unchanged; Escape closes it | — |
+| H7 All files columns and Access avatars | **Pass** | Name, Access, Source, Created ("Today, 4:00 PM"), Type, and a … per row, newest first. Owner first: "T O" for a file shared with Maya, the building circle for a workspace share | — |
+| H8 Sparkle on every Generated file, tooltip says where from | **Partial** | Sparkle on every Generated row, unread dot after it. The tooltip can only say "Generated in <chat>": run outputs carry `kind: "chat"` (e.g. "Draft product copy") | BE-12 R5, BE-07 R4 |
+| H9 Only Name and Created sort, arrows always, reverse on second click | **Pass** | `aria-sort` none / descending; Name → `sort=name` (rows from `a1-autosave…`), again → `dir=desc`; Access, Source, Type plain | — |
+| H10 Sort button choices, tick matches the heading | **Pass** | "Sort by" Name ✓ / Created, then Z to A ✓ with the Name heading's down arrow; outside click closes | — |
+| H11 Filter panel sections and options | **Pass** | Source: Uploaded, Generated, Shared. File type: Images, Documents, Spreadsheets, PDFs, Audio | — |
+| H12 Counts per filter | **Pass** (was Partial) | API and list agree. You: all 79, Uploaded 58, Generated 21, **Shared 10 (7 owned and shared out + 3 shared with You)**, Images 16, Documents 48, Spreadsheets 3, PDFs 10, Audio 2. Maya: Shared 10 (3 + 7). The prototype's 15/4/11/8 are sample data | — |
+| H13 Two in one section widen; one in each narrows | **Pass** | Uploaded + Generated 79 (= all); Shared + Uploaded 59 (the union); Generated + Documents 6 | — |
+| H14 Chips, X, Reset | **Pass** | "Uploaded" and "Audio" chips beside Filter; the list shows the two recordings | — |
+| H15 "No files match" with Reset filters | **Pass** | As Maya, Generated + Audio: "No files match", Reset filters → `/library?tab=all`, 22 rows on screen | — |
+| H16 … menu items; Download; Ask about this | **Pass** | Open, Ask about this, Share, Download, Rename, Delete. Download and Ask about this not re-run (passed on the first run; unchanged code) | — |
+| H17 As Sam, Share, Rename, Delete off with "Only the owner can change this" | **Pass** (first run, as Maya) | Not re-run; unchanged front end, and `403 only_owner` holds (Flow E retest) | — |
+| H18 Search: no tabs, Filter or Sort; snippets; "net 30" finds the contract and the recording; never Trash | **Partial** (better) | Words are ANDed: "net 30" gives **6** rows (was 15), all containing both words; "30 net" the same; "supplier nova" 3; "zzz" none; trashed files absent. Snippets show. Tabs, Filter and Sort are hidden. **Still:** Supplier contract - Acme is 4th, after `qa-seed-return-policy` (no phrase-first step, rank only), and the Supplier call recording is never found (no transcript indexed). Sort is ignored while searching (same order for all four sorts), so the headings are now plain labels (front end, below) | BE-12 R3 (phrase first), R4 (BE-06 R2) |
+| H19 "In Shared" leaves out your files; All of Library; no match | **Pass** (was Fail) | You, "nova": In Shared → 1 (`h5-maya-brief`, Maya's); All of Library → 4 (three of You's + Maya's). Maya, "nova": In Shared → `h2-nova-notes` only. From All files both scopes give the same list. "zzz": "No files match / Try other words / Clear search" | — |
+| H20 Shared columns, unread first then newest | **Pass** (was Partial) | Name, Access, Date shared, Type. Maya: four unread (newest first), then three read; You: the unread `e3uj8y` first. No owned file in either | — |
+| H21 Trash screen | **Pass** | "Library > Trash", no tabs, Filter, Sort or search; "Frees up 4 KB", Empty Trash; Name, Days left ("30 days"), Size, Deleted. Maya: "Trash is empty". `GET /library/trash?limit=2` still returns all 3 (no `limit`) | BE-12 R9 (limit) |
+| H22 Loading, Empty, Error, search error | **Pass** | Skeletons while held; "No files yet / Attach a file in a chat / New chat" on Suggested and All files; "Couldn't load your files. / Try again"; search: "Search is unavailable right now / You can still browse and attach files by hand / Try again" | — |
+| H23 No upload in Library | **Pass** | No Upload button, tray or drop area | — |
+| H24 Escape, outside click, Tab, Enter | **Pass** | Escape closes the card menu, an outside click closes Sort, Enter on a focused card opens its file | — |
+| H25 Narrower window | **Partial** (front end) | All files: 1300 px all columns; 1000 px Source hidden; 800 px Access and Type hidden; 600 px Name only. Shared: 1000 px Type hidden. Toolbar wraps with no overlap and no page scroll. **But** at 600 px the tab row cuts "Shared" off, and at 420 px the app sidebar stays open and leaves the Library about 130 px (the header is clipped) | — (front end: sidebar and `Tabs` at narrow widths) |
+| H-d1 Filter ticks carry over and are ignored while searching | **Pass** | Search sends no filters; unit tests in `query-params.test.ts` | — |
+| H-d2 Sort fallback between tabs | **Pass** | Unchanged; unit tests | — |
+| H-d3 Same name twice is two rows | **Pass** | `a19o4o-a6-same.txt` twice under Name sort, with different Created times | — |
+| H-d4 Open from Shared or a search result, close returns there | **Pass** | Back to `/library?tab=shared` and to `/library?tab=all&q=nova` | — |
+
+**Also checked on the API.** A tampered cursor → `400 bad_cursor` ("This list changed. Please reload."). `sort=size` → FastAPI's own `422 {"detail": [...]}` (not the `fieldErrors` body, C-01). `limit=100000` is clamped (`200`). A one-letter `q=a` is accepted by the server (the front end only searches from two letters). `GET /library/summary` → `404`. List rows have no thumbnail fields.
+
+**Front end changed in this run.** While searching, the Name and Created / Date shared headings are plain labels (no arrows, no `aria-sort`), the hidden result count says "N results, best matches first", and the list request no longer varies by a sort left in the URL (nor by Shared's unread-first order), so a stale sort does not refetch the same results. `headingSort` and `toListParams` in `src/lib/library/query-params.ts`, used by `FilesView.tsx` and `FileTable.tsx`; tests in `query-params.test.ts`.
 
 ### Flow H results by check (25 checks and 4 depth items, run live 2026-10-19)
+
+*Superseded by "Flow H retest" above; kept for its counts and notes.*
 
 Test data: admin "You" (61 files, 18 Generated) and Maya (31 files); Maya stands in for Sam, and no third person exists, so the "+2" avatar and "As Sam" were not tested. Counts were compared with `GET /library/files` for each filter, not with the prototype's 15/4/11/8.
 
@@ -275,13 +466,25 @@ Test data: admin "You" (61 files, 18 Generated) and Maya (31 files); Maya stands
 | **Partial** | H2 (Shared tab appears for someone who only shared out), H3 (Recent order can disagree with the line shown), H4 (Generated holds chat images, no "Run of" line), H8 (routine wording needs the routine origin; tooltip itself fixed in the front end), H12 (counts match the API, but Source: Shared means only shared with you), H18 ("net 30" returns 15 files, recording never found), H20 (Shared list also holds files you own) | Backend causes are R1 to R6 of BE-12 |
 | **Fail (backend)** | H19 ("In Shared" returned files You own) | BE-12 R1 |
 
-### All flows results by check (X1 to X13, run live 2026-10-19)
+### All flows retest (X1 to X13; run live 2026-10-19 against the 18 Oct backend)
 
-| Result | Checks | Notes |
-|---|---|---|
-| **Pass** | X1 (no banned words; an unused "Items moved to Trash…" string was removed), X2, X4, X5, X6, X7 (search clears on leaving, stays on open and close; no state switch exists in the real app), X8, X9, X10, X11, X13 | Only File, Trash, Upload and Output appear; roles, states, status words, tabs, Recent wording, Filter and Sort, "N used", no upload control |
-| **Fixed in the front end** | X12 (file icons sat in tinted rounded boxes; the box is gone in `FormatGlyph.tsx`, the tint stays on the icon) | No On or Off word on any switch |
-| **Partial (backend)** | X3 (Ready, In Trash, Locked, Processing and failed all have a look; **Uploading cannot be shown** because no file is returned while uploading, `FileDetail.phase` is always `"ready"`) | BE-02 R1 and R9 |
+This replaces the first "All flows" run of the same day; it covers every check again. As You and Maya on `localhost:3000`; X4 to X6, X9 to X11 and X13 reuse the Flow H retest of the same afternoon.
+
+| Check | Result | What happened | Still needed (backend) |
+|---|---|---|---|
+| X1 Only File, Trash, Upload, Output; never Item, Shelf, Folder, Collection | **Pass** | No banned word on Suggested, All files, Shared, Trash, a File page or Settings → Library | — |
+| X2 Owner manages, Viewer opens only, no access sees the locked page, Admin pages Admin only | **Pass** | You on your own output: Share and File info enabled. Maya on You's `h1-terms-net30` (shared): Share, Rename, Manage access and Delete disabled. Maya on You's private `2d60bd56…`: "You don't have access / Ask the owner to share it". Maya on `/settings/workspace-library`: "Ask an admin in your workspace if you need a change here." | — |
+| X3 Every file state has a look | **Partial** | Ready, Locked (above), Trash ("No longer available / Back to Library" for `315c0b35…`) and failed processing ("Library processing failed. The original file is still available in chat and for download. / Try again" on `u2aygg-a5-note.txt`) pass, and the composer shows "Uploading… N%" and "Processing" (A2). A **File page** still cannot show Uploading: staged uploads have a phase only on `GET /library/uploads`, and `FileDetail.phase` is still `Literal["ready"]` | BE-02 R1 (`phase` on the file), R9 |
+| X4 Lists have loading, empty and error | **Pass** | H22 | — |
+| X5 Status shows a word or icon, not only colour | **Pass** | Unread dot labelled "Unread", "Processing" badge, "AI-generated" on the File page | — |
+| X6 Suggested, All files, Shared; Trash from the header button; run outputs in All files as Generated | **Pass** | H1, H2, H5, H21 | — |
+| X7 Search clears on leaving Library, stays after opening a result | **Pass** | `q=nova`, Schedules, then Library in the sidebar: back on `/library` with an empty box. Open and close from results keeps `q=nova` (H-d4). No file state switch exists in the real app | — |
+| X8 Recent wording, unread shared reads "Shared", "Opened N times" | **Partial** | Wording and short times right, but an unread file shared with You reads "Modified today" (H3) | BE-12 R6 |
+| X9 Sparkle after a Generated name, Access column, unread dot beside the name | **Pass** | H7, H8 (the tooltip's routine wording waits on BE-12 R5) | — |
+| X10 Filter and Sort icon buttons, only Name and Created sort, two sections, chips, Reset | **Pass** | H9 to H15 | — |
+| X11 "N used" beside the title on every tab | **Pass** | H1 | — |
+| X12 No box around file icons; switches show no On or Off word | **Pass** | 0 icon wrappers with a background in All files rows. The settings switches (G retest, stand-in) read only their label | — |
+| X13 Files come in through a chat; no Upload button or drop area | **Pass** | H23 | — |
 
 ---
 
@@ -296,6 +499,8 @@ Test data: admin "You" (61 files, 18 Generated) and Maya (31 files); Maya stands
 ### BE-01. Library settings: personal prefs, workspace settings, and enforcing them
 
 **Covers:** A1, A4; Flow G checks G1 to G5, G8 (doc-12 ids G-C01 to G-C05, G-C08). **Blocks:** A4 live test, and re-running Flow G against the real backend. **Related:** BE-03 (send), BE-04 (retrieval switch).
+
+**Status after the 18 Oct backend: not started.** `GET /library/prefs` and `/library/org-settings` are still `404` (checked live 2026-10-19, and again for both accounts in the Flow G retest). Keep `NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS` off. **Flow G retest (Part 1):** the screens pass against a stand-in; live, the server enforces nothing (R5): a send without `saveToLibrary` is saved whatever the Admin chose, and `librarySourcesOff` / `aiReferenceEnabled` on a send are dropped silently with `200`. `limitBytes` is still `null` (R6, decision 7).
 
 **Seen live.**
 - `GET /library/prefs` and `GET /library/org-settings` return `404 {"detail":"Not Found"}` for both accounts.
@@ -345,6 +550,10 @@ R6. **Storage total.** `GET /library/storage` returns `limitBytes` when the work
 
 R7. **Kill switches** (`04` section 9: `GET /library/flags` with `library`, `autoSave`, `aiUse`, `sharing`) are separate from these settings and win over them. A flipped switch writes an audit entry.
 
+R8. **(New, 20 Oct Flow G run) Storage on the Admin page is the workspace's.** `GET /library/storage` sums only the caller's own listed files (`services/library/library.py:701-720`), and trashed files count. The Admin page showed the admin's 53.2 MB, while Maya's page showed her 12.4 MB, both "of 20 GB". Either return workspace usage for Admins (for example `?scope=workspace`), or document that the limit is per person. Decide whether Trash counts. The limit is one global value (`services/document/settings/library.yaml:2`, 20 GiB), not per workspace.
+
+R9. **(New, 20 Oct) Force auto-save off on the uploads endpoint.** `POST /library/uploads` with `staged: false` makes a listed Library file (`services/library/uploads.py:299, 305`) even when the workspace forces auto-save off. Only `maxFileBytes` and `allowedFormats` are checked (`prefs.py:166`). The web composer always stages, so the app is not affected, but the API is. With force-off on, treat every upload as staged, or refuse `staged: false` with `403 autosave_forced_off`.
+
 **Errors.**
 
 | Status | Code | When |
@@ -388,6 +597,27 @@ R7. **Kill switches** (`04` section 9: `GET /library/flags` with `library`, `aut
 ### BE-02. Upload lifecycle: staged files, discard, no merging of copies, refusing bad files, visible phase
 
 **Covers:** A3, A6, A7, Depth 3, X3. **Blocks:** BE-03 (promotion), BE-04 (sources). **Related:** C-04 (list predicate), C-07 (upload checks).
+
+**Status after the 18 Oct backend (read in code and re-run live, Flow A retest).**
+
+| Req | Status | How it was built |
+|---|---|---|
+| R1 Staged state | **Done, differently** | `POST /library/uploads` takes `staged: true`; the `Document` is made with `listed = false` (a boolean, not the `life` enum). Every list, search, Suggested, storage total and the picker add `listed = true`. A staged file is **not indexed** until send (`processUpload` skips the index when unlisted). No partial index was added |
+| R2 Promote on send | **Done** | `Library.show()` sets `listed = true` and enqueues indexing |
+| R3 Discard | **Done** | `DELETE /library/uploads/{id}` after processing deletes the unsent document through `remove_document`; `409 upload_done` once it is listed or attached to a message |
+| R4 Cleanup | **Done** | `sweepUploads` removes unsent staged documents with the stale upload records (`uploadHours`) |
+| R5 One upload, one file | **Done** | The `sha256` reuse was removed; each upload is its own `Document`. No storage-level sharing |
+| R6 Refuse before ready | **Not done** | The checks still run in indexing, now **after send**. A corrupt or password-protected PDF is `ready` at upload, then `processing: "failed"` in All files and in the picker |
+| R7 Unsafe gate by content | **Not done** | `.exe` renamed `.pdf` is accepted; only the extension is checked (`415` at init) |
+| R8 Late indexing failure | **Not done** | Failed files stay listed with a failed badge (decision 2 in Part 4) |
+| R9 Visible phase | **Partly** | The owner can open a staged file by id (`phase: "ready"`), but `FileDetail.phase` is still never `uploading` or `processing` (X3) |
+| R10 Init refusals, `Idempotency-Key`, rate limit | **Partly** | `413`/`415` at init exist; no idempotency key, no rate limit |
+
+Front end: composer uploads now send `staged: true`, and X on a finished, unsent file calls discard (`controller.ts`, `composer-uploads.ts`, 2026-10-19).
+
+**20 Oct (X3 retest, live against `45b2ef3e`).** R9 now works for `uploading` and `processing`: a 40 MB upload left unfinished opens with `phase: "uploading"`, and while the checks run the detail says `phase: "processing"`, `processingPhase: "queued"`. R6 runs before ready now (`services/library/inspect.py:33-60`): a corrupt PDF ends `failed: unreadable` and a password-protected one `failed: password_protected`. Gaps left:
+- **R9: `failed` never reaches the File page.** `failUpload` (`services/library/uploads.py:266-276`) deletes the unlisted `Document` and clears `upload.document_id`, so the File page of a refused upload answers `404 file_gone` ("No longer available"), and the reason is shown only in the composer. Either keep the detail readable for the owner with `phase: "failed"` and `failureReason` until the sweep, or document that `failed` is only ever the Library-processing failure (`processingPhase: "failed"` on a listed file).
+- **R9: preview of an uploading file is `500`.** `Library.preview()` (`services/library/library.py:479-489`) only checks `processingPhase` for formats that need conversion; a PDF still uploading goes on to sign a link to bytes that are not there and fails with `500`. Answer `409 preview_processing` while the upload phase is `uploading` or `processing`. (The front end now skips the preview while uploading, but its first warm-up request is sent before the detail arrives.)
 
 **Seen live.**
 - A3: attach, wait for ready, do not send. The file is in All files, found by search, and removing it with X leaves it in All files (not in Trash).
@@ -485,6 +715,8 @@ init -> uploading --complete--> processing --ok--> ready(staged) --send--> activ
 
 **Covers:** A4, A5, A14; G-C08. **Depends on:** BE-02 (staging), BE-01 (prefs). **Related:** C-02, C-06.
 
+**Status after the 18 Oct backend.** **R1 partly:** `saveToLibrary` is read on `POST /chats/create`, `/chats/{id}/stream` and both persona routes (`true`/`false`/absent, anything else `422`); `librarySourcesOff` and `Idempotency-Key` are not. **R2 partly:** rules 3 to 5 work (`false` keeps the file unlisted, absent or `true` lists it, also for plain multipart `files` through `workspace.persistMany`); rules 1 and 2 (force-off, the chat flag) need BE-01 and R4. **R3 done:** `show()` sets `origin_chat_id` with `coalesce`, so a new chat links its file and an existing origin is kept (A5 passes). **R4 not done** (no `library_dont_save`; the front end keeps it in localStorage). **R5 not done** (no `savedFileIds` / `chatOnlyFileIds` event). **R6 partly:** `404 file_gone` for a trashed file, `403 file_locked`; no `not_ready` or `too_many_files`. Re-run: A5 and A14 pass. Slack DMs now save attached files to Library (`slack/turn.py` `libraryNames`), channels do not. **Flow G retest (2026-10-19):** `saveToLibrary=false` keeps Maya's file out and an absent flag saves it, so G2 and G8 hold only while the client sends `false`; R2 rule 1 (force-off on the server) is still missing. Unknown form fields (`librarySourcesOff`, `aiReferenceEnabled`) are accepted and ignored, against R1's "unknown fields are rejected".
+
 **Seen live.**
 - A4 cannot be checked (no prefs endpoint).
 - A5: a file attached in an **open** chat reads "Uploaded by You, <chat>" with a link (pass, after a front-end fix that sends `chatId` on `POST /library/uploads`). In a **new** chat it reads "Uploaded by You" with no link (fail).
@@ -560,6 +792,8 @@ R6. **Checks before the stream opens** (C-06): every `libraryFileIds` entry pass
 
 **Covers:** A10 (without citations), A13 (without citation ids), Depth 2, G-C03, G-C09, F11 (without the citation half). **Depends on:** BE-01 (switch), BE-03 (`librarySourcesOff` field). **Excluded:** citation ids and chips (cited-passages ticket).
 
+**Status after the 18 Oct backend.** **R5 done** (`document_id` on every attachment in `GET /chats/{id}/messages`, kept after Delete forever, see BE-05). **R1 to R4 and R6 not done.** Re-run A13 (2026-10-19): with nothing attached, the answer to a question only a saved file can answer was a made-up "30 days" (the file says 73), so the missing retrieval now also produces wrong answers, not only "I don't see any files". Nothing reads `librarySourcesOff`. **Flow G retest (G9, 2026-10-19):** with nothing attached, asked for a fact only in Maya's saved note, the agent ran `list_chats` and `read_chat`, named the file (`g19x-mvf79dvr-0.txt`) and asked her to upload it again. Not "I couldn't find this in your files." (R3), and with the Admin's AI reference off it should not reach Library files through chat tools either (R2). **Re-run 2026-10-20 (backend `45b2ef3e`):** still not done. A13 answered "30 days" from the agent's memory file `/memories/business/customer-fulfillment.md`; `aiReferenceEnabled` (user and org) is stored but read only in services/library/prefs.py; `librarySourcesOff` is now refused with `400 bad_request`, so the front end keeps it in the browser.
+
 **Seen live.**
 - A13: with "Search my Library in chats" on and nothing attached, a new chat asked about a fact only in two Library files. The model ran 6 actions and answered "I don't see any files attached to this chat". A chat never searches Library unless a file is attached, so the setting has nothing to switch off.
 - A10: the next message sends `librarySourcesOff=["<fileId>"]` and nothing reads it. `GET /chats/{id}/messages` has `file_attachments` with `file_name, s3_key, mime_type, file_size, origin` and no `document_id`.
@@ -617,6 +851,8 @@ R6. **Content is data, not commands** (carry over `04` sections 6.2b and 7b): re
 
 **Covers:** F2, F4, F9, F10. **Depends on:** BE-03 (origin chat), BE-04 R5 (`document_id` in history). **Related:** C-05 (signed links), C-07 (access).
 
+**Status after the 18 Oct backend (re-run on Flow A files).** **R1 done:** each attachment has `libraryState` (`open | deleted | locked`, worked out for the reader), and a non-open file has `file_link: ""` (empty, not absent) and, when locked or purged, `file_name: ""`. A trashed file keeps its name for the owner. **R2 done:** `attachable` answers `404 file_gone` for a trashed file, owner included (seen live). **R3 done:** `remove_document` sets `MessageFileAttachment.document_deleted_at` and keeps `document_id` (the foreign key was dropped). **R4 and R5 not done** (no `savedFiles`, no soft delete, no restore). Front end, 2026-10-19: the history no longer drops an attachment whose link is empty; deleted and locked ones keep a chip that reads "File deleted" / "Locked file" straight from `libraryState` (seen live: Trash → "File deleted", Restore → the name again).
+
 **Seen live.**
 - `GET /chats/{chat}/messages` for a chat where the file was sent returns the attachment with a fresh signed `file_link`; fetching it returned `200` and the file's text while the file was in Trash. The chat chip kept the file name.
 - `POST /chats/create` with `libraryFileIds: ["<id of a file in Trash>"]` as its owner returned `200` and created a chat (the aborted test chat was deleted again).
@@ -653,6 +889,10 @@ R5. **Delete a chat and, optionally, its files; undo it.**
 - `DELETE` uses `soft_delete_chat` (sets `deleted_at`, hides the chat and its messages from every list and from retrieval).
 - `POST /chats/{id}/restore` (end-state, idempotent) brings back messages, attachments and file links, **and** restores the files trashed by that same delete (`trashed_with_chat_id = chat`) in one transaction. Window: 30 days like Trash (decision in Part 4). A later purge job removes the chat for good; `chat_only` files go with it (BE-03).
 - Restoring after the window: `404 chat_gone`.
+
+R6. **(New, 20 Oct Flow F run) The model never sees a trashed file's contents.** Seen live: a file sent in a chat, then moved to Trash; asked in that same chat "What is our return window according to the file I uploaded earlier?", the answer was the file's own fact ("61 days from delivery") with no tool call. In a new chat the sandbox correctly said "Available files: none". Cause: `get_chat_file_attachments` (`services/chat/repository.py:387-412`) filters only on message `deleted_at` and origin, never on `Document.trashed_at` or `MessageFileAttachment.document_deleted_at`. Through `fetch_prior_atts` (`chat/service.py:263-267`) and `Workspace.adoptAttachments` (`document/workspace.py:173-189`) the file stays in `<available_files>` (`llm/context_evidence.py:27`) with its original s3 key. Also check that earlier turns' extracted text in the message history is dropped or redacted for trashed files. The history read path already does this right (`chat/repository.py:146-169`). Acceptance: trash a file used in a chat, ask about it there: no contents, no name, and "I couldn't find this in your files."
+
+R7. **(New, 20 Oct) Restore brings back the files trashed with the chat.** `restore_chat` (`chat/service.py:984-992`, `chat/repository.py:552-569`) brings back the chat, its messages and its pins only. The front end trashes the files itself after the delete (no `deleteFiles` or `trashed_with_chat_id` yet), so the restored chat shows "File deleted" (seen live). Until R5's `deleteFiles` and file restore land, the front end hides Undo when files went to Trash. Also, `soft_delete_chat` hard-deletes `ChatContext` rows (`chat/repository.py:583`), and restore does not bring them back.
 
 **Errors.**
 
@@ -697,6 +937,8 @@ R5. **Delete a chat and, optionally, its files; undo it.**
 ### BE-06. Recordings: a "Transcribing" step and a transcript on the File page
 
 **Covers:** A11 (without the timed citation), and the recording half of H18 (a recording is never found by search). **Related:** C-06 (events, status), C-10 (transcripts), C-07 (no internal paths).
+
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits touches this item. **Re-run 2026-10-20:** partly there by another route. With a `.wav` attached, the agent calls the `transcribe_audio` tool (sandbox/router.py:194-205, returns `{name, text}` only), the chat shows "Transcribing — <file>" and the answer is right. Still missing: a stored transcript with timed lines on the file (services/files/models.py:228 keeps transcription an explicit operation), so no citation into the recording and no search hit (H18).
 
 **Seen live.** With a real speech recording (`supplier-call-a11.wav`, 1.1 MB): upload goes Uploading, Processing, ready; the turn runs the `transcribe_audio` tool; the answer is right. The step row read "Running tool — /sandbox/input/supplier-call-a11.wav" (the front end now shows "Transcribing — <file>"). The File page shows only a player: `services/library/preview.py` ~line 96 returns `AudioPreview(url, durationMs=0, lines=[])`.
 
@@ -752,6 +994,8 @@ R6. **Searchable.** The stored transcript text is indexed so Library search find
 
 **Covers:** B1, B2, B3, B5, B6, B-d1, B-d2, C1, C2, C7, C8, C-d1, C-d2, F1, F-d1, and the routine-origin half of H4 and H8 (Generated tiles and the sparkle tooltip). **Related:** C-02 (run twice), C-06 (events), BE-11 (owner removed).
 
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits touches this item, and `services/automations` has no commit since 16 Oct. Flow B re-run on 2026-10-19 (Part 1, "Flow B retest"): B1 to B3, B5, B6 fail, B4 passes. **New:** a routine the chat creates as instructions (`kind: "model"`, `entry: scripts/automation.md`) finishes "succeeded" with an answer naming a `.docx`, and no Library file is made (see R11). **Flow C re-run on 2026-10-19** (Part 1, "Flow C retest"): C3 to C6, C9 pass; C-d1 passes on the server (one run) and in the app after a front-end fix (a double-click sent two POSTs); C1 and C2 partial (R4 titles, R5 output kind), C8 fails (R4: still `provenance.kind: "chat"`), C7 and C-d2 blocked (R10; R1 and R6).
+
 **Seen live (B).** Asking a new chat for a weekly routine gives the generic question card (questions change per run, Library files never mentioned, no Routine details card). Creating "Draft product copy" makes routine `90fd1216…` with `runs: []`, no test run, no card. `GET /automations/{id}` has no file field. Run now works (~21 s) and Library gains `files/Draft_product_copy_2026-10-18.docx`, Source Generated, `generatedFrom: {kind: "chat", label: "Draft product copy"}`. As Maya the routine is listed under **Organization**.
 
 **Seen live (C).** Two runs on one day gave two files with the identical name `files/Draft_product_copy_2026-10-19.docx` (C1). A message-only run adds a "Completed" line and no file but the page still shows Run outputs (C2). `GET /library/files/{id}` returns `provenance: {kind: "chat", label, via: "web", chatId}` for a run output: no `routineId`, `runLabel` or `runInputs` (C8). `POST /automations/{id}/run` twice quickly: both return `200 {"started": true}`, one run is created (C-d1).
@@ -802,7 +1046,11 @@ R8. **Privacy (decision first).** Either routines are private and `GET /automati
 
 R9. **Delete a routine.** `DELETE /automations/{id}?deleteOutputs=true|false`; `?dryRun=1` returns `{outputCount}` first so the dialog can say "Also delete its N run outputs".
 
+R11. **Every routine kind saves its output file to Library (new, 2026-10-19).** A `kind: "model"` run (the agent follows `scripts/automation.md`) must hand each file it produces to the same Library path as script runs and chat turns (`Workspace.library`, source `generated`), with R4's name and provenance. Seen live: run `0e9449f9…` of routine `8d09a205…` answered "Attached `b3acbf-product-copy-2026-10-19.docx` as the run result." and no `Document` exists for it. In code, the model path ends in `finishRun(files=runState["generated_attachments"])` (`runner.py` ~line 474), and only files that go through `registry.persist` / `Workspace.library` become Library files; a file the agent only writes into the routine's folder does not. If the run says it made a file and none was saved, the run must not read "Completed" with no output (C-06): either save it or mark the run failed with a reason.
+
 R10. **Optional (product call): "ready" notice.** When a routine is connected to Slack, post "<Routine> is ready." with a link once a run saves its output (C7). Without it, C7 depends on each routine's own script.
+
+R12. **Return `shared` (new, 2026-10-20).** `PATCH /automations/{id} {shared}` works: on the 20 Oct retest, Maya saw the routine only while it was `true`. But no response includes the flag. `automationDict` (`services/automations/repository.py:212-236`) and `AutomationBase` (`schemas.py:220`) leave it out, so even the PATCH response doesn't say whether the routine is shared. Add `shared: bool` to the list, detail and PATCH responses (C-03) so the front end can show a "Share routine" control with its current state.
 
 **Errors.**
 
@@ -849,12 +1097,17 @@ R10. **Optional (product call): "ready" notice.** When a routine is connected to
 8. As Maya, the routine is in neither Mine nor Organization (if "private" is chosen) and no attached file name is visible.
 9. Not now, then Create: the card says "Attached files: None", the page "No files attached."
 10. A failed run leaves no file and no partial file in Library.
+11. A routine created from chat as instructions (`kind: "model"`) that is asked for a Word document: Run now adds that document to All files (Source: Generated) with R4's name; a run that claims a file but saves none is not "Completed".
 
 ---
 
 ### BE-08. Sharing by asking in chat
 
-**Covers:** E7, E8, E-d1 (chat half), and the chat half of E9. **Related:** BE-10 (Slack channel rule), BE-12 (unread, trash), C-02, C-06.
+**Covers:** E7, E8, E-d1 (chat half), and the chat half of E9.
+
+**Status after the 18 Oct backend: not started.** Re-run E7 (2026-10-19): no share tool; the agent offered to share the file by driving the web app in a browser ("Approve browser access and I'll share it"). Until R1 exists, the agent should say sharing is done from the Share dialog instead of offering browser automation. **Related:** BE-10 (Slack channel rule), BE-12 (unread, trash), C-02, C-06.
+
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits touches this item.
 
 **Seen live.** "@Souvenir share the e4 weekly sales report with OS8 Test01" returned "Sharing requires using the Souvenir web interface; approve browser access and I can share that chat with OS8 Test01." Nothing was shared, no confirmation, no Undo. A file Maya owns, a name matching several files, and a person not in Souvenir each got a browser-access offer instead of the fixed reply. `GET /library/files/{id}/access` stayed `[owner]`.
 
@@ -888,6 +1141,8 @@ R3. **Channel-safe wording in Slack** (with BE-10): in a DM or web chat the conf
 
 R4. **Notify and audit.** Add a `library.shared` notification for the grantee (`04` section 6.9) and an audit entry for each share and revoke (`04` section 7). Rate limit shares per file per minute (C-07).
 
+R5. **No browser automation for sharing (added 2026-10-20, ship before R1).** Re-run live 20 Oct against `45b2ef3e` (no backend commit since): all four prompts ("share the Weekly sales report with OS8 Test01", "share Payment terms with OS8 Test01" (a file You does not own), "share the Weekly sales report with Lena" (not a member), "share Brand guidelines with OS8 Test01" (already has it)) ran only `skills` / `execute` / `list_chats`, sent no `library_shared` event, shared nothing (`GET …/access` unchanged), and **each** reply offered to share "through Souvenir's browser interface" if approved. For Lena it asked "Do you approve that route to share it with Lena?", and for Payment terms it offered to share a file the asker cannot share. Approving would have the agent click through the web app as the user, skipping R1's refusals. Until R1 exists, the agent prompt (`services/llm/agent.py:55-58`, which points sharing at the `product/souvenir` skill) and the `browser` skill must not offer to drive the Souvenir web app to share, rename or delete Library files. Reply instead: "I can't share files from chat yet. Use Share on the file in Library." After R1, the browser route stays off for Library actions. Code refs today: `services/library/router.py:144-151` (grants routes), `services/library/library.py:663-697` (`share` / `unshare`); nothing outside `services/library` calls them.
+
 **Errors.** The tool turns the underlying errors into the replies above; the HTTP errors on the grants endpoints are unchanged (`400 not_a_member`, `409 already_has_access`, `403 only_owner`, `404 file_gone`).
 
 **Data.** None new; `grantId` already exists on each access entry.
@@ -917,6 +1172,8 @@ R4. **Notify and audit.** Add a `library.shared` notification for the grantee (`
 ### BE-09. Request access to a file
 
 **Covers:** D4 (the panel is front end and done; the button needs the endpoint). **Related:** C-02, C-07 (existence, rate limits), `04` section 6.9 (notification).
+
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits touches this item. Re-run 2026-10-19 (D4, Part 1 "Flow D retest"): `POST /library/files/8d081d29…/access-requests` as Maya is still `404 {"detail":"Not Found"}`; with the flag on, the button stays "Request access" and an error toast shows. Keep `NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS` off.
 
 **Seen live.** `POST /library/files/8d081d29…/access-requests` as Maya returns `404 {"detail":"Not Found"}`: the route does not exist (`services/library/router.py` has no `access-requests`; `04` section 5 and 6.9 list it and `library.access_requested`). With the flag on against the real backend the button stays "Request access" and an error toast shows. With the POST mocked to `204` the panel button becomes "Request sent" (disabled) and the File page for the same file also reads "Request sent" after a reload.
 
@@ -966,6 +1223,8 @@ R5. **Rate limit** requests per file per person per day (`04` section 7) with `4
 
 **Covers:** D1 to D3, D5 to D7, D-d1, D-d2, E9. All checks except the File-page half of D1 are **Blocked (environment)**: `GET /slack/status` returns `{"workspaces":[]}`, so no Slack message could be sent; the code behind them is also not built. **Needs before testing:** a connected Slack test workspace with the bot. **Related:** BE-04 (retrieval), BE-08 (share tool), C-07.
 
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits builds R1, R2 or R4 to R7. **R3 partly, and against the prototype:** `slack/turn.py` `libraryNames` now saves every new uploaded attachment in a **direct message** to Library (`Workspace.library(origin=UPLOADED)`: `source: "uploaded"`, owner = sender, `origin_chat_id` = the Slack turn's chat), without being asked, with no confirmation from the bot, and still answered as `via: "web"`; channels save nothing. So D7 (private to the sender) would pass and D-d1 ("not saved unless asked") would fail. Re-checked 2026-10-19: Slack is still not connected (`/slack/status` → `{"workspaces":[]}` for both accounts), so D1 to D3, D5 to D7, D-d1 and D-d2 stay **Blocked** (Part 1, "Flow D retest").
+
 **Where in the code.**
 - `services/slack` imports nothing from `services/library`. A Slack turn builds its files in `turn.py` (~lines 664-675) from the thread's uploads plus project knowledge, with `priorAttachments=[]`. A turn runs as the linked member (`models.py` ~line 65, `turn.py` ~line 223), in a channel too, so there is no "files everyone in the channel can open" rule and no "left out" sentence.
 - Slack attachments go to S3 only (`Workspace.addUploads`, `services/document/workspace.py` ~lines 135-170). `persistMany` (~line 383), which makes the `Document` row, is called only from web chat (`chat/service.py` ~line 689) and the sandbox (`sandbox/session.py` ~line 818), never from a Slack turn. `Document` has only `origin_chat_id` (`document/models.py` ~line 31), no channel, message or `via`; Library always answers `via="web"` (`library.py` ~lines 408-410) though `schemas.py` ~lines 75-77 allows `"slack"`.
@@ -992,6 +1251,8 @@ R5. **Edge replies** (`04` section 6.8b): a file still processing, "I'm still re
 R6. **Share by asking** is BE-08 R1 and R3 on the same resolver.
 
 R7. **Safety.** Slack events are retried by Slack, so every action here is idempotent per event id (the Slack idempotency record, `slack/models.py` ~line 232, already exists). Calls from Slack into Library use a **purpose-issued token**, never a forwarded browser session (C-07), and every downstream call has a timeout (C-12).
+
+R8. **Save files the bot fetched, too** (found 2026-10-20, code read at `45b2ef3e`). A file the bot pulls from the Slack thread with its fetch tool is registered with `origin=SLACK` (`services/slack/tools.py:981`), but `libraryNames` keeps only `origin == UPLOADED` (`services/slack/turn.py:123-129`) and `Workspace.library` maps no source for `"slack"` (`services/document/workspace.py:423-425`, returns early). So "save this to Library" about a file sent in an earlier message of the thread can never be saved. R3's save must cover both origins, and the save must go through the BE-02 pipeline, not the direct `Document` insert at the chat file's `s3_key` (`workspace.py:434-446`).
 
 **Errors.** Replies, not HTTP errors; the Library endpoints keep their codes (C-01).
 
@@ -1021,6 +1282,8 @@ R7. **Safety.** Slack events are retried by Slack, so every action here is idemp
 ### BE-11. Removing a member and leaving the workspace: what happens to their Library files
 
 **Covers:** Flow G checks G6, G7, G-d1, G-d2 (the doc-12 ids G-C06, G-C07, G-D01, G-D02). All four are **Blocked (backend)**; G7 and G-d1 were checked by reading code, and nothing was removed or transferred in the live run. **Related:** BE-07 (routines of the leaver), BE-05 (chats removed with them), C-02, C-07. **Rules:** `01-product-rules.md` section 9; design: `04-backend-requirements.md` sections 5 and 6.7.
+
+**Status after the 18 Oct backend: not started.** Nothing in the three Library commits touches this item. **Flow G retest (2026-10-19):** `services/organizations` has no new commit. Members → Remove on Maya still shows only an inline "Cancel / Confirm remove" (opened and cancelled), `DELETE /organizations/{id}/members/{memberId}` and `POST /organizations/{id}/leave` both run `offboardFromOrganization` at once, which never touches `Document` rows or their shares, and there is still no Leave button (`SHOW_DANGER_ZONE = false`). G6, G7, G-d1 and G-d2 stay **Blocked**; nothing was removed and nobody left.
 
 **Seen live (Flow G, 2026-10-19).**
 - Members as You: two rows (You, OS8 Test01), each with Remove. Remove on OS8 Test01 swaps the button for an inline "Cancel" and "Confirm remove" with **no question**; Cancel returned to "Remove" and **no `DELETE` was sent**. In code, Confirm sends `DELETE /organizations/{id}/members/{memberId}` and the backend removes the person at once.
@@ -1105,6 +1368,8 @@ R7. **Audit and events.** Audit entries for removal request, answer, transfer co
 
 **Covers:** Flow H (H2, H3, H4, H8 backend half, H12, H13, H18, H19, H20, H-d4), Flow E (E3 and E-d2 unread edge, E10 Trash), and the list rules in C-04, C-11 and C-12. Flow H is complete (25 checks, 4 depth items, "every flow" list); its backend findings are R1 to R6. **Related:** BE-06 (transcripts for search), BE-07 (routine origin on rows), C-04.
 
+**Status after the 18 Oct backend (read in code and re-run live, Flow H retest in Part 1).** **R1 done:** `tab=shared` is `sharedTab()` = not owned and shared with me. Live: You's Shared holds 3 files, Maya's 7, none owned by the caller; "In Shared" search leaves owned files out (H2, H19, H20 pass). **R2 done:** `source=shared` is `sharedSource()` = shared with me **or** owned and shared out (decision 4 taken the prototype's way). Live: 10 for You (7 shared out + 3 shared in), 10 for Maya (3 + 7); with Uploaded it is the union (H12, H13 pass). The front end switched `useHasShared` to `tab=shared` in the same change (2026-10-19). **R3 partly:** search ANDs the words (`everyWord` = `plainto_tsquery`): "net 30" went from 15 rows to 6, all holding both words. It orders by a whole-query name match first and then `ts_rank`, and ignores `sort` (the same order for all four sorts; the front end now shows plain headings while searching). Still missing: the phrase-first step (Supplier contract - Acme is 4th for "net 30"), a server minimum length (`q=a` is accepted), and a rank cursor (the same offset cursor, C-04). **R4 to R12 not done:** no recording in search (R4), `generatedFrom.kind` always `"chat"` (R5), Recent ranks by an unreported use and an unread shared file reads "modified", Frequently used sends 6 (R6), unread again after a re-share (R7, not re-run), Trash lists only owned files and ignores `limit` (R8, R9), offset cursor (R9), `GET /library/summary` `404` (R10), no thumbnail fields (R11), Suggested has no per-section `error` (R12).
+
 **Seen live (Flow H, 2026-10-19).** The real accounts hold their own files (admin "You": 61 files, 18 Generated; Maya: 31), so counts were compared with `GET /library/files` for each filter, not the prototype's 15/4/11/8. No third person exists, so the "+2" avatar and "As Sam" were not tested.
 - **Shared tab.** `GET /library/files?tab=shared` as You returned 8 rows: 4 files You own and shared out (h1, h2, e1, f1…) and files shared with You (h5, Maya's lighthouse image). As Maya, her own `h5-maya-brief` is in her Shared. "In Shared" search returned `e3-supplier-contract-nova` and `h2-nova-notes`, files You own (H19 **Fail**).
 - **Source: Shared.** `?tab=all&source=shared` returned 2 for You and 3 for Maya: only files shared **with** them. The prototype counts "a file others can open": one you shared **or** one shared with you (H12 **Partial**, counts otherwise match for every filter).
@@ -1137,7 +1402,9 @@ R5. **Generated knows its origin.** Send the routine origin (BE-07 R4): `generat
 
 R6. **Recent and Frequently used tell the truth.** The row reports the time and kind the order actually used: `lastActivityAt` / `lastActivityKind` equal the latest of change, open **and use** (kind `opened` for a use), and `openCount` plus a `useCount`; or rank Frequently used by opens only so "Opened N times" is true. Return exactly the number of Frequently used entries the screen shows (3), or document that the front end trims.
 
-R7. **Unread again.** When a grant is added for someone who already opened the file, make `unread` true again: clear their `DocumentView.opened_at`, or keep a `shared_seen_at` older than the grant. Removing the grant must not leave the file unread for them (`04` section 6.2).
+*20 Oct (X8 retest).* The front end now reads an unread shared file as "Shared <sharedAt>" itself (`unread` and `sharedAt` are on the row, `library.py:286-288`), so that half needs nothing more. Still wrong: `last_activity_kind` is one value per document, not per viewer. The owner sharing with someone else (`library.py:687`) or renaming (`library.py:629`) changes every viewer's line, so a file the member already opened reads "Shared today" (Supplier contract - Acme, seen live) and `row()` (`library.py:261-263`) only corrects it when the viewer's own open is later. Report the kind and time per viewer: the viewer's own share time, open or use, or the owner's change.
+
+R7. **Unread again.** When a grant is added for someone who already opened the file, make `unread` true again: clear their `DocumentView.opened_at`, or keep a `shared_seen_at` older than the grant. Removing the grant must not leave the file unread for them (`04` section 6.2). **Seen live 2026-10-20 (E-d2):** Supplier contract - Acme, which Maya had opened on 19 Oct, was shared → `unread: false` straight away; opened, unshared, shared again → still `unread: false`, and it sits in Maya's Shared with no dot. Cause: `unread=not owned and bool(mine) and view is None` (`services/library/library.py:284`) never compares the view with the grant's `created_at`, and `share` / `unshare` (`library.py:663-697`) leave `DocumentView` alone. A file opened for the first time does clear (Brand guidelines: unread → `POST …/opened` → not unread, dot gone).
 
 R8. **Trash for the person who deleted.** `GET /library/trash` also lists files where `trashed_by = me`, with Restore left to the owner (the row says "Only the owner can restore it").
 
@@ -1169,7 +1436,7 @@ R12. **Suggested degrades per section.** `GET /library/files/suggested` returns 
 **Observability.** List latency by tab and sort (target p95 under 300 ms at 10,000 files per user, `04` section 8), search latency, `bad_cursor` count, summary latency.
 
 **Front end (Flow H done, 2026-10-19).**
-- `src/lib/library/queries.ts` (`useHasShared`): the Shared tab and its unread dot read `tab=all&source=shared`, so they appear only when something is shared with the person (H2). The Shared list itself still calls `tab=shared`, so it still holds files the person owns until R1. **When R1 and R2 ship**, `useHasShared` must go back to `tab=shared` (or to `GET /library/summary`), because `source=shared` will then include files the person shared out.
+- `src/lib/library/queries.ts` (`useHasShared`): the Shared tab and its unread dot read `tab=all&source=shared`, so they appear only when something is shared with the person (H2). The Shared list itself still calls `tab=shared`, so it still holds files the person owns until R1. **Done 2026-10-19:** R1 and R2 shipped together on 18 Oct, and `useHasShared` now asks `tab=shared` again (`GET /library/summary` can replace it once R10 exists).
 - `SuggestedView.tsx`: a Recent card's unread dot sits right after the title (H3).
 - `SortMenu.tsx`, `FilterPanel.tsx`: the chosen option carries a tick (H10, H11).
 - `FileMarks.tsx`: the sparkle and the unread dot sit above a row's stretched link, so hover shows "Generated in …" and "Unread"; the sparkle takes Tab focus (H8).
@@ -1178,7 +1445,7 @@ R12. **Suggested degrades per section.** `GET /library/files/suggested` returns 
 - *Verified and unchanged:* filters, chips, Reset, sort headings, search state, Trash screen, Loading / Empty / Error states (H5 to H7, H9, H12 to H17, H21 to H24, H-d1 to H-d4). `tsc` clean; vitest on the Library folders passes (37 files, 280 tests); one pre-existing eslint warning on the file list virtualizer (untouched). The "Processing" badge and the 600 px layout are covered by tests and a width script only.
 - *Built:* the list is virtualised (`useVirtualizer`, principle 51), `useInfiniteQuery` with `nextCursor`, and list rows merge into detail without downgrading fields (`patchFileEverywhere`, principle 31).
 - *Reads exactly:* `items`, `nextCursor`, the row fields in R11, `lastActivityAt`, `lastActivityKind`, `openCount`, `generatedFrom`, and `GET /library/summary` once it exists.
-- *Needed after the backend ships:* switch `useHasShared` (above); header counts from `summary`; thumbnails from `thumbnailUrl`; "Run of <date>" from `provenance` or `generatedFrom.runLabel`.
+- *Needed after the backend ships:* header counts from `summary`; thumbnails from `thumbnailUrl`; "Run of <date>" from `provenance` or `generatedFrom.runLabel`.
 
 **Rollout.** R9 is invisible to the front end except that duplicates and skips stop; do it with a flag per tab and compare results before and after. **R1 and R2 together**, with a same-day note to the front end. R3 changes which files a search returns: tell the front end and re-run H18 and H19. Keep `anyWord` for chat retrieval so BE-04 does not change.
 
@@ -1205,7 +1472,7 @@ R12. **Suggested degrades per section.** `GET /library/files/suggested` returns 
 |---|---|---|
 | `NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS` | BE-01 (prefs and org settings) is on the dev backend | Controls both settings pages, the save choice dialog, the header notice, the composer note, the Phase 2 pages, and, once built, the removal question and Leave control. Remove the flag later |
 | `NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS` | BE-09 | In `feature-flags.ts` |
-| `libraryDontSave` and `librarySourcesOff` local copies | BE-03 R4 and BE-04 R4 | Replace localStorage and sessionStorage with the value on `GET /chats/{id}` |
+| `libraryDontSave` and `librarySourcesOff` local copies | BE-03 R4 and BE-04 R4 (still not shipped on 18 Oct) | Replace localStorage and sessionStorage with the value on `GET /chats/{id}` |
 
 ### Still to build (not built today)
 
@@ -1217,11 +1484,11 @@ R12. **Suggested degrades per section.** `GET /library/files/suggested` returns 
 | Chat-created routine: poll the test run until terminal | BE-07 R3 | `RoutineCreatedCard` |
 | A mark from `groundedness` | BE-04 R3 and a design call | Chat answer |
 | Library removal question, "Waiting for their answer" on Members, Leave in Settings, Library with Cancel and "Name another Admin first" | BE-11 (shapes in BE-11 R1 to R4) | Rebuild from `git show 579f2b94^:src/components/Library/settings/MyRemovalPrompt.tsx` and `src/lib/library/members.ts`; the Leave button stays off (`SHOW_DANGER_ZONE = false`) until its answer can be sent |
-| Extend `ApiError` with `kind`, `code`, `fieldErrors`, `requestId`, `retryable`; map FastAPI `detail[]` to `fieldErrors`; stop matching message text | C-01 | `src/lib/api/client.ts` (the shared change `06` names for principle 45) |
+| Extend `ApiError` with `kind`, `retryable`; stop matching message text (`code`, `requestId` and both `fieldErrors` shapes are read since 2026-10-19) | C-01 | `src/lib/api/client.ts` (the shared change `06` names for principle 45) |
 | Send `Idempotency-Key` on uploads init and complete, chat send, routine confirm, grants, access requests, removal answer | C-02 | `src/lib/api/client.ts` and the Library API functions |
-| Switch `useHasShared` from `tab=all&source=shared` back to `tab=shared` (or `GET /library/summary`) **in the same release** that changes the Shared tab and Source: Shared meanings | BE-12 R1, R2, R10 | `src/lib/library/queries.ts` |
 | Header counts from `GET /library/summary`; thumbnails from `thumbnailUrl`; "Run of <date>" from the routine origin | BE-12 R10, R11, R5 | `LibraryHeader.tsx`, `SuggestedView.tsx`, `FileTable.tsx` |
-| Re-run Flow G against the real backend (today it ran against a stand-in) | BE-01, BE-11 | Test as You and Maya |
+| Re-run Flow G against the real backend (re-run 2026-10-19, still against a stand-in: the endpoints are `404`) | BE-01, BE-11 | Test as You and Maya |
+| Narrow window: the app sidebar stays open below about 600 px, leaving Library about 130 px at 420 px, and the Library tab row clips "Shared" at 600 px (H25) | Nothing (front end only) | App shell sidebar (collapse or overlay when narrow) and the shared `Tabs` list (wrap or scroll) |
 
 ### Built and waiting for a backend field (no front-end work expected)
 
@@ -1232,12 +1499,14 @@ Routine chat cards and attached-files section (BE-07); sent-file chip reading "F
 | Area | Change |
 |---|---|
 | Flow B | Routine page has a Run outputs section and "All run outputs in Library" |
-| Flow C | Run now no longer sends a second POST or re-enables during a run; File info says "Private" when only the owner has access |
+| Flow C | Run now no longer sends a second POST or re-enables during a run (2026-10-19 retest: a double-click still got two POSTs through before the re-render; a synchronous guard now drops the second, `src/lib/schedules/run-guard.ts` in `use-schedules.ts`, tests in `run-guard.test.ts`); File info says "Private" when only the owner has access |
 | Flow D | "Locked file" chip opens the locked panel; Request access built behind a flag |
 | Flow F | File page reads "No longer available" (no name, tab title "File") for a trashed file unless opened from a Trash row; Delete chat dialog and notices |
 | Flow G | "Your Admin changed Library settings" notice back on the Library page; composer note "Your Admin has turned off Library search…" with a test; wording "Your Admin turned this off"; File size limit in MiB; Audit log and Inventory static Phase 2 pages and sidebar entries; all behind `NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS` |
 | Flow H | Search placeholder "Search Library"; Recent card dot after the title; ticks on Sort and Filter menus; Shared tab and dot read `source=shared`; sparkle tooltip and "Unread" label reachable by hover and Tab; narrow-window layout (Name never collapses); "Processing" badge on list rows |
 | All flows | No box around file icons (`FormatGlyph.tsx`); unused "Items moved to Trash…" string removed (`messages.ts`) |
+| Flow H retest (2026-10-19) | Search results come best match first and the server ignores `sort`, so while searching the Name and date headings are plain labels (no arrows, no `aria-sort`), the hidden result count reads "N results, best matches first", and the list request no longer changes with a sort left in the URL or Shared's unread-first order (`headingSort`, `toListParams` in `query-params.ts`; `FilesView.tsx`, `FileTable.tsx`; tests in `query-params.test.ts`). Typecheck clean, lint clean apart from the existing virtualizer warning, 282 Library tests pass. The Sort button was already hidden while searching |
+| 18 Oct backend (2026-10-19) | Composer uploads send `staged: true` (`upload/controller.ts`, `schemas.ts`); X on a finished, unsent file discards it on the server (`controller.ts` `cancel`, `composer-uploads.ts`; test updated); the chat history keeps deleted and locked attachments (empty link) and reads `libraryState` for the chip (`message-transformer.ts`, `api/chat.ts`, `types/chat.ts`, `SentLibraryAttachment.tsx`, `ChatMessage.tsx`); `useHasShared` asks `tab=shared` (BE-12 R1 and R2 shipped together); `buildApiError` reads the backend's `fieldErrors` list (`api/client.ts`). Typecheck, lint and 372 Library, chat and API tests pass |
 
 ---
 
@@ -1248,7 +1517,7 @@ Routine chat cards and attached-files section (BE-07); sent-file chip reading "F
 | 1 | Are routines private, or visible to the whole org? | BE-07 R8 (check B5) | Private with an opt-in `shared` flag, or keep org-wide and change the prototype check |
 | 2 | What happens when indexing fails after a file is already ready (for example an OCR timeout)? | BE-02 R8 | Retry then remove, or hide it |
 | 3 | Should a routine post "<Routine> is ready." to Slack on its own? | BE-07 R10 (check C7) | Built in, or left to each routine's script |
-| 4 | The Shared tab and the Source: Shared filter. The prototype: tab = only files shared **with** you (`library.tsx:72`); Source: Shared = a file others can open, shared in **or** out (`lib/access.ts` `isShared`). The backend has them swapped, and `04` section 5 says the tab also lists files you shared out | BE-12 R1, R2 | Prototype meanings for both (recommended, and update `04`), or keep the backend and change the prototype checks H2, H12, H19, H20 |
+| 4 | The Shared tab and the Source: Shared filter. The prototype: tab = only files shared **with** you (`library.tsx:72`); Source: Shared = a file others can open, shared in **or** out (`lib/access.ts` `isShared`). The backend has them swapped, and `04` section 5 says the tab also lists files you shared out | BE-12 R1, R2 | **Taken (18 Oct backend): prototype meanings for both.** Update `04` section 5 to match |
 | 5 | How long does a deleted chat stay restorable? | BE-05 R5 | 30 days like Trash is simplest |
 | 6 | What if the leaving person never signs in again to answer the removal question? | BE-11 R5 (OQ-20) | Nothing happens until they answer (current rule), a time limit, or an Admin can force the removal. Also settle the endpoint names (`GET /library/members/me/removal` in `04`, `GET /library/my-removal` in Flow G's ticket) |
 | 7 | Does the workspace have a storage limit this phase? | BE-01 R6 (G1 "of <total>") | `limitBytes` null and the page says "<used> used", or a real limit |
@@ -1298,7 +1567,13 @@ Principles are in `front-end/fe system design/principles/`. Only the ones that p
 
 ## Open items on this ticket
 
-- **Flow G** was tested against a local stand-in for the missing prefs and org-settings endpoints, so its results prove the screens, not the backend; re-run G1 to G5, G8 and G9 once BE-01 exists. G6, G7, G-d1 and G-d2 were not run live (Remove and Leave were opened and cancelled, the rest read from code), because the backend has no question and no transfer.
-- Flow G, Flow H and "All flows" are complete. Flow H changed BE-12 the most: the Shared tab and the Source: Shared filter have opposite meanings from the prototype, search needs ranking, and routine origin and recording transcripts feed Generated and search.
+- **Flows C and D were re-run on 2026-10-19** (Part 1, "Flow C retest" and "Flow D retest"). C: unchanged backend; C3 to C6, C9, C-d1 pass (C-d1 after a front-end fix), C1 and C2 partial, C8 fails, C7 and C-d2 blocked (BE-07 R1, R4 to R7, R10). D: Slack is still not connected, so every Slack check is blocked; the new DM save (`libraryNames`) saves attachments nobody asked to save, which conflicts with D-d1 and needs a decision (BE-10 R3). D4 still needs BE-09. Test data left in You's account: output `2d60bd56…` and five new runs on "Draft product copy", "Daily sales message" and "Always fails"; nothing in Maya's.
+- **Flows E and F were re-run on 2026-10-19** (Part 1). E: only the chat side (BE-08) and Slack remain. F: only Undo (BE-05 R5), answers while a file is in Trash (BE-04, and the agent naming a trashed file) and routines (BE-07) remain. Test data left: files `e3uj8y-*`, `v3ztiq Brand guidelines`, `v45f5r Brand guidelines` (You), `e3uj8y Payment terms` (Maya, shared with the workspace), and a few "Quick Test" chats.
+- **Flow B was re-run on 2026-10-19** (Part 1, "Flow B retest"): unchanged backend, B4 passes, the rest fail or are blocked, and a new gap (BE-07 R11: model routines save no output). Test data left in You's account: routine `b3acbf Draft product copy` (`8d09a205…`), its chat, two `b3acbf` files, and one more `files/Draft_product_copy_2026-10-19.docx`.
+- **Flow A was re-run on 2026-10-19 against the 18 Oct backend** (Part 1, "Flow A retest"). Left for the backend from Flow A: BE-01 (A1, A4), BE-02 R6 to R10 (A7, X3), BE-03 R4 to R6, BE-04 R1 to R4 (A10, A13, Depth 2), BE-06 (A11). Flows E, F and H have since been re-run for BE-05 R1 to R3 and BE-12 R1 to R3 (Part 1).
+- Running locally: the Library mock is gone (its data was removed in `579f2b94`; the unused `NEXT_PUBLIC_LIBRARY_MOCK` flag and the mock-only inline PDF path were removed on 2026-10-19). Give a fresh `next dev` time to compile before a live test: the first upload in a just-started server can sit at "Uploading… 0%".
+- **Flow G was re-run on 2026-10-19** (Part 1, "Flow G retest"). The prefs and org-settings endpoints are still `404`, so the screens were run against a stand-in again and prove the screens, not the backend; re-run G1 to G4, G8 and G9 once BE-01 exists. Live, without a stand-in, the backend enforces none of the switches (BE-01 R5, BE-03 R2 rule 1, BE-04 R2 to R4). G6, G7, G-d1 and G-d2 stay blocked on BE-11 (Remove opened and cancelled, no Leave exists). Test data left in Maya's account: `g19x-mvf79dvr-0.txt` (`449f37f2…`) and `g19x-mvf79dvr-2.txt` (`649ccd19…`) in All files, the unlisted `g19x-mvf79dvr-1.txt`, and four chats (`29bc8c6f…`, `afd6079f…`, `1d252f22…`, `421ec7d6…`); nothing in You's.
+- **"All flows" (X1 to X13) was re-run on 2026-10-19** (Part 1, "All flows retest"): 11 pass; X3 (Uploading on a File page, BE-02 R1, R9) and X8 (unread shared card reads "Modified", BE-12 R6) partial. No test data made.
+- **Flow H was re-run on 2026-10-19** (Part 1, "Flow H retest"). BE-12 R1 and R2 work (H2, H12, H19, H20 now pass) and R3 ANDs the words; left for the backend: phrase-first ranking and a server minimum length (R3), recordings in search (R4, BE-06), routine origin on Generated (R5, BE-07 R4), Recent and Frequently used lines (R6), unread again (R7), Trash for the deleter and its `limit` (R8, R9), a keyset cursor (R9, C-04), `GET /library/summary` (R10), thumbnails (R11), per-section Suggested errors (R12). H25 is a front-end gap (narrow window). No test data was made for H.
 - `04-backend-requirements.md` already describes most of the target design (tables, endpoints, rules). This ticket adds what live testing showed is **not built**, the exact shapes the front end reads, and the API conventions from the principles. Where the two disagree (the Shared tab, `ask_save`), this ticket says which one the front end follows.
 - The Flow A, B to F and X sections of the source tickets hold every seen-live detail, ids and request and response samples. This ticket keeps what the backend needs to build and what the front end must do.

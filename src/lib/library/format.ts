@@ -68,10 +68,17 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(digits).replace(/\.0+$/, "")} ${UNITS[unit]}`;
 }
 
+const GIB = 1024 ** 3;
+
+/** A limit set in whole GiB (the backend's 20 GiB) reads "20 GB", like the file size limit's MiB reads "50 MB". */
+function formatLimit(bytes: number): string {
+  return bytes > 0 && bytes % GIB === 0 ? `${bytes / GIB} GB` : formatBytes(bytes);
+}
+
 export function storageLabel(usedBytes: number, limitBytes: number | null): string {
   return limitBytes === null
     ? `${formatBytes(usedBytes)} used`
-    : `${formatBytes(usedBytes)} of ${formatBytes(limitBytes)} used`;
+    : `${formatBytes(usedBytes)} of ${formatLimit(limitBytes)} used`;
 }
 
 export function storageShare(usedBytes: number, limitBytes: number | null): number {
@@ -117,8 +124,23 @@ export function agoShort(iso: string, now: number = Date.now(), timeZone?: strin
   return `${Math.max(1, Math.floor(days / 30))}mo ago`;
 }
 
-/** The latest thing that happened to a file, in generic words: Created 2d ago, Shared today. */
-export function activityLine(file: Pick<LibraryFile, "lastActivityAt" | "lastActivityKind">, now: number = Date.now(), timeZone?: string): string {
+/** "Oct 18": a short calendar date, no time. */
+export function formatShortDate(iso: string, timeZone?: string): string {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return "";
+  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(at);
+}
+
+/**
+ * The latest thing that happened to a file, in generic words: Created 2d ago, Shared today. A file shared
+ * with you and not yet opened always reads "Shared", with when it was shared, whatever the owner did since.
+ */
+export function activityLine(
+  file: Pick<LibraryFile, "lastActivityAt" | "lastActivityKind"> & Partial<Pick<LibraryFile, "unread" | "sharedAt">>,
+  now: number = Date.now(),
+  timeZone?: string,
+): string {
+  if (file.unread && file.sharedAt) return `Shared ${agoShort(file.sharedAt, now, timeZone)}`;
   const word = { created: "Created", opened: "Opened", modified: "Modified", shared: "Shared" }[file.lastActivityKind];
   return `${word} ${agoShort(file.lastActivityAt, now, timeZone)}`;
 }

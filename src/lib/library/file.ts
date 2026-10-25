@@ -47,6 +47,7 @@ export class LibraryFile {
   declare readonly sharedBy: FileRowWire["sharedBy"];
   declare readonly generatedFrom: FileRowWire["generatedFrom"];
   declare readonly openCount: FileRowWire["openCount"];
+  declare readonly useCount: FileRowWire["useCount"];
   declare readonly thumbnailUrl: FileRowWire["thumbnailUrl"];
   declare readonly snippet: FileRowWire["snippet"];
   declare readonly titleIsAiGenerated: FileRowWire["titleIsAiGenerated"];
@@ -122,6 +123,7 @@ export class LibraryFile {
 
 export class LibraryFileDetail extends LibraryFile {
   declare readonly phase: FileDetailWire["phase"];
+  declare readonly failureReason: FileDetailWire["failureReason"];
   declare readonly scope: FileDetailWire["scope"];
   declare readonly provenance: FileDetailWire["provenance"];
   declare readonly mimeType: FileDetailWire["mimeType"];

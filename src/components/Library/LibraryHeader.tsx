@@ -11,7 +11,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { storageLabel } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { MIN_SEARCH_LENGTH, effectiveListTab, tabPatch, type LibraryQuery, type LibraryTab, type SearchScope } from '@/lib/library/query-params'
-import { useHasShared, useLibraryPrefs, useStorage } from '@/lib/library/queries'
+import { useHasShared, useLibraryPrefs, useLibrarySummary } from '@/lib/library/queries'
 import { readSeen, shouldShowSettingsNotice, unseenChanges, writeSeen } from '@/lib/library/settings-notice'
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 import { useLibraryViewer } from '@/lib/library/viewer'
@@ -30,15 +30,16 @@ import styles from './LibraryHeader.module.css'
  * refetch fails (React Query keeps `data`). Only a first load that fails shows nothing.
  */
 export function StorageLabel() {
-  const storage = useStorage()
-  if (storage.data) {
+  const summary = useLibrarySummary()
+  const storage = summary.data?.storage
+  if (storage) {
     return (
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-        {storageLabel(storage.data.usedBytes, storage.data.limitBytes)}
+        {storageLabel(storage.usedBytes, storage.limitBytes)}
       </span>
     )
   }
-  if (storage.isError) return null
+  if (summary.isError) return null
   return <Skeleton width={84} height={14} radius={6} />
 }
 
@@ -143,7 +144,8 @@ export function LibraryHeader({ query, setQuery }: LibraryHeaderProps) {
       {searching ? (
         <ScopeToggle query={query} setQuery={setQuery} />
       ) : (
-        <div style={{ marginTop: 24 }}>
+        // In a narrow window the tab row scrolls sideways instead of cutting off its last tab.
+        <div style={{ marginTop: 24, maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
           <Tabs value={query.tab} onValueChange={(value) => setQuery((current) => tabPatch(current, value as LibraryTab), 'push')}>
             <Tabs.List>
               <Tabs.Trigger value="suggested">Suggested</Tabs.Trigger>

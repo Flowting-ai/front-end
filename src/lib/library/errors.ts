@@ -14,6 +14,11 @@ export function isLockedError(error: unknown): boolean {
   return isApiError(error) && (error.code === "file_locked" || (error.status === 403 && error.code === "api_error"));
 }
 
+/** A locked file the viewer already asked the owner for (`403 file_locked` with `details.requested`). */
+export function isAccessRequested(error: unknown): boolean {
+  return isLockedError(error) && isApiError(error) && error.details?.requested === true;
+}
+
 /** Deleted, never existed, or not the viewer's to see in Trash: show "No longer available". */
 export function isGoneError(error: unknown): boolean {
   return isApiError(error) && (error.code === "file_gone" || error.status === 404 || error.status === 410);

@@ -440,15 +440,17 @@ describe("cancelling and clearing", () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it("removing a processing attachment does not ask the server to cancel a finished upload", async () => {
+  it("removing a finished but unsent attachment discards its staged file on the server", async () => {
     const h = harness();
+    const create = vi.spyOn(h.api, "createUpload");
     const cancel = vi.spyOn(h.api, "cancelUpload");
     const id = h.controller.start(file("slow.pdf", MB), { draftKey: "new" });
     await h.flush();
+    expect(create.mock.calls[0]?.[0]).toMatchObject({ staged: true });
     expect(h.store.get(id)?.status).toBe("processing");
     h.controller.cancel(id);
     expect(h.store.get(id)).toBeUndefined();
-    expect(cancel).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 
   it("closes the server upload when parts run out of retries, and again before a retry starts over", async () => {

@@ -13,6 +13,8 @@ import {
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
+  CHAT_RESTORE_ENDPOINT,
+  CHAT_DELETE_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -152,10 +154,30 @@ export async function renameChat(chatId: string, title: string): Promise<void> {
   });
 }
 
+// "Also delete these files" in the Delete chat dialog. Every caller runs its own delete (sidebar, chats page,
+// project lists), so the dialog marks the chat here first and the delete below sends `deleteFiles` for it.
+// The server then moves the files to Trash with the chat, and restoring the chat brings them back.
+const deleteFilesWith = new Set<string>();
+const trashedWith = new Map<string, string[]>();
+
+export function deleteFilesWithChat(chatId: string, on: boolean): void {
+  if (on) deleteFilesWith.add(chatId);
+  else deleteFilesWith.delete(chatId);
+}
+
+/** The files the server moved to Trash with the chat, or undefined when the delete did not take them (e.g. an agent chat). */
+export function takeTrashedWithChat(chatId: string): string[] | undefined {
+  const ids = trashedWith.get(chatId);
+  trashedWith.delete(chatId);
+  deleteFilesWith.delete(chatId);
+  return ids;
+}
+
 export async function deleteChat(chatId: string): Promise<void> {
+  const deleteFiles = deleteFilesWith.delete(chatId);
   const response = await apiFetch(CHATS_ENDPOINT, {
     method: "DELETE",
-    body: JSON.stringify({ chat_id: chatId }),
+    body: JSON.stringify({ chat_id: chatId, ...(deleteFiles ? { deleteFiles: true } : {}) }),
   });
   if (!response.ok && response.status !== 204) {
     throw new ApiError(
@@ -165,6 +187,30 @@ export async function deleteChat(chatId: string): Promise<void> {
       "Failed to delete chat",
     );
   }
+  if (!deleteFiles) return;
+  const body: unknown = await response.json().catch(() => null);
+  const ids = body && typeof body === "object" && Array.isArray((body as { trashedFileIds?: unknown }).trashedFileIds)
+    ? (body as { trashedFileIds: unknown[] }).trashedFileIds.filter((id): id is string => typeof id === "string")
+    : undefined;
+  if (ids) trashedWith.set(chatId, ids);
+}
+
+/** `GET /chats/{id}`: the chat's Library settings and the files it saved that are still in Library. */
+export type ChatLibraryState = {
+  id: string;
+  libraryDontSave: boolean;
+  /** Files switched off in the Sources panel (since 25 Oct; older servers leave it out). */
+  librarySourcesOff?: string[];
+  savedFiles?: { id: string; title: string; generated: boolean }[];
+};
+
+export async function getChatLibraryState(chatId: string): Promise<ChatLibraryState> {
+  return apiFetchJson<ChatLibraryState>(CHAT_DELETE_ENDPOINT(chatId));
+}
+
+/** Undoes Delete chat while the chat is inside the Trash window. */
+export async function restoreChat(chatId: string): Promise<void> {
+  await apiFetchJson(CHAT_RESTORE_ENDPOINT(chatId), { method: "POST" });
 }
 
 export async function starChat(chatId: string): Promise<void> {
@@ -227,6 +273,7 @@ interface BackendMessage {
     name?: string | null;
     origin?: string | null;
     document_id?: string | null;
+    libraryState?: "open" | "deleted" | "locked" | null;
   }> | null;
   pin_ids?: (string | null)[] | null;
   metadata?: Record<string, unknown>;
@@ -378,6 +425,7 @@ function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").B
       name: a.name ?? undefined,
       origin: a.origin ?? undefined,
       document_id: a.document_id ?? undefined,
+      libraryState: a.libraryState ?? undefined,
     }] : []);
 }
 

@@ -7,7 +7,8 @@ import { AlertCircleIcon, DeleteTwoIcon, FolderLibraryIcon, TickTwoIcon } from '
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/Spinner'
 import { trackLibrary } from '@/lib/library/analytics'
-import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
+import { FILE_MESSAGES, MESSAGES, UPLOAD_FAILURE_MESSAGES } from '@/lib/library/messages'
+import type { UploadFailureReason } from '@/lib/library/schemas'
 import { useRequestAccess, useRestoreFile, useRetryProcessing } from '@/lib/library/mutations'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { LIBRARY_REQUEST_ACCESS_ENABLED } from '@/lib/feature-flags'
@@ -37,12 +38,12 @@ function writeRequested(key: string): void {
 }
 
 /** Request access, once per file. Rendered only while the backend has the endpoint (LIBRARY_REQUEST_ACCESS_ENABLED). */
-function RequestAccessButton({ fileId }: { fileId: string }) {
+function RequestAccessButton({ fileId, requested }: { fileId: string; requested: boolean }) {
   const { viewerId } = useLibraryViewer()
   const key = requestKey(viewerId, fileId)
   const request = useRequestAccess()
   const [sentKey, setSentKey] = useState<string | null>(null)
-  const sent = sentKey === key || readRequested(key)
+  const sent = requested || sentKey === key || readRequested(key)
   return (
     <Button
       disabled={sent}
@@ -67,10 +68,10 @@ function RequestAccessButton({ fileId }: { fileId: string }) {
 }
 
 /** The viewer has no access: nothing about the file (title, owner, size) is shown, only a way to ask. */
-export function LockedState({ fileId }: { fileId?: string }) {
+export function LockedState({ fileId, requested = false }: { fileId?: string; /** The server says this viewer already asked. */ requested?: boolean }) {
   return (
     <EmptyState icon={<AlertCircleIcon size={20} />} title={FILE_MESSAGES.lockedTitle} text={FILE_MESSAGES.lockedText}>
-      {LIBRARY_REQUEST_ACCESS_ENABLED && fileId ? <RequestAccessButton fileId={fileId} /> : null}
+      {LIBRARY_REQUEST_ACCESS_ENABLED && fileId ? <RequestAccessButton fileId={fileId} requested={requested} /> : null}
     </EmptyState>
   )
 }
@@ -135,6 +136,16 @@ export function GhostLines() {
   )
 }
 
+
+/** An upload the server refused (`phase: "failed"` with a reason): the file has no usable bytes, so the page says why. */
+export function UploadRefusedBanner({ reason }: { reason: UploadFailureReason }) {
+  return (
+    <div role="alert" className={styles.stateBanner}>
+      <AlertCircleIcon size={20} className={styles.stateIcon} aria-hidden="true" />
+      <p className={styles.grow}>{UPLOAD_FAILURE_MESSAGES[reason]}</p>
+    </div>
+  )
+}
 
 /** Library work does not block access to the original file. */
 export function LibraryProcessingBanner({ file }: { file: LibraryFile }) {

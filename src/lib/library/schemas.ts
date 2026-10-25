@@ -87,8 +87,12 @@ export const fileRowWireSchema = z.object({
   generatedFrom: z.object({ kind: z.enum(["chat", "routine"]), label: z.string().optional() }).optional(),
   /** How many times the viewer opened the file (Suggested's "Frequently used"). */
   openCount: z.number().int().nonnegative().optional(),
+  /** How many times the viewer's chats and routines used the file (Frequently used ranks opens plus uses). */
+  useCount: z.number().int().nonnegative().optional(),
   /** Small private rendition (<= 20 KB). Absent for formats without one: the UI shows the type icon. */
   thumbnailUrl: z.string().optional(),
+  thumbnailWidth: z.number().int().positive().optional(),
+  thumbnailHeight: z.number().int().positive().optional(),
   /** Search only: the matched passage. */
   snippet: z.string().optional(),
   /** True for a title Souvenir chose, until the owner renames it. */
@@ -136,7 +140,10 @@ export type RunInput = z.infer<typeof runInputSchema>;
 export const PREVIEW_KINDS = ["pdf", "text", "sheet", "image", "audio", "none"] as const;
 
 export const fileDetailWireSchema = fileRowWireSchema.extend({
-  phase: z.enum(["uploading", "processing", "ready"]),
+  /** "failed" since 19 Oct: the upload or its processing failed (the row also says `processing: "failed"`). */
+  phase: z.enum(["uploading", "processing", "ready", "failed"]),
+  /** Since 25 Oct: why a refused upload failed. The file stays readable as `phase: "failed"` instead of disappearing. */
+  failureReason: uploadFailureReasonSchema.optional(),
   scope: z.enum(["private", "shared", "workspace"]),
   provenance: provenanceSchema,
   mimeType: z.string(),
@@ -172,7 +179,9 @@ export const previewSchema = z.discriminatedUnion("kind", [
     kind: z.literal("audio"),
     url: z.string(),
     durationMs: z.number().nonnegative(),
-    lines: z.array(z.object({ startMs: z.number().nonnegative(), text: z.string() })),
+    /** Since 25 Oct the transcript is made at indexing: `pending` until then. Older servers omit it. */
+    transcriptStatus: z.enum(["pending", "ready", "failed"]).optional(),
+    lines: z.array(z.object({ startMs: z.number().nonnegative(), endMs: z.number().nonnegative().optional(), text: z.string() })),
   }),
 ]);
 export type Preview = z.infer<typeof previewSchema>;
@@ -235,6 +244,25 @@ export const storageSchema = z.object({
 });
 export type Storage = z.infer<typeof storageSchema>;
 
+/** `GET /library/summary`: the header's counts and storage in one call. */
+export const summarySchema = z.object({
+  sharedWithMeCount: z.number().int().nonnegative(),
+  unreadSharedCount: z.number().int().nonnegative(),
+  trashCount: z.number().int().nonnegative(),
+  storage: storageSchema,
+});
+export type Summary = z.infer<typeof summarySchema>;
+
+/** A request to open one of the caller's files (`GET /library/access-requests`). */
+export const accessRequestSchema = z.object({
+  id: z.string(),
+  fileId: z.string(),
+  fileTitle: z.string(),
+  requester: personSchema,
+  createdAt: z.string(),
+});
+export type AccessRequest = z.infer<typeof accessRequestSchema>;
+
 export const limitsSchema = z.object({
   maxFileBytes: z.number().positive(),
   allowedFormats: z.array(formatSchema),
@@ -264,7 +292,8 @@ export const uploadInitSchema = z.object({
 });
 export type UploadInit = z.infer<typeof uploadInitSchema>;
 
-export type UploadInitRequest = { name: string; sizeBytes: number; mimeType: string; chatId?: string };
+/** `staged`: a composer upload, kept out of the lists until the message is sent (or dropped if it never is). */
+export type UploadInitRequest = { name: string; sizeBytes: number; mimeType: string; chatId?: string; staged?: boolean };
 export type UploadPartEtag = { partNumber: number; etag: string };
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -287,9 +316,13 @@ export const prefsSchema = z.object({
   /** False when an Admin turned automatic AI use of Library off for the workspace. */
   aiReferenceAllowed: z.boolean(),
   /** When an Admin last changed a Library setting, for the one-time "what changed" notice. */
-  settingsChangedAt: z.string().optional(),
+  settingsChangedAt: z.string().nullish().transform((v) => v ?? undefined),
   /** What an Admin changed, one line each, newest last (the notice lists the unseen ones). */
-  settingsChanges: z.array(z.object({ key: z.string(), at: z.string(), text: z.string() })).optional(),
+  settingsChanges: z
+    .array(z.object({ key: z.string(), at: z.string(), text: z.string() }))
+    .optional()
+    // The backend sends newest first; sort so the order is the documented one whatever it sends.
+    .transform((changes) => changes && [...changes].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))),
 });
 export type Prefs = z.infer<typeof prefsSchema>;
 /** The only fields a person can change. */

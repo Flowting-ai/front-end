@@ -67,6 +67,7 @@ import { buildAgentCardMessages } from "@/lib/agent-card-messages";
 import { StarterList, StarterListSkeleton } from "@/components/StarterSuggestions";
 import { useRecommendationsState } from "@/hooks/use-recommendations";
 import { PENDING_PERSONA_KEY } from '@/lib/storage-keys'
+import { FileDropOverlay } from "@/components/chat/FileDropOverlay";
 
 
 // ── Per-chat settings helpers ─────────────────────────────────────────────────
@@ -820,7 +821,7 @@ function ChatPageInner() {
     >
       {saveDialog}
       {libraryPicker.dialog}
-      {/* Hidden file input - triggered by "Add files or photos" in add menu */}
+      {/* Hidden file input - triggered by "Add photos & files" in add menu */}
       <input
         ref={fileInputRef}
         type="file"
@@ -843,34 +844,7 @@ function ChatPageInner() {
               overflowY: "auto",
             }}
           >
-            {/* Drop overlay */}
-            {isNewChatDragging && (
-              <div
-                style={{
-                  position:        "fixed",
-                  inset:           0,
-                  zIndex:          40,
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  backgroundColor: "rgba(var(--surface-rgb), 0.88)",
-                  border:          "2px dashed var(--focus-ring)",
-                  borderRadius:    "16px",
-                  pointerEvents:   "none",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize:   "var(--font-size-body-md)",
-                    color:      "var(--blue-600)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Drop files here
-                </span>
-              </div>
-            )}
+            <FileDropOverlay visible={isNewChatDragging} />
 
             <div className={homeStyles.home}>
               <div className={homeStyles.content}>

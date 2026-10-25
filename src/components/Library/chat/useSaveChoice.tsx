@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { toast } from 'sonner'
-import { LIBRARY_SETTINGS_ENABLED } from '@/lib/feature-flags'
 import { CHAT_MESSAGES } from '@/lib/library/messages'
 import { useLibraryPrefs } from '@/lib/library/queries'
 import { saveOutcome } from '@/lib/library/sources'
@@ -14,11 +13,12 @@ import { AskSaveDialog } from './AskSaveDialog'
  * Applies the person's auto-save setting to the files of a message about to be sent: Always saves,
  * Never keeps them in the chat ("Not saved. Auto-save is Never."), Ask each time shows
  * "Save N files to Library?". The choice rides with the message (`saveToLibrary`, see
- * composer-uploads). Until the backend serves /library/prefs (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 1) this is
- * off, and every file is saved as before.
+ * composer-uploads). The backend serves /library/prefs since 19 Oct, so this reads it whatever
+ * NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS says: the flag hides the settings pages, not the setting. The server
+ * treats Ask each time with no answer as "don't save", so without this read nobody would be asked.
  */
 export function useSaveChoice(chatId?: string): { decideSave: (files: File[]) => Promise<void>; saveDialog: React.ReactNode } {
-  const prefs = useLibraryPrefs(LIBRARY_SETTINGS_ENABLED)
+  const prefs = useLibraryPrefs()
   const dontSaveChat = useDontSaveChat(chatId)
   const [pending, setPending] = useState<{ files: File[]; resolve: () => void } | null>(null)
 

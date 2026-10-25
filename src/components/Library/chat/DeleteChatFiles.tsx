@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/Checkbox'
 import { Skeleton } from '@/components/Skeleton'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { deleteFilesWithChat, takeTrashedWithChat } from '@/lib/api/chat'
 import { libraryApi } from '@/lib/library/api'
 import { libraryKeys } from '@/lib/library/keys'
 import { CHAT_MESSAGES, chatDeletedTrashFailed, MESSAGES } from '@/lib/library/messages'
 import { deleteChatToast, savedFilesLine, type OpenFileRef } from '@/lib/library/sources'
 import { useLibraryViewer } from '@/lib/library/viewer'
 import { FormatGlyph } from '../FormatGlyph'
+import { chatDeletedToast } from './chat-deleted-toast'
 import styles from './LibraryChat.module.css'
 
 export interface DeleteChatFilesProps {
@@ -62,6 +64,7 @@ export function useTrashChatFiles() {
 }
 
 export interface DeleteChatWithFilesDialogProps {
+  chatId: string
   chatTitle: string
   files: OpenFileRef[]
   /** The chat's saved files are still being looked up: the list is a placeholder and Delete waits. */
@@ -73,9 +76,10 @@ export interface DeleteChatWithFilesDialogProps {
 
 /**
  * The prototype's Delete chat dialog: "Delete <chat>?", the saved files, "Also delete these files", and
- * a red Delete. With the box ticked the files go to Trash after the chat is deleted.
+ * a red Delete. With the box ticked the server moves the files to Trash with the chat (`deleteFiles`), and Undo
+ * brings both back. A delete that can't take them (an agent chat) moves them to Trash one by one afterwards.
  */
-export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
+export function DeleteChatWithFilesDialog({ chatId, chatTitle, files, loading = false, onDeleteChat, onClose }: DeleteChatWithFilesDialogProps) {
   const [alsoDelete, setAlsoDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const queryClient = useQueryClient()
@@ -83,19 +87,24 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, o
   const trashFiles = useTrashChatFiles()
   const confirm = async () => {
     setBusy(true)
-    // Stage 1: the chat. On failure the dialog stays open so Delete can be retried.
+    // Stage 1: the chat, with its files when the box is ticked. On failure the dialog stays open so Delete can be retried.
+    deleteFilesWithChat(chatId, alsoDelete && files.length > 0)
+    let trashedWithChat: string[] | undefined
     try {
       await onDeleteChat()
+      trashedWithChat = takeTrashedWithChat(chatId)
     } catch {
+      takeTrashedWithChat(chatId)
       toast.error(MESSAGES.genericFailure)
       setBusy(false)
       return
     }
     // The chat is gone, so every "Used in" list and file origin in Library has changed.
     void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) })
-    // Stage 2: the files. The chat is gone, so it is never retried; report what could not be trashed and close.
+    // Stage 2, only when the delete did not take the files: trash them here. The chat is gone, so it is never
+    // retried; report what could not be trashed and close.
     let failed = 0
-    if (alsoDelete) {
+    if (alsoDelete && trashedWithChat === undefined) {
       try {
         failed = await trashFiles(files.map((file) => file.id))
       } catch {
@@ -103,7 +112,8 @@ export function DeleteChatWithFilesDialog({ chatTitle, files, loading = false, o
       }
     }
     if (failed > 0) toast.error(chatDeletedTrashFailed(failed))
-    else toast(deleteChatToast(files.length, alsoDelete))
+    // Restoring the chat brings back files the server trashed with it, but not ones trashed here one by one.
+    else chatDeletedToast(deleteChatToast(files.length, alsoDelete), chatId, queryClient, orgKey, { undo: !alsoDelete || files.length === 0 || trashedWithChat !== undefined })
     setBusy(false)
     onClose()
   }

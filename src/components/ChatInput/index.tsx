@@ -300,7 +300,7 @@ function DefaultAddMenu({
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FileAddIcon />} fluid />
+        <Dropdown.Item label="Add photos & files" icon={<FileAddIcon />} fluid />
         <Dropdown.Item
           label="Web search"
           icon={<GlobalSearchIcon />}
@@ -619,7 +619,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   modelMenu?: React.ReactNode | null
   /**
    * Contents of the leading `+` add-attachment dropdown (Figma 3219:33599).
-   * Defaults to the canonical KDS add menu - `Add files or photos`,
+   * Defaults to the canonical KDS add menu - `Add photos & files`,
    * `Web search` (switch), `Use style` (12-row submenu, Figma 3424:1892),
    * `Add persona`, `Pin folders`. Pass a custom `<Dropdown>` to override,
    * or `null` to opt out and use the legacy bare-button + `onAdd`.

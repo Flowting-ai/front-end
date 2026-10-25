@@ -28,6 +28,8 @@ export interface ApiErrorExtra {
   retryable?: boolean;
   /** Seconds from a Retry-After header (429, 503). */
   retryAfterSeconds?: number;
+  /** The error body's `details`, e.g. `{requested: true}` on a locked file the viewer already asked for. */
+  details?: Record<string, unknown>;
 }
 
 export function isRetryableStatus(status: number): boolean {
@@ -39,6 +41,7 @@ export class ApiError extends Error {
   public readonly requestId?: string;
   public readonly retryable: boolean;
   public readonly retryAfterSeconds?: number;
+  public readonly details?: Record<string, unknown>;
 
   constructor(
     public readonly status: number,
@@ -55,6 +58,7 @@ export class ApiError extends Error {
     this.requestId = extra.requestId;
     this.retryable = extra.retryable ?? isRetryableStatus(status);
     this.retryAfterSeconds = extra.retryAfterSeconds;
+    this.details = extra.details;
   }
 }
 
@@ -307,11 +311,20 @@ export async function buildApiError(response: Response): Promise<ApiError> {
       code?: string;
       message?: string;
       requestId?: string;
+      details?: unknown;
+      // The backend's own field errors (C-01): one entry per field
+      fieldErrors?: Array<{ field?: string; message?: string }>;
       // FastAPI validation error format
       detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
     };
     code = body.code ?? code;
     if (!extra.requestId && typeof body.requestId === "string") extra.requestId = body.requestId;
+    if (body.details && typeof body.details === "object" && !Array.isArray(body.details)) extra.details = body.details as Record<string, unknown>;
+    if (Array.isArray(body.fieldErrors)) {
+      const fields: Record<string, string> = {};
+      for (const entry of body.fieldErrors) if (entry?.field && entry.message) fields[entry.field] = entry.message;
+      if (Object.keys(fields).length > 0) extra.fieldErrors = fields;
+    }
     if (body.message ?? body.error) {
       message = body.message ?? body.error ?? message;
     } else if (Array.isArray(body.detail) && body.detail.length > 0) {

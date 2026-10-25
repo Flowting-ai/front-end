@@ -46,6 +46,18 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
 
   for (const att of rawAtts) {
     const url = (att.file_link ?? att.url ?? att.link ?? "").trim();
+    // A deleted or locked Library file comes without a link or name; it still gets its chip.
+    if (!url && att.document_id && (att.libraryState === "deleted" || att.libraryState === "locked")) {
+      uploadedAttachments.push({
+        id: `att-${att.document_id}`,
+        file_name: "",
+        file_type: att.mime_type ?? "application/octet-stream",
+        file_size: 0,
+        libraryFileId: att.document_id,
+        libraryState: att.libraryState,
+      });
+      continue;
+    }
     if (!url) continue;
 
     const mimeType = att.mime_type ?? undefined;
@@ -72,6 +84,7 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         file_size: 0,
         url,
         ...(att.document_id ? { libraryFileId: att.document_id } : {}),
+        ...(att.libraryState ? { libraryState: att.libraryState } : {}),
       });
     }
   }

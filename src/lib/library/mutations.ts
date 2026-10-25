@@ -53,6 +53,8 @@ function keyForPart(org: string, part: Part): readonly unknown[] {
 
 function invalidate(queryClient: QueryClient, org: string, parts: Part[]): void {
   for (const part of parts) void queryClient.invalidateQueries({ queryKey: keyForPart(org, part) });
+  // The summary holds the header's storage and the Shared and Trash counts, which any of these can change.
+  if (parts.length > 0) void queryClient.invalidateQueries({ queryKey: libraryKeys.summary(org) });
 }
 
 // ── Files ────────────────────────────────────────────────────────────────────

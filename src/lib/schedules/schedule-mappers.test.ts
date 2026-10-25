@@ -91,6 +91,9 @@ describe('schedule mappers', () => {
     expect(failed).toMatchObject({ title: 'Failed', status: 'failed', summary: 'bad input', label: 'Run' })
     expect(failed.detail).toContain('Traceback')
     expect(runToRecord({ id: 'r', status: 'running', answer: '' }, NOW).status).toBe('executing')
+    const interrupted = runToRecord({ id: 'r', status: 'interrupted', answer: '', error: 'The worker running this fire stopped.' }, NOW)
+    expect(interrupted).toMatchObject({ title: 'Interrupted', status: 'skipped' })
+    expect(interrupted.summary).toContain('does not count as a failure')
   })
 
   it('maps org rows with connectors', () => {

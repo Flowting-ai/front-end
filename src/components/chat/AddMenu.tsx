@@ -96,7 +96,7 @@ export function ChatAddMenu({
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
+        <Dropdown.Item label="Add photos & files" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
         {onAddFromLibraryClick && (
           <Dropdown.Item label="Add from Library" icon={<FolderLibraryIcon />} fluid onClick={onAddFromLibraryClick} />
         )}
