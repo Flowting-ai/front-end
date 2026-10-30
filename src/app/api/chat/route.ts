@@ -25,8 +25,6 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  *   referenceMessageId - optional reference message for context
  *   webSearch          - "true" to enable web search tool
  *   toneId             - optional style/tone ID (e.g. "professional", "teaching")
- *   systemPrompt       - optional persona system instruction (explicit override)
- *   temperature        - optional persona temperature override
  *   files              - zero or more File parts (uploaded attachments)
  */
 export async function POST(request: NextRequest) {
@@ -59,8 +57,6 @@ export async function POST(request: NextRequest) {
   const thinking           = formData.get("enable_thinking") === "true"
   const effort             = formData.get("effort") as string | null
   const personaId          = formData.get("personaId") as string | null
-  const systemPrompt       = formData.get("systemPrompt") as string | null
-  const temperature        = formData.get("temperature") as string | null
   const toneId             = formData.get("toneId") as string | null
   const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
 
@@ -88,9 +84,9 @@ export async function POST(request: NextRequest) {
   if (webSearch) fd.append("web_search", "true")
   fd.append("thinking", thinking ? "true" : "false")
   if (thinking && effort) fd.append("effort", effort)
+  // No system_prompt/temperature: the backend answers 400 "field that isn't accepted"
+  // to them and applies the agent's own settings from persona_id.
   if (personaId) fd.append("persona_id", personaId)
-  if (systemPrompt) fd.append("system_prompt", systemPrompt)
-  if (temperature) fd.append("temperature", temperature)
   if (toneId) fd.append("tone_id", toneId)
   clientFiles.forEach((f) => fd.append("files", f))
 

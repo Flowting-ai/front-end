@@ -373,9 +373,9 @@ export function useStreamingChat({
         appendChatModelSelection(fd, modelId, options?.algorithm, "model_id")
         if (options?.webSearch) fd.append("web_search", "true")
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
+        // No system_prompt/temperature: the backend answers 400 "field that isn't accepted"
+        // to them and applies the agent's own settings from persona_id.
         if (options?.personaId) fd.append("persona_id", options.personaId)
-        if (options?.systemPrompt) fd.append("system_prompt", options.systemPrompt)
-        if (options?.temperature != null) fd.append("temperature", String(options.temperature))
         if (options?.toneId) fd.append("tone_id", options.toneId)
         if (options?.enableReasoning !== undefined) {
           fd.append("thinking", options.enableReasoning ? "true" : "false")
